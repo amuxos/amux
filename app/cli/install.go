@@ -473,7 +473,9 @@ func runUpdatePostInstallCommand(cmd *cobra.Command, binary string, args []strin
 }
 
 func runUninstall(binDir string, purge bool) error {
-	uninstallServiceStopper()
+	if err := uninstallServiceStopper(); err != nil {
+		return fmt.Errorf("stop services before uninstall: %w", err)
+	}
 	for _, name := range installBinaryNames {
 		if err := os.Remove(filepath.Join(binDir, name)); err != nil && !os.IsNotExist(err) {
 			return err
@@ -492,9 +494,27 @@ func runUninstall(binDir string, purge bool) error {
 	return nil
 }
 
-func stopServicesForUninstall() {
-	_ = runtimeService().Stop()
-	_ = hubService().Stop()
+func stopServicesForUninstall() error {
+	return stopServicesForUninstallWithHooks(defaultLegacySystemMutationHooks(), restartTrackedLocalServiceProcesses)
+}
+
+func stopServicesForUninstallWithHooks(hooks legacySystemMutationHooks, stopLocalServices func(time.Duration) ([]trackedProcess, error)) error {
+	manageHub, err := resolveLegacySystemTopology(hooks)
+	if err != nil {
+		return err
+	}
+	if err := hooks.stopService(hooks.autoSyncService()); err != nil {
+		return fmt.Errorf("stop Agent Pack auto sync: %w", err)
+	}
+	if err := stopLegacySystemServices(manageHub, hooks); err != nil {
+		return err
+	}
+	// This helper asks registered standalone MCP/GUI processes to exit; their
+	// external hosts own relaunch. Session-owned processes stop with the runtime.
+	if _, err := stopLocalServices(serviceStopGracePeriod); err != nil {
+		return fmt.Errorf("stop local services: %w", err)
+	}
+	return nil
 }
 
 func restartIfRunning(svc managedService) error {

@@ -24,28 +24,72 @@ git clone https://github.com/amuxos/amux.git
 cd amux
 ```
 
-安装 Go 1.25 或更新版本，然后在公共 module 目录构建并安装：
+安装 Go 1.25 或更新版本，并按官方说明安装、登录至少一个原生 Agent
+（`codex`、`claude` 或 `pi`）。在公共 module 目录运行安装脚本：
 
-```sh
-make build
-bash scripts/install.sh --source ./bin
-amux setup local
-amux session run builtin/codex
+```bash
+# 自动检测已安装的 Agent，交互选择 Runtime。
+bash scripts/install.sh --feishu
+
+# 显式选择 Runtime，自动使用对应的 builtin Profile。
+bash scripts/install.sh --runtime codex --feishu --interaction-mode singleton
+
+# 仅使用本地 CLI，不配置飞书 Bot。
+bash scripts/install.sh --runtime pi
 ```
 
-按官方说明单独安装并认证所选 Agent。默认 Profile 为 `builtin/codex`，原生 Agent
-负责模型选择和认证；仓库不附带模型端点或凭据。使用可信的本地发行归档时，先解压，
-再通过 `scripts/install.sh --source` 指定包含 `amux`、`amuxd` 和 `amuxlet` 的目录。
+脚本将 `codex` 映射到 `builtin/codex`、`claude` 映射到 `builtin/claude`，
+`pi` 映射到 `builtin/pi`。只检测到一个 Runtime 时自动选择；检测到多个时按编号
+或名称选择。非交互运行应传入 `--runtime`（或别名 `--provider`）。缺少 Runtime
+会在安装前失败。原生 Agent 管理自身认证和默认模型；`--model` 覆盖配置的飞书
+Bot 使用的模型，不附带端点或凭据。
 
-Claude 还需要 Node sidecar：
+脚本完成构建、安装、更新 shell PATH、配置本地系统及就绪检查。`--feishu` 增加
+二维码配置流程，默认使用 singleton 模式：创建命名的持久 Session 并绑定 Bot。
+请在交互终端完成扫码；取消或未完成配置时，不会继续创建 Session。`default` 是
+**飞书 Bot Profile 名称**，不是 Agent Profile。使用 `--feishu-profile` 修改它，
+使用 `--session-name` 和 `--session-cwd` 指定 singleton Session 及工作区。
 
-```sh
-make sidecar
-export AMUX_CLAUDE_SIDECAR="$PWD/sidecars/claude-sdk/dist/index.js"
+```bash
+bash scripts/install.sh --runtime claude --feishu --interaction-mode thread \
+  --feishu-profile assistant --model sonnet
 ```
 
-启动 Runtime 前，在其进程环境中设置该变量。使用锁定的 Claude SDK 支持的 Node
-版本。`make sidecar` 不安装全局 npm 链接。仅构建 Go 二进制不需要 Node。
+thread 模式为新对话保存同样的 Profile、Runtime 和 Model。重复运行会复用 Bot
+凭据和兼容的本地 singleton Session。Session 或绑定冲突时给出指引，不删除它们。
+显式切换到 thread 模式会关闭 singleton 路由并保留旧 Session。复用 Session 时
+显式传入 `--model` 会执行 `session set-model`。
+
+替换已有安装前，脚本先暂存并验证新二进制，再停止 Pack autosync 和本地系统。
+停止失败会中止替换。普通重复安装保留 amux 配置、凭据、Session 和 Pack，然后
+启动新系统；仅在 autosync 原先运行时恢复它。该过程会中断活动工作。脚本不会
+发送测试提示词或聊天消息。
+
+需要全新安装时添加 `--clean`：
+
+```bash
+bash scripts/install.sh --clean --runtime codex --feishu --interaction-mode singleton
+```
+
+`--clean` 停止、卸载旧 amux，并删除 `AMUX_HOME`（默认 `~/.amux`）下全部数据，
+包括配置、凭据、Session、日志和托管 Pack。需要重新配置飞书。原生 Agent 的安装
+及其自身登录信息保留。二进制和 Claude SDK 暂存到该目录之外，因此 `--source`
+和 `--claude-sidecar` 可以指向旧安装内部。源码 checkout 和 singleton 工作区必须
+位于清理目录之外。卸载也会停止已登记的独立 MCP/GUI 服务，由外部宿主负责重新启动。
+
+Claude 还需要锁定 SDK 支持的 Node/npm。源码安装会构建并复制完整 sidecar 到
+`~/.amux/sidecars/claude-sdk/`，安装后的 Runtime 无需环境变量覆盖即可发现它。
+Codex 和 Pi 不需要该 sidecar。脚本不安装或升级原生 Agent。
+
+本地发行二进制可通过 `--source /path/to/binaries` 指定，目录中需要有 `amux`、
+`amuxd` 和 `amuxlet`。Claude 还需要 `--claude-sidecar /path/to/claude-sdk`，
+目录包含 `dist/`、`node_modules/` 和 `package.json`；若已处于相邻的
+`../sidecars/claude-sdk/` 布局，可省略此参数。独立脚本可通过
+`--source-root /path/to/public-amux` 或 `AMUX_INSTALL_SOURCE_ROOT` 选择要构建的
+公共 checkout，内部发行版源码根目录会被拒绝。默认没有公共下载 URL。
+全部参数见 `bash scripts/install.sh --help`；`--no-modify-path` 跳过添加 shell PATH
+条目（清空卸载仍会移除旧的托管条目）。安装后打开新 shell，或在当前 shell 执行
+脚本打印的 PATH 命令。
 
 <a id="operation"></a>
 

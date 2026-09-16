@@ -951,6 +951,96 @@ func TestSystemUninstallPurgesWithoutOpeningOperationJournal(t *testing.T) {
 	}
 }
 
+func TestUninstallStopFailurePreservesInstallation(t *testing.T) {
+	for _, purge := range []bool{false, true} {
+		name := "keep-data"
+		if purge {
+			name = "purge"
+		}
+		t.Run(name, func(t *testing.T) {
+			home := t.TempDir()
+			configPath := isolateUninstallTestHome(t, home)
+			amuxDir := filepath.Join(home, ".amux")
+			binDir := filepath.Join(amuxDir, "bin")
+			if err := os.MkdirAll(binDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			paths := []string{configPath, filepath.Join(amuxDir, "install.json"), filepath.Join(amuxDir, "runtime.db"), filepath.Join(home, ".zshrc")}
+			for _, name := range installBinaryNames {
+				paths = append(paths, filepath.Join(binDir, name))
+			}
+			original := "# >>> amux path >>>\nexport PATH=\"$HOME/.amux/bin:$PATH\"\n# <<< amux path <<<\n"
+			for _, path := range paths {
+				if err := os.WriteFile(path, []byte(original), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			stopErr := errors.New("owned process did not exit")
+			uninstallServiceStopper = func() error { return stopErr }
+			if err := runUninstall(binDir, purge); !errors.Is(err, stopErr) {
+				t.Fatalf("uninstall error = %v, want stop failure", err)
+			}
+			for _, path := range paths {
+				data, err := os.ReadFile(path)
+				if err != nil || string(data) != original {
+					t.Fatalf("installation changed after stop failure: %s: %q, %v", path, data, err)
+				}
+			}
+		})
+	}
+}
+
+func TestStopServicesForUninstallOrderAndFailures(t *testing.T) {
+	stopErr := errors.New("stop failed")
+	for _, tc := range []struct {
+		name       string
+		hubAddress string
+		failAt     string
+		wantCalls  []string
+	}{
+		{name: "local", hubAddress: "127.0.0.1:7100", wantCalls: []string{"topology", "autosync", "runtime", "hub", "local-services"}},
+		{name: "remote", hubAddress: "remote.example:7100", wantCalls: []string{"topology", "autosync", "runtime", "local-services"}},
+		{name: "topology failure", failAt: "topology", wantCalls: []string{"topology"}},
+		{name: "autosync failure", failAt: "autosync", wantCalls: []string{"topology", "autosync"}},
+		{name: "runtime failure", failAt: "runtime", wantCalls: []string{"topology", "autosync", "runtime"}},
+		{name: "hub failure", failAt: "hub", wantCalls: []string{"topology", "autosync", "runtime", "hub"}},
+		{name: "local services failure", failAt: "local-services", wantCalls: []string{"topology", "autosync", "runtime", "hub", "local-services"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls []string
+			record := func(name string) error {
+				calls = append(calls, name)
+				if tc.failAt == name {
+					return stopErr
+				}
+				return nil
+			}
+			hooks := legacySystemMutationHooks{
+				hubAddress:      func() (string, error) { return tc.hubAddress, record("topology") },
+				autoSyncService: func() managedService { return managedService{Name: "autosync"} },
+				runtimeService:  func() managedService { return managedService{Name: "runtime"} },
+				hubService:      func() managedService { return managedService{Name: "hub"} },
+				stopService:     func(svc managedService) error { return record(svc.Name) },
+			}
+			err := stopServicesForUninstallWithHooks(hooks, func(timeout time.Duration) ([]trackedProcess, error) {
+				if timeout != serviceStopGracePeriod {
+					t.Fatalf("local service stop timeout = %s", timeout)
+				}
+				return nil, record("local-services")
+			})
+			if tc.failAt == "" && err != nil {
+				t.Fatalf("stop: %v", err)
+			}
+			if tc.failAt != "" && !errors.Is(err, stopErr) {
+				t.Fatalf("stop error = %v, want injected failure", err)
+			}
+			if !reflect.DeepEqual(calls, tc.wantCalls) {
+				t.Fatalf("stop calls = %v, want %v", calls, tc.wantCalls)
+			}
+		})
+	}
+}
+
 // isolateUninstallTestHome keeps the real uninstall path under test without
 // allowing managedService.Stop's orphan-listener reclamation to discover a
 // developer's live hub on the default 127.0.0.1:7100 address.
@@ -960,7 +1050,7 @@ func isolateUninstallTestHome(t *testing.T, home string) string {
 	// let an in-process uninstall test reach the production service stopper,
 	// regardless of HOME, Viper, PID-file, or listener-discovery state.
 	previousStopper := uninstallServiceStopper
-	uninstallServiceStopper = func() {}
+	uninstallServiceStopper = func() error { return nil }
 	t.Cleanup(func() { uninstallServiceStopper = previousStopper })
 	// config.Load uses the package-global Viper instance. Reset both before and
 	// after each uninstall test so a previous test's hub.addr cannot override

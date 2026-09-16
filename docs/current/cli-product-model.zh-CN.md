@@ -7,6 +7,8 @@
 主要命令组为 `setup`、`session`、`task`、`agent`、`schedule` 和 `system`。
 Session、Task 和 Schedule 使用 Hub 控制面。每个 Runtime 在本机执行工作，并通过
 出站 tunnel 连接 Hub。本地使用需要 Hub，但不要求飞书 Bridge。
+`local` Target 别名标识配置的本地 Runtime，也适用于 `session list` 过滤，
+不要求 Runtime 本身名为 `local`。
 
 Target 标识 Runtime 的位置。Session 是与一个智能体持续进行的对话；Task 是有结果的
 有界执行。Profile 引用选择 Agent 和启动策略。支持的内置 Profile 为 `builtin/codex`、
@@ -25,6 +27,28 @@ Detach 只结束 UI 连接，不结束 Session。原始字节输入和终端尺�
 `amux update --source <directory> --restart` 更新已有安装，无需重复 setup。
 默认不配置发行包或 authoring runtime 的下载源；远端来源必须由 operator 显式提供。
 可选 authoring 能力不可用时，核心安装仍可继续。
+
+`scripts/install.sh` 为公共源码构建和本地发行二进制提供统一安装入口。它检测
+已安装的 `codex`、`claude` 和 `pi`，检测到多个时提示选择，并接受 `--runtime`
+（`--provider` 为别名）以支持非交互选择。所选 Runtime 对应 `builtin/codex`、
+`builtin/claude` 或 `builtin/pi` Profile；缺少 Runtime 或 Profile 无效时在安装前
+失败。原生 Agent 自行管理登录。Claude 源码安装还会准备并安装其 SDK sidecar。
+脚本配置本地系统和 shell PATH。可选 `--feishu` 先完成 Bot 配置，再检查 Bot
+Profile 或绑定 Session。`--interaction-mode singleton` 为安装器默认值，创建并
+绑定命名 Session；`thread` 为新对话保存所选 Profile、Runtime 和 Model。
+安装不会发送 smoke 提示词或聊天消息。重复运行复用兼容的 singleton 绑定，
+拒绝冲突绑定，不替换用户的 Session。
+
+替换已有安装前，脚本将经过验证的二进制及 Claude sidecar 暂存到 amux 数据目录
+之外，检查所选 Agent，并停止 Pack autosync 和本地系统。停止失败会中止替换。
+普通重复安装保留配置、凭据、Session 和 Pack 数据，启动新二进制，并仅在 autosync
+原先运行时恢复它。`--clean` 显式执行清空数据的卸载，再重新配置本地系统；它会
+删除 amux 配置、凭据、日志、Session 和托管 Pack 数据，需要重新配置飞书。
+原生 Agent 的安装及自身登录信息不受影响。暂存允许安装源二进制或 sidecar 位于
+被清理的目录内。脚本拒绝危险的清理根目录，以及位于清理根目录内的 singleton
+工作区。源码 checkout 同样必须位于清理根目录之外。卸载停止 Pack autosync、
+本地 Runtime/Hub 及已登记的独立 MCP/GUI 服务；停止失败时，在删除二进制、PATH
+条目或数据前返回错误。MCP/GUI 进程由其外部宿主负责重新启动。
 
 配置发现与生成文档描述可用的配置键。通用配置命令在写入前拒绝未知键。
 Hub 不可用时，Agent Pack、凭据操作和本机系统恢复仍可工作。
