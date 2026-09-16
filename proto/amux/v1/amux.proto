@@ -1,0 +1,1501 @@
+syntax = "proto3";
+
+package amux.v1;
+
+option go_package = "github.com/amuxos/amux/internal/transport/pbgen;pbgen";
+
+service Amuxlet {
+  // Internal, trusted tunnel only; exact execution and bounded workspace paths.
+  rpc PutSessionFile(SessionFileRequest) returns (SessionFileResponse);
+  rpc ReadSessionArtifact(SessionFileRequest) returns (SessionFileResponse);
+  rpc Run(RunRequest) returns (RunResponse);
+  rpc Info(InfoRequest) returns (InfoResponse);
+  rpc List(ListRequest) returns (ListResponse);
+  rpc Kill(KillRequest) returns (KillResponse);
+  rpc Restart(RestartRequest) returns (RunResponse);
+  rpc ChangeCwd(ChangeCwdRequest) returns (ChangeCwdResponse);
+  rpc Sleep(SleepRequest) returns (SleepResponse);
+  rpc Resume(ResumeRequest) returns (RunResponse);
+  rpc Prune(PruneRequest) returns (PruneResponse);
+  rpc Interrupt(InterruptRequest) returns (InterruptResponse);
+  rpc Attach(AttachRequest) returns (stream AttachEvent);
+  rpc Submit(SubmitRequest) returns (SubmitResponse);
+  rpc QueueList(QueueListRequest) returns (QueueListResponse);
+  rpc QueueClear(QueueClearRequest) returns (QueueClearResponse);
+  rpc QueueCancel(QueueCancelRequest) returns (QueueCancelResponse);
+  rpc RespondPermission(RespondPermissionRequest) returns (RespondPermissionResponse);
+  // Internal runtime query used by amuxd to verify that a local-expert write
+  // originates from the active Feishu Bot-owner turn.
+  rpc GetLocalExpertAuthoringTurn(LocalExpertAuthoringTurnRequest) returns (LocalExpertAuthoringTurnResponse);
+  rpc RevokePrincipalLaunches(RevokePrincipalLaunchesRequest) returns (RevokePrincipalLaunchesResponse);
+}
+
+service Amuxd {
+  rpc Run(AmuxdRunRequest) returns (RunResponse);
+  rpc Info(HubInfoRequest) returns (HubInfoResponse);
+  rpc ListTargets(ListTargetsRequest) returns (ListTargetsResponse);
+  rpc FeishuStatus(FeishuStatusRequest) returns (FeishuStatusResponse);
+  rpc FeishuBindings(FeishuBindingsRequest) returns (FeishuBindingsResponse);
+  rpc FeishuBots(FeishuBotsRequest) returns (FeishuBotsResponse);
+  rpc FeishuBotSessionStatus(FeishuBotSessionStatusRequest) returns (FeishuBotSessionStatusResponse);
+  rpc FeishuBotSessionBind(FeishuBotSessionBindRequest) returns (FeishuBotSessionStatusResponse);
+  rpc FeishuBotSessionOff(FeishuBotSessionOffRequest) returns (FeishuBotSessionStatusResponse);
+  rpc FeishuContextExplain(FeishuContextExplainRequest) returns (FeishuContextExplainResponse);
+  rpc Kill(AmuxdKillRequest) returns (KillResponse);
+  rpc Restart(AmuxdRestartRequest) returns (RunResponse);
+  rpc ChangeCwd(AmuxdChangeCwdRequest) returns (ChangeCwdResponse);
+  rpc Sleep(AmuxdSleepRequest) returns (SleepResponse);
+  rpc Resume(AmuxdResumeRequest) returns (RunResponse);
+  rpc Prune(AmuxdPruneRequest) returns (PruneResponse);
+  rpc Interrupt(AmuxdInterruptRequest) returns (InterruptResponse);
+  rpc Attach(AmuxdAttachRequest) returns (stream AttachEvent);
+  rpc Submit(AmuxdSubmitRequest) returns (SubmitResponse);
+  rpc QueueList(AmuxdQueueListRequest) returns (QueueListResponse);
+  rpc QueueClear(AmuxdQueueClearRequest) returns (QueueClearResponse);
+  rpc QueueCancel(AmuxdQueueCancelRequest) returns (QueueCancelResponse);
+  rpc RespondPermission(AmuxdRespondPermissionRequest) returns (RespondPermissionResponse);
+  rpc CreateSchedule(CreateScheduleRequest) returns (CreateScheduleResponse);
+  rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse);
+  rpc GetSchedule(GetScheduleRequest) returns (GetScheduleResponse);
+  rpc DeleteSchedule(DeleteScheduleRequest) returns (DeleteScheduleResponse);
+  rpc UpdateSchedule(UpdateScheduleRequest) returns (UpdateScheduleResponse);
+  rpc SetScheduleEnabled(SetScheduleEnabledRequest) returns (SetScheduleEnabledResponse);
+  rpc MaterializeCredential(MaterializeCredentialRequest) returns (MaterializeCredentialResponse);
+  rpc SetCredential(SetCredentialRequest) returns (CredentialProfileMetadata);
+  rpc GetCredential(GetCredentialRequest) returns (CredentialProfileMetadata);
+  rpc ListCredentials(ListCredentialsRequest) returns (ListCredentialsResponse);
+  rpc CreatePrincipal(CreatePrincipalRequest) returns (PrincipalResponse);
+  rpc ListPrincipals(ListPrincipalsRequest) returns (ListPrincipalsResponse);
+  rpc ListPrincipalAliases(ListPrincipalAliasesRequest) returns (ListPrincipalAliasesResponse);
+  rpc DisablePrincipal(DisablePrincipalRequest) returns (PrincipalResponse);
+  rpc BindPrincipalAlias(BindPrincipalAliasRequest) returns (PrincipalResponse);
+  rpc GrantPrincipalDelegation(GrantPrincipalDelegationRequest) returns (GrantPrincipalDelegationResponse);
+  rpc RevokePrincipalDelegation(RevokePrincipalDelegationRequest) returns (EmptyResponse);
+  rpc GrantServicePrincipalMember(ServicePrincipalMemberRequest) returns (EmptyResponse);
+  rpc RevokeServicePrincipalMember(ServicePrincipalMemberRequest) returns (EmptyResponse);
+  rpc CreatePrincipalEnrollment(CreatePrincipalEnrollmentRequest) returns (CreatePrincipalEnrollmentResponse);
+  rpc GetIsolationStatus(GetIsolationStatusRequest) returns (GetIsolationStatusResponse);
+  // Agent Profile discovery is hub-central so isolated agent processes do not
+  // need filesystem access to the service user's private Agent Pack registry.
+  rpc ListAgentProfiles(ListAgentProfilesRequest) returns (ListAgentProfilesResponse);
+  rpc GetAgentProfile(GetAgentProfileRequest) returns (GetAgentProfileResponse);
+  rpc ReadLocalExpert(ReadLocalExpertRequest) returns (ReadLocalExpertResponse);
+  rpc ChangeLocalExpert(ChangeLocalExpertRequest) returns (ChangeLocalExpertResponse);
+  rpc Tunnel(stream TunnelMsg) returns (stream TunnelMsg);
+}
+
+service AmuxTask {
+  // Internal task-plane query used by amuxd to bind a child task to the exact
+  // active turn of its parent session on the hosting amuxlet.
+  rpc ResolveParentTurn(ActiveTurnRequest) returns (ActiveTurnResponse);
+  rpc SubmitSubtask(SubmitSubtaskRequest) returns (SubmitSubtaskResponse);
+  rpc GetSubtask(GetSubtaskRequest) returns (GetSubtaskResponse);
+  rpc ListSubtasks(ListSubtasksRequest) returns (ListSubtasksResponse);
+  rpc PruneSubtasks(PruneSubtasksRequest) returns (PruneSubtasksResponse);
+  rpc CancelSubtask(CancelSubtaskRequest) returns (CancelSubtaskResponse);
+  rpc RespondSubtaskPermission(RespondSubtaskPermissionRequest) returns (RespondSubtaskPermissionResponse);
+  rpc StreamSubtask(StreamSubtaskRequest) returns (stream SubtaskEvent);
+  // Agent-instance (Phase 3) RPCs. These are the control-plane backing for the
+  // amux.instance_spawn / instance_send / instance_followup / instance_wait /
+  // instance_list / instance_interrupt MCP tools. ListAgentInstances / GetAgentInstance are answered
+  // by amuxd from its durable agent-instance store (plus live child-session state
+  // fanned out from the hosting amuxlets); SendAgentMessage / InterruptAgentInstance
+  // / WaitAgentInstance are routed by amuxd to the amuxlet hosting the instance's
+  // sticky target (or served locally on the amuxlet when no hub is configured).
+  rpc ListAgentInstances(ListAgentInstancesRequest) returns (ListAgentInstancesResponse);
+  rpc GetAgentInstance(GetAgentInstanceRequest) returns (GetAgentInstanceResponse);
+  rpc SendAgentMessage(SendAgentMessageRequest) returns (SendAgentMessageResponse);
+  rpc InterruptAgentInstance(InterruptAgentInstanceRequest) returns (InterruptAgentInstanceResponse);
+  rpc WaitAgentInstance(WaitAgentInstanceRequest) returns (WaitAgentInstanceResponse);
+  // DescribeAgentInstance returns the amuxlet-local live view (child-session
+  // state + mailbox depth) for one instance. amuxd calls it on the hosting
+  // amuxlet to enrich ListAgentInstances / GetAgentInstance; it is not a
+  // user-facing MCP tool.
+  rpc DescribeAgentInstance(DescribeAgentInstanceRequest) returns (DescribeAgentInstanceResponse);
+  // CleanupAgentInstance destroys the durable environment (sandbox workspace /
+  // home / non-secret state) of a persistent agent instance on its hosting
+  // amuxlet, after amuxd has marked the instance archived (e.g. because its
+  // owner session entered archived). The hosting amuxlet stops any live broker
+  // for the instance's child session and removes the instance-keyed sandbox
+  // directory. It is not a user-facing MCP tool.
+  rpc CleanupAgentInstance(CleanupAgentInstanceRequest) returns (CleanupAgentInstanceResponse);
+}
+
+// CoordinationService is the Coordinator-facing control plane. It exposes
+// backend-neutral collaborator/delegation identities; Task IDs, target refs,
+// and backend refs never cross this wire.
+service CoordinationService {
+  rpc ListCollaborators(ListCollaboratorsRequest) returns (ListCollaboratorsResponse);
+  rpc Delegate(DelegateRequest) returns (DelegateResponse);
+  rpc GetDelegation(GetDelegationRequest) returns (GetDelegationResponse);
+  rpc WaitDelegation(WaitDelegationRequest) returns (WaitDelegationResponse);
+  rpc InterveneDelegation(InterveneDelegationRequest) returns (InterveneDelegationResponse);
+  rpc CancelDelegation(CancelDelegationRequest) returns (CancelDelegationResponse);
+}
+
+message Session {
+  string id = 1;
+  string name = 2;
+  string agent_type = 3;
+  string state = 4;
+  int32 pid = 5;
+  int64 created_at = 6;
+  int64 updated_at = 7;
+  reserved 8;
+  reserved "attach_ui";
+  bool acp = 9;
+  bool interrupt = 10;
+  string cwd = 12;
+  string protocol = 13;
+  repeated string extra_args = 14;
+  repeated string env = 15;
+  string workspace_source = 16;
+  string workspace_scope = 17;
+  string agent_profile = 18;
+  int64 idle_timeout_seconds = 19;
+  int64 last_activity_at = 20;
+  string last_sleep_reason = 21;
+  bool auto_sleep_eligible = 22;
+  string owner_task_id = 23;
+  // agent_instance_id is the persistent agent instance id (Phase 3) that owns
+  // this child session (named instance-<id>). Empty for ephemeral tasks and
+  // ordinary user sessions. A non-empty value means the session is managed by
+  // the agent-level lifecycle and skipped by idle reclaim.
+  string agent_instance_id = 24;
+  // effective_model is the user-facing model selected at launch, or (when
+  // launch resolution was empty) the model confirmed by a structured provider
+  // while starting/resuming its thread. Empty means it remains unknown to amux.
+  string effective_model = 25;
+  // cwd_switch is the conversation-preserving workspace switch strategy.
+  // Empty means unsupported; current supported value is "resume".
+  string cwd_switch = 26;
+  string launch_id = 27;
+  ExecutionIdentity execution_identity = 28;
+  // Provider-confirmed modalities accepted by the current effective model.
+  // Unknown or empty is intentionally treated as text-only by callers.
+  repeated string input_modalities = 29;
+  string input_capability_source = 30;
+}
+
+message ExecutionIdentity {
+  string identity_mode = 1;
+  string origin_actor_principal_id = 2;
+  string effective_principal_id = 3;
+  string requested_run_as = 4;
+  string source = 5;
+  string parent_execution_id = 6;
+  string delegation_id = 7;
+  string creation_authorization_decision_id = 8;
+  string creation_policy_revision = 9;
+  string principal_environment_ref = 10;
+  string execution_state_ref = 11;
+  string isolation_backend = 12;
+}
+
+message AgentProfileRequirements {
+  repeated string agent_types = 1;
+  repeated string runtime_tools = 2;
+  repeated string features = 3;
+  repeated string credentials = 4;
+}
+
+message AgentProfilePlacement {
+  repeated string preferred_targets = 1;
+  AgentProfileRequirements requires = 2;
+}
+
+message AgentProfileSpec {
+  string ref = 1;
+  string pinned_ref = 2;
+  string namespace = 3;
+  string name = 4;
+  string revision = 5;
+  string type = 6;
+  string source = 7;
+  string description = 8;
+  string agents = 9;
+  string agents_content = 10;
+  string configured_model = 11;
+  string extends = 12;
+  repeated string skills = 13;
+  repeated string skill_dirs = 14;
+  AgentProfilePlacement placement = 15;
+  string model = 16;
+  repeated string default_args = 17;
+  repeated string default_env = 18;
+  repeated string env_refs = 19;
+  string mcp_config = 20;
+  string permission_policy = 21;
+  AgentProfileProvider provider = 22;
+  repeated string subagents = 23;
+  repeated string envs = 24;
+  repeated string supported_models = 25;
+  string model_ref = 26;
+  string model_kind = 27;
+  string provider_ref = 28;
+  map<string, string> credential_env_suggestions = 29;
+  repeated AgentProfileSkillFile snapshot_skill_files = 30;
+  // Independently selected execution runtime used to compose this immutable
+  // launch snapshot. Empty identifies the legacy Profile-owned launch path.
+  string runtime_ref = 31;
+  // Independently selected reasoning effort. Empty keeps the runtime/model
+  // default.
+  string reasoning_effort = 32;
+}
+
+message AgentProfileSkillFile {
+  string skill = 1;
+  string path = 2;
+  bytes data = 3;
+  uint32 mode = 4;
+}
+
+message AgentProfileProvider {
+  string platform = 1;
+  // Explicit provider transport. Empty preserves the legacy adapter default
+  // for old snapshots. New openai-compat providers should use responses,
+  // responses-via-chat-completions, or chat-completions.
+  string wire_api = 16;
+  string api_key_env = 2;
+  // Literal API key value rendered in place of api_key_env. When set, the
+  // provider's own auth is self-contained: renders the literal directly and
+  // does not request api_key_env from any credential store. Intended for
+  // shared internal-gateway credentials where per-user secret isolation
+  // should be bypassed.
+  string api_key_literal = 15;
+  string base_url = 3;
+  string upstream_model = 4;
+  int64 context_window = 5;
+  string description = 6;
+  string prompt_hint = 7;
+  optional bool by_azure = 8;
+  optional bool disable_failover = 9;
+  map<string, string> thinking = 10;
+  string read_timeout = 11;
+  int64 max_tokens = 12;
+  string ref = 13;
+  string credential_profile = 14;
+}
+
+message AgentProfileSkillInfo {
+  string name = 1;
+  string description = 2;
+}
+
+message AgentProfileInfo {
+  AgentProfileSpec profile = 1;
+  repeated AgentProfileSkillInfo skills = 2;
+}
+
+message ListAgentProfilesRequest {}
+
+message ListAgentProfilesResponse {
+  repeated AgentProfileInfo profiles = 1;
+  // A catalog can still contain the embedded builtin profiles when the
+  // external registry is temporarily unreadable or invalid.
+  string profiles_error = 2;
+}
+
+message GetAgentProfileRequest {
+  string ref = 1;
+}
+
+message GetAgentProfileResponse {
+  AgentProfileInfo profile = 1;
+}
+
+message RunRequest {
+  string agent_type = 1;
+  string name = 2;
+  repeated string extra_args = 3;
+  repeated string env = 4;
+  string cwd = 5;
+  string workspace_source = 6;
+  string workspace_scope = 7;
+  string agent_profile = 8;
+  AgentProfileSpec profile_spec = 9;
+  string repo = 10;
+  string repo_ref = 11;
+  int64 idle_timeout_seconds = 12;
+  bool idle_timeout_seconds_set = 13;
+  // Resolved only by amuxd. Direct clients must leave this empty.
+  ExecutionIdentity execution_identity = 14;
+  string launch_id = 15;
+  // run_as is an unresolved client intent. amuxd consumes it and never
+  // forwards it to amuxlet; direct runtime calls reject non-empty values.
+  string run_as = 16;
+  // Minted by amuxd for an identified launch and injected into the agent
+  // process as AMUX_ACTOR_TOKEN, so the agent's own control-plane calls are
+  // attributed to the principal it already runs as instead of arriving
+  // unauthenticated. Never persisted with the session's recorded env.
+  string agent_actor_token = 17;
+  // Unix seconds. Travels with the token so a relaunch can warn about a
+  // credential the hub minted long ago and no longer tracks per session.
+  int64 agent_actor_token_expires_at = 18;
+}
+message RunResponse {
+  Session session = 1;
+  // Non-fatal findings from this launch (e.g. an expired provider credential).
+  // Callers surface them to the user; they never mean the launch failed.
+  repeated string warnings = 2;
+}
+
+message MaterializeCredentialRequest {
+  string profile = 1;
+  string agent_type = 2;
+  repeated string env_names = 3;
+}
+
+message MaterializeCredentialResponse {
+  repeated string env = 1;
+  map<string, string> files = 2;
+  repeated string secrets = 3;
+  string kind = 4;
+  repeated string profiles = 5;
+}
+
+message SetCredentialRequest {
+  string profile = 1;
+  string env_name = 2;
+  string value = 3;
+  // Optional fail-closed assertion used by explicit Principal onboarding.
+  string expected_principal_id = 4;
+}
+
+message GetCredentialRequest {
+  string profile = 1;
+}
+
+message ListCredentialsRequest {}
+
+message CredentialProfileMetadata {
+  string profile = 1;
+  string kind = 2;
+  repeated string env_names = 3;
+  repeated string file_names = 4;
+  string path = 5;
+}
+
+message ListCredentialsResponse {
+  repeated CredentialProfileMetadata profiles = 1;
+}
+
+message TargetCapabilities {
+  repeated string agent_types = 1;
+  repeated string features = 2;
+  repeated string runtime_tools = 3;
+  repeated string workspace_roots = 4;
+  repeated string shells = 5;
+  string path_style = 6;
+  string network_profile = 7;
+  repeated string credential_refs = 8;
+  map<string, string> labels = 9;
+  repeated AgentCapacity agents = 10;
+  repeated string isolation = 11;
+  repeated string workspace_policies = 12;
+  map<string, CredentialProfileList> credential_profiles = 13;
+  int32 max_sessions = 14;
+  string isolation_helper_protocol = 15;
+  string isolation_degraded_reason = 16;
+}
+
+message AgentCapacity {
+  string type = 1;
+  string protocol = 2;
+  int32 max_concurrency = 3;
+}
+
+message CredentialProfileList {
+  repeated string names = 1;
+}
+
+message RuntimeLoad {
+  int32 current_sessions = 1;
+  int32 reserved_slots = 2;
+  map<string, int32> per_agent_running = 3;
+  map<string, int32> per_agent_reserved = 4;
+  bool disk_pressure = 5;
+}
+
+message Target {
+  string id = 1;
+  string name = 2;
+  TargetCapabilities capabilities = 3;
+  repeated Session sessions = 4;
+  string version = 5;
+  RuntimeLoad load = 6;
+  string status = 7;
+}
+
+message ListRequest {}
+message ListResponse {
+  repeated Session sessions = 1;
+}
+
+message InfoRequest {}
+message InfoResponse {
+  string version = 1;
+  int64 started_at = 2;
+}
+
+message HubInfoRequest {}
+message HubInfoResponse {
+  string version = 1;
+  int64 started_at = 2;
+}
+
+message KillRequest {
+  string name = 1;
+}
+message KillResponse {
+  bool ok = 1;
+}
+
+message RestartRequest {
+  string name = 1;
+  bool refresh_profile = 2;
+  // Freshly minted by amuxd for this relaunch. A relaunch otherwise replays the
+  // credential stored at creation, which is how an agent silently loses its own
+  // identity once that one lapses; restarting is the documented recovery.
+  string agent_actor_token = 3;
+  int64 agent_actor_token_expires_at = 4;
+  // replacement atomically replaces the frozen execution snapshot while
+  // retaining the amux session identity and workspace. It is used by the
+  // Feishu singleton settings flow; ordinary restart leaves it unset.
+  RunRequest replacement = 5;
+  // preserve_history keeps the provider-native conversation when the runtime
+  // type is unchanged, or injects a provider-neutral handoff on the next real
+  // user turn when changing runtime types.
+  bool preserve_history = 6;
+}
+message ChangeCwdRequest {
+  string name = 1;
+  string cwd = 2;
+  bool wait = 3;
+  bool interrupt = 4;
+  string expected_cwd = 5;
+  // defer_until_idle queues the workspace switch as the next lifecycle item.
+  // It returns immediately and runs after the active turn but before ordinary
+  // pending input, which is required for an agent changing its own session.
+  bool defer_until_idle = 6;
+}
+message ChangeCwdResponse {
+  Session session = 1;
+  string previous_cwd = 2;
+  string effective_cwd = 3;
+  bool changed = 4;
+  bool deferred = 5;
+}
+message SleepRequest {
+  string name = 1;
+}
+message SleepResponse {
+  bool ok = 1;
+}
+message ResumeRequest {
+  string name = 1;
+  string agent_actor_token = 2;
+  int64 agent_actor_token_expires_at = 3;
+}
+message PruneRequest {}
+message PruneResponse {
+  int32 count = 1;
+  repeated string names = 2;
+}
+
+message InterruptRequest {
+  string name = 1;
+}
+message InterruptResponse {
+  bool ok = 1;
+}
+
+message AttachRequest {
+  enum TimelineMode {
+    TIMELINE_MODE_UNSPECIFIED = 0;
+    HISTORY = 1;
+    FOLLOW = 2;
+    TAIL = 3;
+  }
+  string name = 1;
+  reserved 2;
+  reserved "replay";
+  // timeline_mode selects the durable canonical Timeline read contract and is
+  // required. TIMELINE_MODE_UNSPECIFIED is rejected.
+  TimelineMode timeline_mode = 3;
+  // after_cursor is exclusive and opaque to clients. It is used by HISTORY
+  // and FOLLOW; TAIL always starts after the current head.
+  string after_cursor = 4;
+}
+message AttachEvent {
+  enum Kind {
+    OUTPUT = 0;
+    STATE_CHANGE = 1;
+    HEARTBEAT = 2;
+    PERMISSION_REQUEST = 3;
+    STRUCTURED = 4;
+    ERROR = 5;
+    USAGE = 6;
+  }
+  Kind kind = 1;
+  bytes data = 2;
+  string state = 3;
+  string stop_reason = 4;
+  string permission_id = 5;
+  bytes permission_payload = 6;
+  string source = 7;
+  bool input = 8;
+  string event_id = 9;
+  int64 seq = 10;
+  string provider = 11;
+  string event_type = 12;
+  string text = 13;
+  string tool_id = 14;
+  string tool_name = 15;
+  string tool_title = 16;
+  string tool_status = 17;
+  bytes tool_input_json = 18;
+  string tool_output_preview = 19;
+  string error_message = 20;
+  bytes usage_json = 21;
+  bytes structured_json = 22;
+  string turn_id = 23;
+  int64 turn_seq = 24;
+  // effective_model is session metadata. It can accompany the initial Attach
+  // handshake or a later metadata event and does not belong to a turn.
+  string effective_model = 25;
+  // cursor and canonical_json are set only for canonical Timeline delivery.
+  string cursor = 26;
+  bool historical = 27;
+  bool caught_up = 28;
+  bytes canonical_json = 29;
+}
+
+message RespondPermissionRequest {
+  string name = 1;
+  string permission_id = 2;
+  string option_id = 3;
+  // option_ids carries multiple selected options for multiSelect user-input
+  // permissions (item/tool/requestUserInput). Empty means single-select via
+  // option_id. option_id is kept for single-select backward compatibility.
+  repeated string option_ids = 4;
+}
+message RespondPermissionResponse {
+  bool ok = 1;
+}
+
+message SubmitRequest {
+  string name = 1;
+  string text = 2;
+  string source = 3;
+  bool async = 4;
+  bool preempt = 5;
+  // The caller already interrupted the active turn before this priority submit.
+  // The runtime must enqueue ahead of normal input without interrupting again.
+  bool preempt_already_interrupted = 6;
+  // Provider-neutral session control. Empty means ordinary text input.
+  // Current supported values are "compact" and "clear" for Codex sessions.
+  string control = 7;
+  // Ordered provider-neutral input. When non-empty this takes precedence over
+  // text; text remains for backward compatibility with existing clients.
+  repeated InputPart parts = 8;
+  // Trusted internal grant. Only the in-process Feishu Bridge sets this on a
+  // direct tunnel request; AmuxdSubmitRequest deliberately has no equivalent.
+  bool local_expert_authoring = 9;
+  // Optional execution pin used after internal file materialization.
+  string expected_session_id = 10;
+  string expected_launch_id = 11;
+}
+message SubmitResponse {
+  bool ok = 1;
+  string turn_id = 2;
+  repeated IgnoredInputPart ignored_parts = 3;
+  string session_id = 4;
+  string launch_id = 5;
+}
+
+message ActiveTurnRequest {
+  string name = 1;
+}
+
+message ActiveTurnResponse {
+  bool active = 1;
+  string turn_id = 2;
+  string session_id = 3;
+  string launch_id = 4;
+}
+
+message InputPart {
+  oneof value {
+    string text = 1;
+    ImageInput image = 2;
+  }
+}
+
+message ImageInput {
+  bytes data = 1;
+  string mime_type = 2;
+  string display_name = 3;
+}
+
+message IgnoredInputPart {
+  int32 index = 1;
+  string reason = 2;
+}
+
+message LocalExpertAuthoringTurnRequest {
+  string name = 1;
+}
+
+message LocalExpertAuthoringTurnResponse {
+  bool active = 1;
+  string turn_id = 2;
+  bool allowed = 3;
+}
+
+message LocalExpertAuthoringFile {
+  string path = 1;
+  string content = 2;
+  bool binary = 3;
+}
+
+message ReadLocalExpertRequest {
+  // Filled by the MCP process from AMUX_SESSION_ID, not by the model.
+  string session_id = 1;
+  string operation = 2;
+  string target_ref = 3;
+  string source_ref = 4;
+}
+
+message ReadLocalExpertResponse {
+  string operation = 1;
+  string target_ref = 2;
+  string source_ref = 3;
+  string base_revision = 4;
+  repeated LocalExpertAuthoringFile files = 5;
+}
+
+message ChangeLocalExpertRequest {
+  // Filled by the MCP process from AMUX_SESSION_ID, not by the model.
+  string session_id = 1;
+  string mode = 2;
+  string operation = 3;
+  string target_ref = 4;
+  string source_ref = 5;
+  string base_revision = 6;
+  string patch = 7;
+  string preview_receipt = 8;
+  bool prepare_evaluation = 9;
+}
+
+message ChangeLocalExpertResponse {
+  string mode = 1;
+  string base_revision = 2;
+  string tree = 3;
+  string patch_digest = 4;
+  string diff = 5;
+  string preview_receipt = 6;
+  bool published = 7;
+  string profile_ref = 8;
+  string revision = 9;
+  string evaluation_profile_ref = 10;
+  int64 evaluation_expires_at = 11;
+}
+
+message QueueItem {
+  string id = 1;
+  string source = 2;
+  string text = 3;
+  int64 created_at = 4;
+}
+message QueueListRequest {
+  string name = 1;
+}
+message QueueListResponse {
+  repeated QueueItem items = 1;
+}
+message QueueClearRequest {
+  string name = 1;
+}
+message QueueClearResponse {
+  int32 cleared = 1;
+}
+message QueueCancelRequest {
+  string name = 1;
+  string id = 2;
+}
+message QueueCancelResponse {
+  bool ok = 1;
+}
+message ToolActivityEvent {
+  string session_name = 1;
+  string event_name = 2;
+  string tool_name = 3;
+  string tool_input = 4;
+  string tool_output = 5;
+  string error = 6;
+  string notif_type = 7;
+  string notif_title = 8;
+  string notif_message = 9;
+}
+
+message TunnelMsg {
+  string kind = 1;
+  string request_id = 2;
+  string method = 3;
+  bytes payload = 4;
+  string error = 5;
+}
+
+message RegisterPayload {
+  string target_id = 1;
+  string target_name = 2;
+  string version = 3;
+  string token = 4;
+  TargetCapabilities capabilities = 5;
+}
+
+message HeartbeatPayload {
+  RuntimeLoad load = 1;
+}
+
+message SessionsPayload {
+  repeated Session sessions = 1;
+}
+
+message ReserveRequest {
+  string agent_type = 1;
+}
+message ReserveResponse {
+  string reservation_id = 1;
+}
+message CommitRequest {
+  string reservation_id = 1;
+}
+message CommitResponse {}
+message ReleaseRequest {
+  string reservation_id = 1;
+}
+message ReleaseResponse {}
+
+message ListTargetsRequest {}
+message ListTargetsResponse {
+  repeated Target targets = 1;
+}
+
+message FeishuStatusRequest {
+  string profile = 1;
+}
+message FeishuStatusResponse {
+  string profile = 1;
+  string bridge_id = 2;
+  bool configured = 3;
+  string app_id = 4;
+  string open_id = 5;
+  string notify_chat_id = 6;
+  string bot_name = 7;
+  string bot_open_id = 8;
+  int32 binding_count = 9;
+  bool bridge_db_healthy = 10;
+  string error = 11;
+}
+
+message FeishuBinding {
+  string bridge_id = 1;
+  string root_msg_id = 2;
+  string thread_id = 3;
+  string open_id = 4;
+  string target_id = 5;
+  string target_name = 6;
+  string session_name = 7;
+  string agent_type = 8;
+  string status = 9;
+}
+message FeishuBindingsRequest {
+  string profile = 1;
+}
+message FeishuBindingsResponse {
+  repeated FeishuBinding bindings = 1;
+}
+message FeishuBot {
+  string profile = 1;
+  string bridge_id = 2;
+  bool configured = 3;
+  string app_id = 4;
+  string open_id = 5;
+  string bot_name = 6;
+  string bot_open_id = 7;
+  int32 binding_count = 8;
+  string error = 9;
+}
+message FeishuBotsRequest {}
+message FeishuBotsResponse {
+  repeated FeishuBot bots = 1;
+}
+
+message FeishuBotSession {
+  string bridge_id = 1;
+  bool enabled = 2;
+  string target_id = 3;
+  string target_name = 4;
+  string session_name = 5;
+  string agent_profile = 6;
+  string agent_type = 7;
+  string last_reply_kind = 8;
+  string last_reply_chat_id = 9;
+  string last_reply_open_id = 10;
+  string last_input_message_id = 11;
+  string cwd = 12;
+}
+message FeishuBotSessionStatusRequest {
+  string profile = 1;
+}
+message FeishuBotSessionBindRequest {
+  string profile = 1;
+  string session_ref = 2;
+}
+message FeishuBotSessionOffRequest {
+  string profile = 1;
+}
+message FeishuBotSessionStatusResponse {
+  string profile = 1;
+  string bridge_id = 2;
+  string interaction_mode = 3;
+  FeishuBotSession bot_session = 4;
+  string error = 5;
+  string default_agent = 6;
+}
+
+message FeishuContextExplainRequest {
+  string profile = 1;
+  string root_msg_id = 2;
+  string message_id = 3;
+  int64 decision_id = 4;
+}
+message FeishuContextDecision {
+  int64 id = 1;
+  string root_msg_id = 2;
+  string message_id = 3;
+  string bridge_id = 4;
+  string bot_profile = 5;
+  string workspace_mode = 6;
+  string request_text = 7;
+  string thread_context = 8;
+  string prompt_preview = 9;
+  int64 created_at = 10;
+}
+message FeishuContextItem {
+  int64 id = 1;
+  string item_type = 2;
+  string author_label = 3;
+  string text = 4;
+  string bridge_id = 5;
+  string bot_profile = 6;
+  string target_name = 7;
+  string session_name = 8;
+  string message_id = 9;
+  int64 created_at = 10;
+  bool truncated = 11;
+}
+message FeishuContextExplainResponse {
+  string profile = 1;
+  string bridge_id = 2;
+  FeishuContextDecision decision = 3;
+  repeated FeishuContextItem selected_items = 4;
+  string error = 5;
+}
+
+message AmuxdRunRequest {
+  string target_id = 1;
+  string agent_profile = 2;
+  AgentProfileSpec profile_spec = 3;
+  string agent_type = 4;
+  string name = 5;
+  repeated string extra_args = 6;
+  repeated string env = 7;
+  string cwd = 8;
+  string repo = 9;
+  string repo_ref = 10;
+  int64 idle_timeout_seconds = 11;
+  bool idle_timeout_seconds_set = 12;
+  string workspace_source = 13;
+  string workspace_scope = 14;
+  // Client intent only. amuxd resolves it to RunRequest.execution_identity.
+  string run_as = 15;
+}
+message AmuxdKillRequest {
+  string target_id = 1;
+  string name = 2;
+}
+message AmuxdRestartRequest {
+  string target_id = 1;
+  string name = 2;
+  bool refresh_profile = 3;
+  // replacement atomically replaces the frozen execution snapshot while
+  // retaining the amux session identity and workspace. It is used by the
+  // Feishu singleton settings flow; ordinary restart leaves it unset.
+  RunRequest replacement = 4;
+  // preserve_history keeps the provider-native conversation when the runtime
+  // type is unchanged, or injects a provider-neutral handoff on the next real
+  // user turn when changing runtime types.
+  bool preserve_history = 5;
+}
+message AmuxdChangeCwdRequest {
+  string target_id = 1;
+  string name = 2;
+  string cwd = 3;
+  bool wait = 4;
+  bool interrupt = 5;
+  string expected_cwd = 6;
+  bool defer_until_idle = 7;
+}
+message AmuxdSleepRequest {
+  string target_id = 1;
+  string name = 2;
+}
+message AmuxdResumeRequest {
+  string target_id = 1;
+  string name = 2;
+}
+message AmuxdPruneRequest {
+  string target_id = 1;
+}
+message AmuxdInterruptRequest {
+  string target_id = 1;
+  string name = 2;
+}
+message AmuxdAttachRequest {
+  string target_id = 1;
+  string name = 2;
+  reserved 3;
+  reserved "replay";
+  AttachRequest.TimelineMode timeline_mode = 4;
+  string after_cursor = 5;
+}
+message AmuxdSubmitRequest {
+  string target_id = 1;
+  string name = 2;
+  string text = 3;
+  string source = 4;
+  bool async = 5;
+  bool preempt = 6;
+  string control = 7;
+  repeated InputPart parts = 8;
+  bool preempt_already_interrupted = 9;
+}
+message AmuxdQueueListRequest {
+  string target_id = 1;
+  string name = 2;
+}
+message AmuxdQueueClearRequest {
+  string target_id = 1;
+  string name = 2;
+}
+message AmuxdQueueCancelRequest {
+  string target_id = 1;
+  string name = 2;
+  string id = 3;
+}
+message AmuxdRespondPermissionRequest {
+  string target_id = 1;
+  string name = 2;
+  string permission_id = 3;
+  string option_id = 4;
+  // option_ids carries multiple selected options for multiSelect user-input
+  // permissions (item/tool/requestUserInput). Empty means single-select via
+  // option_id.
+  repeated string option_ids = 5;
+}
+
+message ListCollaboratorsRequest {
+  // Filled by the MCP process from AMUX_SESSION_ID, not by the model.
+  string initiator_ref = 1;
+}
+message CollaboratorDescriptor {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string kind = 4;
+  string availability = 5;
+  repeated string capabilities = 6;
+  repeated string skills = 7;
+}
+message ListCollaboratorsResponse {
+  repeated CollaboratorDescriptor collaborators = 1;
+}
+
+message CoordinationResult {
+  string summary = 1;
+  string content = 2;
+  string content_type = 3;
+  string details_ref = 4;
+  string trust_level = 5;
+  repeated string source_refs = 6;
+}
+message CoordinationFailure {
+  string code = 1;
+  string message = 2;
+}
+message CoordinationPermissionRequest {
+  string id = 1;
+  string summary = 2;
+  string tool = 3;
+  string command = 4;
+  repeated string paths = 5;
+  bool write = 6;
+  bool network = 7;
+}
+message CoordinationDelegation {
+  string id = 1;
+  string collaborator_id = 2;
+  string direction = 3;
+  string initiator_ref = 4;
+  string scope_ref = 5;
+  string parent_delegation_id = 6;
+  int32 hop_count = 7;
+  int32 hop_budget = 8;
+  string input = 9;
+  string status = 10;
+  int64 deadline_unix_ms = 11;
+  CoordinationResult result = 12;
+  CoordinationFailure failure = 13;
+  int64 created_at_unix_ms = 14;
+  int64 updated_at_unix_ms = 15;
+  int64 finished_at_unix_ms = 16;
+}
+message CoordinationEvent {
+  uint64 seq = 1;
+  string kind = 2;
+  string status = 3;
+  string content = 4;
+  CoordinationResult result = 5;
+  CoordinationFailure failure = 6;
+  CoordinationPermissionRequest permission = 7;
+  int64 at_unix_ms = 8;
+}
+message CoordinationSnapshot {
+  CoordinationDelegation delegation = 1;
+  repeated CoordinationEvent events = 2;
+  uint64 next_seq = 3;
+}
+
+message DelegateRequest {
+  string collaborator_id = 1;
+  string input = 2;
+  string initiator_ref = 3;
+  string scope_ref = 4;
+  string parent_delegation_id = 5;
+  string idempotency_key = 6;
+  int32 timeout_seconds = 7;
+  int32 hop_budget = 8;
+}
+message DelegateResponse {
+  CoordinationSnapshot snapshot = 1;
+  bool created = 2;
+}
+message GetDelegationRequest {
+  string delegation_id = 1;
+  uint64 from_seq = 2;
+}
+message GetDelegationResponse {
+  CoordinationSnapshot snapshot = 1;
+}
+message WaitDelegationRequest {
+  string delegation_id = 1;
+  uint64 from_seq = 2;
+  int32 timeout_seconds = 3;
+}
+message WaitDelegationResponse {
+  CoordinationSnapshot snapshot = 1;
+  bool timed_out = 2;
+}
+message InterveneDelegationRequest {
+  string delegation_id = 1;
+  string request_id = 2;
+  string decision = 3;
+  string option_id = 4;
+  string reason = 5;
+}
+message InterveneDelegationResponse {
+  CoordinationDelegation delegation = 1;
+  bool accepted = 2;
+}
+message CancelDelegationRequest {
+  string delegation_id = 1;
+}
+message CancelDelegationResponse {
+  CoordinationDelegation delegation = 1;
+  bool accepted = 2;
+}
+
+message SubmitSubtaskRequest {
+  bytes spec_json = 1;
+  // Minted by amuxd at route time for the task's identified launch. launch_id
+  // binds the credential to this specific launch so a re-issue revokes the
+  // prior token; the amuxlet uses it instead of generating its own when set.
+  // Travels on the wire only — never persisted into the task's recorded env.
+  string launch_id = 2;
+  // The delegated actor credential for the task's frozen ExecutionIdentity,
+  // injected into the agent process as AMUX_ACTOR_TOKEN so its control-plane
+  // calls are attributed to the principal it already runs as. Empty for
+  // legacy-host tasks and for hubs without a principal store.
+  string agent_actor_token = 3;
+  int64 agent_actor_token_expires_at = 4;
+}
+message SubmitSubtaskResponse {
+  bytes task_json = 1;
+}
+message GetSubtaskRequest {
+  string id = 1;
+}
+message GetSubtaskResponse {
+  bytes task_json = 1;
+}
+message ListSubtasksRequest {}
+message ListSubtasksResponse {
+  repeated bytes tasks_json = 1;
+}
+message PruneSubtasksRequest {
+  bool dry_run = 1;
+  int64 older_than_seconds = 2;
+  repeated string statuses = 3;
+}
+message PrunedSubtask {
+  string id = 1;
+  string status = 2;
+  string target_id = 3;
+  string child_session_id = 4;
+  string child_session_name = 5;
+  bool deleted_child_session = 6;
+  bool deleted_sandbox = 7;
+}
+message SkippedSubtask {
+  string id = 1;
+  string target_id = 2;
+  string reason = 3;
+}
+message PruneSubtasksResponse {
+  int32 deleted_count = 1;
+  repeated PrunedSubtask tasks = 2;
+  repeated SkippedSubtask skipped = 3;
+}
+message CancelSubtaskRequest {
+  string id = 1;
+}
+message CancelSubtaskResponse {
+  bool ok = 1;
+}
+message RespondSubtaskPermissionRequest {
+  string id = 1;
+  string permission_id = 2;
+  bool allow = 3;
+  string option_id = 4;
+  string reason = 5;
+}
+message RespondSubtaskPermissionResponse {
+  bool ok = 1;
+}
+message StreamSubtaskRequest {
+  string id = 1;
+  uint64 from_seq = 2;
+}
+message SubtaskEvent {
+  bytes event_json = 1;
+}
+
+// AgentInstance is the control-plane view of a persistent agent instance (Phase
+// 3). It mirrors internal/agentinstance.Instance with live child-session state
+// filled in by the hosting amuxlet. agent_instance_id is the flat primary key
+// used by the agent-level MCP tools; path is reserved for future hierarchical
+// addressing and is not consumed yet.
+message AgentInstance {
+  string id = 1;
+  string name = 2;
+  string agent_type = 3;
+  string owner_session_id = 4;
+  string target_id = 5;
+  string target_name = 6;
+  string credential_profile = 7;
+  string isolation_mode = 8;
+  string home_ref = 9;
+  string workspace_ref = 10;
+  string provider_session_id = 11;
+  string path = 12;
+  string status = 13; // active | idle | archived
+  int64 created_at = 14;
+  int64 updated_at = 15;
+  int64 last_used_at = 16;
+  // Live child-session state for this instance, filled by the hosting amuxlet.
+  // Empty when the instance has no current child session on its target.
+  string child_session_id = 17;
+  string child_session_name = 18;
+  string child_session_state = 19; // running | sleeping | archived | ""
+  // pending_messages is the number of queued instance_send inputs held in the
+  // instance mailbox, waiting to be drained on the next wake-up.
+  int32 pending_messages = 20;
+  repeated string credential_profiles = 21;
+  string agent_profile = 22;
+  string model_ref = 23;
+  ExecutionIdentity execution_identity = 24;
+}
+
+message Principal {
+  string principal_id = 1;
+  string kind = 2;
+  string display_name = 3;
+  string status = 4;
+  string environment_target_id = 5;
+  map<string, string> metadata = 6;
+  int64 created_at = 7;
+  int64 updated_at = 8;
+}
+
+message CreatePrincipalRequest {
+  string kind = 1;
+  string display_name = 2;
+  string environment_target_id = 3;
+  map<string, string> metadata = 4;
+}
+message PrincipalResponse { Principal principal = 1; }
+message ListPrincipalsRequest {}
+message ListPrincipalAliasesRequest {}
+message PrincipalAlias {
+  string provider = 1;
+  string scope = 2;
+  string subject = 3;
+  string principal_id = 4;
+}
+message ListPrincipalAliasesResponse { repeated PrincipalAlias aliases = 1; }
+message ListPrincipalsResponse { repeated Principal principals = 1; }
+message DisablePrincipalRequest { string principal_id = 1; }
+message BindPrincipalAliasRequest {
+  string provider = 1;
+  string scope = 2;
+  string subject = 3;
+  string principal_id = 4;
+}
+message GrantPrincipalDelegationRequest {
+  string actor_principal_id = 1;
+  string effective_principal_id = 2;
+}
+message GrantPrincipalDelegationResponse { string delegation_id = 1; }
+message RevokePrincipalDelegationRequest { string delegation_id = 1; }
+message ServicePrincipalMemberRequest {
+  string service_principal_id = 1;
+  string member_principal_id = 2;
+}
+message EmptyResponse {}
+message CreatePrincipalEnrollmentRequest {
+  string provider = 1;
+  string scope = 2;
+  string subject = 3;
+  string principal_id = 4;
+  bool rotate = 5;
+}
+message CreatePrincipalEnrollmentResponse {
+  string credential_id = 1;
+  string token = 2;
+}
+message GetIsolationStatusRequest {}
+message GetIsolationStatusResponse {
+  bool enabled = 1;
+  string configured_backend = 2;
+  string actual_backend = 3;
+  bool helper_ready = 4;
+  string helper_protocol = 5;
+  string degraded_reason = 6;
+}
+
+message RevokePrincipalLaunchesRequest {
+  string principal_id = 1;
+  string delegation_id = 2;
+  string reason = 3;
+}
+message RevokePrincipalLaunchesResponse {
+  int32 affected = 1;
+}
+
+message ListAgentInstancesRequest {
+  // Optional filter by the parent main session that owns the instances.
+  string owner_session_id = 1;
+  // Optional filter by lifecycle status (active | idle | archived).
+  string status = 2;
+}
+message ListAgentInstancesResponse {
+  repeated AgentInstance instances = 1;
+}
+
+message GetAgentInstanceRequest {
+  string id = 1;
+}
+message GetAgentInstanceResponse {
+  AgentInstance instance = 1;
+}
+
+// SendAgentMessage enqueues a message into a persistent agent instance's mailbox
+// without waking the agent (QueueOnly). When the instance is next woken by a
+// instance_followup / instance_spawn, the mailbox is drained into the child session's
+// input queue ahead of the new task prompt. Returns the number of messages now
+// pending in the mailbox.
+message SendAgentMessageRequest {
+  string id = 1;
+  string text = 2;
+  string source = 3;
+}
+message SendAgentMessageResponse {
+  bool ok = 1;
+  int32 pending_messages = 2;
+}
+
+message InterruptAgentInstanceRequest {
+  string id = 1;
+}
+message InterruptAgentInstanceResponse {
+  bool ok = 1;
+}
+
+// WaitAgentInstance joins the instance's current turn: it blocks while an
+// instance TaskRun is in flight or its child session is active, and returns when
+// no task remains and the child is sleeping/archived, or when the wait timeout
+// elapses. An already sleeping/archived child with no in-flight task returns
+// immediately; ordinary output does not end the wait. Activity is retained for
+// compatibility and reports whether completion was observed during this call.
+// State is authoritative for completion versus timeout.
+message WaitAgentInstanceRequest {
+  string id = 1;
+  int64 timeout_seconds = 2;
+}
+message WaitAgentInstanceResponse {
+  bool activity = 1;
+  string state = 2;
+}
+
+message DescribeAgentInstanceRequest {
+  string id = 1;
+}
+message DescribeAgentInstanceResponse {
+  string child_session_id = 1;
+  string child_session_name = 2;
+  string child_session_state = 3; // running | sleeping | archived | ""
+  int32 pending_messages = 4;
+  ExecutionIdentity execution_identity = 5;
+  string launch_id = 6;
+}
+
+message CleanupAgentInstanceRequest {
+  string id = 1;
+}
+message CleanupAgentInstanceResponse {
+  bool ok = 1;
+}
+
+message ScheduleItem {
+  int64 id = 1;
+  string name = 2;
+  string schedule_type = 3;
+  string target_id = 4;
+  string target_name = 5;
+  string session_name = 6;
+  string spec = 7;
+  string kind = 8;
+  string run_mode = 9;
+  string prompt = 10;
+  bytes task_spec_json = 11;
+  bool enabled = 12;
+  int64 next_run_at = 13;
+  int64 last_run_at = 14;
+  string last_status = 15;
+  repeated ScheduleRun runs = 16;
+}
+
+message ScheduleRun {
+  int64 id = 1;
+  int64 schedule_id = 2;
+  int64 fired_at = 3;
+  string task_id = 4;
+  string status = 5;
+}
+
+message CreateScheduleRequest {
+  string target_id = 1;
+  string target_name = 2;
+  string session_name = 3;
+  string spec = 4;
+  string run_mode = 5;
+  string prompt = 6;
+  string name = 7;
+  string created_by = 8;
+  string schedule_type = 9;
+  bytes task_spec_json = 10;
+}
+
+message CreateScheduleResponse {
+  int64 id = 1;
+  int64 next_run_at = 2;
+  string error = 3;
+}
+
+message ListSchedulesRequest {
+  string target_id = 1;
+  string session_name = 2;
+}
+
+message ListSchedulesResponse {
+  repeated ScheduleItem schedules = 1;
+}
+
+message GetScheduleRequest {
+  int64 id = 1;
+  bool include_runs = 2;
+}
+
+message GetScheduleResponse {
+  ScheduleItem schedule = 1;
+}
+
+message DeleteScheduleRequest {
+  int64 id = 1;
+}
+
+message DeleteScheduleResponse {
+  bool ok = 1;
+}
+
+// UpdateScheduleRequest updates an existing schedule in place. Only the fields
+// whose presence is set are changed; omitted fields keep their current value.
+// task_spec_json is treated as present when non-empty (subtask schedules only).
+message UpdateScheduleRequest {
+  int64 id = 1;
+  optional string name = 2;
+  optional string spec = 3;
+  optional string run_mode = 4;
+  optional string prompt = 5;
+  bytes task_spec_json = 6;
+}
+
+message UpdateScheduleResponse {
+  ScheduleItem schedule = 1;
+  string error = 2;
+}
+
+message SetScheduleEnabledRequest {
+  int64 id = 1;
+  bool enabled = 2;
+}
+
+message SetScheduleEnabledResponse {
+  bool ok = 1;
+}
+
+// File names are inbox basenames or outbox-relative paths; never host paths.
+message SessionFileRequest {
+  string name = 1;
+  string session_id = 2;
+  string launch_id = 3;
+  string file_name = 4;
+  bytes data = 5;
+}
+message SessionFileResponse {
+  string path = 1;
+  bytes data = 2;
+}

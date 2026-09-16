@@ -1,0 +1,361 @@
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/amuxos/amux/internal/clientop"
+	"github.com/amuxos/amux/internal/mcp"
+	"github.com/amuxos/amux/internal/schedule"
+	"github.com/amuxos/amux/internal/task"
+	pb "github.com/amuxos/amux/internal/transport/pbgen"
+)
+
+func mcpScheduleCreateError(err error) string {
+	var fe *clientop.FieldError
+	if errors.As(err, &fe) {
+		return mcpScheduleValidationMessage(fe)
+	}
+	return err.Error()
+}
+
+func mcpScheduleValidationMessage(err *clientop.FieldError) string {
+	if err.Field == clientop.FieldPermissionPolicy {
+		if err.RawValue == string(task.PolicyEscalateToMain) {
+			return "permission_policy=escalate-to-main is not supported for scheduled agent tasks"
+		}
+		return fmt.Sprintf("invalid permission policy %q (expected default, policy-allow, or deny-all)", err.RawValue)
+	}
+	if err.Field == clientop.FieldWorkspaceLocalDir && err.Also == clientop.FieldRepoCacheKey {
+		return "task.workspace.local_dir or task.workspace.repo.cache_key is required with workspace.policy=git-worktree"
+	}
+	return err.Render(mcpScheduleFieldNames)
+}
+func (h *mcpHandler) createSchedule(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
+	var a mcpCreateScheduleArgs
+	if err := json.Unmarshal(args, &a); err != nil {
+		return mcp.ErrorText("invalid arguments: " + err.Error()), nil
+	}
+	a.Spec = strings.TrimSpace(a.Spec)
+	if a.Spec == "" {
+		return mcp.ErrorText("spec is required"), nil
+	}
+	client, closeFn, err := newScheduleClientForMCP()
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	defer closeFn()
+	result, err := clientop.ScheduleCreateTask(ctx, client, clientop.ScheduleCreateTaskRequest{Spec: a.Spec, Name: a.Name, CreatedBy: "mcp", Task: a.Task})
+	if err != nil {
+		return mcp.ErrorText(mcpScheduleCreateError(err)), nil
+	}
+	return mcp.Text(toJSON(map[ // mcpScheduleCreateError renders a ScheduleCreateTask failure for the tool
+	// caller. A validation failure is a *clientop.FieldError and must be phrased
+	// in JSON-path vocabulary; anything else passes through as-is.
+	// mcpScheduleValidationMessage keeps the MCP surface's established wording.
+	string]any{"schedule_id": result.ID, "next_run_at": result.NextRunAt})), nil
+}
+func (h *mcpHandler) listSchedules(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
+	var input struct {
+		Cursor string `json:"cursor"`
+	}
+	if len(args) > 0 {
+		if err := json.Unmarshal(args, &input); err != nil {
+			return mcp.ErrorText("invalid arguments: " + err.Error()), nil
+		}
+	}
+	client, closeFn, err := newScheduleClientForMCP()
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	defer closeFn()
+	items, err := clientop.ScheduleList(ctx, client)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	view, err := listSchedulesMCPView(items, input.Cursor)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	return mcp.Text(toJSON(view)), nil
+}
+func (h *mcpHandler) getSchedule(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
+	id, includeRuns, err := scheduleID(args)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	client, closeFn, err := newScheduleClientForMCP()
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	defer closeFn()
+	item, err := clientop.ScheduleGet(ctx, client, clientop.ScheduleIDRequest{ID: id, IncludeRuns: includeRuns})
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	return mcp.Text(toJSON(map[string]any{"schedule": scheduleItemMCPView(item)})), nil
+}
+func listSchedulesMCPView(items []*pb.ScheduleItem, cursor string) (map[string]any, error) {
+	offset, err := parseMCPListCursor(cursor)
+	if err != nil {
+		return nil, fmt.Errorf("invalid cursor: %w", err)
+	}
+	if offset > len(items) {
+		return nil, fmt.Errorf("cursor is past the end of the schedule list; call schedule_list again without cursor")
+	}
+	pageEnd := offset + mcpScheduleListPageSize
+	if pageEnd > len(items) {
+		pageEnd = len(items)
+	}
+	schedules := make([]map[string]any, 0, pageEnd-offset)
+	for _, item := range items[offset:pageEnd] {
+		schedules = append(schedules, scheduleItemMCPListSummary(item))
+	}
+	view := map[string]any{"schema_version": "mcp.list_schedules.v2", "schedules": schedules, "page_count": len(schedules), "total_count": len(items), "has_more": pageEnd < len(items), "detail_tool": "amux.schedule_get"}
+	if pageEnd < len(items) {
+		view["next_cursor"] = strconv.Itoa(pageEnd)
+		view["pagination_instruction"] = "Call amux.schedule_list again with next_cursor as cursor until has_more=false. Do not report the schedule inventory as complete before reading every page."
+	}
+	return view, nil
+}
+
+func scheduleItemMCPListSummary(item *pb.ScheduleItem) map[ // scheduleItemMCPListSummary is the compact per-schedule row returned by
+// schedule_list. It deliberately omits the embedded task prompt, credential
+// profile, and run history: with many schedules those full bodies bloat the
+// single MCP tool response into tens of KB, and agent-side MCP clients keep
+// only the head and tail of an oversized output — silently dropping everything
+// in the middle. What the caller needs for triage (id, name, cadence, owner
+// agent ref, enabled, last run) fits comfortably, and full detail remains
+// available on demand via get_schedule.
+string]any {
+	if item == nil {
+		return nil
+	}
+	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	if item.ScheduleType == "" || item.ScheduleType == schedule.ScheduleTypeSessionPrompt {
+		view["target_name"] = item.TargetName
+		view["session_name"] = item.SessionName
+		view["run_mode"] = item.RunMode
+	}
+	if item.ScheduleType == schedule.ScheduleTypeSubtask {
+		var spec task.Spec
+		if err := json.Unmarshal(item.TaskSpecJson, &spec); err == nil {
+			if spec.Agent != "" {
+				view["agent"] = spec.Agent
+			}
+		}
+	}
+	return view
+}
+func scheduleItemMCPView(item *pb.ScheduleItem) map[ // Surface just the agent ref (not the full prompt) so the list stays
+// small while still identifying who runs each schedule.
+string]any {
+	if item == nil {
+		return nil
+	}
+	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	if item.ScheduleType == "" || item.ScheduleType == schedule.ScheduleTypeSessionPrompt {
+		view["target_id"] = item.TargetId
+		view["target_name"] = item.TargetName
+		view["session_name"] = item.SessionName
+		view["run_mode"] = item.RunMode
+		view["prompt"] = item.Prompt
+	}
+	if item.ScheduleType == schedule.ScheduleTypeSubtask && len(item.TaskSpecJson) > 0 {
+		var spec task.Spec
+		if err := json.Unmarshal(item.TaskSpecJson, &spec); err == nil {
+			view["task"] = taskSpecMCPView(spec)
+		} else {
+			view["task_error"] = "decode task spec: " + err.Error()
+		}
+	}
+	if len(item.Runs) > 0 {
+		view["runs"] = scheduleRunsMCPView(item.Runs)
+	}
+	return view
+}
+func taskSpecMCPView(spec task.Spec) map[string]any {
+	view := map[string]any{"agent": spec.Agent, "task": spec.Task}
+	if spec.Mode != "" {
+		view["mode"] = spec.Mode
+	}
+	if spec.Isolation != "" {
+		view["isolation"] = spec.Isolation
+	}
+	if spec.CredentialProfile != "" {
+		view["credential_profile"] = spec.CredentialProfile
+	}
+	if spec.PermissionPolicy != "" {
+		view["permission_policy"] = spec.PermissionPolicy
+	}
+	if spec.Workspace.Policy != "" || spec.Workspace.LocalDir != "" || spec.Workspace.Repo != nil {
+		workspace := map[string]any{}
+		if spec.Workspace.Policy != "" {
+			workspace["policy"] = spec.Workspace.Policy
+		}
+		if spec.Workspace.LocalDir != "" {
+			workspace["local_dir"] = spec.Workspace.LocalDir
+		}
+		if spec.Workspace.Repo != nil {
+			repo := map[string]any{}
+			if spec.Workspace.Repo.Kind != "" {
+				repo["kind"] = spec.Workspace.Repo.Kind
+			}
+			if spec.Workspace.Repo.CacheKey != "" {
+				repo["cache_key"] = spec.Workspace.Repo.CacheKey
+			}
+			if spec.Workspace.Repo.Commit != "" {
+				repo["commit"] = spec.Workspace.Repo.Commit
+			}
+			workspace["repo"] = repo
+		}
+		view["workspace"] = workspace
+	}
+	if spec.TimeoutSeconds != 0 {
+		view["timeout_seconds"] = spec.TimeoutSeconds
+	}
+	if spec.ResultGranularity != "" {
+		view["result_granularity"] = spec.ResultGranularity
+	}
+	if len(spec.ExtraArgs) > 0 {
+		view["extra_args"] = spec.ExtraArgs
+	}
+	return view
+}
+func scheduleRunsMCPView(runs []*pb.ScheduleRun) []map[string]any {
+	out := make([]map[string]any, 0, len(runs))
+	for _, run := range runs {
+		if run == nil {
+			continue
+		}
+		out = append(out, map[string]any{"fired_at": run.FiredAt, "task_id": run.TaskId, "status": run.Status})
+	}
+	return out
+}
+func (h *mcpHandler) deleteSchedule(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
+	id, _, err := scheduleID(args)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	client, closeFn, err := newScheduleClientForMCP()
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	defer closeFn()
+	deleted, err := clientop.ScheduleDelete(ctx, client, clientop.ScheduleIDRequest{ID: id})
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	return mcp.Text(toJSON(map[string]any{"schedule_id": id, "deleted": deleted})), nil
+}
+func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
+	id, _, err := scheduleID(args)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	var a struct {
+		Name *string                     `json:"name"`
+		Spec *string                     `json:"spec"`
+		Task *clientop.ScheduledTaskSpec `json:"task"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return mcp.ErrorText("invalid arguments: " + err.Error()), nil
+	}
+	if a.Spec != nil && strings.TrimSpace(*a.Spec) == "" {
+		return mcp.ErrorText("spec must not be empty"), nil
+	}
+	client, closeFn, err := newScheduleClientForMCP()
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	defer closeFn()
+	out, err := clientop.ScheduleUpdate(ctx, client, clientop.ScheduleUpdateRequest{ID: id, Name: a.Name, Spec: a.Spec, Task: a.Task})
+	if err != nil {
+		var fe *clientop.FieldError
+		if errors.As(err, &fe) {
+			return mcp.ErrorText(mcpScheduleValidationMessage(fe)), nil
+		}
+		return mcp.ErrorText(err.Error()), nil
+	}
+	return mcp.Text(toJSON(map[string]any{"schedule_id": out.ID, "name": out.Name, "spec": out.Spec, "next_run_at": out.NextRunAt})), nil
+}
+func (h *mcpHandler) setScheduleEnabled(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
+	var a struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return mcp.ErrorText("invalid arguments: " + err.Error()), nil
+	}
+	id, _, err := scheduleID(args)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	if a.Enabled == nil {
+		return mcp.ErrorText("enabled is required"), nil
+	}
+	client, closeFn, err := newScheduleClientForMCP()
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	defer closeFn()
+	_, err = clientop.ScheduleSetEnabled(ctx, client, id, *a.Enabled)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	return mcp.Text(toJSON(map[string]any{"schedule_id": id, "enabled": *a.Enabled})), nil
+}
+func newScheduleClientForMCP() (pb.AmuxdClient, func() error, error) {
+	client, closeFn, err := newAmuxdClient()
+	if err != nil {
+		return nil, nil, fmt.Errorf("schedule requires hub: %w", err)
+	}
+	return client, closeFn, nil
+}
+func scheduleID(args json.RawMessage) (int64, bool, error) {
+	var a struct {
+		ScheduleID  json.RawMessage `json:"schedule_id"`
+		ID          json.RawMessage `json:"id"`
+		IncludeRuns bool            `json:"include_runs"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return 0, false, fmt.Errorf("invalid arguments: %w", err)
+	}
+	raw := a.ScheduleID
+	if len(raw) == 0 {
+		raw = a.ID
+	}
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, false, fmt.Errorf("schedule_id is required")
+	}
+	id, err := parseMCPInt64(raw)
+	if err != nil {
+		return 0, false, fmt.Errorf("invalid schedule_id: %w", err)
+	}
+	return id, a.IncludeRuns, nil
+}
+func parseMCPInt64(raw json.RawMessage) (int64, error) {
+	var n int64
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return n, nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return 0, fmt.Errorf("empty")
+		}
+		return strconv.ParseInt(s, 10, 64)
+	}
+	return 0, fmt.Errorf("expected integer or string")
+}
+func toJSON(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
+}

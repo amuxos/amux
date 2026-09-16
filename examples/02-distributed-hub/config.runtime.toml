@@ -1,0 +1,22 @@
+# 每台 runtime 主机的 ~/.amux/config.toml 关键片段。
+# 由 `amux setup remote --hub <addr>` 生成;此处仅作对照参考。
+
+[hub]
+# 指向 hub 主机的可达地址。
+addr = "hub-host.example.com:7070"
+# 与 hub 配置中的 token 同步替换为实际共享值。
+token = "change-me-shared-secret"
+
+[runtime]
+# 在 hub 上显示的 target 标识,保持唯一、可辨识。
+id = "gpu-box-1"
+name = "gpu-box-1"
+auto_start = false
+# 容量上限(整机并发 session / 每 agent 并发)。
+max_sessions = 16
+max_concurrency = 4
+
+# 可选:标签,供调度选址(scheduler 候选过滤)。
+[runtime.labels]
+gpu = "true"
+region = "cn-north"

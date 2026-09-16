@@ -1,0 +1,2662 @@
+{
+  "# amux CLI 命令参考": {
+    "en": "# amux CLI Reference",
+    "zh-CN": "# amux CLI 命令参考"
+  },
+  "本文档由当前 `amux` Cobra 命令树自动生成，覆盖全部支持平台上的公开命令、参数、选项、默认值、别名和源码中登记的示例。根命令选项是所有子命令可用的全局选项；平台受限命令会明确标注，隐藏命令与隐藏选项不会被收录，也不构成公开 CLI 契约。": {
+    "en": "This reference is generated from the current `amux` Cobra command tree. It covers public commands, arguments, options, defaults, aliases, and registered examples on every supported platform. Root options are global options available to all subcommands. Platform restrictions are explicit. Hidden commands and flags are excluded from the public CLI contract.",
+    "zh-CN": "本文档由当前 `amux` Cobra 命令树自动生成，覆盖全部支持平台上的公开命令、参数、选项、默认值、别名和源码中登记的示例。根命令选项是所有子命令可用的全局选项；平台受限命令会明确标注，隐藏命令与隐藏选项不会被收录，也不构成公开 CLI 契约。"
+  },
+  "修改公开命令的名称、层级、可见性、说明、参数、选项或默认值后，必须运行 `make cli-doc`；仓库统一门禁会拒绝生成结果不一致的改动。产品语义与行为边界仍以 [`docs/current/cli-product-model.md`](../current/cli-product-model.md) 为准。": {
+    "en": "After changing public command names, hierarchy, visibility, descriptions, arguments, flags, or defaults, run `make cli-doc`. The repository check rejects stale generated output. Product semantics and behavior boundaries are defined by the [CLI product model](../current/cli-product-model.md).",
+    "zh-CN": "修改公开命令的名称、层级、可见性、说明、参数、选项或默认值后，必须运行 `make cli-doc`；仓库统一门禁会拒绝生成结果不一致的改动。产品语义与行为边界仍以 [`docs/current/cli-product-model.md`](../current/cli-product-model.md) 为准。"
+  },
+  "## 命令索引": {
+    "en": "## Command index",
+    "zh-CN": "## 命令索引"
+  },
+  "命令": {
+    "en": "Command",
+    "zh-CN": "命令"
+  },
+  "说明": {
+    "en": "Description",
+    "zh-CN": "说明"
+  },
+  "Unified manager for code agents across runtimes": {
+    "en": "Unified manager for code agents across runtimes",
+    "zh-CN": "统一管理多个 Runtime 上的代码智能体"
+  },
+  "Manage agent profiles": {
+    "en": "Manage agent profiles",
+    "zh-CN": "管理 Agent Profile"
+  },
+  "Manage credential profiles": {
+    "en": "Manage credential profiles",
+    "zh-CN": "管理凭据 Profile"
+  },
+  "List credential profiles": {
+    "en": "List credential profiles",
+    "zh-CN": "列出凭据 Profile"
+  },
+  "Save one environment secret in a credential profile": {
+    "en": "Save one environment secret in a credential profile",
+    "zh-CN": "在凭据 Profile 中保存一个环境变量密钥"
+  },
+  "Set up one credential for an identified Principal": {
+    "en": "Set up one credential for an identified Principal",
+    "zh-CN": "为 identified Principal 配置一项凭据"
+  },
+  "Show credential profile metadata without secret values": {
+    "en": "Show credential profile metadata without secret values",
+    "zh-CN": "显示凭据 Profile 元数据，不显示密钥值"
+  },
+  "Diagnose an agent profile": {
+    "en": "Diagnose an agent profile",
+    "zh-CN": "诊断 Agent Profile"
+  },
+  "List available agent profiles": {
+    "en": "List available agent profiles",
+    "zh-CN": "列出可用的 Agent Profile"
+  },
+  "Manage agent profile packs": {
+    "en": "Manage agent profile packs",
+    "zh-CN": "管理 Agent Profile Pack"
+  },
+  "Add a Git-backed agent pack": {
+    "en": "Add a Git-backed agent pack",
+    "zh-CN": "添加基于 Git 的 Agent Pack"
+  },
+  "Manage background agent pack auto sync": {
+    "en": "Manage background agent pack auto sync",
+    "zh-CN": "管理 Agent Pack 后台自动同步"
+  },
+  "Show background agent pack auto sync log path": {
+    "en": "Show background agent pack auto sync log path",
+    "zh-CN": "显示 Agent Pack 后台自动同步日志路径"
+  },
+  "Start background agent pack auto sync": {
+    "en": "Start background agent pack auto sync",
+    "zh-CN": "启动 Agent Pack 后台自动同步"
+  },
+  "Show background agent pack auto sync status": {
+    "en": "Show background agent pack auto sync status",
+    "zh-CN": "显示 Agent Pack 后台自动同步状态"
+  },
+  "Stop background agent pack auto sync": {
+    "en": "Stop background agent pack auto sync",
+    "zh-CN": "停止 Agent Pack 后台自动同步"
+  },
+  "List agent packs": {
+    "en": "List agent packs",
+    "zh-CN": "列出 Agent Pack"
+  },
+  "Remove an agent pack": {
+    "en": "Remove an agent pack",
+    "zh-CN": "移除 Agent Pack"
+  },
+  "Roll back a pack to a recorded revision": {
+    "en": "Roll back a pack to a recorded revision",
+    "zh-CN": "将 Pack 回滚到已记录的版本"
+  },
+  "Sync one or all agent packs": {
+    "en": "Sync one or all agent packs",
+    "zh-CN": "同步一个或全部 Agent Pack"
+  },
+  "List recorded pack revisions": {
+    "en": "List recorded pack revisions",
+    "zh-CN": "列出已记录的 Pack 版本"
+  },
+  "Continuously sync an agent pack": {
+    "en": "Continuously sync an agent pack",
+    "zh-CN": "持续同步 Agent Pack"
+  },
+  "Render a profile workspace projection": {
+    "en": "Render a profile workspace projection",
+    "zh-CN": "渲染 Profile 工作区投影"
+  },
+  "Show an agent profile": {
+    "en": "Show an agent profile",
+    "zh-CN": "显示 Agent Profile"
+  },
+  "Generate the autocompletion script for the specified shell": {
+    "en": "Generate the autocompletion script for the specified shell",
+    "zh-CN": "为指定 Shell 生成自动补全脚本"
+  },
+  "Generate the autocompletion script for bash": {
+    "en": "Generate the autocompletion script for bash",
+    "zh-CN": "为 bash 生成自动补全脚本"
+  },
+  "Generate the autocompletion script for fish": {
+    "en": "Generate the autocompletion script for fish",
+    "zh-CN": "为 fish 生成自动补全脚本"
+  },
+  "Generate the autocompletion script for powershell": {
+    "en": "Generate the autocompletion script for powershell",
+    "zh-CN": "为 powershell 生成自动补全脚本"
+  },
+  "Generate the autocompletion script for zsh": {
+    "en": "Generate the autocompletion script for zsh",
+    "zh-CN": "为 zsh 生成自动补全脚本"
+  },
+  "Help about any command": {
+    "en": "Help about any command",
+    "zh-CN": "查看任意命令的帮助"
+  },
+  "Manage identified principals and Linux UID/DAC isolation": {
+    "en": "Manage identified principals and Linux UID/DAC isolation",
+    "zh-CN": "管理 identified Principal 和 Linux UID/DAC 隔离"
+  },
+  "Inspect target-local principal account mappings": {
+    "en": "Inspect target-local principal account mappings",
+    "zh-CN": "检查目标 Runtime 本地的 Principal 账号映射"
+  },
+  "Preview or explicitly remove idle principal accounts": {
+    "en": "Preview or explicitly remove idle principal accounts",
+    "zh-CN": "预览或显式删除空闲 Principal 账号"
+  },
+  "List mappings known to this runtime": {
+    "en": "List mappings known to this runtime",
+    "zh-CN": "列出当前 Runtime 已知的映射"
+  },
+  "Manage scoped principal aliases": {
+    "en": "Manage scoped principal aliases",
+    "zh-CN": "管理带作用域的 Principal 别名"
+  },
+  "Bind provider/scope/subject to a principal": {
+    "en": "Bind provider/scope/subject to a principal",
+    "zh-CN": "将 provider/scope/subject 绑定到 Principal"
+  },
+  "List scoped principal aliases": {
+    "en": "List scoped principal aliases",
+    "zh-CN": "列出带作用域的 Principal 别名"
+  },
+  "Manage run_as delegations": {
+    "en": "Manage run_as delegations",
+    "zh-CN": "管理 run_as 委托"
+  },
+  "Grant an actor permission to run as another principal": {
+    "en": "Grant an actor permission to run as another principal",
+    "zh-CN": "授权 actor 以另一个 Principal 的身份运行"
+  },
+  "Revoke a run_as delegation": {
+    "en": "Revoke a run_as delegation",
+    "zh-CN": "撤销 run_as 委托"
+  },
+  "Create and store a CLI actor credential": {
+    "en": "Create and store a CLI actor credential",
+    "zh-CN": "创建并保存 CLI actor 凭据"
+  },
+  "Manage environment secrets shared by identified isolated executions": {
+    "en": "Manage environment secrets shared by identified isolated executions",
+    "zh-CN": "管理 identified 隔离执行共享的环境变量密钥"
+  },
+  "List shared isolated environment names without values": {
+    "en": "List shared isolated environment names without values",
+    "zh-CN": "列出共享隔离环境变量名，不显示值"
+  },
+  "Save one installation-wide isolated environment secret": {
+    "en": "Save one installation-wide isolated environment secret",
+    "zh-CN": "保存一个安装级隔离环境变量密钥"
+  },
+  "Remove one installation-wide isolated environment secret": {
+    "en": "Remove one installation-wide isolated environment secret",
+    "zh-CN": "移除一个安装级隔离环境变量密钥"
+  },
+  "Install and manage the privileged Linux helper": {
+    "en": "Install and manage the privileged Linux helper",
+    "zh-CN": "安装和管理特权 Linux helper"
+  },
+  "Explicitly install and start the root helper systemd unit": {
+    "en": "Explicitly install and start the root helper systemd unit",
+    "zh-CN": "显式安装并启动 root helper 的 systemd 单元"
+  },
+  "Check the local helper handshake": {
+    "en": "Check the local helper handshake",
+    "zh-CN": "检查本地 helper 握手"
+  },
+  "Stop and remove the helper; preserve account data by default": {
+    "en": "Stop and remove the helper; preserve account data by default",
+    "zh-CN": "停止并移除 helper，默认保留账号数据"
+  },
+  "Manage canonical principals": {
+    "en": "Manage canonical principals",
+    "zh-CN": "管理 canonical Principal"
+  },
+  "Create a human or service principal": {
+    "en": "Create a human or service principal",
+    "zh-CN": "创建 human 或 service Principal"
+  },
+  "Disable a principal for new execution and authorization": {
+    "en": "Disable a principal for new execution and authorization",
+    "zh-CN": "禁用 Principal 的新执行和授权"
+  },
+  "List principals": {
+    "en": "List principals",
+    "zh-CN": "列出 Principal"
+  },
+  "Manage service-principal membership": {
+    "en": "Manage service-principal membership",
+    "zh-CN": "管理 service Principal 成员关系"
+  },
+  "Allow a human principal to run as a service principal": {
+    "en": "Allow a human principal to run as a service principal",
+    "zh-CN": "允许 human Principal 以 service Principal 身份运行"
+  },
+  "Revoke service-principal membership and active service launches": {
+    "en": "Revoke service-principal membership and active service launches",
+    "zh-CN": "撤销 service Principal 成员关系及活动服务启动"
+  },
+  "Show isolation configuration, helper readiness, and fallback state": {
+    "en": "Show isolation configuration, helper readiness, and fallback state",
+    "zh-CN": "显示隔离配置、helper 就绪情况和回退状态"
+  },
+  "Schedule prompts or subtasks on a timer": {
+    "en": "Schedule prompts or subtasks on a timer",
+    "zh-CN": "定时调度 Prompt 或子任务"
+  },
+  "Create a scheduled prompt": {
+    "en": "Create a scheduled prompt",
+    "zh-CN": "创建定时 Prompt"
+  },
+  "Create a scheduled subtask": {
+    "en": "Create a scheduled subtask",
+    "zh-CN": "创建定时子任务"
+  },
+  "Disable a scheduled prompt": {
+    "en": "Disable a scheduled prompt",
+    "zh-CN": "禁用定时 Prompt"
+  },
+  "Enable a scheduled prompt": {
+    "en": "Enable a scheduled prompt",
+    "zh-CN": "启用定时 Prompt"
+  },
+  "List scheduled prompts and subtasks": {
+    "en": "List scheduled prompts and subtasks",
+    "zh-CN": "列出定时 Prompt 和子任务"
+  },
+  "Delete a scheduled prompt": {
+    "en": "Delete a scheduled prompt",
+    "zh-CN": "删除定时 Prompt"
+  },
+  "List runs for a schedule": {
+    "en": "List runs for a schedule",
+    "zh-CN": "列出某个 Schedule 的运行记录"
+  },
+  "Update a scheduled prompt or subtask in place": {
+    "en": "Update a scheduled prompt or subtask in place",
+    "zh-CN": "原地更新定时 Prompt 或子任务"
+  },
+  "Manage agent sessions": {
+    "en": "Manage agent sessions",
+    "zh-CN": "管理智能体 Session"
+  },
+  "Attach to a session (/detach or Ctrl-] to detach)": {
+    "en": "Attach to a session (/detach or Ctrl-] to detach)",
+    "zh-CN": "连接 Session（使用 /detach 或 Ctrl-] 断开）"
+  },
+  "Show or change a session working directory": {
+    "en": "Show or change a session working directory",
+    "zh-CN": "显示或修改 Session 工作目录"
+  },
+  "Interrupt the current turn without killing the session": {
+    "en": "Interrupt the current turn without killing the session",
+    "zh-CN": "中断当前轮，不结束 Session"
+  },
+  "List sessions": {
+    "en": "List sessions",
+    "zh-CN": "列出 Session"
+  },
+  "Remove archived (invalid) sessions from the default target": {
+    "en": "Remove archived (invalid) sessions from the default target",
+    "zh-CN": "从默认 target 清理已归档（无效）的 Session"
+  },
+  "Show pending input queue for a session": {
+    "en": "Show pending input queue for a session",
+    "zh-CN": "显示 Session 的待处理输入队列"
+  },
+  "Cancel one pending input": {
+    "en": "Cancel one pending input",
+    "zh-CN": "取消一条待处理输入"
+  },
+  "Clear pending input queue for a session": {
+    "en": "Clear pending input queue for a session",
+    "zh-CN": "清空 Session 的待处理输入队列"
+  },
+  "Restart one session or all running local user sessions": {
+    "en": "Restart one session or all running local user sessions",
+    "zh-CN": "重启一个 Session 或全部正在运行的本地用户 Session"
+  },
+  "Resume a sleeping session on its current runtime": {
+    "en": "Resume a sleeping session on its current runtime",
+    "zh-CN": "在当前 Runtime 上恢复休眠 Session"
+  },
+  "Start an agent and register it as a session": {
+    "en": "Start an agent and register it as a session",
+    "zh-CN": "启动智能体并注册为 Session"
+  },
+  "Send one message to a session without attaching": {
+    "en": "Send one message to a session without attaching",
+    "zh-CN": "向 Session 发送一条消息，不连接交互界面"
+  },
+  "Switch a session's model while retaining its conversation history": {
+    "en": "Switch a session's model while retaining its conversation history",
+    "zh-CN": "切换 Session 模型并保留对话历史"
+  },
+  "Stop a session process while keeping it resumable": {
+    "en": "Stop a session process while keeping it resumable",
+    "zh-CN": "停止 Session 进程，保留恢复能力"
+  },
+  "Stop a session and its agent process": {
+    "en": "Stop a session and its agent process",
+    "zh-CN": "停止 Session 及其智能体进程"
+  },
+  "Set up this amux installation": {
+    "en": "Set up this amux installation",
+    "zh-CN": "配置当前 amux 安装"
+  },
+  "Inspect and manage this amux installation": {
+    "en": "Inspect and manage this amux installation",
+    "zh-CN": "检查和管理当前 amux 安装"
+  },
+  "Manage amux configuration": {
+    "en": "Manage amux configuration",
+    "zh-CN": "管理 amux 配置"
+  },
+  "Get config value": {
+    "en": "Get config value",
+    "zh-CN": "获取配置值"
+  },
+  "Print config file path": {
+    "en": "Print config file path",
+    "zh-CN": "输出配置文件路径"
+  },
+  "Set config value": {
+    "en": "Set config value",
+    "zh-CN": "设置配置值"
+  },
+  "Print config with shared environment values redacted": {
+    "en": "Print config with shared environment values redacted",
+    "zh-CN": "显示配置并隐藏共享环境变量值"
+  },
+  "Unset config value": {
+    "en": "Unset config value",
+    "zh-CN": "删除配置值"
+  },
+  "Correlate a message, turn, task, or session": {
+    "en": "Correlate a message, turn, task, or session",
+    "zh-CN": "关联查询消息、轮次、任务或 Session"
+  },
+  "Diagnose this installation without changing it": {
+    "en": "Diagnose this installation without changing it",
+    "zh-CN": "诊断当前安装，不修改配置"
+  },
+  "Show installation log paths": {
+    "en": "Show installation log paths",
+    "zh-CN": "显示安装日志路径"
+  },
+  "Inspect and cancel lifecycle operations": {
+    "en": "Inspect and cancel lifecycle operations",
+    "zh-CN": "检查和取消生命周期操作"
+  },
+  "Cancel a pending lifecycle operation": {
+    "en": "Cancel a pending lifecycle operation",
+    "zh-CN": "取消待处理的生命周期操作"
+  },
+  "List lifecycle operations": {
+    "en": "List lifecycle operations",
+    "zh-CN": "列出生命周期操作"
+  },
+  "Show a lifecycle operation": {
+    "en": "Show a lifecycle operation",
+    "zh-CN": "显示生命周期操作"
+  },
+  "Restart this amux installation": {
+    "en": "Restart this amux installation",
+    "zh-CN": "重启当前 amux 安装"
+  },
+  "Start this amux installation": {
+    "en": "Start this amux installation",
+    "zh-CN": "启动当前 amux 安装"
+  },
+  "Show installation status": {
+    "en": "Show installation status",
+    "zh-CN": "显示安装状态"
+  },
+  "Stop this amux installation": {
+    "en": "Stop this amux installation",
+    "zh-CN": "停止当前 amux 安装"
+  },
+  "Manage runtime targets": {
+    "en": "Manage runtime targets",
+    "zh-CN": "管理 Runtime target"
+  },
+  "List runtimes connected to the hub": {
+    "en": "List runtimes connected to the hub",
+    "zh-CN": "列出连接到 Hub 的 Runtime"
+  },
+  "Uninstall amux from the current user": {
+    "en": "Uninstall amux from the current user",
+    "zh-CN": "卸载当前用户的 amux"
+  },
+  "Run and manage subagent tasks": {
+    "en": "Run and manage subagent tasks",
+    "zh-CN": "运行和管理子智能体任务"
+  },
+  "Cancel a task": {
+    "en": "Cancel a task",
+    "zh-CN": "取消任务"
+  },
+  "List tasks": {
+    "en": "List tasks",
+    "zh-CN": "列出任务"
+  },
+  "Stream a task's events until it finishes (read-only)": {
+    "en": "Stream a task's events until it finishes (read-only)",
+    "zh-CN": "持续读取任务事件直至结束（只读）"
+  },
+  "Delete terminal task history": {
+    "en": "Delete terminal task history",
+    "zh-CN": "删除终态任务历史"
+  },
+  "Answer an escalated permission request (escalate-to-main)": {
+    "en": "Answer an escalated permission request (escalate-to-main)",
+    "zh-CN": "响应升级的权限请求（escalate-to-main）"
+  },
+  "Show a task's status and result": {
+    "en": "Show a task's status and result",
+    "zh-CN": "显示任务状态和结果"
+  },
+  "Submit a subagent task": {
+    "en": "Submit a subagent task",
+    "zh-CN": "提交子智能体任务"
+  },
+  "**用法**": {
+    "en": "**Usage**",
+    "zh-CN": "**用法**"
+  },
+  "**子命令**": {
+    "en": "**Subcommands**",
+    "zh-CN": "**子命令**"
+  },
+  "**选项**": {
+    "en": "**Options**",
+    "zh-CN": "**选项**"
+  },
+  "选项": {
+    "en": "Option",
+    "zh-CN": "选项"
+  },
+  "类型": {
+    "en": "Type",
+    "zh-CN": "类型"
+  },
+  "默认值": {
+    "en": "Default",
+    "zh-CN": "默认值"
+  },
+  "help for amux": {
+    "en": "help for amux",
+    "zh-CN": "amux 帮助"
+  },
+  "output stable JSON": {
+    "en": "output stable JSON",
+    "zh-CN": "输出稳定的 JSON"
+  },
+  "version for amux": {
+    "en": "version for amux",
+    "zh-CN": "amux 版本"
+  },
+  "help for agent": {
+    "en": "help for agent",
+    "zh-CN": "agent 帮助"
+  },
+  "help for credential": {
+    "en": "help for credential",
+    "zh-CN": "credential 帮助"
+  },
+  "**别名：** `list`": {
+    "en": "**Aliases:** `list`",
+    "zh-CN": "**别名：** `list`"
+  },
+  "help for ls": {
+    "en": "help for ls",
+    "zh-CN": "ls 帮助"
+  },
+  "**示例**": {
+    "en": "**Examples**",
+    "zh-CN": "**示例**"
+  },
+  "help for set": {
+    "en": "help for set",
+    "zh-CN": "set 帮助"
+  },
+  "copy the value from the legacy-host credential store": {
+    "en": "copy the value from the legacy-host credential store",
+    "zh-CN": "从 legacy-host 凭据存储复制值"
+  },
+  "help for setup": {
+    "en": "help for setup",
+    "zh-CN": "setup 帮助"
+  },
+  "target Principal UUID (required)": {
+    "en": "target Principal UUID (required)",
+    "zh-CN": "目标 Principal UUID（必填）"
+  },
+  "replace the local CLI enrollment with the target Principal": {
+    "en": "replace the local CLI enrollment with the target Principal",
+    "zh-CN": "用目标 Principal 替换本地 CLI 注册身份"
+  },
+  "help for show": {
+    "en": "help for show",
+    "zh-CN": "show 帮助"
+  },
+  "help for doctor": {
+    "en": "help for doctor",
+    "zh-CN": "doctor 帮助"
+  },
+  "model to diagnose within the selected runtime": {
+    "en": "model to diagnose within the selected runtime",
+    "zh-CN": "在所选 Runtime 中诊断的模型"
+  },
+  "runtime adapter to diagnose with the Agent Profile": {
+    "en": "runtime adapter to diagnose with the Agent Profile",
+    "zh-CN": "使用该 Agent Profile 进行诊断的 Runtime Adapter"
+  },
+  "run one real end-to-end task turn after static checks": {
+    "en": "run one real end-to-end task turn after static checks",
+    "zh-CN": "完成静态检查后运行一次真实端到端任务轮次"
+  },
+  "smoke turn timeout in seconds": {
+    "en": "smoke turn timeout in seconds",
+    "zh-CN": "冒烟测试轮次超时秒数"
+  },
+  "include dev profile namespaces": {
+    "en": "include dev profile namespaces",
+    "zh-CN": "包含开发版 Profile 命名空间"
+  },
+  "show only dev profile namespaces": {
+    "en": "show only dev profile namespaces",
+    "zh-CN": "仅显示开发版 Profile 命名空间"
+  },
+  "help for list": {
+    "en": "help for list",
+    "zh-CN": "list 帮助"
+  },
+  "help for pack": {
+    "en": "help for pack",
+    "zh-CN": "pack 帮助"
+  },
+  "formal pack namespace that owns this development pack": {
+    "en": "formal pack namespace that owns this development pack",
+    "zh-CN": "此开发 Pack 所属的正式 Pack 命名空间"
+  },
+  "help for add": {
+    "en": "help for add",
+    "zh-CN": "add 帮助"
+  },
+  "record the pack with auto sync disabled": {
+    "en": "record the pack with auto sync disabled",
+    "zh-CN": "登记 Pack 时禁用自动同步"
+  },
+  "Git ref to sync, such as stable, main, or a tag": {
+    "en": "Git ref to sync, such as stable, main, or a tag",
+    "zh-CN": "要同步的 Git ref，例如 stable、main 或 tag"
+  },
+  "default auto sync interval recorded for the pack": {
+    "en": "default auto sync interval recorded for the pack",
+    "zh-CN": "为该 Pack 记录的默认自动同步间隔"
+  },
+  "mark a --dev-of pack as temporary and disable auto sync": {
+    "en": "mark a --dev-of pack as temporary and disable auto sync",
+    "zh-CN": "将 --dev-of Pack 标为临时并禁用自动同步"
+  },
+  "help for autosync": {
+    "en": "help for autosync",
+    "zh-CN": "autosync 帮助"
+  },
+  "help for logs": {
+    "en": "help for logs",
+    "zh-CN": "logs 帮助"
+  },
+  "help for start": {
+    "en": "help for start",
+    "zh-CN": "start 帮助"
+  },
+  "help for status": {
+    "en": "help for status",
+    "zh-CN": "status 帮助"
+  },
+  "help for stop": {
+    "en": "help for stop",
+    "zh-CN": "stop 帮助"
+  },
+  "**别名：** `rm`、`delete`": {
+    "en": "**Aliases:** `rm`, `delete`",
+    "zh-CN": "**别名：** `rm`、`delete`"
+  },
+  "help for remove": {
+    "en": "help for remove",
+    "zh-CN": "remove 帮助"
+  },
+  "unregister the pack without deleting its local materialized files": {
+    "en": "unregister the pack without deleting its local materialized files",
+    "zh-CN": "注销 Pack，但不删除本地物化文件"
+  },
+  "help for rollback": {
+    "en": "help for rollback",
+    "zh-CN": "rollback 帮助"
+  },
+  "help for sync": {
+    "en": "help for sync",
+    "zh-CN": "sync 帮助"
+  },
+  "help for versions": {
+    "en": "help for versions",
+    "zh-CN": "versions 帮助"
+  },
+  "help for watch": {
+    "en": "help for watch",
+    "zh-CN": "watch 帮助"
+  },
+  "sync interval": {
+    "en": "sync interval",
+    "zh-CN": "同步间隔"
+  },
+  "help for render": {
+    "en": "help for render",
+    "zh-CN": "render 帮助"
+  },
+  "output workspace directory": {
+    "en": "output workspace directory",
+    "zh-CN": "输出工作区目录"
+  },
+  "Generate the autocompletion script for amux for the specified shell.": {
+    "en": "Generate the autocompletion script for amux for the specified shell.",
+    "zh-CN": "为指定 Shell 生成 amux 自动补全脚本。"
+  },
+  "See each sub-command's help for details on how to use the generated script.": {
+    "en": "See each sub-command's help for details on how to use the generated script.",
+    "zh-CN": "生成脚本的使用方法见各子命令帮助。"
+  },
+  "help for completion": {
+    "en": "help for completion",
+    "zh-CN": "completion 帮助"
+  },
+  "Generate the autocompletion script for the bash shell.": {
+    "en": "Generate the autocompletion script for the bash shell.",
+    "zh-CN": "为 bash Shell 生成自动补全脚本。"
+  },
+  "This script depends on the 'bash-completion' package.": {
+    "en": "This script depends on the 'bash-completion' package.",
+    "zh-CN": "该脚本依赖 bash-completion 包。"
+  },
+  "If it is not installed already, you can install it via your OS's package manager.": {
+    "en": "If it is not installed already, you can install it via your OS's package manager.",
+    "zh-CN": "尚未安装时，可通过操作系统包管理器安装。"
+  },
+  "To load completions in your current shell session:": {
+    "en": "To load completions in your current shell session:",
+    "zh-CN": "在当前 Shell 会话中加载补全："
+  },
+  "source <(amux completion bash)": {
+    "en": "source <(amux completion bash)",
+    "zh-CN": "source <(amux completion bash)"
+  },
+  "To load completions for every new session, execute once:": {
+    "en": "To load completions for every new session, execute once:",
+    "zh-CN": "为后续每个新会话加载补全，只需执行一次："
+  },
+  "#### Linux:": {
+    "en": "#### Linux:",
+    "zh-CN": "#### Linux："
+  },
+  "amux completion bash > /etc/bash_completion.d/amux": {
+    "en": "amux completion bash > /etc/bash_completion.d/amux",
+    "zh-CN": "amux completion bash > /etc/bash_completion.d/amux"
+  },
+  "#### macOS:": {
+    "en": "#### macOS:",
+    "zh-CN": "#### macOS："
+  },
+  "amux completion bash > $(brew --prefix)/etc/bash_completion.d/amux": {
+    "en": "amux completion bash > $(brew --prefix)/etc/bash_completion.d/amux",
+    "zh-CN": "amux completion bash > $(brew --prefix)/etc/bash_completion.d/amux"
+  },
+  "You will need to start a new shell for this setup to take effect.": {
+    "en": "You will need to start a new shell for this setup to take effect.",
+    "zh-CN": "需要启动新的 Shell 才能生效。"
+  },
+  "help for bash": {
+    "en": "help for bash",
+    "zh-CN": "bash 帮助"
+  },
+  "disable completion descriptions": {
+    "en": "disable completion descriptions",
+    "zh-CN": "禁用补全说明"
+  },
+  "Generate the autocompletion script for the fish shell.": {
+    "en": "Generate the autocompletion script for the fish shell.",
+    "zh-CN": "为 fish Shell 生成自动补全脚本。"
+  },
+  "amux completion fish | source": {
+    "en": "amux completion fish | source",
+    "zh-CN": "amux completion fish | source"
+  },
+  "amux completion fish > ~/.config/fish/completions/amux.fish": {
+    "en": "amux completion fish > ~/.config/fish/completions/amux.fish",
+    "zh-CN": "amux completion fish > ~/.config/fish/completions/amux.fish"
+  },
+  "help for fish": {
+    "en": "help for fish",
+    "zh-CN": "fish 帮助"
+  },
+  "Generate the autocompletion script for powershell.": {
+    "en": "Generate the autocompletion script for powershell.",
+    "zh-CN": "为 powershell 生成自动补全脚本。"
+  },
+  "amux completion powershell | Out-String | Invoke-Expression": {
+    "en": "amux completion powershell | Out-String | Invoke-Expression",
+    "zh-CN": "amux completion powershell | Out-String | Invoke-Expression"
+  },
+  "To load completions for every new session, add the output of the above command": {
+    "en": "To load completions for every new session, add the output of the above command",
+    "zh-CN": "要在每个新会话中加载补全，将上述命令的输出"
+  },
+  "to your powershell profile.": {
+    "en": "to your powershell profile.",
+    "zh-CN": "加入 powershell Profile。"
+  },
+  "help for powershell": {
+    "en": "help for powershell",
+    "zh-CN": "powershell 帮助"
+  },
+  "Generate the autocompletion script for the zsh shell.": {
+    "en": "Generate the autocompletion script for the zsh shell.",
+    "zh-CN": "为 zsh Shell 生成自动补全脚本。"
+  },
+  "If shell completion is not already enabled in your environment you will need": {
+    "en": "If shell completion is not already enabled in your environment you will need",
+    "zh-CN": "如果当前环境尚未启用 Shell 补全，"
+  },
+  "to enable it.  You can execute the following once:": {
+    "en": "to enable it.  You can execute the following once:",
+    "zh-CN": "可执行以下命令启用，只需执行一次："
+  },
+  "echo \"autoload -U compinit; compinit\" >> ~/.zshrc": {
+    "en": "echo \"autoload -U compinit; compinit\" >> ~/.zshrc",
+    "zh-CN": "echo \"autoload -U compinit; compinit\" >> ~/.zshrc"
+  },
+  "source <(amux completion zsh)": {
+    "en": "source <(amux completion zsh)",
+    "zh-CN": "source <(amux completion zsh)"
+  },
+  "amux completion zsh > \"${fpath[1]}/_amux\"": {
+    "en": "amux completion zsh > \"${fpath[1]}/_amux\"",
+    "zh-CN": "amux completion zsh > \"${fpath[1]}/_amux\""
+  },
+  "amux completion zsh > $(brew --prefix)/share/zsh/site-functions/_amux": {
+    "en": "amux completion zsh > $(brew --prefix)/share/zsh/site-functions/_amux",
+    "zh-CN": "amux completion zsh > $(brew --prefix)/share/zsh/site-functions/_amux"
+  },
+  "help for zsh": {
+    "en": "help for zsh",
+    "zh-CN": "zsh 帮助"
+  },
+  "Help provides help for any command in the application.": {
+    "en": "Help provides help for any command in the application.",
+    "zh-CN": "Help 提供应用中任意命令的帮助。"
+  },
+  "Simply type amux help [path to command] for full details.": {
+    "en": "Simply type amux help [path to command] for full details.",
+    "zh-CN": "输入 amux help [命令路径] 即可查看完整说明。"
+  },
+  "help for help": {
+    "en": "help for help",
+    "zh-CN": "help 帮助"
+  },
+  "help for isolation": {
+    "en": "help for isolation",
+    "zh-CN": "isolation 帮助"
+  },
+  "help for account": {
+    "en": "help for account",
+    "zh-CN": "account 帮助"
+  },
+  "exact principal UUID to remove": {
+    "en": "exact principal UUID to remove",
+    "zh-CN": "要删除的准确 Principal UUID"
+  },
+  "perform irreversible account/HOME/workspace removal": {
+    "en": "perform irreversible account/HOME/workspace removal",
+    "zh-CN": "执行不可逆的账号、HOME 和工作区删除"
+  },
+  "help for gc": {
+    "en": "help for gc",
+    "zh-CN": "gc 帮助"
+  },
+  "idle age threshold (default isolation.gc_idle_days)": {
+    "en": "idle age threshold (default isolation.gc_idle_days)",
+    "zh-CN": "空闲时长阈值（默认 isolation.gc_idle_days）"
+  },
+  "output JSON": {
+    "en": "output JSON",
+    "zh-CN": "输出 JSON"
+  },
+  "help for alias": {
+    "en": "help for alias",
+    "zh-CN": "alias 帮助"
+  },
+  "help for bind": {
+    "en": "help for bind",
+    "zh-CN": "bind 帮助"
+  },
+  "principal UUID (required)": {
+    "en": "principal UUID (required)",
+    "zh-CN": "Principal UUID（必填）"
+  },
+  "alias provider": {
+    "en": "alias provider",
+    "zh-CN": "别名的 provider"
+  },
+  "provider-local scope": {
+    "en": "provider-local scope",
+    "zh-CN": "provider 本地作用域"
+  },
+  "provider subject (required)": {
+    "en": "provider subject (required)",
+    "zh-CN": "provider subject（必填）"
+  },
+  "help for delegation": {
+    "en": "help for delegation",
+    "zh-CN": "delegation 帮助"
+  },
+  "help for grant": {
+    "en": "help for grant",
+    "zh-CN": "grant 帮助"
+  },
+  "help for revoke": {
+    "en": "help for revoke",
+    "zh-CN": "revoke 帮助"
+  },
+  "help for enroll": {
+    "en": "help for enroll",
+    "zh-CN": "enroll 帮助"
+  },
+  "actor provider": {
+    "en": "actor provider",
+    "zh-CN": "actor provider"
+  },
+  "replace an existing local enrollment credential": {
+    "en": "replace an existing local enrollment credential",
+    "zh-CN": "替换已有的本地注册凭据"
+  },
+  "provider subject (default current user)": {
+    "en": "provider subject (default current user)",
+    "zh-CN": "provider subject（默认当前用户）"
+  },
+  "help for global-env": {
+    "en": "help for global-env",
+    "zh-CN": "global-env 帮助"
+  },
+  "help for unset": {
+    "en": "help for unset",
+    "zh-CN": "unset 帮助"
+  },
+  "**适用平台：** `linux`": {
+    "en": "**Platforms:** `linux`",
+    "zh-CN": "**适用平台：** `linux`"
+  },
+  "help for helper": {
+    "en": "help for helper",
+    "zh-CN": "helper 帮助"
+  },
+  "service user's AMUX_HOME": {
+    "en": "service user's AMUX_HOME",
+    "zh-CN": "服务用户的 AMUX_HOME"
+  },
+  "help for install": {
+    "en": "help for install",
+    "zh-CN": "install 帮助"
+  },
+  "enable mount namespace hardening": {
+    "en": "enable mount namespace hardening",
+    "zh-CN": "启用 mount namespace 加固"
+  },
+  "enable PID namespace hardening": {
+    "en": "enable PID namespace hardening",
+    "zh-CN": "启用 PID namespace 加固"
+  },
+  "principal data root": {
+    "en": "principal data root",
+    "zh-CN": "Principal 数据根目录"
+  },
+  "enable provider seccomp hardening": {
+    "en": "enable provider seccomp hardening",
+    "zh-CN": "启用 provider seccomp 加固"
+  },
+  "amuxlet service gid": {
+    "en": "amuxlet service gid",
+    "zh-CN": "amuxlet 服务 GID"
+  },
+  "amuxlet service uid allowed to connect": {
+    "en": "amuxlet service uid allowed to connect",
+    "zh-CN": "允许连接的 amuxlet 服务 UID"
+  },
+  "absolute helper socket path (default <amux-home>/isolation-helper.sock)": {
+    "en": "absolute helper socket path (default <amux-home>/isolation-helper.sock)",
+    "zh-CN": "helper socket 的绝对路径（默认 <amux-home>/isolation-helper.sock）"
+  },
+  "last dedicated principal uid": {
+    "en": "last dedicated principal uid",
+    "zh-CN": "专用 Principal UID 范围的上界"
+  },
+  "first dedicated principal uid": {
+    "en": "first dedicated principal uid",
+    "zh-CN": "专用 Principal UID 范围的下界"
+  },
+  "kill active isolated launches before uninstall": {
+    "en": "kill active isolated launches before uninstall",
+    "zh-CN": "卸载前结束活动的隔离执行"
+  },
+  "help for uninstall": {
+    "en": "help for uninstall",
+    "zh-CN": "uninstall 帮助"
+  },
+  "request destructive data purge (requires separate manual review)": {
+    "en": "request destructive data purge (requires separate manual review)",
+    "zh-CN": "请求破坏性数据清除（需要单独人工审核）"
+  },
+  "help for principal": {
+    "en": "help for principal",
+    "zh-CN": "principal 帮助"
+  },
+  "help for create": {
+    "en": "help for create",
+    "zh-CN": "create 帮助"
+  },
+  "principal kind: human or service": {
+    "en": "principal kind: human or service",
+    "zh-CN": "Principal 类型：human 或 service"
+  },
+  "optional fixed environment target id": {
+    "en": "optional fixed environment target id",
+    "zh-CN": "可选的固定环境 target ID"
+  },
+  "help for disable": {
+    "en": "help for disable",
+    "zh-CN": "disable 帮助"
+  },
+  "help for service-member": {
+    "en": "help for service-member",
+    "zh-CN": "service-member 帮助"
+  },
+  "member principal UUID (required)": {
+    "en": "member principal UUID (required)",
+    "zh-CN": "成员 Principal UUID（必填）"
+  },
+  "service principal UUID (required)": {
+    "en": "service principal UUID (required)",
+    "zh-CN": "service Principal UUID（必填）"
+  },
+  "Manage scheduled prompts and scheduled subtasks. At the scheduled time": {
+    "en": "Manage scheduled prompts and scheduled subtasks. At the scheduled time",
+    "zh-CN": "管理定时 Prompt 和定时子任务。到达指定时间时，"
+  },
+  "amuxd either injects a prompt into a target session (the same as typing it) or": {
+    "en": "amuxd either injects a prompt into a target session (the same as typing it) or",
+    "zh-CN": "amuxd 向目标 Session 注入 Prompt（等同于用户输入），或"
+  },
+  "submits an ephemeral subtask from a saved task spec. Schedules live in the hub": {
+    "en": "submits an ephemeral subtask from a saved task spec. Schedules live in the hub",
+    "zh-CN": "按已保存的任务规格提交临时子任务。Schedule 保存在 Hub"
+  },
+  "(amuxd), so a hub address must be configured.": {
+    "en": "(amuxd), so a hub address must be configured.",
+    "zh-CN": "（amuxd）中，因此必须配置 Hub 地址。"
+  },
+  "Time spec forms:": {
+    "en": "Time spec forms:",
+    "zh-CN": "时间规则格式："
+  },
+  "every <duration>   e.g. \"every 30m\", \"every 2h\" (minimum 1m)": {
+    "en": "every <duration>   e.g. \"every 30m\", \"every 2h\" (minimum 1m)",
+    "zh-CN": "every <duration>   例如 \"every 30m\"、\"every 2h\"（最短 1m）"
+  },
+  "daily <HH:MM>      e.g. \"daily 09:00\" (server local time)": {
+    "en": "daily <HH:MM>      e.g. \"daily 09:00\" (server local time)",
+    "zh-CN": "daily <HH:MM>      例如 \"daily 09:00\"（服务器本地时间）"
+  },
+  "at <when>          e.g. \"at 2026-06-01 09:00\" (one-shot)": {
+    "en": "at <when>          e.g. \"at 2026-06-01 09:00\" (one-shot)",
+    "zh-CN": "at <when>          例如 \"at 2026-06-01 09:00\"（仅执行一次）"
+  },
+  "cron <expr>        e.g. \"cron 0 9 * * 1-5\" (standard 5-field)": {
+    "en": "cron <expr>        e.g. \"cron 0 9 * * 1-5\" (standard 5-field)",
+    "zh-CN": "cron <expr>        例如 \"cron 0 9 * * 1-5\"（标准五字段）"
+  },
+  "help for schedule": {
+    "en": "help for schedule",
+    "zh-CN": "schedule 帮助"
+  },
+  "optional label for the schedule": {
+    "en": "optional label for the schedule",
+    "zh-CN": "Schedule 的可选标签"
+  },
+  "execution mode: reuse-session or new-session-per-run": {
+    "en": "execution mode: reuse-session or new-session-per-run",
+    "zh-CN": "执行模式：reuse-session 或 new-session-per-run"
+  },
+  "agent profile ref or legacy agent type to run": {
+    "en": "agent profile ref or legacy agent type to run",
+    "zh-CN": "要运行的 Agent Profile 引用或旧版 Agent 类型"
+  },
+  "credential profile name (control-plane resolved)": {
+    "en": "credential profile name (control-plane resolved)",
+    "zh-CN": "凭据 Profile 名称（由控制面解析）"
+  },
+  "help for create-task": {
+    "en": "help for create-task",
+    "zh-CN": "create-task 帮助"
+  },
+  "isolation: process \\| private-home (default process)": {
+    "en": "isolation: process \\| private-home (default process)",
+    "zh-CN": "隔离模式：process \\| private-home（默认 process）"
+  },
+  "target-local working directory override": {
+    "en": "target-local working directory override",
+    "zh-CN": "覆盖目标机器上的工作目录"
+  },
+  "model ref supported by the selected agent profile": {
+    "en": "model ref supported by the selected agent profile",
+    "zh-CN": "所选 Agent Profile 支持的模型引用"
+  },
+  "permission policy: default, policy-allow, or deny-all": {
+    "en": "permission policy: default, policy-allow, or deny-all",
+    "zh-CN": "权限策略：default、policy-allow 或 deny-all"
+  },
+  "workspace repo cache key": {
+    "en": "workspace repo cache key",
+    "zh-CN": "工作区仓库缓存键"
+  },
+  "workspace repo commit/ref": {
+    "en": "workspace repo commit/ref",
+    "zh-CN": "工作区仓库提交或 ref"
+  },
+  "workspace repo kind (for example: git)": {
+    "en": "workspace repo kind (for example: git)",
+    "zh-CN": "工作区仓库类型（例如 git）"
+  },
+  "workspace repo remote URL or stable id": {
+    "en": "workspace repo remote URL or stable id",
+    "zh-CN": "工作区仓库远端 URL 或稳定 ID"
+  },
+  "workspace repo subdirectory": {
+    "en": "workspace repo subdirectory",
+    "zh-CN": "工作区仓库子目录"
+  },
+  "run as an enrolled principal alias (resolved and frozen when the schedule is saved)": {
+    "en": "run as an enrolled principal alias (resolved and frozen when the schedule is saved)",
+    "zh-CN": "以已注册的 Principal 别名运行（保存 Schedule 时解析并冻结）"
+  },
+  "task prompt to run on each schedule fire": {
+    "en": "task prompt to run on each schedule fire",
+    "zh-CN": "每次 Schedule 触发时执行的任务 Prompt"
+  },
+  "task timeout in seconds (0 = runtime default)": {
+    "en": "task timeout in seconds (0 = runtime default)",
+    "zh-CN": "任务超时秒数（0 = Runtime 默认值）"
+  },
+  "legacy no-op: long-lived secrets inject under weak isolation by default (v0.38)": {
+    "en": "legacy no-op: long-lived secrets inject under weak isolation by default (v0.38)",
+    "zh-CN": "旧版空操作：弱隔离下默认注入长期密钥（v0.38）"
+  },
+  "workspace policy: temp-dir \\| git-worktree": {
+    "en": "workspace policy: temp-dir \\| git-worktree",
+    "zh-CN": "工作区策略：temp-dir \\| git-worktree"
+  },
+  "help for enable": {
+    "en": "help for enable",
+    "zh-CN": "enable 帮助"
+  },
+  "help for runs": {
+    "en": "help for runs",
+    "zh-CN": "runs 帮助"
+  },
+  "help for update": {
+    "en": "help for update",
+    "zh-CN": "update 帮助"
+  },
+  "new label for the schedule": {
+    "en": "new label for the schedule",
+    "zh-CN": "Schedule 的新标签"
+  },
+  "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run": {
+    "en": "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run",
+    "zh-CN": "新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；重新计算下次运行时间"
+  },
+  "help for session": {
+    "en": "help for session",
+    "zh-CN": "session 帮助"
+  },
+  "print raw stdin bytes to stderr": {
+    "en": "print raw stdin bytes to stderr",
+    "zh-CN": "将原始 stdin 字节输出到 stderr"
+  },
+  "help for attach": {
+    "en": "help for attach",
+    "zh-CN": "attach 帮助"
+  },
+  "queue the cwd switch after the active turn and return immediately": {
+    "en": "queue the cwd switch after the active turn and return immediately",
+    "zh-CN": "将 cwd 切换排在活动轮次之后，并立即返回"
+  },
+  "help for cwd": {
+    "en": "help for cwd",
+    "zh-CN": "cwd 帮助"
+  },
+  "interrupt the active turn, then change cwd": {
+    "en": "interrupt the active turn, then change cwd",
+    "zh-CN": "中断活动轮次后修改 cwd"
+  },
+  "fail instead of waiting for the active turn to finish": {
+    "en": "fail instead of waiting for the active turn to finish",
+    "zh-CN": "活动轮次未结束时直接失败，不等待"
+  },
+  "help for interrupt": {
+    "en": "help for interrupt",
+    "zh-CN": "interrupt 帮助"
+  },
+  "show all sessions, including task child sessions": {
+    "en": "show all sessions, including task child sessions",
+    "zh-CN": "显示全部 Session，包括任务子 Session"
+  },
+  "include task child sessions": {
+    "en": "include task child sessions",
+    "zh-CN": "包含任务子 Session"
+  },
+  "help for prune": {
+    "en": "help for prune",
+    "zh-CN": "prune 帮助"
+  },
+  "help for queue": {
+    "en": "help for queue",
+    "zh-CN": "queue 帮助"
+  },
+  "help for cancel": {
+    "en": "help for cancel",
+    "zh-CN": "cancel 帮助"
+  },
+  "help for clear": {
+    "en": "help for clear",
+    "zh-CN": "clear 帮助"
+  },
+  "help for restart": {
+    "en": "help for restart",
+    "zh-CN": "restart 帮助"
+  },
+  "refresh the session from the current Agent Profile revision and start a new provider context": {
+    "en": "refresh the session from the current Agent Profile revision and start a new provider context",
+    "zh-CN": "从当前 Agent Profile 版本刷新 Session，并启动新的 provider 上下文"
+  },
+  "restart all running local user sessions": {
+    "en": "restart all running local user sessions",
+    "zh-CN": "重启全部正在运行的本地用户 Session"
+  },
+  "help for resume": {
+    "en": "help for resume",
+    "zh-CN": "resume 帮助"
+  },
+  "set env var KEY=VAL (repeatable)": {
+    "en": "set env var KEY=VAL (repeatable)",
+    "zh-CN": "设置环境变量 KEY=VAL（可重复）"
+  },
+  "help for run": {
+    "en": "help for run",
+    "zh-CN": "run 帮助"
+  },
+  "override the Agent Profile model for this session": {
+    "en": "override the Agent Profile model for this session",
+    "zh-CN": "覆盖此 Session 的 Agent Profile 模型"
+  },
+  "session name (required)": {
+    "en": "session name (required)",
+    "zh-CN": "Session 名称（必填）"
+  },
+  "target to run on (default: local)": {
+    "en": "target to run on (default: local)",
+    "zh-CN": "运行目标（默认 local）"
+  },
+  "git ref to checkout after materializing --repo": {
+    "en": "git ref to checkout after materializing --repo",
+    "zh-CN": "物化 --repo 后检出的 Git ref"
+  },
+  "remote Git repository URL to materialize at ./repo": {
+    "en": "remote Git repository URL to materialize at ./repo",
+    "zh-CN": "物化到 ./repo 的远端 Git 仓库 URL"
+  },
+  "run as an enrolled principal alias (resolved by amuxd)": {
+    "en": "run as an enrolled principal alias (resolved by amuxd)",
+    "zh-CN": "以已注册的 Principal 别名运行（由 amuxd 解析）"
+  },
+  "runtime adapter to execute the Agent Profile": {
+    "en": "runtime adapter to execute the Agent Profile",
+    "zh-CN": "执行该 Agent Profile 的 Runtime Adapter"
+  },
+  "help for send": {
+    "en": "help for send",
+    "zh-CN": "send 帮助"
+  },
+  "interrupt the current turn and run this message ahead of queued inputs": {
+    "en": "interrupt the current turn and run this message ahead of queued inputs",
+    "zh-CN": "中断当前轮，将本消息排在队列中的输入之前运行"
+  },
+  "Switch the model a session runs on while retaining its amux session": {
+    "en": "Switch the model a session runs on while retaining its amux session",
+    "zh-CN": "切换 Session 使用的模型，同时保留其 amux Session"
+  },
+  "identity, workspace, and conversation history.": {
+    "en": "identity, workspace, and conversation history.",
+    "zh-CN": "标识、工作区和对话历史。"
+  },
+  "The model may be a native model name or a provider-backed model ref declared": {
+    "en": "The model may be a native model name or a provider-backed model ref declared",
+    "zh-CN": "模型可以是原生模型名，也可以是 Session 的 Agent Profile 中声明的"
+  },
+  "by the session's Agent Profile (for example custom/example-model); the bare": {
+    "en": "by the session's Agent Profile (for example custom/example-model); the bare",
+    "zh-CN": "provider 模型引用（例如 custom/example-model）；直接使用"
+  },
+  "upstream model name (for example example-model) resolves to the matching": {
+    "en": "upstream model name (for example example-model) resolves to the matching",
+    "zh-CN": "上游模型名（例如 example-model）时，如果没有歧义，"
+  },
+  "provider-backed option when it is unambiguous. Switching to or across a": {
+    "en": "provider-backed option when it is unambiguous. Switching to or across a",
+    "zh-CN": "会解析为对应的 provider 选项。切换到 provider 模型，或在"
+  },
+  "provider-backed model starts a fresh provider conversation and carries the": {
+    "en": "provider-backed model starts a fresh provider conversation and carries the",
+    "zh-CN": "不同 provider 模型之间切换，会创建新的 provider 对话，"
+  },
+  "history over through an amux conversation handoff.": {
+    "en": "history over through an amux conversation handoff.",
+    "zh-CN": "并通过 amux 对话交接携带历史。"
+  },
+  "When the session is idle and the runtime supports in-place reconfiguration": {
+    "en": "When the session is idle and the runtime supports in-place reconfiguration",
+    "zh-CN": "Session 空闲且 Runtime 支持原地重配置时"
+  },
+  "(Codex-compatible app-server with an unchanged Agent Profile and a native target model), the": {
+    "en": "(Codex-compatible app-server with an unchanged Agent Profile and a native target model), the",
+    "zh-CN": "（兼容 Codex 的 app-server、Agent Profile 不变且目标模型为原生模型），"
+  },
+  "model switches without restarting the agent process. Otherwise the session": {
+    "en": "model switches without restarting the agent process. Otherwise the session",
+    "zh-CN": "会直接切换模型，无需重启智能体进程。其它情况下，Session"
+  },
+  "restarts in place and the conversation carries over through the provider's": {
+    "en": "restarts in place and the conversation carries over through the provider's",
+    "zh-CN": "会原地重启，并通过 provider 的原生恢复机制延续对话；"
+  },
+  "native resume, or through an amux conversation handoff when the runtime": {
+    "en": "native resume, or through an amux conversation handoff when the runtime",
+    "zh-CN": "Runtime 不支持原生恢复时，"
+  },
+  "cannot resume.": {
+    "en": "cannot resume.",
+    "zh-CN": "改用 amux 对话交接。"
+  },
+  "Sessions owned by a task or agent instance do not support set-model.": {
+    "en": "Sessions owned by a task or agent instance do not support set-model.",
+    "zh-CN": "Task 或 AgentInstance 拥有的 Session 不支持 set-model。"
+  },
+  "help for set-model": {
+    "en": "help for set-model",
+    "zh-CN": "set-model 帮助"
+  },
+  "help for sleep": {
+    "en": "help for sleep",
+    "zh-CN": "sleep 帮助"
+  },
+  "agent profile for feishu-local": {
+    "en": "agent profile for feishu-local",
+    "zh-CN": "feishu-local 使用的 Agent Profile"
+  },
+  "hub address for remote profile": {
+    "en": "hub address for remote profile",
+    "zh-CN": "remote Profile 使用的 Hub 地址"
+  },
+  "write config only; do not start runtime or hub": {
+    "en": "write config only; do not start runtime or hub",
+    "zh-CN": "仅写入配置，不启动 Runtime 或 Hub"
+  },
+  "verify the default profile with one real task turn after setup": {
+    "en": "verify the default profile with one real task turn after setup",
+    "zh-CN": "配置完成后用一次真实任务轮次验证默认 Profile"
+  },
+  "setup smoke turn timeout in seconds": {
+    "en": "setup smoke turn timeout in seconds",
+    "zh-CN": "配置冒烟测试轮次超时秒数"
+  },
+  "help for system": {
+    "en": "help for system",
+    "zh-CN": "system 帮助"
+  },
+  "help for config": {
+    "en": "help for config",
+    "zh-CN": "config 帮助"
+  },
+  "help for get": {
+    "en": "help for get",
+    "zh-CN": "get 帮助"
+  },
+  "help for path": {
+    "en": "help for path",
+    "zh-CN": "path 帮助"
+  },
+  "help for diagnose": {
+    "en": "help for diagnose",
+    "zh-CN": "diagnose 帮助"
+  },
+  "Feishu message ID": {
+    "en": "Feishu message ID",
+    "zh-CN": "飞书消息 ID"
+  },
+  "amux session ID": {
+    "en": "amux session ID",
+    "zh-CN": "amux Session ID"
+  },
+  "distributed task ID": {
+    "en": "distributed task ID",
+    "zh-CN": "分布式 Task ID"
+  },
+  "amux turn ID": {
+    "en": "amux turn ID",
+    "zh-CN": "amux Turn ID"
+  },
+  "help for operation": {
+    "en": "help for operation",
+    "zh-CN": "operation 帮助"
+  },
+  "continue even when active local work would be disrupted": {
+    "en": "continue even when active local work would be disrupted",
+    "zh-CN": "即使会中断活动的本地工作，也继续执行"
+  },
+  "preview the lifecycle operation without changing anything": {
+    "en": "preview the lifecycle operation without changing anything",
+    "zh-CN": "预览生命周期操作，不修改任何内容"
+  },
+  "help for target": {
+    "en": "help for target",
+    "zh-CN": "target 帮助"
+  },
+  "installed binary directory (default: ~/.amux/bin)": {
+    "en": "installed binary directory (default: ~/.amux/bin)",
+    "zh-CN": "已安装的二进制目录（默认 ~/.amux/bin）"
+  },
+  "remove ~/.amux data, config, logs, and secrets": {
+    "en": "remove ~/.amux data, config, logs, and secrets",
+    "zh-CN": "删除 ~/.amux 中的数据、配置、日志和密钥"
+  },
+  "confirm uninstall": {
+    "en": "confirm uninstall",
+    "zh-CN": "确认卸载"
+  },
+  "Submit and manage subagent tasks. A task runs an agent in an isolated per-run sandbox with a credential profile and permission policy, and returns a structured result. The CLI submits tasks to the hub, which schedules them onto a registered runtime.": {
+    "en": "Submit and manage subagent tasks. A task runs an agent in an isolated per-run sandbox with a credential profile and permission policy, and returns a structured result. The CLI submits tasks to the hub, which schedules them onto a registered runtime.",
+    "zh-CN": "提交和管理子智能体任务。每个任务在独立的运行沙箱中使用凭据 Profile 和权限策略执行智能体，并返回结构化结果。CLI 向 Hub 提交任务，由 Hub 调度至已注册的 Runtime。"
+  },
+  "help for task": {
+    "en": "help for task",
+    "zh-CN": "task 帮助"
+  },
+  "show what would be deleted without deleting anything": {
+    "en": "show what would be deleted without deleting anything",
+    "zh-CN": "预览将删除的内容，不实际删除"
+  },
+  "only prune terminal tasks older than duration (for example 24h or 7d)": {
+    "en": "only prune terminal tasks older than duration (for example 24h or 7d)",
+    "zh-CN": "仅清理早于指定时长的终态任务（例如 24h 或 7d）"
+  },
+  "comma-separated terminal statuses to prune (succeeded,failed,cancelled,timed_out)": {
+    "en": "comma-separated terminal statuses to prune (succeeded,failed,cancelled,timed_out)",
+    "zh-CN": "要清理的终态状态，以逗号分隔（succeeded,failed,cancelled,timed_out）"
+  },
+  "approve the request": {
+    "en": "approve the request",
+    "zh-CN": "批准请求"
+  },
+  "reject the request": {
+    "en": "reject the request",
+    "zh-CN": "拒绝请求"
+  },
+  "help for respond": {
+    "en": "help for respond",
+    "zh-CN": "respond 帮助"
+  },
+  "explicit provider option id (optional)": {
+    "en": "explicit provider option id (optional)",
+    "zh-CN": "显式 provider 选项 ID（可选）"
+  },
+  "permission id to answer (from the escalation event)": {
+    "en": "permission id to answer (from the escalation event)",
+    "zh-CN": "要响应的权限 ID（来自升级事件）"
+  },
+  "reason recorded in diagnostics": {
+    "en": "reason recorded in diagnostics",
+    "zh-CN": "记录到诊断中的原因"
+  },
+  "extra agent CLI arg (repeatable)": {
+    "en": "extra agent CLI arg (repeatable)",
+    "zh-CN": "附加智能体 CLI 参数（可重复）"
+  },
+  "git commit/ref to base a git-worktree on (default HEAD)": {
+    "en": "git commit/ref to base a git-worktree on (default HEAD)",
+    "zh-CN": "创建 git-worktree 的基准 Git commit/ref（默认 HEAD）"
+  },
+  "help for submit": {
+    "en": "help for submit",
+    "zh-CN": "submit 帮助"
+  },
+  "permission policy: policy-allow \\| escalate-to-main \\| deny-all (default policy-allow)": {
+    "en": "permission policy: policy-allow \\| escalate-to-main \\| deny-all (default policy-allow)",
+    "zh-CN": "权限策略：policy-allow \\| escalate-to-main \\| deny-all（默认 policy-allow）"
+  },
+  "agent profile ref to resolve before scheduling (overrides --agent)": {
+    "en": "agent profile ref to resolve before scheduling (overrides --agent)",
+    "zh-CN": "调度前解析的 Agent Profile 引用（覆盖 --agent）"
+  },
+  "repo cache dir for git-worktree workspace": {
+    "en": "repo cache dir for git-worktree workspace",
+    "zh-CN": "git-worktree 工作区的仓库缓存目录"
+  },
+  "block until the task finishes and print the result": {
+    "en": "block until the task finishes and print the result",
+    "zh-CN": "阻塞至任务结束并打印结果"
+  },
+  "workspace policy: temp-dir \\| git-worktree (default temp-dir)": {
+    "en": "workspace policy: temp-dir \\| git-worktree (default temp-dir)",
+    "zh-CN": "工作区策略：temp-dir \\| git-worktree（默认 temp-dir）"
+  },
+  "# amux 配置参考": {
+    "en": "# amux Configuration Reference",
+    "zh-CN": "# amux 配置参考"
+  },
+  "本文档覆盖 `~/.amux/config.toml` 中由 amux 代码读取的配置。通用配置元数据位于公共核心的 `internal/config/reference.go`，发行版通过扩展接口注册自己的配置元数据。修改配置键、默认值或约束时应同步修改所属 module 的元数据，并在相应 module 中运行 `make config-doc`。`scripts/check.sh` 会检查遗漏和生成文件漂移。": {
+    "en": "This reference covers the settings read by amux from `~/.amux/config.toml`. Common metadata lives in the public core's `internal/config/reference.go`; distributions register their own metadata through extensions. Update the owning module's metadata when changing keys, defaults, or constraints, then run `make config-doc` in that module. `scripts/check.sh` checks for omissions and stale generated files.",
+    "zh-CN": "本文档覆盖 `~/.amux/config.toml` 中由 amux 代码读取的配置。通用配置元数据位于公共核心的 `internal/config/reference.go`，发行版通过扩展接口注册自己的配置元数据。修改配置键、默认值或约束时应同步修改所属 module 的元数据，并在相应 module 中运行 `make config-doc`。`scripts/check.sh` 会检查遗漏和生成文件漂移。"
+  },
+  "常用命令：": {
+    "en": "Common commands:",
+    "zh-CN": "常用命令："
+  },
+  "“CLI 可管理”专指通用 `amux system config set/get/unset`；标为“否”的键可能由说明中列出的专用命令管理，否则需要直接编辑 TOML。Profile 键中的 `<profile>` 替换为实际飞书智能体 Profile 名；Provider 键中的 `<provider>` 只支持 `codex`。敏感值不会在本文档中给出示例。": {
+    "en": "“CLI-managed” specifically means the generic `amux system config set/get/unset` commands. Keys marked “No” may have dedicated commands listed in their descriptions; otherwise edit TOML directly. Replace `<profile>` with the actual Feishu Bot Profile name. `<provider>` supports only `codex`. This reference does not include example sensitive values.",
+    "zh-CN": "“CLI 可管理”专指通用 `amux system config set/get/unset`；标为“否”的键可能由说明中列出的专用命令管理，否则需要直接编辑 TOML。Profile 键中的 `<profile>` 替换为实际飞书智能体 Profile 名；Provider 键中的 `<provider>` 只支持 `codex`。敏感值不会在本文档中给出示例。"
+  },
+  "## 飞书实验功能": {
+    "en": "## Experimental Feishu features",
+    "zh-CN": "## 飞书实验功能"
+  },
+  "配置键": {
+    "en": "Configuration key",
+    "zh-CN": "配置键"
+  },
+  "约束": {
+    "en": "Constraints",
+    "zh-CN": "约束"
+  },
+  "CLI 可管理": {
+    "en": "CLI-managed",
+    "zh-CN": "CLI 可管理"
+  },
+  "boolean": {
+    "en": "boolean",
+    "zh-CN": "布尔值"
+  },
+  "false": {
+    "en": "false",
+    "zh-CN": "false"
+  },
+  "是": {
+    "en": "Yes",
+    "zh-CN": "是"
+  },
+  "长会话完成通知实验总开关，影响本实例全部助手；关闭时不新增成功、等待补充或失败提醒。修改后重启生效。": {
+    "en": "Installation-wide experiment switch for long-session completion notifications, affecting every assistant. When disabled, no new success, input-needed, or failure notifications are sent. Restart after changing it.",
+    "zh-CN": "长会话完成通知实验总开关，影响本实例全部助手；关闭时不新增成功、等待补充或失败提醒。修改后重启生效。"
+  },
+  "## Hub 与调度": {
+    "en": "## Hub and scheduling",
+    "zh-CN": "## Hub 与调度"
+  },
+  "string": {
+    "en": "string",
+    "zh-CN": "字符串"
+  },
+  "host:port": {
+    "en": "host:port",
+    "zh-CN": "host:port"
+  },
+  "amuxd hub 地址。": {
+    "en": "amuxd Hub address.",
+    "zh-CN": "amuxd hub 地址。"
+  },
+  "敏感值，不展示": {
+    "en": "Sensitive; omitted",
+    "zh-CN": "敏感值，不展示"
+  },
+  "Hub 与 runtime 共享鉴权令牌。": {
+    "en": "Shared authentication token for the Hub and Runtime.",
+    "zh-CN": "Hub 与 runtime 共享鉴权令牌。"
+  },
+  "string array": {
+    "en": "string array",
+    "zh-CN": "字符串数组"
+  },
+  "允许注册到 hub 的 target ID 白名单；空表示不限制。": {
+    "en": "Allowlist of target IDs that may register with the Hub; empty means unrestricted.",
+    "zh-CN": "允许注册到 hub 的 target ID 白名单；空表示不限制。"
+  },
+  "## Runtime": {
+    "en": "## Runtime",
+    "zh-CN": "## Runtime"
+  },
+  "主机名": {
+    "en": "Hostname",
+    "zh-CN": "主机名"
+  },
+  "Runtime 稳定标识。": {
+    "en": "Stable Runtime identifier.",
+    "zh-CN": "Runtime 稳定标识。"
+  },
+  "runtime.id": {
+    "en": "runtime.id",
+    "zh-CN": "runtime.id"
+  },
+  "Runtime 展示名称。": {
+    "en": "Runtime display name.",
+    "zh-CN": "Runtime 展示名称。"
+  },
+  "安装或系统启动时是否自动启动 runtime。": {
+    "en": "Whether to start the Runtime automatically at installation or system startup.",
+    "zh-CN": "安装或系统启动时是否自动启动 runtime。"
+  },
+  "integer seconds": {
+    "en": "integer seconds",
+    "zh-CN": "整数秒数"
+  },
+  "0 或 >=60": {
+    "en": "0 or >=60",
+    "zh-CN": "0 或 >=60"
+  },
+  "旧版默认休眠阈值；新配置优先使用 runtime.session_reclaim。": {
+    "en": "Legacy default sleep threshold; new configurations should use runtime.session_reclaim.",
+    "zh-CN": "旧版默认休眠阈值；新配置优先使用 runtime.session_reclaim。"
+  },
+  "integer": {
+    "en": "integer",
+    "zh-CN": "整数"
+  },
+  "100（runtime 应用）": {
+    "en": "100 (applied by the Runtime)",
+    "zh-CN": "100（runtime 应用）"
+  },
+  "整机并发 Session 上限；0 由 runtime 使用默认值。": {
+    "en": "Maximum concurrent Sessions on the machine; 0 uses the Runtime default.",
+    "zh-CN": "整机并发 Session 上限；0 由 runtime 使用默认值。"
+  },
+  "10（runtime 应用）": {
+    "en": "10 (applied by the Runtime)",
+    "zh-CN": "10（runtime 应用）"
+  },
+  "每种 Agent 的并发上限；0 由 runtime 使用默认值。": {
+    "en": "Maximum concurrency per Agent type; 0 uses the Runtime default.",
+    "zh-CN": "每种 Agent 的并发上限；0 由 runtime 使用默认值。"
+  },
+  "string map entry": {
+    "en": "string map entry",
+    "zh-CN": "字符串映射项"
+  },
+  "无": {
+    "en": "None",
+    "zh-CN": "无"
+  },
+  "调度标签，例如 pool、repo_cache。": {
+    "en": "Scheduling labels, such as pool and repo_cache.",
+    "zh-CN": "调度标签，例如 pool、repo_cache。"
+  },
+  "## Runtime 清理": {
+    "en": "## Runtime cleanup",
+    "zh-CN": "## Runtime 清理"
+  },
+  "true": {
+    "en": "true",
+    "zh-CN": "true"
+  },
+  "否": {
+    "en": "No",
+    "zh-CN": "否"
+  },
+  "是否自动清理终态 task 历史。": {
+    "en": "Whether to clean up terminal task history automatically.",
+    "zh-CN": "是否自动清理终态 task 历史。"
+  },
+  "604800（7 天）": {
+    "en": "604800 (7 days)",
+    "zh-CN": "604800（7 天）"
+  },
+  "终态 task 历史保留时间。": {
+    "en": "Retention period for terminal task history.",
+    "zh-CN": "终态 task 历史保留时间。"
+  },
+  "终态 task 清理扫描周期。": {
+    "en": "Sweep interval for terminal task cleanup.",
+    "zh-CN": "终态 task 清理扫描周期。"
+  },
+  "是否定期回收孤儿 session broker 进程及其文件（session 已删除或不再运行、或为重复 broker）。": {
+    "en": "Whether to periodically reap orphaned Session broker processes and their files (deleted or stopped Sessions, or duplicate brokers).",
+    "zh-CN": "是否定期回收孤儿 session broker 进程及其文件（session 已删除或不再运行、或为重复 broker）。"
+  },
+  "孤儿 broker 回收扫描周期。": {
+    "en": "Sweep interval for orphaned broker reaping.",
+    "zh-CN": "孤儿 broker 回收扫描周期。"
+  },
+  "## Session 回收": {
+    "en": "## Session reclamation",
+    "zh-CN": "## Session 回收"
+  },
+  "Session 分阶段回收总开关。": {
+    "en": "Master switch for staged Session reclamation.",
+    "zh-CN": "Session 分阶段回收总开关。"
+  },
+  "Session 回收扫描周期。": {
+    "en": "Sweep interval for Session reclamation.",
+    "zh-CN": "Session 回收扫描周期。"
+  },
+  "本地 Session 自动休眠阈值。": {
+    "en": "Automatic sleep threshold for local Sessions.",
+    "zh-CN": "本地 Session 自动休眠阈值。"
+  },
+  "本地 Session 自动归档阈值。": {
+    "en": "Automatic archive threshold for local Sessions.",
+    "zh-CN": "本地 Session 自动归档阈值。"
+  },
+  "本地 Session 自动删除阈值。": {
+    "en": "Automatic deletion threshold for local Sessions.",
+    "zh-CN": "本地 Session 自动删除阈值。"
+  },
+  "172800（48 小时）": {
+    "en": "172800 (48 hours)",
+    "zh-CN": "172800（48 小时）"
+  },
+  "飞书 Session 自动休眠阈值。": {
+    "en": "Automatic sleep threshold for Feishu Sessions.",
+    "zh-CN": "飞书 Session 自动休眠阈值。"
+  },
+  "飞书 Session 自动归档阈值；默认关闭，显式正值可开启。": {
+    "en": "Automatic archive threshold for Feishu Sessions; disabled by default, enabled by an explicit positive value.",
+    "zh-CN": "飞书 Session 自动归档阈值；默认关闭，显式正值可开启。"
+  },
+  "飞书 Session 自动删除本地记录与 replay 的阈值；默认关闭，显式正值可开启，不会删除飞书消息。": {
+    "en": "Threshold for automatically deleting local Feishu Session records and replay; disabled by default, enabled by an explicit positive value. Feishu messages are preserved.",
+    "zh-CN": "飞书 Session 自动删除本地记录与 replay 的阈值；默认关闭，显式正值可开启，不会删除飞书消息。"
+  },
+  "## CLI 与 MCP": {
+    "en": "## CLI and MCP",
+    "zh-CN": "## CLI 与 MCP"
+  },
+  "local": {
+    "en": "local",
+    "zh-CN": "local"
+  },
+  "CLI 默认 target。": {
+    "en": "Default CLI target.",
+    "zh-CN": "CLI 默认 target。"
+  },
+  "是否启用内置 amux MCP。": {
+    "en": "Whether to enable the built-in amux MCP server.",
+    "zh-CN": "是否启用内置 amux MCP。"
+  },
+  "是否向普通 run Session 自动投影内置 MCP。": {
+    "en": "Whether to automatically project the built-in MCP server into regular run Sessions.",
+    "zh-CN": "是否向普通 run Session 自动投影内置 MCP。"
+  },
+  "## 隔离执行": {
+    "en": "## Isolated execution",
+    "zh-CN": "## 隔离执行"
+  },
+  "KEY=VALUE string array": {
+    "en": "KEY=VALUE string array",
+    "zh-CN": "KEY=VALUE 字符串数组"
+  },
+  "合法且不重复的环境变量名": {
+    "en": "Valid, unique environment variable names",
+    "zh-CN": "合法且不重复的环境变量名"
+  },
+  "注入所有 identified 隔离 execution 的 installation-level 共享环境；使用 isolation global-env 命令管理，同名显式 launch env 优先，修改后需重启 system。": {
+    "en": "Installation-wide environment shared by all identified isolated executions. Manage with isolation global-env; explicit launch environment values take precedence. Restart the system after changes.",
+    "zh-CN": "注入所有 identified 隔离 execution 的 installation-level 共享环境；使用 isolation global-env 命令管理，同名显式 launch env 优先，修改后需重启 system。"
+  },
+  "## 飞书基础": {
+    "en": "## Feishu basics",
+    "zh-CN": "## 飞书基础"
+  },
+  "空": {
+    "en": "Empty",
+    "zh-CN": "空"
+  },
+  "兼容用飞书通知群 ID。": {
+    "en": "Legacy Feishu notification chat ID.",
+    "zh-CN": "兼容用飞书通知群 ID。"
+  },
+  "是否把共享 thread 历史注入 Prompt。": {
+    "en": "Whether to inject shared thread history into the Prompt.",
+    "zh-CN": "是否把共享 thread 历史注入 Prompt。"
+  },
+  "是否在新话题首轮注入根消息。": {
+    "en": "Whether to inject the root message into the first turn of a new topic.",
+    "zh-CN": "是否在新话题首轮注入根消息。"
+  },
+  "path": {
+    "en": "path",
+    "zh-CN": "路径"
+  },
+  "共享 thread Prompt 模板文件。": {
+    "en": "Shared thread Prompt template file.",
+    "zh-CN": "共享 thread Prompt 模板文件。"
+  },
+  "云文档评论入口安装级开关。": {
+    "en": "Installation-wide switch for cloud document comment input.",
+    "zh-CN": "云文档评论入口安装级开关。"
+  },
+  "enum": {
+    "en": "enum",
+    "zh-CN": "枚举"
+  },
+  "collapsed": {
+    "en": "collapsed",
+    "zh-CN": "collapsed"
+  },
+  "expanded、collapsed、hidden": {
+    "en": "expanded、collapsed、hidden",
+    "zh-CN": "expanded、collapsed、hidden"
+  },
+  "安装级处理过程展示方式；Profile 未显式配置时继承。": {
+    "en": "Installation-wide activity display mode, inherited when a Profile does not override it.",
+    "zh-CN": "安装级处理过程展示方式；Profile 未显式配置时继承。"
+  },
+  ">=0；0 禁用本功能全部私聊提醒": {
+    "en": ">=0; 0 disables all private-chat notifications for this feature",
+    "zh-CN": ">=0；0 禁用本功能全部私聊提醒"
+  },
+  "普通任务成功、等待补充或失败且耗时达到阈值后，向当前轮发起人发送可跳回原话题的私聊卡片，不在话题内追加通知；不判断已读状态，智能体自动触发不提醒。": {
+    "en": "After a regular task succeeds, needs more input, or fails and reaches the duration threshold, send its initiator a private card linking back to the topic. No extra notification is added to the topic. Read status is not checked; agent-triggered work does not notify.",
+    "zh-CN": "普通任务成功、等待补充或失败且耗时达到阈值后，向当前轮发起人发送可跳回原话题的私聊卡片，不在话题内追加通知；不判断已读状态，智能体自动触发不提醒。"
+  },
+  "## 智能体协作": {
+    "en": "## Agent collaboration",
+    "zh-CN": "## 智能体协作"
+  },
+  "是否接收 shared workspace 群内外部智能体的结构化显式 @。": {
+    "en": "Whether to accept structured, explicit mentions from external agents in shared workspace groups.",
+    "zh-CN": "是否接收 shared workspace 群内外部智能体的结构化显式 @。"
+  },
+  "每个群话题可接受的智能体协作轮数上限。": {
+    "en": "Maximum accepted agent collaboration turns per group topic.",
+    "zh-CN": "每个群话题可接受的智能体协作轮数上限。"
+  },
+  "## 群值守": {
+    "en": "## Group watch",
+    "zh-CN": "## 群值守"
+  },
+  "群值守安装级开关；允许有正文或有效图片、文件、合并转发素材的根消息自动触发。": {
+    "en": "Installation-wide group watch switch; root messages with text or valid image, file, or merged-forward material can trigger it automatically.",
+    "zh-CN": "群值守安装级开关；允许有正文或有效图片、文件、合并转发素材的根消息自动触发。"
+  },
+  "允许自动触发的群 chat_id。": {
+    "en": "Group chat_ids allowed to trigger automatically.",
+    "zh-CN": "允许自动触发的群 chat_id。"
+  },
+  "[user, app]": {
+    "en": "[user, app]",
+    "zh-CN": "[user, app]"
+  },
+  "user、app": {
+    "en": "user、app",
+    "zh-CN": "user、app"
+  },
+  "允许自动触发的消息发送者类型。": {
+    "en": "Message sender types allowed to trigger automatically.",
+    "zh-CN": "允许自动触发的消息发送者类型。"
+  },
+  "其它 App 消息的历史补偿轮询周期。": {
+    "en": "History polling interval to recover messages from other apps.",
+    "zh-CN": "其它 App 消息的历史补偿轮询周期。"
+  },
+  "5-3600 且不小于轮询周期": {
+    "en": "5-3600 and at least the polling interval",
+    "zh-CN": "5-3600 且不小于轮询周期"
+  },
+  "历史补偿回看窗口。": {
+    "en": "History recovery lookback window.",
+    "zh-CN": "历史补偿回看窗口。"
+  },
+  "当前智能体每个值守群允许的群值守活跃 Session 上限。": {
+    "en": "Maximum active group watch Sessions per watched group for the current agent.",
+    "zh-CN": "当前智能体每个值守群允许的群值守活跃 Session 上限。"
+  },
+  "10800（3 小时）": {
+    "en": "10800 (3 hours)",
+    "zh-CN": "10800（3 小时）"
+  },
+  "群值守新 Session 的自动休眠阈值。": {
+    "en": "Automatic sleep threshold for new group watch Sessions.",
+    "zh-CN": "群值守新 Session 的自动休眠阈值。"
+  },
+  "安装级群值守处理过程展示方式。": {
+    "en": "Installation-wide group watch activity display mode.",
+    "zh-CN": "安装级群值守处理过程展示方式。"
+  },
+  "## 飞书 Workspace 默认值": {
+    "en": "## Feishu workspace defaults",
+    "zh-CN": "## 飞书 Workspace 默认值"
+  },
+  "builtin/codex": {
+    "en": "builtin/codex",
+    "zh-CN": "builtin/codex"
+  },
+  "新 workspace 的默认 Agent Profile。": {
+    "en": "Default Agent Profile for new workspaces.",
+    "zh-CN": "新 workspace 的默认 Agent Profile。"
+  },
+  "空（自动选择）": {
+    "en": "Empty (automatic selection)",
+    "zh-CN": "空（自动选择）"
+  },
+  "新 workspace 的默认 target。": {
+    "en": "Default target for new workspaces.",
+    "zh-CN": "新 workspace 的默认 target。"
+  },
+  "旧兼容 cwd；自然入口仍使用独立空 workspace。": {
+    "en": "Legacy cwd; natural entry points still use an independent empty workspace.",
+    "zh-CN": "旧兼容 cwd；自然入口仍使用独立空 workspace。"
+  },
+  "新 workspace 的默认模型覆盖。": {
+    "en": "Default model override for new workspaces.",
+    "zh-CN": "新 workspace 的默认模型覆盖。"
+  },
+  "新 workspace 的默认 Agent 参数。": {
+    "en": "Default Agent arguments for new workspaces.",
+    "zh-CN": "新 workspace 的默认 Agent 参数。"
+  },
+  "新 workspace Session 的休眠阈值。": {
+    "en": "Sleep threshold for new workspace Sessions.",
+    "zh-CN": "新 workspace Session 的休眠阈值。"
+  },
+  "## 飞书智能体 Profile": {
+    "en": "## Feishu Bot Profiles",
+    "zh-CN": "## 飞书智能体 Profile"
+  },
+  "继承安装级": {
+    "en": "Inherit installation settings",
+    "zh-CN": "继承安装级"
+  },
+  "Profile 级 workspace 默认专家。": {
+    "en": "Profile-level default workspace expert.",
+    "zh-CN": "Profile 级 workspace 默认专家。"
+  },
+  "Profile 级 workspace 默认 target。": {
+    "en": "Profile-level default workspace target.",
+    "zh-CN": "Profile 级 workspace 默认 target。"
+  },
+  "Profile 级兼容 cwd。": {
+    "en": "Profile-level legacy cwd.",
+    "zh-CN": "Profile 级兼容 cwd。"
+  },
+  "Profile 级 workspace 默认模型。": {
+    "en": "Profile-level default workspace model.",
+    "zh-CN": "Profile 级 workspace 默认模型。"
+  },
+  "Profile 级 workspace 默认参数。": {
+    "en": "Profile-level default workspace arguments.",
+    "zh-CN": "Profile 级 workspace 默认参数。"
+  },
+  "Profile 级 workspace 休眠阈值。": {
+    "en": "Profile-level workspace sleep threshold.",
+    "zh-CN": "Profile 级 workspace 休眠阈值。"
+  },
+  "thread": {
+    "en": "thread",
+    "zh-CN": "thread"
+  },
+  "thread、singleton": {
+    "en": "thread、singleton",
+    "zh-CN": "thread、singleton"
+  },
+  "消息处理方式；群值守只兼容 thread。": {
+    "en": "Message interaction mode; group watch supports only thread.",
+    "zh-CN": "消息处理方式；群值守只兼容 thread。"
+  },
+  "继承安装级（collapsed）": {
+    "en": "Inherit installation settings (collapsed)",
+    "zh-CN": "继承安装级（collapsed）"
+  },
+  "当前助手普通任务的处理过程展示方式。": {
+    "en": "Activity display mode for the current assistant's regular tasks.",
+    "zh-CN": "当前助手普通任务的处理过程展示方式。"
+  },
+  "继承安装级（60）": {
+    "en": "Inherit installation settings (60)",
+    "zh-CN": "继承安装级（60）"
+  },
+  "当前助手普通任务的完成提醒阈值。": {
+    "en": "Completion notification threshold for the current assistant's regular tasks.",
+    "zh-CN": "当前助手普通任务的完成提醒阈值。"
+  },
+  "允许通过 @Bot /e2e 发起 owner-authorized 测试输入的 Bot/App sender open_id。": {
+    "en": "Bot/app sender open_ids allowed to submit owner-authorized test input through @Bot /e2e.",
+    "zh-CN": "允许通过 @Bot /e2e 发起 owner-authorized 测试输入的 Bot/App sender open_id。"
+  },
+  "map[string]string": {
+    "en": "map[string]string",
+    "zh-CN": "map[string]string"
+  },
+  "owner、shared": {
+    "en": "owner、shared",
+    "zh-CN": "owner、shared"
+  },
+  "把受信测试 Bot sender open_id 映射到其 /e2e 请求投影身份（owner 或 shared）；不提供 unauthorized，未命中保持 owner。": {
+    "en": "Maps trusted test Bot sender open_ids to the projected identity of their /e2e requests (owner or shared). unauthorized is not supported; unmatched senders retain owner.",
+    "zh-CN": "把受信测试 Bot sender open_id 映射到其 /e2e 请求投影身份（owner 或 shared）；不提供 unauthorized，未命中保持 owner。"
+  },
+  "Profile 级云文档评论开关。": {
+    "en": "Profile-level cloud document comment switch.",
+    "zh-CN": "Profile 级云文档评论开关。"
+  },
+  "空（继承助手）": {
+    "en": "Empty (inherit assistant)",
+    "zh-CN": "空（继承助手）"
+  },
+  "云文档评论新 Session 使用的专家。": {
+    "en": "Expert used for new cloud document comment Sessions.",
+    "zh-CN": "云文档评论新 Session 使用的专家。"
+  },
+  "空（继承助手或兼容旧配置）": {
+    "en": "Empty (inherit assistant or legacy configuration)",
+    "zh-CN": "空（继承助手或兼容旧配置）"
+  },
+  "云文档评论新 Session 使用的运行引擎。": {
+    "en": "Runtime engine used for new cloud document comment Sessions.",
+    "zh-CN": "云文档评论新 Session 使用的运行引擎。"
+  },
+  "空（运行引擎默认）": {
+    "en": "Empty (Runtime engine default)",
+    "zh-CN": "空（运行引擎默认）"
+  },
+  "云文档评论新 Session 使用的模型，按所选运行引擎校验；未覆盖运行引擎时遵循专家模型策略，未声明 supported_models 则允许原生模型名。": {
+    "en": "Model for new cloud document comment Sessions, validated against the selected Runtime engine. Without a Runtime override, follow the expert's model policy; native model names are allowed when supported_models is not declared.",
+    "zh-CN": "云文档评论新 Session 使用的模型，按所选运行引擎校验；未覆盖运行引擎时遵循专家模型策略，未声明 supported_models 则允许原生模型名。"
+  },
+  "云文档评论新 Session 使用的思考强度。": {
+    "en": "Reasoning effort for new cloud document comment Sessions.",
+    "zh-CN": "云文档评论新 Session 使用的思考强度。"
+  },
+  "Profile 级智能体协作开关。": {
+    "en": "Profile-level agent collaboration switch.",
+    "zh-CN": "Profile 级智能体协作开关。"
+  },
+  "继承安装级（10）": {
+    "en": "Inherit installation settings (10)",
+    "zh-CN": "继承安装级（10）"
+  },
+  "Profile 级单话题智能体协作轮数上限。": {
+    "en": "Profile-level agent collaboration turn limit per topic.",
+    "zh-CN": "Profile 级单话题智能体协作轮数上限。"
+  },
+  "Profile 级群值守开关；纯图片、纯文件和无正文合并转发也可自动触发。": {
+    "en": "Profile-level group watch switch; image-only, file-only, and merged-forward messages without text can also trigger automatically.",
+    "zh-CN": "Profile 级群值守开关；纯图片、纯文件和无正文合并转发也可自动触发。"
+  },
+  "Profile 级值守群白名单。": {
+    "en": "Profile-level watched-group allowlist.",
+    "zh-CN": "Profile 级值守群白名单。"
+  },
+  "Profile 级发送者类型。": {
+    "en": "Profile-level sender types.",
+    "zh-CN": "Profile 级发送者类型。"
+  },
+  "Profile 级历史轮询周期。": {
+    "en": "Profile-level history polling interval.",
+    "zh-CN": "Profile 级历史轮询周期。"
+  },
+  "Profile 级历史回看窗口。": {
+    "en": "Profile-level history lookback window.",
+    "zh-CN": "Profile 级历史回看窗口。"
+  },
+  "继承安装级（50）": {
+    "en": "Inherit installation settings (50)",
+    "zh-CN": "继承安装级（50）"
+  },
+  "Profile 级每群活跃 Session 上限。": {
+    "en": "Profile-level active Session limit per group.",
+    "zh-CN": "Profile 级每群活跃 Session 上限。"
+  },
+  "继承安装级（10800）": {
+    "en": "Inherit installation settings (10800)",
+    "zh-CN": "继承安装级（10800）"
+  },
+  "Profile 级群值守自动休眠阈值。": {
+    "en": "Profile-level automatic sleep threshold for group watch.",
+    "zh-CN": "Profile 级群值守自动休眠阈值。"
+  },
+  "群值守新 Session 使用的专家；自定义配置与 Runtime 独立。": {
+    "en": "Expert used for new group watch Sessions; configured independently of the Runtime.",
+    "zh-CN": "群值守新 Session 使用的专家；自定义配置与 Runtime 独立。"
+  },
+  "群值守新 Session 使用的运行引擎；自定义配置时必填。": {
+    "en": "Runtime engine used for new group watch Sessions; required when customizing the configuration.",
+    "zh-CN": "群值守新 Session 使用的运行引擎；自定义配置时必填。"
+  },
+  "群值守新 Session 使用的模型，按所选运行引擎校验；未覆盖运行引擎时遵循专家模型策略，未声明 supported_models 则允许原生模型名。": {
+    "en": "Model for new group watch Sessions, validated against the selected Runtime engine. Without a Runtime override, follow the expert's model policy; native model names are allowed when supported_models is not declared.",
+    "zh-CN": "群值守新 Session 使用的模型，按所选运行引擎校验；未覆盖运行引擎时遵循专家模型策略，未声明 supported_models 则允许原生模型名。"
+  },
+  "群值守新 Session 使用的思考强度，必须受所选运行引擎和模型支持。": {
+    "en": "Reasoning effort for new group watch Sessions; must be supported by the selected Runtime engine and model.",
+    "zh-CN": "群值守新 Session 使用的思考强度，必须受所选运行引擎和模型支持。"
+  },
+  "继承安装级群值守（collapsed）": {
+    "en": "Inherit installation group watch settings (collapsed)",
+    "zh-CN": "继承安装级群值守（collapsed）"
+  },
+  "当前助手群值守任务的处理过程展示方式，与普通任务独立配置。": {
+    "en": "Activity display mode for the current assistant's group watch tasks, configured separately from regular tasks.",
+    "zh-CN": "当前助手群值守任务的处理过程展示方式，与普通任务独立配置。"
+  },
+  "## Structured Provider": {
+    "en": "## Structured Provider",
+    "zh-CN": "## Structured Provider"
+  },
+  "0 禁用，负数回默认，最大 604800": {
+    "en": "0 disables; negative values use the default; maximum 604800",
+    "zh-CN": "0 禁用，负数回默认，最大 604800"
+  },
+  "Structured provider turn 无有效活动超时。": {
+    "en": "Structured provider turn timeout when no meaningful activity occurs.",
+    "zh-CN": "Structured provider turn 无有效活动超时。"
+  },
+  "Structured provider 单 turn 绝对时长上限。": {
+    "en": "Absolute duration limit for a single structured provider turn.",
+    "zh-CN": "Structured provider 单 turn 绝对时长上限。"
+  },
+  "Structured provider 工具无进度超时。": {
+    "en": "Structured provider tool timeout when no progress occurs.",
+    "zh-CN": "Structured provider 工具无进度超时。"
+  },
+  "integer count": {
+    "en": "integer count",
+    "zh-CN": "整数计数"
+  },
+  "0 禁用，负数回默认，最大 1000": {
+    "en": "0 disables; negative values use the default; maximum 1000",
+    "zh-CN": "0 禁用，负数回默认，最大 1000"
+  },
+  "Structured provider 同一 turn 内连续相同工具调用次数上限，达到即失败收尾。": {
+    "en": "Maximum consecutive identical tool calls in one structured provider turn; reaching the limit finishes the turn as failed.",
+    "zh-CN": "Structured provider 同一 turn 内连续相同工具调用次数上限，达到即失败收尾。"
+  },
+  "继承全局": {
+    "en": "Inherit global settings",
+    "zh-CN": "继承全局"
+  },
+  "provider 为 codex；0 禁用，负数回 provider 默认，最大 604800": {
+    "en": "Provider is codex; 0 disables; negative values use the provider default; maximum 604800",
+    "zh-CN": "provider 为 codex；0 禁用，负数回 provider 默认，最大 604800"
+  },
+  "指定 provider 的 turn idle 覆盖。": {
+    "en": "Turn idle timeout override for the specified provider.",
+    "zh-CN": "指定 provider 的 turn idle 覆盖。"
+  },
+  "provider 为 codex": {
+    "en": "Provider is codex",
+    "zh-CN": "provider 为 codex"
+  },
+  "指定 provider 的 turn hard cap 覆盖。": {
+    "en": "Turn hard cap override for the specified provider.",
+    "zh-CN": "指定 provider 的 turn hard cap 覆盖。"
+  },
+  "指定 provider 的 tool idle 覆盖。": {
+    "en": "Tool idle timeout override for the specified provider.",
+    "zh-CN": "指定 provider 的 tool idle 覆盖。"
+  },
+  "provider 为 codex；0 禁用，负数回 provider 默认，最大 1000": {
+    "en": "Provider is codex; 0 disables; negative values use the provider default; maximum 1000",
+    "zh-CN": "provider 为 codex；0 禁用，负数回 provider 默认，最大 1000"
+  },
+  "指定 provider 的连续相同工具调用次数上限覆盖。": {
+    "en": "Consecutive identical tool call limit override for the specified provider.",
+    "zh-CN": "指定 provider 的连续相同工具调用次数上限覆盖。"
+  },
+  "## 不属于 config.toml 的状态": {
+    "en": "## State outside config.toml",
+    "zh-CN": "## 不属于 config.toml 的状态"
+  },
+  "飞书 App Secret 与 legacy-host credential 保存在 `$AMUX_HOME/secrets/`；identified Agent credential 按 Principal 保存在 `$AMUX_HOME/principals/<principal-id>/secrets/`。workspace Session quota、thread binding 与群值守 binding 等运行状态保存在 Bridge/Runtime SQLite 中。它们不是 `config.toml` 配置键，不应写入本文件。": {
+    "en": "Feishu App Secrets and legacy-host credentials live in `$AMUX_HOME/secrets/`; identified Agent credentials are stored per Principal in `$AMUX_HOME/principals/<principal-id>/secrets/`. Runtime state such as workspace Session quotas, thread bindings, and group watch bindings lives in Bridge/Runtime SQLite databases. These are not `config.toml` keys and must not be written to that file.",
+    "zh-CN": "飞书 App Secret 与 legacy-host credential 保存在 `$AMUX_HOME/secrets/`；identified Agent credential 按 Principal 保存在 `$AMUX_HOME/principals/<principal-id>/secrets/`。workspace Session quota、thread binding 与群值守 binding 等运行状态保存在 Bridge/Runtime SQLite 中。它们不是 `config.toml` 配置键，不应写入本文件。"
+  },
+  "# amux MCP 工具参考": {
+    "en": "# amux MCP Reference",
+    "zh-CN": "# amux MCP 工具参考"
+  },
+  "本文档由 `amux mcp` 的实际 `tools/list` 注册表自动生成，覆盖正式工具、工具说明与完整输入 JSON Schema。修改 MCP 工具名称、可见性、说明或输入字段后，必须运行 `make mcp-doc`；仓库统一门禁会拒绝生成结果不一致的改动。": {
+    "en": "This reference is generated from the actual `amux mcp` tools/list registry and covers public tools, descriptions, and complete input JSON Schemas. Run `make mcp-doc` after changing tool names, visibility, descriptions, or input fields. The repository check rejects stale output. Schema descriptions are translated for this reference; runtime schemas and validation fields are unchanged.",
+    "zh-CN": "本文档由 `amux mcp` 的实际 `tools/list` 注册表自动生成，覆盖正式工具、工具说明与完整输入 JSON Schema。修改 MCP 工具名称、可见性、说明或输入字段后，必须运行 `make mcp-doc`；仓库统一门禁会拒绝生成结果不一致的改动。 本参考中的 Schema 说明文字经过翻译；运行时 Schema 与校验字段保持不变。"
+  },
+  "MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-product-model.md`](../current/cli-product-model.md) 和 [`docs/distributed-task-model.md`](../distributed-task-model.md) 为准。运行时还会通过 [`amux.result_continue`](#amuxresult_continue) 对超过单页预算的成功结果续传；工具结果本身不是 `tools/list` 注册元数据，因此不在本文档中另维护一份可能漂移的输出 Schema。": {
+    "en": "MCP product semantics, permissions, and lifecycle boundaries are defined by the [CLI product model](../current/cli-product-model.md) and [Task model](../distributed-task-model.md). At runtime, [`amux.result_continue`](#amuxresult_continue) continues successful results that exceed a page budget. Tool results are not tools/list registration metadata, so this reference does not maintain a separate output Schema that could drift.",
+    "zh-CN": "MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-product-model.md`](../current/cli-product-model.md) 和 [`docs/distributed-task-model.md`](../distributed-task-model.md) 为准。运行时还会通过 [`amux.result_continue`](#amuxresult_continue) 对超过单页预算的成功结果续传；工具结果本身不是 `tools/list` 注册元数据，因此不在本文档中另维护一份可能漂移的输出 Schema。"
+  },
+  "`tools/list` 正式工具：**45**。": {
+    "en": "Public `tools/list` tools: **45**.",
+    "zh-CN": "`tools/list` 正式工具：**45**。"
+  },
+  "## 正式工具索引": {
+    "en": "## Public tool index",
+    "zh-CN": "## 正式工具索引"
+  },
+  "工具": {
+    "en": "Tool",
+    "zh-CN": "工具"
+  },
+  "仅在准备实际委派时按 kind 列出内部 Agent 或 external_bot；纯 Agent 能力发现请使用 amux.profile_list，不要调用本工具。external_bot 只返回当前 Session 所绑定飞书群内的 Bot；CLI、非飞书或无有效群 binding 时为空。": {
+    "en": "List internal Agents or external_bot by kind only when preparing an actual delegation. Use amux.profile_list for Agent capability discovery. external_bot returns only Bots in the Feishu group bound to the current Session; CLI, non-Feishu, or missing group bindings return an empty list.",
+    "zh-CN": "仅在准备实际委派时按 kind 列出内部 Agent 或 external_bot；纯 Agent 能力发现请使用 amux.profile_list，不要调用本工具。external_bot 只返回当前 Session 所绑定飞书群内的 Bot；CLI、非飞书或无有效群 binding 时为空。"
+  },
+  "请求取消支持 cancelable 的 Delegation；cancelled 是停止信号，不得自动创建替代委派。": {
+    "en": "Request cancellation of a Delegation that supports cancelable. cancelled is a stop signal; do not automatically create a replacement delegation.",
+    "zh-CN": "请求取消支持 cancelable 的 Delegation；cancelled 是停止信号，不得自动创建替代委派。"
+  },
+  "创建一次性 Delegation 并返回 ID。external_bot 仅在用户明确要求或确认后使用，且只能发送给当前 Session 所绑定飞书群内的 Bot；结果为 external_untrusted。创建预算默认最多 2 次，用户指定数量为硬上限。": {
+    "en": "Create a one-off Delegation and return its ID. Use external_bot only when the user explicitly requests or confirms it, and only for Bots in the Feishu group bound to the current Session. Results are external_untrusted. The default creation budget is two attempts; a user-specified count is a hard limit.",
+    "zh-CN": "创建一次性 Delegation 并返回 ID。external_bot 仅在用户明确要求或确认后使用，且只能发送给当前 Session 所绑定飞书群内的 Bot；结果为 external_untrusted。创建预算默认最多 2 次，用户指定数量为硬上限。"
+  },
+  "读取 Delegation 当前快照；增量事件使用 delegation_wait。": {
+    "en": "Read the current Delegation snapshot. Use delegation_wait for incremental events.",
+    "zh-CN": "读取 Delegation 当前快照；增量事件使用 delegation_wait。"
+  },
+  "回答支持 permission_response 的 Delegation 权限请求。": {
+    "en": "Answer a permission request for a Delegation that supports permission_response.",
+    "zh-CN": "回答支持 permission_response 的 Delegation 权限请求。"
+  },
+  "等待 Delegation；event 增量返回事件，actionable 避免普通进度反复唤醒主模型并保留权限/终态唤醒。wait_timed_out 不是 Delegation 终态；按返回状态维护实际创建的尝试账本。": {
+    "en": "Wait for a Delegation. event returns incremental events; actionable avoids waking the main model repeatedly for ordinary progress while preserving permission and terminal-state wakeups. wait_timed_out is not a terminal Delegation state. Track actual created attempts using the returned status.",
+    "zh-CN": "等待 Delegation；event 增量返回事件，actionable 避免普通进度反复唤醒主模型并保留权限/终态唤醒。wait_timed_out 不是 Delegation 终态；按返回状态维护实际创建的尝试账本。"
+  },
+  "向持久 Agent 交付任务并立即触发新 turn，保留 provider 对话上下文。": {
+    "en": "Deliver a task to a persistent Agent and immediately start a new turn, retaining the provider conversation context.",
+    "zh-CN": "向持久 Agent 交付任务并立即触发新 turn，保留 provider 对话上下文。"
+  },
+  "中断持久 Agent 当前 turn。": {
+    "en": "Interrupt the current turn of a persistent Agent.",
+    "zh-CN": "中断持久 Agent 当前 turn。"
+  },
+  "列出持久 Agent Instance 状态、child Session 状态和 mailbox 深度。": {
+    "en": "List persistent Agent Instance status, child Session status, and mailbox depth.",
+    "zh-CN": "列出持久 Agent Instance 状态、child Session 状态和 mailbox 深度。"
+  },
+  "向持久 Agent mailbox 入队消息但不唤醒，不启动新 turn。": {
+    "en": "Enqueue a message in a persistent Agent mailbox without waking it or starting a new turn.",
+    "zh-CN": "向持久 Agent mailbox 入队消息但不唤醒，不启动新 turn。"
+  },
+  "非阻塞创建持久 Agent Instance，返回稳定的 agent_instance_id。": {
+    "en": "Create a persistent Agent Instance without blocking and return a stable agent_instance_id.",
+    "zh-CN": "非阻塞创建持久 Agent Instance，返回稳定的 agent_instance_id。"
+  },
+  "等待持久 Agent 当前 turn 结束或超时；结果仍用 task_get/task_stream 获取。": {
+    "en": "Wait until the persistent Agent's current turn ends or the wait times out. Retrieve results with task_get/task_stream.",
+    "zh-CN": "等待持久 Agent 当前 turn 结束或超时；结果仍用 task_get/task_stream 获取。"
+  },
+  "预览、发布或清理 managed local 专家 patch。publish 仅限后续明确确认的 owner turn，并须原样提交相同 patch 与 receipt；评测确认不等于发布确认。": {
+    "en": "Preview, publish, or clean up a managed local expert patch. Publishing requires a later, explicitly confirmed owner turn with the exact same patch and receipt. Evaluation approval does not authorize publication.",
+    "zh-CN": "预览、发布或清理 managed local 专家 patch。publish 仅限后续明确确认的 owner turn，并须原样提交相同 patch 与 receipt；评测确认不等于发布确认。"
+  },
+  "读取 managed local 专家的精确编辑基线；仅当前飞书 Bot owner turn 可用，不写入。": {
+    "en": "Read the exact editing baseline of a managed local expert. Available only in the current Feishu Bot owner's turn; performs no writes.",
+    "zh-CN": "读取 managed local 专家的精确编辑基线；仅当前飞书 Bot owner turn 可用，不写入。"
+  },
+  "按精确 ref 获取 Agent Profile 完整详情，支持开发版 namespace。": {
+    "en": "Get complete Agent Profile details by exact ref, including development namespaces.",
+    "zh-CN": "按精确 ref 获取 Agent Profile 完整详情，支持开发版 namespace。"
+  },
+  "分页列出非开发版 Agent Profile；用 profiles[].ref 提交任务，详情用 profile_get。沿 next_cursor 读取至 has_more=false。": {
+    "en": "List non-development Agent Profiles with pagination. Submit tasks using profiles[].ref and fetch details with profile_get. Follow next_cursor until has_more=false.",
+    "zh-CN": "分页列出非开发版 Agent Profile；用 profiles[].ref 提交任务，详情用 profile_get。沿 next_cursor 读取至 has_more=false。"
+  },
+  "续读分页结果；按序拼接 content_chunk，直到 complete=true。游标仅当前 MCP 进程短期有效。": {
+    "en": "Continue reading a paginated result. Concatenate content_chunk values in order until complete=true. Cursors are short-lived and valid only in the current MCP process.",
+    "zh-CN": "续读分页结果；按序拼接 content_chunk，直到 complete=true。游标仅当前 MCP 进程短期有效。"
+  },
+  "创建 hub 定时 Agent Task；运行历史只记录 task_id，结果用 task_get/task_stream；不允许 escalate-to-main。": {
+    "en": "Create a Hub-scheduled Agent Task. Run history records only task_id; use task_get/task_stream for results. escalate-to-main is not allowed.",
+    "zh-CN": "创建 hub 定时 Agent Task；运行历史只记录 task_id，结果用 task_get/task_stream；不允许 escalate-to-main。"
+  },
+  "删除 Schedule；既有运行对应的 Task 结果仍可读取。": {
+    "en": "Delete a Schedule. Task results from existing runs remain readable.",
+    "zh-CN": "删除 Schedule；既有运行对应的 Task 结果仍可读取。"
+  },
+  "获取 Schedule；include_runs=true 时包含运行历史及 task_id。": {
+    "en": "Get a Schedule; include_runs=true includes run history and task_id values.",
+    "zh-CN": "获取 Schedule；include_runs=true 时包含运行历史及 task_id。"
+  },
+  "分页列出 Schedule；沿 next_cursor 读取至 has_more=false。": {
+    "en": "List Schedules with pagination. Follow next_cursor until has_more=false.",
+    "zh-CN": "分页列出 Schedule；沿 next_cursor 读取至 has_more=false。"
+  },
+  "启用或停用 Schedule。": {
+    "en": "Enable or disable a Schedule.",
+    "zh-CN": "启用或停用 Schedule。"
+  },
+  "原地更新 Schedule 的名称、时间规则或 Task；省略字段保持不变，不允许 escalate-to-main。": {
+    "en": "Update a Schedule's name, time rule, or Task in place. Omitted fields remain unchanged. escalate-to-main is not allowed.",
+    "zh-CN": "原地更新 Schedule 的名称、时间规则或 Task；省略字段保持不变，不允许 escalate-to-main。"
+  },
+  "中断 Session 当前 turn。": {
+    "en": "Interrupt the current Session turn.",
+    "zh-CN": "中断 Session 当前 turn。"
+  },
+  "按 runtime 分组列出调用方可见的 Session；创建 Session 时不要预先调用，先省略 target 调用 session_run，仅在其报告多个 target 后用本工具选择。": {
+    "en": "List caller-visible Sessions grouped by Runtime. Do not call this before creating a Session: first call session_run without target, and use this tool to choose only if it reports multiple targets.",
+    "zh-CN": "按 runtime 分组列出调用方可见的 Session；创建 Session 时不要预先调用，先省略 target 调用 session_run，仅在其报告多个 target 后用本工具选择。"
+  },
+  "破坏性操作：永久删除已归档 Session；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent；Task 历史使用 task_prune。": {
+    "en": "Destructive operation: permanently delete archived Sessions. Only the enrollment operator may use it in isolated clusters; delegated agents may use it in non-isolated clusters. Use task_prune for Task history.",
+    "zh-CN": "破坏性操作：永久删除已归档 Session；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent；Task 历史使用 task_prune。"
+  },
+  "按 queue_id 丢弃 Session 队列中的一条输入。": {
+    "en": "Drop one Session queue input by queue_id.",
+    "zh-CN": "按 queue_id 丢弃 Session 队列中的一条输入。"
+  },
+  "丢弃 Session 全部待处理输入。": {
+    "en": "Drop all pending Session inputs.",
+    "zh-CN": "丢弃 Session 全部待处理输入。"
+  },
+  "按最早优先列出 Session 待处理输入。": {
+    "en": "List pending Session inputs, oldest first.",
+    "zh-CN": "按最早优先列出 Session 待处理输入。"
+  },
+  "原地重启 Session Agent 进程。": {
+    "en": "Restart the Session Agent process in place.",
+    "zh-CN": "原地重启 Session Agent 进程。"
+  },
+  "唤醒 sleeping Session。": {
+    "en": "Wake a sleeping Session.",
+    "zh-CN": "唤醒 sleeping Session。"
+  },
+  "用 Agent Profile 创建 Session；profile 和 name 必填。未指定 target 时先直接调用：唯一连接 target 会自动选择，多个 target 会在创建前返回明确错误。": {
+    "en": "Create a Session using an Agent Profile; profile and name are required. Call directly without target first: a sole connected target is selected automatically; multiple targets produce an explicit error before creation.",
+    "zh-CN": "用 Agent Profile 创建 Session；profile 和 name 必填。未指定 target 时先直接调用：唯一连接 target 会自动选择，多个 target 会在创建前返回明确错误。"
+  },
+  "向 Session 输入队列提交提示词；名称有歧义时用 target 消歧。": {
+    "en": "Submit a Prompt to the Session input queue. Use target to disambiguate names.",
+    "zh-CN": "向 Session 输入队列提交提示词；名称有歧义时用 target 消歧。"
+  },
+  "切换 Session 模型并保留对话历史；支持原生模型与 provider-backed 模型 ref（如 custom/example-model），无歧义时也可用裸上游名（如 example-model）；满足热条件时不重启进程，否则原地重启并经 provider resume/handoff 保留对话，跨 provider 切换会开新对话并注入 handoff 历史；Task/Instance 持有的 Session 不支持。": {
+    "en": "Switch the Session model and preserve conversation history. Supports native models and provider-backed refs such as custom/example-model; an unambiguous bare upstream name such as example-model also works. Reconfigure without restarting when hot-switch conditions hold; otherwise restart in place with provider resume/handoff. Switching providers starts a new conversation with handoff history. Sessions owned by Tasks or Instances are unsupported.",
+    "zh-CN": "切换 Session 模型并保留对话历史；支持原生模型与 provider-backed 模型 ref（如 custom/example-model），无歧义时也可用裸上游名（如 example-model）；满足热条件时不重启进程，否则原地重启并经 provider resume/handoff 保留对话，跨 provider 切换会开新对话并注入 handoff 历史；Task/Instance 持有的 Session 不支持。"
+  },
+  "暂停 Session Agent 进程并保持可恢复。": {
+    "en": "Pause the Session Agent process while keeping it resumable.",
+    "zh-CN": "暂停 Session Agent 进程并保持可恢复。"
+  },
+  "归档 Session；Task 历史使用 task_prune 清理。": {
+    "en": "Archive a Session. Use task_prune to clean up Task history.",
+    "zh-CN": "归档 Session；Task 历史使用 task_prune 清理。"
+  },
+  "一次性 replay 并排空 Session 最近输出，返回有界聚合文本；不是实时 tail。": {
+    "en": "Replay and drain recent Session output once, returning bounded aggregated text. This is not a live tail.",
+    "zh-CN": "一次性 replay 并排空 Session 最近输出，返回有界聚合文本；不是实时 tail。"
+  },
+  "取消 Agent Task，并中断或终止其 child Session。": {
+    "en": "Cancel an Agent Task and interrupt or terminate its child Session.",
+    "zh-CN": "取消 Agent Task，并中断或终止其 child Session。"
+  },
+  "获取 Agent Task 状态、结构化结果和 session_ref。": {
+    "en": "Get Agent Task status, structured result, and session_ref.",
+    "zh-CN": "获取 Agent Task 状态、结构化结果和 session_ref。"
+  },
+  "列出调用方可见的 Agent Task 及状态、session_ref 和可用结果。": {
+    "en": "List caller-visible Agent Tasks with status, session_ref, and available results.",
+    "zh-CN": "列出调用方可见的 Agent Task 及状态、session_ref 和可用结果。"
+  },
+  "清理终态 Task 历史；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent。": {
+    "en": "Clean up terminal Task history. Only the enrollment operator may use it in isolated clusters; delegated agents may use it in non-isolated clusters.",
+    "zh-CN": "清理终态 Task 历史；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent。"
+  },
+  "应答 escalate-to-main Task 上抛的权限请求。": {
+    "en": "Answer a permission request escalated by an escalate-to-main Task.",
+    "zh-CN": "应答 escalate-to-main Task 上抛的权限请求。"
+  },
+  "阻塞运行短 Agent Task；仅支持 policy-allow 或 deny-all，escalate-to-main 会死锁。": {
+    "en": "Run a short Agent Task synchronously. Only policy-allow and deny-all are supported; escalate-to-main would deadlock.",
+    "zh-CN": "阻塞运行短 Agent Task；仅支持 policy-allow 或 deny-all，escalate-to-main 会死锁。"
+  },
+  "从 from_seq 长轮询 Agent Task 事件，返回 next_seq 供无损续读。": {
+    "en": "Long-poll Agent Task events from from_seq and return next_seq for lossless continuation.",
+    "zh-CN": "从 from_seq 长轮询 Agent Task 事件，返回 next_seq 供无损续读。"
+  },
+  "异步提交 Agent Task，立即返回 task_id。agent 优先使用 profile_list 的 ref；开发版先经 profile_get 验证。": {
+    "en": "Submit an Agent Task asynchronously and immediately return task_id. Prefer a profile_list ref for agent; validate development Profiles with profile_get first.",
+    "zh-CN": "异步提交 Agent Task，立即返回 task_id。agent 优先使用 profile_list 的 ref；开发版先经 profile_get 验证。"
+  },
+  "**输入 JSON Schema**": {
+    "en": "**Input JSON Schema**",
+    "zh-CN": "**输入 JSON Schema**"
+  },
+  "可选的协作者类型过滤；明确寻找当前群内的外部 Bot 时必须传 external_bot": {
+    "en": "Optional collaborator kind filter; external_bot is required when explicitly looking for an external Bot in the current group",
+    "zh-CN": "可选的协作者类型过滤；明确寻找当前群内的外部 Bot 时必须传 external_bot"
+  },
+  "要请求取消的 Delegation ID": {
+    "en": "Delegation ID to request cancellation for",
+    "zh-CN": "要请求取消的 Delegation ID"
+  },
+  "amux.collaborator_list 返回的不透明协作者 ID，必须原样传入": {
+    "en": "Opaque collaborator ID returned by amux.collaborator_list; pass it unchanged",
+    "zh-CN": "amux.collaborator_list 返回的不透明协作者 ID，必须原样传入"
+  },
+  "可选的重试幂等键；仅同一逻辑委派可以复用": {
+    "en": "Optional retry idempotency key; reuse only for the same logical delegation",
+    "zh-CN": "可选的重试幂等键；仅同一逻辑委派可以复用"
+  },
+  "交给协作者的完整、可独立执行的任务说明": {
+    "en": "Complete, independently executable task instructions for the collaborator",
+    "zh-CN": "交给协作者的完整、可独立执行的任务说明"
+  },
+  "整个 Delegation 的截止时间；0 或省略时使用后端默认值": {
+    "en": "Deadline for the entire Delegation; 0 or omission uses the backend default",
+    "zh-CN": "整个 Delegation 的截止时间；0 或省略时使用后端默认值"
+  },
+  "要读取当前快照的 Delegation ID": {
+    "en": "Delegation ID whose current snapshot is requested",
+    "zh-CN": "要读取当前快照的 Delegation ID"
+  },
+  "允许或拒绝当前权限请求": {
+    "en": "Allow or deny the current permission request",
+    "zh-CN": "允许或拒绝当前权限请求"
+  },
+  "需要处理权限请求的 Delegation ID": {
+    "en": "Delegation ID with the permission request to answer",
+    "zh-CN": "需要处理权限请求的 Delegation ID"
+  },
+  "后端权限请求提供的可选选项 ID": {
+    "en": "Optional option ID provided by the backend permission request",
+    "zh-CN": "后端权限请求提供的可选选项 ID"
+  },
+  "可选的决策说明": {
+    "en": "Optional explanation of the decision",
+    "zh-CN": "可选的决策说明"
+  },
+  "permission_requested 事件中的请求 ID": {
+    "en": "Request ID from the permission_requested event",
+    "zh-CN": "permission_requested 事件中的请求 ID"
+  },
+  "要等待的 Delegation ID": {
+    "en": "Delegation ID to wait for",
+    "zh-CN": "要等待的 Delegation ID"
+  },
+  "上次响应返回的 next_seq；用于增量读取事件": {
+    "en": "next_seq from the previous response, for incremental event reading",
+    "zh-CN": "上次响应返回的 next_seq；用于增量读取事件"
+  },
+  "event 保持兼容：下一事件、终态或窗口超时即返回；actionable 内部消费普通 output/status，只在权限请求、结果、错误、终态或 Delegation deadline 返回": {
+    "en": "In event mode, return on the next event, terminal state, or window timeout. actionable consumes ordinary output/status internally and returns only for permission requests, results, errors, terminal states, or the Delegation deadline",
+    "zh-CN": "event 保持兼容：下一事件、终态或窗口超时即返回；actionable 内部消费普通 output/status，只在权限请求、结果、错误、终态或 Delegation deadline 返回"
+  },
+  "底层有界长轮询窗口，默认 25 秒，不是整个 Delegation 的超时；actionable 模式会在 MCP 调用内跨窗口继续等待": {
+    "en": "Underlying bounded long-poll window, default 25 seconds; not the entire Delegation timeout. actionable continues waiting across windows within the MCP call",
+    "zh-CN": "底层有界长轮询窗口，默认 25 秒，不是整个 Delegation 的超时；actionable 模式会在 MCP 调用内跨窗口继续等待"
+  },
+  "要唤醒并接收 Task 的持久 Agent Instance，取自 instance_spawn 的返回值": {
+    "en": "Persistent Agent Instance to wake and deliver the Task to, from instance_spawn",
+    "zh-CN": "要唤醒并接收 Task 的持久 Agent Instance，取自 instance_spawn 的返回值"
+  },
+  "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，超限时截断并指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript": {
+    "en": "summary (default) returns only the Agent summary; full inlines the complete redacted transcript in result.full_transcript, truncating oversized output and pointing to amux task_stream or amux task logs; structured-summary returns summary and result.details_ref (task_id) for retrieving the full transcript on demand",
+    "zh-CN": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，超限时截断并指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"
+  },
+  "触发下一轮的新 Task 提示词": {
+    "en": "New Task Prompt that starts the next turn",
+    "zh-CN": "触发下一轮的新 Task 提示词"
+  },
+  "整个 Task 从接受开始计算的截止时间（秒）；0 或省略时使用 runtime 默认值（30 分钟）": {
+    "en": "Deadline for the entire Task in seconds from acceptance; 0 or omission uses the Runtime default (30 minutes)",
+    "zh-CN": "整个 Task 从接受开始计算的截止时间（秒）；0 或省略时使用 runtime 默认值（30 分钟）"
+  },
+  "可选过滤条件：拥有这些 Instance 的 parent Session ID": {
+    "en": "Optional filter: parent Session ID that owns these Instances",
+    "zh-CN": "可选过滤条件：拥有这些 Instance 的 parent Session ID"
+  },
+  "队列输入的可选来源标签": {
+    "en": "Optional source label for the queued input",
+    "zh-CN": "队列输入的可选来源标签"
+  },
+  "要排队的消息；Agent 唤醒后会在下一条 Task 提示词之前收到": {
+    "en": "Message to enqueue; after waking, the Agent receives it before the next Task Prompt",
+    "zh-CN": "要排队的消息；Agent 唤醒后会在下一条 Task 提示词之前收到"
+  },
+  "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref": {
+    "en": "Agent Profile ref from amux.profile_list profiles[].ref",
+    "zh-CN": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref"
+  },
+  "可选的显式 Instance 句柄；省略时生成并返回新的 agent-<uuid> 句柄": {
+    "en": "Optional explicit Instance handle; omission generates and returns a new agent-<uuid> handle",
+    "zh-CN": "可选的显式 Instance 句柄；省略时生成并返回新的 agent-<uuid> 句柄"
+  },
+  "可选模型引用，必须来自所选 Profile 的 supported_models；该值会固定到持久 Agent Instance": {
+    "en": "Optional model ref from the selected Profile's supported_models; pinned to the persistent Agent Instance",
+    "zh-CN": "可选模型引用，必须来自所选 Profile 的 supported_models；该值会固定到持久 Agent Instance"
+  },
+  "可选 Principal alias 意图；省略时使用 parent Execution Principal 创建实例": {
+    "en": "Optional Principal alias intent; omission creates the Instance using the parent Execution Principal",
+    "zh-CN": "可选 Principal alias 意图；省略时使用 parent Execution Principal 创建实例"
+  },
+  "交给 Agent 的初始 Task 提示词": {
+    "en": "Initial Task Prompt for the Agent",
+    "zh-CN": "交给 Agent 的初始 Task 提示词"
+  },
+  "等待当前 turn 进入 idle 或 archived 的最长秒数；默认 30 秒": {
+    "en": "Maximum seconds to wait for the current turn to enter idle or archived; default 30 seconds",
+    "zh-CN": "等待当前 turn 进入 idle 或 archived 的最长秒数；默认 30 秒"
+  },
+  "preview/publish 必填；local_expert_read 返回的 base_revision，publish 必须原样携带，不能省略": {
+    "en": "Required for preview/publish: base_revision from local_expert_read. Publishing must pass it unchanged; it cannot be omitted",
+    "zh-CN": "preview/publish 必填；local_expert_read 返回的 base_revision，publish 必须原样携带，不能省略"
+  },
+  "preview/publish 必填；cleanup 忽略": {
+    "en": "Required for preview/publish; ignored by cleanup",
+    "zh-CN": "preview/publish 必填；cleanup 忽略"
+  },
+  "preview/publish 必填；基于 local_expert_read 返回精确基线的 unified text Git patch": {
+    "en": "Required for preview/publish: unified text Git patch against the exact baseline returned by local_expert_read",
+    "zh-CN": "preview/publish 必填；基于 local_expert_read 返回精确基线的 unified text Git patch"
+  },
+  "仅 preview 使用，默认 false。只有用户对本次候选明确要求评测时才可设为 true；只要 Profile/Skill 本身或测试 case 可能产生写入、通知或其它副作用，即使 case 看起来只读，也必须先展示测试计划并取得用户后续确认。用于为相同 preview tree 准备隐藏的短期候选 Profile，供 task_run 做一次 A/B 评测；patch 变化或评测完成后重新评测需要新的明确要求和必要的副作用确认；评测确认不授权 publish": {
+    "en": "Preview only; default false. Set true only when the user explicitly requests evaluation of this candidate. If the Profile, Skill, or test case may write, notify, or cause other side effects, first present the test plan and obtain subsequent user confirmation, even if the case looks read-only. Prepares a hidden short-lived candidate Profile for one task_run A/B evaluation of the same preview tree. Re-evaluation after a patch change or completed evaluation requires a new explicit request and any necessary side-effect confirmation. Evaluation approval does not authorize publication",
+    "zh-CN": "仅 preview 使用，默认 false。只有用户对本次候选明确要求评测时才可设为 true；只要 Profile/Skill 本身或测试 case 可能产生写入、通知或其它副作用，即使 case 看起来只读，也必须先展示测试计划并取得用户后续确认。用于为相同 preview tree 准备隐藏的短期候选 Profile，供 task_run 做一次 A/B 评测；patch 变化或评测完成后重新评测需要新的明确要求和必要的副作用确认；评测确认不授权 publish"
+  },
+  "publish/cleanup 模式必填；preview 返回的不透明 receipt": {
+    "en": "Required for publish/cleanup: opaque receipt returned by preview",
+    "zh-CN": "publish/cleanup 模式必填；preview 返回的不透明 receipt"
+  },
+  "仅 fork 操作必填；精确的 builtin/<name> 引用": {
+    "en": "Required only for fork: exact builtin/<name> ref",
+    "zh-CN": "仅 fork 操作必填；精确的 builtin/<name> 引用"
+  },
+  "精确的 local/<name> 目标引用": {
+    "en": "Exact local/<name> target ref",
+    "zh-CN": "精确的 local/<name> 目标引用"
+  },
+  "精确的 Agent Profile 引用；需要时可包含显式开发版 namespace": {
+    "en": "Exact Agent Profile ref, optionally including an explicit development namespace",
+    "zh-CN": "精确的 Agent Profile 引用；需要时可包含显式开发版 namespace"
+  },
+  "上一页 profile_list 返回的不透明续页游标": {
+    "en": "Opaque continuation cursor from the previous profile_list page",
+    "zh-CN": "上一页 profile_list 返回的不透明续页游标"
+  },
+  "可选的精确 Pack namespace 过滤条件，例如 expert-agents；翻页时必须保持不变": {
+    "en": "Optional exact Pack namespace filter, such as expert-agents; keep unchanged across pages",
+    "zh-CN": "可选的精确 Pack namespace 过滤条件，例如 expert-agents；翻页时必须保持不变"
+  },
+  "分页 MCP 结果返回的 next_cursor": {
+    "en": "next_cursor returned by a paginated MCP result",
+    "zh-CN": "分页 MCP 结果返回的 next_cursor"
+  },
+  "Schedule 的可选显示名称": {
+    "en": "Optional Schedule display name",
+    "zh-CN": "Schedule 的可选显示名称"
+  },
+  "时间规则：every <duration>、daily <HH:MM>、at <when> 或 cron <expr>": {
+    "en": "Time rule: every <duration>, daily <HH:MM>, at <when>, or cron <expr>",
+    "zh-CN": "时间规则：every <duration>、daily <HH:MM>、at <when> 或 cron <expr>"
+  },
+  "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref，例如 builtin/codex 或 team/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口": {
+    "en": "Agent Profile ref from amux.profile_list profiles[].ref, such as builtin/codex or team/push_sre; raw Agent Type strings are supported only for legacy callers",
+    "zh-CN": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref，例如 builtin/codex 或 team/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口"
+  },
+  "控制面 credential profile 名称": {
+    "en": "Control-plane credential profile name",
+    "zh-CN": "控制面 credential profile 名称"
+  },
+  "Sandbox 隔离模式；Phase 1 为 best-effort trusted mode": {
+    "en": "Sandbox isolation mode; Phase 1 is best-effort trusted mode",
+    "zh-CN": "Sandbox 隔离模式；Phase 1 为 best-effort trusted mode"
+  },
+  "每次定时运行面向用户的模型覆盖；留空时使用 Profile 或 Agent 默认模型": {
+    "en": "User-facing model override for each scheduled run; empty uses the Profile or Agent default",
+    "zh-CN": "每次定时运行面向用户的模型覆盖；留空时使用 Profile 或 Agent 默认模型"
+  },
+  "留空或 default 时使用 Profile 或 Task 默认策略；允许 policy-allow 和 deny-all；定时 Agent Task 不允许 escalate-to-main": {
+    "en": "Empty or default uses the Profile or Task default policy. policy-allow and deny-all are allowed; scheduled Agent Tasks do not allow escalate-to-main",
+    "zh-CN": "留空或 default 时使用 Profile 或 Task 默认策略；允许 policy-allow 和 deny-all；定时 Agent Task 不允许 escalate-to-main"
+  },
+  "可选的已登记 Principal alias；保存 Schedule 时解析并固化": {
+    "en": "Optional enrolled Principal alias; resolved and frozen when the Schedule is saved",
+    "zh-CN": "可选的已登记 Principal alias；保存 Schedule 时解析并固化"
+  },
+  "Schedule 每次触发时提交的 Task 提示词": {
+    "en": "Task Prompt submitted on each Schedule trigger",
+    "zh-CN": "Schedule 每次触发时提交的 Task 提示词"
+  },
+  "旧版兼容空操作（v0.38）：弱隔离下默认允许注入长期 secret；该字段仅为向后兼容保留": {
+    "en": "Legacy compatibility no-op (v0.38): long-lived secret injection is allowed under weak isolation by default; retained only for backward compatibility",
+    "zh-CN": "旧版兼容空操作（v0.38）：弱隔离下默认允许注入长期 secret；该字段仅为向后兼容保留"
+  },
+  "目标 runtime 本地的 repo cache 目录；policy=git-worktree 时必须提供 local_dir 或 repo.cache_key": {
+    "en": "Repo cache directory local to the target Runtime; policy=git-worktree requires local_dir or repo.cache_key",
+    "zh-CN": "目标 runtime 本地的 repo cache 目录；policy=git-worktree 时必须提供 local_dir 或 repo.cache_key"
+  },
+  "temp-dir 为每次运行创建一次性 Workspace；git-worktree 从 repo cache 检出 worktree": {
+    "en": "Use temp-dir for a disposable Workspace per run; git-worktree checks out a worktree from the repo cache",
+    "zh-CN": "temp-dir 为每次运行创建一次性 Workspace；git-worktree 从 repo cache 检出 worktree"
+  },
+  "在 runtime 的 amux repos 目录下解析的 repo cache key；policy=git-worktree 时必须提供 local_dir 或 repo.cache_key": {
+    "en": "Repo cache key resolved under the Runtime's amux repos directory; policy=git-worktree requires local_dir or repo.cache_key",
+    "zh-CN": "在 runtime 的 amux repos 目录下解析的 repo cache key；policy=git-worktree 时必须提供 local_dir 或 repo.cache_key"
+  },
+  "Workspace repo 的 commit 或 ref": {
+    "en": "Workspace repository commit or ref",
+    "zh-CN": "Workspace repo 的 commit 或 ref"
+  },
+  "Workspace repo 类型，例如 git": {
+    "en": "Workspace repository kind, such as git",
+    "zh-CN": "Workspace repo 类型，例如 git"
+  },
+  "是否包含 Schedule 运行历史；使用 runs 中的 task_id 调用 task_get 或 task_stream 获取结果": {
+    "en": "Whether to include Schedule run history; use task_id from runs with task_get or task_stream to retrieve results",
+    "zh-CN": "是否包含 Schedule 运行历史；使用 runs 中的 task_id 调用 task_get 或 task_stream 获取结果"
+  },
+  "上一页 schedule_list 返回的不透明续页游标": {
+    "en": "Opaque continuation cursor from the previous schedule_list page",
+    "zh-CN": "上一页 schedule_list 返回的不透明续页游标"
+  },
+  "Schedule 的新显示名称；省略时保持不变": {
+    "en": "New Schedule display name; omitted means unchanged",
+    "zh-CN": "Schedule 的新显示名称；省略时保持不变"
+  },
+  "新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at": {
+    "en": "New time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); omitted means unchanged. Updates recompute next_run_at",
+    "zh-CN": "新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at"
+  },
+  "Session 名称或 ID": {
+    "en": "Session name or ID",
+    "zh-CN": "Session 名称或 ID"
+  },
+  "目标 runtime ID；留空时使用 hub 默认目标": {
+    "en": "Target Runtime ID; empty uses the Hub default target",
+    "zh-CN": "目标 runtime ID；留空时使用 hub 默认目标"
+  },
+  "要取消的队列输入 ID，由 amux.session_queue_list 返回": {
+    "en": "Queue input ID to cancel, returned by amux.session_queue_list",
+    "zh-CN": "要取消的队列输入 ID，由 amux.session_queue_list 返回"
+  },
+  "Session 名称（必填）": {
+    "en": "Session name (required)",
+    "zh-CN": "Session 名称（必填）"
+  },
+  "Agent Profile 引用（例如 builtin/codex）或旧版 Agent Type": {
+    "en": "Agent Profile ref (such as builtin/codex) or legacy Agent Type",
+    "zh-CN": "Agent Profile 引用（例如 builtin/codex）或旧版 Agent Type"
+  },
+  "目标 runtime ID；留空时仅在唯一连接 target 时自动选择": {
+    "en": "Target Runtime ID; empty selects automatically only when exactly one target is connected",
+    "zh-CN": "目标 runtime ID；留空时仅在唯一连接 target 时自动选择"
+  },
+  "要排入 Session 输入队列的提示词文本": {
+    "en": "Prompt text to enqueue for the Session",
+    "zh-CN": "要排入 Session 输入队列的提示词文本"
+  },
+  "要切换到的模型：原生模型名或 provider-backed 模型 ref（如 custom/example-model），无歧义时可用裸上游名（如 example-model）": {
+    "en": "Target model: native model name or provider-backed ref such as custom/example-model; an unambiguous bare upstream name such as example-model is also supported",
+    "zh-CN": "要切换到的模型：原生模型名或 provider-backed 模型 ref（如 custom/example-model），无歧义时可用裸上游名（如 example-model）"
+  },
+  "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref；也可传入先经 amux.profile_get 验证的精确开发版 Profile 引用，例如 builtin/codex、team/push_sre 或 team-task-dev/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口": {
+    "en": "Agent Profile ref from amux.profile_list profiles[].ref; an exact development Profile ref validated with amux.profile_get is also accepted, such as builtin/codex, team/push_sre, or team-task-dev/push_sre. Raw Agent Type strings are supported only for legacy callers",
+    "zh-CN": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref；也可传入先经 amux.profile_get 验证的精确开发版 Profile 引用，例如 builtin/codex、team/push_sre 或 team-task-dev/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口"
+  },
+  "持久 Agent Instance 句柄（mode=persistent）；复用 instance_spawn 返回的值调用 instance_followup、instance_send 或 instance_interrupt": {
+    "en": "Persistent Agent Instance handle (mode=persistent); reuse the instance_spawn value for instance_followup, instance_send, or instance_interrupt",
+    "zh-CN": "持久 Agent Instance 句柄（mode=persistent）；复用 instance_spawn 返回的值调用 instance_followup、instance_send 或 instance_interrupt"
+  },
+  "ephemeral（默认）只运行一次并销毁；persistent 让 Agent Instance 跨 Task 保持存活，以支持多轮交互": {
+    "en": "Ephemeral (default) runs once and is destroyed; persistent keeps the Agent Instance alive across Tasks for multiple turns",
+    "zh-CN": "ephemeral（默认）只运行一次并销毁；persistent 让 Agent Instance 跨 Task 保持存活，以支持多轮交互"
+  },
+  "可选模型引用，必须来自所选 Profile 的 supported_models": {
+    "en": "Optional model ref from the selected Profile's supported_models",
+    "zh-CN": "可选模型引用，必须来自所选 Profile 的 supported_models"
+  },
+  "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，最大 64KB，截断时指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript": {
+    "en": "summary (default) returns only the Agent summary; full inlines the complete redacted transcript in result.full_transcript up to 64KB, with truncation pointing to amux task_stream or amux task logs; structured-summary returns summary and result.details_ref (task_id) for fetching the full transcript on demand",
+    "zh-CN": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，最大 64KB，截断时指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"
+  },
+  "可选 Principal alias 意图；由 amuxd 解析并授权，未指定时 child 继承 parent 的 Execution Principal": {
+    "en": "Optional Principal alias intent, resolved and authorized by amuxd; omission makes the child inherit the parent's Execution Principal",
+    "zh-CN": "可选 Principal alias 意图；由 amuxd 解析并授权，未指定时 child 继承 parent 的 Execution Principal"
+  },
+  "交给 Agent Task 的提示词": {
+    "en": "Prompt for the Agent Task",
+    "zh-CN": "交给 Agent Task 的提示词"
+  },
+  "整个 Task 的截止时间（秒），从 Task 被接受时开始计算，并包含准备与 Agent 启动时间；0 或省略时使用 runtime 默认值（30 分钟）": {
+    "en": "Deadline in seconds for the entire Task, measured from acceptance and including preparation and Agent startup; 0 or omission uses the Runtime default (30 minutes)",
+    "zh-CN": "整个 Task 的截止时间（秒），从 Task 被接受时开始计算，并包含准备与 Agent 启动时间；0 或省略时使用 runtime 默认值（30 分钟）"
+  },
+  "从该事件序号继续读取；传入上一次调用返回的 next_seq": {
+    "en": "Resume reading from this event sequence number; pass next_seq from the previous call",
+    "zh-CN": "从该事件序号继续读取；传入上一次调用返回的 next_seq"
+  }
+}

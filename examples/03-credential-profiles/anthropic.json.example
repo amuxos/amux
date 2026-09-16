@@ -1,0 +1,7 @@
+{
+  "kind": "long-lived",
+  "env": {
+    "ANTHROPIC_API_KEY": "sk-ant-REPLACE-ME"
+  },
+  "files": {}
+}

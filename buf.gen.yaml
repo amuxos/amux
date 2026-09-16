@@ -1,0 +1,12 @@
+version: v2
+
+plugins:
+  - remote: buf.build/protocolbuffers/go:v1.36.11
+    out: .
+    opt:
+      - module=github.com/amuxos/amux
+  - remote: buf.build/grpc/go:v1.6.2
+    out: .
+    opt:
+      - module=github.com/amuxos/amux
+      - require_unimplemented_servers=false

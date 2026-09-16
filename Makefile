@@ -1,0 +1,74 @@
+.PHONY: build test check check-fast cli-doc config-doc mcp-doc docs docs-check proto sidecar install upgrade deploy-local-fast uninstall package lint fmt clean
+
+BINARIES := amux amuxd amuxlet amux-isolation-helper
+VERSION ?= dev
+BUILD_DIR ?= bin
+export GOWORK := off
+
+build:
+	@mkdir -p "$(BUILD_DIR)"
+	@set -e; for bin in $(BINARIES); do \
+		go build -trimpath -buildvcs=false -ldflags "-X main.version=$(VERSION)" -o "$(BUILD_DIR)/$$bin" ./cmd/$$bin; \
+	done
+
+test:
+	go test ./...
+
+check:
+	bash scripts/check.sh
+
+check-fast:
+	bash scripts/check-fast.sh $(FAST_ARGS)
+
+cli-doc:
+	go run -tags cli_doc ./cmd/amux --language en --output docs/reference/cli.md
+	go run -tags cli_doc ./cmd/amux --language zh-CN --output docs/reference/cli.zh-CN.md
+
+config-doc:
+	go run ./cmd/amux-config-doc --language en --output docs/reference/configuration.md
+	go run ./cmd/amux-config-doc --language zh-CN --output docs/reference/configuration.zh-CN.md
+
+mcp-doc:
+	go run -tags mcp_doc ./cmd/amux --language en --output docs/reference/mcp.md
+	go run -tags mcp_doc ./cmd/amux --language zh-CN --output docs/reference/mcp.zh-CN.md
+
+docs: cli-doc config-doc mcp-doc
+
+docs-check:
+	go run -tags cli_doc ./cmd/amux --language en --check --output docs/reference/cli.md
+	go run -tags cli_doc ./cmd/amux --language zh-CN --check --output docs/reference/cli.zh-CN.md
+	go run ./cmd/amux-config-doc --language en --check --output docs/reference/configuration.md
+	go run ./cmd/amux-config-doc --language zh-CN --check --output docs/reference/configuration.zh-CN.md
+	go run -tags mcp_doc ./cmd/amux --language en --check --output docs/reference/mcp.md
+	go run -tags mcp_doc ./cmd/amux --language zh-CN --check --output docs/reference/mcp.zh-CN.md
+
+proto:
+	buf generate
+
+sidecar:
+	cd sidecars/claude-sdk && npm ci --registry=https://registry.npmjs.org --ignore-scripts && npm run build && npm test
+
+install: build
+	"$(BUILD_DIR)/amux" install --source "$(BUILD_DIR)" --force
+
+upgrade deploy-local-fast: build
+	"$(BUILD_DIR)/amux" update --source "$(BUILD_DIR)" --force --restart
+
+uninstall: build
+	"$(BUILD_DIR)/amux" system uninstall --yes
+
+package:
+	bash scripts/package-release.sh --version "$(VERSION)" $(PACKAGE_ARGS)
+
+lint:
+	golangci-lint run ./...
+
+fmt:
+	gofmt -w agent-packs app cmd internal pkg
+	goimports -w agent-packs app cmd internal pkg
+
+clean:
+	go clean ./...
+	rm -f -- $(foreach bin,$(BINARIES),"$(BUILD_DIR)/$(bin)")
+
+.DEFAULT_GOAL := build

@@ -1,0 +1,234 @@
+import assert from 'node:assert/strict';
+import { PassThrough } from 'node:stream';
+import { test } from 'node:test';
+import { RpcPeer } from './protocol.js';
+import { applyExtraArgs, ClaudeBridge, type QueryFn, type SdkUserMessage } from './claude.js';
+
+// Collect the NDJSON notifications the bridge writes to its output stream.
+function collect(output: PassThrough): any[] {
+  const msgs: any[] = [];
+  let buf = '';
+  output.on('data', (chunk) => {
+    buf += chunk.toString();
+    let nl: number;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (line) msgs.push(JSON.parse(line));
+    }
+  });
+  return msgs;
+}
+
+const tick = () => new Promise((r) => setTimeout(r, 10));
+
+test('startTurn drives the SDK and streams real deltas, not an echo', async () => {
+  const output = new PassThrough();
+  const peer = new RpcPeer(new PassThrough(), output);
+  const msgs = collect(output);
+
+  // Fake SDK: for each user turn, yield a system init, a text delta of "4",
+  // and a result — proving the bridge maps SDK output, not the input text.
+  const fakeQuery: QueryFn = ({ prompt }) => {
+    async function* gen() {
+      for await (const user of prompt as AsyncIterable<SdkUserMessage>) {
+        void user; // input consumed but NOT echoed
+        yield { type: 'system', subtype: 'init', session_id: 'sess_1' } as any;
+        yield { type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: '4' } } } as any;
+        yield { type: 'result', subtype: 'success', stop_reason: 'end_turn' } as any;
+      }
+    }
+    return gen();
+  };
+
+  const bridge = new ClaudeBridge(peer, fakeQuery);
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'what is 2+2? reply with only the number' });
+  await tick();
+
+  const events = msgs.filter((m) => m.method === 'event').map((m) => m.params.event);
+  const deltas = events.filter((e) => e.type === 'assistant_text_delta');
+  assert.equal(deltas.length, 1);
+  assert.equal(deltas[0].text, '4', 'assistant text must be the model output "4"');
+  assert.ok(!deltas.some((e) => String(e.text).includes('2+2')), 'must not echo the prompt');
+
+  const done = events.find((e) => e.type === 'turn_done');
+  assert.ok(done, 'turn_done emitted');
+  assert.equal(done.state.stop_reason, 'end_turn');
+
+});
+
+test('result message emits a native result event before turn_done', async () => {
+  const output = new PassThrough();
+  const peer = new RpcPeer(new PassThrough(), output);
+  const msgs = collect(output);
+
+  // SDK result message carries the final text + usage + cost; the bridge must
+  // surface it as a native `result` event so the task control plane can record a
+  // summary without an injected text envelope.
+  const fakeQuery: QueryFn = ({ prompt }) => {
+    async function* gen() {
+      for await (const _user of prompt as AsyncIterable<SdkUserMessage>) {
+        void _user;
+        yield { type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'done' } } } as any;
+        yield {
+          type: 'result',
+          subtype: 'success',
+          stop_reason: 'end_turn',
+          result: 'the final answer',
+          usage: { input_tokens: 3 },
+          total_cost_usd: 0.002,
+        } as any;
+      }
+    }
+    return gen();
+  };
+
+  const bridge = new ClaudeBridge(peer, fakeQuery);
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'go' });
+  await tick();
+
+  const events = msgs.filter((m) => m.method === 'event').map((m) => m.params.event);
+  const resultIdx = events.findIndex((e) => e.type === 'result');
+  const doneIdx = events.findIndex((e) => e.type === 'turn_done');
+  assert.ok(resultIdx >= 0, 'result event emitted');
+  assert.equal(events[resultIdx].result.text, 'the final answer');
+  assert.equal(events[resultIdx].result.cost_usd, 0.002);
+  assert.ok(doneIdx > resultIdx, 'result event precedes turn_done');
+});
+
+test('subagent messages do not leak into the parent presentation stream', async () => {
+  const output = new PassThrough();
+  const peer = new RpcPeer(new PassThrough(), output);
+  const msgs = collect(output);
+
+  const fakeQuery: QueryFn = ({ prompt }) => {
+    async function* gen() {
+      for await (const _user of prompt as AsyncIterable<SdkUserMessage>) {
+        void _user;
+        yield {
+          type: 'stream_event',
+          parent_tool_use_id: 'parent-task',
+          event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'child answer' } },
+        } as any;
+        yield {
+          type: 'assistant',
+          parent_tool_use_id: 'parent-task',
+          message: { content: [{ type: 'tool_use', id: 'child-tool', name: 'Read', input: { path: 'child.txt' } }] },
+        } as any;
+        yield {
+          type: 'user',
+          parent_tool_use_id: 'parent-task',
+          message: { content: [{ type: 'tool_result', tool_use_id: 'child-tool', content: 'child result' }] },
+        } as any;
+        yield {
+          type: 'stream_event',
+          parent_tool_use_id: null,
+          event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'parent answer' } },
+        } as any;
+        yield {
+          type: 'assistant',
+          parent_tool_use_id: null,
+          message: { content: [{ type: 'tool_use', id: 'parent-tool', name: 'Read', input: { path: 'parent.txt' } }] },
+        } as any;
+        yield { type: 'result', subtype: 'success', stop_reason: 'end_turn', result: 'parent answer' } as any;
+      }
+    }
+    return gen();
+  };
+
+  const bridge = new ClaudeBridge(peer, fakeQuery);
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'delegate' });
+  await tick();
+
+  const events = msgs.filter((m) => m.method === 'event').map((m) => m.params.event);
+  assert.deepEqual(events.filter((e) => e.type === 'assistant_text_delta').map((e) => e.text), ['parent answer']);
+  assert.deepEqual(events.filter((e) => e.type === 'tool_started').map((e) => e.tool.id), ['parent-tool']);
+  assert.ok(events.some((e) => e.type === 'result' && e.result.text === 'parent answer'));
+  assert.ok(events.some((e) => e.type === 'turn_done'));
+});
+
+test('canUseTool emits a permission.request resolved by permission.respond', async () => {
+  const output = new PassThrough();
+  const peer = new RpcPeer(new PassThrough(), output);
+  const msgs = collect(output);
+
+  let approved: unknown;
+  const fakeQuery: QueryFn = ({ prompt, options }) => {
+    async function* gen() {
+      for await (const _user of prompt as AsyncIterable<SdkUserMessage>) {
+        const canUseTool = (options as any).canUseTool as (n: string, i: any, c: any) => Promise<unknown>;
+        approved = await canUseTool('Bash', { command: 'ls' }, { toolUseID: 'tu_1' });
+        yield { type: 'result', subtype: 'success', stop_reason: 'end_turn' } as any;
+      }
+    }
+    return gen();
+  };
+
+  const bridge = new ClaudeBridge(peer, fakeQuery);
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'list files' });
+  await tick();
+
+  const req = msgs.find((m) => m.method === 'permission.request');
+  assert.ok(req, 'permission.request emitted');
+  const permId = req.params.permission.id;
+  assert.equal(req.params.permission.toolCall.name, 'Bash');
+
+  await bridge.respondPermission({ permission_id: permId, option_id: 'allow' });
+  await tick();
+  assert.deepEqual(approved, { behavior: 'allow' });
+
+});
+
+test('applyExtraArgs maps --model and --permission-mode onto SDK options', () => {
+  const options: Record<string, unknown> = { permissionMode: 'default' };
+  applyExtraArgs(options, ['--model', 'opus', '--permission-mode', 'acceptEdits']);
+  assert.equal(options.model, 'opus');
+  assert.equal(options.permissionMode, 'acceptEdits');
+});
+
+test('applyExtraArgs maps --effort onto SDK options', () => {
+  const options: Record<string, unknown> = {};
+  applyExtraArgs(options, ['--effort', 'high']);
+  assert.equal(options.effort, 'high');
+
+  applyExtraArgs(options, ['--effort=xhigh']);
+  assert.equal(options.effort, 'xhigh');
+});
+
+test('applyExtraArgs treats --dangerously-skip-permissions as bypass + allow flag', () => {
+  const options: Record<string, unknown> = { permissionMode: 'default' };
+  applyExtraArgs(options, ['--dangerously-skip-permissions']);
+  assert.equal(options.permissionMode, 'bypassPermissions');
+  assert.equal(options.allowDangerouslySkipPermissions, true);
+});
+
+test('applyExtraArgs supports inline --flag=value form and ignores unknown flags', () => {
+  const options: Record<string, unknown> = {};
+  applyExtraArgs(options, ['--model=claude-sonnet-4-5', '--fallback-model=haiku', '--unknown', 'leftover']);
+  assert.equal(options.model, 'claude-sonnet-4-5');
+  assert.equal(options.fallbackModel, 'haiku');
+  assert.equal(options.unknown, undefined);
+});
+
+test('applyExtraArgs rejects unknown permission modes so we never feed bad enums into the SDK', () => {
+  const options: Record<string, unknown> = { permissionMode: 'default' };
+  applyExtraArgs(options, ['--permission-mode', 'notARealMode']);
+  assert.equal(options.permissionMode, 'default');
+});
+
+test('applyExtraArgs rejects unknown effort levels so we never feed bad enums into the SDK', () => {
+  const options: Record<string, unknown> = { effort: 'medium' };
+  applyExtraArgs(options, ['--effort', 'notARealEffort']);
+  assert.equal(options.effort, 'medium');
+});
+
+test('applyExtraArgs setting --permission-mode bypassPermissions also sets the dangerously-skip flag', () => {
+  const options: Record<string, unknown> = {};
+  applyExtraArgs(options, ['--permission-mode', 'bypassPermissions']);
+  assert.equal(options.permissionMode, 'bypassPermissions');
+  assert.equal(options.allowDangerouslySkipPermissions, true);
+});

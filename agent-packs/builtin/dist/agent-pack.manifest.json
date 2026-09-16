@@ -1,0 +1,23 @@
+{
+  "schema_version": "v1.1",
+  "pack_namespace": "builtin",
+  "profiles": {
+    "claude": {
+      "namespace": "common",
+      "type": "claude",
+      "permission": {"permission_mode": "bypass"}
+    },
+    "codex": {
+      "namespace": "common",
+      "type": "codex",
+      "permission": {"permission_mode": "bypass"}
+    },
+    "pi": {
+      "namespace": "common",
+      "type": "pi",
+      "permission": {"permission_mode": "bypass"}
+    }
+  },
+  "providers": {},
+  "namespaces": {"common": {"profiles": ["claude", "codex", "pi"]}}
+}

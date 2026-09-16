@@ -1,0 +1,84 @@
+<a id="feishu-bridge-product-model"></a>
+
+# 飞书 Bridge 产品模型
+
+[English](feishu-bridge-product-model.md) | [简体中文](feishu-bridge-product-model.zh-CN.md)
+
+可选 Bridge 拥有飞书/Lark API 行为、消息路由、Bot 命令、thread 与 workspace 绑定、
+权限和输出呈现。它不拥有智能体执行，也不改变本地 CLI 的要求。
+
+群值守与文档评论的执行覆盖遵循所选 Runtime 的模型策略。没有 Runtime 覆盖时，
+遵循 Profile 模型策略：省略 `supported_models` 允许原生模型名；显式列表将选项限制
+在列表内；显式空列表仅允许 Agent 默认模型。CLI 校验与 Bridge admission 使用同一规则。
+
+Operator 通过官方应用注册流程配置 Bot Profile。Setup 申请已实现能力所需的权限和
+事件。Personal 与 Team 治理独立于系统托管拓扑控制访问。Owner 操作与普通对话动作区分。
+
+接受的消息映射到工作区和 Session。Session 输入进入队列；thread 上下文有界，并附在
+已接受的提交上。智能体进度、工具活动、结果与权限提示均从结构化事件渲染。
+Bridge 不从展示文本推断 Provider 语义。
+
+每个绑定的 Session launch 只有一条活动输出流。并发绑定、输入路由和 Session-added
+通知复用该流及其 readiness、turn 状态和卡片句柄。重复启动通知不能冻结已有进度卡，
+也不能把同一 turn 的结果放到新卡片。Session 或 launch 身份变化、binding 迁移以及
+流已结束时仍会建立新 attachment。新建 Session 可从首次 Hub 快照补齐身份而不替换活动流。
+
+主卡与子卡标题使用相同的结构化用量摘要。已知上下文窗口时，最新调用总量显示为
+`22.8k tokens (8%)`，否则省略百分比。报告缓存输入时，Provider thread 的原生累计
+输入显示为 `累计输入 300k/343k（缓存/总量）`；没有缓存输入值时显示 `累计输入 343k`。
+累计输出显示为 `累计输出 12k`，两者单位均为 token。显式零值保留，缺失的累计字段省略，
+不从最新调用推断，也不累加更新。上下文占用继续使用最新调用，与累计消耗独立。
+可选的首 token 延迟和 token 速度仍包含在摘要中。CardKit 与旧版卡片共用这些规则；
+用量更新不会让每个事件帧都触发卡片刷新。
+
+群值守接受允许的根消息，内容可以是文本、有效图片、文件或合并转发。
+纯素材消息使用共享解析器的描述作为 Session 输入。已删除消息及无有效文本或素材的
+消息不创建 Session。既有发送者、群、去重、容量和防循环规则继续适用。
+
+普通对话、实时群值守事件和历史轮询通过同一路径收集素材。
+每条消息拥有自己的收集上下文，轮询批次中附件不会串到其它消息。
+素材获取使用当前 Bridge 应用身份和所属群，各入口共享 Session 能力、大小限制、
+文件物化和错误提示。仅展开合并转发容器返回的后代消息。
+只有飞书明确报告后代与容器属于同一群，才可使用后代原始消息 ID 获取资源；
+否则仍以顶层容器 ID 获取。
+
+Bridge 状态按职责分组为 controller、store 和 API port。路由与应用装配仍在 Bridge；
+所有权调整保留事件顺序、流生命周期、权限和发行版 hook。
+
+新工作区默认使用 `builtin/codex`。Bot 可以选择可用的 Profile 与 Runtime。
+公共品牌指向 amux 官网 `https://amuxos.com/`。委派协议保留稳定标识
+`urn:amux:protocol:feishu-external-bot-delegation:v1`，不随官网地址变化。
+外部 Bot 发现和新建委派要求与当前群存在活动 binding，不允许跨群发现。
+既有委派工作可使用已记录的对端身份完成。
+
+公共发行版不包含旧控制台自动化，也不读取其它工具的网页登录缓存。
+Operator 可以使用官方注册流程或手动配置应用。
+
+独立维护的发行版可在 Bridge 首次使用前注册一个扩展，提供 Provider 呈现、协调
+Profile 识别、旧默认值的事务性迁移，以及显式控制台 setup 回退。
+首次使用后注册不可变，重复注册报错。这些 hook 不改变 Session 执行、canonical
+事件、访问校验或默认官方注册流程。发行版特有实现和 Session 缓存路径属于发行版
+module；公共 Bridge 无需它们也可独立运行。
+
+Parent 活动卡汇总协作任务，不把其输出混入 parent Agent 的过程面板。
+每个新发现的任务在每个 Bridge 进程内创建一张子进度卡，原地更新至终态结果。
+标签由短 Profile 名加 Persistent Agent Instance ID 的前八位组成；普通任务使用准确
+child Session ID，child 创建前临时回退到 TaskRun ID。Profile 标签去掉命名空间与版本，
+缺失时回退到 Agent Type，再回退到 `agent`；身份后缀去掉 `agent-` 或 `task-` 前缀。
+卡片显示状态、Profile、耗时和已知的有效模型。身份与模型来自同一 target 上的准确
+child Session，不能取自 parent 或输出文本，并在终态清理后继续显示。
+
+子卡只按工具 ID 聚合自身脱敏的结构化工具活动，在独立过程面板显示 TaskEvent 输出。
+可附带 child Session 自己的只读查看链接。CardKit 创建失败时回退为一张旧版交互卡，
+后续更新继续原地 patch 该卡。
+
+Child 用量仅来自对应 TaskRun 的结构化 `usage` 事件和最终 `TaskResult.usage_json`。
+基于 sequence 去重，确保 replay 和终态清理期间保留最新用量。
+每张卡展示自身 child Provider thread 的累计快照；persistent child 复用 thread 时，
+可能包含较早 TaskRun 的用量，不包含 parent 或其它 child 用量。
+
+Parent turn 期间约每两秒发现一次任务，turn 结束时再做最后一次发现。
+每个 watcher 从 sequence 0 重放 TaskEvent，断线后从最后序号继续，不重复事件。
+状态、权限和结果立即更新子卡，输出更新按两秒合并。
+Watcher 可在 parent turn 结束后继续存在，直至 child Task 终态、超时窗口到期或进程退出。
+Parent 摘要保留约三十秒的刷新节奏。

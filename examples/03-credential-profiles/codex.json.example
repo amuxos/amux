@@ -1,0 +1,9 @@
+{
+  "kind": "long-lived",
+  "env": {
+    "OPENAI_API_KEY": "sk-REPLACE-ME"
+  },
+  "files": {
+    ".codex/auth.json": "{\"OPENAI_API_KEY\":\"sk-REPLACE-ME\"}"
+  }
+}

@@ -1,0 +1,50 @@
+<a id="distributed-task-model"></a>
+
+# 分布式 Task 模型
+
+[English](distributed-task-model.md) | [简体中文](distributed-task-model.zh-CN.md)
+
+Hub 认证请求、冻结执行身份、选择合适的 Runtime，并在派发前预留容量。
+选中 Runtime 的 Task runner 在本地执行 child Session，在进程内强制校验所有权。
+Hub 路由请求并维护 Task 到 target 的真相映射，不直接驱动 child Session。
+终态 Task 通过 reconciliation 释放预留容量。
+
+Task 是有界执行，拥有规范化终态结果、结构化结果、事件日志和文件变更证据。
+Agent Instance 持续存在并接受后续工作。取消和中断始终与正在运行的执行关联。
+权限决策必须显式作出，并绑定到提出请求的 Task 或 Instance。
+Instance 中断通过 child 的 owner TaskRun 进入取消流程：runner 记录取消意图，将该
+次运行结束为 `cancelled`，并保留可恢复实例。不得依赖直接中断 child 后 Provider
+产出终态事件。MCP 通过生成的工具 Schema 暴露 Profile、Task 和 Persistent Instance。
+
+Credential Profile 标识启动凭据。Profile 声明所需环境变量，只为有效 Principal
+物化这些变量。凭据不得持久化到 Session 快照、结果 payload 或公共事件文本。
+显式执行覆盖必须按 Profile 策略和 Runtime 能力验证。
+
+未显式覆盖 Runtime 时，模型选择遵循 Profile 的 `supported_models` 策略和已声明的
+Provider 绑定。显式覆盖 Runtime 时，Runtime 模型建议不是允许列表：不在列表中的
+原生模型名仍原样传给所选公共 Agent，不据此推断 Provider、端点或凭据。
+Adapter 的思考强度校验继续生效。要选择 Profile Provider，必须省略 Runtime 覆盖。
+
+隔离是启动策略和强制执行方式，不是 UI 标签。Runtime admission 在启动前验证平台
+支持和工作区访问。强容器/VM 隔离及跨机器高可用仍是目标规格，不是分布式 API
+隐含提供的能力。
+
+Profile 消费使用 manifest v1.1，遵循 Profile 物化到 Task/Adapter 契约的单向依赖。
+可选的本地专家编辑需要显式配置兼容的 authoring runtime；不可用时拒绝执行该能力，
+原生内置 Profile 仍可运行。
+
+Canonical `ToolChanged` 事件也会投影为持久化 Task `tool` 事件。
+其中只包含脱敏后的工具 ID、名称、标题和状态；原始输入、内容、diff、位置和输出
+保留在 Agent Timeline。工具活动既不改变 TaskResult，也不决定 Task 完成。
+
+Canonical `UsageObserved` 和 `ResultObserved.Usage` 也会投影为持久化 Task `usage`
+事件，携带名为 `usage` 的 JSON 对象。仅保留已知的非负整数 token、context 和 speed
+指标。相同快照去重，事件按准确 TurnID 过滤，最终快照先于终态发布。
+`TaskResult.usage_json` 保留最终用量。累计字段属于 child Provider thread；
+复用 thread 的 Persistent Instance 可能包含较早 TaskRun 的消耗。
+它们不是当前 TaskRun 的独占用量，parent 与 child 用量也不相加。
+
+由 `amux-session:<session_id>` 发起的协调委派通过既有 Task admission 与授权保留
+parent Session，并解析活动 ParentTurnID。其它发起者不推断 parent。
+协调等待在 `tool` 和 `usage` 事件上推进 TaskEvent cursor，不人为生成 status 或文本
+事件，也不因纯用量更新唤醒 parent Agent。

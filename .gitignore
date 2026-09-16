@@ -1,0 +1,6 @@
+/bin/
+/dist/
+/sidecars/claude-sdk/node_modules/
+/sidecars/claude-sdk/dist/
+*.log
+.DS_Store

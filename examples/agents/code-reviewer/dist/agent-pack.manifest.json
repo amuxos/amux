@@ -1,0 +1,20 @@
+{
+  "schema_version": "v1.1",
+  "pack_namespace": "code-reviewer",
+  "profiles": {
+    "code-reviewer": {
+      "type": "claude",
+      "description": "Code review subagent focused on correctness and maintainability",
+      "instructions": [
+        "instructions/code-reviewer.md",
+        "AGENTS.md"
+      ],
+      "skills": [
+        "diff-review"
+      ],
+      "permission": {
+        "permission_mode": "plan"
+      }
+    }
+  }
+}
