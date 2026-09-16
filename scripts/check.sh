@@ -33,6 +33,7 @@ buf generate
 cmp internal/transport/pbgen/amux.pb.go "$test_root/generated/amux.pb.go"
 cmp internal/transport/pbgen/amux_grpc.pb.go "$test_root/generated/amux_grpc.pb.go"
 go mod verify
+python3 scripts/update-go-notices.py --check
 make docs-check
 unset AMUX_RUN_LONG_TESTS
 go test -timeout=10m ./...

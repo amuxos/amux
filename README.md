@@ -9,11 +9,14 @@ provides a command-line interface, a terminal session UI, task and schedule APIs
 and an optional Feishu/Lark bot bridge. Codex, Claude and Pi are supported.
 
 This is a source candidate for `https://github.com/amuxos/amux.git`, using the Go
-module `github.com/amuxos/amux`. License and redistribution notices must be
-finalized before publication. No license grant is implied by
-generating a candidate.
+module `github.com/amuxos/amux`. amux's original source code, documentation, and
+examples are licensed under [Apache-2.0](LICENSE), unless otherwise marked.
+Commercial use and integration into proprietary products are permitted subject
+to the license. See [License and attribution](docs/licensing.md).
 
-See [AGENTS.md](AGENTS.md) for contribution rules; Claude Code loads the same instructions through [CLAUDE.md](CLAUDE.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and licensing rules, and
+[AGENTS.md](AGENTS.md) for engineering instructions; Claude Code loads the latter
+through [CLAUDE.md](CLAUDE.md).
 
 ## Build and Run
 
@@ -74,7 +77,8 @@ distributions depend on it as a Go module and register extensions before calling
 the importable application entrypoints. See the [distribution development guide](docs/distribution-development.md).
 
 `make check` verifies generated transport and reference files, runs the included
-Go tests, builds the commands, and tests the sidecar when npm is available.
+Go tests, checks third-party notices using Python 3, builds the commands, and tests
+the sidecar when npm is available.
 Tests requiring live external accounts are not run. Some existing test fixtures
 and resources remain outside this candidate pending review; the included suite
 is not a claim of complete product acceptance coverage.
@@ -87,3 +91,16 @@ is not a claim of complete product acceptance coverage.
 - [Configuration reference](docs/reference/configuration.md)
 - [MCP reference](docs/reference/mcp.md)
 - [Agent Profile Packs](docs/reference/agent-profile-format.md)
+
+## License and attribution
+
+When redistributing amux or a derivative work, provide the [LICENSE](LICENSE),
+preserve applicable [NOTICE](NOTICE) attribution and other required notices, and
+mark modified files as described in Apache-2.0 section 4. Attribution may appear
+in accompanying third-party notices, documentation, or an appropriate component
+list in an About view. A prominent logo or website credit is not required.
+
+Dependencies and separately installed agents retain their own licenses and terms;
+see [Third-party notices](THIRD_PARTY_NOTICES.md). Release archives place the
+public core's license material under `licenses/amux/`. The [licensing guide](docs/licensing.md)
+includes integration examples and explains the scope of these obligations.

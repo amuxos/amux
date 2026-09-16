@@ -8,6 +8,11 @@
 公共仓库地址为 <https://github.com/amuxos/amux.git>，Go module 为
 `github.com/amuxos/amux`，官网为 <https://amuxos.com/>。
 
+公共核心采用 [Apache-2.0](../LICENSE)，允许商业和闭源发行版；再分发时应保留适用的
+许可证及归属声明。公共打包器在 `licenses/amux/` 中附带核心声明，构建其它发行版时
+也采用该位置，但不因此为该发行版自己的代码授予许可。详见[许可与归属标识](licensing.zh-CN.md)
+和[第三方声明](../THIRD_PARTY_NOTICES.zh-CN.md)。
+
 其它发行版建立独立 Go module，依赖本 module，通过 `pkg/extensions` 注册附加能力，
 再在自己的薄 `cmd` 入口调用 `app/cli.Main`、`app/hub.Main` 或 `app/runtime.Main`。
 应用启动时关闭注册窗口；所有注册必须先完成。公共包不依赖任何发行版 module。

@@ -4,6 +4,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
+core_root="$repo_root"
 
 # A dependent distribution may use this packager with its own Makefile and mains.
 if [[ -n "${AMUX_PACKAGE_BUILD_ROOT:-}" ]]; then
@@ -31,7 +32,7 @@ Build or package amux release binaries for one platform.
 
 Main flow:
   make build VERSION=<version>
-  tar.gz amux, amuxd, and amuxlet
+  tar.gz amux, amuxd, amuxlet, and public-core notices in licenses/amux/
   write .sha256 and latest.json
 
 Options:
@@ -143,6 +144,16 @@ for bin in amux amuxd amuxlet; do
   fi
 done
 
+# The public license applies to the core, even when this script builds a
+# separately licensed distribution through AMUX_PACKAGE_BUILD_ROOT.
+notice_files=(LICENSE NOTICE THIRD_PARTY_NOTICES.md THIRD_PARTY_NOTICES.zh-CN.md go.mod third_party/go-notices.txt)
+for notice in "${notice_files[@]}"; do
+  if [[ ! -s "$core_root/$notice" ]]; then
+    printf 'missing public-core license material: %s\n' "$notice" >&2
+    exit 1
+  fi
+done
+
 package="amux_${version}_${goos}_${goarch}"
 package_dir="$dist_dir/$package"
 archive="$dist_dir/$package.tar.gz"
@@ -158,6 +169,12 @@ rm -rf "$package_dir" "$archive" "$checksum_file"
 mkdir -p "$package_dir"
 cp "$source_dir/amux" "$source_dir/amuxd" "$source_dir/amuxlet" "$package_dir/"
 chmod 0755 "$package_dir/amux" "$package_dir/amuxd" "$package_dir/amuxlet"
+
+for notice in "${notice_files[@]}"; do
+  destination="$package_dir/licenses/amux/$notice"
+  mkdir -p "$(dirname "$destination")"
+  cp "$core_root/$notice" "$destination"
+done
 
 COPYFILE_DISABLE=1 tar -C "$dist_dir" -czf "$archive" "$package"
 shasum -a 256 "$archive" > "$checksum_file"
