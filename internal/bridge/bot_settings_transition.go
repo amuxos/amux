@@ -407,7 +407,7 @@ func (b *Bridge) createAndCommitSingletonBotSettings(ctx context.Context, curren
 	sessionName := managedSingletonSessionName(b.ProfileName(), requestID, current.Version, req.DefaultAgent)
 	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	identity, err := b.executionIdentity(req.OpenID, "feishu-singleton:"+sessionName, target.ID, true)
+	identity, err := b.executionIdentity(req.OpenID, "feishu-singleton:"+sessionName, target.ID, true, false)
 	if err != nil {
 		return BotSettingsResult{}, fmt.Errorf("resolve singleton execution identity: %w", err)
 	}

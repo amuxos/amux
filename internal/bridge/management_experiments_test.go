@@ -8,7 +8,24 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/config"
+	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
+
+func TestManagementExperimentsOldCardPreservesGroupSetting(t *testing.T) {
+	saved := config.ExperimentsSettings{GroupSettingsEnabled: true, CompletionNotification: config.CompletionNotificationSettings{AfterSeconds: 60}}
+	action := &callback.CallBackAction{FormValue: map[string]any{"completion_enabled": "true", "completion_seconds": "90"}}
+	got, err := managementExperimentsSettingsFromCallback(action, saved)
+	if err != nil || !got.GroupSettingsEnabled || !got.CompletionNotification.Enabled || got.CompletionNotification.AfterSeconds != 90 {
+		t.Fatalf("old card lost saved group setting: %+v %v", got, err)
+	}
+	for _, invalid := range []any{"", "invalid", nil} {
+		action.FormValue["group_settings_enabled"] = invalid
+		got, err := managementExperimentsSettingsFromCallback(action, saved)
+		if err == nil || got != saved {
+			t.Fatalf("invalid group setting partially changed form: %+v %v", got, err)
+		}
+	}
+}
 
 func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 	loadBridgeTestConfig(t, "")
@@ -20,14 +37,14 @@ func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 		return nil
 	}
 	event := settingsCallback("system.experiments.save_restart", nil)
-	event.Event.Action.FormValue = map[string]interface{}{"completion_enabled": "true", "completion_seconds": "120"}
+	event.Event.Action.FormValue = map[string]interface{}{"completion_enabled": "true", "completion_seconds": "120", "group_settings_enabled": "true"}
 	event.Event.Operator.OpenID = "not-owner"
 	resp, handled, err := b.handleManagementCardAction(context.Background(), event)
 	if err != nil || !handled || resp.Toast.Type != "error" {
 		t.Fatalf("non-owner save = %+v, %v", resp, err)
 	}
-	saved, err := config.ReadCompletionNotificationSettings()
-	if err != nil || saved.Enabled {
+	saved, err := config.ReadExperimentsSettings()
+	if err != nil || saved.CompletionNotification.Enabled {
 		t.Fatalf("non-owner changed settings: %+v %v", saved, err)
 	}
 	event.Event.Operator.OpenID = "owner-open"
@@ -35,8 +52,8 @@ func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 	if err != nil || !handled || resp.Toast.Type != "success" {
 		t.Fatalf("owner save = %+v, %v", resp, err)
 	}
-	saved, err = config.ReadCompletionNotificationSettings()
-	if err != nil || !saved.Enabled || saved.AfterSeconds != 120 {
+	saved, err = config.ReadExperimentsSettings()
+	if err != nil || !saved.CompletionNotification.Enabled || !saved.GroupSettingsEnabled || saved.CompletionNotification.AfterSeconds != 120 {
 		t.Fatalf("owner settings = %+v, %v", saved, err)
 	}
 	select {
@@ -52,7 +69,7 @@ func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("no patched card")
 	}
-	if config.GetBridgeFeishuPresentation().CompletionNotificationEnabled {
+	if config.GetExperimentsSettings().CompletionNotification.Enabled || config.GetExperimentsSettings().GroupSettingsEnabled {
 		t.Fatal("saving must not enable the running experiment before restart confirmation")
 	}
 	resp, _, err = b.handleManagementCardAction(context.Background(), settingsCallback(managementActionExperimentsOpen, nil))
@@ -72,17 +89,17 @@ func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 	if err != nil || resp.Toast.Type != "error" {
 		t.Fatalf("invalid save = %+v %v", resp, err)
 	}
-	after, _ := config.ReadCompletionNotificationSettings()
+	after, _ := config.ReadExperimentsSettings()
 	if after != saved {
 		t.Fatal("invalid callback changed saved settings")
 	}
 }
 
 func TestManagementExperimentsCompactList(t *testing.T) {
-	saved := config.CompletionNotificationSettings{Enabled: true, AfterSeconds: 30}
-	running := config.BridgeFeishuPresentationConfig{CompletionNotificationEnabled: true, CompletionNotificationAfterSeconds: 30}
+	saved := config.ExperimentsSettings{CompletionNotification: config.CompletionNotificationSettings{Enabled: true, AfterSeconds: 30}}
+	running := saved
 	card := renderManagementExperimentsCard(saved, running)
-	for _, want := range []string{"长会话完成通知", "30 秒", "高级设置", "保存并重启", "对当前实例的全部助手生效", "completion_seconds"} {
+	for _, want := range []string{"长会话完成通知", "群独立配置", "group_settings_enabled", "默认关闭", "30 秒", "高级设置", "保存并重启", "对当前实例的全部助手生效", "completion_seconds"} {
 		if !strings.Contains(card, want) {
 			t.Fatalf("missing %q: %s", want, card)
 		}
@@ -116,7 +133,7 @@ func TestManagementExperimentsCompactList(t *testing.T) {
 	if panels != 1 {
 		t.Fatalf("panels = %d", panels)
 	}
-	running.CompletionNotificationAfterSeconds = 60
+	running.GroupSettingsEnabled = true
 	if !strings.Contains(renderManagementExperimentsCard(saved, running), "待重启") {
 		t.Fatal("missing pending indicator")
 	}

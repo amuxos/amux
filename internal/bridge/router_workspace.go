@@ -46,6 +46,11 @@ func (b *Bridge) recordUserRequestContext(ctx context.Context, chat *LarkChat, m
 	if pending, err := b.db.PendingBotHandoff(b.currentBridgeId(), chat.RootMsgID); err == nil && pending != nil && pending.MessageID == msgID && pending.BotOpenID == openID {
 		actorType = "bot"
 	}
+	if sourceRoot := groupInputRoot(ctx, chat.RootMsgID); sourceRoot != chat.RootMsgID {
+		sourceChat := *chat
+		sourceChat.RootMsgID, sourceChat.ThreadID = sourceRoot, sourceRoot
+		chat = &sourceChat
+	}
 	if err := b.threadContext.RecordEvent(ctx, threadcontext.ThreadEvent{ChatID: chat.ChatID, RootMsgID: chat.RootMsgID, ThreadID: chat.ThreadID, MessageID: msgID, EventType: threadcontext.EventTypeUserRequest, ActorType: actorType, ActorID: openID, BridgeId: b.currentBridgeId(), BotProfile: b.profile, TargetID: chat.TargetID, TargetName: chat.TargetName, SessionName: chat.SessionName, Text: text}); err != nil {
 		log.Warn().Err(err).Str("root_msg_id", chat.RootMsgID).Msg("bridge: failed to record user request context")
 	}
@@ -60,6 +65,11 @@ func (b *Bridge) recordAgentThreadContext(ctx context.Context, chat *LarkChat, m
 }
 func (b *Bridge) withThreadContext(ctx context.Context, chat *LarkChat, msgID, request string, ws *FeishuWorkspace) (string, *threadcontext.ContextPackage) {
 	request = strings.TrimSpace(request)
+	if b != nil && b.db != nil && chat != nil && chat.ChatID != "" {
+		if root, err := b.db.FindGroupSessionOrigin(b.currentBridgeId(), chat.ChatID, chat.RootMsgID); err == nil && root != "" {
+			return request, nil
+		}
+	}
 	if b == nil || b.threadContext == nil || chat == nil || ws == nil || !workspaceModeUsesThreadContext(ws.Mode) || request == "" || threadCommand(request) != command.CommandNone {
 		return request, nil
 	}
@@ -258,8 +268,22 @@ func (b *Bridge) handleGroupPublicCommand(ctx context.Context, chatID, rootMsgID
 		if err != nil {
 			return err
 		}
+		groupSettings, err := b.db.ReadGroupSettings(b.currentBridgeId(), chatID)
+		if err != nil {
+			return err
+		}
+		mode := profileState.InteractionMode
+		if groupSettings != nil {
+			mode = groupSettings.InteractionMode
+			ws = groupSettingsWorkspace(ws, groupSettings)
+		}
 		groupWatchStatus := b.groupWatchStatusForChat(chatID)
-		if err := b.notifyRootHelpCard(ctx, chatID, rootMsgID, renderGroupStatusCardWithGroupWatch(ws, profileState.InteractionMode, groupWatchStatus)); err != nil {
+		paused := groupSettings != nil && !config.GetBridgeFeishuGroupSettingsEnabled()
+		card := renderGroupStatusCardWithGroupWatch(ws, mode, groupWatchStatus)
+		if paused {
+			card = renderGroupSettingsPausedCard(chatID, "")
+		}
+		if err := b.notifyRootHelpCard(ctx, chatID, rootMsgID, card); err != nil {
 			return err
 		}
 		if b.canUseBridge(openID) {
@@ -274,9 +298,17 @@ func (b *Bridge) handleGroupPublicCommand(ctx context.Context, chatID, rootMsgID
 				log.Warn().Err(lookupErr).Str("chat_id", chatID).Msg("bridge: resolve group name for group watch management")
 			}
 			if b.dmInteractive != nil || b.client != nil {
-				joined := b.groupWatchHasChat(chatID)
-				cardState := managementState{ProfileName: b.ProfileName(), Mode: profileState.InteractionMode, DefaultAgent: profileState.DefaultAgent, GroupWatch: b.groupWatchSnapshot()}
-				if err := b.sendManagementCardToDM(ctx, openID, renderCurrentGroupWatchCard(cardState, chatID, chatName, joined)); err != nil {
+				var err error
+				switch {
+				case paused:
+					err = b.sendManagementCardToDM(ctx, openID, renderGroupSettingsPausedCard(chatID, chatName))
+				case config.GetBridgeFeishuGroupSettingsEnabled():
+					err = b.sendCurrentGroupSettingsCard(ctx, openID, chatID, chatName)
+				default:
+					state := managementState{ProfileName: b.ProfileName(), Mode: profileState.InteractionMode, DefaultAgent: profileState.DefaultAgent, GroupWatch: b.groupWatchSnapshot()}
+					err = b.sendManagementCardToDM(ctx, openID, renderCurrentGroupWatchCard(state, chatID, chatName, b.groupWatchHasChat(chatID)))
+				}
+				if err != nil {
 					log.Warn().Err(err).Str("chat_id", chatID).Msg("bridge: send current group management card")
 				}
 			}
@@ -313,12 +345,12 @@ func (b *Bridge) handleGroupPublicCommand(ctx context.Context, chatID, rootMsgID
 	}
 	switch intent {
 	case command.CommandCollaborationOn:
-		if err := b.db.SetWorkspaceMode(b.currentBridgeId(), chatID, WorkspaceModeShared); err != nil {
+		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) { s.Mode = WorkspaceModeShared }, func() error { return b.db.SetWorkspaceMode(b.currentBridgeId(), chatID, WorkspaceModeShared) }); err != nil {
 			return err
 		}
 		return b.notifyRootCommand(ctx, chatID, rootMsgID, "已开启协作模式。群成员可以 @我发起任务。")
 	case command.CommandCollaborationOff:
-		if err := b.db.SetWorkspaceMode(b.currentBridgeId(), chatID, WorkspaceModeOwnerOnly); err != nil {
+		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) { s.Mode = WorkspaceModeOwnerOnly }, func() error { return b.db.SetWorkspaceMode(b.currentBridgeId(), chatID, WorkspaceModeOwnerOnly) }); err != nil {
 			return err
 		}
 		return b.notifyRootCommand(ctx, chatID, rootMsgID, "已关闭协作模式。现在只有负责人可以 @我发起任务。")
@@ -341,7 +373,7 @@ func (b *Bridge) handleGroupWatchCommand(ctx context.Context, chatID, rootMsgID,
 		if joined && cfg.Enabled {
 			return b.notifyRootCommand(ctx, chatID, rootMsgID, "当前群已开启群值守。")
 		}
-		mode, err := b.interactionMode()
+		mode, err := b.interactionModeForChat(chatID)
 		if err != nil {
 			return err
 		}
@@ -368,17 +400,25 @@ func (b *Bridge) handleGroupWatchCommand(ctx context.Context, chatID, rootMsgID,
 	}
 	return b.notifyRootCommand(ctx, chatID, rootMsgID, fmt.Sprintf("已私聊负责人确认%s群值守。", action))
 }
-func (b *Bridge) handleNaturalWorkspaceDefaultAgent(ctx context.Context, chatID, rootMsgID, openID string) error {
-	if err := b.ensureWorkspaceForChat(chatID); err != nil {
-		return err
-	}
+func (b *Bridge) handleNaturalWorkspaceDefaultAgent(ctx context.Context, chatID, rootMsgID, openID, agentRef string) error {
 	if !b.ownerConfirmed() {
 		return b.notifyRootCommand(ctx, chatID, rootMsgID, ownerConfirmationRequiredText())
 	}
 	if !b.canUseBridge(openID) {
 		return b.notifyRootCommand(ctx, chatID, rootMsgID, memberBlockedInOwnerModeText())
 	}
-	return b.notifyRootCommand(ctx, chatID, rootMsgID, "默认专家由当前助手统一设置，不再按群设置。请私聊助手发送 /amux，在“助手”中修改。")
+	settings, err := b.groupSettingsDraft(chatID)
+	if err != nil {
+		return b.notifyRootCommand(ctx, chatID, rootMsgID, "无法设置本群默认专家："+err.Error())
+	}
+	if strings.EqualFold(agentRef, "default") || strings.EqualFold(agentRef, "inherit") {
+		agentRef = ""
+	}
+	settings.DefaultAgent = agentRef
+	if _, err := b.applyGroupSettings(ctx, settings, settings.Version, openID); err != nil {
+		return b.notifyRootCommand(ctx, chatID, rootMsgID, "无法设置本群默认专家："+err.Error())
+	}
+	return b.notifyRootCommand(ctx, chatID, rootMsgID, "已保存本群默认专家，仅影响之后新建的话题或会话。发送 /amux 可查看和修改完整群设置。")
 }
 func (b *Bridge) handleWorkspaceRootCommandReply(ctx context.Context, chatID, rootMsgID, openID, text string) error {
 	if strings.TrimSpace(chatID) == "" {
@@ -445,13 +485,27 @@ func (b *Bridge) handleWorkspaceRootCommandReply(ctx context.Context, chatID, ro
 		if !validWorkspaceMode(mode) {
 			return b.notifyRootCommand(ctx, chatID, rootMsgID, "用法：/workspace mode owner_only|shared")
 		}
-		if err := b.db.SetWorkspaceMode(b.currentBridgeId(), chatID, mode); err != nil {
+		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) { s.Mode = mode }, func() error { return b.db.SetWorkspaceMode(b.currentBridgeId(), chatID, mode) }); err != nil {
 			return err
 		}
 		return b.notifyRootCommand(ctx, chatID, rootMsgID, fmt.Sprintf("已切换 Feishu workspace mode: %s", mode))
 	}
-	if len(parts) >= 2 && strings.ToLower(parts[1]) == "default-agent" {
-		return b.notifyRootCommand(ctx, chatID, rootMsgID, "默认专家由当前助手统一设置，不再按群设置。请私聊助手发送 /amux，在“助手”中修改。")
+	if len(parts) == 3 && strings.ToLower(parts[1]) == "interaction" {
+		settings, err := b.groupSettingsDraft(chatID)
+		if err != nil {
+			return b.notifyRootCommand(ctx, chatID, rootMsgID, err.Error())
+		}
+		settings.InteractionMode, settings.IsolationRequired = parts[2], false
+		if parts[2] == "thread_isolated" {
+			settings.InteractionMode, settings.IsolationRequired = config.FeishuInteractionThread, true
+		}
+		if _, err := b.applyGroupSettings(ctx, settings, settings.Version, openID); err != nil {
+			return b.notifyRootCommand(ctx, chatID, rootMsgID, "无法保存本群处理方式："+err.Error())
+		}
+		return b.notifyRootCommand(ctx, chatID, rootMsgID, "已保存本群处理方式。已提交的任务继续完成；新话题或会话使用新设置。")
+	}
+	if len(parts) == 3 && strings.ToLower(parts[1]) == "default-agent" {
+		return b.handleNaturalWorkspaceDefaultAgent(ctx, chatID, rootMsgID, openID, parts[2])
 	}
 	if len(parts) == 3 && strings.ToLower(parts[1]) == "default-target" {
 		target := strings.TrimSpace(parts[2])
@@ -460,7 +514,7 @@ func (b *Bridge) handleWorkspaceRootCommandReply(ctx context.Context, chatID, ro
 		} else if _, ok := b.resolveTarget(target); !ok {
 			return b.notifyRootCommand(ctx, chatID, rootMsgID, fmt.Sprintf("找不到唯一 target: %s", parts[2]))
 		}
-		if err := b.db.SetWorkspaceDefaultTarget(b.currentBridgeId(), chatID, target); err != nil {
+		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) { s.DefaultTarget = target }, func() error { return b.db.SetWorkspaceDefaultTarget(b.currentBridgeId(), chatID, target) }); err != nil {
 			return err
 		}
 		label := target
@@ -474,7 +528,7 @@ func (b *Bridge) handleWorkspaceRootCommandReply(ctx context.Context, chatID, ro
 		if strings.EqualFold(cwd, "default") {
 			cwd = ""
 		}
-		if err := b.db.SetWorkspaceDefaultCwd(b.currentBridgeId(), chatID, cwd); err != nil {
+		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) { s.DefaultCwd = cwd }, func() error { return b.db.SetWorkspaceDefaultCwd(b.currentBridgeId(), chatID, cwd) }); err != nil {
 			return err
 		}
 		label := cwd
@@ -488,7 +542,7 @@ func (b *Bridge) handleWorkspaceRootCommandReply(ctx context.Context, chatID, ro
 		if strings.EqualFold(model, "default") {
 			model = ""
 		}
-		if err := b.db.SetWorkspaceDefaultModel(b.currentBridgeId(), chatID, model); err != nil {
+		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) { s.DefaultModelRef = model }, func() error { return b.db.SetWorkspaceDefaultModel(b.currentBridgeId(), chatID, model) }); err != nil {
 			return err
 		}
 		label := model
@@ -502,7 +556,7 @@ func (b *Bridge) handleWorkspaceRootCommandReply(ctx context.Context, chatID, ro
 		if !ok {
 			return b.notifyRootCommand(ctx, chatID, rootMsgID, workspaceIdleTimeoutUsage())
 		}
-		if err := b.db.SetWorkspaceIdleTimeoutSeconds(b.currentBridgeId(), chatID, seconds); err != nil {
+		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) { s.IdleTimeoutSeconds = seconds }, func() error { return b.db.SetWorkspaceIdleTimeoutSeconds(b.currentBridgeId(), chatID, seconds) }); err != nil {
 			if notifyErr := b.notifyRootCommand(ctx, chatID, rootMsgID, fmt.Sprintf("设置 workspace idle timeout 失败：%v", err)); notifyErr != nil {
 				return fmt.Errorf("set workspace idle timeout: %w; notify: %v", err, notifyErr)
 			}
@@ -524,7 +578,7 @@ func (b *Bridge) handleWorkspaceRootCommandReply(ctx context.Context, chatID, ro
 		default:
 			return b.notifyRootCommand(ctx, chatID, rootMsgID, "用法：/workspace default-args -- <agent-args...> 或 /workspace default-args clear")
 		}
-		if err := b.db.SetWorkspaceDefaultArgs(b.currentBridgeId(), chatID, args); err != nil {
+		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) { s.DefaultArgs = args }, func() error { return b.db.SetWorkspaceDefaultArgs(b.currentBridgeId(), chatID, args) }); err != nil {
 			return err
 		}
 		label := strings.Join(args, " ")
@@ -543,7 +597,11 @@ func (b *Bridge) notifyRootCommand(ctx context.Context, chatID, rootMsgID, text 
 	return err
 }
 func workspaceCommandUsage() string {
-	return "用法：/workspace init、/workspace status、/workspace defaults、/workspace mode owner_only|shared、/workspace default-target <target|default>、/workspace default-cwd <dir|default>、/workspace default-model <model|default>、/workspace default-args -- <agent-args...>、/workspace default-args clear、/workspace idle-timeout <0|seconds>"
+	groupCommands := ""
+	if config.GetBridgeFeishuGroupSettingsEnabled() {
+		groupCommands = "、/workspace interaction singleton|thread|thread_isolated、/workspace default-agent <pack/profile|inherit>"
+	}
+	return "用法：/workspace init、/workspace status、/workspace defaults、/workspace mode owner_only|shared" + groupCommands + "、/workspace default-target <target|default>、/workspace default-cwd <dir|default>、/workspace default-model <model|default>、/workspace default-args -- <agent-args...>、/workspace default-args clear、/workspace idle-timeout <0|seconds>"
 }
 func workspaceIdleTimeoutUsage() string {
 	return "用法：/workspace idle-timeout <0|seconds>，0 表示关闭；正数必须不少于 60 秒。"

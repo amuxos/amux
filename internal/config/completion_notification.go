@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/amuxos/amux/internal/amuxhome"
 	"github.com/spf13/viper"
 )
 
@@ -15,24 +14,12 @@ type CompletionNotificationSettings struct {
 	AfterSeconds int
 }
 
-func completionNotificationConfigPath() string {
-	if path := strings.TrimSpace(viper.ConfigFileUsed()); path != "" {
-		return path
-	}
-	return amuxhome.ConfigPath()
+func ReadCompletionNotificationSettings() (CompletionNotificationSettings, error) {
+	settings, err := ReadExperimentsSettings()
+	return settings.CompletionNotification, err
 }
 
-func ReadCompletionNotificationSettings() (CompletionNotificationSettings, error) {
-	configWriteMu.Lock()
-	defer configWriteMu.Unlock()
-	raw, err := readConfigFileForWrite(completionNotificationConfigPath())
-	if err != nil {
-		return CompletionNotificationSettings{}, err
-	}
-	v := viper.New()
-	if err := v.MergeConfigMap(raw); err != nil {
-		return CompletionNotificationSettings{}, err
-	}
+func completionNotificationSettings(v *viper.Viper) CompletionNotificationSettings {
 	seconds := DefaultFeishuCompletionNotificationAfterSeconds
 	if v.IsSet("bridge.feishu.presentation.completion_notification_after_seconds") {
 		seconds = v.GetInt("bridge.feishu.presentation.completion_notification_after_seconds")
@@ -43,16 +30,27 @@ func ReadCompletionNotificationSettings() (CompletionNotificationSettings, error
 	return CompletionNotificationSettings{
 		Enabled:      v.GetBool("bridge.feishu.presentation.completion_notification_enabled"),
 		AfterSeconds: seconds,
-	}, nil
+	}
 }
 
-func SaveCompletionNotificationSettings(settings CompletionNotificationSettings) error {
+func validateCompletionNotificationSettings(settings CompletionNotificationSettings) error {
 	if settings.AfterSeconds < 0 || settings.AfterSeconds > 604800 {
 		return fmt.Errorf("通知阈值须为 0 到 604800 秒的整数")
 	}
-	return UpdateConfigFile(completionNotificationConfigPath(), func(raw map[string]any) error {
-		setNestedConfigValue(raw, strings.Split("bridge.feishu.presentation.completion_notification_enabled", "."), settings.Enabled)
-		setNestedConfigValue(raw, strings.Split("bridge.feishu.presentation.completion_notification_after_seconds", "."), settings.AfterSeconds)
+	return nil
+}
+
+func setCompletionNotificationSettings(raw map[string]any, settings CompletionNotificationSettings) {
+	setNestedConfigValue(raw, strings.Split("bridge.feishu.presentation.completion_notification_enabled", "."), settings.Enabled)
+	setNestedConfigValue(raw, strings.Split("bridge.feishu.presentation.completion_notification_after_seconds", "."), settings.AfterSeconds)
+}
+
+func SaveCompletionNotificationSettings(settings CompletionNotificationSettings) error {
+	if err := validateCompletionNotificationSettings(settings); err != nil {
+		return err
+	}
+	return UpdateConfigFile(experimentsConfigPath(), func(raw map[string]any) error {
+		setCompletionNotificationSettings(raw, settings)
 		return nil
 	})
 }

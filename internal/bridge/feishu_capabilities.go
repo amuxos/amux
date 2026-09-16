@@ -157,7 +157,23 @@ func (b *Bridge) feishuThreadCapabilitiesActive() bool {
 		return true
 	}
 	mode, err := b.interactionMode()
-	return err == nil && mode == config.FeishuInteractionThread
+	if err == nil && mode == config.FeishuInteractionThread {
+		return true
+	}
+	if !config.GetBridgeFeishuGroupSettingsEnabled() {
+		return false
+	}
+	chats, err := b.db.ListGroupWorkspaceChatIDs(b.currentBridgeId())
+	if err != nil {
+		return false
+	}
+	for _, chatID := range chats {
+		settings, err := b.db.ReadGroupSettings(b.currentBridgeId(), chatID)
+		if err == nil && settings != nil && settings.InteractionMode == config.FeishuInteractionThread {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Bridge) activeFeishuCapabilitySpecs() []feishuCapabilitySpec {

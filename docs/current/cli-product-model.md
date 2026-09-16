@@ -9,6 +9,21 @@ Local operation requires a hub, but does not require the Feishu bridge.
 The `local` target alias identifies the configured local runtime, including
 when filtering `session list`; it does not require a runtime named `local`.
 
+`bridge feishu group-settings` manages the local installation's group defaults.
+These commands require the default-off `bridge.feishu.group_settings.enabled`
+experiment. Enable it on the private `/amux` experiments page and restart amux
+before configuring groups. Disabling it retains saved settings and bindings but
+pauses new work in independently configured groups until it is re-enabled.
+`show <chat-id>` exports the complete JSON settings snapshot (version zero means
+the group has not opted in). `apply <chat-id> --file <json|->` validates and saves
+that snapshot using its version as a compare-and-swap token. `new-conversation
+<chat-id> --expected-version <n>` retires a group singleton's default pointer;
+already accepted work continues. These operator commands run on the Hub host
+and operate on its local Bridge database; they do not follow a remote Hub address.
+The selected `--profile` determines the Bot scope and must match the JSON scope.
+Execution availability is checked again when a Session launches.
+
+
 A target identifies a runtime location. A session is an ongoing conversation
 with one agent; a task is a bounded execution with a result. Profile references
 select an agent and launch policy. Supported builtin profiles are `builtin/codex`,

@@ -274,6 +274,9 @@ func (s *server) prepareExecution(ctx context.Context, identity principal.Execut
 	}
 	backend := identity.IsolationBackend
 	if s.isolationRuntime == nil {
+		if backend == principal.BackendLinuxDAC {
+			return "", false, identity, isolation.PrincipalPaths{}, fmt.Errorf("linux-dac isolation runtime is unavailable")
+		}
 		if backend == "" {
 			backend = principal.BackendPassthrough
 		}

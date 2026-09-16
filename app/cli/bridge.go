@@ -37,7 +37,7 @@ func newFeishuBridgeCmd() *cobra.Command {
 		Short:             "Manage the Feishu/Lark bridge adapter",
 		ValidArgsFunction: completeNoFiles,
 	}
-	c.AddCommand(newFeishuSetupCmd(), newFeishuStatusCmd(), newFeishuTestCmd(), newFeishuDisableCmd(), newFeishuBindingsCmd(), newFeishuBotsCmd(), newFeishuBotSessionCmd(), newFeishuContextCmd())
+	c.AddCommand(newFeishuSetupCmd(), newFeishuStatusCmd(), newFeishuTestCmd(), newFeishuDisableCmd(), newFeishuBindingsCmd(), newFeishuBotsCmd(), newFeishuBotSessionCmd(), newFeishuContextCmd(), newFeishuGroupSettingsCmd())
 	return c
 }
 

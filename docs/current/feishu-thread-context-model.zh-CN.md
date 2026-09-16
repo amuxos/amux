@@ -8,6 +8,12 @@
 
 状态：当前实现边界和后续演进说明。
 
+群独立设置中的 `thread_context_limit` 控制该群后续输入的上下文条数。
+群连续会话直接在所属群中输出；首次输入只作为内部绑定锚点。其它入口的触发消息和对
+输出消息的回复进入同一 Session，但不会把各来源话题的共享历史汇总回灌。连续会话依靠自身历史保持上下文；显式引用消息
+仍使用既有引用读取规则。已退役的连续会话入口只提示新开话题，不再向旧 Session 提交。
+
+
 当前 Feishu bridge 的用户可感知规则仍以 [docs/current/feishu-bridge-product-model.md](feishu-bridge-product-model.zh-CN.md) 为准。本文档定义 thread context 的实现边界；摘要、pin、导出、跨 thread 检索、多 agent 编排等扩展能力统一放在文末“未来规划”。
 
 ## 背景

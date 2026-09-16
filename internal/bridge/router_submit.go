@@ -185,6 +185,13 @@ func (b *Bridge) notifyThread(ctx context.Context, rootMsgID, text string) error
 	}
 	notifyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	if target, ok, err := b.directReplyTargetForRoot(ctx, rootMsgID); ok || err != nil {
+		if err != nil {
+			return err
+		}
+		_, _, err := b.sendTextToDirectTarget(notifyCtx, target, text)
+		return err
+	}
 	_, _, err := b.sendTextToThread(notifyCtx, rootMsgID, text)
 	return err
 }

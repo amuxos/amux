@@ -191,7 +191,14 @@ func validateCLIGroupWatchInteractionCompatibility(cfg cliConfigFile, candidateM
 	for profile := range profiles {
 		key := "bridge.feishu.profiles." + profile + ".interaction.mode"
 		mode := cliFeishuInteractionMode(cfg, profile, candidateModeKey == key)
-		if err := config.ValidateBridgeFeishuGroupWatchInteraction(cliFeishuGroupWatchConfig(cfg, profile), mode); err != nil {
+		watch := cliFeishuGroupWatchConfig(cfg, profile)
+		err := config.ValidateBridgeFeishuGroupWatchInteraction(watch, mode)
+		if fileExists(bridge.DefaultDBPath()) {
+			if secrets, loadErr := bridge.LoadProfileSecrets(profile); loadErr == nil && strings.TrimSpace(secrets.AppId) != "" {
+				err = bridge.ValidateGroupWatchInteractionInDB(bridge.DefaultDBPath(), profile, bridge.BridgeIdFromAppId(secrets.AppId), watch, mode, configBoolValue(cfg, "bridge.feishu.group_settings.enabled"))
+			}
+		}
+		if err != nil {
 			return commandValidationError(fmt.Errorf("Feishu profile %s: %w", profile, err))
 		}
 	}
@@ -287,6 +294,7 @@ func setConfigValue(cfg cliConfigFile, key, raw string) error {
 		parseFeishuProfileGroupWatchKey(key) == "enabled" ||
 		key == "mcp.enabled" ||
 		key == "bridge.feishu.presentation.completion_notification_enabled" ||
+		key == "bridge.feishu.group_settings.enabled" ||
 		key == "mcp.auto_inject" {
 		parsed, err := strconv.ParseBool(raw)
 		if err != nil {

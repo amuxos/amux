@@ -3453,6 +3453,7 @@ func TestGroupMainChatHelpRepliesInTriggerThread(t *testing.T) {
 }
 
 func TestGroupMainChatAmuxShowsCurrentGroupSettings(t *testing.T) {
+	enableGroupSettingsExperiment(t)
 	t.Setenv("HOME", t.TempDir())
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal"}
@@ -3473,7 +3474,7 @@ func TestGroupMainChatAmuxShowsCurrentGroupSettings(t *testing.T) {
 	if len(hub.routes) != 0 {
 		t.Fatalf("routes = %+v, want no runtime routes", hub.routes)
 	}
-	for _, want := range []string{"om-amux:", "当前群设置", "协作模式", "处理方式", "每个话题独立", "每个新话题都从头开始", "私聊智能体", "助手设置", "@智能体 + 任务", "开启协作模式", "关闭协作模式", "开启群值守", "关闭群值守"} {
+	for _, want := range []string{"om-amux:", "当前群设置", "协作模式", "处理方式", "每个话题独立", "私聊", "当前群设置", "新执行参数只用于新会话", "@智能体 + 任务", "开启协作模式", "关闭协作模式", "开启群值守", "关闭群值守"} {
 		if len(notices) != 1 || !strings.Contains(notices[0], want) {
 			t.Fatalf("notices = %q, want %q", notices, want)
 		}
@@ -3487,6 +3488,7 @@ func TestGroupMainChatAmuxShowsSingletonInteractionMode(t *testing.T) {
 	loadBridgeTestConfig(t, `[bridge.feishu.profiles.default.interaction]
 mode = "singleton"
 `)
+	enableGroupSettingsExperiment(t)
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal"}
 	var notices []string
@@ -3503,7 +3505,7 @@ mode = "singleton"
 	if len(hub.routes) != 0 {
 		t.Fatalf("routes = %+v, want no runtime routes", hub.routes)
 	}
-	for _, want := range []string{"处理方式", "继续同一对话", "接着之前的对话处理", "私聊智能体", "助手设置"} {
+	for _, want := range []string{"处理方式", "继续同一对话", "私聊", "当前群设置", "已有话题保留创建时的设置"} {
 		if len(notices) != 1 || !strings.Contains(notices[0], want) {
 			t.Fatalf("notices = %q, want %q", notices, want)
 		}
@@ -3728,7 +3730,8 @@ func TestGroupMainChatNaturalModeCommandsSetWorkspaceMode(t *testing.T) {
 	}
 }
 
-func TestGroupMainChatNaturalDefaultAssistantRedirectsToBotSettings(t *testing.T) {
+func TestGroupMainChatNaturalDefaultAssistantSavesGroupSettings(t *testing.T) {
+	enableGroupSettingsExperiment(t)
 	t.Setenv("HOME", t.TempDir())
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "planner"}
@@ -3747,14 +3750,14 @@ func TestGroupMainChatNaturalDefaultAssistantRedirectsToBotSettings(t *testing.T
 	if err != nil {
 		t.Fatalf("GetWorkspace: %v", err)
 	}
-	if ws.DefaultAgent == "codex" {
-		t.Fatalf("DefaultAgent = %q, want workspace Profile unchanged", ws.DefaultAgent)
+	if ws.DefaultAgent != "codex" {
+		t.Fatalf("DefaultAgent = %q, want group Profile codex", ws.DefaultAgent)
 	}
 	if len(hub.routes) != 0 {
 		t.Fatalf("routes = %+v, want no runtime routes for default assistant setting", hub.routes)
 	}
 	if len(notices) != 1 || !strings.Contains(notices[0], "/amux") || strings.Contains(notices[0], "/amux settings") {
-		t.Fatalf("notices = %q, want Bot settings guidance", notices)
+		t.Fatalf("notices = %q, want group settings guidance", notices)
 	}
 }
 
@@ -5315,9 +5318,10 @@ func TestFreshTopicAmuxLetsOwnerOnlyMemberReadCurrentGroupStatus(t *testing.T) {
 }
 
 func TestGroupAmuxFromOwnerSendsNamedCurrentGroupManagementCardToDM(t *testing.T) {
+	enableGroupSettingsExperiment(t)
 	t.Setenv("HOME", t.TempDir())
 	b, hub := newBridgeForInputTest(t)
-	b.secrets = &Secrets{OpenId: "owner-open"}
+	b.secrets = &Secrets{OpenId: "owner-open", AppSecret: "test-app-secret"}
 	b.chatNameLookup = func(_ context.Context, chatID string) (string, error) {
 		if chatID != "oc-payment-alert" {
 			t.Fatalf("chat id = %q, want oc-payment-alert", chatID)
@@ -5344,7 +5348,7 @@ func TestGroupAmuxFromOwnerSendsNamedCurrentGroupManagementCardToDM(t *testing.T
 	if len(privateCards) != 1 {
 		t.Fatalf("private cards = %q, want one owner management DM", privateCards)
 	}
-	for _, want := range []string{"当前群管理", "支付告警群", "alert", "群值守", "将本群加入值守", "oc-payment-alert", "你刚刚在该群发送了 /amux"} {
+	for _, want := range []string{"当前群设置", "支付告警群", "alert", "群值守", "将本群加入值守", "oc-payment-alert", "修改本群设置"} {
 		if !strings.Contains(privateCards[0], want) {
 			t.Fatalf("private card = %q, want %q", privateCards[0], want)
 		}

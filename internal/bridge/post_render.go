@@ -217,6 +217,7 @@ type cardElement struct {
 	Required          bool            `json:"required,omitempty"`
 	ActionType        string          `json:"action_type,omitempty"`
 	InitialOption     string          `json:"initial_option,omitempty"`
+	DefaultValue      string          `json:"default_value,omitempty"`
 	Width             string          `json:"width,omitempty"`
 	Direction         string          `json:"direction,omitempty"`
 	VerticalSpacing   string          `json:"vertical_spacing,omitempty"`

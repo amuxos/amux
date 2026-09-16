@@ -718,6 +718,9 @@ func (b *bridgeDB) migrate() error {
 	`); err != nil {
 		return err
 	}
+	if err := b.migrateGroupSettings(); err != nil {
+		return err
+	}
 	return b.migrateDistributionDefaults()
 }
 

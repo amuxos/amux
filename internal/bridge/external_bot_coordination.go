@@ -155,7 +155,7 @@ func (a *ExternalBotCoordinationAdapter) Create(ctx context.Context, route *coor
 	if !externalBotCatalogEnabled(b) {
 		return "", status.Error(codes.FailedPrecondition, "Feishu Bot-to-Bot collaboration is disabled")
 	}
-	mode, err := b.interactionMode()
+	mode, err := b.interactionModeForChat(peer.ChatID)
 	if err != nil || mode != config.FeishuInteractionThread {
 		return "", status.Error(codes.FailedPrecondition, "Feishu external Bot delegation requires thread mode")
 	}
@@ -293,7 +293,7 @@ func externalBotSourceReady(source *externalBotInitiatorSource) (bool, error) {
 	if source == nil || source.bridge == nil || source.binding == nil || !externalBotCatalogEnabled(source.bridge) {
 		return false, nil
 	}
-	mode, err := source.bridge.interactionMode()
+	mode, err := source.bridge.interactionModeForChat(source.binding.ChatID)
 	if err != nil || mode != config.FeishuInteractionThread {
 		return false, nil
 	}

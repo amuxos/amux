@@ -48,8 +48,8 @@ func TestArtifactDispatchDoesNotBlockAndFreezesDeliveryIdentity(t *testing.T) {
 		if *got != original {
 			t.Errorf("delivery followed mutable binding: %+v", got)
 		}
-		destination, singleton, err := b.artifactBotSession(ctx, got)
-		if err != nil || !singleton || destination == nil || destination.LastReplyChatID != "original-group" {
+		destination, singleton, err := b.artifactDirectTarget(ctx, got)
+		if err != nil || !singleton || destination == nil || destination.ChatID != "original-group" {
 			t.Errorf("delivery followed mutable singleton destination: %+v, %v", destination, err)
 		}
 		return nil

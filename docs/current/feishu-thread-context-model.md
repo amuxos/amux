@@ -11,6 +11,14 @@ assembly, and explanation in the Feishu Bridge.
 
 Status: current implementation boundaries and future evolution.
 
+A group's `thread_context_limit` controls context selection for subsequent inputs.
+Group singleton output goes directly to its group; the first input is only an
+internal binding anchor. Other inputs and replies to output messages enter the
+same Session without aggregating shared history from every source topic. The
+Session retains its own conversation history; explicit quotes use the existing
+quote resolver. Retired singleton inputs receive a new-topic notice and do not
+submit to the old Session.
+
 The [Feishu Bridge product model](feishu-bridge-product-model.md) remains authoritative
 for user-visible behavior. This document defines thread context implementation
 boundaries. Summaries, pinning, export, cross-thread retrieval, multi-agent

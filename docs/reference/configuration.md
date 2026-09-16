@@ -21,6 +21,7 @@ amux system config unset <key>
 
 | Configuration key | Type | Default | Constraints | CLI-managed | Description |
 | --- | --- | --- | --- | --- | --- |
+| `bridge.feishu.group_settings.enabled` | boolean | false | — | Yes | Installation-wide group settings experiment. When disabled, saved group settings and Sessions are retained and independently configured groups pause new work; unconfigured groups and private chats use Bot defaults. Restart to apply changes. |
 | `bridge.feishu.presentation.completion_notification_enabled` | boolean | false | — | Yes | Installation-wide experiment switch for long-session completion notifications, affecting every assistant. When disabled, no new success, input-needed, or failure notifications are sent. Restart after changing it. |
 
 ## Hub and scheduling
@@ -133,7 +134,7 @@ amux system config unset <key>
 | `bridge.feishu.profiles.<profile>.workspace_defaults.model` | string | Inherit installation settings | — | Yes | Profile-level default workspace model. |
 | `bridge.feishu.profiles.<profile>.workspace_defaults.args` | string array | Inherit installation settings | — | Yes | Profile-level default workspace arguments. |
 | `bridge.feishu.profiles.<profile>.workspace_defaults.idle_timeout_seconds` | integer seconds | Inherit installation settings | 0 or >=60 | Yes | Profile-level workspace sleep threshold. |
-| `bridge.feishu.profiles.<profile>.interaction.mode` | enum | thread | thread、singleton | Yes | Message interaction mode; group watch supports only thread. |
+| `bridge.feishu.profiles.<profile>.interaction.mode` | enum | thread | thread、singleton | Yes | Message routing mode for groups without independent settings. Group watch requires the target group’s effective mode to be thread. |
 | `bridge.feishu.profiles.<profile>.presentation.thinking_process` | enum | Inherit installation settings (collapsed) | expanded、collapsed、hidden | Yes | Activity display mode for the current assistant's regular tasks. |
 | `bridge.feishu.profiles.<profile>.presentation.completion_notification_after_seconds` | integer seconds | Inherit installation settings (60) | >=0; 0 disables all private-chat notifications for this feature | Yes | Completion notification threshold for the current assistant's regular tasks. |
 | `bridge.feishu.profiles.<profile>.bot_e2e.sender_open_ids` | string array | [] | — | Yes | Bot/app sender open_ids allowed to submit owner-authorized test input through @Bot /e2e. |
@@ -152,8 +153,8 @@ amux system config unset <key>
 | `bridge.feishu.profiles.<profile>.group_watch.lookback_seconds` | integer seconds | Inherit installation settings | 5-3600 | Yes | Profile-level history lookback window. |
 | `bridge.feishu.profiles.<profile>.group_watch.max_active_sessions_per_chat` | integer | Inherit installation settings (50) | 1-500 | Yes | Profile-level active Session limit per group. |
 | `bridge.feishu.profiles.<profile>.group_watch.idle_timeout_seconds` | integer seconds | Inherit installation settings (10800) | 60-604800 | Yes | Profile-level automatic sleep threshold for group watch. |
-| `bridge.feishu.profiles.<profile>.group_watch.agent_profile_ref` | string | Empty (inherit assistant) | — | Yes | Expert used for new group watch Sessions; configured independently of the Runtime. |
-| `bridge.feishu.profiles.<profile>.group_watch.runtime_ref` | string | Empty (inherit assistant) | — | Yes | Runtime engine used for new group watch Sessions; required when customizing the configuration. |
+| `bridge.feishu.profiles.<profile>.group_watch.agent_profile_ref` | string | Empty (inherit assistant) | — | Yes | Agent Profile for new group-watch Sessions. An empty value inherits the group’s effective default Profile; a custom selection is independent of Runtime. |
+| `bridge.feishu.profiles.<profile>.group_watch.runtime_ref` | string | Empty (inherit assistant) | — | Yes | Runtime for new group-watch Sessions. Inherited execution uses the group’s effective default Runtime; custom execution requires this field. |
 | `bridge.feishu.profiles.<profile>.group_watch.model_ref` | string | Empty (Runtime engine default) | — | Yes | Model for new group watch Sessions, validated against the selected Runtime engine. Without a Runtime override, follow the expert's model policy; native model names are allowed when supported_models is not declared. |
 | `bridge.feishu.profiles.<profile>.group_watch.reasoning_effort` | string | Empty (Runtime engine default) | — | Yes | Reasoning effort for new group watch Sessions; must be supported by the selected Runtime engine and model. |
 | `bridge.feishu.profiles.<profile>.group_watch.thinking_process` | enum | Inherit installation group watch settings (collapsed) | expanded、collapsed、hidden | Yes | Activity display mode for the current assistant's group watch tasks, configured separately from regular tasks. |

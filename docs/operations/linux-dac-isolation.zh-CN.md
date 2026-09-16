@@ -61,6 +61,41 @@ amux agent credential set openai-compat OPENAI_API_KEY
 已识别调用方的凭据按 Principal 存储；hub 不可达时不会回退到 legacy-host secrets。
 共享 service 身份需通过 alias、service membership 或 delegation 显式授权。
 
+飞书新会话还依据各群的处理方式选择进程环境：普通话题和连续会话使用普通宿主环境
+（passthrough），用户隔离话题才使用 linux-dac。未单独配置的群和私聊沿用 Bot 默认。
+启用机器隔离能力不会把所有飞书会话改为用户隔离；已有会话保持原环境，改变模式后
+新建会话才能使用新的选择。CLI、Task 等其它入口继续遵守其现有执行策略。
+
+### 飞书连续会话的共享身份
+
+启用 Linux 隔离后，Bot 连续会话和群级“继续同一会话”均使用共享 service principal。
+它的 alias 为 `service:<Bot profile 名>`，作用域为该 Bot 的 bridge ID；这里的 profile
+是飞书 Bot profile（例如 `default`），不是 Agent Profile（例如 `builtin/codex`）。
+独立话题使用个人 Principal；验证独立话题成功不能代替连续会话的身份配置。
+
+在 Hub 主机执行以下操作。先通过 `amux bridge feishu bots` 和
+`amux isolation alias list` 确认 Bot 范围和被授权发起者的个人 Principal，
+再创建并绑定共享身份：
+
+```sh
+amux isolation principal create "Bot shared sessions" --kind service
+# 使用上一条命令输出的 service principal ID。
+amux isolation alias bind --provider feishu --scope <bridge-id> \
+  --subject service:<bot-profile> --principal <service-principal-id>
+amux isolation service-member grant --service <service-principal-id> \
+  --member <sender-principal-id>
+```
+
+若发起者尚未绑定个人身份，先创建 human principal，并用同一 bridge scope、
+该发起者在此 Bot 下的 open ID 绑定 alias。只向明确授权的发起者授予 service membership；
+群的 `shared` 访问模式不自动授予执行身份权限。配置保存在 Hub 身份库中，立即生效。
+共享身份使用自身的 Principal 凭据；缺少模型凭据时按启动错误提示补齐。
+
+报错 `singleton requires service principal alias ... and active sender membership`
+表示上述 alias 或成员授权缺失。保持隔离开启并补齐身份配置后，重新发起群消息即可。
+切换测试环境到 Linux 隔离后，应分别验收独立话题和连续会话的新建、续聊。
+
+
 ## 升级、撤销和清理
 
 再次执行相同的 helper install 命令升级。存在 active launch 时会拒绝覆盖，等待它们

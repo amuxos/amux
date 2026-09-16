@@ -346,6 +346,14 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 		}
 	}
 	thinkingProcess := func() string {
+		if groupWatchStream {
+			return b.streamThinkingProcess(true)
+		}
+		if b.db != nil && streamChat.ChatID != "" {
+			if settings, err := b.db.ReadGroupSettings(bridgeID, streamChat.ChatID); err == nil && settings != nil {
+				return settings.ThinkingProcess
+			}
+		}
 		return b.streamThinkingProcess(groupWatchStream)
 	}
 	b.streamMu.Lock()
@@ -1342,37 +1350,37 @@ func (b *Bridge) workspaceKindForChat(chatID string) string {
 }
 
 func (b *Bridge) sendTextToBinding(ctx context.Context, chat *LarkChat, text string) (string, string, error) {
-	if bs, ok, err := b.botSessionForBinding(chat); ok || err != nil {
+	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return "", "", err
 		}
-		return b.sendTextToBotSessionTarget(ctx, bs, text)
+		return b.sendTextToDirectTarget(ctx, bs, text)
 	}
 	return b.sendTextToThread(ctx, chat.RootMsgID, text)
 }
 
 func (b *Bridge) sendAgentReplyToBinding(ctx context.Context, chat *LarkChat, text string) (string, string, error) {
-	if bs, ok, err := b.botSessionForBinding(chat); ok || err != nil {
+	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return "", "", err
 		}
-		return b.sendAgentReplyCardToBotSessionTarget(ctx, bs, text)
+		return b.sendAgentReplyCardToDirectTarget(ctx, bs, text)
 	}
 	return b.sendAgentReplyToThread(ctx, chat.RootMsgID, text)
 }
 
 func (b *Bridge) sendToolActivityToBinding(ctx context.Context, chat *LarkChat, meta toolActivityCardMeta, text string) (string, string, error) {
-	if bs, ok, err := b.botSessionForBinding(chat); ok || err != nil {
+	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return "", "", err
 		}
-		return b.sendToolActivityCardToBotSessionTarget(ctx, bs, meta, text)
+		return b.sendToolActivityCardToDirectTarget(ctx, bs, meta, text)
 	}
 	return b.sendToolActivityToThread(ctx, chat.RootMsgID, meta, text)
 }
 
 func (b *Bridge) patchToolActivityBinding(ctx context.Context, chat *LarkChat, msgID string, meta toolActivityCardMeta, text string) error {
-	if _, ok, err := b.botSessionForBinding(chat); ok || err != nil {
+	if _, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return err
 		}
@@ -1382,21 +1390,21 @@ func (b *Bridge) patchToolActivityBinding(ctx context.Context, chat *LarkChat, m
 }
 
 func (b *Bridge) sendAgentReplyCardToBinding(ctx context.Context, chat *LarkChat, text string) (string, string, error) {
-	if bs, ok, err := b.botSessionForBinding(chat); ok || err != nil {
+	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return "", "", err
 		}
-		return b.sendAgentReplyCardToBotSessionTarget(ctx, bs, text)
+		return b.sendAgentReplyCardToDirectTarget(ctx, bs, text)
 	}
 	return b.sendAgentReplyCardToThread(ctx, chat.RootMsgID, text)
 }
 
 func (b *Bridge) sendInteractiveToBinding(ctx context.Context, chat *LarkChat, content, label string) (string, string, error) {
-	if bs, ok, err := b.botSessionForBinding(chat); ok || err != nil {
+	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return "", "", err
 		}
-		return b.sendInteractiveToBotSessionTarget(ctx, bs, content, label)
+		return b.sendInteractiveToDirectTarget(ctx, bs, content, label)
 	}
 	if chat == nil {
 		return "", "", fmt.Errorf("nil lark chat")
@@ -1405,7 +1413,7 @@ func (b *Bridge) sendInteractiveToBinding(ctx context.Context, chat *LarkChat, c
 }
 
 func (b *Bridge) patchAgentReplyBinding(ctx context.Context, chat *LarkChat, msgID, text string) error {
-	if _, ok, err := b.botSessionForBinding(chat); ok || err != nil {
+	if _, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return err
 		}
@@ -1462,51 +1470,53 @@ func singletonBridgeIDFromRoot(chat *LarkChat) (string, bool) {
 	return bridgeID, bridgeID != ""
 }
 
-func (b *Bridge) sendTextToBotSessionTarget(ctx context.Context, bs *BotSession, text string) (string, string, error) {
-	if bs == nil {
-		return "", "", fmt.Errorf("nil bot session")
+func (b *Bridge) sendTextToDirectTarget(ctx context.Context, target *directReplyTarget, text string) (string, string, error) {
+	if target == nil {
+		return "", "", fmt.Errorf("nil direct reply target")
 	}
-	switch strings.TrimSpace(bs.LastReplyKind) {
+	switch strings.TrimSpace(target.Kind) {
 	case botSessionReplyDM:
-		if strings.TrimSpace(bs.LastReplyOpenID) == "" {
-			return "", "", fmt.Errorf("bot-session dm output target is empty")
+		if strings.TrimSpace(target.OpenID) == "" {
+			return "", "", fmt.Errorf("direct dm output target is empty")
 		}
-		return b.notifyDM(ctx, bs.LastReplyOpenID, text)
+		return b.notifyDM(ctx, target.OpenID, text)
 	case botSessionReplyGroup:
-		if strings.TrimSpace(bs.LastReplyChatID) == "" {
-			return "", "", fmt.Errorf("bot-session group output target is empty")
+		if strings.TrimSpace(target.ChatID) == "" {
+			return "", "", fmt.Errorf("direct group output target is empty")
 		}
-		return b.notifyChat(ctx, bs.LastReplyChatID, text)
+		msgID, threadID, err := b.notifyChat(ctx, target.ChatID, text)
+		return b.recordDirectReply(target, msgID, threadID, err)
 	default:
-		return "", "", fmt.Errorf("bot-session output target is unknown")
+		return "", "", fmt.Errorf("direct output target is unknown")
 	}
 }
 
-func (b *Bridge) sendAgentReplyCardToBotSessionTarget(ctx context.Context, bs *BotSession, text string) (string, string, error) {
-	return b.sendInteractiveToBotSessionTarget(ctx, bs, renderAgentReplyCard(text), "agent reply card")
+func (b *Bridge) sendAgentReplyCardToDirectTarget(ctx context.Context, target *directReplyTarget, text string) (string, string, error) {
+	return b.sendInteractiveToDirectTarget(ctx, target, renderAgentReplyCard(text), "agent reply card")
 }
 
-func (b *Bridge) sendToolActivityCardToBotSessionTarget(ctx context.Context, bs *BotSession, meta toolActivityCardMeta, text string) (string, string, error) {
-	return b.sendInteractiveToBotSessionTarget(ctx, bs, renderToolActivityCard(meta, text), "tool activity card")
+func (b *Bridge) sendToolActivityCardToDirectTarget(ctx context.Context, target *directReplyTarget, meta toolActivityCardMeta, text string) (string, string, error) {
+	return b.sendInteractiveToDirectTarget(ctx, target, renderToolActivityCard(meta, text), "tool activity card")
 }
 
-func (b *Bridge) sendInteractiveToBotSessionTarget(ctx context.Context, bs *BotSession, content, label string) (string, string, error) {
-	if bs == nil {
-		return "", "", fmt.Errorf("nil bot session")
+func (b *Bridge) sendInteractiveToDirectTarget(ctx context.Context, target *directReplyTarget, content, label string) (string, string, error) {
+	if target == nil {
+		return "", "", fmt.Errorf("nil direct reply target")
 	}
-	switch strings.TrimSpace(bs.LastReplyKind) {
+	switch strings.TrimSpace(target.Kind) {
 	case botSessionReplyDM:
-		if strings.TrimSpace(bs.LastReplyOpenID) == "" {
-			return "", "", fmt.Errorf("bot-session dm output target is empty")
+		if strings.TrimSpace(target.OpenID) == "" {
+			return "", "", fmt.Errorf("direct dm output target is empty")
 		}
-		return b.sendInteractiveToDM(ctx, bs.LastReplyOpenID, content, label)
+		return b.sendInteractiveToDM(ctx, target.OpenID, content, label)
 	case botSessionReplyGroup:
-		if strings.TrimSpace(bs.LastReplyChatID) == "" {
-			return "", "", fmt.Errorf("bot-session group output target is empty")
+		if strings.TrimSpace(target.ChatID) == "" {
+			return "", "", fmt.Errorf("direct group output target is empty")
 		}
-		return b.sendInteractiveToChat(ctx, bs.LastReplyChatID, content, label)
+		msgID, threadID, err := b.sendInteractiveToChat(ctx, target.ChatID, content, label)
+		return b.recordDirectReply(target, msgID, threadID, err)
 	default:
-		return "", "", fmt.Errorf("bot-session output target is unknown")
+		return "", "", fmt.Errorf("direct output target is unknown")
 	}
 }
 

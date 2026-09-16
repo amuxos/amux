@@ -212,41 +212,39 @@ func (b *bridgeDB) ReadBotProfileState(bridgeID, fallbackMode string) (BotProfil
 	}
 	return state, nil
 }
-func (b *bridgeDB) BotDefaultAgentReferences(namespace string) ([]string, // ConfigureThreadBotDefaultAgent applies an explicit onboarding default to the
-	// authoritative Bot Profile state. It deliberately refuses singleton profiles:
-	// changing their agent requires rebuilding the bound persistent Session through
-	// the regular settings transition.
-	// ReadBotProfileState returns the effective profile state without seeding a
-	// feishu_bot_profiles row. Read-only cards use this path so opening them does
-	// not turn fallback configuration into persisted state.
-	error) {
+
+// BotDefaultAgentReferences includes explicit group defaults so a Pack used
+// only by a group cannot be removed. Group references include their chat ID.
+func (b *bridgeDB) BotDefaultAgentReferences(namespace string) ([]string, error) {
 	namespace = strings.TrimSpace(namespace)
 	if namespace == "" {
 		return nil, fmt.Errorf("agent pack namespace is required")
 	}
 	rows, err := b.db.Query(`
-		SELECT bridge_id, default_agent_profile
-		FROM feishu_bot_profiles
-		ORDER BY bridge_id`)
+		SELECT bridge_id, default_agent_profile FROM feishu_bot_profiles
+		UNION ALL
+		SELECT bridge_id || '/' || chat_id, default_agent FROM feishu_group_settings
+		WHERE default_agent <> ''
+		ORDER BY 1`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	prefix := namespace + "/"
-	var bridgeIDs []string
+	var references []string
 	for rows.Next() {
-		var bridgeID, profile string
-		if err := rows.Scan(&bridgeID, &profile); err != nil {
+		var reference, profile string
+		if err := rows.Scan(&reference, &profile); err != nil {
 			return nil, err
 		}
 		if strings.HasPrefix(strings.TrimSpace(profile), prefix) {
-			bridgeIDs = append(bridgeIDs, strings.TrimSpace(bridgeID))
+			references = append(references, strings.TrimSpace(reference))
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return bridgeIDs, nil
+	return references, nil
 }
 func (b *bridgeDB) CommitThreadBotSettings(bridgeID string, expectedVersion int64, defaultAgent string) (BotProfileState, error) {
 	current, err := b.GetBotProfileState(bridgeID, config.FeishuInteractionThread)

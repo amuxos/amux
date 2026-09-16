@@ -444,6 +444,25 @@ func managementRuntimeReasoningOptions(state managementState, runtimeRef, modelR
 	}
 	return options
 }
+func managementProfileReasoningOptions(state managementState, profileRef, modelRef string) []cardOption {
+	options := []cardOption{{Text: cardTitle{Tag: "plain_text", Content: "使用运行引擎默认强度"}, Value: managementRuntimeDefaultReasoningOption}}
+	profile, ok := managementProfileByRef(state, profileRef)
+	if !ok {
+		return options
+	}
+	runtime, ok := managementRuntimeByRef(state, profile.AgentType)
+	if !ok {
+		return options
+	}
+	if strings.TrimSpace(modelRef) == "" {
+		modelRef = profile.Model
+	}
+	model := agentprofile.ProfileNativeRuntimeModel(runtime, modelRef)
+	for _, effort := range model.SupportedReasoningEfforts {
+		options = append(options, cardOption{Text: cardTitle{Tag: "plain_text", Content: effort}, Value: effort})
+	}
+	return options
+}
 func managementProfileOptions(state managementState, includeCurrentOnly bool) []cardOption {
 	options := make([]cardOption, 0, len(state.Profiles))
 	for _, profile := range state.Profiles {

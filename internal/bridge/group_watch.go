@@ -176,12 +176,14 @@ func (b *Bridge) updateGroupWatchForProfile(operation, chatID string) (config.Br
 		return next, fmt.Errorf("unsupported group watch operation %q", operation)
 	}
 	if operation == "add" || operation == "resume" {
-		mode, err := b.interactionMode()
-		if err != nil {
-			return next, err
-		}
-		if err := config.ValidateBridgeFeishuGroupWatchInteraction(next, mode); err != nil {
-			return next, err
+		for _, configuredChat := range next.ChatIDs {
+			mode, err := b.interactionModeForChat(configuredChat)
+			if err != nil {
+				return next, err
+			}
+			if err := config.ValidateBridgeFeishuGroupWatchInteraction(next, mode); err != nil {
+				return next, fmt.Errorf("群 %s: %w", configuredChat, err)
+			}
 		}
 	}
 	if err := config.SetBridgeFeishuGroupWatch(b.ProfileName(), next); err != nil {
@@ -238,12 +240,31 @@ func (b *Bridge) groupWatchActive() bool {
 	if !b.groupWatchConfigured() {
 		return false
 	}
-	mode, err := b.interactionMode()
-	return err == nil && mode == config.FeishuInteractionThread
+	for _, chatID := range b.groupWatchSnapshot().ChatIDs {
+		if mode, err := b.interactionModeForChat(chatID); err == nil && mode == config.FeishuInteractionThread {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Bridge) validateGroupWatchInteractionMode(mode string) error {
-	return config.ValidateBridgeFeishuGroupWatchInteraction(b.groupWatchSnapshot(), mode)
+	cfg := b.groupWatchSnapshot()
+	for _, chatID := range cfg.ChatIDs {
+		if b.db != nil {
+			settings, err := b.db.ReadGroupSettings(b.currentBridgeId(), chatID)
+			if err != nil {
+				return err
+			}
+			if settings != nil {
+				continue
+			}
+		}
+		if err := config.ValidateBridgeFeishuGroupWatchInteraction(cfg, mode); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (b *Bridge) handleGroupWatchEvent(ctx context.Context, event *larkim.P2MessageReceiveV1) (bool, error) {
@@ -333,13 +354,11 @@ func (b *Bridge) routeGroupWatchMessage(ctx context.Context, msg groupWatchMessa
 			Msg("bridge: group_watch message ignored because sender identity is missing")
 		return nil
 	}
-	b.groupWatchMu.RLock()
-	defer b.groupWatchMu.RUnlock()
-	cfg := b.groupWatchConfig
+	cfg := b.groupWatchSnapshot()
 	if !cfg.Enabled || !groupWatchConfigHasChat(cfg, msg.ChatID) || !groupWatchConfigAllowsSender(cfg, msg.SenderType) {
 		return nil
 	}
-	mode, err := b.interactionMode()
+	mode, err := b.interactionModeForChat(msg.ChatID)
 	if err != nil {
 		return err
 	}
