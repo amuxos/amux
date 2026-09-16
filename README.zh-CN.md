@@ -8,10 +8,12 @@ amux 在本地和远端机器上运行、协调智能体 Session，提供命令�
 Task 与 Schedule API，以及可选的飞书/Lark Bot Bridge。支持 Codex、Claude 和 Pi。
 
 这是 `https://github.com/amuxos/amux.git` 的源码候选版本，Go module 为
-`github.com/amuxos/amux`。正式发布前仍需确定许可证和再分发声明；生成候选版本本身
-不构成许可证授权。
+`github.com/amuxos/amux`。除另有标注外，amux 的原创源码、文档和示例采用
+[Apache-2.0](LICENSE)，允许遵守该协议进行商业使用和闭源产品集成。
+详见[许可与归属标识说明](docs/licensing.zh-CN.md)。
 
-工程协作规则见 [AGENTS.md](AGENTS.zh-CN.md)，Claude Code 使用 [CLAUDE.md](CLAUDE.md) 加载相同说明。
+贡献与许可规则见 [CONTRIBUTING.md](CONTRIBUTING.zh-CN.md)，工程说明见
+[AGENTS.md](AGENTS.zh-CN.md)；Claude Code 使用 [CLAUDE.md](CLAUDE.md) 加载后者。
 
 <a id="build-and-run"></a>
 
@@ -69,9 +71,10 @@ Profile Pack 使用 manifest v1.1，支持在运行时消费外部 Git Pack。�
 本 module 是可独立构建的公共核心。其它发行版将其作为 Go module 依赖，在调用可导入的
 应用入口前注册扩展，详见 [发行版开发指南](docs/distribution-development.zh-CN.md)。
 
-`make check` 校验生成的协议与参考文档，运行已包含的 Go 测试、构建命令，并在 npm 可用时
-测试 sidecar。不运行依赖真实外部账号的测试。部分既有测试 fixture 和资源仍待审核，
-未纳入本候选版本；当前测试套件不代表已经覆盖完整产品验收。
+`make check` 校验生成的协议与参考文档、使用 Python 3 校验第三方声明，运行已包含的
+Go 测试、构建命令，并在 npm 可用时测试 sidecar。不运行依赖真实外部账号的测试。
+部分既有测试 fixture 和资源仍待审核，未纳入本候选版本；当前测试套件不代表已经
+覆盖完整产品验收。
 
 - [CLI 模型](docs/current/cli-product-model.zh-CN.md)
 - [Agent 模型](docs/current/agent-adapter-product-model.zh-CN.md)
@@ -81,3 +84,15 @@ Profile Pack 使用 manifest v1.1，支持在运行时消费外部 Git Pack。�
 - [配置参考](docs/reference/configuration.zh-CN.md)
 - [MCP 参考](docs/reference/mcp.zh-CN.md)
 - [Agent Profile Pack](docs/reference/agent-profile-format.zh-CN.md)
+
+<a id="license-and-attribution"></a>
+
+## 许可与归属标识
+
+再分发 amux 或其衍生作品时，应提供 [LICENSE](LICENSE)，保留适用的 [NOTICE](NOTICE)
+归属声明及其它必需声明，并按 Apache-2.0 第 4 条标明修改过的文件。归属标识可以放在
+随附的第三方声明、文档，或“关于”页面的组件列表中，不要求显著展示 Logo 或官网署名。
+
+依赖和单独安装的 Agent 保留各自的许可证与使用条款，见[第三方声明](THIRD_PARTY_NOTICES.zh-CN.md)。
+发行归档将公共核心的许可材料放在 `licenses/amux/`。[许可说明](docs/licensing.zh-CN.md)
+提供集成标识示例，并解释这些义务的适用范围。

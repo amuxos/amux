@@ -11,6 +11,13 @@ Timeline, and integration through the official Feishu APIs.
 The public repository is <https://github.com/amuxos/amux.git>, the Go module is
 `github.com/amuxos/amux`, and the website is <https://amuxos.com/>.
 
+The public core uses [Apache-2.0](../LICENSE). Commercial and proprietary
+distributions are permitted; retain the applicable license and attribution
+material when redistributing it. The public packager includes core notices under
+`licenses/amux/`, including when building a dependent distribution. This does not
+license that distribution's own code. See [License and attribution](licensing.md)
+and [Third-party notices](../THIRD_PARTY_NOTICES.md).
+
 Other distributions create independent Go modules, depend on this module, register
 additional capabilities through `pkg/extensions`, and call `app/cli.Main`,
 `app/hub.Main`, or `app/runtime.Main` from their thin `cmd` entrypoints.
