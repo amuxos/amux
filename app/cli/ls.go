@@ -17,6 +17,10 @@ type lsOptions struct {
 }
 
 func newLsCmd() *cobra.Command {
+	return newLsCmdWithResolver(newSessionResolver)
+}
+
+func newLsCmdWithResolver(newResolver func() (*sessionResolver, error)) *cobra.Command {
 	var opts lsOptions
 	cmd := supportsJSONOutput(&cobra.Command{
 		Use:               "ls [target]",
@@ -24,7 +28,7 @@ func newLsCmd() *cobra.Command {
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeSingleTargetArg,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, err := newSessionResolver()
+			r, err := newResolver()
 			if err != nil {
 				return err
 			}
@@ -37,7 +41,7 @@ func newLsCmd() *cobra.Command {
 			}
 			var sessions []*resolvedSession
 			for _, ts := range targets {
-				if len(args) == 1 && ts.target.Name != args[0] && ts.target.ID != args[0] {
+				if len(args) == 1 && !targetMatchesRef(ts.target, args[0]) {
 					continue
 				}
 				for _, sess := range ts.sessions {

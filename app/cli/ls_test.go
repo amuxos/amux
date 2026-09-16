@@ -7,7 +7,59 @@ import (
 	"testing"
 
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
+	"github.com/spf13/viper"
 )
+
+func TestSessionListResolvesLocalRuntimeAlias(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	viper.Set("runtime.id", "runtime-laptop")
+	viper.Set("runtime.name", "my-laptop")
+	targets := []targetSessions{
+		{
+			target: targetRef{ID: "runtime-laptop", Name: "my-laptop"},
+			sessions: []*sessionEntry{
+				{Session: pb.Session{Id: "local-main", Name: "default-main", AgentProfile: "builtin/codex"}},
+				{Session: pb.Session{Id: "local-child", Name: "child", OwnerTaskId: "task-1"}},
+			},
+		},
+		{
+			target:   targetRef{ID: "runtime-remote", Name: "remote"},
+			sessions: []*sessionEntry{{Session: pb.Session{Id: "remote-main", Name: "default-main"}}},
+		},
+	}
+	for _, ref := range []string{"local", "my-laptop", "runtime-laptop"} {
+		t.Run(ref, func(t *testing.T) {
+			list := newLsCmdWithResolver(func() (*sessionResolver, error) {
+				return resolverForTests(targets), nil
+			})
+			list.Use = "list [target]"
+			cmd := newRootCmd()
+			existing, _, err := cmd.Find([]string{"session", "list"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			sessionCmd := existing.Parent()
+			sessionCmd.RemoveCommand(existing)
+			sessionCmd.AddCommand(list)
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetArgs([]string{"session", "list", ref, "--json"})
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("session list %s: %v", ref, err)
+			}
+			var got struct {
+				Sessions []sessionJSONView `json:"sessions"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+				t.Fatalf("decode session list: %v", err)
+			}
+			if len(got.Sessions) != 1 || got.Sessions[0].ID != "local-main" || got.Sessions[0].TargetName != "my-laptop" {
+				t.Fatalf("session list %s = %+v, want only local user Session", ref, got.Sessions)
+			}
+		})
+	}
+}
 
 func TestShouldShowSessionForLsHidesAllTaskChildren(t *testing.T) {
 	tests := []struct {

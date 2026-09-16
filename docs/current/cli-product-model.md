@@ -6,6 +6,8 @@ The primary command groups are `setup`, `session`, `task`, `agent`, `schedule`
 and `system`. Sessions, tasks and schedules use the hub control plane. Each
 runtime executes work locally and connects to the hub through an outbound tunnel.
 Local operation requires a hub, but does not require the Feishu bridge.
+The `local` target alias identifies the configured local runtime, including
+when filtering `session list`; it does not require a runtime named `local`.
 
 A target identifies a runtime location. A session is an ongoing conversation
 with one agent; a task is a bounded execution with a result. Profile references
@@ -29,6 +31,37 @@ binaries. `amux update --source <directory> --restart` updates an existing
 installation without repeating setup. No release or authoring-runtime download
 source is configured by default. Remote sources must be explicitly supplied by
 the operator. Core installation can proceed when optional authoring is unavailable.
+
+`scripts/install.sh` provides one onboarding entrypoint for public source builds and local release
+binaries. It detects installed `codex`, `claude` and `pi` executables, prompts
+when multiple runtimes are available, and accepts `--runtime` (`--provider` is
+an alias) for unattended selection. The chosen runtime maps to the matching
+`builtin/codex`, `builtin/claude` or `builtin/pi` Profile; missing runtimes and
+invalid Profiles fail before installation. Native agent login remains owned by
+the agent. Claude source installs also prepare and install its SDK sidecar.
+The installer configures the local system and shell PATH. Optional `--feishu`
+performs bot provisioning before inspecting the Bot Profile or binding a
+Session. `--interaction-mode singleton` (the installer default) creates and
+binds a named Session; `thread` saves the selected Profile/Runtime/Model for
+new conversations. Installation does not send a smoke prompt or chat message.
+Repeated runs reuse compatible singleton bindings and reject conflicting
+ones instead of replacing a user's Session.
+
+Before replacing an existing installation, the installer stages validated binaries and any
+Claude sidecar outside the amux data directory, checks the selected agent,
+and stops Pack autosync and the local system. A stop failure aborts replacement.
+Ordinary reruns preserve configuration, credentials, Sessions and Pack data,
+then start the new binaries and restore autosync only if it was running.
+`--clean` explicitly uninstalls with data purge before a fresh local setup;
+it removes amux configuration, credentials, logs, Sessions and managed Pack
+data and requires Feishu provisioning again. It does not remove native agent
+installations or their own login data. Staging permits reinstalling from
+binaries or a sidecar already inside the directory being purged. The installer
+rejects unsafe purge roots and a singleton workspace inside the purge root.
+Source checkouts must also remain outside the purge root. Uninstall stops
+Pack autosync, the local Runtime/Hub and registered standalone MCP/GUI servers;
+it returns a stop failure before removing binaries, PATH entries or data.
+An external host owns relaunch of its MCP/GUI processes.
 
 Configuration discovery and generated documentation describe the available
 keys. Generic configuration commands reject unknown keys before writing.
