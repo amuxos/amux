@@ -75,7 +75,7 @@ var feishuCapabilitySpecs = []feishuCapabilitySpec{
 		ID:           capabilityGroupWatch,
 		Name:         "群值守",
 		Activation:   feishuCapabilityGroupWatch,
-		TenantScopes: []string{"im:message.group_msg"},
+		TenantScopes: []string{"im:message.group_msg", "im:chat.members:read"},
 	},
 	{
 		ID:         capabilityDocumentComments,

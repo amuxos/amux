@@ -402,8 +402,23 @@ func TestAggregatedNotificationMarksCapabilityIssueNotified(t *testing.T) {
 	)
 	b.observeCapabilityPermissionError(context.Background(), capabilityGroupWatch, "群值守", permissionErr, true)
 	b.observeCapabilityPermissionError(context.Background(), capabilityGroupWatch, "群值守", permissionErr, true)
+	memberErr := feishuAPIResponseErrorForRequiredScopes(
+		"lark list chat Bots", "cli_test123",
+		larkcore.CodeError{Code: 99991672, Msg: "Access denied"},
+		"im:chat.members:read",
+	)
+	b.observeCapabilityPermissionError(context.Background(), capabilityGroupWatch, "群值守", memberErr, true)
 	if scopeLists != 1 {
 		t.Fatalf("scope catalog calls for repeated operational error = %d, want 1", scopeLists)
+	}
+	issue := b.capabilityPermissionIssue(capabilityGroupWatch)
+	if issue == nil || !slices.Contains(issue.Scopes, "im:message.group_msg") || !slices.Contains(issue.Scopes, "im:chat.members:read") {
+		t.Fatalf("repeated subset error lost the aggregated issue: %+v", issue)
+	}
+	b.resolveCapabilityPermissionScopes(capabilityGroupWatch, "im:chat.members:read")
+	b.observeCapabilityPermissionError(context.Background(), capabilityGroupWatch, "群值守", memberErr, true)
+	if scopeLists != 2 {
+		t.Fatalf("scope catalog calls after a resolved permission fails again = %d, want 2", scopeLists)
 	}
 }
 
