@@ -28,6 +28,10 @@ Provider 与 ACP 实现直接发出 typed payload。Session 拥有的 canonical 
 turn 身份与顺序，并且每个 turn 只接受一个终态事件。Provider message ID 仅保留为
 来源信息。观察到结果本身不结束 turn。Session 拥有完成策略和队列推进权。
 
+ACP Agent 的输出关闭后，broker 停止接收新请求，等待正在处理的请求收尾后再关闭
+客户端连接。待处理的 prompt 结果、终态事件和确认响应保持原有顺序。连接写入有
+退出超时保护，避免不响应的客户端阻止 broker 退出；传输失败仍按错误处理。
+
 兼容 Codex 的 Provider 将 `thread/tokenUsage/updated` 规范化为 `UsageObserved`。
 `tokenUsage.last` 描述最近一次调用，提供 token 数和上下文窗口使用情况。
 可选的 `tokenUsage.total` 提供 Provider thread 的原生累计快照，映射为
