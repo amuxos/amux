@@ -208,7 +208,7 @@ func (b *Bridge) handleBotSessionSkillCommand(ctx context.Context, bs *BotSessio
 		cardTarget.LastReplyKind = in.ReplyKind
 		cardTarget.LastReplyChatID = in.ChatID
 		cardTarget.LastReplyOpenID = in.OpenID
-		_, _, err := b.sendInteractiveToBotSessionTarget(ctx, &cardTarget,
+		_, _, err := b.sendInteractiveToDirectTarget(ctx, botSessionReplyTarget(&cardTarget),
 			renderSkillPickerCard(target, b.advertisedSkills(bs.TargetID, bs.SessionName), 0), "skill picker card")
 		return err
 	}

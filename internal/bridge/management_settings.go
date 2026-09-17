@@ -811,6 +811,13 @@ func (b *Bridge) notifyThreadHelpCard(ctx context.Context, rootMsgID, cardJSON s
 	if b.threadNotice != nil {
 		return b.threadNotice(ctx, rootMsgID, cardJSON)
 	}
+	if target, ok, err := b.directReplyTargetForRoot(ctx, rootMsgID); ok || err != nil {
+		if err != nil {
+			return err
+		}
+		_, _, err := b.sendInteractiveToDirectTarget(ctx, target, cardJSON, "amux help card")
+		return err
+	}
 	_, _, err := b.sendInteractiveToThread(ctx, rootMsgID, cardJSON, "amux help card")
 	return err
 }

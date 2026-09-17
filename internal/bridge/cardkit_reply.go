@@ -129,11 +129,11 @@ func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
 }
 
 func (b *Bridge) sendCardKitReplyToBinding(ctx context.Context, chat *LarkChat, content, requestUUID string) (string, string, error) {
-	if bs, ok, err := b.botSessionForBinding(chat); ok || err != nil {
+	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return "", "", err
 		}
-		return b.sendCardKitReplyToBotSessionTarget(ctx, bs, content, requestUUID)
+		return b.sendCardKitReplyToDirectTarget(ctx, bs, content, requestUUID)
 	}
 	if chat == nil {
 		return "", "", fmt.Errorf("nil lark chat")
@@ -467,21 +467,21 @@ func (b *Bridge) sendCardKitReplyToThread(ctx context.Context, rootMsgID, conten
 	return larkMessageResponseIDs(resp.Data.MessageId, resp.Data.ThreadId)
 }
 
-func (b *Bridge) sendCardKitReplyToBotSessionTarget(ctx context.Context, bs *BotSession, content, requestUUID string) (string, string, error) {
-	if bs == nil {
-		return "", "", fmt.Errorf("nil bot session")
+func (b *Bridge) sendCardKitReplyToDirectTarget(ctx context.Context, target *directReplyTarget, content, requestUUID string) (string, string, error) {
+	if target == nil {
+		return "", "", fmt.Errorf("nil direct reply target")
 	}
 	var receiveIDType, receiveID string
-	switch strings.TrimSpace(bs.LastReplyKind) {
+	switch strings.TrimSpace(target.Kind) {
 	case botSessionReplyDM:
-		receiveIDType, receiveID = "open_id", strings.TrimSpace(bs.LastReplyOpenID)
+		receiveIDType, receiveID = "open_id", strings.TrimSpace(target.OpenID)
 	case botSessionReplyGroup:
-		receiveIDType, receiveID = "chat_id", strings.TrimSpace(bs.LastReplyChatID)
+		receiveIDType, receiveID = "chat_id", strings.TrimSpace(target.ChatID)
 	default:
-		return "", "", fmt.Errorf("bot-session output target is unknown")
+		return "", "", fmt.Errorf("direct output target is unknown")
 	}
 	if receiveID == "" {
-		return "", "", fmt.Errorf("bot-session %s output target is empty", bs.LastReplyKind)
+		return "", "", fmt.Errorf("direct %s output target is empty", target.Kind)
 	}
 	req := larkim.NewCreateMessageReqBuilder().
 		ReceiveIdType(receiveIDType).
@@ -502,7 +502,8 @@ func (b *Bridge) sendCardKitReplyToBotSessionTarget(ctx context.Context, bs *Bot
 	if resp.Data == nil {
 		return "", "", nil
 	}
-	return larkMessageResponseIDs(resp.Data.MessageId, resp.Data.ThreadId)
+	msgID, threadID, err := larkMessageResponseIDs(resp.Data.MessageId, resp.Data.ThreadId)
+	return b.recordDirectReply(target, msgID, threadID, err)
 }
 
 func larkMessageResponseIDs(messageID, threadID *string) (string, string, error) {

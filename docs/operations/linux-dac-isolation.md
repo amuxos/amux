@@ -72,6 +72,51 @@ are stored per Principal, with no fallback to legacy-host secrets when the Hub i
 unreachable. Shared service identities require explicit authorization through
 aliases, service membership, or delegation.
 
+New Feishu Sessions also select a process environment from their conversation
+mode: ordinary topics and singleton Sessions use the host environment
+(passthrough), while isolated topics use linux-dac. Private chats and groups
+without their own settings inherit the Bot default. Enabling host isolation does
+not isolate every Feishu Session. Existing Sessions retain their environment;
+start a new Session after changing the mode. CLI, Task and other entrypoints
+continue to follow their existing execution policies.
+
+<a id="飞书连续会话的共享身份"></a>
+
+### Shared identities for Feishu singleton Sessions
+
+With Linux isolation enabled, Bot singleton and group singleton Sessions use a
+shared service Principal. Its alias is `service:<bot-profile>`, scoped to that
+Bot's bridge ID. This is the Feishu Bot profile, such as `default`, rather than an
+Agent Profile such as `builtin/codex`. Independent topics use personal Principals;
+successful topic execution does not provision the shared singleton identity.
+
+On the Hub host, use `amux bridge feishu bots` and `amux isolation alias list` to
+identify the Bot scope and the authorized sender's personal Principal, then
+create and bind the shared identity:
+
+```sh
+amux isolation principal create "Bot shared sessions" --kind service
+# Use the service Principal ID returned by the preceding command.
+amux isolation alias bind --provider feishu --scope <bridge-id> \
+  --subject service:<bot-profile> --principal <service-principal-id>
+amux isolation service-member grant --service <service-principal-id> \
+  --member <sender-principal-id>
+```
+
+If the sender has no personal identity, create a human Principal and bind an alias
+using the same bridge scope and that sender's open ID for this Bot. Grant service
+membership only to explicitly authorized senders; the group's `shared` access
+mode does not grant execution authority. Identity changes are saved in the Hub's
+identity database and take effect immediately. The service identity uses its own
+Principal credentials; supply missing model credentials as indicated by launch
+errors.
+
+`singleton requires service principal alias ... and active sender membership`
+means an alias or membership is missing. Keep isolation enabled, provision the
+identity, and send a new group input. After switching a test host to Linux
+isolation, validate both creation and continuation for independent topics and
+singleton Sessions.
+
 <a id="升级撤销和清理"></a>
 
 ## Upgrades, revocation, and cleanup

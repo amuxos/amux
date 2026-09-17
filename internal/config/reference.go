@@ -42,6 +42,7 @@ func ManagedConfigKeys() []string {
 }
 
 var configOptions = distributionConfigOptions([]ConfigOption{
+	{Section: "飞书实验功能", Key: "bridge.feishu.group_settings.enabled", Type: "boolean", Default: "false", Description: "群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。", Managed: true},
 	{Section: "飞书实验功能", Key: "bridge.feishu.presentation.completion_notification_enabled", Type: "boolean", Default: "false", Description: "长会话完成通知实验总开关，影响本实例全部助手；关闭时不新增成功、等待补充或失败提醒。修改后重启生效。", Managed: true},
 	{Section: "Hub 与调度", Key: "hub.addr", Type: "string", Default: "127.0.0.1:7100", Constraints: "host:port", Description: "amuxd hub 地址。", Managed: true},
 	{Section: "Hub 与调度", Key: "hub.token", Type: "string", Default: "空", Description: "Hub 与 runtime 共享鉴权令牌。", Managed: true, Sensitive: true},
@@ -108,7 +109,7 @@ var configOptions = distributionConfigOptions([]ConfigOption{
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.workspace_defaults.model", Type: "string", Default: "继承安装级", Description: "Profile 级 workspace 默认模型。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.workspace_defaults.args", Type: "string array", Default: "继承安装级", Description: "Profile 级 workspace 默认参数。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.workspace_defaults.idle_timeout_seconds", Type: "integer seconds", Default: "继承安装级", Constraints: "0 或 >=60", Description: "Profile 级 workspace 休眠阈值。", Managed: true},
-	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.interaction.mode", Type: "enum", Default: "thread", Constraints: "thread、singleton", Description: "消息处理方式；群值守只兼容 thread。", Managed: true},
+	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.interaction.mode", Type: "enum", Default: "thread", Constraints: "thread、singleton", Description: "未保存群独立设置时的消息处理方式；群值守要求对应群的有效模式为 thread。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.presentation.thinking_process", Type: "enum", Default: "继承安装级（collapsed）", Constraints: "expanded、collapsed、hidden", Description: "当前助手普通任务的处理过程展示方式。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.presentation.completion_notification_after_seconds", Type: "integer seconds", Default: "继承安装级（60）", Constraints: ">=0；0 禁用本功能全部私聊提醒", Description: "当前助手普通任务的完成提醒阈值。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.bot_e2e.sender_open_ids", Type: "string array", Default: "[]", Description: "允许通过 @Bot /e2e 发起 owner-authorized 测试输入的 Bot/App sender open_id。", Managed: true},
@@ -127,8 +128,8 @@ var configOptions = distributionConfigOptions([]ConfigOption{
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.lookback_seconds", Type: "integer seconds", Default: "继承安装级", Constraints: "5-3600", Description: "Profile 级历史回看窗口。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.max_active_sessions_per_chat", Type: "integer", Default: fmt.Sprintf("继承安装级（%d）", DefaultFeishuGroupWatchMaxActiveSessionsPerChat), Constraints: fmt.Sprintf("1-%d", MaxFeishuGroupWatchActiveSessionsPerChat), Description: "Profile 级每群活跃 Session 上限。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.idle_timeout_seconds", Type: "integer seconds", Default: fmt.Sprintf("继承安装级（%d）", DefaultFeishuGroupWatchIdleTimeoutSeconds), Constraints: fmt.Sprintf("60-%d", MaxFeishuGroupWatchIdleTimeoutSeconds), Description: "Profile 级群值守自动休眠阈值。", Managed: true},
-	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.agent_profile_ref", Type: "string", Default: "空（继承助手）", Description: "群值守新 Session 使用的专家；自定义配置与 Runtime 独立。", Managed: true},
-	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.runtime_ref", Type: "string", Default: "空（继承助手）", Description: "群值守新 Session 使用的运行引擎；自定义配置时必填。", Managed: true},
+	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.agent_profile_ref", Type: "string", Default: "空（继承助手）", Description: "群值守新 Session 使用的专家；空值继承该群有效默认专家；自定义配置与 Runtime 独立。", Managed: true},
+	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.runtime_ref", Type: "string", Default: "空（继承助手）", Description: "群值守新 Session 使用的运行引擎；继承任务配置时使用该群有效默认 Runtime，自定义配置时必填。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.model_ref", Type: "string", Default: "空（运行引擎默认）", Description: "群值守新 Session 使用的模型，按所选运行引擎校验；未覆盖运行引擎时遵循专家模型策略，未声明 supported_models 则允许原生模型名。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.reasoning_effort", Type: "string", Default: "空（运行引擎默认）", Description: "群值守新 Session 使用的思考强度，必须受所选运行引擎和模型支持。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.thinking_process", Type: "enum", Default: "继承安装级群值守（collapsed）", Constraints: "expanded、collapsed、hidden", Description: "当前助手群值守任务的处理过程展示方式，与普通任务独立配置。", Managed: true},

@@ -10,6 +10,15 @@ Session、Task 和 Schedule 使用 Hub 控制面。每个 Runtime 在本机执�
 `local` Target 别名标识配置的本地 Runtime，也适用于 `session list` 过滤，
 不要求 Runtime 本身名为 `local`。
 
+`bridge feishu group-settings` 管理本机安装的群默认设置。命令要求开启默认关闭的
+`bridge.feishu.group_settings.enabled` 实验；在私聊 `/amux` 的实验功能页开启并重启后
+再配置群。关闭实验保留群配置和关联，但独立配置群暂停新任务，重新开启后恢复。
+`show <chat-id>` 导出完整 JSON 快照，版本 0 表示尚未保存群配置。
+`apply <chat-id> --file <json|->` 校验并保存完整快照，以版本作比较并交换令牌。
+`new-conversation <chat-id> --expected-version <n>` 退役群连续会话的默认指针，
+已接受的任务继续完成。命令在 Hub 主机操作本地 Bridge 数据库，不跟随远端 Hub 地址。
+`--profile` 选择 Bot 作用域，必须匹配 JSON 中的范围；Session 启动时再次校验执行可用性。
+
 Target 标识 Runtime 的位置。Session 是与一个智能体持续进行的对话；Task 是有结果的
 有界执行。Profile 引用选择 Agent 和启动策略。支持的内置 Profile 为 `builtin/codex`、
 `builtin/claude` 和 `builtin/pi`，默认是 `builtin/codex`。

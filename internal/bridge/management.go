@@ -174,6 +174,9 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	if action == "" {
 		return nil, false, nil
 	}
+	if response, handled, err := b.handleGroupSettingsCardAction(ctx, event, action); handled {
+		return response, true, err
+	}
 	openID := ""
 	if event.Event.Operator != nil {
 		openID = event.Event.Operator.OpenID
@@ -231,16 +234,16 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	}
 	switch action {
 	case managementActionExperimentsOpen, managementActionExperimentsSave, managementActionExperimentsSaveRestart:
-		saved, err := config.ReadCompletionNotificationSettings()
+		saved, err := config.ReadExperimentsSettings()
 		if err != nil {
 			return cardToast("error", "无法读取实验功能配置，请检查配置文件"), true, nil
 		}
 		if action != managementActionExperimentsOpen {
-			saved, err = managementCompletionSettingsFromCallback(event.Event.Action, saved)
+			saved, err = managementExperimentsSettingsFromCallback(event.Event.Action, saved)
 			if err != nil {
 				return cardToast("error", err.Error()), true, nil
 			}
-			if err := config.SaveCompletionNotificationSettings(saved); err != nil {
+			if err := config.SaveExperimentsSettings(saved); err != nil {
 				return cardToast("error", "实验功能保存失败，请检查配置文件"), true, nil
 			}
 		}
@@ -248,7 +251,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			updateFocusedCard(renderManagementExperimentsRestartConfirmationCard(state))
 			return cardToast("success", "已保存，请确认重启"), true, nil
 		}
-		updateFocusedCard(renderManagementExperimentsCard(saved, config.GetBridgeFeishuPresentation()))
+		updateFocusedCard(renderManagementExperimentsCard(saved, config.GetExperimentsSettings()))
 		if action == managementActionExperimentsSave {
 			return cardToast("success", "已保存，重启 amux 后生效"), true, nil
 		}

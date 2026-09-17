@@ -28,6 +28,7 @@ func (b *Bridge) routeToSessionInChatWithMention(ctx context.Context, chatID, ro
 }
 
 type routeInputOptions struct {
+	groupRouted              bool
 	source                   routeInputSource
 	agentProfileRef          string
 	runtimeRef               string
@@ -56,6 +57,9 @@ func inputRouterWorkspaceMode(mode string) inputrouter.WorkspaceMode {
 }
 
 func (b *Bridge) routeToSessionInChatWithMentionOptions(ctx context.Context, chatID, rootMsgID, msgID, openID, text string, mention botMentionInfo, opts routeInputOptions) error {
+	if handled, err := b.routeGroupSessionInput(ctx, chatID, rootMsgID, msgID, openID, text, mention, opts); handled {
+		return err
+	}
 	unlock := b.lockRoute(rootMsgID)
 	isGroupWatch := opts.source == routeInputSourceGroupWatch
 	notificationOpenID := strings.TrimSpace(openID)
@@ -73,7 +77,7 @@ func (b *Bridge) routeToSessionInChatWithMentionOptions(ctx context.Context, cha
 		unlock()
 		return err
 	}
-	if msgID != "" && !mention.ExternalBot && !b.markMessageSeen(b.currentBridgeId(), chatID, rootMsgID, msgID) {
+	if msgID != "" && !mention.ExternalBot && !b.markMessageSeen(b.currentBridgeId(), chatID, groupInputRoot(ctx, rootMsgID), msgID) {
 		unlock()
 		log.Debug().Str("message_id", msgID).Msg("bridge: duplicate message ignored")
 		return nil

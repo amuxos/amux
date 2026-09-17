@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/amuxos/amux/internal/acp"
@@ -43,7 +44,9 @@ type acpBroker struct {
 	agentSessionID string
 	brokerTurns
 
-	conns []*acpBrokerConn
+	conns    []*acpBrokerConn
+	stopping bool // guarded by mu; prevents requests.Add racing shutdown's Wait
+	requests sync.WaitGroup
 }
 
 type acpBrokerConn = brokerConn
@@ -213,13 +216,15 @@ func RunACPBrokerWithOptions(socketPath, pidFile string, opts ACPBrokerOptions) 
 				return
 			}
 			bc := b.addConn(conn)
-			go b.handleConn(bc)
+			if bc != nil {
+				go b.handleConn(bc)
+			}
 		}
 	}()
 
 	<-done
 	lis.Close()
-	b.closeConns()
+	b.shutdown(time.Now().Add(5 * time.Second))
 	return nil
 }
 
@@ -267,6 +272,11 @@ func (b *acpBroker) addConn(c net.Conn) *acpBrokerConn {
 	b.broadcastMu.Lock()
 	defer b.broadcastMu.Unlock()
 	b.mu.Lock()
+	if b.stopping {
+		b.mu.Unlock()
+		_ = c.Close()
+		return nil
+	}
 	b.conns = append(b.conns, bc)
 	agentSessionID := b.agentSessionID
 	b.mu.Unlock()
@@ -300,6 +310,24 @@ func (b *acpBroker) closeConns() {
 		_ = c.conn.Close()
 	}
 	b.conns = nil
+}
+
+func (b *acpBroker) shutdown(deadline time.Time) {
+	b.mu.Lock()
+	b.stopping = true
+	b.mu.Unlock()
+	// Keep the whole drain bounded in addition to each frame's write timeout.
+	// Healthy clients retain their connection until pending requests finish.
+	forceClose := time.AfterFunc(time.Until(deadline), b.closeConns)
+	defer forceClose.Stop()
+	// Output EOF can precede process exit. Stop the child to unblock pending
+	// calls and prompt-tail draining, after the stdout reader delivered all RPC
+	// responses. Their handlers still own emission and ACK delivery below.
+	if b.proc != nil {
+		_ = b.proc.Close()
+	}
+	b.requests.Wait()
+	b.closeConns()
 }
 
 func (b *acpBroker) broadcastEvent(ev agentstream.ProducerEmission) {
@@ -370,56 +398,69 @@ func (b *acpBroker) handleConn(conn *acpBrokerConn) {
 		if err != nil {
 			return
 		}
-		switch kind {
-		case acpFrameUpgrade:
-			var upgrade brokerUpgradeFrame
-			errText := ""
-			if json.Unmarshal(payload, &upgrade) != nil || upgrade.Version != brokerTurnProtocolV3 {
-				errText = "unsupported ACP broker protocol"
-			} else {
-				b.mu.Lock()
-				conn.protocolV3 = true
-				b.mu.Unlock()
-			}
-			_ = conn.write(acpFrameAck, []byte(errText))
-		case acpFrameTurnDispatch:
-			errText := b.dispatchCorrelatedTurn(conn, payload)
-			_ = conn.write(acpFrameAck, []byte(errText))
-		case acpFrameTurnRebind:
-			b.rebindCorrelatedTurn(conn, payload)
-		case acpFrameInput:
-			_ = conn.write(acpFrameAck, []byte("correlated turn dispatch is required"))
-		case acpFrameInterrupt:
-			err := ""
-			if interruptErr := b.proc.Interrupt(); interruptErr != nil {
-				err = interruptErr.Error()
-			}
-			_ = conn.write(acpFrameAck, []byte(err))
-		case acpFrameShutdown:
-			// Keep this one-shot control connection out of the broadcast set so
-			// process-exit cleanup cannot close it before the terminal ack.
-			b.removeConn(conn)
-			err := ""
-			if closeErr := b.proc.Close(); closeErr != nil {
-				err = closeErr.Error()
-			}
-			_ = conn.write(acpFrameAck, []byte(err))
+		if !b.handleFrame(conn, kind, payload) {
 			return
-		case acpFramePermissionResp:
-			err := ""
-			var resp acpPermissionResponseFrame
-			if unmarshalErr := json.Unmarshal(payload, &resp); unmarshalErr != nil {
-				err = unmarshalErr.Error()
-			} else if len(resp.OptionIds) > 0 {
-				if respondErr := b.proc.RespondPermissionMulti(resp.PermissionId, resp.OptionIds); respondErr != nil {
-					err = respondErr.Error()
-				}
-			} else if respondErr := b.proc.RespondPermission(resp.PermissionId, resp.OptionId); respondErr != nil {
-				err = respondErr.Error()
-			}
-			_ = conn.write(acpFrameAck, []byte(err))
 		}
 	}
+}
+
+func (b *acpBroker) handleFrame(conn *acpBrokerConn, kind byte, payload []byte) bool {
+	b.mu.Lock()
+	if b.stopping {
+		b.mu.Unlock()
+		return false
+	}
+	b.requests.Add(1)
+	b.mu.Unlock()
+	defer b.requests.Done()
+
+	switch kind {
+	case acpFrameUpgrade:
+		var upgrade brokerUpgradeFrame
+		errText := ""
+		if json.Unmarshal(payload, &upgrade) != nil || upgrade.Version != brokerTurnProtocolV3 {
+			errText = "unsupported ACP broker protocol"
+		} else {
+			b.mu.Lock()
+			conn.protocolV3 = true
+			b.mu.Unlock()
+		}
+		_ = conn.write(acpFrameAck, []byte(errText))
+	case acpFrameTurnDispatch:
+		errText := b.dispatchCorrelatedTurn(conn, payload)
+		_ = conn.write(acpFrameAck, []byte(errText))
+	case acpFrameTurnRebind:
+		b.rebindCorrelatedTurn(conn, payload)
+	case acpFrameInput:
+		_ = conn.write(acpFrameAck, []byte("correlated turn dispatch is required"))
+	case acpFrameInterrupt:
+		err := ""
+		if interruptErr := b.proc.Interrupt(); interruptErr != nil {
+			err = interruptErr.Error()
+		}
+		_ = conn.write(acpFrameAck, []byte(err))
+	case acpFrameShutdown:
+		err := ""
+		if closeErr := b.proc.Close(); closeErr != nil {
+			err = closeErr.Error()
+		}
+		_ = conn.write(acpFrameAck, []byte(err))
+		return false
+	case acpFramePermissionResp:
+		err := ""
+		var resp acpPermissionResponseFrame
+		if unmarshalErr := json.Unmarshal(payload, &resp); unmarshalErr != nil {
+			err = unmarshalErr.Error()
+		} else if len(resp.OptionIds) > 0 {
+			if respondErr := b.proc.RespondPermissionMulti(resp.PermissionId, resp.OptionIds); respondErr != nil {
+				err = respondErr.Error()
+			}
+		} else if respondErr := b.proc.RespondPermission(resp.PermissionId, resp.OptionId); respondErr != nil {
+			err = respondErr.Error()
+		}
+		_ = conn.write(acpFrameAck, []byte(err))
+	}
+	return true
 }
 
 func (b *acpBroker) dispatchCorrelatedTurn(conn *acpBrokerConn, payload []byte) string {

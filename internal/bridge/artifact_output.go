@@ -39,18 +39,18 @@ type artifactRef struct {
 type artifactDestinationKey struct{}
 
 type artifactDestination struct {
-	botSession *BotSession
-	singleton  bool
-	err        error
+	target *directReplyTarget
+	direct bool
+	err    error
 }
 
 // Singleton LastReply fields are mutable independently of the stream binding.
 // Async sends and their failure notices must use the same captured destination.
-func (b *Bridge) artifactBotSession(ctx context.Context, chat *LarkChat) (*BotSession, bool, error) {
+func (b *Bridge) artifactDirectTarget(ctx context.Context, chat *LarkChat) (*directReplyTarget, bool, error) {
 	if destination, ok := ctx.Value(artifactDestinationKey{}).(artifactDestination); ok {
-		return destination.botSession, destination.singleton, destination.err
+		return destination.target, destination.direct, destination.err
 	}
-	return b.botSessionForBinding(chat)
+	return b.directReplyTargetForBinding(chat)
 }
 
 func artifactRefs(text string) ([]artifactRef, error) {
@@ -76,7 +76,7 @@ func renderArtifactLinks(text string) string {
 		if label == "" {
 			label = "成果附件"
 		}
-		return label + "（附件见本话题）"
+		return label + "（附件见对话）"
 	})
 }
 
@@ -169,7 +169,7 @@ func (b *Bridge) deliverSessionArtifacts(ctx context.Context, chat *LarkChat, tu
 		}
 		if err = send(ctx, chat, kind, key, requestUUID); err != nil {
 			log.Warn().Err(err).Str("turn_id", turnID).Msg("bridge: send artifact")
-			fail(fmt.Sprintf("成果 %q 发送失败，可在本话题请求重新发送。", ref.name))
+			fail(fmt.Sprintf("成果 %q 发送失败，可在当前对话请求重新发送。", ref.name))
 			continue
 		}
 		if _, err = b.db.db.Exec(`UPDATE feishu_artifact_deliveries SET sent=1 WHERE bridge_id=? AND turn_id=? AND path=?`, chat.BridgeId, turnID, ref.name); err != nil {
@@ -214,13 +214,13 @@ func (b *Bridge) sendArtifactToBinding(ctx context.Context, chat *LarkChat, kind
 		field = "image_key"
 	}
 	body, _ := json.Marshal(map[string]string{field: key})
-	if bs, ok, err := b.artifactBotSession(ctx, chat); ok || err != nil {
+	if bs, ok, err := b.artifactDirectTarget(ctx, chat); ok || err != nil {
 		if err != nil {
 			return err
 		}
-		receiveType, receiveID := "chat_id", bs.LastReplyChatID
-		if bs.LastReplyKind == botSessionReplyDM {
-			receiveType, receiveID = "open_id", bs.LastReplyOpenID
+		receiveType, receiveID := "chat_id", bs.ChatID
+		if bs.Kind == botSessionReplyDM {
+			receiveType, receiveID = "open_id", bs.OpenID
 		}
 		if receiveID == "" {
 			return fmt.Errorf("missing artifact destination")
@@ -232,7 +232,8 @@ func (b *Bridge) sendArtifactToBinding(ctx context.Context, chat *LarkChat, kind
 		if !resp.Success() || resp.Data == nil || stringPtr(resp.Data.MessageId) == "" {
 			return fmt.Errorf("send artifact: %d %s", resp.Code, resp.Msg)
 		}
-		return nil
+		_, _, err = b.recordDirectReply(bs, stringPtr(resp.Data.MessageId), stringPtr(resp.Data.ThreadId), nil)
+		return err
 	}
 	resp, err := b.client.Im.Message.Reply(ctx, larkim.NewReplyMessageReqBuilder().MessageId(chat.RootMsgID).Body(larkim.NewReplyMessageReqBodyBuilder().MsgType(kind).Content(string(body)).ReplyInThread(true).Uuid(requestUUID).Build()).Build())
 	if err != nil {
@@ -263,12 +264,12 @@ func (b *Bridge) dispatchArtifactDelivery(chat *LarkChat, turnID, text string, c
 	}
 	b.artifactInFlight[key] = true
 	b.artifactMu.Unlock()
-	bs, singleton, err := b.botSessionForBinding(&snapshot)
+	bs, singleton, err := b.directReplyTargetForBinding(&snapshot)
 	if bs != nil {
 		copy := *bs
 		bs = &copy
 	}
-	destination := artifactDestination{botSession: bs, singleton: singleton, err: err}
+	destination := artifactDestination{target: bs, direct: singleton, err: err}
 	go func() {
 		defer func() {
 			b.artifactMu.Lock()
@@ -287,11 +288,12 @@ func (b *Bridge) dispatchArtifactDelivery(chat *LarkChat, turnID, text string, c
 }
 
 func (b *Bridge) notifyArtifactFailure(ctx context.Context, chat *LarkChat, text string) error {
-	if bs, ok, err := b.artifactBotSession(ctx, chat); ok || err != nil {
+	if bs, ok, err := b.artifactDirectTarget(ctx, chat); ok || err != nil {
 		if err != nil {
 			return err
 		}
-		return b.notifyBotSession(ctx, bs.LastReplyKind, bs.LastReplyChatID, bs.LastReplyOpenID, text)
+		_, _, err := b.sendTextToDirectTarget(ctx, bs, text)
+		return err
 	}
 	return b.notifyThread(ctx, chat.RootMsgID, text)
 }

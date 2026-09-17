@@ -16,11 +16,13 @@ import (
 	"github.com/amuxos/amux/internal/bridge/command"
 	"github.com/amuxos/amux/internal/bridge/threadcontext"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/sessionlaunch"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/proto"
 )
 
 func (b *Bridge) bindThread(ctx context.Context, chatID, rootMsgID, openID, text string) error {
@@ -38,6 +40,9 @@ func (b *Bridge) bindThread(ctx context.Context, chatID, rootMsgID, openID, text
 	resolved, ok := b.resolveSessionRef(ref)
 	if !ok {
 		return b.notifyThread(ctx, rootMsgID, fmt.Sprintf("找不到唯一 session: %s", ref))
+	}
+	if err := b.checkGroupBindingIsolation(ctx, chatID, resolved); err != nil {
+		return b.notifyThread(ctx, rootMsgID, err.Error())
 	}
 	return b.bindResolvedThread(ctx, chatID, rootMsgID, openID, resolved, "已绑定到 session")
 }
@@ -58,6 +63,9 @@ func (b *Bridge) stopCurrentSessionAndBindThread(ctx context.Context, chatID, ro
 	}
 	if current.TargetID == resolved.TargetID && current.SessionName == resolved.SessionName {
 		return b.notifyThread(ctx, rootMsgID, fmt.Sprintf("已经绑定到 session: %s/%s", resolved.TargetName, resolved.SessionName))
+	}
+	if err := b.checkGroupBindingIsolation(ctx, chatID, resolved); err != nil {
+		return b.notifyThread(ctx, rootMsgID, err.Error())
 	}
 	existing, err := b.db.FindBySession(resolved.TargetID, resolved.SessionName)
 	if err != nil {
@@ -272,12 +280,25 @@ func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, openID
 	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	var res sessionlaunch.SessionRef
-	identity, err := b.executionIdentity(openID, "feishu-session:"+sessionName, targetID, false)
+	policy, err := b.newSessionPolicy(ctx, chatID)
+	if err != nil {
+		return res, false, err
+	}
+	identity, err := b.executionIdentity(openID, "feishu-session:"+sessionName, targetID, policy.shared, policy.isolationRequired)
 	if err != nil {
 		return res, false, b.notifyThread(ctx, rootMsgID, "⚠️ 无法解析执行身份："+err.Error())
 	}
-	if b.currentBotIsolationRequired() && (identity.Identity == nil || strings.TrimSpace(identity.LaunchID) == "") {
-		return res, false, b.notifyThread(ctx, rootMsgID, "⚠️ 当前设置为「每个话题独立（用户隔离）」，但本环境无法以隔离用户身份创建会话（可能是已启用用户隔离的 Linux 环境不可用或已降级）。请改回「每个话题独立」后重试。")
+	if policy.isolationRequired {
+		if identity.Identity == nil || identity.Identity.IdentityMode != string(principal.IdentityModeIdentified) || strings.TrimSpace(identity.Identity.EffectivePrincipalId) == "" || strings.TrimSpace(identity.LaunchID) == "" {
+			return res, false, b.notifyThread(ctx, rootMsgID, "⚠️ 当前设置为「每个话题独立（用户隔离）」，但本环境无法以隔离用户身份创建会话（可能是已启用用户隔离的 Linux 环境不可用或已降级）。请改回「每个话题独立」后重试。")
+		}
+		backend := strings.TrimSpace(identity.Identity.IsolationBackend)
+		if backend != "" && backend != principal.BackendLinuxDAC {
+			return res, false, b.notifyThread(ctx, rootMsgID, "⚠️ 当前设置为「每个话题独立（用户隔离）」，但解析到的执行身份不是用户隔离身份。请检查运行环境的隔离配置后重试。")
+		}
+		pinned := proto.Clone(identity.Identity).(*pb.ExecutionIdentity)
+		pinned.IsolationBackend = principal.BackendLinuxDAC
+		identity.Identity = pinned
 	}
 	idleTimeout := int64(idleTimeoutSeconds)
 	res, err = b.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{TargetID: targetID, Name: sessionName, Launch: launch, Workspace: sessionlaunch.WorkspaceRequest{Cwd: cwd, Source: "feishu", Scope: b.feishuWorkspaceScope(chatID, openID)}, IdleTimeoutSeconds: &idleTimeout, ExecutionIdentity: identity.Identity, LaunchID: identity.LaunchID, AgentActorToken: identity.ActorToken, AgentActorTokenExpiresAt: identity.ActorTokenExpiresAt})
@@ -360,6 +381,27 @@ func (b *Bridge) runAndBindThread(ctx context.Context, chatID, rootMsgID, openID
 	if !ok {
 		return b.notifyThread(ctx, rootMsgID, "用法：/run <agent> -n <name> [--on <target>] [--model <model>] [--cwd <dir>] [-- <agent-args>...]")
 	}
+	policy, err := b.newSessionPolicy(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	ctx = withGroupLaunchPolicy(ctx, policy.settings, policy.isolationRequired, false)
+	runtimeRef, reasoningEffort := "", ""
+	if group := policy.settings; group != nil {
+		if req.Target == "" {
+			req.Target = group.DefaultTarget
+		}
+		if req.Cwd == "" {
+			req.Cwd = group.DefaultCwd
+		}
+		if req.Model == "" {
+			req.Model = group.DefaultModelRef
+		}
+		if len(req.ExtraArgs) == 0 {
+			req.ExtraArgs = append([]string(nil), group.DefaultArgs...)
+		}
+		runtimeRef, reasoningEffort = group.DefaultRuntimeRef, group.DefaultReasoningEffort
+	}
 	target, targetErr := b.resolveRunTarget(req.Target)
 	if targetErr != "" {
 		return b.notifyThread(ctx, rootMsgID, targetErr)
@@ -369,7 +411,7 @@ func (b *Bridge) runAndBindThread(ctx context.Context, chatID, rootMsgID, openID
 	} else if existing != nil && existing.RootMsgID != rootMsgID {
 		return b.notifyThread(ctx, rootMsgID, fmt.Sprintf("session 已绑定到另一个话题: %s/%s", target.Name, req.Name))
 	}
-	launch, agentErr := resolveBridgeAgentLaunch(req.AgentRef, req.ExtraArgs, req.Model)
+	launch, agentErr := resolveBridgeAgentLaunchWithSelection(req.AgentRef, req.ExtraArgs, runtimeRef, req.Model, reasoningEffort)
 	if agentErr != nil {
 		return b.notifyThread(ctx, rootMsgID, agentErr.Error())
 	}
@@ -377,6 +419,7 @@ func (b *Bridge) runAndBindThread(ctx context.Context, chatID, rootMsgID, openID
 	if err != nil {
 		return err
 	}
+	ws = groupSettingsWorkspace(ws, policy.settings)
 	blocked, err := b.enforceRunQuota(ctx, rootMsgID, chatID, openID, ws)
 	if err != nil {
 		return err
@@ -394,6 +437,11 @@ func (b *Bridge) runAndBindNaturalEntry(ctx context.Context, chatID, rootMsgID, 
 	return b.runAndBindNaturalEntryWithOptions(ctx, chatID, rootMsgID, msgID, openID, text, mention, naturalEntryOptions{})
 }
 func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, rootMsgID, msgID, openID, text string, mention botMentionInfo, opts naturalEntryOptions) error {
+	policy, err := b.newSessionPolicy(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	ctx = withGroupLaunchPolicy(ctx, policy.settings, policy.isolationRequired, policy.shared)
 	if opts.source != routeInputSourceGroupWatch {
 		ok, err := b.canCreateOrBindInChat(chatID, openID)
 		if err != nil {
@@ -431,6 +479,7 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 	if err != nil {
 		return err
 	}
+	ws = groupSettingsWorkspace(ws, policy.settings)
 	target, targetErr := b.resolveRunTarget(ws.DefaultTarget)
 	if targetErr != "" {
 		return b.notifyThread(ctx, rootMsgID, targetErr)
@@ -497,6 +546,15 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 	} else if modelRef == "" {
 		modelRef = strings.TrimSpace(state.DefaultModelRef)
 	}
+	if policy.settings != nil {
+		agentRef, err = b.groupSettingsAgent(policy.settings)
+		if err != nil {
+			return err
+		}
+		runtimeRef = policy.settings.DefaultRuntimeRef
+		modelRef = policy.settings.DefaultModelRef
+		reasoningEffort = policy.settings.DefaultReasoningEffort
+	}
 	if opts.source == routeInputSourceGroupWatch {
 		if err := validateGroupWatchExecution(opts.agentProfileRef, opts.runtimeRef, opts.modelRef, opts.reasoningEffort); err != nil {
 			return b.notifyThread(ctx, rootMsgID, err.Error())
@@ -529,7 +587,11 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 		}
 		entrySource = ChatEntrySourceGroupWatch
 	}
-	res, ok, err := b.runFeishuSession(ctx, rootMsgID, chatID, openID, target.ID, sessionName, "", launch, idleTimeoutSeconds)
+	cwd := ""
+	if policy.settings != nil {
+		cwd = policy.settings.DefaultCwd
+	}
+	res, ok, err := b.runFeishuSession(ctx, rootMsgID, chatID, openID, target.ID, sessionName, cwd, launch, idleTimeoutSeconds)
 	if !ok {
 		return err
 	}
@@ -542,6 +604,14 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 	}
 	if chat == nil {
 		return nil
+	}
+	if err := b.bindNewGroupConversation(ctx, chatID, rootMsgID); err != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_, _ = b.hub.Route(cleanupCtx, target.ID, "Kill", &pb.KillRequest{Name: res.Name})
+		b.StopStream(rootMsgID)
+		_ = b.db.TerminateChat(b.currentBridgeId(), rootMsgID)
+		return err
 	}
 	chat.localExpertAuthoring = opts.source != routeInputSourceGroupWatch && b.isBotOwner(openID)
 	b.recordUserRequestContext(ctx, chat, msgID, openID, routedText)

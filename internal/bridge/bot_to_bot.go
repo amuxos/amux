@@ -66,7 +66,7 @@ func (b *Bridge) tryCompleteExternalBotExchange(msg *larkim.EventMessage, botOpe
 	if rootID == "" || msgID == "" || !b.botToBotSnapshot().Enabled {
 		return false, nil
 	}
-	mode, err := b.interactionMode()
+	mode, err := b.interactionModeForChat(strings.TrimSpace(stringPtr(msg.ChatId)))
 	if err != nil || mode != config.FeishuInteractionThread {
 		return false, err
 	}
@@ -126,7 +126,7 @@ func (b *Bridge) handleExternalBotMessage(ctx context.Context, msg *larkim.Event
 	if !botToBot.Enabled {
 		return nil
 	}
-	mode, err := b.interactionMode()
+	mode, err := b.interactionModeForChat(strings.TrimSpace(stringPtr(msg.ChatId)))
 	if err != nil || mode != config.FeishuInteractionThread {
 		return err
 	}

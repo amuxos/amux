@@ -53,11 +53,47 @@ func ProjectProfileLaunchChecked(profile Profile, explicitArgs []string, explici
 	selected.Model = selection.Ref
 	selected.ConfiguredModel = selection.Ref
 	selected.Provider = cloneProvider(selection.Provider)
+	effort := strings.TrimSpace(opts.ReasoningEffort)
+	if effort != "" {
+		if err := validateProfileReasoningEffort(selected, effort); err != nil {
+			return LaunchProjection{}, err
+		}
+		applyProfileReasoningEffort(&selected, effort)
+	}
 	if err := validateProvider(selected.Type, selected.Provider); err != nil {
 		return LaunchProjection{}, fmt.Errorf("model %q: %w", selection.Ref, err)
 	}
 	launch := ProjectProfileLaunch(selected, explicitArgs, explicitEnv, LaunchOptions{Model: selection.Ref})
+	applyLaunchReasoningEffort(&launch, selected, effort)
 	return launch, nil
+}
+
+func validateProfileReasoningEffort(profile Profile, effort string) error {
+	runtime, err := ResolveRuntimeOption(profile.Type)
+	if err != nil {
+		return err
+	}
+	// The Profile already resolved and authorized its model/provider. Consult
+	// only the catalog's reasoning capabilities; its model policy and bindings
+	// must not replace the Profile's selection.
+	model := ProfileNativeRuntimeModel(runtime, configuredModel(profile))
+	return ValidateRuntimeReasoningEffort(runtime, model, effort)
+}
+
+// ProfileNativeRuntimeModel returns reasoning capabilities for a model already
+// authorized by a Profile, including native models absent from the distribution
+// runtime catalog.
+func ProfileNativeRuntimeModel(runtime RuntimeOption, modelRef string) RuntimeModelOption {
+	model := RuntimeModelOption{Ref: strings.TrimSpace(modelRef), SupportedReasoningEfforts: cloneStrings(runtime.DefaultReasoningEfforts)}
+	for _, candidate := range runtime.Models {
+		if candidate.Ref == model.Ref {
+			return cloneRuntimeModelOption(candidate)
+		}
+	}
+	if runtimeModelUsesBinaryThinking(model.Ref) {
+		model.SupportedReasoningEfforts = nil
+	}
+	return model
 }
 
 func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, explicitEnv []string, opts LaunchOptions) (LaunchProjection, error) {
@@ -100,16 +136,7 @@ func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, 
 
 	effort := strings.TrimSpace(opts.ReasoningEffort)
 	selected.ExecutionRuntimeRef = runtime.Ref
-	selected.ReasoningEffort = effort
-	if effort != "" && selected.Provider != nil {
-		if selected.Provider.Thinking == nil {
-			selected.Provider.Thinking = map[string]string{}
-		}
-		selected.Provider.Thinking["reasoning_effort"] = effort
-		if _, ok := selected.Provider.Thinking["thinking_effort"]; ok {
-			selected.Provider.Thinking["thinking_effort"] = effort
-		}
-	}
+	applyProfileReasoningEffort(&selected, effort)
 	if err := validateProvider(selected.Type, selected.Provider); err != nil {
 		return LaunchProjection{}, fmt.Errorf("runtime %s model %q: %w", runtime.Ref, model.Ref, err)
 	}
@@ -120,14 +147,32 @@ func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, 
 	// to silently replace the saved Bot launch tuple.
 	explicitArgs = stripRuntimeExecutionSelectionArgs(runtime.AgentType, explicitArgs)
 	launch := ProjectProfileLaunch(selected, explicitArgs, explicitEnv, LaunchOptions{Model: model.Ref})
-	if effort != "" && selected.Provider == nil && profileConfigProtocol(runtime.AgentType) == "codex" {
+	applyLaunchReasoningEffort(&launch, selected, effort)
+	launch.Runtime = runtime.Ref
+	return launch, nil
+}
+
+func applyProfileReasoningEffort(profile *Profile, effort string) {
+	profile.ReasoningEffort = effort
+	if effort == "" || profile.Provider == nil {
+		return
+	}
+	if profile.Provider.Thinking == nil {
+		profile.Provider.Thinking = map[string]string{}
+	}
+	profile.Provider.Thinking["reasoning_effort"] = effort
+	if _, ok := profile.Provider.Thinking["thinking_effort"]; ok {
+		profile.Provider.Thinking["thinking_effort"] = effort
+	}
+}
+
+func applyLaunchReasoningEffort(launch *LaunchProjection, profile Profile, effort string) {
+	if effort != "" && profile.Provider == nil && profileConfigProtocol(profile.Type) == "codex" {
 		launch.ExtraArgs = append(launch.ExtraArgs, "-c", fmt.Sprintf("model_reasoning_effort=%q", effort))
-	} else if effort != "" && runtime.AgentType == "claude" {
+	} else if effort != "" && profile.Type == "claude" {
 		launch.ExtraArgs = append(launch.ExtraArgs, "--effort", effort)
 	}
-	launch.Runtime = runtime.Ref
 	launch.ReasoningEffort = effort
-	return launch, nil
 }
 
 func stripRuntimeExecutionSelectionArgs(agentType string, args []string) []string {

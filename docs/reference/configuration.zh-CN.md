@@ -21,6 +21,7 @@ amux system config unset <key>
 
 | 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
 | --- | --- | --- | --- | --- | --- |
+| `bridge.feishu.group_settings.enabled` | 布尔值 | false | — | 是 | 群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。 |
 | `bridge.feishu.presentation.completion_notification_enabled` | 布尔值 | false | — | 是 | 长会话完成通知实验总开关，影响本实例全部助手；关闭时不新增成功、等待补充或失败提醒。修改后重启生效。 |
 
 ## Hub 与调度
@@ -133,7 +134,7 @@ amux system config unset <key>
 | `bridge.feishu.profiles.<profile>.workspace_defaults.model` | 字符串 | 继承安装级 | — | 是 | Profile 级 workspace 默认模型。 |
 | `bridge.feishu.profiles.<profile>.workspace_defaults.args` | 字符串数组 | 继承安装级 | — | 是 | Profile 级 workspace 默认参数。 |
 | `bridge.feishu.profiles.<profile>.workspace_defaults.idle_timeout_seconds` | 整数秒数 | 继承安装级 | 0 或 >=60 | 是 | Profile 级 workspace 休眠阈值。 |
-| `bridge.feishu.profiles.<profile>.interaction.mode` | 枚举 | thread | thread、singleton | 是 | 消息处理方式；群值守只兼容 thread。 |
+| `bridge.feishu.profiles.<profile>.interaction.mode` | 枚举 | thread | thread、singleton | 是 | 未保存群独立设置时的消息处理方式；群值守要求对应群的有效模式为 thread。 |
 | `bridge.feishu.profiles.<profile>.presentation.thinking_process` | 枚举 | 继承安装级（collapsed） | expanded、collapsed、hidden | 是 | 当前助手普通任务的处理过程展示方式。 |
 | `bridge.feishu.profiles.<profile>.presentation.completion_notification_after_seconds` | 整数秒数 | 继承安装级（60） | >=0；0 禁用本功能全部私聊提醒 | 是 | 当前助手普通任务的完成提醒阈值。 |
 | `bridge.feishu.profiles.<profile>.bot_e2e.sender_open_ids` | 字符串数组 | [] | — | 是 | 允许通过 @Bot /e2e 发起 owner-authorized 测试输入的 Bot/App sender open_id。 |
@@ -152,8 +153,8 @@ amux system config unset <key>
 | `bridge.feishu.profiles.<profile>.group_watch.lookback_seconds` | 整数秒数 | 继承安装级 | 5-3600 | 是 | Profile 级历史回看窗口。 |
 | `bridge.feishu.profiles.<profile>.group_watch.max_active_sessions_per_chat` | 整数 | 继承安装级（50） | 1-500 | 是 | Profile 级每群活跃 Session 上限。 |
 | `bridge.feishu.profiles.<profile>.group_watch.idle_timeout_seconds` | 整数秒数 | 继承安装级（10800） | 60-604800 | 是 | Profile 级群值守自动休眠阈值。 |
-| `bridge.feishu.profiles.<profile>.group_watch.agent_profile_ref` | 字符串 | 空（继承助手） | — | 是 | 群值守新 Session 使用的专家；自定义配置与 Runtime 独立。 |
-| `bridge.feishu.profiles.<profile>.group_watch.runtime_ref` | 字符串 | 空（继承助手） | — | 是 | 群值守新 Session 使用的运行引擎；自定义配置时必填。 |
+| `bridge.feishu.profiles.<profile>.group_watch.agent_profile_ref` | 字符串 | 空（继承助手） | — | 是 | 群值守新 Session 使用的专家；空值继承该群有效默认专家；自定义配置与 Runtime 独立。 |
+| `bridge.feishu.profiles.<profile>.group_watch.runtime_ref` | 字符串 | 空（继承助手） | — | 是 | 群值守新 Session 使用的运行引擎；继承任务配置时使用该群有效默认 Runtime，自定义配置时必填。 |
 | `bridge.feishu.profiles.<profile>.group_watch.model_ref` | 字符串 | 空（运行引擎默认） | — | 是 | 群值守新 Session 使用的模型，按所选运行引擎校验；未覆盖运行引擎时遵循专家模型策略，未声明 supported_models 则允许原生模型名。 |
 | `bridge.feishu.profiles.<profile>.group_watch.reasoning_effort` | 字符串 | 空（运行引擎默认） | — | 是 | 群值守新 Session 使用的思考强度，必须受所选运行引擎和模型支持。 |
 | `bridge.feishu.profiles.<profile>.group_watch.thinking_process` | 枚举 | 继承安装级群值守（collapsed） | expanded、collapsed、hidden | 是 | 当前助手群值守任务的处理过程展示方式，与普通任务独立配置。 |

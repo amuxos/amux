@@ -113,3 +113,62 @@ events. Status, permission and result update the child card immediately; output
 updates are coalesced over two seconds. Watchers survive the parent turn until
 the child task terminates, its timeout window expires or the process exits.
 Parent summaries retain their roughly thirty-second refresh cadence.
+
+## Group-scoped settings
+
+Group-scoped settings are an installation-wide experiment, disabled by default
+(`bridge.feishu.group_settings.enabled = false`). The owner enables it from the
+private `/amux` experiments page using Save and restart. Saving changes only the
+configuration file; the running Hub keeps its startup setting until restart.
+When disabled, group editing, old card callbacks and local operator commands
+are unavailable. Groups with saved independent settings pause new inputs and
+automatic work without falling back to Bot defaults or weakening isolation.
+Their settings, Session bindings and accepted output are retained; enabling the
+experiment and restarting resumes their saved policy. Groups without saved
+settings and private chats continue to use the existing Bot behavior.
+
+Each `(bridge_id, chat_id)` may opt
+into independent interaction, Profile, Runtime, model, reasoning effort, thinking
+process presentation, target, cwd, arguments, idle timeout, context limit and
+session quotas. The owner edits a complete draft seeded from effective Bot and
+workspace settings; saves are atomic and version checked. Existing installations
+retain Bot-wide behavior until a group saves its own settings. Group access mode
+remains separate from thread/singleton interaction and execution isolation.
+
+New topic sessions consume the saved group execution tuple. An explicit reasoning effort
+is validated and materialized even when Runtime uses the Profile default; the Profile
+model/provider selection and its model policy remain in force. Explicit `/run`
+selections and bound Sessions retain their own identity. Existing Sessions never
+change Profile or execution settings merely because a default changed. Required
+isolation cannot silently degrade or be bypassed by binding a legacy execution.
+
+Linux isolation availability and a Feishu conversation's isolation choice are
+separate. New ordinary topic and singleton Sessions explicitly select passthrough;
+the isolated-topic choice selects linux-dac and fails closed when unavailable.
+The effective group setting controls this choice, with Bot defaults used for
+private chats and groups without independent settings. Enabling the host's
+isolation capability must not silently isolate every Feishu conversation. Execution
+principals and actor credentials remain identified when the host requires them;
+selecting passthrough changes process isolation, not authorization. Existing or
+explicitly bound Sessions retain their frozen execution environment.
+
+Group singleton uses one Session per Bot and group. Replies, progress, permission
+requests and artifacts are sent directly to that group, like Bot singleton output.
+New inputs and explicitly addressed replies to its output messages enter the same queue. The first input
+remains the internal binding anchor, not a Feishu thread output destination. It does
+not share a Session with other groups or private chats. Mode changes and the owner’s new-conversation action
+retire the previous default binding without interrupting accepted work. Replies
+to retired group-singleton entries receive a new-topic notice. Ordinary existing
+thread bindings remain usable.
+
+When principal isolation is enabled, group singleton and Bot singleton require
+the Bot-scoped `service:<bot-profile>` principal alias and active sender service
+membership. Personal topic enrollment does not provision this shared execution
+identity, and a group's `shared` access mode does not grant service membership.
+Operators must provision these prerequisites when enabling isolation; see the
+[Linux isolation guide](../operations/linux-dac-isolation.md#飞书连续会话的共享身份).
+
+Group watch eligibility and inherited execution settings use the target group’s
+policy. Explicit capability execution overrides still apply within the group’s
+isolation requirement. Full design and transition cases live in
+[the implementation specification](../superpowers/specs/2026-09-16-feishu-group-session-defaults-design.md).

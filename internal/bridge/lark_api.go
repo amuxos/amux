@@ -554,7 +554,7 @@ func (b *Bridge) sendBotHandoffToThread(ctx context.Context, rootMsgID, botOpenI
 
 func (b *Bridge) sendPermissionRequestCard(ctx context.Context, rootMsgID, targetID, sessionName, permissionID string, payload permissionPayload) (string, string, error) {
 	content := renderPermissionRequestCard(targetID, sessionName, permissionID, payload)
-	return b.sendInteractiveToThread(ctx, rootMsgID, content, "permission request card")
+	return b.sendInteractiveToBinding(ctx, &LarkChat{RootMsgID: rootMsgID, TargetID: targetID, SessionName: sessionName}, content, "permission request card")
 }
 
 func (b *Bridge) sendToolActivityToThread(ctx context.Context, rootMsgID string, meta toolActivityCardMeta, text string) (string, string, error) {

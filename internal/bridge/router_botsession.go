@@ -11,6 +11,15 @@ import (
 )
 
 func (b *Bridge) routeBotSessionInput(ctx context.Context, in botSessionInput) (bool, error) {
+	if in.ReplyKind == botSessionReplyGroup && b != nil && b.db != nil {
+		settings, err := b.db.ReadGroupSettings(b.currentBridgeId(), in.ChatID)
+		if err != nil {
+			return true, err
+		}
+		if settings != nil {
+			return false, nil
+		}
+	}
 	imageCtx := feishuImagesFromContext(ctx)
 	imageCtx.chatID = in.ChatID
 	imageCtx.openID = in.OpenID

@@ -164,8 +164,20 @@ func renderGroupStatusCardWithGroupWatch(ws *FeishuWorkspace, interactionMode, g
 		access = "群成员都可以 @智能体 发起任务"
 	}
 	interaction := managementInteractionText(interactionMode)
-	hint := managementInteractionDescription(interactionMode) + " 如需修改，请私聊智能体打开“助手设置”。\n" + "负责人可 @智能体 发送“开启协作模式”或“关闭协作模式”；也可发送“开启群值守”或“关闭群值守”。"
+	hint := "负责人可 @智能体 发送“开启协作模式”或“关闭协作模式”，以及“开启群值守”或“关闭群值守”。"
+	if config.GetBridgeFeishuGroupSettingsEnabled() {
+		hint = "负责人可在本群 @智能体 发送 /amux，并在私聊的“当前群设置”中修改。新执行参数只用于新会话，已有话题保留创建时的设置。\n" + hint
+	} else {
+		hint = managementInteractionDescription(interactionMode) + " 如需修改，请私聊智能体打开“助手设置”。\n" + hint
+	}
 	return marshalNativeManagementCard(managementCardView{Title: "当前群设置", Subtitle: access, Summary: "amux 当前群设置", Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: "使用权限", Body: mode}, managementSummaryItem{Title: "处理方式", Body: interaction}, managementSummaryItem{Title: "群值守", Body: valueOrPlaceholder(strings.TrimSpace(groupWatchStatus), "未加入")}, managementSummaryItem{Title: "开始任务", Body: "@智能体 + 任务"}), managementHintElement(hint)}})
+}
+
+func renderGroupSettingsPausedCard(chatID, chatName string) string {
+	return marshalNativeManagementCard(managementCardView{Title: "当前群设置", Summary: "群独立配置实验已关闭，本群已暂停新任务", Theme: "orange", Elements: []cardElement{
+		managementCompactSummaryElement(managementSummaryItem{Title: "群名称", Body: valueOrPlaceholder(chatName, "当前群")}, managementSummaryItem{Title: "群标识", Body: chatID}),
+		managementHintElement(errGroupSettingsExperimentDisabled.Error()),
+	}})
 }
 func renderGroupWatchCommandConfirmationCard(state managementState, chatID, chatName, operation string) string {
 	chatID = strings.TrimSpace(chatID)

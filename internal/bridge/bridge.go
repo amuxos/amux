@@ -25,6 +25,7 @@ import (
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/amuxhome"
@@ -32,6 +33,7 @@ import (
 	bridgeprompt "github.com/amuxos/amux/internal/bridge/prompt"
 	"github.com/amuxos/amux/internal/bridge/threadcontext"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/sessionlaunch"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
@@ -167,8 +169,8 @@ type Bridge struct {
 
 // LaunchIdentity is everything a Feishu launch needs from the principal
 // registry: who it runs as, and the credential the agent inside it presents
-// when it calls back into the control plane. The bridge treats all of it as
-// opaque so amuxd stays the only place that knows how identities are minted.
+// when it calls back into the control plane. amuxd owns identity minting;
+// the bridge selects process isolation from the effective conversation policy.
 type LaunchIdentity struct {
 	Identity            *pb.ExecutionIdentity
 	LaunchID            string
@@ -182,11 +184,23 @@ func (b *Bridge) SetExecutionIdentityResolver(fn func(openID, executionRef, targ
 	b.resolveExecutionIdentity = fn
 }
 
-func (b *Bridge) executionIdentity(openID, executionRef, targetID string, shared bool) (LaunchIdentity, error) {
+func (b *Bridge) executionIdentity(openID, executionRef, targetID string, shared, isolationRequired bool) (LaunchIdentity, error) {
 	if b.resolveExecutionIdentity == nil {
 		return LaunchIdentity{}, nil
 	}
-	return b.resolveExecutionIdentity(strings.TrimSpace(openID), executionRef, strings.TrimSpace(targetID), shared)
+	identity, err := b.resolveExecutionIdentity(strings.TrimSpace(openID), executionRef, strings.TrimSpace(targetID), shared)
+	if err != nil {
+		return LaunchIdentity{}, err
+	}
+	// Host isolation availability must not override a conversation's ordinary
+	// mode. Keep the principal and credential for authorization, while pinning
+	// fresh executions to the selected environment. Never rewrite a frozen backend.
+	if !isolationRequired && identity.Identity != nil && identity.Identity.IsolationBackend == "" {
+		pinned := proto.Clone(identity.Identity).(*pb.ExecutionIdentity)
+		pinned.IsolationBackend = principal.BackendPassthrough
+		identity.Identity = pinned
+	}
+	return identity, nil
 }
 
 // currentBotIsolationRequired reports whether the current Bot Profile has the
@@ -641,6 +655,9 @@ func (b *Bridge) OnSessionAdded(targetID, targetName string, session *pb.Session
 		log.Debug().Str("session", session.Name).Str("target_id", targetID).Str("target_name", targetName).
 			Msg("bridge: singleton mode has no matching bot-session binding, checking recent thread binding")
 	}
+	if b.reattachGroupSessionStream(targetID, session) {
+		return
+	}
 	existing, err := b.db.FindRecentBridgeSession(
 		b.currentBridgeId(),
 		targetID,
@@ -819,12 +836,29 @@ func (b *Bridge) handleMessage(ctx context.Context, event *larkim.P2MessageRecei
 				publicScope = command.ScopeActiveTopic
 			}
 		}
+		if agentRef, ok := parseNaturalWorkspaceDefaultAgent(cmdText); ok {
+			return b.handleNaturalWorkspaceDefaultAgent(ctx, chatID, msgID, openID, agentRef)
+		}
 		publicIntent := command.Resolve(publicScope, cmdText)
 		groupIntent := command.Resolve(command.ScopeGroup, cmdText)
 		isPublicCommand := publicIntent != command.CommandNone ||
 			groupIntent == command.CommandCollaborationOn ||
 			groupIntent == command.CommandCollaborationOff ||
 			isGroupWatchIntent(groupIntent)
+		if mention.Mentioned && strings.HasPrefix(cmdText, "/") &&
+			(isSingletonSessionCommand(cmdText) || isSkillSlashCommand(cmdText) || (!isPublicCommand && threadCommand(cmdText) == command.CommandNone)) {
+			settings, err := b.db.ReadGroupSettings(b.currentBridgeId(), chatID)
+			if err != nil {
+				return err
+			}
+			if settings != nil && settings.InteractionMode == config.FeishuInteractionSingleton {
+				rootID := messageRootID(msg)
+				if rootID == "" {
+					rootID = msgID
+				}
+				return b.routeToSessionInChatWithMention(ctx, chatID, rootID, msgID, openID, text, mention)
+			}
+		}
 		if routedText := b.stripCurrentBotMention(text, mention); mention.Mentioned && isSingletonSessionCommand(routedText) {
 			if handled, err := b.routeBotSessionInput(ctx, botSessionInput{
 				ChatID:    chatID,
@@ -876,8 +910,8 @@ func (b *Bridge) handleMessage(ctx context.Context, event *larkim.P2MessageRecei
 				command.CommandInterrupt, command.CommandQueue, command.CommandQueueClear, command.CommandQueueCancel:
 				return nil
 			default:
-				if _, ok := parseNaturalWorkspaceDefaultAgent(cmdText); ok {
-					return b.handleNaturalWorkspaceDefaultAgent(ctx, chatID, msgID, openID)
+				if agentRef, ok := parseNaturalWorkspaceDefaultAgent(cmdText); ok {
+					return b.handleNaturalWorkspaceDefaultAgent(ctx, chatID, msgID, openID, agentRef)
 				}
 				routedText := b.stripCurrentBotMention(text, mention)
 				if mention.Mentioned && msgID != "" && routedText == "" && !hasImages && !hasQuotedMessage {
@@ -947,8 +981,8 @@ func (b *Bridge) handleMessage(ctx context.Context, event *larkim.P2MessageRecei
 					return b.notifyRootCommand(ctx, chatID, msgID, "⚠️ /setup 已移除。请在群里发送 /workspace init。")
 				} else if isAmuxManagementCommand(cmdText) {
 					return b.notifyRootCommand(ctx, chatID, msgID, "请私聊智能体管理 amux。")
-				} else if _, ok := parseNaturalWorkspaceDefaultAgent(cmdText); ok {
-					return b.handleNaturalWorkspaceDefaultAgent(ctx, chatID, msgID, openID)
+				} else if agentRef, ok := parseNaturalWorkspaceDefaultAgent(cmdText); ok {
+					return b.handleNaturalWorkspaceDefaultAgent(ctx, chatID, msgID, openID, agentRef)
 				} else {
 					if strings.HasPrefix(cmdText, "/") {
 						return nil
@@ -1045,8 +1079,8 @@ func (b *Bridge) handlePrivateMessage(ctx context.Context, msg *larkim.EventMess
 	if cmd := threadCommand(cmdText); cmd == command.CommandWorkspace {
 		return b.handleWorkspaceRootCommandReply(ctx, chatID, rootID, openID, cmdText)
 	}
-	if _, ok := parseNaturalWorkspaceDefaultAgent(cmdText); ok {
-		return b.handleNaturalWorkspaceDefaultAgent(ctx, chatID, rootID, openID)
+	if agentRef, ok := parseNaturalWorkspaceDefaultAgent(cmdText); ok {
+		return b.handleNaturalWorkspaceDefaultAgent(ctx, chatID, rootID, openID, agentRef)
 	}
 	if strings.HasPrefix(cmdText, "/") && threadCommand(cmdText) == command.CommandNone && !b.hasSingletonAdvertisedAgentCommand(cmdText) {
 		return b.handleCommand(ctx, openID, cmdText)

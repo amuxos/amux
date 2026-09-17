@@ -63,6 +63,18 @@ func TestCanonicalAgentEventsProduceProviderIndependentPresentationActions(t *te
 	}
 }
 
+func TestPrepareExecutionRejectsPinnedLinuxDACWithoutIsolationRuntime(t *testing.T) {
+	srv := &server{amuxDir: t.TempDir()}
+	identity := principal.ExecutionIdentity{
+		IdentityMode:         principal.IdentityModeIdentified,
+		EffectivePrincipalID: "principal-1",
+		IsolationBackend:     principal.BackendLinuxDAC,
+	}
+	if _, _, _, _, err := srv.prepareExecution(context.Background(), identity, "launch-1", &pb.RunRequest{Name: "session"}); err == nil || !strings.Contains(err.Error(), "isolation runtime is unavailable") {
+		t.Fatalf("prepareExecution error = %v", err)
+	}
+}
+
 type serverTestProc struct {
 	writes              [][]byte
 	controls            []string

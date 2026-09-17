@@ -34,6 +34,12 @@ timeline assigns turn identity and order and accepts exactly one terminal event
 per turn. Provider message identifiers remain provenance. Observing a result does
 not itself complete a turn. The session owns completion policy and queue advancement.
 
+When an ACP agent's output closes, the broker stops accepting requests and drains
+requests already being handled before closing client connections. Pending prompt
+results, terminal emissions and acknowledgements retain their order. Connection
+writes have a bounded shutdown deadline so an unresponsive client cannot prevent
+broker exit; a transport failure remains an error.
+
 Codex-compatible providers normalize `thread/tokenUsage/updated` into
 `UsageObserved`. `tokenUsage.last` describes the latest invocation and supplies
 token counts and context-window usage. Optional `tokenUsage.total` supplies the

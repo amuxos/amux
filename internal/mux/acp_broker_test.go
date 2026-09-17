@@ -452,6 +452,99 @@ func TestACPBrokerSlowClientDoesNotBlockTurnState(t *testing.T) {
 	_ = serverConn.Close()
 }
 
+type acpShutdownTestConn struct {
+	net.Conn
+	writeStarted chan struct{}
+}
+
+func (c *acpShutdownTestConn) Write(p []byte) (int, error) {
+	select {
+	case c.writeStarted <- struct{}{}:
+	default:
+	}
+	return c.Conn.Write(p)
+}
+
+func TestACPBrokerShutdownDrainsPendingAck(t *testing.T) {
+	for _, stalled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stalled_client=%v", stalled), func(t *testing.T) {
+			server, client := net.Pipe()
+			t.Cleanup(func() { _ = client.Close(); _ = server.Close() })
+			_ = client.SetDeadline(time.Now().Add(2 * time.Second))
+			observed := &acpShutdownTestConn{
+				Conn: server, writeStarted: make(chan struct{}, 1),
+			}
+			conn := &acpBrokerConn{conn: observed}
+			b := &acpBroker{conns: []*acpBrokerConn{conn}}
+			handlerDone := make(chan struct{})
+			go func() {
+				b.handleConn(conn)
+				close(handlerDone)
+			}()
+			upgrade, _ := json.Marshal(brokerUpgradeFrame{Version: brokerTurnProtocolV3})
+			if err := writeACPFrame(client, acpFrameUpgrade, upgrade); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case <-observed.writeStarted:
+			case <-time.After(time.Second):
+				t.Fatal("request did not reach its ACK write")
+			}
+
+			drainTimeout := time.Second
+			if stalled {
+				drainTimeout = 50 * time.Millisecond
+			}
+			shutdownDone := make(chan struct{})
+			go func() {
+				b.shutdown(time.Now().Add(drainTimeout))
+				close(shutdownDone)
+			}()
+			stoppingDeadline := time.Now().Add(time.Second)
+			for {
+				b.mu.Lock()
+				stopping := b.stopping
+				b.mu.Unlock()
+				if stopping {
+					break
+				}
+				if time.Now().After(stoppingDeadline) {
+					t.Fatal("shutdown did not stop request admission")
+				}
+				time.Sleep(time.Millisecond)
+			}
+			if b.handleFrame(conn, acpFrameUpgrade, upgrade) {
+				t.Fatal("shutdown accepted a new request")
+			}
+			lateServer, lateClient := net.Pipe()
+			defer lateClient.Close()
+			defer lateServer.Close()
+			if b.addConn(lateServer) != nil {
+				t.Fatal("shutdown accepted a new connection")
+			}
+			if !stalled {
+				kind, payload, err := readACPFrame(client)
+				if err != nil || kind != acpFrameAck || len(payload) != 0 {
+					t.Fatalf("pending ACK: kind=%x payload=%q err=%v", kind, payload, err)
+				}
+			}
+			select {
+			case <-shutdownDone:
+			case <-time.After(time.Second):
+				t.Fatal("shutdown blocked on the client")
+			}
+			select {
+			case <-handlerDone:
+			case <-time.After(time.Second):
+				t.Fatal("connection handler did not exit")
+			}
+			if _, _, err := readACPFrame(client); err == nil {
+				t.Fatal("connection remained open after shutdown")
+			}
+		})
+	}
+}
+
 func TestACPBrokerResumesSessionAndForwardsAgentSessionID(t *testing.T) {
 	dir, err := os.MkdirTemp("/tmp", "amux-acp-broker-*")
 	if err != nil {
@@ -571,49 +664,51 @@ func TestACPBrokerInterruptDoesNotWaitForPromptAck(t *testing.T) {
 	sock := filepath.Join(dir, "acp.sock")
 	pidFile := filepath.Join(dir, "acp.pid")
 	cmd := exec.Command(os.Args[0], "-test.run=TestFakeACPBrokerServer")
-	cmd.Env = append(os.Environ(), "AMUX_FAKE_ACP_BROKER=1", "AMUX_FAKE_ACP_WAIT_CANCEL=1")
+	cmd.Env = append(os.Environ(), "AMUX_FAKE_ACP_BROKER=1", "AMUX_FAKE_ACP_WAIT_CANCEL=1", "AMUX_FAKE_ACP_CLOSE_STDOUT=1")
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- RunACPBrokerWithOptions(sock, pidFile, ACPBrokerOptions{Cwd: dir, Cmd: cmd})
+		// Hold prompt completion until the broker observes output EOF and stops
+		// the child. This deterministically exercises shutdown while the prompt
+		// result and dispatch ACK are still pending.
+		errCh <- RunACPBrokerWithOptions(sock, pidFile, ACPBrokerOptions{Cwd: dir, Cmd: cmd, PromptTailDrain: 5 * time.Second})
 	}()
-	pid := 0
-	pidDeadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(pidDeadline) {
-		if data, err := os.ReadFile(pidFile); err == nil {
-			if v, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil && v > 0 {
-				pid = v
-				break
-			}
-		}
-		select {
-		case err := <-errCh:
-			t.Fatalf("broker exited early: %v", err)
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
-	if pid == 0 {
-		t.Fatal("timeout waiting for pid file")
-	}
+	pid := waitTestPIDFile(t, pidFile, errCh)
 
-	proc, _, err := ConnectACP(sock, pid)
+	proc, disconnected, err := ConnectACP(sock, pid)
 	if err != nil {
 		t.Fatalf("ConnectACP: %v", err)
 	}
 	defer proc.Close()
 
+	events := make(chan agentstream.ProducerEmission, 8)
 	writeDone := make(chan error, 1)
 	go func() {
 		writeDone <- proc.DispatchTurn(context.Background(), session.TurnDispatchRequest{
 			TurnToken: "turn-interrupt",
 			Input:     session.TextUserInput("ping"),
-		}, func(testProducerEmission) bool { return false })
+		}, func(ev agentstream.ProducerEmission) bool {
+			events <- ev
+			return false
+		})
 	}()
 
+	// Wait for observable prompt activity instead of assuming it started after
+	// a sleep. Interrupt must use its control connection while dispatch waits.
+	select {
+	case ev := <-events:
+		if delta, ok := ev.Turn.(agentstream.AssistantDelta); !ok || delta.Text != "pong" {
+			t.Fatalf("first prompt event = %+v, want pong", ev)
+		}
+	case err := <-writeDone:
+		t.Fatalf("DispatchTurn returned before prompt activity: %v", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for prompt activity")
+	}
 	select {
 	case err := <-writeDone:
 		t.Fatalf("DispatchTurn returned before interrupt: %v", err)
-	case <-time.After(200 * time.Millisecond):
+	default:
 	}
 
 	interruptDone := make(chan error, 1)
@@ -638,10 +733,35 @@ func TestACPBrokerInterruptDoesNotWaitForPromptAck(t *testing.T) {
 		t.Fatal("timed out waiting for prompt write to finish")
 	}
 
-	_ = proc.Close()
 	select {
-	case <-errCh:
-	case <-time.After(100 * time.Millisecond):
+	case <-disconnected:
+	case <-time.After(2 * time.Second):
+		t.Fatal("broker did not close the connection after draining the prompt")
+	}
+	close(events)
+	var resultSeen bool
+	terminals := 0
+	for ev := range events {
+		if result, ok := ev.Turn.(agentstream.ResultObserved); ok && result.Text == "pong" {
+			resultSeen = true
+		}
+		if ev.Terminal != nil {
+			terminals++
+			if !resultSeen || ev.Terminal.Outcome != agentstream.OutcomeCancelled {
+				t.Fatalf("terminal = %+v, resultSeen = %v; want result before cancellation", ev.Terminal, resultSeen)
+			}
+		}
+	}
+	if terminals != 1 {
+		t.Fatalf("terminal count = %d, want 1", terminals)
+	}
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("broker exit: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("broker did not exit after draining the prompt")
 	}
 }
 
@@ -693,6 +813,10 @@ func TestFakeACPBrokerServer(t *testing.T) {
 		case "session/cancel":
 			if pendingPromptID != 0 {
 				fmt.Printf(`{"jsonrpc":"2.0","id":%d,"result":{"stopReason":"cancelled"}}`+"\n", pendingPromptID)
+			}
+			if os.Getenv("AMUX_FAKE_ACP_CLOSE_STDOUT") == "1" {
+				_ = os.Stdout.Close()
+				continue
 			}
 			os.Exit(0)
 		}

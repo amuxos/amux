@@ -2658,5 +2658,21 @@
   "从该事件序号继续读取；传入上一次调用返回的 next_seq": {
     "en": "Resume reading from this event sequence number; pass next_seq from the previous call",
     "zh-CN": "从该事件序号继续读取；传入上一次调用返回的 next_seq"
+  },
+  "群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。": {
+    "en": "Installation-wide group settings experiment. When disabled, saved group settings and Sessions are retained and independently configured groups pause new work; unconfigured groups and private chats use Bot defaults. Restart to apply changes.",
+    "zh-CN": "群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。"
+  },
+  "未保存群独立设置时的消息处理方式；群值守要求对应群的有效模式为 thread。": {
+    "en": "Message routing mode for groups without independent settings. Group watch requires the target group’s effective mode to be thread.",
+    "zh-CN": "未保存群独立设置时的消息处理方式；群值守要求对应群的有效模式为 thread。"
+  },
+  "群值守新 Session 使用的专家；空值继承该群有效默认专家；自定义配置与 Runtime 独立。": {
+    "en": "Agent Profile for new group-watch Sessions. An empty value inherits the group’s effective default Profile; a custom selection is independent of Runtime.",
+    "zh-CN": "群值守新 Session 使用的专家；空值继承该群有效默认专家；自定义配置与 Runtime 独立。"
+  },
+  "群值守新 Session 使用的运行引擎；继承任务配置时使用该群有效默认 Runtime，自定义配置时必填。": {
+    "en": "Runtime for new group-watch Sessions. Inherited execution uses the group’s effective default Runtime; custom execution requires this field.",
+    "zh-CN": "群值守新 Session 使用的运行引擎；继承任务配置时使用该群有效默认 Runtime，自定义配置时必填。"
   }
 }
