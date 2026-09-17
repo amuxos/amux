@@ -405,6 +405,27 @@ func (c *capabilityPermissionAuditor) markCapabilityPermissionNotified(issue cap
 	c.capabilityPermissions[issue.Capability] = current
 }
 
+// An operational error may name only one scope from an already-notified audit.
+// Keep the broader issue and its notification state until a scope is resolved;
+// replacing it with each API's subset would repeatedly re-audit and notify.
+func (c *capabilityPermissionAuditor) capabilityPermissionIssueAlreadyNotified(issue capabilityPermissionIssue) bool {
+	if c == nil {
+		return false
+	}
+	c.capabilityPermissionMu.Lock()
+	defer c.capabilityPermissionMu.Unlock()
+	current, ok := c.capabilityPermissions[issue.Capability]
+	if !ok || !current.Notified {
+		return false
+	}
+	for _, scope := range issue.Scopes {
+		if !slices.Contains(current.Issue.Scopes, scope) {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *capabilityPermissionAuditor) clearCapabilityPermissionIssue(capability string) {
 	if c == nil {
 		return
@@ -519,7 +540,7 @@ func (b *Bridge) observeCapabilityPermissionError(
 	notifyOwner bool,
 ) {
 	issue, ok := capabilityPermissionIssueFromError(err, capability, name)
-	if !ok || !b.recordCapabilityPermissionIssue(issue) || !notifyOwner {
+	if !ok || b.capabilityPermissionIssueAlreadyNotified(issue) || !b.recordCapabilityPermissionIssue(issue) || !notifyOwner {
 		return
 	}
 	// Prefer the authoritative permission list so one missing capability can be

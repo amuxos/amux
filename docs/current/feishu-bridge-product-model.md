@@ -48,6 +48,18 @@ description as session input. Deleted messages and messages without valid text
 or materials do not start a session. Existing sender, group, deduplication,
 capacity and loop-prevention rules still apply.
 
+App-authored root alerts that mention only people remain eligible for group
+watch. Mentions of the current bot use ordinary routing; mentions of other bots
+exclude an App message from automatic handling, including mixed human/bot
+mentions. Event and history inputs enforce the same distinction. Explicit
+event target types are authoritative; when the platform omits the type (as in
+history), Bridge resolves target IDs against a complete, current chat bot list.
+This lookup uses `im:chat.members:read`, independently of whether Bot-to-Bot
+collaboration is enabled. Each poll shares one lookup per chat. An unavailable
+or incomplete list leaves ambiguous messages unsubmitted and reports the error;
+they remain eligible for a later poll within the lookback window. Messages
+without ambiguous mentions do not require the lookup.
+
 Ordinary conversations, live group-watch events and history polling collect
 materials through the same path. Each message has its own collection context;
 attachments cannot carry over to another message in a polling batch. Material

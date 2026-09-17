@@ -266,12 +266,6 @@ func (b *Bridge) handleGroupWatchEvent(ctx context.Context, event *larkim.P2Mess
 		return false, nil
 	}
 	senderType := normalizeGroupWatchSenderType(stringPtr(event.Event.Sender.SenderType))
-	// An app-authored root with any structured mention is an explicit directed
-	// message (including Coordination outbound). It belongs to the mentioned
-	// Bot's normal/Bot-to-Bot router, never to unrelated group watchers.
-	if senderType == "app" && len(msg.Mentions) > 0 {
-		return false, nil
-	}
 	senderID := ""
 	if event.Event.Sender.SenderId != nil {
 		senderID = firstNonEmpty(
@@ -297,6 +291,16 @@ func (b *Bridge) handleGroupWatchEvent(ctx context.Context, event *larkim.P2Mess
 	}
 	if !b.groupWatchSenderAllowed(senderType) {
 		return false, nil
+	}
+	if senderType == "app" {
+		mentionsBot, err := b.newGroupWatchBotMentionCheck(ctx, chatID)(groupWatchEventMentions(msg.Mentions))
+		if err != nil {
+			b.observeCapabilityPermissionError(ctx, capabilityGroupWatch, "群值守", err, true)
+			return true, err
+		}
+		if mentionsBot {
+			return false, nil
+		}
 	}
 	return true, b.routeGroupWatchMessage(ctx, groupWatchMessage{
 		ChatID:     chatID,
@@ -519,10 +523,21 @@ func (b *Bridge) pollGroupWatchOnce(ctx context.Context, now time.Time) error {
 			right := groupWatchHistoryCreateTime(messages[j])
 			return left.Before(right)
 		})
+		mentionsBot := b.newGroupWatchBotMentionCheck(ctx, chatID)
 		for _, raw := range messages {
 			msg, ok := b.groupWatchMessageFromHistory(raw, start, now)
 			if !ok {
 				continue
+			}
+			if msg.SenderType == "app" {
+				directed, err := mentionsBot(groupWatchHistoryMentions(raw.Mentions))
+				if err != nil {
+					pollErrs = append(pollErrs, fmt.Errorf("%s/%s: %w", chatID, msg.MessageID, err))
+					continue
+				}
+				if directed {
+					continue
+				}
 			}
 			if err := b.routeGroupWatchMessage(ctx, msg); err != nil {
 				pollErrs = append(pollErrs, fmt.Errorf("%s/%s: %w", chatID, msg.MessageID, err))
@@ -602,9 +617,6 @@ func (b *Bridge) groupWatchMessageFromHistory(raw *larkim.Message, start, end ti
 	if b.groupWatchHistoryMentionsCurrentBot(raw) {
 		return groupWatchMessage{}, false
 	}
-	if senderType == "app" && len(raw.Mentions) > 0 {
-		return groupWatchMessage{}, false
-	}
 	rootID := groupWatchHistoryRootID(raw)
 	if rootID != "" {
 		return groupWatchMessage{}, false
@@ -653,7 +665,7 @@ func (b *Bridge) groupWatchHistoryMentionsCurrentBot(msg *larkim.Message) bool {
 		if botID != "" && strings.TrimSpace(stringPtr(mention.Id)) == botID {
 			return true
 		}
-		if botName != "" && strings.EqualFold(strings.TrimSpace(stringPtr(mention.Name)), botName) {
+		if strings.TrimSpace(stringPtr(mention.Id)) == "" && botName != "" && strings.EqualFold(strings.TrimSpace(stringPtr(mention.Name)), botName) {
 			return true
 		}
 	}
