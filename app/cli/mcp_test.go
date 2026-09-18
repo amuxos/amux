@@ -282,7 +282,7 @@ func TestMCPResultContinuationIsBoundedAndLossless(t *testing.T) {
 		if page.Complete {
 			break
 		}
-		pageResult = h.continueResult(json.RawMessage(fmt.Sprintf(`{"cursor":%q}`, page.NextCursor)))
+		pageResult = h.continueResult(context.Background(), json.RawMessage(fmt.Sprintf(`{"cursor":%q}`, page.NextCursor)))
 		if pageNumber > 100 {
 			t.Fatal("continuation did not complete")
 		}

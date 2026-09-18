@@ -6,6 +6,7 @@
 - [许可与归属标识](licensing.zh-CN.md)、[第三方声明](../THIRD_PARTY_NOTICES.zh-CN.md)与[参与贡献](../CONTRIBUTING.zh-CN.md)
 - [CLI 模型](current/cli-product-model.zh-CN.md)、[Agent 模型](current/agent-adapter-product-model.zh-CN.md)、[Bridge 模型](current/feishu-bridge-product-model.zh-CN.md)
 - [Feishu Thread Context 模型](current/feishu-thread-context-model.zh-CN.md)
+- [Agent 记忆模型](current/agent-memory-product-model.zh-CN.md)与[设计](agent-memory-design.zh-CN.md)
 - [本地专家自然语言编辑](local-expert-natural-language-authoring-design.zh-CN.md)
 - [架构决策记录](adr/README.zh-CN.md)
 - [Task 模型](distributed-task-model.zh-CN.md) 与 [任务操作指南](distributed-agent-usage.zh-CN.md)

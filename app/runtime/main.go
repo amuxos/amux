@@ -368,6 +368,7 @@ func runServer(cmd *cobra.Command, _ []string) error {
 		defaultIdleTimeoutSeconds: runtimeCfg.IdleTimeoutSeconds,
 		disableMCPAutoInject:      !mcpCfg.Enabled || !mcpCfg.AutoInject,
 		creds:                     creds,
+		memoryBindingResolver:     newHubMemoryBindingResolver(hubCfg.Addr, hubCfg.Token),
 		isolationRuntime:          isolationRuntime,
 		isolationGlobalEnv:        config.ActiveIsolationGlobalEnv(isolationCfg),
 		providerEndpointSelector:  newProviderEndpointSelector(),

@@ -255,6 +255,7 @@ func TestRootCommandUsesPhaseOneGroups(t *testing.T) {
 		"task":     "work",
 		"agent":    "work",
 		"schedule": "work",
+		"memory":   "work",
 		"setup":    "control",
 		"system":   "control",
 	}
@@ -419,7 +420,7 @@ func TestRootCompletionMatchesVisibleCommandSurface(t *testing.T) {
 	}
 	text := out.String()
 	for _, visible := range []string{
-		"session", "task", "agent", "schedule", "setup", "system",
+		"session", "task", "agent", "schedule", "memory", "setup", "system",
 	} {
 		if !rootCompletionContains(text, visible) {
 			t.Fatalf("completion missing %q:\n%s", visible, text)

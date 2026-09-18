@@ -8,7 +8,7 @@ This reference is generated from the actual `amux mcp` tools/list registry and c
 
 MCP product semantics, permissions, and lifecycle boundaries are defined by the [CLI product model](../current/cli-product-model.md) and [Task model](../distributed-task-model.md). At runtime, [`amux.result_continue`](#amuxresult_continue) continues successful results that exceed a page budget. Tool results are not tools/list registration metadata, so this reference does not maintain a separate output Schema that could drift.
 
-Public `tools/list` tools: **45**.
+Official tools in `tools/list`: **49**.
 
 ## Public tool index
 
@@ -28,6 +28,10 @@ Public `tools/list` tools: **45**.
 | `amux.instance_wait` | Wait until the persistent Agent's current turn ends or the wait times out. Retrieve results with task_get/task_stream. |
 | `amux.local_expert_change` | Preview, publish, or clean up a managed local expert patch. Publishing requires a later, explicitly confirmed owner turn with the exact same patch and receipt. Evaluation approval does not authorize publication. |
 | `amux.local_expert_read` | Read the exact editing baseline of a managed local expert. Available only in the current Feishu Bot owner's turn; performs no writes. |
+| `amux.memory_forget` | Delete one memory document conditionally on revision; this does not erase existing conversation history. When correcting or forgetting a preference, also inspect MEMORY.md and related topics and revise duplicate content and references. Report partial failures clearly. |
+| `amux.memory_get` | Read a memory document or line range and its revision on demand; read MEMORY.md once in a new conversation and reuse it in the same context. If truncated=true, continue with next_offset and verify revision. Paths are not local files. |
+| `amux.memory_search` | Search cross-conversation memory on demand when earlier work, decisions or preferences are relevant; returns bounded snippets. incomplete=true means scanning did not finish. Do not search for tasks that need no history. |
+| `amux.memory_upsert` | Save long-term memory conditionally on revision for explicit requests to remember, stable preferences and verified lessons. Put details in topic documents and keep the entry brief. Do not save secrets, temporary authorization or speculation. Re-read and merge conflicts; report saved only after success. |
 | `amux.profile_get` | Get complete Agent Profile details by exact ref, including development namespaces. |
 | `amux.profile_list` | List non-development Agent Profiles with pagination. Submit tasks using profiles[].ref and fetch details with profile_get. Follow next_cursor until has_more=false. |
 | `amux.result_continue` | Continue reading a paginated result. Concatenate content_chunk values in order until complete=true. Cursors are short-lived and valid only in the current MCP process. |
@@ -659,6 +663,133 @@ Read the exact editing baseline of a managed local expert. Available only in the
   "required": [
     "operation",
     "target_ref"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.memory_forget`
+
+Delete one memory document conditionally on revision; this does not erase existing conversation history. When correcting or forgetting a preference, also inspect MEMORY.md and related topics and revise duplicate content and references. Report partial failures clearly.
+
+**Input JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "expected_revision": {
+      "description": "SHA-256 revision returned by memory_get; use absent if the document is already missing",
+      "type": "string"
+    },
+    "path": {
+      "description": "Relative Markdown path within the current authorized scope",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "expected_revision"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.memory_get`
+
+Read a memory document or line range and its revision on demand; read MEMORY.md once in a new conversation and reuse it in the same context. If truncated=true, continue with next_offset and verify revision. Paths are not local files.
+
+**Input JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "end_line": {
+      "description": "Last line to read, inclusive; omit to read to the response limit",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "offset": {
+      "description": "Byte offset returned as next_offset by the previous memory_get; retain the same path and end_line and verify revision when continuing",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "path": {
+      "description": "Relative Markdown path within the current authorized scope; read MEMORY.md at the start of a new conversation",
+      "type": "string"
+    },
+    "start_line": {
+      "description": "First line to read (1-based); omit to start at the beginning; cannot be combined with offset",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "path"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.memory_search`
+
+Search cross-conversation memory on demand when earlier work, decisions or preferences are relevant; returns bounded snippets. incomplete=true means scanning did not finish. Do not search for tasks that need no history.
+
+**Input JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "limit": {
+      "description": "Maximum matching documents; defaults to 5, at most 20, still bounded by the response size limit",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "path_prefix": {
+      "description": "Relative path prefix within the current authorized scope, such as projects/amux/",
+      "type": "string"
+    },
+    "query": {
+      "description": "Whitespace-separated literal keywords; matches contiguous Chinese text and case-insensitive English, without regular expressions or semantic search",
+      "type": "string"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.memory_upsert`
+
+Save long-term memory conditionally on revision for explicit requests to remember, stable preferences and verified lessons. Put details in topic documents and keep the entry brief. Do not save secrets, temporary authorization or speculation. Re-read and merge conflicts; report saved only after success.
+
+**Input JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "description": "Complete UTF-8 Markdown content; topic documents are limited to 64 KiB. Keep only brief preferences and pointers in MEMORY.md (at most 2 KiB and 64 lines)",
+      "type": "string"
+    },
+    "expected_revision": {
+      "description": "SHA-256 revision returned by memory_get; use absent to create a document, and re-read and merge after a conflict",
+      "type": "string"
+    },
+    "path": {
+      "description": "Relative Markdown path within the current authorized scope",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "content",
+    "expected_revision"
   ],
   "type": "object"
 }

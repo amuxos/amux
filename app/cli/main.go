@@ -184,6 +184,8 @@ func newRootCmdForPlatform(goos string) *cobra.Command {
 	guiCmd.Hidden = true
 	taskCmd := newTaskCmd()
 	taskCmd.GroupID = "work"
+	memoryCmd := newMemoryCmd()
+	memoryCmd.GroupID = "work"
 	mcpCmd := newMcpCmd()
 	mcpCmd.Hidden = true
 	isolationCmd := newIsolationCmdForPlatform(goos)
@@ -198,6 +200,7 @@ func newRootCmdForPlatform(goos string) *cobra.Command {
 		sessionCmd,
 		scheduleCmd,
 		taskCmd,
+		memoryCmd,
 		mcpCmd,
 		isolationCmd,
 		bridgeCmd,

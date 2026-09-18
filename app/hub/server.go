@@ -18,6 +18,7 @@ import (
 	"github.com/amuxos/amux/internal/bridge/threadcontext"
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/executionauth"
+	"github.com/amuxos/amux/internal/memory"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/registry"
 	"github.com/amuxos/amux/internal/schedule"
@@ -39,6 +40,8 @@ type hubServer struct {
 	schedule                    *schedule.Store
 	creds                       task.CredentialProvider
 	principals                  *principal.Store
+	memory                      *memory.Store
+	memoryConfig                func() config.MemoryConfig
 	version                     string
 	startedAt                   time.Time
 	credentialRotationHook      func(principalID, reason string) error

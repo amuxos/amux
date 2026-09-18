@@ -4,7 +4,7 @@
 
 [English](cli-product-model.md) | [简体中文](cli-product-model.zh-CN.md)
 
-主要命令组为 `setup`、`session`、`task`、`agent`、`schedule` 和 `system`。
+主要命令组为 `setup`、`session`、`task`、`agent`、`schedule`、`memory` 和 `system`。
 Session、Task 和 Schedule 使用 Hub 控制面。每个 Runtime 在本机执行工作，并通过
 出站 tunnel 连接 Hub。本地使用需要 Hub，但不要求飞书 Bridge。
 `local` Target 别名标识配置的本地 Runtime，也适用于 `session list` 过滤，
@@ -69,6 +69,16 @@ Persistent Instance 的中断同样遵循 Task 模型：它取消当前 owner Ta
 Task 事件 JSON 流通过 `kind=usage` 暴露数值型 `usage` 对象，包括 child 最新的规范化
 快照，以及可选的 Provider thread `cumulative_*` 累计值。`task logs --json` 保留该对象；
 纯文本日志不逐条打印用量更新。累计范围由 Task 模型定义。
+
+`amux memory search|show|upsert|forget|export` 通过 Hub 管理 Markdown 记忆，不依赖
+Agent Profile 或 Runtime。search 和 show 返回有界 JSON，包含版本和续读信息。
+upsert 从 `--file` 或标准输入读取 UTF-8 正文；upsert 和 forget 必须指定
+`--expected-revision`（之前读到的 hash，新建用 `absent`）。export 将单份完整文档写到
+标准输出，分页期间版本变化则报错。命令和 `amux.memory_search|get|upsert|forget`
+MCP 工具不接受作用域或 Principal 覆盖参数：Hub 认证调用方并选择作用域。
+受管进程将冻结的 `AMUX_MEMORY_BINDING` 作为前置条件传入；缺少绑定的旧受管进程
+必须新建对话。关闭记忆后，运行时 MCP 发现不展示记忆工具，直接调用也会拒绝；
+关闭不会删除文件。详见[记忆模型](agent-memory-product-model.zh-CN.md)。
 
 生成的 CLI 参考是完整的命令与选项契约，包含平台限制。修改命令元数据后需重新生成。
 

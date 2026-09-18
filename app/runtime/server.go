@@ -17,6 +17,7 @@ import (
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/memoryprotocol"
 	"github.com/amuxos/amux/internal/mux"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/provider"
@@ -40,6 +41,7 @@ type server struct {
 	startedAt                 time.Time
 	defaultIdleTimeoutSeconds int
 	disableMCPAutoInject      bool
+	memoryBindingResolver     func(context.Context, string) (string, error)
 	creds                     task.CredentialProvider
 	isolationRuntime          *isolation.Runtime
 	isolationGlobalEnv        []string
@@ -187,9 +189,20 @@ func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, 
 		cleanupCreatedSession()
 		return nil, status.Errorf(codes.InvalidArgument, "profile materialization: %v", err)
 	}
+	memoryBinding, err := s.resolveMemoryBinding(ctx, req.AgentActorToken, identity, req.AgentType)
+	var memoryWarning string
+	if err != nil {
+		var unavailable *memoryUnavailableError
+		if errors.As(err, &unavailable) {
+			memoryWarning = err.Error()
+		} else {
+			cleanupCreatedSession()
+			return nil, status.Errorf(codes.FailedPrecondition, "memory binding: %v", err)
+		}
+	}
 	var mcpExtraArgs []string
 	if !s.disableMCPAutoInject && !runArgsContainAmuxMCP(req.AgentType, req.ExtraArgs) {
-		mcpExtraArgs, err = materializeAmuxMCPForRun(req.AgentType, sess.ID, s.amuxDir, materializationCwd, req.AgentActorToken)
+		mcpExtraArgs, err = materializeAmuxMCPForRun(req.AgentType, sess.ID, s.amuxDir, materializationCwd, req.AgentActorToken, memoryBinding)
 		if err != nil {
 			cleanupCreatedSession()
 			return nil, status.Errorf(codes.InvalidArgument, "mcp materialization: %v", err)
@@ -201,7 +214,7 @@ func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, 
 		cleanupCreatedSession()
 		return nil, status.Errorf(codes.InvalidArgument, "provider credential: %v", err)
 	}
-	recordEnv := ensureLaunchEnvPATH(req.Env)
+	recordEnv := memoryprotocol.SetEnv(ensureLaunchEnvPATH(req.Env), memoryprotocol.BindingEnv, memoryBinding)
 	runEnv := s.launchEnvForIdentity(identity, append(append([]string{}, providerEnv...), recordEnv...))
 	runExtraArgs := append(append([]string{}, req.ExtraArgs...), mcpExtraArgs...)
 	// Non-fatal launch findings (e.g. an expired provider credential) travel back
@@ -209,6 +222,9 @@ func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, 
 	// bridge as a thread notice. Nobody has to read runtime.log to learn that the
 	// agent is about to answer nothing.
 	var launchWarnings []string
+	if memoryWarning != "" {
+		launchWarnings = append(launchWarnings, memoryWarning)
+	}
 	if identity.IsolationBackend == principal.BackendLinuxDAC {
 		runEnv, recordEnv, runExtraArgs, err = materializeLinuxDACSessionLaunch(
 			func(sources []isolation.BundleSource) error {
@@ -516,6 +532,9 @@ func (s *server) startSessionContext(ctx context.Context, a adapter.Adapter, ses
 		return err
 	}
 	snap := sess.Snapshot()
+	if err := validateMemoryBinding(memoryprotocol.Binding(snap.Env), snap.ExecutionIdentity); err != nil {
+		return err
+	}
 	extraEnv = s.launchEnvForIdentity(snap.ExecutionIdentity, extraEnv)
 	// The agent binary is resolved against the last PATH in the launch env, so a
 	// launch that names none silently falls back to the environment amuxlet
@@ -526,6 +545,12 @@ func (s *server) startSessionContext(ctx context.Context, a adapter.Adapter, ses
 	// passes. Callers that already named a PATH (including a deliberately
 	// restricted one) keep it.
 	extraEnv = ensureLaunchEnvPATH(extraEnv)
+	var memoryErr error
+	extraArgs, extraEnv, memoryErr = s.configureSessionMemory(ctx, sess, extraArgs, extraEnv)
+	if memoryErr != nil {
+		return memoryErr
+	}
+	extraArgs = nativeWorkspaceTrustArgs(snap, extraArgs)
 	if s.startSessionContextHook != nil {
 		return s.startSessionContextHook(ctx, a, sess, extraArgs, extraEnv)
 	}
@@ -538,13 +563,17 @@ func (s *server) startSessionContext(ctx context.Context, a adapter.Adapter, ses
 	}
 	cmd := a.Cmd(extraArgs)
 	env := append(os.Environ(), extraEnv...)
+	env = memoryprotocol.SetEnv(env, memoryprotocol.BindingEnv, memoryprotocol.Binding(extraEnv))
 	// Let in-session tooling (notably `amux mcp`) attribute work to this
 	// session: subtask submission fills Spec.ParentSessionID from this.
-	env = append(env, "AMUX_SESSION_ID="+snap.ID)
+	env = memoryprotocol.SetEnv(env, "AMUX_SESSION_ID", snap.ID)
+	if value := launchEnvValue(env, "CODEX_HOME"); value != "" {
+		env = memoryprotocol.SetEnv(env, "CODEX_HOME", value)
+	}
 	cmd.Env = env
 	cmd.Dir = snap.Cwd
 
-	if t, ok := a.(adapter.WorkspaceTruster); ok {
+	if t, ok := a.(adapter.WorkspaceTruster); ok && hostWorkspaceTrust(snap) {
 		if err := t.EnsureWorkspaceTrusted(snap.Cwd, env); err != nil {
 			fmt.Fprintf(os.Stderr, "runtime: ensure workspace trust: %v\n", err)
 		}
@@ -1123,7 +1152,7 @@ func (s *server) cleanupSessionArtifacts(sess *session.Session) {
 	// resolves symlinks on cwd and needs the directory to still exist for a
 	// stable key matching what EnsureWorkspaceTrusted wrote.
 	if a, err := adapter.Get(snap.AgentType); err == nil {
-		if t, ok := a.(adapter.WorkspaceTruster); ok {
+		if t, ok := a.(adapter.WorkspaceTruster); ok && hostWorkspaceTrust(snap) {
 			_ = t.CleanupWorkspaceTrust(snap.Cwd, snap.Env)
 		}
 		s.cleanupDistributionSessionState(snap)

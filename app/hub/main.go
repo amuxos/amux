@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/amuxos/amux/internal/executionauth"
 	"github.com/amuxos/amux/internal/extensionstate"
 	"github.com/amuxos/amux/internal/hubweb"
+	"github.com/amuxos/amux/internal/memory"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/registry"
 	"github.com/amuxos/amux/internal/schedule"
@@ -120,6 +122,13 @@ func newStartCmd() *cobra.Command {
 				return fmt.Errorf("init principal registry: %w", err)
 			}
 			defer principalStore.Close()
+			var memoryStore *memory.Store
+			if config.GetMemory().Enabled {
+				memoryStore, err = memory.New(filepath.Join(amuxhome.Dir(), "memory"))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "hub: init memory store: %v\n", err)
+				}
+			}
 			// Launch credentials outlive the sessions they were minted for when
 			// a host dies mid-session; issuing sweeps too, so this only matters
 			// for a daemon that stops launching anything.
@@ -227,6 +236,8 @@ func newStartCmd() *cobra.Command {
 				feishuBotSessionControllers: feishuBotSessionControllers,
 				schedule:                    scheduleStore,
 				principals:                  principalStore,
+				memory:                      memoryStore,
+				memoryConfig:                config.GetMemory,
 				version:                     version,
 				startedAt:                   startedAt,
 				localExpertAuthoring:        localExpertAuthoring,

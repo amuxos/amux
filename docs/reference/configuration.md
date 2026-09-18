@@ -23,6 +23,7 @@ amux system config unset <key>
 | --- | --- | --- | --- | --- | --- |
 | `bridge.feishu.group_settings.enabled` | boolean | false | — | Yes | Installation-wide group settings experiment. When disabled, saved group settings and Sessions are retained and independently configured groups pause new work; unconfigured groups and private chats use Bot defaults. Restart to apply changes. |
 | `bridge.feishu.presentation.completion_notification_enabled` | boolean | false | — | Yes | Installation-wide experiment switch for long-session completion notifications, affecting every assistant. When disabled, no new success, input-needed, or failure notifications are sent. Restart after changing it. |
+| `memory.enabled` | boolean | false | — | Yes | Agent memory experiment switch, controlled by the Hub for all Runtimes without an Agent Profile; shared globally without isolation and scoped to the effective Principal with user isolation. Disabling blocks reads and writes while retaining files and native-memory suppression in existing conversations. Restart to apply. |
 
 ## Hub and scheduling
 

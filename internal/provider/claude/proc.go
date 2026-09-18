@@ -159,9 +159,11 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 		return nil, nil, fmt.Errorf("claude sidecar initialize: %w", err)
 	}
 	if _, err := p.client.Call(ctx, "session.start", SessionStartParams{
-		AmuxSessionID:    opts.SessionID,
-		Cwd:              opts.Cwd,
-		Env:              opts.Env,
+		AmuxSessionID: opts.SessionID,
+		Cwd:           opts.Cwd,
+		// The SDK inherits the sidecar's effective process environment, which
+		// the launch backend may have rewritten for principal isolation. Do
+		// not replay the original Runtime env over those isolated HOME paths.
 		ExtraArgs:        opts.ExtraArgs,
 		ClaudeExecutable: opts.ClaudeExecutable,
 		Resume:           opts.ResumeSessionID,

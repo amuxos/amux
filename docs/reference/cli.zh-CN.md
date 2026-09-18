@@ -69,6 +69,12 @@
 | `amux isolation service-member grant` | 允许 human Principal 以 service Principal 身份运行 |
 | `amux isolation service-member revoke` | 撤销 service Principal 成员关系及活动服务启动 |
 | `amux isolation status` | 显示隔离配置、helper 就绪情况和回退状态 |
+| `amux memory` | 通过 Hub 管理共享 Markdown 记忆 |
+| `amux memory export` | 将单份完整记忆文档导出到标准输出 |
+| `amux memory forget` | 按条件删除记忆文档 |
+| `amux memory search` | 使用字面关键词搜索记忆 |
+| `amux memory show` | 读取有界记忆文档或指定行段 |
+| `amux memory upsert` | 按条件保存 UTF-8 Markdown 记忆文档 |
 | `amux schedule` | 定时调度 Prompt 或子任务 |
 | `amux schedule create` | 创建定时 Prompt |
 | `amux schedule create-task` | 创建定时子任务 |
@@ -143,6 +149,7 @@ amux [flags]
 | `amux completion` | 为指定 Shell 生成自动补全脚本 |
 | `amux help` | 查看任意命令的帮助 |
 | `amux isolation` | 管理 identified Principal 和 Linux UID/DAC 隔离 |
+| `amux memory` | 通过 Hub 管理共享 Markdown 记忆 |
 | `amux schedule` | 定时调度 Prompt 或子任务 |
 | `amux session` | 管理智能体 Session |
 | `amux setup` | 配置当前 amux 安装 |
@@ -1333,6 +1340,122 @@ amux isolation status [flags]
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | status 帮助 |
 | `--json` | `bool` | `false` | 输出 JSON |
+
+## `amux memory`
+
+通过 Hub 管理共享 Markdown 记忆
+
+在 Hub 选择的作用域中搜索、读取、按条件更新和删除 Markdown 记忆，无需 Agent Profile。除 export 将单份完整文档写到标准输出外，命令均返回 JSON。
+
+**用法**
+
+```text
+amux memory [flags]
+```
+
+**子命令**
+
+| 命令 | 说明 |
+| --- | --- |
+| `amux memory export` | 将单份完整记忆文档导出到标准输出 |
+| `amux memory forget` | 按条件删除记忆文档 |
+| `amux memory search` | 使用字面关键词搜索记忆 |
+| `amux memory show` | 读取有界记忆文档或指定行段 |
+| `amux memory upsert` | 按条件保存 UTF-8 Markdown 记忆文档 |
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | memory 的帮助 |
+
+## `amux memory export`
+
+将单份完整记忆文档导出到标准输出
+
+**用法**
+
+```text
+amux memory export <path> [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | export 的帮助 |
+
+## `amux memory forget`
+
+按条件删除记忆文档
+
+**用法**
+
+```text
+amux memory forget <path> [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `--expected-revision` | `string` | `""` | 之前读取的 SHA-256 版本，已不存在时使用 absent（必填） |
+| `-h, --help` | `bool` | `false` | forget 的帮助 |
+
+## `amux memory search`
+
+使用字面关键词搜索记忆
+
+**用法**
+
+```text
+amux memory search <keywords> [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | search 的帮助 |
+| `--limit` | `int32` | `5` | 最多返回的命中文档数（1-20；0 使用服务端默认值） |
+| `--path-prefix` | `string` | `""` | 将搜索限定到记忆中的相对路径前缀 |
+
+## `amux memory show`
+
+读取有界记忆文档或指定行段
+
+**用法**
+
+```text
+amux memory show <path> [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `--end-line` | `int32` | `0` | 读取末行（包含；0 读取到响应上限） |
+| `-h, --help` | `bool` | `false` | show 帮助 |
+| `--offset` | `int64` | `0` | 上次响应通过 next_offset 返回的字节位置 |
+| `--start-line` | `int32` | `0` | 读取起始行（从 1 开始；0 从开头读取） |
+
+## `amux memory upsert`
+
+按条件保存 UTF-8 Markdown 记忆文档
+
+**用法**
+
+```text
+amux memory upsert <path> [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `--expected-revision` | `string` | `""` | 之前读取的 SHA-256 版本，新建使用 absent（必填） |
+| `--file` | `string` | `-` | 从此文件读取文档正文（- 读取标准输入） |
+| `-h, --help` | `bool` | `false` | upsert 的帮助 |
 
 ## `amux schedule`
 

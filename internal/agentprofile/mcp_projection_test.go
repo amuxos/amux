@@ -1,6 +1,8 @@
 package agentprofile
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/amuxos/amux/internal/task"
 	"os"
 	"path/filepath"
@@ -136,5 +138,38 @@ func TestMaterializeClaudeAmuxMCPCarriesActorToken(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"AMUX_ACTOR_TOKEN_FILE": "/home/u/.amux/sessions/sess-1.actor-token"`) {
 		t.Fatalf("claude mcp config = %s, want AMUX_ACTOR_TOKEN_FILE", data)
+	}
+}
+
+func TestMaterializeAmuxMCPExplicitMemoryBinding(t *testing.T) {
+	for _, agent := range []string{"codex", "claude"} {
+		for _, binding := range []string{"global", "principal:user", ""} {
+			t.Run(agent+"/"+binding, func(t *testing.T) {
+				root := t.TempDir()
+				sb := &task.Sandbox{TaskID: "session", Root: root, Workspace: root, AgentConfig: filepath.Join(root, "agent-config")}
+				args, err := MaterializeAmuxMCP(agent, sb, nil, "/amux", "actor", "", binding)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if agent == "codex" {
+					if !strings.Contains(strings.Join(args, " "), fmt.Sprintf("AMUX_MEMORY_BINDING=%q", binding)) {
+						t.Fatalf("binding missing: %v", args)
+					}
+				} else {
+					data, err := os.ReadFile(args[1])
+					if err != nil {
+						t.Fatal(err)
+					}
+					var cfg standardMCPConfig
+					if err := json.Unmarshal(data, &cfg); err != nil {
+						t.Fatal(err)
+					}
+					got, exists := cfg.MCPServers["amux"].Env["AMUX_MEMORY_BINDING"]
+					if !exists || got != binding {
+						t.Fatalf("binding missing or changed: %s", data)
+					}
+				}
+			})
+		}
 	}
 }

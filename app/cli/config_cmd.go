@@ -293,6 +293,7 @@ func setConfigValue(cfg cliConfigFile, key, raw string) error {
 		key == "bridge.feishu.group_watch.enabled" ||
 		parseFeishuProfileGroupWatchKey(key) == "enabled" ||
 		key == "mcp.enabled" ||
+		key == "memory.enabled" ||
 		key == "bridge.feishu.presentation.completion_notification_enabled" ||
 		key == "bridge.feishu.group_settings.enabled" ||
 		key == "mcp.auto_inject" {

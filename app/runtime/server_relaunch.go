@@ -12,6 +12,7 @@ import (
 	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/memoryprotocol"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/session"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
@@ -89,7 +90,7 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 	runExtraArgs := append([]string(nil), replacement.ExtraArgs...)
 	storedToken, storedTokenExpiresAt := readSessionActorToken(s.amuxDir, snap.ID)
 	if !s.disableMCPAutoInject && !runArgsContainAmuxMCP(replacement.AgentType, runExtraArgs) {
-		mcpArgs, err := materializeAmuxMCPForRun(replacement.AgentType, snap.ID, s.amuxDir, materializationCwd, storedToken)
+		mcpArgs, err := materializeAmuxMCPForRun(replacement.AgentType, snap.ID, s.amuxDir, materializationCwd, storedToken, memoryprotocol.Binding(snap.Env))
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "reconfigure MCP materialization: %v", err)
 		}
@@ -100,7 +101,7 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "reconfigure provider credential: %v", err)
 	}
-	recordEnv := ensureLaunchEnvPATH(replacement.Env)
+	recordEnv := memoryprotocol.SetEnv(ensureLaunchEnvPATH(replacement.Env), memoryprotocol.BindingEnv, memoryprotocol.Binding(snap.Env))
 	runEnv := s.launchEnvForIdentity(snap.ExecutionIdentity, append(append([]string{}, providerEnv...), recordEnv...))
 	effectiveModel := effectiveRunModel(replacement)
 	runExtraArgs, effectiveModel = s.maybeAutoSelectModel(a, replacement.AgentType, snap.Cwd, runEnv, runExtraArgs, effectiveModel)
@@ -279,7 +280,7 @@ func (s *server) restorePreviousExecution(ctx context.Context, sess *session.Ses
 	runExtraArgs := append([]string(nil), snap.ExtraArgs...)
 	if !s.disableMCPAutoInject && runArgsContainAmuxMCP(snap.AgentType, runExtraArgs) {
 		runExtraArgs = stripAmuxMCPArgs(snap.AgentType, runExtraArgs)
-		mcpArgs, err := materializeAmuxMCPForRun(snap.AgentType, snap.ID, s.amuxDir, materializationCwd, actorToken)
+		mcpArgs, err := materializeAmuxMCPForRun(snap.AgentType, snap.ID, s.amuxDir, materializationCwd, actorToken, memoryprotocol.Binding(snap.Env))
 		if err != nil {
 			return fmt.Errorf("restore MCP materialization: %w", err)
 		}
@@ -429,7 +430,7 @@ func (s *server) refreshProfileAndRelaunch(ctx context.Context, sess *session.Se
 	runExtraArgs := append([]string(nil), launch.ExtraArgs...)
 	storedToken, _ := readSessionActorToken(s.amuxDir, snap.ID)
 	if !s.disableMCPAutoInject && !runArgsContainAmuxMCP(launch.AgentType, runExtraArgs) {
-		mcpExtraArgs, err := materializeAmuxMCPForRun(launch.AgentType, snap.ID, s.amuxDir, refreshCwd, storedToken)
+		mcpExtraArgs, err := materializeAmuxMCPForRun(launch.AgentType, snap.ID, s.amuxDir, refreshCwd, storedToken, memoryprotocol.Binding(snap.Env))
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "refresh MCP materialization: %v", err)
 		}
@@ -441,7 +442,7 @@ func (s *server) refreshProfileAndRelaunch(ctx context.Context, sess *session.Se
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "refresh provider credential: %v", err)
 	}
-	recordEnv := ensureLaunchEnvPATH(launch.Env)
+	recordEnv := memoryprotocol.SetEnv(ensureLaunchEnvPATH(launch.Env), memoryprotocol.BindingEnv, memoryprotocol.Binding(snap.Env))
 	runEnv := s.launchEnvForIdentity(snap.ExecutionIdentity, append(append([]string{}, providerEnv...), recordEnv...))
 	launchSpec := launchSpecSnapshot(refreshReq)
 	if err := ctx.Err(); err != nil {
@@ -644,7 +645,7 @@ func (s *server) relaunchSessionLockedWithEnvContextAndQueue(ctx context.Context
 			mcpToken, _ = readSessionActorToken(s.amuxDir, snap.ID)
 		}
 		stripped := stripAmuxMCPArgs(snap.AgentType, runExtraArgs)
-		mcpExtraArgs, mcpErr := materializeAmuxMCPForRun(snap.AgentType, snap.ID, s.amuxDir, principalPaths.Workspace, mcpToken)
+		mcpExtraArgs, mcpErr := materializeAmuxMCPForRun(snap.AgentType, snap.ID, s.amuxDir, principalPaths.Workspace, mcpToken, memoryprotocol.Binding(snap.Env))
 		if mcpErr != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "%s MCP materialization: %v", action, mcpErr)
 		}
@@ -653,7 +654,7 @@ func (s *server) relaunchSessionLockedWithEnvContextAndQueue(ctx context.Context
 	relaunchEnv := append([]string{}, snap.Env...)
 	if explicitEnv {
 		relaunchEnv = ensureLaunchEnvPATH(launchEnv)
-		recordEnv = ensureLaunchEnvPATH(recordEnv)
+		recordEnv = memoryprotocol.SetEnv(ensureLaunchEnvPATH(recordEnv), memoryprotocol.BindingEnv, memoryprotocol.Binding(snap.Env))
 		if err := s.mgr.RecordLaunchParams(sess, runExtraArgs, recordEnv, snap.WorkspaceSource, snap.WorkspaceScope, snap.AgentProfile, snap.EffectiveModel, snap.LaunchSpec); err != nil {
 			return nil, status.Errorf(codes.Internal, "record params: %v", err)
 		}

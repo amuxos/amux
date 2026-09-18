@@ -81,7 +81,75 @@ service Amuxd {
   rpc GetAgentProfile(GetAgentProfileRequest) returns (GetAgentProfileResponse);
   rpc ReadLocalExpert(ReadLocalExpertRequest) returns (ReadLocalExpertResponse);
   rpc ChangeLocalExpert(ChangeLocalExpertRequest) returns (ChangeLocalExpertResponse);
+  // Memory belongs to the Hub and authenticated principal, not a Runtime or Profile.
+  rpc GetMemoryBinding(MemoryBindingRequest) returns (MemoryBindingResponse);
+  rpc MemorySearch(MemorySearchRequest) returns (MemorySearchResponse);
+  rpc MemoryGet(MemoryGetRequest) returns (MemoryDocument);
+  rpc MemoryUpsert(MemoryUpsertRequest) returns (MemoryWriteResponse);
+  rpc MemoryForget(MemoryForgetRequest) returns (MemoryForgetResponse);
   rpc Tunnel(stream TunnelMsg) returns (stream TunnelMsg);
+}
+
+message MemoryBindingRequest {}
+message MemoryBindingResponse {
+  bool enabled = 1;
+  // Scope precondition only; every call derives authority from authentication.
+  string binding = 2;
+}
+message MemorySearchRequest {
+  string query = 1;
+  string path_prefix = 2;
+  int32 limit = 3;
+  string binding = 10;
+}
+message MemoryMatch {
+  string path = 1;
+  string snippet = 2;
+  string revision = 3;
+  int32 line = 4;
+  bool truncated = 5;
+}
+message MemorySearchResponse {
+  repeated MemoryMatch matches = 1;
+  bool incomplete = 2;
+  bool truncated = 3;
+  int32 scanned_files = 4;
+}
+message MemoryGetRequest {
+  string path = 1;
+  int32 start_line = 2;
+  int32 end_line = 3;
+  int64 offset = 4;
+  string binding = 10;
+}
+message MemoryDocument {
+  string path = 1;
+  string content = 2;
+  string revision = 3;
+  int32 start_line = 4;
+  int32 end_line = 5;
+  bool truncated = 6;
+  int64 next_offset = 7;
+  bool exists = 8;
+}
+message MemoryUpsertRequest {
+  string path = 1;
+  string content = 2;
+  string expected_revision = 3;
+  string binding = 10;
+}
+message MemoryWriteResponse {
+  string path = 1;
+  string revision = 2;
+}
+message MemoryForgetRequest {
+  string path = 1;
+  string expected_revision = 2;
+  string binding = 10;
+}
+message MemoryForgetResponse {
+  string path = 1;
+  bool already_absent = 2;
 }
 
 service AmuxTask {

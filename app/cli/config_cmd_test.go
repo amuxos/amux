@@ -1029,3 +1029,31 @@ func TestConfigSetDoesNotMigrateLegacySections(t *testing.T) {
 		t.Fatalf("legacy sections should be ignored, not migrated or deleted:\n%s", text)
 	}
 }
+
+func TestConfigSetMemoryExperimentBoolean(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", t.TempDir())
+	for _, value := range []string{"true", "false"} {
+		cmd := newConfigCmd()
+		cmd.SetArgs([]string{"set", "memory.enabled", value})
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(defaultConfigPath())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "enabled = "+value+"\n") {
+			t.Fatalf("not a TOML boolean: %s", data)
+		}
+		bad := newConfigCmd()
+		bad.SetArgs([]string{"set", "memory.enabled", "maybe"})
+		if err := bad.Execute(); err == nil || !strings.Contains(err.Error(), "must be true or false") {
+			t.Fatalf("invalid boolean: %v", err)
+		}
+		after, err := os.ReadFile(defaultConfigPath())
+		if err != nil || !bytes.Equal(data, after) {
+			t.Fatalf("invalid value changed settings: %s, %v", after, err)
+		}
+	}
+}

@@ -53,3 +53,29 @@ canonical event。权限采用结构化请求和关联响应。
 factory。注册的 Provider 与内置 Provider 共用 Session Timeline 和隔离契约。
 未知 Provider 和重复注册在启动前失败。公共 module 必须能够不依赖任何发行版
 module 独立构建和测试。
+
+## 按需系统记忆
+
+Hub 启用记忆后，新建 Codex、Claude、Pi 会话会获得固定短协议，不依赖 Agent
+Profile。Runtime 将 Hub 派生的绑定冻结为非秘密启动元数据；记忆正文保留在 Hub，
+只有显式工具读取的片段进入会话。普通轮次不触发 Runtime 记忆查询。重启和持久
+Instance 复用原有绑定；未记录绑定的旧会话需新建会话才能启用。私人绑定必须与有效
+执行 Principal 一致，每次工具调用仍由 Hub 按当前策略鉴权。
+
+Codex 追加 developer instructions，并用进程/线程配置关闭原生记忆读取及生成，
+同时持久设置线程记忆模式为 disabled。不支持这些原生契约的版本在首轮前明确失败。
+Claude 合并 append-system-prompt 参数，每次受管启动（包括恢复）都设置
+`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`。它也关闭 Claude 子 Agent 的持久记忆；
+普通 CLAUDE.md 指令仍然加载。Pi 使用 CLI 协议：已审查的核心没有需要关闭的内置
+自动长期记忆。用户扩展可以自行实现记忆，这不在上述结论范围内；amux 不关闭无关
+扩展。其它 Provider 明确提示记忆不可用，不会因为传输兼容就假定支持 Codex 的
+记忆控制。不修改全局 Agent 配置和原生记忆文件。
+
+private-home 和 Linux DAC 启动将 `CODEX_HOME`、`PI_CODING_AGENT_DIR` 固定在自身
+HOME 下，并清空继承的 `CLAUDE_CONFIG_DIR`，保留该 HOME 内默认的 `.claude/` 和
+`.claude.json` 布局。Claude SDK 继承 sidecar 的有效
+启动环境；Provider 不得在 backend 完成隔离后重新覆盖 Runtime 的原始环境。
+内置 Agent 的 Linux DAC 启动不修改服务用户的工作区信任状态；Pi 使用单次启动的
+`--approve`，除非调用者显式指定信任参数。private-home 启动继续使用自身原生
+信任文件。
+参见[原生兼容性证据](../reports/2026-09-17-native-memory-compatibility.zh-CN.md)。

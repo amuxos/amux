@@ -10,13 +10,22 @@ import (
 )
 
 func managementCompletionSettingsFromCallback(action *callback.CallBackAction, saved config.CompletionNotificationSettings) (config.CompletionNotificationSettings, error) {
-	enabled := managementCallbackString(action, "completion_enabled")
+	value, _ := managementExperimentCallbackValue(action, "completion_enabled")
+	enabled, _ := value.(string)
+	enabled = strings.TrimSpace(enabled)
 	if enabled != "true" && enabled != "false" {
 		return saved, fmt.Errorf("请选择开启或关闭")
 	}
 	saved.Enabled = enabled == "true"
-	if raw := strings.TrimSpace(managementCallbackString(action, "completion_seconds")); raw != "" {
-		seconds, err := strconv.Atoi(raw)
+	if value, present := managementExperimentCallbackValue(action, "completion_seconds"); present {
+		raw, ok := value.(string)
+		if !ok {
+			return saved, fmt.Errorf("通知阈值须为 0 到 604800 秒的整数")
+		}
+		if strings.TrimSpace(raw) == "" {
+			return saved, nil
+		}
+		seconds, err := strconv.Atoi(strings.TrimSpace(raw))
 		if err != nil || seconds < 0 || seconds > 604800 {
 			return saved, fmt.Errorf("通知阈值须为 0 到 604800 秒的整数")
 		}
@@ -25,57 +34,81 @@ func managementCompletionSettingsFromCallback(action *callback.CallBackAction, s
 	return saved, nil
 }
 
-func managementExperimentsSettingsFromCallback(action *callback.CallBackAction, saved config.ExperimentsSettings) (config.ExperimentsSettings, error) {
-	completion, err := managementCompletionSettingsFromCallback(action, saved.CompletionNotification)
-	if err != nil {
-		return saved, err
+func managementExperimentCallbackValue(action *callback.CallBackAction, key string) (any, bool) {
+	if action == nil {
+		return nil, false
 	}
-	// Cards sent before this experiment existed do not submit its field.
-	// Preserve its saved value instead of implicitly disabling it.
-	if action != nil {
-		_, inForm := action.FormValue["group_settings_enabled"]
-		_, inValue := action.Value["group_settings_enabled"]
-		if inForm || inValue {
-			enabled := managementCallbackString(action, "group_settings_enabled")
-			if enabled != "true" && enabled != "false" {
-				return saved, fmt.Errorf("请选择开启或关闭群独立配置")
-			}
-			saved.GroupSettingsEnabled = enabled == "true"
-		}
+	if value, present := action.Value[key]; present {
+		return value, true
 	}
-	saved.CompletionNotification = completion
-	return saved, nil
+	value, present := action.FormValue[key]
+	return value, present
 }
 
-func renderManagementExperimentsCard(settings, running config.ExperimentsSettings) string {
-	saved := settings.CompletionNotification
-	enabled := managementSelectStaticElement("completion_enabled", "选择开关", strconv.FormatBool(saved.Enabled), []cardOption{
+func managementExperimentsSettingsFromCallback(action *callback.CallBackAction, saved config.ExperimentsSettings) (config.ExperimentsSettingsUpdate, error) {
+	completion, err := managementCompletionSettingsFromCallback(action, saved.CompletionNotification)
+	if err != nil {
+		return config.ExperimentsSettingsUpdate{}, err
+	}
+	update := config.ExperimentsSettingsUpdate{CompletionNotification: completion}
+	if raw, present := managementExperimentCallbackValue(action, "group_settings_enabled"); present {
+		enabled, _ := raw.(string)
+		enabled = strings.TrimSpace(enabled)
+		if enabled != "true" && enabled != "false" {
+			return config.ExperimentsSettingsUpdate{}, fmt.Errorf("请选择开启或关闭群独立配置")
+		}
+		value := enabled == "true"
+		update.GroupSettingsEnabled = &value
+	}
+	if raw, present := managementExperimentCallbackValue(action, "memory_enabled"); present {
+		enabled, _ := raw.(string)
+		enabled = strings.TrimSpace(enabled)
+		if enabled != "true" && enabled != "false" {
+			return config.ExperimentsSettingsUpdate{}, fmt.Errorf("请选择开启或关闭 Agent 记忆")
+		}
+		value := enabled == "true"
+		update.MemoryEnabled = &value
+	}
+	return update, nil
+}
+
+func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) string {
+	completion := saved.CompletionNotification
+	enabled := managementSelectStaticElement("completion_enabled", "选择开关", strconv.FormatBool(completion.Enabled), []cardOption{
 		{Text: cardTitle{Tag: "plain_text", Content: "关闭"}, Value: "false"},
 		{Text: cardTitle{Tag: "plain_text", Content: "开启"}, Value: "true"},
 	})
-	seconds := cardElement{Tag: "input", Name: "completion_seconds", Placeholder: &cardTitle{Tag: "plain_text", Content: fmt.Sprintf("当前 %d 秒；留空保持", saved.AfterSeconds)}}
-	summary := fmt.Sprintf("任务耗时达到 %d 秒，结束时提醒你", saved.AfterSeconds)
-	if saved.AfterSeconds == 0 {
+	seconds := cardElement{Tag: "input", Name: "completion_seconds", Placeholder: &cardTitle{Tag: "plain_text", Content: fmt.Sprintf("当前 %d 秒；留空保持", completion.AfterSeconds)}}
+	summary := fmt.Sprintf("任务耗时达到 %d 秒，结束时提醒你", completion.AfterSeconds)
+	if completion.AfterSeconds == 0 {
 		summary = "仅在等待补充或失败时提醒你"
 	}
-	if !saved.Enabled {
+	if !completion.Enabled {
 		summary = "开启后，长任务结束时提醒你"
 	}
-	pending := saved != running.CompletionNotification
+	pending := completion != running.CompletionNotification
 	item := managementExperimentItemElement("completion_notification", "长会话完成通知", summary, enabled, pending, []cardElement{
 		managementSettingsFieldRow("通知阈值（秒）", seconds),
 		managementHintElement("通过私聊卡片提醒本轮发起人，点击返回原话题，不在话题内追加消息。成功、等待补充和失败均达到阈值才提醒，不判断已读。智能体自动触发不提醒。0 关闭全部新增提醒。关闭开关则停止全部新增提醒。单个助手的阈值配置优先。"),
 	})
-	groupEnabled := managementSelectStaticElement("group_settings_enabled", "选择开关", strconv.FormatBool(settings.GroupSettingsEnabled), []cardOption{
+	groupEnabled := managementSelectStaticElement("group_settings_enabled", "选择开关", strconv.FormatBool(saved.GroupSettingsEnabled), []cardOption{
 		{Text: cardTitle{Tag: "plain_text", Content: "关闭"}, Value: "false"},
 		{Text: cardTitle{Tag: "plain_text", Content: "开启"}, Value: "true"},
 	})
-	groupItem := managementExperimentItemElement("group_settings", "群独立配置", "为每个群单独设置专家、Runtime、模型、思考强度和会话模式。默认关闭；关闭后保留已保存配置，暂停这些群的新任务。", groupEnabled, settings.GroupSettingsEnabled != running.GroupSettingsEnabled, nil)
+	groupItem := managementExperimentItemElement("group_settings", "群独立配置", "为每个群单独设置专家、Runtime、模型、思考强度和会话模式。默认关闭；关闭后保留已保存配置，暂停这些群的新任务。", groupEnabled, saved.GroupSettingsEnabled != running.GroupSettingsEnabled, nil)
+	memoryEnabled := managementSelectStaticElement("memory_enabled", "选择开关", strconv.FormatBool(saved.MemoryEnabled), []cardOption{
+		{Text: cardTitle{Tag: "plain_text", Content: "关闭"}, Value: "false"},
+		{Text: cardTitle{Tag: "plain_text", Content: "开启"}, Value: "true"},
+	})
+	memoryItem := managementExperimentItemElement("agent_memory", "Agent 记忆", "跨对话记住偏好与经验，无需 Agent Profile", memoryEnabled, saved.MemoryEnabled != running.MemoryEnabled, []cardElement{
+		managementHintElement("支持 Codex、Claude、Pi。整个 amux 系统跨 Runtime 共享；用户隔离模式下按用户分开。默认关闭，开启并重启后用于新对话。关闭阻止读写并保留记忆文件，已进入旧对话的内容不会清除。"),
+	})
 	elements := []cardElement{
 		managementBackToOverviewElement(),
 		{Tag: "form", Name: "experiments_form", Direction: "vertical", VerticalSpacing: "12px", Elements: []cardElement{
 			item,
 			groupItem,
+			memoryItem,
 			managementFormButtonRowElement(managementFormSubmitButton(managementActionExperimentsSaveRestart, "保存并重启")),
 		}},
 		managementTextElement("对当前实例的全部助手生效", "notation", "grey", nil),

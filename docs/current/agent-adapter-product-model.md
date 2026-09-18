@@ -67,3 +67,36 @@ factories through `pkg/extensions` before starting any application. Registered
 providers use the same session timeline and isolation contracts as the builtin
 providers. Unknown providers and duplicate registrations fail before launch.
 The public module must build and test without any distribution module.
+
+## On-demand system memory
+
+When Hub memory is enabled, fresh Codex, Claude, and Pi sessions receive a fixed,
+short memory protocol independently of Agent Profile. The Runtime freezes the
+Hub-derived binding in non-secret launch metadata; memory documents remain on
+the Hub and enter the conversation only through explicit tools. Ordinary turns
+perform no Runtime memory lookup. Restarts and persistent instance reuse retain
+the original binding; old sessions without one require a fresh session to opt in.
+A private binding must match the effective execution principal. Hub authorization
+still validates each tool request against current policy.
+
+Codex uses additive developer instructions and per-process/thread overrides to
+disable native memory reading and generation, plus a persisted disabled thread
+memory mode. Unsupported native contracts fail visibly before any turn. Claude
+merges append-system-prompt arguments and sets `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`
+for each managed launch, including resumes. This also disables Claude subagent
+persistent memory; ordinary CLAUDE.md instructions still load. Pi uses the CLI
+protocol: its reviewed core has no built-in automatic long-term memory to disable.
+User extensions can implement their own memory and are not covered by that claim;
+amux does not disable unrelated extensions. Other providers report memory
+unavailability without assuming that a compatible transport supports Codex's
+memory controls. No global agent configuration or native memory files are modified.
+
+Private-home and Linux DAC launches pin `CODEX_HOME` and `PI_CODING_AGENT_DIR`
+beneath their own HOME and clear inherited `CLAUDE_CONFIG_DIR`, preserving
+Claude's default `.claude/` and `.claude.json` layout within that HOME.
+Claude's SDK inherits the sidecar's effective launch environment; the provider
+must not reapply the Runtime's original environment after backend isolation.
+Built-in Linux DAC launches do not modify the service user's workspace trust;
+Pi uses its per-launch `--approve` override unless the caller selected an explicit
+trust flag. Private-home launches continue using their own native trust files.
+See the [native compatibility evidence](../reports/2026-09-17-native-memory-compatibility.md).

@@ -2,8 +2,8 @@
 
 [English](cli-product-model.md) | [简体中文](cli-product-model.zh-CN.md)
 
-The primary command groups are `setup`, `session`, `task`, `agent`, `schedule`
-and `system`. Sessions, tasks and schedules use the hub control plane. Each
+The primary command groups are `setup`, `session`, `task`, `agent`, `schedule`,
+`memory` and `system`. Sessions, tasks and schedules use the hub control plane. Each
 runtime executes work locally and connects to the hub through an outbound tunnel.
 Local operation requires a hub, but does not require the Feishu bridge.
 The `local` target alias identifies the configured local runtime, including
@@ -92,6 +92,19 @@ Task event JSON streams expose `kind=usage` with a numeric `usage` object,
 including the child's latest normalized snapshot and optional `cumulative_*`
 provider-thread totals. `task logs --json` preserves the object; plain-text logs
 do not print each usage update. The Task model defines the cumulative scope.
+
+`amux memory search|show|upsert|forget|export` manages Markdown memory through the
+Hub, independently of Agent Profiles and Runtimes. Search and show return bounded
+JSON including revisions and continuation metadata. Upsert reads UTF-8 content
+from `--file` or standard input; upsert and forget require `--expected-revision`
+(a previously read hash, or `absent` for creation). Export writes one complete
+document to standard output and fails if its revision changes during paging.
+The commands and `amux.memory_search|get|upsert|forget` MCP tools have no scope or
+principal override: the Hub authenticates the caller and selects the scope.
+Managed processes pass their frozen `AMUX_MEMORY_BINDING` as a precondition;
+legacy managed processes without it must start a new conversation. Disabled
+memory tools are omitted from runtime MCP discovery and reject calls; disabling
+memory does not delete files. See the [memory model](agent-memory-product-model.md).
 
 The generated CLI reference is the complete command/flag contract, including
 platform restrictions. Regenerate it after changing command metadata.

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/adapter"
+	"github.com/amuxos/amux/internal/memoryprotocol"
 	"github.com/amuxos/amux/internal/session"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"google.golang.org/grpc/codes"
@@ -174,7 +175,7 @@ func (s *server) changeCwdLocked(ctx context.Context, sess *session.Session, a a
 		return nil, status.Errorf(codes.InvalidArgument, "profile materialization: %v", err)
 	}
 	if !s.disableMCPAutoInject && runArgsContainAmuxMCP(old.AgentType, old.ExtraArgs) {
-		if _, err := materializeAmuxMCPForRun(old.AgentType, old.ID, s.amuxDir, newCwd, actorToken); err != nil {
+		if _, err := materializeAmuxMCPForRun(old.AgentType, old.ID, s.amuxDir, newCwd, actorToken, memoryprotocol.Binding(old.Env)); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "mcp materialization: %v", err)
 		}
 	}
@@ -183,7 +184,7 @@ func (s *server) changeCwdLocked(ctx context.Context, sess *session.Session, a a
 		return nil, status.Errorf(codes.InvalidArgument, "provider credential: %v", err)
 	}
 	launchEnv := append(os.Environ(), s.launchEnvForIdentity(old.ExecutionIdentity, old.Env)...)
-	if t, ok := a.(adapter.WorkspaceTruster); ok {
+	if t, ok := a.(adapter.WorkspaceTruster); ok && hostWorkspaceTrust(old) {
 		if err := t.EnsureWorkspaceTrusted(newCwd, launchEnv); err != nil {
 			fmt.Fprintf(os.Stderr, "runtime: ensure new workspace trust: %v\n", err)
 		}
@@ -192,7 +193,9 @@ func (s *server) changeCwdLocked(ctx context.Context, sess *session.Session, a a
 		return nil, status.Errorf(codes.Internal, "persist cwd: %v", err)
 	}
 	if _, err := s.relaunchSessionLockedPreservingQueue(sess, "switching workspace"); err == nil {
-		s.cleanupWorkspaceTrustIfUnused(old.AgentType, old.Cwd, old.Env, sess.ID)
+		if hostWorkspaceTrust(old) {
+			s.cleanupWorkspaceTrustIfUnused(old.AgentType, old.Cwd, old.Env, sess.ID)
+		}
 		return &pb.ChangeCwdResponse{Session: toProtoSession(sess), PreviousCwd: old.Cwd, EffectiveCwd: newCwd, Changed: true}, nil
 	} else {
 		switchErr := err
@@ -202,7 +205,9 @@ func (s *server) changeCwdLocked(ctx context.Context, sess *session.Session, a a
 		if _, restoreErr := s.relaunchSessionLockedPreservingQueue(sess, "restoring workspace"); restoreErr != nil {
 			return nil, status.Errorf(codes.Internal, "switch cwd: %v; restore previous workspace: %v", switchErr, restoreErr)
 		}
-		s.cleanupWorkspaceTrustIfUnused(old.AgentType, newCwd, old.Env, sess.ID)
+		if hostWorkspaceTrust(old) {
+			s.cleanupWorkspaceTrustIfUnused(old.AgentType, newCwd, old.Env, sess.ID)
+		}
 		return nil, status.Errorf(codes.Internal, "switch cwd: %v; previous workspace %s restored", switchErr, old.Cwd)
 	}
 }

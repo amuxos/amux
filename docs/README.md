@@ -8,6 +8,7 @@
 - [License and attribution](licensing.md), [third-party notices](../THIRD_PARTY_NOTICES.md), and [contributing](../CONTRIBUTING.md)
 - [CLI model](current/cli-product-model.md), [Agent model](current/agent-adapter-product-model.md), and [Bridge model](current/feishu-bridge-product-model.md)
 - [Feishu thread context model](current/feishu-thread-context-model.md)
+- [Agent memory model](current/agent-memory-product-model.md) and [design](agent-memory-design.md)
 - [Local expert editing in natural language](local-expert-natural-language-authoring-design.md)
 - [Architecture decision records](adr/README.md)
 - [Task model](distributed-task-model.md) and [task guide](distributed-agent-usage.md)

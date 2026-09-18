@@ -71,12 +71,13 @@ type Proc struct {
 	// failure — the session side ends the turn itself (Kill -> abortTurn).
 	closing atomic.Bool
 
-	cwd          string
-	inputTempDir string
-	turnModel    string
-	turnEffort   string
-	stagingMu    sync.Mutex
-	stagingDir   string
+	memoryOptions StartOptions
+	cwd           string
+	inputTempDir  string
+	turnModel     string
+	turnEffort    string
+	stagingMu     sync.Mutex
+	stagingDir    string
 
 	threadMu       sync.Mutex
 	threadID       string
@@ -571,7 +572,7 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	}
 	handle, err := backend.Start(ctx, isolation.LaunchSpec{
 		Path:            bin,
-		Args:            appServerArgs(opts.ExtraArgs, opts.AppServerSubcommand),
+		Args:            appServerArgs(memoryLaunchArgs(opts), opts.AppServerSubcommand),
 		Env:             append([]string(nil), opts.Env...),
 		Dir:             opts.Cwd,
 		SetProcessGroup: true,
@@ -587,6 +588,7 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 		handle:                   handle,
 		stdin:                    stdin,
 		cwd:                      opts.Cwd,
+		memoryOptions:            opts,
 		approvals:                make(map[string]pendingApproval),
 		userInputs:               make(map[int64]*pendingUserInput),
 		activeTools:              make(map[string]bool),
@@ -638,7 +640,7 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	initializeParams := map[string]any{
 		"clientInfo": map[string]string{"name": "amux", "version": "dev"},
 	}
-	if opts.ExperimentalAPI {
+	if opts.ExperimentalAPI || managedMemory(opts) {
 		initializeParams["capabilities"] = map[string]bool{"experimentalApi": true}
 	}
 	if _, err := p.client.Call(ctx, "initialize", initializeParams); err != nil {
@@ -662,6 +664,10 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 		abortStart(handle)
 		return nil, nil, err
 	}
+	if err := p.disableThreadMemory(ctx, opts, threadID); err != nil {
+		abortStart(handle)
+		return nil, nil, err
+	}
 	p.threadMu.Lock()
 	p.threadID = threadID
 	p.effectiveModel = effectiveModel
@@ -681,6 +687,9 @@ func (p *Proc) startOrResumeThread(ctx context.Context, opts StartOptions) (prov
 		params["cwd"] = opts.Cwd
 	}
 	providerName := p.provider()
+	if err := p.memoryThreadParams(ctx, opts, params); err != nil {
+		return providerjsonrpc.Message{}, err
+	}
 	if resumeID := strings.TrimSpace(opts.ResumeSessionID); resumeID != "" {
 		params["threadId"] = resumeID
 		if model := strings.TrimSpace(opts.ResumeModel); model != "" {
@@ -1100,6 +1109,9 @@ func (p *Proc) clearThread() error {
 	if strings.TrimSpace(p.cwd) != "" {
 		params["cwd"] = p.cwd
 	}
+	if err := p.memoryThreadParams(ctx, p.memoryOptions, params); err != nil {
+		return err
+	}
 	resp, err := p.client.Call(ctx, "thread/start", params)
 	if err != nil {
 		p.emitTurnFailure(fmt.Sprintf("thread/start for clear: %v", err), "")
@@ -1108,6 +1120,9 @@ func (p *Proc) clearThread() error {
 	threadID, effectiveModel, err := decodeThreadMetadata(resp.Result)
 	if err != nil {
 		p.emitTurnFailure(fmt.Sprintf("thread/start for clear: %v", err), "")
+		return err
+	}
+	if err := p.disableThreadMemory(ctx, p.memoryOptions, threadID); err != nil {
 		return err
 	}
 	p.threadMu.Lock()

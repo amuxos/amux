@@ -50,7 +50,7 @@ func newMcpCmd() *cobra.Command {
 				})
 			}
 			h := &mcpHandler{}
-			srv := mcp.NewServer("amux", version, amuxTools(), h.handle)
+			srv := mcp.NewServer("amux", version, runtimeAMUXTools(cmd.Context()), h.handle)
 			return srv.Serve(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout())
 		},
 	}
@@ -77,17 +77,26 @@ type mcpContinuation struct {
 	text      string
 	createdAt time.Time
 	isError   bool
+	memory    bool
 }
 
 func (h *mcpHandler) handle(ctx context.Context, name string, args json.RawMessage) (result mcp.ToolResult, err error) {
 	if name != "amux.result_continue" {
 		defer func() {
 			if err == nil {
-				result = h.boundResult(result)
+				result = h.boundResult(result, strings.HasPrefix(name, "amux.memory_"))
 			}
 		}()
 	}
 	switch name {
+	case "amux.memory_search":
+		return h.memorySearch(ctx, args)
+	case "amux.memory_get":
+		return h.memoryGet(ctx, args)
+	case "amux.memory_upsert":
+		return h.memoryUpsert(ctx, args)
+	case "amux.memory_forget":
+		return h.memoryForget(ctx, args)
 	case "amux.profile_list":
 		return h.listAgentProfilesPage(ctx, args)
 	case "amux.profile_get":
@@ -97,7 +106,7 @@ func (h *mcpHandler) handle(ctx context.Context, name string, args json.RawMessa
 	case "amux.local_expert_change":
 		return h.changeLocalExpert(ctx, args)
 	case "amux.result_continue":
-		return h.continueResult(args), nil
+		return h.continueResult(ctx, args), nil
 	case "amux.task_submit":
 		return h.submit(ctx, args, false)
 	case "amux.task_run":
@@ -187,7 +196,7 @@ func (h *mcpHandler) handle(ctx context.Context, name string, args json.RawMessa
 // common list responses structured and compact; this layer ensures an unusual
 // large detail, transcript, queue item, or future tool can never be silently
 // head/tail-truncated by the MCP host.
-func (h *mcpHandler) boundResult(result mcp.ToolResult) mcp.ToolResult {
+func (h *mcpHandler) boundResult(result mcp.ToolResult, memoryResult ...bool) mcp.ToolResult {
 	if len(result.Content) != 1 || len(result.Content[0].Text) <= mcpResultMaxBytes {
 		return result
 	}
@@ -202,12 +211,13 @@ func (h *mcpHandler) boundResult(result mcp.ToolResult) mcp.ToolResult {
 	}
 	h.continuations[token] = mcpContinuation{
 		text: result.Content[0].Text, createdAt: time.Now(), isError: result.IsError,
+		memory: len(memoryResult) > 0 && memoryResult[0],
 	}
 	h.continuationsMu.Unlock()
 	return h.continuationPage(formatMCPContinuationCursor(token, 0))
 }
 
-func (h *mcpHandler) continueResult(args json.RawMessage) mcp.ToolResult {
+func (h *mcpHandler) continueResult(ctx context.Context, args json.RawMessage) mcp.ToolResult {
 	var input struct {
 		Cursor string `json:"cursor"`
 	}
@@ -216,6 +226,15 @@ func (h *mcpHandler) continueResult(args json.RawMessage) mcp.ToolResult {
 	}
 	if strings.TrimSpace(input.Cursor) == "" {
 		return mcp.ErrorText("cursor is required")
+	}
+	// A cached memory response still belongs to the experiment. Do not let
+	// the generic continuation tool bypass a disabled Hub or frozen scope.
+	token, _, _ := parseMCPContinuationCursor(input.Cursor)
+	h.continuationsMu.Lock()
+	memoryResult := h.continuations[token].memory
+	h.continuationsMu.Unlock()
+	if memoryResult && !memoryAvailable(ctx) {
+		return mcp.ErrorText("memory is unavailable; cached memory continuation is disabled")
 	}
 	return h.continuationPage(input.Cursor)
 }
@@ -878,5 +897,6 @@ func amuxTools() []mcp.Tool {
 		{Name: "amux.session_prune", Description: "破坏性操作：永久删除已归档 Session；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent；Task 历史使用 task_prune。", InputSchema: sessionPruneSchema},
 	}
 	tools = append(tools, coordinationTools()...)
+	tools = append(tools, memoryTools()...)
 	return tools
 }

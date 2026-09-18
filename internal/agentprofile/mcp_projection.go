@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/amuxos/amux/internal/adapter"
+	"github.com/amuxos/amux/internal/memoryprotocol"
 	"github.com/amuxos/amux/internal/task"
 )
 
@@ -47,7 +48,10 @@ type standardMCPConfig struct {
 // never relaunches the process) still reaches it; the inline AMUX_ACTOR_TOKEN
 // value stays for MCP servers older than that. Callers without such a file
 // (e.g. task launches, whose credential is never persisted) pass "".
-func MaterializeAmuxMCP(agentType string, sb *task.Sandbox, layout LayoutFunc, amuxHome, actorToken, actorTokenFile string) ([]string, error) {
+// memoryBinding optionally records the frozen, non-secret memory scope
+// precondition. An explicit empty value masks a Runtime's inherited binding;
+// omission retains compatibility for callers not managing memory.
+func MaterializeAmuxMCP(agentType string, sb *task.Sandbox, layout LayoutFunc, amuxHome, actorToken, actorTokenFile string, memoryBinding ...string) ([]string, error) {
 	agentType = strings.TrimSpace(agentType)
 	if agentType == "" || sb == nil {
 		return nil, nil
@@ -74,15 +78,15 @@ func MaterializeAmuxMCP(agentType string, sb *task.Sandbox, layout LayoutFunc, a
 
 	switch profileConfigProtocol(agentType) {
 	case "claude":
-		return materializeClaudeAmuxMCP(sb, p, amuxHome, sessionID, actorToken, actorTokenFile)
+		return materializeClaudeAmuxMCP(sb, p, amuxHome, sessionID, actorToken, actorTokenFile, memoryBinding...)
 	case "codex":
-		return materializeCodexAmuxMCP(sb, p, amuxHome, sessionID, actorToken, actorTokenFile)
+		return materializeCodexAmuxMCP(sb, p, amuxHome, sessionID, actorToken, actorTokenFile, memoryBinding...)
 	default:
 		return materializeDistributionMCP(agentType, sb, p, amuxHome, sessionID, actorToken, actorTokenFile)
 	}
 }
 
-func materializeClaudeAmuxMCP(sb *task.Sandbox, p adapter.Placement, amuxHome, sessionID, actorToken, actorTokenFile string) ([]string, error) {
+func materializeClaudeAmuxMCP(sb *task.Sandbox, p adapter.Placement, amuxHome, sessionID, actorToken, actorTokenFile string, memoryBinding ...string) ([]string, error) {
 	root, err := rootFor(p.Kind, sb)
 	if err != nil {
 		return nil, fmt.Errorf("mcp: %w", err)
@@ -90,7 +94,7 @@ func materializeClaudeAmuxMCP(sb *task.Sandbox, p adapter.Placement, amuxHome, s
 	path := filepath.Join(root, p.Path)
 	cfg := standardMCPConfig{
 		MCPServers: map[string]amuxMCPConfig{
-			amuxMCPServerName: amuxServerConfig(amuxHome, sessionID, actorToken, actorTokenFile),
+			amuxMCPServerName: amuxServerConfig(amuxHome, sessionID, actorToken, actorTokenFile, memoryBinding...),
 		},
 	}
 	data, _ := json.MarshalIndent(cfg, "", "  ")
@@ -100,7 +104,7 @@ func materializeClaudeAmuxMCP(sb *task.Sandbox, p adapter.Placement, amuxHome, s
 	return []string{"--mcp-config", path}, nil
 }
 
-func materializeCodexAmuxMCP(sb *task.Sandbox, p adapter.Placement, amuxHome, sessionID, actorToken, actorTokenFile string) ([]string, error) {
+func materializeCodexAmuxMCP(sb *task.Sandbox, p adapter.Placement, amuxHome, sessionID, actorToken, actorTokenFile string, memoryBinding ...string) ([]string, error) {
 	if p.Kind != "extra-arg" || p.Path == "" {
 		return nil, fmt.Errorf("agent codex mcp placement must be extra-arg")
 	}
@@ -112,22 +116,22 @@ func materializeCodexAmuxMCP(sb *task.Sandbox, p adapter.Placement, amuxHome, se
 		// Delegation while retaining the provider turn hard cap as the bound.
 		p.Path, fmt.Sprintf("mcp_servers.amux.tool_timeout_sec=%d", amuxMCPToolTimeoutSeconds),
 	}
-	if env := inlineMCPEnv(amuxHome, sessionID, actorToken, actorTokenFile); env != "" {
+	if env := inlineMCPEnv(amuxHome, sessionID, actorToken, actorTokenFile, memoryBinding...); env != "" {
 		args = append(args, p.Path, "mcp_servers.amux.env={"+env+"}")
 	}
 	return args, nil
 }
 
-func amuxServerConfig(amuxHome, sessionID, actorToken, actorTokenFile string) amuxMCPConfig {
+func amuxServerConfig(amuxHome, sessionID, actorToken, actorTokenFile string, memoryBinding ...string) amuxMCPConfig {
 	cfg := amuxMCPConfig{Command: amuxCommand(amuxHome), Args: []string{"mcp"}}
-	cfg.Env = mcpEnv(amuxHome, sessionID, actorToken, actorTokenFile)
+	cfg.Env = mcpEnv(amuxHome, sessionID, actorToken, actorTokenFile, memoryBinding...)
 	if len(cfg.Env) == 0 {
 		cfg.Env = nil
 	}
 	return cfg
 }
 
-func mcpEnv(amuxHome, sessionID, actorToken, actorTokenFile string) map[string]string {
+func mcpEnv(amuxHome, sessionID, actorToken, actorTokenFile string, memoryBinding ...string) map[string]string {
 	env := make(map[string]string, 4)
 	if amuxHome != "" {
 		env["AMUX_HOME"] = amuxHome
@@ -141,10 +145,13 @@ func mcpEnv(amuxHome, sessionID, actorToken, actorTokenFile string) map[string]s
 	if actorTokenFile != "" {
 		env["AMUX_ACTOR_TOKEN_FILE"] = actorTokenFile
 	}
+	if len(memoryBinding) > 0 {
+		env[memoryprotocol.BindingEnv] = memoryBinding[0]
+	}
 	return env
 }
 
-func inlineMCPEnv(amuxHome, sessionID, actorToken, actorTokenFile string) string {
+func inlineMCPEnv(amuxHome, sessionID, actorToken, actorTokenFile string, memoryBinding ...string) string {
 	var fields []string
 	if amuxHome != "" {
 		fields = append(fields, fmt.Sprintf("AMUX_HOME=%q", amuxHome))
@@ -157,6 +164,9 @@ func inlineMCPEnv(amuxHome, sessionID, actorToken, actorTokenFile string) string
 	}
 	if actorTokenFile != "" {
 		fields = append(fields, fmt.Sprintf("AMUX_ACTOR_TOKEN_FILE=%q", actorTokenFile))
+	}
+	if len(memoryBinding) > 0 {
+		fields = append(fields, fmt.Sprintf("%s=%q", memoryprotocol.BindingEnv, memoryBinding[0]))
 	}
 	return strings.Join(fields, ", ")
 }

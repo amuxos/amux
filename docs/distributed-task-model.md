@@ -60,3 +60,13 @@ parent session through existing Task admission and authorization, which resolves
 the active ParentTurnID. Other initiators do not infer a parent. Coordination
 wait advances its TaskEvent cursor over `tool` and `usage` events without
 manufacturing status or text events or waking the parent Agent for pure usage.
+
+Child Sessions use the same [Hub memory model](current/agent-memory-product-model.md)
+as interactive Sessions. A fresh child resolves memory with its effective launch
+credential and stores a scope precondition independently of its Profile. With
+Hub user isolation enabled, a service execution uses the service Principal's
+memory; otherwise all Runtimes share global memory. Existing child threads keep
+their binding on resume, and a persistent instance cannot change its effective
+Principal. Task children use the memory CLI without adding recursive task MCP
+tools. Failed capability discovery emits a warning and leaves that conversation
+without amux memory; it never selects a global fallback.

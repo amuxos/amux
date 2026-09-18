@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -64,6 +65,9 @@ func TestHubCLICommandsE2E(t *testing.T) {
 	t.Parallel()
 
 	e := newCLIE2E(t)
+	// Exercise ordinary CLI identity in this temporary installation even when
+	// the test runner itself is an Agent inside another managed conversation.
+	e.env = append(e.env, "AMUX_SESSION_ID=", "AMUX_MEMORY_BINDING=", "AMUX_ACTOR_TOKEN=", "AMUX_ACTOR_TOKEN_FILE=")
 	e.writeFakeClaude(t)
 	e.writeFakeClaudeSidecar(t)
 
@@ -71,6 +75,7 @@ func TestHubCLICommandsE2E(t *testing.T) {
 	setupOperation := operationIDFromOutput(t, setupOut)
 	e.config(t, "runtime.id", "e2e-target")
 	e.config(t, "runtime.name", "e2e-target")
+	e.config(t, "memory.enabled", "true")
 
 	startOut := e.startSystemOnFreePort(t)
 	startOperation := operationIDFromOutput(t, startOut)
@@ -79,6 +84,7 @@ func TestHubCLICommandsE2E(t *testing.T) {
 	if status.Schema != system.SnapshotSchema || status.State != system.StateHealthy {
 		t.Fatalf("system status after start = schema %q state %q; want %q/%q\n%s", status.Schema, status.State, system.SnapshotSchema, system.StateHealthy, e.run(t, "system", "status", "--json"))
 	}
+	e.checkMemoryCommands(t)
 
 	e.run(t, "session", "run", "claude", "-n", "claude-e2e", "--on", "e2e-target")
 	e.waitForOutput(t, "structured session", func() string {
@@ -168,6 +174,122 @@ func TestHubCLICommandsE2E(t *testing.T) {
 	if !strings.Contains(credentialOut, "E2E_TOKEN") || strings.Contains(credentialOut, "e2e-secret") {
 		t.Fatalf("credential metadata output = %q, want env name without secret", credentialOut)
 	}
+}
+
+func (e *cliE2E) checkMemoryCommands(t *testing.T) {
+	t.Helper()
+	decode := func(output string, value any) {
+		t.Helper()
+		if err := json.Unmarshal([]byte(output), value); err != nil {
+			t.Fatalf("decode memory response: %v\n%s", err, output)
+		}
+	}
+	type document struct {
+		Path       string `json:"path"`
+		Content    string `json:"content"`
+		Revision   string `json:"revision"`
+		Exists     bool   `json:"exists"`
+		Truncated  bool   `json:"truncated"`
+		NextOffset int64  `json:"next_offset"`
+	}
+	show := func(path string) document {
+		t.Helper()
+		var result document
+		decode(e.run(t, "memory", "show", path), &result)
+		return result
+	}
+	upsert := func(path, content, expected string) string {
+		t.Helper()
+		var result document
+		decode(e.runWithInput(t, content, "memory", "upsert", path, "--expected-revision", expected), &result)
+		wantRevision := fmt.Sprintf("%x", sha256.Sum256([]byte(content)))
+		if result.Path != path || result.Revision != wantRevision {
+			t.Fatalf("memory upsert = %+v, want path %q revision %q", result, path, wantRevision)
+		}
+		return result.Revision
+	}
+
+	// Every operation starts a separate CLI process. Memory is owned by the
+	// Hub rather than a CLI process, Runtime workspace or selected Profile.
+	if got := show("MEMORY.md"); got.Exists || got.Revision != "absent" || got.Content != "" {
+		t.Fatalf("initial memory entry = %+v, want absent", got)
+	}
+	entry := "# Memory\n- 发布约定见 projects/e2e/release.md。\n"
+	entryRevision := upsert("MEMORY.md", entry, "absent")
+	if got := show("MEMORY.md"); !got.Exists || got.Content != entry || got.Revision != entryRevision || got.Truncated {
+		t.Fatalf("memory entry after create = %+v", got)
+	}
+
+	const path = "projects/e2e/release.md"
+	content := "# Release\n发布门禁：运行完整检查。\n" + strings.Repeat("Verified release procedure details.\n", 400)
+	revision := upsert(path, content, "absent")
+	stored, err := os.ReadFile(filepath.Join(e.amuxHome, "memory", "global", filepath.FromSlash(path)))
+	if err != nil || string(stored) != content {
+		t.Fatalf("Hub Markdown file differs from written content: err=%v bytes=%d", err, len(stored))
+	}
+	var search struct {
+		Matches []struct {
+			Path     string `json:"path"`
+			Snippet  string `json:"snippet"`
+			Revision string `json:"revision"`
+			Line     int    `json:"line"`
+		} `json:"matches"`
+		Incomplete   bool `json:"incomplete"`
+		Truncated    bool `json:"truncated"`
+		ScannedFiles int  `json:"scanned_files"`
+	}
+	decode(e.run(t, "memory", "search", "发布门禁", "--path-prefix", "projects/e2e/", "--limit", "1"), &search)
+	if search.Incomplete || search.Truncated || search.ScannedFiles < 1 || len(search.Matches) != 1 {
+		t.Fatalf("memory search = %+v, want one complete hit", search)
+	}
+	if hit := search.Matches[0]; hit.Path != path || hit.Revision != revision || hit.Line != 2 || !strings.Contains(hit.Snippet, "发布门禁") {
+		t.Fatalf("memory search hit = %+v", hit)
+	}
+	if got := show(path); !got.Exists || got.Revision != revision || !got.Truncated || got.NextOffset <= 0 || !strings.HasPrefix(content, got.Content) {
+		t.Fatalf("large memory read missing a bounded continuation: exists=%t revision=%q truncated=%t offset=%d bytes=%d", got.Exists, got.Revision, got.Truncated, got.NextOffset, len(got.Content))
+	}
+	if exported := e.run(t, "memory", "export", path); exported != content {
+		t.Fatalf("memory export differs after paging: got %d bytes, want %d", len(exported), len(content))
+	}
+
+	updated := "# Release\n发布门禁：先检查差异，再执行完整检查。\n"
+	updatedRevision := upsert(path, updated, revision)
+	conflictOut, conflictErr := e.runAllowErrorWithInput("stale overwrite\n", "memory", "upsert", path, "--expected-revision", revision)
+	if conflictErr == nil || !strings.Contains(conflictOut, "revision conflict") {
+		t.Fatalf("stale memory write: err=%v output=%q, want revision conflict", conflictErr, conflictOut)
+	}
+	conflictOut, conflictErr = e.runAllowError("memory", "forget", path, "--expected-revision", revision)
+	if conflictErr == nil || !strings.Contains(conflictOut, "revision conflict") {
+		t.Fatalf("stale memory delete: err=%v output=%q, want revision conflict", conflictErr, conflictOut)
+	}
+	if got := show(path); !got.Exists || got.Content != updated || got.Revision != updatedRevision {
+		t.Fatalf("memory changed after rejected stale writes: %+v", got)
+	}
+
+	var forgotten struct {
+		Path          string `json:"path"`
+		AlreadyAbsent bool   `json:"already_absent"`
+	}
+	decode(e.run(t, "memory", "forget", path, "--expected-revision", updatedRevision), &forgotten)
+	if forgotten.Path != path || forgotten.AlreadyAbsent {
+		t.Fatalf("memory forget = %+v, want deleted document", forgotten)
+	}
+	decode(e.run(t, "memory", "forget", path, "--expected-revision", "absent"), &forgotten)
+	if forgotten.Path != path || !forgotten.AlreadyAbsent {
+		t.Fatalf("repeated memory forget = %+v, want already absent", forgotten)
+	}
+	if got := show(path); got.Exists || got.Revision != "absent" || got.Content != "" {
+		t.Fatalf("forgotten memory remains readable: %+v", got)
+	}
+	decode(e.run(t, "memory", "search", "发布门禁", "--path-prefix", "projects/e2e/"), &search)
+	if len(search.Matches) != 0 || search.Incomplete {
+		t.Fatalf("forgotten memory remains searchable: %+v", search)
+	}
+	exportOut, exportErr := e.runAllowError("memory", "export", path)
+	if exportErr == nil || !strings.Contains(exportOut, "does not exist") {
+		t.Fatalf("forgotten memory export: err=%v output=%q, want missing document", exportErr, exportOut)
+	}
+	e.run(t, "memory", "forget", "MEMORY.md", "--expected-revision", entryRevision)
 }
 
 func TestWaitForCommandExitOrKillKillsHungProcess(t *testing.T) {

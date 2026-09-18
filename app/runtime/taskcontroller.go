@@ -12,6 +12,7 @@ import (
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/memoryprotocol"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/task"
@@ -72,6 +73,9 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	if spec.InstanceID != "" {
 		if sess, ok := c.srv.mgr.FindOwnedByName(name); ok {
 			snap := sess.Snapshot()
+			if !sameMemoryPrincipal(snap.ExecutionIdentity, spec.ExecutionIdentity) {
+				return nil, fmt.Errorf("persistent instance execution principal changed; create a new instance")
+			}
 			if snap.State == session.StateSleeping {
 				// Resume the sleeping instance via provider resume (B2). This
 				// restarts the agent process with ResumeSessionID so the provider
@@ -111,6 +115,18 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 		return nil, err
 	}
 
+	binding, err := c.srv.resolveMemoryBinding(ctx, spec.AgentActorToken, spec.ExecutionIdentity, spec.AgentType)
+	var memoryWarning string
+	if err != nil {
+		var unavailable *memoryUnavailableError
+		if errors.As(err, &unavailable) {
+			memoryWarning = err.Error()
+		} else {
+			return nil, fmt.Errorf("child memory binding: %w", err)
+		}
+	}
+	spec.Env = memoryprotocol.SetEnv(spec.Env, memoryprotocol.BindingEnv, binding)
+	spec.RecordEnv = memoryprotocol.SetEnv(spec.RecordEnv, memoryprotocol.BindingEnv, binding)
 	sourceCwd := spec.Cwd
 	cwd, _, executionIdentity, principalPaths, err := c.srv.prepareExecution(ctx, spec.ExecutionIdentity, spec.LaunchID, &pb.RunRequest{Cwd: spec.Cwd, Name: name})
 	if err != nil {
@@ -177,6 +193,9 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	if err := c.srv.startSessionContext(ctx, a, sess, extraArgs, launchEnv); err != nil {
 		_ = c.srv.mgr.SetState(sess, session.StateArchived)
 		return nil, fmt.Errorf("start child agent: %w", err)
+	}
+	if memoryWarning != "" {
+		c.srv.reportLaunchWarning(sess)(memoryWarning)
 	}
 	if warning := agentActorTokenExpiryWarning(spec.AgentActorTokenExpiresAt, time.Now()); warning != "" {
 		sess.AppendReplay([]byte("\r\n[system] " + warning + "\r\n"))

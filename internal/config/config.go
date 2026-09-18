@@ -76,6 +76,11 @@ type MCPConfig struct {
 	AutoInject bool
 }
 
+// MemoryConfig governs Hub-owned, profile-independent Markdown memory.
+type MemoryConfig struct {
+	Enabled bool
+}
+
 type IsolationHardeningConfig struct {
 	PIDNamespace   bool
 	MountNamespace bool
@@ -345,6 +350,10 @@ func GetMCP() MCPConfig {
 		autoInject = viper.GetBool("mcp.auto_inject")
 	}
 	return MCPConfig{Enabled: enabled, AutoInject: autoInject}
+}
+
+func GetMemory() MemoryConfig {
+	return MemoryConfig{Enabled: viper.GetBool("memory.enabled")}
 }
 
 func GetIsolation() (IsolationConfig, error) {

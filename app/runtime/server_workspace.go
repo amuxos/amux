@@ -133,7 +133,7 @@ func materializeProfileWorkspace(req *pb.RunRequest, cwd string, repoPath string
 	_, err = agentprofile.RenderProfileWorkspace(profile, cwd)
 	return err
 }
-func materializeAmuxMCPForRun(agentType, sessionID, amuxDir, cwd, actorToken string) ([]string, error) {
+func materializeAmuxMCPForRun(agentType, sessionID, amuxDir, cwd, actorToken string, memoryBinding ...string) ([]string, error) {
 	root := profileSessionDir(amuxDir, sessionID)
 	sb := &task.Sandbox{TaskID: sessionID, Isolation: task.IsolationProcess, Root: root, Tmp: filepath.Join(root, "tmp"), Workspace: cwd, AgentConfig: filepath.Join(root, "agent-config")}
 	if err := os.MkdirAll(sb.AgentConfig, 0700); err != nil {
@@ -141,7 +141,7 @@ func materializeAmuxMCPForRun(agentType, sessionID, amuxDir, cwd, actorToken str
 	}
 	// The session credential file lets the MCP server pick up a credential the
 	// hub re-mints after this launch (see applyAgentActorToken).
-	return agentprofile.MaterializeAmuxMCP(agentType, sb, adapter.Layout, amuxDir, actorToken, sessionActorTokenPath(amuxDir, sessionID))
+	return agentprofile.MaterializeAmuxMCP(agentType, sb, adapter.Layout, amuxDir, actorToken, sessionActorTokenPath(amuxDir, sessionID), memoryBinding...)
 }
 func runArgsContainAmuxMCP(agentType string, args []string) bool {
 	switch {

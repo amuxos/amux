@@ -2659,6 +2659,162 @@
     "en": "Resume reading from this event sequence number; pass next_seq from the previous call",
     "zh-CN": "从该事件序号继续读取；传入上一次调用返回的 next_seq"
   },
+  "Manage shared Markdown memory through the Hub": {
+    "en": "Manage shared Markdown memory through the Hub",
+    "zh-CN": "通过 Hub 管理共享 Markdown 记忆"
+  },
+  "Search, read, conditionally update and forget Markdown memory in the scope selected by the Hub. No Agent Profile is required. Commands return JSON except export, which writes one complete document to standard output.": {
+    "en": "Search, read, conditionally update and forget Markdown memory in the scope selected by the Hub. No Agent Profile is required. Commands return JSON except export, which writes one complete document to standard output.",
+    "zh-CN": "在 Hub 选择的作用域中搜索、读取、按条件更新和删除 Markdown 记忆，无需 Agent Profile。除 export 将单份完整文档写到标准输出外，命令均返回 JSON。"
+  },
+  "Search memory using literal keywords": {
+    "en": "Search memory using literal keywords",
+    "zh-CN": "使用字面关键词搜索记忆"
+  },
+  "Restrict search to a relative memory path prefix": {
+    "en": "Restrict search to a relative memory path prefix",
+    "zh-CN": "将搜索限定到记忆中的相对路径前缀"
+  },
+  "Maximum matching documents (1-20; 0 uses the server default)": {
+    "en": "Maximum matching documents (1-20; 0 uses the server default)",
+    "zh-CN": "最多返回的命中文档数（1-20；0 使用服务端默认值）"
+  },
+  "Read a bounded memory document or line range": {
+    "en": "Read a bounded memory document or line range",
+    "zh-CN": "读取有界记忆文档或指定行段"
+  },
+  "First line to read (1-based; 0 starts at the beginning)": {
+    "en": "First line to read (1-based; 0 starts at the beginning)",
+    "zh-CN": "读取起始行（从 1 开始；0 从开头读取）"
+  },
+  "Last line to read, inclusive (0 reads to the response limit)": {
+    "en": "Last line to read, inclusive (0 reads to the response limit)",
+    "zh-CN": "读取末行（包含；0 读取到响应上限）"
+  },
+  "Byte offset returned as next_offset by the previous response": {
+    "en": "Byte offset returned as next_offset by the previous response",
+    "zh-CN": "上次响应通过 next_offset 返回的字节位置"
+  },
+  "Conditionally save a UTF-8 Markdown memory document": {
+    "en": "Conditionally save a UTF-8 Markdown memory document",
+    "zh-CN": "按条件保存 UTF-8 Markdown 记忆文档"
+  },
+  "Read document content from this file (- reads standard input)": {
+    "en": "Read document content from this file (- reads standard input)",
+    "zh-CN": "从此文件读取文档正文（- 读取标准输入）"
+  },
+  "Previously read SHA-256 revision, or absent for creation": {
+    "en": "Previously read SHA-256 revision, or absent for creation",
+    "zh-CN": "之前读取的 SHA-256 版本，新建使用 absent"
+  },
+  "Conditionally delete a memory document": {
+    "en": "Conditionally delete a memory document",
+    "zh-CN": "按条件删除记忆文档"
+  },
+  "Previously read SHA-256 revision, or absent if already missing": {
+    "en": "Previously read SHA-256 revision, or absent if already missing",
+    "zh-CN": "之前读取的 SHA-256 版本，已不存在时使用 absent"
+  },
+  "Export one complete memory document to standard output": {
+    "en": "Export one complete memory document to standard output",
+    "zh-CN": "将单份完整记忆文档导出到标准输出"
+  },
+  "空白分隔的字面关键词；匹配中文连续文本和忽略大小写的英文，不使用正则或语义检索": {
+    "en": "Whitespace-separated literal keywords; matches contiguous Chinese text and case-insensitive English, without regular expressions or semantic search",
+    "zh-CN": "空白分隔的字面关键词；匹配中文连续文本和忽略大小写的英文，不使用正则或语义检索"
+  },
+  "当前授权范围内的相对路径前缀，例如 projects/amux/": {
+    "en": "Relative path prefix within the current authorized scope, such as projects/amux/",
+    "zh-CN": "当前授权范围内的相对路径前缀，例如 projects/amux/"
+  },
+  "最多返回的命中文档数；默认 5，最大 20，仍受响应大小限制": {
+    "en": "Maximum matching documents; defaults to 5, at most 20, still bounded by the response size limit",
+    "zh-CN": "最多返回的命中文档数；默认 5，最大 20，仍受响应大小限制"
+  },
+  "当前授权范围内的 Markdown 相对路径；新会话先读取 MEMORY.md": {
+    "en": "Relative Markdown path within the current authorized scope; read MEMORY.md at the start of a new conversation",
+    "zh-CN": "当前授权范围内的 Markdown 相对路径；新会话先读取 MEMORY.md"
+  },
+  "读取起始行（从 1 开始）；省略时从开头读取，不能与 offset 同时使用": {
+    "en": "First line to read (1-based); omit to start at the beginning; cannot be combined with offset",
+    "zh-CN": "读取起始行（从 1 开始）；省略时从开头读取，不能与 offset 同时使用"
+  },
+  "读取末行（包含）；省略时读取到响应上限": {
+    "en": "Last line to read, inclusive; omit to read to the response limit",
+    "zh-CN": "读取末行（包含）；省略时读取到响应上限"
+  },
+  "上次 memory_get 返回的 next_offset 字节位置；续读时保留相同 path 和 end_line，并核对 revision": {
+    "en": "Byte offset returned as next_offset by the previous memory_get; retain the same path and end_line and verify revision when continuing",
+    "zh-CN": "上次 memory_get 返回的 next_offset 字节位置；续读时保留相同 path 和 end_line，并核对 revision"
+  },
+  "当前授权范围内的 Markdown 相对路径": {
+    "en": "Relative Markdown path within the current authorized scope",
+    "zh-CN": "当前授权范围内的 Markdown 相对路径"
+  },
+  "完整 UTF-8 Markdown 正文；主题文档最多 64 KiB，MEMORY.md 只保留简短偏好和入口（最多 2 KiB、64 行）": {
+    "en": "Complete UTF-8 Markdown content; topic documents are limited to 64 KiB. Keep only brief preferences and pointers in MEMORY.md (at most 2 KiB and 64 lines)",
+    "zh-CN": "完整 UTF-8 Markdown 正文；主题文档最多 64 KiB，MEMORY.md 只保留简短偏好和入口（最多 2 KiB、64 行）"
+  },
+  "memory_get 返回的 SHA-256 revision；新建文档必须填 absent，冲突后重读合并": {
+    "en": "SHA-256 revision returned by memory_get; use absent to create a document, and re-read and merge after a conflict",
+    "zh-CN": "memory_get 返回的 SHA-256 revision；新建文档必须填 absent，冲突后重读合并"
+  },
+  "memory_get 返回的 SHA-256 revision；文档已不存在时可填 absent": {
+    "en": "SHA-256 revision returned by memory_get; use absent if the document is already missing",
+    "zh-CN": "memory_get 返回的 SHA-256 revision；文档已不存在时可填 absent"
+  },
+  "按需搜索跨会话记忆；涉及以前的工作、决定或偏好时查询，返回有界命中片段。incomplete=true 表示扫描未完成；无需历史的任务不要检索。": {
+    "en": "Search cross-conversation memory on demand when earlier work, decisions or preferences are relevant; returns bounded snippets. incomplete=true means scanning did not finish. Do not search for tasks that need no history.",
+    "zh-CN": "按需搜索跨会话记忆；涉及以前的工作、决定或偏好时查询，返回有界命中片段。incomplete=true 表示扫描未完成；无需历史的任务不要检索。"
+  },
+  "按需读取记忆文档或指定行段及 revision；新会话读取一次 MEMORY.md，同一上下文复用。truncated=true 时使用 next_offset 续读并核对 revision，路径不是本机文件。": {
+    "en": "Read a memory document or line range and its revision on demand; read MEMORY.md once in a new conversation and reuse it in the same context. If truncated=true, continue with next_offset and verify revision. Paths are not local files.",
+    "zh-CN": "按需读取记忆文档或指定行段及 revision；新会话读取一次 MEMORY.md，同一上下文复用。truncated=true 时使用 next_offset 续读并核对 revision，路径不是本机文件。"
+  },
+  "按 revision 条件保存长期记忆；用于用户明确要求记住、稳定偏好和已验证经验。详细内容放主题文档，入口保持简短；不保存秘密、临时授权或推测。冲突须重读合并，成功后才能声称已保存。": {
+    "en": "Save long-term memory conditionally on revision for explicit requests to remember, stable preferences and verified lessons. Put details in topic documents and keep the entry brief. Do not save secrets, temporary authorization or speculation. Re-read and merge conflicts; report saved only after success.",
+    "zh-CN": "按 revision 条件保存长期记忆；用于用户明确要求记住、稳定偏好和已验证经验。详细内容放主题文档，入口保持简短；不保存秘密、临时授权或推测。冲突须重读合并，成功后才能声称已保存。"
+  },
+  "按 revision 条件删除一份记忆文档；不会清除已进入会话的历史。纠正或忘记偏好时还需检查 MEMORY.md 和相关主题，修订重复内容及引用；部分失败须明确报告。": {
+    "en": "Delete one memory document conditionally on revision; this does not erase existing conversation history. When correcting or forgetting a preference, also inspect MEMORY.md and related topics and revise duplicate content and references. Report partial failures clearly.",
+    "zh-CN": "按 revision 条件删除一份记忆文档；不会清除已进入会话的历史。纠正或忘记偏好时还需检查 MEMORY.md 和相关主题，修订重复内容及引用；部分失败须明确报告。"
+  },
+  "Agent 记忆实验总开关，由 Hub 统一控制所有 Runtime，无需 Agent Profile；非隔离时全局共享，用户隔离时按有效 Principal 保存。关闭阻止读写并保留文件，已有会话保留原生记忆抑制。修改后重启生效。": {
+    "en": "Agent memory experiment switch, controlled by the Hub for all Runtimes without an Agent Profile; shared globally without isolation and scoped to the effective Principal with user isolation. Disabling blocks reads and writes while retaining files and native-memory suppression in existing conversations. Restart to apply.",
+    "zh-CN": "Agent 记忆实验总开关，由 Hub 统一控制所有 Runtime，无需 Agent Profile；非隔离时全局共享，用户隔离时按有效 Principal 保存。关闭阻止读写并保留文件，已有会话保留原生记忆抑制。修改后重启生效。"
+  },
+  "Previously read SHA-256 revision, or absent for creation (required)": {
+    "en": "Previously read SHA-256 revision, or absent for creation (required)",
+    "zh-CN": "之前读取的 SHA-256 版本，新建使用 absent（必填）"
+  },
+  "Previously read SHA-256 revision, or absent if already missing (required)": {
+    "en": "Previously read SHA-256 revision, or absent if already missing (required)",
+    "zh-CN": "之前读取的 SHA-256 版本，已不存在时使用 absent（必填）"
+  },
+  "help for export": {
+    "en": "help for export",
+    "zh-CN": "export 的帮助"
+  },
+  "help for forget": {
+    "en": "help for forget",
+    "zh-CN": "forget 的帮助"
+  },
+  "help for memory": {
+    "en": "help for memory",
+    "zh-CN": "memory 的帮助"
+  },
+  "help for search": {
+    "en": "help for search",
+    "zh-CN": "search 的帮助"
+  },
+  "help for upsert": {
+    "en": "help for upsert",
+    "zh-CN": "upsert 的帮助"
+  },
+  "`tools/list` 正式工具：**49**。": {
+    "en": "Official tools in `tools/list`: **49**.",
+    "zh-CN": "`tools/list` 正式工具：**49**。"
+  },
   "群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。": {
     "en": "Installation-wide group settings experiment. When disabled, saved group settings and Sessions are retained and independently configured groups pause new work; unconfigured groups and private chats use Bot defaults. Restart to apply changes.",
     "zh-CN": "群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。"

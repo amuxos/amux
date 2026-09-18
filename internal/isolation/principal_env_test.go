@@ -23,18 +23,27 @@ func TestPrincipalLaunchEnvRewritesIdentity(t *testing.T) {
 	paths := PrincipalPaths{Home: "/var/lib/amux/principals/amux_ab/home"}
 	env := principalLaunchEnv([]string{
 		"HOME=/home/service",
+		"CODEX_HOME=/home/service/.codex",
+		"CODEX_HOME=/other/.codex",
+		"CLAUDE_CONFIG_DIR=/home/service/.claude",
+		"CLAUDE_CONFIG_DIR=/other/.claude",
+		"PI_CODING_AGENT_DIR=/home/service/.pi/agent",
+		"PI_CODING_AGENT_DIR=/other/.pi/agent",
 		"USER=service",
 		"LOGNAME=service",
 		"PWD=/home/service",
 	}, "amux_ab", paths, "/var/lib/amux/principals/amux_ab/workspace/exec_1")
 
 	for key, want := range map[string]string{
-		"HOME":            paths.Home,
-		"USER":            "amux_ab",
-		"LOGNAME":         "amux_ab",
-		"PWD":             "/var/lib/amux/principals/amux_ab/workspace/exec_1",
-		"XDG_CONFIG_HOME": paths.Home + "/.config",
-		"XDG_CACHE_HOME":  paths.Home + "/.cache",
+		"HOME":                paths.Home,
+		"CODEX_HOME":          paths.Home + "/.codex",
+		"CLAUDE_CONFIG_DIR":   "",
+		"PI_CODING_AGENT_DIR": paths.Home + "/.pi/agent",
+		"USER":                "amux_ab",
+		"LOGNAME":             "amux_ab",
+		"PWD":                 "/var/lib/amux/principals/amux_ab/workspace/exec_1",
+		"XDG_CONFIG_HOME":     paths.Home + "/.config",
+		"XDG_CACHE_HOME":      paths.Home + "/.cache",
 	} {
 		got, ok := envValue(t, env, key)
 		if !ok || got != want {
@@ -92,5 +101,27 @@ func TestPrincipalLaunchEnvOmitsPWDWithoutWorkingDirectory(t *testing.T) {
 	}
 	if slices.Contains(env, "PWD=") {
 		t.Fatalf("PWD was set to an empty value: %v", env)
+	}
+}
+
+func TestPrincipalLaunchEnvDeduplicatesNativeHomes(t *testing.T) {
+	for key, want := range map[string]string{
+		"CODEX_HOME":          "/private/home/.codex",
+		"CLAUDE_CONFIG_DIR":   "",
+		"PI_CODING_AGENT_DIR": "/private/home/.pi/agent",
+	} {
+		env := principalLaunchEnv([]string{key + "=/shared", key + "=/other"}, "user", PrincipalPaths{Home: "/private/home"}, "/work")
+		count := 0
+		for _, entry := range env {
+			if strings.HasPrefix(entry, key+"=") {
+				count++
+				if entry != key+"="+want {
+					t.Fatal(entry)
+				}
+			}
+		}
+		if count != 1 {
+			t.Fatalf("%s count = %d", key, count)
+		}
 	}
 }

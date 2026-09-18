@@ -899,6 +899,11 @@ const (
 	Amuxd_GetAgentProfile_FullMethodName              = "/amux.v1.Amuxd/GetAgentProfile"
 	Amuxd_ReadLocalExpert_FullMethodName              = "/amux.v1.Amuxd/ReadLocalExpert"
 	Amuxd_ChangeLocalExpert_FullMethodName            = "/amux.v1.Amuxd/ChangeLocalExpert"
+	Amuxd_GetMemoryBinding_FullMethodName             = "/amux.v1.Amuxd/GetMemoryBinding"
+	Amuxd_MemorySearch_FullMethodName                 = "/amux.v1.Amuxd/MemorySearch"
+	Amuxd_MemoryGet_FullMethodName                    = "/amux.v1.Amuxd/MemoryGet"
+	Amuxd_MemoryUpsert_FullMethodName                 = "/amux.v1.Amuxd/MemoryUpsert"
+	Amuxd_MemoryForget_FullMethodName                 = "/amux.v1.Amuxd/MemoryForget"
 	Amuxd_Tunnel_FullMethodName                       = "/amux.v1.Amuxd/Tunnel"
 )
 
@@ -956,6 +961,12 @@ type AmuxdClient interface {
 	GetAgentProfile(ctx context.Context, in *GetAgentProfileRequest, opts ...grpc.CallOption) (*GetAgentProfileResponse, error)
 	ReadLocalExpert(ctx context.Context, in *ReadLocalExpertRequest, opts ...grpc.CallOption) (*ReadLocalExpertResponse, error)
 	ChangeLocalExpert(ctx context.Context, in *ChangeLocalExpertRequest, opts ...grpc.CallOption) (*ChangeLocalExpertResponse, error)
+	// Memory belongs to the Hub and authenticated principal, not a Runtime or Profile.
+	GetMemoryBinding(ctx context.Context, in *MemoryBindingRequest, opts ...grpc.CallOption) (*MemoryBindingResponse, error)
+	MemorySearch(ctx context.Context, in *MemorySearchRequest, opts ...grpc.CallOption) (*MemorySearchResponse, error)
+	MemoryGet(ctx context.Context, in *MemoryGetRequest, opts ...grpc.CallOption) (*MemoryDocument, error)
+	MemoryUpsert(ctx context.Context, in *MemoryUpsertRequest, opts ...grpc.CallOption) (*MemoryWriteResponse, error)
+	MemoryForget(ctx context.Context, in *MemoryForgetRequest, opts ...grpc.CallOption) (*MemoryForgetResponse, error)
 	Tunnel(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[TunnelMsg, TunnelMsg], error)
 }
 
@@ -1456,6 +1467,56 @@ func (c *amuxdClient) ChangeLocalExpert(ctx context.Context, in *ChangeLocalExpe
 	return out, nil
 }
 
+func (c *amuxdClient) GetMemoryBinding(ctx context.Context, in *MemoryBindingRequest, opts ...grpc.CallOption) (*MemoryBindingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryBindingResponse)
+	err := c.cc.Invoke(ctx, Amuxd_GetMemoryBinding_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *amuxdClient) MemorySearch(ctx context.Context, in *MemorySearchRequest, opts ...grpc.CallOption) (*MemorySearchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemorySearchResponse)
+	err := c.cc.Invoke(ctx, Amuxd_MemorySearch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *amuxdClient) MemoryGet(ctx context.Context, in *MemoryGetRequest, opts ...grpc.CallOption) (*MemoryDocument, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryDocument)
+	err := c.cc.Invoke(ctx, Amuxd_MemoryGet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *amuxdClient) MemoryUpsert(ctx context.Context, in *MemoryUpsertRequest, opts ...grpc.CallOption) (*MemoryWriteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryWriteResponse)
+	err := c.cc.Invoke(ctx, Amuxd_MemoryUpsert_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *amuxdClient) MemoryForget(ctx context.Context, in *MemoryForgetRequest, opts ...grpc.CallOption) (*MemoryForgetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemoryForgetResponse)
+	err := c.cc.Invoke(ctx, Amuxd_MemoryForget_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *amuxdClient) Tunnel(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[TunnelMsg, TunnelMsg], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &Amuxd_ServiceDesc.Streams[1], Amuxd_Tunnel_FullMethodName, cOpts...)
@@ -1523,6 +1584,12 @@ type AmuxdServer interface {
 	GetAgentProfile(context.Context, *GetAgentProfileRequest) (*GetAgentProfileResponse, error)
 	ReadLocalExpert(context.Context, *ReadLocalExpertRequest) (*ReadLocalExpertResponse, error)
 	ChangeLocalExpert(context.Context, *ChangeLocalExpertRequest) (*ChangeLocalExpertResponse, error)
+	// Memory belongs to the Hub and authenticated principal, not a Runtime or Profile.
+	GetMemoryBinding(context.Context, *MemoryBindingRequest) (*MemoryBindingResponse, error)
+	MemorySearch(context.Context, *MemorySearchRequest) (*MemorySearchResponse, error)
+	MemoryGet(context.Context, *MemoryGetRequest) (*MemoryDocument, error)
+	MemoryUpsert(context.Context, *MemoryUpsertRequest) (*MemoryWriteResponse, error)
+	MemoryForget(context.Context, *MemoryForgetRequest) (*MemoryForgetResponse, error)
 	Tunnel(grpc.BidiStreamingServer[TunnelMsg, TunnelMsg]) error
 }
 
@@ -1676,6 +1743,21 @@ func (UnimplementedAmuxdServer) ReadLocalExpert(context.Context, *ReadLocalExper
 }
 func (UnimplementedAmuxdServer) ChangeLocalExpert(context.Context, *ChangeLocalExpertRequest) (*ChangeLocalExpertResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChangeLocalExpert not implemented")
+}
+func (UnimplementedAmuxdServer) GetMemoryBinding(context.Context, *MemoryBindingRequest) (*MemoryBindingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMemoryBinding not implemented")
+}
+func (UnimplementedAmuxdServer) MemorySearch(context.Context, *MemorySearchRequest) (*MemorySearchResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MemorySearch not implemented")
+}
+func (UnimplementedAmuxdServer) MemoryGet(context.Context, *MemoryGetRequest) (*MemoryDocument, error) {
+	return nil, status.Error(codes.Unimplemented, "method MemoryGet not implemented")
+}
+func (UnimplementedAmuxdServer) MemoryUpsert(context.Context, *MemoryUpsertRequest) (*MemoryWriteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MemoryUpsert not implemented")
+}
+func (UnimplementedAmuxdServer) MemoryForget(context.Context, *MemoryForgetRequest) (*MemoryForgetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MemoryForget not implemented")
 }
 func (UnimplementedAmuxdServer) Tunnel(grpc.BidiStreamingServer[TunnelMsg, TunnelMsg]) error {
 	return status.Error(codes.Unimplemented, "method Tunnel not implemented")
@@ -2557,6 +2639,96 @@ func _Amuxd_ChangeLocalExpert_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Amuxd_GetMemoryBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemoryBindingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).GetMemoryBinding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_GetMemoryBinding_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).GetMemoryBinding(ctx, req.(*MemoryBindingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Amuxd_MemorySearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemorySearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).MemorySearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_MemorySearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).MemorySearch(ctx, req.(*MemorySearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Amuxd_MemoryGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemoryGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).MemoryGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_MemoryGet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).MemoryGet(ctx, req.(*MemoryGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Amuxd_MemoryUpsert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemoryUpsertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).MemoryUpsert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_MemoryUpsert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).MemoryUpsert(ctx, req.(*MemoryUpsertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Amuxd_MemoryForget_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemoryForgetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).MemoryForget(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_MemoryForget_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).MemoryForget(ctx, req.(*MemoryForgetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Amuxd_Tunnel_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(AmuxdServer).Tunnel(&grpc.GenericServerStream[TunnelMsg, TunnelMsg]{ServerStream: stream})
 }
@@ -2758,6 +2930,26 @@ var Amuxd_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ChangeLocalExpert",
 			Handler:    _Amuxd_ChangeLocalExpert_Handler,
+		},
+		{
+			MethodName: "GetMemoryBinding",
+			Handler:    _Amuxd_GetMemoryBinding_Handler,
+		},
+		{
+			MethodName: "MemorySearch",
+			Handler:    _Amuxd_MemorySearch_Handler,
+		},
+		{
+			MethodName: "MemoryGet",
+			Handler:    _Amuxd_MemoryGet_Handler,
+		},
+		{
+			MethodName: "MemoryUpsert",
+			Handler:    _Amuxd_MemoryUpsert_Handler,
+		},
+		{
+			MethodName: "MemoryForget",
+			Handler:    _Amuxd_MemoryForget_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -48,3 +48,10 @@ Canonical `UsageObserved` 和 `ResultObserved.Usage` 也会投影为持久化 Ta
 parent Session，并解析活动 ParentTurnID。其它发起者不推断 parent。
 协调等待在 `tool` 和 `usage` 事件上推进 TaskEvent cursor，不人为生成 status 或文本
 事件，也不因纯用量更新唤醒 parent Agent。
+
+子 Session 与交互式 Session 使用相同的 [Hub 记忆模型](current/agent-memory-product-model.zh-CN.md)。
+新建子会话以有效启动凭据查询记忆范围，独立于 Profile 保存范围前提。Hub 用户隔离开启时，
+服务执行使用有效服务 Principal 的记忆；非隔离时所有 Runtime 共享全局记忆。
+恢复已有子线程时保留范围绑定；持久实例不能改变有效 Principal。Task 子会话通过记忆 CLI
+访问，不额外注入可以递归创建任务的 MCP 工具。能力查询失败时显示告警，该会话不启用
+amux 记忆，不回退到全局范围。

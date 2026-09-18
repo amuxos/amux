@@ -23,6 +23,7 @@ amux system config unset <key>
 | --- | --- | --- | --- | --- | --- |
 | `bridge.feishu.group_settings.enabled` | 布尔值 | false | — | 是 | 群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。 |
 | `bridge.feishu.presentation.completion_notification_enabled` | 布尔值 | false | — | 是 | 长会话完成通知实验总开关，影响本实例全部助手；关闭时不新增成功、等待补充或失败提醒。修改后重启生效。 |
+| `memory.enabled` | 布尔值 | false | — | 是 | Agent 记忆实验总开关，由 Hub 统一控制所有 Runtime，无需 Agent Profile；非隔离时全局共享，用户隔离时按有效 Principal 保存。关闭阻止读写并保留文件，已有会话保留原生记忆抑制。修改后重启生效。 |
 
 ## Hub 与调度
 

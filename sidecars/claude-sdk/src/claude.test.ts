@@ -199,6 +199,24 @@ test('applyExtraArgs maps --effort onto SDK options', () => {
   assert.equal(options.effort, 'xhigh');
 });
 
+test('append instructions reach the SDK through its public systemPrompt option', async () => {
+  let received: Record<string, unknown> | undefined;
+  const fakeQuery: QueryFn = ({ options }) => {
+    received = options;
+    return (async function* () {})();
+  };
+  const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), new PassThrough()), fakeQuery);
+  const instruction = 'Profile instructions.\n\nUse amux for cross-session memory.';
+  await bridge.startSession({
+    cwd: '/tmp',
+    extraArgs: ['--append-system-prompt', instruction],
+    env: ['CLAUDE_CODE_DISABLE_AUTO_MEMORY=1'],
+  });
+  assert.deepEqual(received?.systemPrompt, { type: 'preset', preset: 'claude_code', append: instruction });
+  assert.equal(received?.appendSystemPrompt, undefined);
+  assert.equal((received?.env as Record<string, string>).CLAUDE_CODE_DISABLE_AUTO_MEMORY, '1');
+});
+
 test('applyExtraArgs treats --dangerously-skip-permissions as bypass + allow flag', () => {
   const options: Record<string, unknown> = { permissionMode: 'default' };
   applyExtraArgs(options, ['--dangerously-skip-permissions']);

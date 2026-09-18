@@ -239,11 +239,12 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			return cardToast("error", "无法读取实验功能配置，请检查配置文件"), true, nil
 		}
 		if action != managementActionExperimentsOpen {
-			saved, err = managementExperimentsSettingsFromCallback(event.Event.Action, saved)
+			update, err := managementExperimentsSettingsFromCallback(event.Event.Action, saved)
 			if err != nil {
 				return cardToast("error", err.Error()), true, nil
 			}
-			if err := config.SaveExperimentsSettings(saved); err != nil {
+			saved, err = config.UpdateExperimentsSettings(update)
+			if err != nil {
 				return cardToast("error", "实验功能保存失败，请检查配置文件"), true, nil
 			}
 		}

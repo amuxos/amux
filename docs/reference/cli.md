@@ -69,6 +69,12 @@ After changing public command names, hierarchy, visibility, descriptions, argume
 | `amux isolation service-member grant` | Allow a human principal to run as a service principal |
 | `amux isolation service-member revoke` | Revoke service-principal membership and active service launches |
 | `amux isolation status` | Show isolation configuration, helper readiness, and fallback state |
+| `amux memory` | Manage shared Markdown memory through the Hub |
+| `amux memory export` | Export one complete memory document to standard output |
+| `amux memory forget` | Conditionally delete a memory document |
+| `amux memory search` | Search memory using literal keywords |
+| `amux memory show` | Read a bounded memory document or line range |
+| `amux memory upsert` | Conditionally save a UTF-8 Markdown memory document |
 | `amux schedule` | Schedule prompts or subtasks on a timer |
 | `amux schedule create` | Create a scheduled prompt |
 | `amux schedule create-task` | Create a scheduled subtask |
@@ -143,6 +149,7 @@ amux [flags]
 | `amux completion` | Generate the autocompletion script for the specified shell |
 | `amux help` | Help about any command |
 | `amux isolation` | Manage identified principals and Linux UID/DAC isolation |
+| `amux memory` | Manage shared Markdown memory through the Hub |
 | `amux schedule` | Schedule prompts or subtasks on a timer |
 | `amux session` | Manage agent sessions |
 | `amux setup` | Set up this amux installation |
@@ -1333,6 +1340,122 @@ amux isolation status [flags]
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | help for status |
 | `--json` | `bool` | `false` | output JSON |
+
+## `amux memory`
+
+Manage shared Markdown memory through the Hub
+
+Search, read, conditionally update and forget Markdown memory in the scope selected by the Hub. No Agent Profile is required. Commands return JSON except export, which writes one complete document to standard output.
+
+**Usage**
+
+```text
+amux memory [flags]
+```
+
+**Subcommands**
+
+| Command | Description |
+| --- | --- |
+| `amux memory export` | Export one complete memory document to standard output |
+| `amux memory forget` | Conditionally delete a memory document |
+| `amux memory search` | Search memory using literal keywords |
+| `amux memory show` | Read a bounded memory document or line range |
+| `amux memory upsert` | Conditionally save a UTF-8 Markdown memory document |
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for memory |
+
+## `amux memory export`
+
+Export one complete memory document to standard output
+
+**Usage**
+
+```text
+amux memory export <path> [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for export |
+
+## `amux memory forget`
+
+Conditionally delete a memory document
+
+**Usage**
+
+```text
+amux memory forget <path> [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--expected-revision` | `string` | `""` | Previously read SHA-256 revision, or absent if already missing (required) |
+| `-h, --help` | `bool` | `false` | help for forget |
+
+## `amux memory search`
+
+Search memory using literal keywords
+
+**Usage**
+
+```text
+amux memory search <keywords> [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for search |
+| `--limit` | `int32` | `5` | Maximum matching documents (1-20; 0 uses the server default) |
+| `--path-prefix` | `string` | `""` | Restrict search to a relative memory path prefix |
+
+## `amux memory show`
+
+Read a bounded memory document or line range
+
+**Usage**
+
+```text
+amux memory show <path> [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--end-line` | `int32` | `0` | Last line to read, inclusive (0 reads to the response limit) |
+| `-h, --help` | `bool` | `false` | help for show |
+| `--offset` | `int64` | `0` | Byte offset returned as next_offset by the previous response |
+| `--start-line` | `int32` | `0` | First line to read (1-based; 0 starts at the beginning) |
+
+## `amux memory upsert`
+
+Conditionally save a UTF-8 Markdown memory document
+
+**Usage**
+
+```text
+amux memory upsert <path> [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--expected-revision` | `string` | `""` | Previously read SHA-256 revision, or absent for creation (required) |
+| `--file` | `string` | `-` | Read document content from this file (- reads standard input) |
+| `-h, --help` | `bool` | `false` | help for upsert |
 
 ## `amux schedule`
 

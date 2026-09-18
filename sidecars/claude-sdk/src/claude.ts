@@ -135,7 +135,9 @@ export function applyExtraArgs(options: Record<string, unknown>, extraArgs: stri
         break;
       case '--append-system-prompt': {
         const v = consumeValue();
-        if (v) options.appendSystemPrompt = v;
+        // query() accepts the public preset.append option. A top-level
+        // appendSystemPrompt is an internal transport field and is ignored.
+        if (v) options.systemPrompt = { type: 'preset', preset: 'claude_code', append: v };
         break;
       }
       case '--effort': {

@@ -54,7 +54,7 @@ func TestConfigReferenceCoversConfigReads(t *testing.T) {
 		}
 		return false
 	}
-	staticKey := regexp.MustCompile(`"((?:hub|runtime|cli|mcp|bridge|provider|adapter)\.[a-z0-9_.<>-]+)"`)
+	staticKey := regexp.MustCompile(`"((?:hub|runtime|cli|mcp|memory|bridge|provider|adapter)\.[a-z0-9_.<>-]+)"`)
 	for _, match := range staticKey.FindAllSubmatch(source, -1) {
 		key := string(match[1])
 		if strings.HasSuffix(key, ".") || documented(key) {

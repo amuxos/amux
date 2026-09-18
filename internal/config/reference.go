@@ -44,6 +44,7 @@ func ManagedConfigKeys() []string {
 var configOptions = distributionConfigOptions([]ConfigOption{
 	{Section: "飞书实验功能", Key: "bridge.feishu.group_settings.enabled", Type: "boolean", Default: "false", Description: "群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。", Managed: true},
 	{Section: "飞书实验功能", Key: "bridge.feishu.presentation.completion_notification_enabled", Type: "boolean", Default: "false", Description: "长会话完成通知实验总开关，影响本实例全部助手；关闭时不新增成功、等待补充或失败提醒。修改后重启生效。", Managed: true},
+	{Section: "飞书实验功能", Key: "memory.enabled", Type: "boolean", Default: "false", Description: "Agent 记忆实验总开关，由 Hub 统一控制所有 Runtime，无需 Agent Profile；非隔离时全局共享，用户隔离时按有效 Principal 保存。关闭阻止读写并保留文件，已有会话保留原生记忆抑制。修改后重启生效。", Managed: true},
 	{Section: "Hub 与调度", Key: "hub.addr", Type: "string", Default: "127.0.0.1:7100", Constraints: "host:port", Description: "amuxd hub 地址。", Managed: true},
 	{Section: "Hub 与调度", Key: "hub.token", Type: "string", Default: "空", Description: "Hub 与 runtime 共享鉴权令牌。", Managed: true, Sensitive: true},
 	{Section: "Hub 与调度", Key: "hub.allowed_targets", Type: "string array", Default: "[]", Description: "允许注册到 hub 的 target ID 白名单；空表示不限制。", Managed: true},

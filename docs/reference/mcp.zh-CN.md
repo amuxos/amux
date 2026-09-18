@@ -8,7 +8,7 @@
 
 MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-product-model.md`](../current/cli-product-model.zh-CN.md) 和 [`docs/distributed-task-model.md`](../distributed-task-model.zh-CN.md) 为准。运行时还会通过 [`amux.result_continue`](#amuxresult_continue) 对超过单页预算的成功结果续传；工具结果本身不是 `tools/list` 注册元数据，因此不在本文档中另维护一份可能漂移的输出 Schema。
 
-`tools/list` 正式工具：**45**。
+`tools/list` 正式工具：**49**。
 
 ## 正式工具索引
 
@@ -28,6 +28,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.instance_wait` | 等待持久 Agent 当前 turn 结束或超时；结果仍用 task_get/task_stream 获取。 |
 | `amux.local_expert_change` | 预览、发布或清理 managed local 专家 patch。publish 仅限后续明确确认的 owner turn，并须原样提交相同 patch 与 receipt；评测确认不等于发布确认。 |
 | `amux.local_expert_read` | 读取 managed local 专家的精确编辑基线；仅当前飞书 Bot owner turn 可用，不写入。 |
+| `amux.memory_forget` | 按 revision 条件删除一份记忆文档；不会清除已进入会话的历史。纠正或忘记偏好时还需检查 MEMORY.md 和相关主题，修订重复内容及引用；部分失败须明确报告。 |
+| `amux.memory_get` | 按需读取记忆文档或指定行段及 revision；新会话读取一次 MEMORY.md，同一上下文复用。truncated=true 时使用 next_offset 续读并核对 revision，路径不是本机文件。 |
+| `amux.memory_search` | 按需搜索跨会话记忆；涉及以前的工作、决定或偏好时查询，返回有界命中片段。incomplete=true 表示扫描未完成；无需历史的任务不要检索。 |
+| `amux.memory_upsert` | 按 revision 条件保存长期记忆；用于用户明确要求记住、稳定偏好和已验证经验。详细内容放主题文档，入口保持简短；不保存秘密、临时授权或推测。冲突须重读合并，成功后才能声称已保存。 |
 | `amux.profile_get` | 按精确 ref 获取 Agent Profile 完整详情，支持开发版 namespace。 |
 | `amux.profile_list` | 分页列出非开发版 Agent Profile；用 profiles[].ref 提交任务，详情用 profile_get。沿 next_cursor 读取至 has_more=false。 |
 | `amux.result_continue` | 续读分页结果；按序拼接 content_chunk，直到 complete=true。游标仅当前 MCP 进程短期有效。 |
@@ -659,6 +663,133 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
   "required": [
     "operation",
     "target_ref"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.memory_forget`
+
+按 revision 条件删除一份记忆文档；不会清除已进入会话的历史。纠正或忘记偏好时还需检查 MEMORY.md 和相关主题，修订重复内容及引用；部分失败须明确报告。
+
+**输入 JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "expected_revision": {
+      "description": "memory_get 返回的 SHA-256 revision；文档已不存在时可填 absent",
+      "type": "string"
+    },
+    "path": {
+      "description": "当前授权范围内的 Markdown 相对路径",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "expected_revision"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.memory_get`
+
+按需读取记忆文档或指定行段及 revision；新会话读取一次 MEMORY.md，同一上下文复用。truncated=true 时使用 next_offset 续读并核对 revision，路径不是本机文件。
+
+**输入 JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "end_line": {
+      "description": "读取末行（包含）；省略时读取到响应上限",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "offset": {
+      "description": "上次 memory_get 返回的 next_offset 字节位置；续读时保留相同 path 和 end_line，并核对 revision",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "path": {
+      "description": "当前授权范围内的 Markdown 相对路径；新会话先读取 MEMORY.md",
+      "type": "string"
+    },
+    "start_line": {
+      "description": "读取起始行（从 1 开始）；省略时从开头读取，不能与 offset 同时使用",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "path"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.memory_search`
+
+按需搜索跨会话记忆；涉及以前的工作、决定或偏好时查询，返回有界命中片段。incomplete=true 表示扫描未完成；无需历史的任务不要检索。
+
+**输入 JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "limit": {
+      "description": "最多返回的命中文档数；默认 5，最大 20，仍受响应大小限制",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "path_prefix": {
+      "description": "当前授权范围内的相对路径前缀，例如 projects/amux/",
+      "type": "string"
+    },
+    "query": {
+      "description": "空白分隔的字面关键词；匹配中文连续文本和忽略大小写的英文，不使用正则或语义检索",
+      "type": "string"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.memory_upsert`
+
+按 revision 条件保存长期记忆；用于用户明确要求记住、稳定偏好和已验证经验。详细内容放主题文档，入口保持简短；不保存秘密、临时授权或推测。冲突须重读合并，成功后才能声称已保存。
+
+**输入 JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "description": "完整 UTF-8 Markdown 正文；主题文档最多 64 KiB，MEMORY.md 只保留简短偏好和入口（最多 2 KiB、64 行）",
+      "type": "string"
+    },
+    "expected_revision": {
+      "description": "memory_get 返回的 SHA-256 revision；新建文档必须填 absent，冲突后重读合并",
+      "type": "string"
+    },
+    "path": {
+      "description": "当前授权范围内的 Markdown 相对路径",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "content",
+    "expected_revision"
   ],
   "type": "object"
 }

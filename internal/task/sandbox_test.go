@@ -156,3 +156,29 @@ func hasEnv(env []string, want string) bool {
 	}
 	return false
 }
+
+func TestPrivateHomeOverridesInheritedNativeHomes(t *testing.T) {
+	sb, err := PrepareSandbox(t.TempDir(), "task", "instance", IsolationPrivateHome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]string{
+		"CODEX_HOME":          filepath.Join(sb.Home, ".codex"),
+		"CLAUDE_CONFIG_DIR":   "",
+		"PI_CODING_AGENT_DIR": filepath.Join(sb.Home, ".pi", "agent"),
+	} {
+		got := appendEnvDefaults(sb.BaseEnv(), []string{key + "=/shared", key + "=/other"})
+		count := 0
+		for _, entry := range got {
+			if strings.HasPrefix(entry, key+"=") {
+				count++
+				if entry != key+"="+want {
+					t.Fatal(entry)
+				}
+			}
+		}
+		if count != 1 {
+			t.Fatalf("%s count = %d", key, count)
+		}
+	}
+}
