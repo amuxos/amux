@@ -37,8 +37,8 @@ func (c *HelperClient) SessionFile(ctx context.Context, mapping AccountMapping, 
 		return nil, err
 	}
 	defer files[0].Close()
-	data, err = io.ReadAll(io.LimitReader(files[0], sessionfiles.MaxBytes+1))
-	if len(data) > sessionfiles.MaxBytes {
+	data, err = io.ReadAll(io.LimitReader(files[0], sessionfiles.MaxArtifactBytes+1))
+	if len(data) > sessionfiles.MaxArtifactBytes {
 		return nil, fmt.Errorf("file too large")
 	}
 	return data, err

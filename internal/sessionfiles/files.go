@@ -13,7 +13,12 @@ import (
 	"syscall"
 )
 
-const MaxBytes = 10 << 20
+const (
+	// MaxInputBytes bounds files copied from chat into a session workspace.
+	MaxInputBytes = 10 << 20
+	// MaxArtifactBytes bounds files copied out of a session workspace for delivery.
+	MaxArtifactBytes = 30_000_000
+)
 
 func Validate(action, name string) error {
 	if action != "put" && action != "read" {
@@ -43,12 +48,12 @@ func Exchange(workspace, action, name string, input io.Reader, output io.Writer)
 	var data []byte
 	if action == "put" {
 		dir = "amux-inbox"
-		data, err = io.ReadAll(io.LimitReader(input, MaxBytes+1))
+		data, err = io.ReadAll(io.LimitReader(input, MaxInputBytes+1))
 		if err != nil {
 			return err
 		}
-		if len(data) > MaxBytes {
-			return fmt.Errorf("file exceeds %d bytes", MaxBytes)
+		if len(data) > MaxInputBytes {
+			return fmt.Errorf("file exceeds %d bytes", MaxInputBytes)
 		}
 		if err = root.MkdirAll(dir, 0o700); err != nil {
 			return err
@@ -83,7 +88,7 @@ func Exchange(workspace, action, name string, input io.Reader, output io.Writer)
 		if os.IsExist(err) {
 			// Never overwrite an agent-owned file, even if it originally contained
 			// this attachment. Verify before reusing an idempotent destination.
-			existing, readErr := readRegular(sub, rel)
+			existing, readErr := readRegular(sub, rel, MaxInputBytes)
 			if readErr != nil || sha256.Sum256(existing) != sha256.Sum256(data) {
 				return fmt.Errorf("attachment destination already exists with different content")
 			}
@@ -93,7 +98,7 @@ func Exchange(workspace, action, name string, input io.Reader, output io.Writer)
 		_, err = io.WriteString(output, path.Join(dir, rel))
 		return err
 	}
-	data, err = readRegular(sub, name)
+	data, err = readRegular(sub, name, MaxArtifactBytes)
 	if err != nil {
 		return err
 	}
@@ -121,7 +126,7 @@ func publishInboxFile(root *os.Root, name string, write func(*os.File) error) er
 	return root.Link(temp, name)
 }
 
-func readRegular(root *os.Root, name string) ([]byte, error) {
+func readRegular(root *os.Root, name string, maxBytes int64) ([]byte, error) {
 	// NONBLOCK prevents a malicious FIFO replacement from blocking an RPC.
 	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
@@ -135,12 +140,12 @@ func readRegular(root *os.Root, name string) ([]byte, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("artifact must be a regular file")
 	}
-	if info.Size() > MaxBytes {
-		return nil, fmt.Errorf("file exceeds %d bytes", MaxBytes)
+	if info.Size() > maxBytes {
+		return nil, fmt.Errorf("file exceeds %d bytes", maxBytes)
 	}
-	data, err := io.ReadAll(io.LimitReader(f, MaxBytes+1))
-	if len(data) > MaxBytes {
-		return nil, fmt.Errorf("file exceeds %d bytes", MaxBytes)
+	data, err := io.ReadAll(io.LimitReader(f, maxBytes+1))
+	if int64(len(data)) > maxBytes {
+		return nil, fmt.Errorf("file exceeds %d bytes", maxBytes)
 	}
 	return data, err
 }

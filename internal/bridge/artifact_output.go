@@ -140,12 +140,12 @@ func (b *Bridge) deliverSessionArtifacts(ctx context.Context, chat *LarkChat, tu
 		if key == "" {
 			response, readErr := b.hub.Route(ctx, chat.TargetID, "ReadSessionArtifact", &pb.SessionFileRequest{Name: chat.SessionName, SessionId: sessionID, LaunchId: launchID, FileName: ref.name})
 			var file pb.SessionFileResponse
-			if readErr != nil || response == nil || json.Unmarshal(response.Payload, &file) != nil || len(file.Data) > sessionfiles.MaxBytes {
-				fail(fmt.Sprintf("成果 %q 读取失败；请确认文件位于 amux-outbox/ 且不超过 10 MiB。", ref.name))
+			if readErr != nil || response == nil || json.Unmarshal(response.Payload, &file) != nil || len(file.Data) > sessionfiles.MaxArtifactBytes {
+				fail(fmt.Sprintf("成果 %q 读取失败；请确认文件位于 amux-outbox/ 且不超过 30 MB。", ref.name))
 				continue
 			}
-			if total+len(file.Data) > maxMaterialTotalBytes {
-				fail(fmt.Sprintf("成果 %q 超过本轮 20 MiB 总量限制，未发送。", ref.name))
+			if total+len(file.Data) > maxArtifactTotalBytes {
+				fail(fmt.Sprintf("成果 %q 超过本轮 300 MB 总量限制，未发送。", ref.name))
 				continue
 			}
 			total += len(file.Data)
@@ -179,13 +179,14 @@ func (b *Bridge) deliverSessionArtifacts(ctx context.Context, chat *LarkChat, tu
 }
 
 func (b *Bridge) uploadArtifact(ctx context.Context, ref artifactRef, data []byte) (string, string, error) {
+	isImage := detectImageMIME(data) != "" && len(data) <= maxFeishuImageBytes
 	if b.artifactUpload != nil {
-		return b.artifactUpload(ctx, ref.name, detectImageMIME(data) != "", data)
+		return b.artifactUpload(ctx, ref.name, isImage, data)
 	}
 	if b.client == nil {
 		return "", "", fmt.Errorf("nil lark client")
 	}
-	if detectImageMIME(data) != "" {
+	if isImage {
 		resp, err := b.client.Im.Image.Create(ctx, larkim.NewCreateImageReqBuilder().Body(larkim.NewCreateImageReqBodyBuilder().ImageType("message").Image(bytes.NewReader(data)).Build()).Build())
 		if err != nil {
 			return "", "", err

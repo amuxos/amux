@@ -16,6 +16,8 @@ import (
 
 const maxMaterialFiles = 10
 const maxMaterialTotalBytes = 20 << 20
+const maxFeishuImageBytes = 10_000_000
+const maxArtifactTotalBytes = maxMaterialFiles * sessionfiles.MaxArtifactBytes
 const maxForwardMessages = 50
 
 type feishuFileRef struct{ messageID, fileKey, name string }
@@ -189,7 +191,7 @@ func (b *Bridge) downloadMessageFile(ctx context.Context, id, key string) (io.Re
 	return resp.File, resp.FileName, nil
 }
 
-const artifactInstructions = "\n\n[amux 文件交付说明：如需交付生成的图片或文件，请写入当前工作目录的 amux-outbox/，并在最终回答中使用 [文件名](amux-artifact:目录内相对路径)。只交付用户要求的成果；单文件最多 10 MiB。]"
+const artifactInstructions = "\n\n[amux 文件交付说明：如需交付生成的图片或文件，请写入当前工作目录的 amux-outbox/，并在最终回答中使用 [文件名](amux-artifact:目录内相对路径)。只交付用户要求的成果；单文件最多 30 MB，超过 10 MB 的图片将作为普通文件发送。]"
 
 func (b *Bridge) prepareFileMaterials(ctx context.Context, chat *LarkChat, text string) (context.Context, string, error) {
 	m := materialsFromContext(ctx)
@@ -257,8 +259,8 @@ func (b *Bridge) prepareFileMaterials(ctx context.Context, chat *LarkChat, text 
 				if closer, ok := r.(io.Closer); ok {
 					defer closer.Close()
 				}
-				data, err := io.ReadAll(io.LimitReader(r, sessionfiles.MaxBytes+1))
-				if err != nil || len(data) > sessionfiles.MaxBytes || total+len(data) > maxMaterialTotalBytes {
+				data, err := io.ReadAll(io.LimitReader(r, sessionfiles.MaxInputBytes+1))
+				if err != nil || len(data) > sessionfiles.MaxInputBytes || total+len(data) > maxMaterialTotalBytes {
 					notices = append(notices, fmt.Sprintf("附件 %q 读取失败或超过大小限制。", ref.name))
 					return
 				}
