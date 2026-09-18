@@ -125,14 +125,14 @@ func TestWorkspaceExchangeRejectsEscapeAndOversize(t *testing.T) {
 	if err := Exchange(root, "read", "escape", nil, &out); err == nil {
 		t.Fatal("accepted directory")
 	}
-	if err := Exchange(root, "put", "x", bytes.NewReader(make([]byte, MaxBytes+1)), &out); err == nil {
+	if err := Exchange(root, "put", "x", bytes.NewReader(make([]byte, MaxInputBytes+1)), &out); err == nil {
 		t.Fatal("accepted oversized input")
 	}
 	f, err := os.Create(filepath.Join(root, "amux-outbox", "large"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = f.Truncate(MaxBytes + 1)
+	_ = f.Truncate(MaxArtifactBytes + 1)
 	_ = f.Close()
 	if err := Exchange(root, "read", "large", nil, &out); err == nil {
 		t.Fatal("accepted oversized output")
@@ -141,5 +141,50 @@ func TestWorkspaceExchangeRejectsEscapeAndOversize(t *testing.T) {
 	_ = os.Symlink(outside, filepath.Join(root, "amux-outbox"))
 	if err := Exchange(root, "read", "secret", nil, &out); err == nil {
 		t.Fatal("accepted symlink exchange directory")
+	}
+}
+
+func TestWorkspaceExchangeAllowsArtifactAboveInputLimit(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "amux-outbox"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(root, "amux-outbox", "large.bin")
+	data := bytes.Repeat([]byte{'x'}, MaxInputBytes+1)
+	if err := os.WriteFile(file, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := Exchange(root, "read", "large.bin", nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Len() != len(data) {
+		t.Fatalf("artifact bytes = %d, want %d", out.Len(), len(data))
+	}
+}
+
+func TestWorkspaceExchangeAllowsArtifactAtOutputLimit(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "amux-outbox"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(root, "amux-outbox", "maximum.bin")
+	f, err := os.Create(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(MaxArtifactBytes); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := Exchange(root, "read", "maximum.bin", nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Len() != MaxArtifactBytes {
+		t.Fatalf("artifact bytes = %d, want %d", out.Len(), MaxArtifactBytes)
 	}
 }

@@ -169,6 +169,19 @@ func TestArtifactUploadDetectsImageBehindOrdinaryLink(t *testing.T) {
 	}
 }
 
+func TestArtifactUploadSendsLargeImageAsFile(t *testing.T) {
+	b := &Bridge{}
+	seenImage := true
+	b.artifactUpload = func(_ context.Context, _ string, image bool, _ []byte) (string, string, error) {
+		seenImage = image
+		return "file", "key", nil
+	}
+	data := append(bridgeTestPNG(t), make([]byte, maxFeishuImageBytes+1)...)
+	if _, _, err := b.uploadArtifact(context.Background(), artifactRef{name: "chart.png"}, data); err != nil || seenImage {
+		t.Fatal("large image was not downgraded to a file", err)
+	}
+}
+
 func TestArtifactInstructionsStayOutOfQuestionTitle(t *testing.T) {
 	if got := toolActivityQuestionTitle("请生成图表" + artifactInstructions); got != "请生成图表" {
 		t.Fatal(got)

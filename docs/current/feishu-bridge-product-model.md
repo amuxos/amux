@@ -70,6 +70,12 @@ container are expanded. A descendant's original message ID may retrieve its
 resources only when Feishu explicitly reports the same chat as the container;
 otherwise retrieval keeps the top-level container ID.
 
+Agent-produced outbox artifacts follow Feishu IM upload limits independently of
+inbound material limits. Each file may be at most 30 MB, with at most ten files
+and 300 MB total per turn. Recognized images up to 10 MB use the image upload
+API and retain image presentation; larger recognized images up to 30 MB use the
+file upload API instead.
+
 Bridge state is grouped by responsibility into controllers, stores and API
 ports. Routing and application wiring remain in Bridge; the ownership changes
 preserve event ordering, stream lifecycle, permissions and distribution hooks.

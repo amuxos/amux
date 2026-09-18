@@ -16,7 +16,7 @@ func (r *Runtime) SessionFile(ctx context.Context, identity principal.ExecutionI
 	if err := sessionfiles.Validate(action, name); err != nil {
 		return nil, err
 	}
-	if len(data) > sessionfiles.MaxBytes {
+	if len(data) > sessionfiles.MaxInputBytes {
 		return nil, fmt.Errorf("file too large")
 	}
 	if identity.IsolationBackend == principal.BackendLinuxDAC {
