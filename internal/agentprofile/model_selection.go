@@ -90,15 +90,21 @@ func profileModelCapability(profile Profile) RuntimeModelOption {
 // than an implicit choice made by the runtime. An explicit selection always
 // wins, and a model that declares no default keeps the runtime's own behavior.
 //
-// A provider-backed model is skipped: its effort travels inside the provider
-// binding (the pack's [thinking] block, applied by the distribution provider
-// projections), so emitting a launch flag here would duplicate it.
+// A provider-backed model is normally skipped: its effort travels inside the
+// provider binding (the pack's [thinking] block, applied by the distribution
+// provider projections), so emitting a launch flag here would duplicate it.
+// pi is the exception — its provider projection consumes the binding only as a
+// reasoning on/off switch and drops the level itself, so the level has to
+// travel on the launch flag.
 //
 // A model that declares no selectable effort is also skipped. Its declaration
 // says the runtime accepts no effort for it, so sending the model's default
 // anyway would push a value the runtime never agreed to honor.
 func applyDeclaredDefaultEffort(launch *LaunchProjection, profile Profile, model RuntimeModelOption, requested string) {
-	if strings.TrimSpace(requested) != "" || profile.Provider != nil {
+	if strings.TrimSpace(requested) != "" {
+		return
+	}
+	if profile.Provider != nil && profile.Type != "pi" {
 		return
 	}
 	defaultEffort := strings.TrimSpace(model.DefaultReasoningEffort)
@@ -214,8 +220,21 @@ func applyLaunchReasoningEffort(launch *LaunchProjection, profile Profile, effor
 		launch.ExtraArgs = append(launch.ExtraArgs, "-c", fmt.Sprintf("model_reasoning_effort=%q", effort))
 	} else if effort != "" && profile.Type == "claude" {
 		launch.ExtraArgs = append(launch.ExtraArgs, "--effort", effort)
+	} else if effort != "" && profile.Type == "pi" {
+		// pi takes the level as a launch flag and maps it to the provider's own
+		// vocabulary through the projected model's thinkingLevelMap.
+		launch.ExtraArgs = append(launch.ExtraArgs, "--thinking", piThinkingLevel(effort))
 	}
 	launch.ReasoningEffort = effort
+}
+
+// piThinkingLevel translates an effort into pi's thinking-level vocabulary.
+// pi names the disabled level "off"; every shared value is already identical.
+func piThinkingLevel(effort string) string {
+	if strings.TrimSpace(effort) == "none" {
+		return "off"
+	}
+	return strings.TrimSpace(effort)
 }
 
 // variantBaseModel returns the model name the runtime should be asked to run.

@@ -361,3 +361,31 @@ func TestDeclaredDefaultEffortIsApplied(t *testing.T) {
 		t.Fatalf("model without a default emitted a flag: %v", silent.ExtraArgs)
 	}
 }
+
+// pi takes the level as a launch flag rather than a config value, and spells
+// the disabled level "off" while every amux runtime calls it "none". Sending
+// pi the untranslated value makes it fall back to its own default instead of
+// disabling thinking, so the translation is load-bearing.
+func TestPiThinkingLevelFlag(t *testing.T) {
+	profile := Profile{Type: "pi", Model: "vendor/model"}
+	for effort, want := range map[string]string{
+		"none":    "off",
+		"minimal": "minimal",
+		"xhigh":   "xhigh",
+		"max":     "max",
+	} {
+		launch := LaunchProjection{}
+		applyLaunchReasoningEffort(&launch, profile, effort)
+		wantArgs := []string{"--thinking", want}
+		if len(launch.ExtraArgs) != 2 || launch.ExtraArgs[0] != wantArgs[0] || launch.ExtraArgs[1] != wantArgs[1] {
+			t.Errorf("effort %q: args = %v, want %v", effort, launch.ExtraArgs, wantArgs)
+		}
+	}
+
+	// No effort selected and nothing declared: no flag at all.
+	silent := LaunchProjection{}
+	applyLaunchReasoningEffort(&silent, profile, "")
+	if len(silent.ExtraArgs) != 0 {
+		t.Errorf("empty effort emitted a flag: %v", silent.ExtraArgs)
+	}
+}

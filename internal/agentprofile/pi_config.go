@@ -112,6 +112,13 @@ func piModelEntry(profile Profile, ref string) (entry map[string]any, connection
 		"contextWindow": contextWindow,
 		"maxTokens":     maxTokens,
 	}
+	// pi hides any thinking level a model does not map, and silently clamps a
+	// requested level it does not recognise down to the highest one it knows.
+	// Declaring the map is therefore what makes xhigh/max reachable at all;
+	// without it pi answers an xhigh or max request with high.
+	if reasoning {
+		entry["thinkingLevelMap"] = piThinkingLevelMap()
+	}
 	config, err := piProviderConfig(profile, ref)
 	if err != nil {
 		return nil, nil, err
@@ -211,3 +218,22 @@ func piProviderLaunchArgs(profile Profile, model string) []string {
 	}
 	return []string{"--model", piProviderID(model) + "/" + upstream}
 }
+
+// piThinkingLevelMap declares every pi thinking level as passing straight
+// through to the provider. amux only offers levels a model actually supports
+// (the runtime catalog filters them), so the map is the identity for all
+// seven; its purpose is to opt the extended levels in, since pi hides any
+// level missing from the map.
+func piThinkingLevelMap() map[string]string {
+	levels := map[string]string{}
+	for _, level := range piThinkingLevels {
+		levels[level] = level
+	}
+	// pi spells the disabled level "off" and sends "none" upstream, which is
+	// what every amux runtime calls it.
+	levels["off"] = "none"
+	return levels
+}
+
+// piThinkingLevels is pi's level vocabulary, in ascending order.
+var piThinkingLevels = []string{"off", "minimal", "low", "medium", "high", "xhigh", "max"}

@@ -190,3 +190,52 @@ func TestRenderProfileWorkspaceProjectsPiLayout(t *testing.T) {
 	assertFileContains(t, filepath.Join(root, "AGENTS.md"), "Pi agent")
 	assertFileNotExists(t, filepath.Join(root, "amux-profile.json"))
 }
+
+// pi hides any thinking level a model does not map, and silently clamps a
+// requested level it does not recognise down to the highest one it knows. A
+// reasoning model must therefore declare the map, or an xhigh or max selection
+// runs at high without any error.
+func TestPiReasoningModelDeclaresThinkingLevelMap(t *testing.T) {
+	profile := Profile{
+		Type:  "pi",
+		Model: "glm-test/glm5.2",
+		Provider: &Provider{
+			Ref:           "glm-test/glm5.2",
+			Platform:      "openai-compat",
+			APIKeyEnv:     "GLM_API_KEY",
+			BaseURL:       "https://provider.example/v1",
+			UpstreamModel: "glm-5.2",
+			Thinking:      map[string]string{"reasoning_effort": "xhigh"},
+		},
+	}
+	ts, err := piProviderExtensionTS(profile, profile.Model)
+	if err != nil {
+		t.Fatalf("piProviderExtensionTS: %v", err)
+	}
+	for _, want := range []string{
+		`"thinkingLevelMap"`,
+		// pi spells the disabled level "off"; the provider is asked for "none".
+		`"off": "none"`,
+		`"high": "high"`,
+		`"xhigh": "xhigh"`,
+		`"max": "max"`,
+	} {
+		if !strings.Contains(ts, want) {
+			t.Errorf("extension missing %q:\n%s", want, ts)
+		}
+	}
+
+	// A model with no reasoning support must not advertise the map.
+	plain := profile
+	plain.Provider = &Provider{
+		Ref: "glm-test/glm5.2", Platform: "openai-compat", APIKeyEnv: "GLM_API_KEY",
+		BaseURL: "https://provider.example/v1", UpstreamModel: "glm-5.2",
+	}
+	plainTS, err := piProviderExtensionTS(plain, plain.Model)
+	if err != nil {
+		t.Fatalf("piProviderExtensionTS: %v", err)
+	}
+	if strings.Contains(plainTS, "thinkingLevelMap") {
+		t.Errorf("non-reasoning model advertised a thinkingLevelMap:\n%s", plainTS)
+	}
+}
