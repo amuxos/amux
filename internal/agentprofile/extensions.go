@@ -35,6 +35,40 @@ type RuntimeCatalogSource struct {
 	Ref         string
 	DisplayName string
 	Models      []string
+	// Capabilities optionally declares per-model reasoning capabilities for a
+	// distribution runtime whose models are not uniformly capable. A model with
+	// a declared capability keeps that declaration verbatim; a model without one
+	// falls back to the shared per-protocol defaults below. A runtime whose
+	// catalog is discovered at runtime declares here rather than relying on the
+	// name heuristics, which cannot see that runtime's real capabilities.
+	Capabilities map[string]RuntimeModelCapability
+	// Variants declares additional model refs backed by the same runtime model
+	// but a different backend variant.
+	Variants []RuntimeModelVariant
+}
+
+// RuntimeModelCapability is the declared reasoning surface of one runtime model.
+// Presence in RuntimeCatalogSource.Capabilities is the declaration: a nil
+// SupportedReasoningEfforts therefore means the model accepts no effort
+// selection, not that the protocol defaults apply.
+type RuntimeModelCapability struct {
+	// SupportedReasoningEfforts is the exact effort enum the model accepts.
+	SupportedReasoningEfforts []string
+	// DefaultReasoningEffort is the effort the model uses when none is selected.
+	DefaultReasoningEffort string
+}
+
+// RuntimeModelVariant is one backend variant of a native runtime model. A
+// runtime may expose an alternate backend of a model (for example a
+// larger-context one) that trades cost or quota for capability; the variant is
+// selected by name at launch.
+type RuntimeModelVariant struct {
+	// Ref is the user-facing model ref (for example "GPT-5.6-Sol-Max").
+	Ref string
+	// AgentModel is the underlying runtime model name (for example "GPT-5.6-Sol").
+	AgentModel string
+	// BackendVariant is the runtime's backend variant identifier.
+	BackendVariant string
 }
 
 // Customization is installed once, before starting the application. Shared
@@ -95,6 +129,9 @@ func RegisterCustomization(next Customization) (err error) {
 			return err
 		}
 	}
+	if err := validateRuntimeCatalogSources(next.RuntimeCatalog); err != nil {
+		return err
+	}
 	oldCustomization, oldFS, oldMetadata := customization, builtinProfileFS, builtinCompatibility
 	customization, builtinProfileFS = next, next.Builtin
 	builtinCompatibility = make(map[string]builtinCompatibilityMetadata, len(next.BuiltinMetadata))
@@ -118,7 +155,13 @@ func RegisterCustomization(next Customization) (err error) {
 	}
 	sources := make([]runtimeCatalogSource, 0, len(next.RuntimeCatalog))
 	for _, source := range next.RuntimeCatalog {
-		sources = append(sources, runtimeCatalogSource{ref: source.Ref, displayName: source.DisplayName, models: cloneStrings(source.Models)})
+		sources = append(sources, runtimeCatalogSource{
+			ref:          source.Ref,
+			displayName:  source.DisplayName,
+			models:       cloneStrings(source.Models),
+			capabilities: cloneRuntimeModelCapabilities(source.Capabilities),
+			variants:     cloneRuntimeModelVariants(source.Variants),
+		})
 	}
 	builtinProfiles, catalogPacks, runtimeCatalogSources = profiles, packs, sources
 	allowUnlistedNativeRuntimeModels = next.AllowUnlistedNativeRuntimeModels

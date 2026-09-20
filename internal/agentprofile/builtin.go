@@ -114,6 +114,9 @@ type ModelOption struct {
 	AgentModel  string
 	ProviderRef string
 	Provider    *Provider
+	// BackendVariant selects a runtime backend variant of AgentModel (see
+	// RuntimeModelOption.BackendVariant).
+	BackendVariant string
 }
 
 type ResolvedModelSelection struct {
@@ -122,6 +125,8 @@ type ResolvedModelSelection struct {
 	AgentModel  string
 	ProviderRef string
 	Provider    *Provider
+	// BackendVariant selects a runtime backend variant of AgentModel.
+	BackendVariant string
 }
 
 type Placement struct {

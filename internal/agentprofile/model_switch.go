@@ -17,6 +17,9 @@ type ModelSwitchProjection struct {
 	Env         []string
 	Selection   ResolvedModelSelection
 	ProfileSpec *pb.AgentProfileSpec
+	// BackendVariant is the runtime backend variant the new selection resolves
+	// to; the distribution layer projects it into args.
+	BackendVariant string
 }
 
 // ProjectModelSwitch rebuilds a session's launch args for a model switch. It
@@ -46,13 +49,23 @@ func ProjectModelSwitch(profile Profile, storedArgs []string, requested string) 
 	args := append(ModelArgs(profile.Type, selection.Ref), stripModelSwitchExecutionArgs(profile.Type, storedArgs)...)
 	args = appendDistributionDefaultProviderArgs(selected, selection.Ref, args, args)
 	args = appendUpstreamProviderArgs(selected, selection.Ref, args)
+	// The stored args were stripped of the previous variant above, so append the
+	// new selection's variant (if any) last. The variant ref is not a name the
+	// runtime recognizes, so its underlying model must be named alongside it.
+	if variant := strings.TrimSpace(selection.BackendVariant); variant != "" {
+		if agentModel := strings.TrimSpace(selection.AgentModel); agentModel != "" {
+			args = append(args, "-c", fmt.Sprintf("model=%q", agentModel))
+		}
+		args = append(args, "-c", fmt.Sprintf("model_backend_variant=%q", variant))
+	}
 	spec := ToPBProfileSpec(selected)
 	spec.Model = selection.Ref
 	return ModelSwitchProjection{
-		ExtraArgs:   args,
-		Env:         cloneStrings(profile.DefaultEnv),
-		Selection:   selection,
-		ProfileSpec: spec,
+		ExtraArgs:      args,
+		Env:            cloneStrings(profile.DefaultEnv),
+		Selection:      selection,
+		ProfileSpec:    spec,
+		BackendVariant: selection.BackendVariant,
 	}, nil
 }
 
@@ -81,11 +94,12 @@ func resolveModelSwitchSelection(profile Profile, requested string) (ResolvedMod
 	case 1:
 		option := matches[0]
 		return ResolvedModelSelection{
-			Ref:         option.Ref,
-			Kind:        option.Kind,
-			AgentModel:  option.AgentModel,
-			ProviderRef: option.ProviderRef,
-			Provider:    cloneProvider(option.Provider),
+			Ref:            option.Ref,
+			Kind:           option.Kind,
+			AgentModel:     option.AgentModel,
+			ProviderRef:    option.ProviderRef,
+			Provider:       cloneProvider(option.Provider),
+			BackendVariant: option.BackendVariant,
 		}, nil
 	default:
 		refs := make([]string, 0, len(matches))
@@ -164,7 +178,7 @@ func modelSwitchConfigOwnsExecution(agentType, value string) bool {
 		return true
 	}
 	switch key {
-	case "models", "model_context_window", "model_max_output_tokens", "disable_model_failover", "web_search":
+	case "models", "model_context_window", "model_max_output_tokens", "disable_model_failover", "web_search", "model_backend_variant":
 		return true
 	}
 	return false

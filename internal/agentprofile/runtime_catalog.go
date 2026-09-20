@@ -28,12 +28,18 @@ type RuntimeModelOption struct {
 	Provider                  *Provider
 	SupportedReasoningEfforts []string
 	DefaultReasoningEffort    string
+	// BackendVariant selects a runtime backend variant of AgentModel for models
+	// whose declared ref is a variant rather than a plain model name. Empty
+	// means the runtime picks its default backend for the model.
+	BackendVariant string
 }
 
 type runtimeCatalogSource struct {
-	ref         string
-	displayName string
-	models      []string
+	ref          string
+	displayName  string
+	models       []string
+	capabilities map[string]RuntimeModelCapability
+	variants     []RuntimeModelVariant
 }
 
 var standardReasoningEfforts = []string{"none", "low", "medium", "high", "xhigh"}
@@ -48,9 +54,51 @@ func RuntimeCatalog() ([]RuntimeOption, error) {
 	if err != nil {
 		return nil, err
 	}
+	return buildRuntimeCatalog(runtimeCatalogSources, manifest)
+}
 
-	out := make([]RuntimeOption, 0, len(runtimeCatalogSources))
-	for _, source := range runtimeCatalogSources {
+// validateRuntimeCatalogSources rejects declarations that cannot be projected
+// consistently: an effort default outside the declared enum, a variant pointing
+// at a model the runtime does not expose, or an empty member in either.
+func validateRuntimeCatalogSources(sources []RuntimeCatalogSource) error {
+	for _, source := range sources {
+		for ref, capability := range source.Capabilities {
+			if strings.TrimSpace(ref) == "" {
+				return fmt.Errorf("runtime %s declares a capability with an empty model ref", source.Ref)
+			}
+			for _, effort := range capability.SupportedReasoningEfforts {
+				if strings.TrimSpace(effort) == "" {
+					return fmt.Errorf("runtime %s model %s declares an empty reasoning effort", source.Ref, ref)
+				}
+			}
+			if effort := strings.TrimSpace(capability.DefaultReasoningEffort); effort != "" &&
+				len(capability.SupportedReasoningEfforts) > 0 &&
+				!stringSliceContains(capability.SupportedReasoningEfforts, effort) {
+				return fmt.Errorf("runtime %s model %s default reasoning effort %q is not in its supported efforts", source.Ref, ref, effort)
+			}
+		}
+		for _, variant := range source.Variants {
+			if strings.TrimSpace(variant.Ref) == "" || strings.TrimSpace(variant.AgentModel) == "" {
+				return fmt.Errorf("runtime %s declares a variant with an empty ref or agent model", source.Ref)
+			}
+			if _, ok := source.Capabilities[variant.AgentModel]; !ok && !stringSliceContains(source.Models, variant.AgentModel) {
+				return fmt.Errorf("runtime %s variant %s refers to unknown model %s", source.Ref, variant.Ref, variant.AgentModel)
+			}
+			for _, existing := range source.Variants {
+				if existing.Ref == variant.Ref && existing.AgentModel == variant.AgentModel && existing.BackendVariant != variant.BackendVariant {
+					return fmt.Errorf("runtime %s declares variant %s twice with different backends", source.Ref, variant.Ref)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// buildRuntimeCatalog composes the runtime options from the registered sources
+// and the pack manifest's provider bindings.
+func buildRuntimeCatalog(sources []runtimeCatalogSource, manifest packManifest) ([]RuntimeOption, error) {
+	out := make([]RuntimeOption, 0, len(sources))
+	for _, source := range sources {
 		option := RuntimeOption{
 			Ref:         source.ref,
 			AgentType:   source.ref,
@@ -79,7 +127,14 @@ func RuntimeCatalog() ([]RuntimeOption, error) {
 				model.Provider = provider
 				model.DefaultReasoningEffort = providerReasoningEffort(provider)
 			}
-			if profileConfigProtocol(source.ref) == "codex" {
+			// A declared capability replaces the protocol heuristics entirely.
+			// The heuristics below infer effort support from the model name, which
+			// only holds for runtimes whose catalog is fixed at build time; a
+			// runtime that discovers models from its own CLI declares them instead.
+			if capability, ok := source.capabilities[ref]; ok {
+				model.SupportedReasoningEfforts = cloneStrings(capability.SupportedReasoningEfforts)
+				model.DefaultReasoningEffort = capability.DefaultReasoningEffort
+			} else if profileConfigProtocol(source.ref) == "codex" {
 				model.SupportedReasoningEfforts = cloneStrings(standardReasoningEfforts)
 				if strings.Contains(ref, "glm") || strings.Contains(ref, "deepseek") {
 					model.SupportedReasoningEfforts = cloneStrings(extendedReasoningEfforts)
@@ -89,14 +144,47 @@ func RuntimeCatalog() ([]RuntimeOption, error) {
 			}
 			// Some distribution models expose thinking as an enable/disable
 			// capability. Do not present an effort enum the adapter cannot apply.
-			if runtimeModelUsesBinaryThinking(ref) {
+			if _, declared := source.capabilities[ref]; !declared && runtimeModelUsesBinaryThinking(ref) {
 				model.SupportedReasoningEfforts = nil
+			}
+			option.Models = append(option.Models, model)
+		}
+		for _, variant := range source.variants {
+			variantRef := strings.TrimSpace(variant.Ref)
+			agentModel := strings.TrimSpace(variant.AgentModel)
+			if variantRef == "" || agentModel == "" {
+				continue
+			}
+			model := RuntimeModelOption{
+				Ref:            variantRef,
+				Kind:           ModelKindNative,
+				AgentModel:     agentModel,
+				BackendVariant: strings.TrimSpace(variant.BackendVariant),
+			}
+			// A variant runs the same runtime model, so it reports that model's
+			// reasoning surface and provider binding.
+			if base, ok := findRuntimeModelByRef(option.Models, agentModel); ok {
+				model.Kind = base.Kind
+				model.ProviderRef = base.ProviderRef
+				model.Provider = cloneProvider(base.Provider)
+				model.SupportedReasoningEfforts = cloneStrings(base.SupportedReasoningEfforts)
+				model.DefaultReasoningEffort = base.DefaultReasoningEffort
 			}
 			option.Models = append(option.Models, model)
 		}
 		out = append(out, option)
 	}
 	return out, nil
+}
+
+// findRuntimeModelByRef returns the catalog entry with the given ref.
+func findRuntimeModelByRef(models []RuntimeModelOption, ref string) (RuntimeModelOption, bool) {
+	for _, model := range models {
+		if model.Ref == ref {
+			return model, true
+		}
+	}
+	return RuntimeModelOption{}, false
 }
 
 func ResolveRuntimeOption(ref string) (RuntimeOption, error) {
@@ -185,6 +273,25 @@ func cloneRuntimeModelOption(model RuntimeModelOption) RuntimeModelOption {
 	model.Provider = cloneProvider(model.Provider)
 	model.SupportedReasoningEfforts = cloneStrings(model.SupportedReasoningEfforts)
 	return model
+}
+
+func cloneRuntimeModelCapabilities(in map[string]RuntimeModelCapability) map[string]RuntimeModelCapability {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]RuntimeModelCapability, len(in))
+	for ref, capability := range in {
+		capability.SupportedReasoningEfforts = cloneStrings(capability.SupportedReasoningEfforts)
+		out[ref] = capability
+	}
+	return out
+}
+
+func cloneRuntimeModelVariants(in []RuntimeModelVariant) []RuntimeModelVariant {
+	if in == nil {
+		return nil
+	}
+	return append([]RuntimeModelVariant(nil), in...)
 }
 
 func providerReasoningEffort(provider *Provider) string {

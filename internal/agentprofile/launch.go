@@ -27,6 +27,10 @@ type LaunchProjection struct {
 	Model           string
 	Runtime         string
 	ReasoningEffort string
+	// BackendVariant is the runtime backend variant the selected model resolves
+	// to. The distribution layer projects it into launch args because only that
+	// layer knows the runtime's variant flag surface.
+	BackendVariant string
 }
 
 func DefaultPackRegistryPath() string {

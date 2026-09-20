@@ -18,11 +18,12 @@ func ResolveModelSelection(profile Profile, requested string) (ResolvedModelSele
 	}
 	if option, ok := profile.ModelOptions[ref]; ok {
 		return ResolvedModelSelection{
-			Ref:         option.Ref,
-			Kind:        option.Kind,
-			AgentModel:  option.AgentModel,
-			ProviderRef: option.ProviderRef,
-			Provider:    cloneProvider(option.Provider),
+			Ref:            option.Ref,
+			Kind:           option.Kind,
+			AgentModel:     option.AgentModel,
+			ProviderRef:    option.ProviderRef,
+			Provider:       cloneProvider(option.Provider),
+			BackendVariant: option.BackendVariant,
 		}, nil
 	}
 	if !profile.ModelPolicyEnforced && profile.Provider != nil && ref == strings.TrimSpace(configuredModel(profile)) {
@@ -63,9 +64,48 @@ func ProjectProfileLaunchChecked(profile Profile, explicitArgs []string, explici
 	if err := validateProvider(selected.Type, selected.Provider); err != nil {
 		return LaunchProjection{}, fmt.Errorf("model %q: %w", selection.Ref, err)
 	}
-	launch := ProjectProfileLaunch(selected, explicitArgs, explicitEnv, LaunchOptions{Model: selection.Ref})
+	launch := ProjectProfileLaunch(selected, explicitArgs, explicitEnv, LaunchOptions{Model: variantBaseModel(selection.Ref, selection.AgentModel, selection.BackendVariant)})
 	applyLaunchReasoningEffort(&launch, selected, effort)
+	applyLaunchBackendVariant(&launch, selection.AgentModel, selection.BackendVariant)
+	applyDeclaredDefaultEffort(&launch, selected, profileModelCapability(selected), effort)
 	return launch, nil
+}
+
+// profileModelCapability resolves the reasoning capability of the Profile's
+// effective model. Providers carry their default in the pack binding; other
+// models report what their runtime catalog declares.
+func profileModelCapability(profile Profile) RuntimeModelOption {
+	if profile.Provider != nil {
+		return RuntimeModelOption{Ref: configuredModel(profile), DefaultReasoningEffort: providerReasoningEffort(profile.Provider)}
+	}
+	runtime, err := ResolveRuntimeOption(profile.Type)
+	if err != nil {
+		return RuntimeModelOption{Ref: configuredModel(profile)}
+	}
+	return ProfileNativeRuntimeModel(runtime, configuredModel(profile))
+}
+
+// applyDeclaredDefaultEffort applies the model's declared default effort when
+// the caller selected none, so a model's default is what actually runs rather
+// than an implicit choice made by the runtime. An explicit selection always
+// wins, and a model that declares no default keeps the runtime's own behavior.
+//
+// A provider-backed model is skipped: its effort travels inside the provider
+// binding (the pack's [thinking] block, applied by the distribution provider
+// projections), so emitting a launch flag here would duplicate it.
+//
+// A model that declares no selectable effort is also skipped. Its declaration
+// says the runtime accepts no effort for it, so sending the model's default
+// anyway would push a value the runtime never agreed to honor.
+func applyDeclaredDefaultEffort(launch *LaunchProjection, profile Profile, model RuntimeModelOption, requested string) {
+	if strings.TrimSpace(requested) != "" || profile.Provider != nil {
+		return
+	}
+	defaultEffort := strings.TrimSpace(model.DefaultReasoningEffort)
+	if defaultEffort == "" {
+		return
+	}
+	applyLaunchReasoningEffort(launch, profile, defaultEffort)
 }
 
 func validateProfileReasoningEffort(profile Profile, effort string) error {
@@ -125,11 +165,12 @@ func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, 
 	for _, runtimeModel := range runtime.Models {
 		selected.SupportedModels = append(selected.SupportedModels, runtimeModel.Ref)
 		selected.ModelOptions[runtimeModel.Ref] = ModelOption{
-			Ref:         runtimeModel.Ref,
-			Kind:        runtimeModel.Kind,
-			AgentModel:  runtimeModel.AgentModel,
-			ProviderRef: runtimeModel.ProviderRef,
-			Provider:    cloneProvider(runtimeModel.Provider),
+			Ref:            runtimeModel.Ref,
+			Kind:           runtimeModel.Kind,
+			AgentModel:     runtimeModel.AgentModel,
+			ProviderRef:    runtimeModel.ProviderRef,
+			Provider:       cloneProvider(runtimeModel.Provider),
+			BackendVariant: runtimeModel.BackendVariant,
 		}
 	}
 	selected.Placement.Requires.AgentTypes = []string{runtime.AgentType}
@@ -146,9 +187,11 @@ func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, 
 	// legacy execution flags; retain unrelated args without allowing those flags
 	// to silently replace the saved Bot launch tuple.
 	explicitArgs = stripRuntimeExecutionSelectionArgs(runtime.AgentType, explicitArgs)
-	launch := ProjectProfileLaunch(selected, explicitArgs, explicitEnv, LaunchOptions{Model: model.Ref})
+	launch := ProjectProfileLaunch(selected, explicitArgs, explicitEnv, LaunchOptions{Model: variantBaseModel(model.Ref, model.AgentModel, model.BackendVariant)})
 	applyLaunchReasoningEffort(&launch, selected, effort)
 	launch.Runtime = runtime.Ref
+	applyLaunchBackendVariant(&launch, model.AgentModel, model.BackendVariant)
+	applyDeclaredDefaultEffort(&launch, selected, model, effort)
 	return launch, nil
 }
 
@@ -173,6 +216,37 @@ func applyLaunchReasoningEffort(launch *LaunchProjection, profile Profile, effor
 		launch.ExtraArgs = append(launch.ExtraArgs, "--effort", effort)
 	}
 	launch.ReasoningEffort = effort
+}
+
+// variantBaseModel returns the model name the runtime should be asked to run.
+// A variant ref names a backend choice rather than a model the runtime knows,
+// so a variant selection resolves to its underlying model; anything else keeps
+// the ref it was given.
+func variantBaseModel(ref, agentModel, variant string) string {
+	if strings.TrimSpace(variant) == "" {
+		return ref
+	}
+	if agentModel = strings.TrimSpace(agentModel); agentModel != "" {
+		return agentModel
+	}
+	return ref
+}
+
+// applyLaunchBackendVariant appends the runtime's backend variant selection for
+// a model that resolved to a non-default backend. Both the variant and the
+// model it applies to are emitted as process-global `-c` overrides: the model
+// name is a user-facing variant ref that the runtime does not recognize, so the
+// launch must also name the underlying model for the variant to attach to.
+func applyLaunchBackendVariant(launch *LaunchProjection, agentModel, variant string) {
+	variant = strings.TrimSpace(variant)
+	if variant == "" {
+		return
+	}
+	if agentModel = strings.TrimSpace(agentModel); agentModel != "" {
+		launch.ExtraArgs = append(launch.ExtraArgs, "-c", fmt.Sprintf("model=%q", agentModel))
+	}
+	launch.ExtraArgs = append(launch.ExtraArgs, "-c", fmt.Sprintf("model_backend_variant=%q", variant))
+	launch.BackendVariant = variant
 }
 
 func stripRuntimeExecutionSelectionArgs(agentType string, args []string) []string {
@@ -213,7 +287,7 @@ func runtimeConfigOwnsExecutionSelection(agentType, value string) bool {
 	if profileConfigProtocol(agentType) != "codex" {
 		return false
 	}
-	for _, key := range []string{"model", "model_provider", "model_reasoning_effort", "plan_mode_reasoning_effort"} {
+	for _, key := range []string{"model", "model_provider", "model_reasoning_effort", "plan_mode_reasoning_effort", "model_backend_variant"} {
 		if _, ok := codexConfigValue(value, key); ok {
 			return true
 		}
