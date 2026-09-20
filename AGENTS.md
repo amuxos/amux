@@ -64,6 +64,16 @@ and the Claude sidecar. `scripts/list-long-tests.sh` discovers long tests in
 `app/cli`; their first statement is `requireLongTest(t)` and the gate explicitly
 sets `AMUX_RUN_LONG_TESTS=1`. Do not maintain a separate list of long test names.
 
+The `go` directive in `go.mod` is a language floor, not a toolchain pin; CI pins
+a patched toolchain separately in `.github/workflows/ci.yml`. A contributor's
+local Go may therefore be newer than the floor, and a gate that passes locally
+can still fail in CI. Keep the gate toolchain-agnostic: do not rely on standard
+library behavior that differs between the floor and current releases, and verify
+a suspicious toolchain-dependent failure against the CI version before dismissing
+it. Go 1.25.0 and 1.25.1, for example, resolved a rooted `os.Root` `DirEntry`
+against the process working directory, so `internal/memory` scans failed unless
+the process happened to run in the store root.
+
 <a id="结构与依赖边界"></a>
 
 ## Structure and dependency boundaries

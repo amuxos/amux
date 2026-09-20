@@ -523,7 +523,11 @@ func scopeUsage(ctx context.Context, root *os.Root) (int, int64, error) {
 		if entry.IsDir() || !strings.HasSuffix(name, ".md") || strings.HasPrefix(entry.Name(), ".") {
 			return nil
 		}
-		info, err := entry.Info()
+		// Stat through the Root instead of entry.Info(). Go 1.25.0 and 1.25.1
+		// gave a child Root a relative name, so a rooted DirEntry resolved
+		// against the process working directory: the scan failed outside that
+		// directory and could measure a same-named file outside the root.
+		info, err := root.Lstat(name)
 		if err != nil {
 			return err
 		}
@@ -627,7 +631,9 @@ func (s *Store) Search(ctx context.Context, scope Scope, query string, opts Sear
 			result.Incomplete = true
 			return nil
 		}
-		info, err := entry.Info()
+		// See scopeUsage: entry.Info() is not confined by the Root on Go 1.25.0
+		// and 1.25.1, which would misreport the scan budget.
+		info, err := root.Lstat(name)
 		if err != nil {
 			result.Incomplete = true
 			return nil

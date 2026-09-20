@@ -439,3 +439,33 @@ func TestConcurrentWritesShareFileQuota(t *testing.T) {
 		t.Fatalf("concurrent quota: successes=%d limits=%d", successes, limits)
 	}
 }
+
+// TestScanIsConfinedToStoreRoot pins the scope scan to the store root. Go 1.25.0
+// and 1.25.1 named a child Root relatively, so a rooted DirEntry resolved against
+// the process working directory and a same-named path outside the root could be
+// measured instead of the document. The scan budget makes that observable
+// without touching the real quota.
+func TestScanIsConfinedToStoreRoot(t *testing.T) {
+	decoyDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(decoyDir, "global"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	// Larger than the scan budget below, so an unconfined scan skips the document.
+	if err := os.WriteFile(filepath.Join(decoyDir, "global", "topic.md"), []byte(strings.Repeat("d", 4096)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(decoyDir)
+
+	s := testStore(t)
+	s.scanBytes = 64
+	scope := Scope{Global: true}
+	put(t, s, scope, "topic.md", "original")
+
+	found, err := s.Search(context.Background(), scope, "original", SearchOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found.Incomplete || len(found.Matches) != 1 || found.Matches[0].Path != "topic.md" {
+		t.Fatalf("scan escaped the store root: %+v", found)
+	}
+}

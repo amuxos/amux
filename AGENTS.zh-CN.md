@@ -52,6 +52,13 @@ CLI 长测试、四个二进制和 Claude sidecar。`scripts/list-long-tests.sh`
 `app/cli` 的长测试；这类测试函数以 `requireLongTest(t)` 为第一条语句，并由门禁
 显式启用 `AMUX_RUN_LONG_TESTS=1`。不要维护另一份长测试函数名清单。
 
+`go.mod` 的 `go` 指令是语言下限，不是工具链锁定；CI 在
+`.github/workflows/ci.yml` 中另行固定已修复的工具链。因此贡献者本机 Go 版本可能
+高于该下限，本机通过的门禁仍可能在 CI 失败。门禁必须与工具链版本无关：不要依赖
+下限版本与当前版本行为不同的标准库行为；遇到疑似版本相关的失败，先按 CI 版本复现
+再判断。例如 Go 1.25.0/1.25.1 会把 root 内的 `os.Root` `DirEntry` 按进程工作目录
+解析，导致 `internal/memory` 的扫描在进程未运行于存储根目录时失败。
+
 ## 结构与依赖边界
 
 - `cmd/{amux,amuxd,amuxlet,amux-isolation-helper}` 是可构建的薄入口。
