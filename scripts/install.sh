@@ -8,6 +8,7 @@ model=""
 source_dir=""
 source_root="${AMUX_INSTALL_SOURCE_ROOT:-}"
 from_source=0
+[[ -z "$source_root" ]] || from_source=1
 built_from_source=0
 feishu=0
 interaction_mode="singleton"
@@ -19,6 +20,14 @@ update_shell=1
 sidecar_dir=""
 clean=0
 stage_dir=""
+download_dir=""
+release_version=""
+release_base_url="${AMUX_RELEASE_BASE_URL:-https://github.com/amuxos/amux-releases/releases}"
+cleanup_install() {
+  [[ -z "$stage_dir" ]] || rm -rf -- "$stage_dir"
+  [[ -z "$download_dir" ]] || rm -rf -- "$download_dir"
+}
+trap cleanup_install EXIT
 
 die() { printf 'install: %s\n' "$*" >&2; exit 1; }
 progress() { printf '\n==> %s\n' "$*"; }
@@ -36,7 +45,8 @@ already be installed and authenticated.
   --provider <runtime>         Alias for --runtime.
   --agent-profile <ref>        Matching builtin/<runtime> (default: automatic).
   --model <model>              Native model override (default: agent default).
-  --from-source                Build this public checkout (default).
+  --from-source                Build this public checkout (default in a checkout).
+  --version <vX.Y.Z>           Download a specific public release (otherwise latest).
   --source-root <directory>    Public checkout, also AMUX_INSTALL_SOURCE_ROOT.
   --source <directory>         Use extracted local amux release binaries instead.
   --claude-sidecar <directory> Prepared SDK directory (dist/ and node_modules/).
@@ -62,7 +72,8 @@ are reused. No agent prompt or chat message is sent by this script.
 Reruns stop the existing system before replacing binaries and preserve data.
 --clean deletes amux configuration, credentials, Sessions, logs and Pack data;
 Feishu must be provisioned again. Native agents and their logins are retained.
-No download source is configured; supply source code or local binaries.
+A standalone script downloads from amuxos/amux-releases without Go or make.
+AMUX_RELEASE_BASE_URL overrides the releases base URL (HTTPS or file).
 EOF
 }
 
@@ -74,14 +85,15 @@ set_runtime() {
 while (($#)); do
   option="$1"
   case "$option" in
-    --runtime|--provider|--agent-profile|--model|--source|--source-root|--claude-sidecar|--interaction-mode|--feishu-profile|--session-name|--session-cwd)
+    --version|--runtime|--provider|--agent-profile|--model|--source|--source-root|--claude-sidecar|--interaction-mode|--feishu-profile|--session-name|--session-cwd)
       [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || die "$option requires a value"
       value="$2"; shift ;;
-    --runtime=*|--provider=*|--agent-profile=*|--model=*|--source=*|--source-root=*|--claude-sidecar=*|--interaction-mode=*|--feishu-profile=*|--session-name=*|--session-cwd=*)
+    --version=*|--runtime=*|--provider=*|--agent-profile=*|--model=*|--source=*|--source-root=*|--claude-sidecar=*|--interaction-mode=*|--feishu-profile=*|--session-name=*|--session-cwd=*)
       value="${option#*=}"; option="${option%%=*}"
       [[ -n "$value" ]] || die "$option requires a value" ;;
   esac
   case "$option" in
+    --version) release_version="$value" ;;
     --runtime|--provider) set_runtime "$value" ;;
     --agent-profile) agent_profile="$value" ;;
     --model) model="$value" ;;
@@ -102,6 +114,7 @@ while (($#)); do
   shift
 done
 
+[[ -z "$release_version" || ( -z "$source_dir" && -z "$source_root" && "$from_source" == 0 ) ]] || die "--version conflicts with local source options"
 [[ -z "$source_dir" || "$from_source" == 0 ]] || die "--source conflicts with --from-source/--source-root"
 [[ "$feishu" == 1 || "$feishu_options" == 0 ]] || die "Feishu options require --feishu"
 case "$interaction_mode" in singleton|thread) ;; *) die "unsupported interaction mode: $interaction_mode" ;; esac
@@ -156,6 +169,46 @@ public_source() {
     [[ "$(awk '$1 == "module" {gsub(/"/, "", $2); print $2; exit}' "$1/go.mod")" == github.com/amuxos/amux ]]
 }
 
+download_release() {
+  require_command curl
+  require_command tar
+  local platform_os platform_arch name checksum actual entry
+  case "$(uname -s)" in Darwin) platform_os=darwin ;; Linux) platform_os=linux ;; *) die 'only macOS and Linux releases are available' ;; esac
+  case "$(uname -m)" in arm64|aarch64) platform_arch=arm64 ;; x86_64|amd64) platform_arch=amd64 ;; *) die 'unsupported CPU architecture' ;; esac
+  case "$release_base_url" in https://*|file://*) ;; *) die 'release URL must use HTTPS or file' ;; esac
+  release_base_url="${release_base_url%/}"
+  download_dir="$(mktemp -d /tmp/amux-download.XXXXXX)"
+  if [[ -z "$release_version" ]]; then
+    release_version="$(curl --proto '=https,file' --proto-redir '=https' -fsSL --retry 3 --connect-timeout 15 --max-time 60 --max-filesize 128 "$release_base_url/latest/download/version.txt")" || die 'cannot resolve latest release'
+  fi
+  [[ "$release_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die 'release version must be vX.Y.Z'
+  name="amux_${release_version}_${platform_os}_${platform_arch}"
+  progress "Downloading $name"
+  curl --proto '=https,file' --proto-redir '=https' -fsSL --retry 3 --connect-timeout 15 --max-time 600 "$release_base_url/download/$release_version/$name.tar.gz" -o "$download_dir/package.tar.gz"
+  checksum="$(curl --proto '=https,file' --proto-redir '=https' -fsSL --retry 3 --connect-timeout 15 --max-time 60 --max-filesize 1024 "$release_base_url/download/$release_version/$name.tar.gz.sha256")"
+  checksum="${checksum%% *}"
+  [[ "$checksum" =~ ^[a-f0-9]{64}$ ]] || die 'invalid release checksum'
+  if command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "$download_dir/package.tar.gz")"
+  else
+    require_command sha256sum
+    actual="$(sha256sum "$download_dir/package.tar.gz")"
+  fi
+  [[ "${actual%% *}" == "$checksum" ]] || die 'release checksum mismatch; installation unchanged'
+  tar -tzf "$download_dir/package.tar.gz" > "$download_dir/entries"
+  while IFS= read -r entry; do
+    case "$entry" in "$name"|"$name/"*) ;; *) die "unexpected archive path: $entry" ;; esac
+    case "/$entry/" in */../*|*\\*) die 'unsafe release archive path' ;; esac
+  done < "$download_dir/entries"
+  tar -tvzf "$download_dir/package.tar.gz" > "$download_dir/types"
+  while IFS= read -r entry; do
+    case "${entry:0:1}" in -|d) ;; *) die 'release contains an unsupported archive entry' ;; esac
+  done < "$download_dir/types"
+  tar -xzf "$download_dir/package.tar.gz" -C "$download_dir"
+  source_dir="$download_dir/$name"
+  [[ -n "$sidecar_dir" ]] || sidecar_dir="$source_dir/sidecars/claude-sdk"
+}
+
 prepare_source() {
   if [[ -n "$source_dir" ]]; then
     [[ -d "$source_dir" ]] || die "binary directory not found: $source_dir"
@@ -165,18 +218,22 @@ prepare_source() {
       source_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
       if ! public_source "$source_root" && public_source "$PWD"; then source_root="$PWD"; fi
     fi
-    public_source "$source_root" || die "--from-source requires the public github.com/amuxos/amux checkout; use --source-root"
-    source_root="$(cd "$source_root" && pwd -P)"
-    if [[ "$clean" == 1 ]] && within_directory "$source_root" "$amux_dir"; then
-      die 'source checkout is inside the --clean directory; use a checkout outside AMUX_HOME'
+    if [[ -n "$release_version" ]] || { [[ "$from_source" == 0 ]] && ! public_source "$source_root"; }; then
+      download_release
+    else
+      public_source "$source_root" || die "--from-source requires the public github.com/amuxos/amux checkout; use --source-root"
+      source_root="$(cd "$source_root" && pwd -P)"
+      if [[ "$clean" == 1 ]] && within_directory "$source_root" "$amux_dir"; then
+        die 'source checkout is inside the --clean directory; use a checkout outside AMUX_HOME'
+      fi
+      require_command go
+      require_command make
+      if [[ "$runtime" == claude ]]; then require_command node; require_command npm; fi
+      progress "Building public amux from $source_root"
+      GOWORK=off make -C "$source_root" build BUILD_DIR="$source_root/bin"
+      source_dir="$source_root/bin"
+      built_from_source=1
     fi
-    require_command go
-    require_command make
-    if [[ "$runtime" == claude ]]; then require_command node; require_command npm; fi
-    progress "Building public amux from $source_root"
-    GOWORK=off make -C "$source_root" build BUILD_DIR="$source_root/bin"
-    source_dir="$source_root/bin"
-    built_from_source=1
   fi
   local binary
   for binary in amux amuxd amuxlet; do
@@ -193,7 +250,8 @@ prepare_claude_sidecar() {
       make -C "$source_root" sidecar
       sidecar_dir="$source_root/sidecars/claude-sdk"
     else
-      sidecar_dir="$source_dir/../sidecars/claude-sdk"
+      sidecar_dir="$source_dir/sidecars/claude-sdk"
+      [[ -d "$sidecar_dir" ]] || sidecar_dir="$source_dir/../sidecars/claude-sdk"
     fi
   fi
   [[ -f "$sidecar_dir/dist/index.js" && -f "$sidecar_dir/package.json" && -d "$sidecar_dir/node_modules/@anthropic-ai/claude-agent-sdk" ]] ||
@@ -237,7 +295,6 @@ stage_payload() {
   # Use /tmp, not TMPDIR: a caller may have placed TMPDIR inside AMUX_HOME.
   stage_dir="$(mktemp -d /tmp/amux-install.XXXXXX)"
   stage_dir="$(cd "$stage_dir" && pwd -P)"
-  trap 'rm -rf -- "$stage_dir"' EXIT
   within_directory "$stage_dir" "$amux_dir" && die 'staging directory must be outside AMUX_HOME'
   mkdir -p "$stage_dir/bin"
   local binary

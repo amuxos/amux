@@ -4,6 +4,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+- [Public binary releases](operations/public-releases.md)
 - [Public core and independent distributions](distribution-development.md)
 - [License and attribution](licensing.md), [third-party notices](../THIRD_PARTY_NOTICES.md), and [contributing](../CONTRIBUTING.md)
 - [CLI model](current/cli-product-model.md), [Agent model](current/agent-adapter-product-model.md), and [Bridge model](current/feishu-bridge-product-model.md)

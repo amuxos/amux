@@ -113,7 +113,7 @@ func newUpdateCmd() *cobra.Command {
 			}
 			printUpdateStart(out, &opts)
 			if opts.sourceDir == "" {
-				fmt.Fprintln(out, "Downloading latest SCM package...")
+				fmt.Fprintln(out, "Downloading latest release...")
 				sourceDir, releaseVersion, cleanup, err := prepareSCMUpdateSource(opts.scmLatestURL)
 				if err != nil {
 					return err
@@ -137,6 +137,7 @@ func newUpdateCmd() *cobra.Command {
 		},
 	}
 	addInstallFlags(c, &opts)
+	c.Flags().StringVar(&opts.scmLatestURL, "release-url", opts.scmLatestURL, "Release manifest or archive URL used when --source is omitted")
 	c.Flags().StringVar(&opts.scmLatestURL, "scm-latest-url", opts.scmLatestURL, "SCM latest package URL used when --source is omitted")
 	c.Flags().BoolVar(&opts.restart, "restart", false, "restart running amux services after updating")
 	c.Flags().BoolVar(&opts.restartSessions, "restart-sessions", false, "restart running local user sessions after updating")
@@ -308,7 +309,7 @@ func printUpdateStart(out io.Writer, opts *installOptions) {
 	if strings.TrimSpace(opts.sourceDir) != "" {
 		fmt.Fprintf(out, "  source: %s\n", opts.sourceDir)
 	} else {
-		fmt.Fprintf(out, "  source: SCM latest package (%s)\n", opts.scmLatestURL)
+		fmt.Fprintf(out, "  source: release (%s)\n", opts.scmLatestURL)
 	}
 	fmt.Fprintf(out, "  destination: %s\n", effectiveInstallBinDir(opts.binDir))
 }
@@ -592,6 +593,20 @@ func prepareSCMUpdateSource(latestURL string) (string, string, func(), error) {
 	if err := downloadToFile(latestURL, latestArchive); err != nil {
 		return fail(err)
 	}
+	f, err := os.Open(latestArchive)
+	if err != nil {
+		return fail(err)
+	}
+	var magic [2]byte
+	_, _ = io.ReadFull(f, magic[:])
+	_ = f.Close()
+	if magic != [2]byte{0x1f, 0x8b} {
+		sourceDir, releaseVersion, err := prepareManifestUpdateSource(latestArchive, latestURL, tmpDir)
+		if err != nil {
+			return fail(err)
+		}
+		return sourceDir, releaseVersion, cleanup, nil
+	}
 	latestExtract := filepath.Join(tmpDir, "latest")
 	if err := os.MkdirAll(latestExtract, 0755); err != nil {
 		return fail(err)
@@ -714,6 +729,8 @@ func extractTarGz(archivePath, dst string) error {
 			if closeErr != nil {
 				return closeErr
 			}
+		default:
+			return fmt.Errorf("unsupported release archive entry: %s", hdr.Name)
 		}
 	}
 }
@@ -801,6 +818,7 @@ func copyExecutable(src, dst string) error {
 type installBinarySwap struct {
 	destination   string
 	backup        string
+	staged        string
 	hadOriginal   bool
 	originalMoved bool
 	newInstalled  bool
@@ -858,8 +876,37 @@ func replaceInstallBinaries(sourceDir, binDir string, rename func(string, string
 		swaps = append(swaps, installBinarySwap{
 			destination: destination,
 			backup:      filepath.Join(backupDir, name),
+			staged:      filepath.Join(stageDir, name),
 			hadOriginal: statErr == nil,
 		})
+	}
+	// Public releases carry a platform-matched SDK. Local binary-only updates
+	// keep the existing sidecar. Stage it before replacing any installed file.
+	sdkSource := filepath.Join(sourceDir, "sidecars", "claude-sdk")
+	if _, err := os.Stat(sdkSource); err == nil {
+		for _, required := range []string{"dist/index.js", "package.json", "node_modules/@anthropic-ai/claude-agent-sdk"} {
+			if _, err := os.Stat(filepath.Join(sdkSource, required)); err != nil {
+				return fmt.Errorf("incomplete Claude SDK: %w", err)
+			}
+		}
+		staged := filepath.Join(stageDir, "claude-sdk")
+		if err := os.CopyFS(staged, os.DirFS(sdkSource)); err != nil {
+			return err
+		}
+		destination := filepath.Join(defaultAmuxDir(), "sidecars", "claude-sdk")
+		if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
+			return err
+		}
+		_, statErr := os.Lstat(destination)
+		if statErr != nil && !os.IsNotExist(statErr) {
+			return statErr
+		}
+		swaps = append(swaps, installBinarySwap{
+			destination: destination, backup: filepath.Join(backupDir, "claude-sdk"),
+			staged: staged, hadOriginal: statErr == nil,
+		})
+	} else if !os.IsNotExist(err) {
+		return err
 	}
 
 	for i := range swaps {
@@ -871,8 +918,7 @@ func replaceInstallBinaries(sourceDir, binDir string, rename func(string, string
 			}
 			swap.originalMoved = true
 		}
-		staged := filepath.Join(stageDir, filepath.Base(swap.destination))
-		if err := rename(staged, swap.destination); err != nil {
+		if err := rename(swap.staged, swap.destination); err != nil {
 			rollbackErr := rollbackInstallBinaries(swaps[:i+1], rename)
 			return errors.Join(fmt.Errorf("activate %s: %w", filepath.Base(swap.destination), err), rollbackErr)
 		}
@@ -886,7 +932,7 @@ func rollbackInstallBinaries(swaps []installBinarySwap, rename func(string, stri
 	for i := len(swaps) - 1; i >= 0; i-- {
 		swap := swaps[i]
 		if swap.newInstalled {
-			if err := os.Remove(swap.destination); err != nil && !os.IsNotExist(err) {
+			if err := os.RemoveAll(swap.destination); err != nil && !os.IsNotExist(err) {
 				rollbackErrors = append(rollbackErrors, fmt.Errorf("remove new %s: %w", filepath.Base(swap.destination), err))
 			}
 		}

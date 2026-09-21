@@ -43,12 +43,20 @@ retaining the session identity, workspace and execution settings.
 `amux setup local` configures the local hub and runtime using native service
 supervision where supported. `amux install --source <directory>` installs local
 binaries. `amux update --source <directory> --restart` updates an existing
-installation without repeating setup. No release or authoring-runtime download
-source is configured by default. Remote sources must be explicitly supplied by
-the operator. Core installation can proceed when optional authoring is unavailable.
+installation without repeating setup. Public updates use the platform manifest
+from `amuxos/amux-releases` by default. `AMUX_RELEASE_URL` overrides the source;
+`AMUX_SCM_LATEST_URL` and the existing archive format remain supported for
+distributions. Manifest downloads require SHA256 verification before extraction.
+No authoring-runtime source is configured by default. Core installation can
+proceed when optional authoring is unavailable.
 
 `scripts/install.sh` provides one onboarding entrypoint for public source builds and local release
-binaries. It detects installed `codex`, `claude` and `pi` executables, prompts
+binaries. A standalone copy also downloads the latest public release, or the
+version selected with `--version vX.Y.Z`. A checkout retains the source-build
+default. Downloads resolve the version once, then fetch its immutable platform
+package and checksum. Release packages include the matching Claude SDK sidecar;
+Claude still requires Node.js 22 or newer. It detects installed `codex`, `claude`
+and `pi` executables, prompts
 when multiple runtimes are available, and accepts `--runtime` (`--provider` is
 an alias) for unattended selection. The chosen runtime maps to the matching
 `builtin/codex`, `builtin/claude` or `builtin/pi` Profile; missing runtimes and

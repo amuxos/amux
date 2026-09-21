@@ -2,6 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+- [公共二进制发行](operations/public-releases.zh-CN.md)
 - [公共核心与独立发行版](distribution-development.zh-CN.md)
 - [许可与归属标识](licensing.zh-CN.md)、[第三方声明](../THIRD_PARTY_NOTICES.zh-CN.md)与[参与贡献](../CONTRIBUTING.zh-CN.md)
 - [CLI 模型](current/cli-product-model.zh-CN.md)、[Agent 模型](current/agent-adapter-product-model.zh-CN.md)、[Bridge 模型](current/feishu-bridge-product-model.zh-CN.md)

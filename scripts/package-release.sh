@@ -21,6 +21,7 @@ goarch=""
 source_dir=""
 dist_dir="$repo_root/dist"
 base_url=""
+with_sidecar=0
 cgo_enabled="${CGO_ENABLED:-0}"
 
 usage() {
@@ -42,6 +43,7 @@ Options:
   --os <goos>          Package OS label (default: go env GOOS)
   --arch <goarch>      Package arch label (default: go env GOARCH)
   --base-url <url>     Base HTTP URL used in latest.json asset URL
+  --with-sidecar      Include the prepared public Claude SDK sidecar
 
 Examples:
   scripts/package-release.sh --version v0.1.5
@@ -98,6 +100,9 @@ while (($#)); do
     --arch)
       goarch="${2:?missing value for --arch}"
       shift
+      ;;
+    --with-sidecar)
+      with_sidecar=1
       ;;
     --base-url)
       base_url="${2:?missing value for --base-url}"
@@ -175,6 +180,18 @@ for notice in "${notice_files[@]}"; do
   mkdir -p "$(dirname "$destination")"
   cp "$core_root/$notice" "$destination"
 done
+
+if [[ "$with_sidecar" == 1 ]]; then
+  [[ "$repo_root" == "$core_root" ]] || { printf 'sidecar packaging requires the public module\n' >&2; exit 2; }
+  sdk="$core_root/sidecars/claude-sdk"
+  [[ -f "$sdk/dist/index.js" && -f "$sdk/package.json" && -d "$sdk/node_modules/@anthropic-ai/claude-agent-sdk" ]] || {
+    printf 'run make sidecar before packaging with --with-sidecar\n' >&2
+    exit 1
+  }
+  mkdir -p "$package_dir/sidecars/claude-sdk"
+  cp -RL "$sdk/dist" "$sdk/node_modules" "$sdk/package.json" "$package_dir/sidecars/claude-sdk/"
+  chmod +x "$package_dir/sidecars/claude-sdk/dist/index.js"
+fi
 
 COPYFILE_DISABLE=1 tar -C "$dist_dir" -czf "$archive" "$package"
 shasum -a 256 "$archive" > "$checksum_file"

@@ -1,0 +1,144 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Existing version tag (vX.Y.Z)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-release
+  cancel-in-progress: false
+
+env:
+  GOMAXPROCS: '4'
+  GOFLAGS: '-p=2'
+  GOWORK: 'off'
+  RELEASE_REPO: amuxos/amux-releases
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.version || github.ref }}
+      - id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+        run: |
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(git rev-parse "refs/tags/$RELEASE_VERSION^{commit}")" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor HEAD origin/main
+          echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: '1.72.0'
+      - run: bash scripts/check.sh
+
+  build:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            os: linux
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64
+          - runner: macos-15-intel
+            os: darwin
+            arch: amd64
+          - runner: macos-15
+            os: darwin
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - env:
+          RELEASE_VERSION: ${{ needs.check.outputs.version }}
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          make sidecar
+          npm prune --prefix sidecars/claude-sdk --omit=dev --ignore-scripts --no-audit --no-fund
+          bash scripts/package-release.sh --version "$RELEASE_VERSION" \
+            --os "$GOOS" --arch "$GOARCH" --with-sidecar \
+            --base-url "https://github.com/$RELEASE_REPO/releases/download/$RELEASE_VERSION"
+          ./bin/amux --version
+          mv dist/latest.json "dist/manifest_${GOOS}_${GOARCH}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+            dist/manifest_*.json
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - env:
+          RELEASE_VERSION: ${{ needs.check.outputs.version }}
+        run: python3 scripts/prepare-public-release.py dist "$RELEASE_VERSION"
+      - name: Publish complete release
+        env:
+          GH_TOKEN: ${{ secrets.AMUX_RELEASE_TOKEN }}
+          RELEASE_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          test -n "$GH_TOKEN" || { echo 'Configure AMUX_RELEASE_TOKEN with Contents write access to the release repository.' >&2; exit 1; }
+          if gh release view "$RELEASE_VERSION" --repo "$RELEASE_REPO" --json isDraft > /tmp/release.json 2>/dev/null; then
+            jq -e '.isDraft == true' /tmp/release.json >/dev/null || { echo 'Published releases are immutable.' >&2; exit 1; }
+          else
+            gh release create "$RELEASE_VERSION" --repo "$RELEASE_REPO" --draft \
+              --title "amux $RELEASE_VERSION" --notes-file dist/notes.md
+          fi
+          gh release upload "$RELEASE_VERSION" --repo "$RELEASE_REPO" --clobber \
+            dist/*.tar.gz dist/*.sha256 dist/latest.json dist/version.txt dist/install.sh
+          gh release edit "$RELEASE_VERSION" --repo "$RELEASE_REPO" --draft=false --latest

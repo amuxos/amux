@@ -7,7 +7,7 @@ var (
 	CodexCompatibleChoice = "Codex"
 	CodexCompatibleGroup  = "Codex"
 	SupportsResponsesChat = false
-	LatestReleaseURL      = ""
+	LatestReleaseURL      = "https://github.com/amuxos/amux-releases/releases/latest/download/latest.json"
 	ContractReleaseURL    = ""
 	BrandURL              = "https://amuxos.com/"
 	BrandFooterMarkdown   = "<font color='grey'>Powered by</font> [amux](" + BrandURL + ")"

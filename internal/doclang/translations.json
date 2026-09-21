@@ -2830,5 +2830,9 @@
   "群值守新 Session 使用的运行引擎；继承任务配置时使用该群有效默认 Runtime，自定义配置时必填。": {
     "en": "Runtime for new group-watch Sessions. Inherited execution uses the group’s effective default Runtime; custom execution requires this field.",
     "zh-CN": "群值守新 Session 使用的运行引擎；继承任务配置时使用该群有效默认 Runtime，自定义配置时必填。"
+  },
+  "Release manifest or archive URL used when --source is omitted": {
+    "en": "Release manifest or archive URL used when --source is omitted",
+    "zh-CN": "省略 --source 时使用的发行清单或归档 URL"
   }
 }

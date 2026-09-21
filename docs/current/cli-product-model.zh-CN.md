@@ -34,10 +34,15 @@ Detach 只结束 UI 连接，不结束 Session。原始字节输入和终端尺�
 `amux setup local` 配置本地 Hub 和 Runtime，在支持的宿主上使用原生服务管理。
 `amux install --source <directory>` 安装本地二进制。
 `amux update --source <directory> --restart` 更新已有安装，无需重复 setup。
-默认不配置发行包或 authoring runtime 的下载源；远端来源必须由 operator 显式提供。
-可选 authoring 能力不可用时，核心安装仍可继续。
+公共版本默认从 `amuxos/amux-releases` 的平台清单更新。`AMUX_RELEASE_URL` 可覆盖
+来源；发行版仍可使用 `AMUX_SCM_LATEST_URL` 和已有归档格式。清单下载必须在解包前
+通过 SHA256 校验。默认不配置 authoring runtime 下载源；可选 authoring 能力不可用
+时，核心安装仍可继续。
 
-`scripts/install.sh` 为公共源码构建和本地发行二进制提供统一安装入口。它检测
+`scripts/install.sh` 为公共源码构建和本地发行二进制提供统一安装入口。独立脚本
+还可下载公共最新版本，或通过 `--version vX.Y.Z` 选择版本。源码 checkout 中仍默认
+从源码构建。下载时先解析一次版本，再下载该版本的平台包及校验文件。发行包包含
+匹配的 Claude SDK sidecar；Claude 仍需 Node.js 22 或更新版本。脚本检测
 已安装的 `codex`、`claude` 和 `pi`，检测到多个时提示选择，并接受 `--runtime`
 （`--provider` 为别名）以支持非交互选择。所选 Runtime 对应 `builtin/codex`、
 `builtin/claude` 或 `builtin/pi` Profile；缺少 Runtime 或 Profile 无效时在安装前

@@ -34,6 +34,7 @@ cmp internal/transport/pbgen/amux.pb.go "$test_root/generated/amux.pb.go"
 cmp internal/transport/pbgen/amux_grpc.pb.go "$test_root/generated/amux_grpc.pb.go"
 go mod verify
 python3 scripts/update-go-notices.py --check
+python3 -B -m unittest discover -s scripts -p test_public_release.py
 make docs-check
 unset AMUX_RUN_LONG_TESTS
 go test -timeout=10m ./...

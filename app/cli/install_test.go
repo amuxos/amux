@@ -658,8 +658,8 @@ func TestUpdateDownloadsSCMLatestWhenSourceOmitted(t *testing.T) {
 	if !strings.Contains(out.String(), "Updated amux to v9.9.9") {
 		t.Fatalf("update output should use downloaded release version:\n%s", out.String())
 	}
-	if !strings.Contains(out.String(), "Downloading latest SCM package...") {
-		t.Fatalf("update output should show SCM download progress:\n%s", out.String())
+	if !strings.Contains(out.String(), "Downloading latest release...") {
+		t.Fatalf("update output should show download progress:\n%s", out.String())
 	}
 	meta, err := os.ReadFile(filepath.Join(home, ".amux", "install.json"))
 	if err != nil {

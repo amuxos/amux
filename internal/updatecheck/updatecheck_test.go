@@ -43,6 +43,20 @@ func TestLatestVersionReadsCurrentPlatformArchive(t *testing.T) {
 	}
 }
 
+func TestLatestVersionReadsPublicJSONManifest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"v1.2.3","assets":{"linux_amd64":{}}}`))
+	}))
+	defer server.Close()
+	version, err := LatestVersion(context.Background(), server.Client(), server.URL, "linux", "amd64")
+	if err != nil || version != "v1.2.3" {
+		t.Fatalf("version=%q error=%v", version, err)
+	}
+	if _, err := LatestVersion(context.Background(), server.Client(), server.URL, "darwin", "arm64"); err == nil {
+		t.Fatal("missing platform accepted")
+	}
+}
+
 func TestLatestVersionUsesArtifactVersionHeaderWithoutReadingArchive(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Artifact-Version", "1.0.0.134")

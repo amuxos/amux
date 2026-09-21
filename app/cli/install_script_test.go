@@ -4,6 +4,7 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -25,6 +27,7 @@ type publicInstallFixture struct {
 	dir, home, amuxHome string
 	source, path, log   string
 	state               publicInstallState
+	downloadBase        string
 }
 
 type publicInstallState struct {
@@ -127,7 +130,11 @@ func (f *publicInstallFixture) run(input string, args ...string) (string, [][]st
 	f.write(script, string(scriptBytes), 0o755)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "/bin/bash", append([]string{script, "--source", f.source}, args...)...)
+	baseArgs := []string{script, "--source", f.source}
+	if f.downloadBase != "" {
+		baseArgs = []string{script}
+	}
+	cmd := exec.CommandContext(ctx, "/bin/bash", append(baseArgs, args...)...)
 	cmd.Dir = f.home
 	cmd.Stdin = strings.NewReader(input)
 	// Detach the controlling terminal too: the interactive installer must not
@@ -139,6 +146,9 @@ func (f *publicInstallFixture) run(input string, args ...string) (string, [][]st
 		"PUBLIC_INSTALL_TEST_DIR=" + f.dir,
 		"PUBLIC_INSTALL_BINARY_SOURCE=" + f.source, "TMPDIR=" + f.dir,
 		"PUBLIC_INSTALL_REAL_AMUX_HOME=" + f.amuxHome,
+	}
+	if f.downloadBase != "" {
+		cmd.Env = append(cmd.Env, "AMUX_RELEASE_BASE_URL="+f.downloadBase)
 	}
 	output, runErr := cmd.CombinedOutput()
 	if ctx.Err() != nil {
@@ -167,6 +177,61 @@ func (f *publicInstallFixture) run(input string, args ...string) (string, [][]st
 		f.t.Fatal(err)
 	}
 	return string(output), commands, runErr
+}
+
+func TestPublicInstallScriptDownloadsAndVerifiesRelease(t *testing.T) {
+	for _, corrupt := range []bool{false, true} {
+		t.Run(fmt.Sprintf("corrupt=%v", corrupt), func(t *testing.T) {
+			f := newPublicInstallFixture(t, "codex")
+			for _, name := range []string{"curl", "tar", "gzip", "shasum"} {
+				utility, err := exec.LookPath(name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(utility, filepath.Join(f.path, name)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			root := filepath.Join(f.dir, "downloads")
+			f.downloadBase = "file://" + root
+			f.write(filepath.Join(root, "latest", "download", "version.txt"), "v1.2.3\n", 0644)
+			name := "amux_v1.2.3_" + runtime.GOOS + "_" + runtime.GOARCH
+			payload := filepath.Join(f.dir, name)
+			if err := os.MkdirAll(payload, 0755); err != nil {
+				t.Fatal(err)
+			}
+			for _, binary := range installBinaryNames {
+				if err := copyFileForInstallTest(filepath.Join(f.source, binary), filepath.Join(payload, binary), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			archive := filepath.Join(root, "download", "v1.2.3", name+".tar.gz")
+			if err := os.MkdirAll(filepath.Dir(archive), 0755); err != nil {
+				t.Fatal(err)
+			}
+			writeTarGz(t, archive, f.dir, []string{name})
+			data, err := os.ReadFile(archive)
+			if err != nil {
+				t.Fatal(err)
+			}
+			digest := sha256.Sum256(data)
+			if corrupt {
+				digest[0] ^= 1
+			}
+			f.write(archive+".sha256", fmt.Sprintf("%x  %s.tar.gz\n", digest, name), 0644)
+			output, commands, err := f.run("", "--runtime", "codex", "--no-modify-path")
+			if corrupt {
+				if err == nil || !strings.Contains(output, "checksum mismatch") || len(commands) != 0 {
+					t.Fatalf("corrupt release: err=%v output=%s commands=%v", err, output, commands)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("release install: %v\n%s", err, output)
+				}
+				f.requireStagedInstall(commands, false)
+			}
+		})
+	}
 }
 
 func publicInstallCommandIndex(commands [][]string, prefix ...string) int {

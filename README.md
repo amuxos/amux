@@ -20,7 +20,16 @@ through [CLAUDE.md](CLAUDE.md).
 
 ## Build and Run
 
-Clone the public repository:
+Prebuilt releases require no Go toolchain. Install and authenticate a native
+agent first, then download the installer:
+
+```sh
+curl -fsSL https://github.com/amuxos/amux-releases/releases/latest/download/install.sh -o /tmp/amux-install.sh
+bash /tmp/amux-install.sh --runtime codex
+```
+
+Use `--runtime claude` (Node.js 22+) or `--runtime pi` for another installed
+agent. Add `--feishu` for bot setup. To build from source:
 
 ```sh
 git clone https://github.com/amuxos/amux.git
@@ -100,7 +109,8 @@ containing `dist/`, `node_modules/` and `package.json`, unless it is already in
 the sibling `../sidecars/claude-sdk/` layout. A standalone copy of the script
 can build a checkout selected with `--source-root /path/to/public-amux` or
 `AMUX_INSTALL_SOURCE_ROOT`. It rejects an internal distribution source root.
-There is no default public download URL. See `bash scripts/install.sh --help`
+A standalone installer downloads prebuilt packages from `amuxos/amux-releases`;
+use `--version vX.Y.Z` to pin a version. See `bash scripts/install.sh --help`
 for all flags; `--no-modify-path` skips adding the shell PATH entry (clean
 uninstall still removes the old managed entry). Open a
 new shell after installation or run the printed PATH command in the current one.
@@ -111,8 +121,10 @@ Local sessions, tasks and schedules require the local hub and runtime, but do no
 require Feishu. `amux setup local` configures them. `amux setup feishu` adds the
 optional bot integration through Feishu's official application registration flow.
 For an existing installation, rebuild and run `make upgrade`; setup need not be
-repeated. Updates use explicit local binaries or an operator-configured release
-source. There is no default download host or pack marketplace.
+repeated. `amux update --restart` downloads the latest public release and checks
+its SHA256 before replacing binaries and the bundled Claude SDK.
+`AMUX_RELEASE_URL` or `--release-url` overrides the manifest/archive source.
+There is no default pack marketplace.
 
 Profile packs use manifest v1.1. Runtime consumption of external Git packs is
 available. Optional expert authoring needs a separately configured compatible

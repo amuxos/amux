@@ -19,7 +19,15 @@ Task 与 Schedule API，以及可选的飞书/Lark Bot Bridge。支持 Codex、C
 
 ## 构建与运行
 
-通过以下命令克隆公共仓库：
+预编译版本无需 Go 工具链。先安装并登录原生 Agent，再下载安装器：
+
+```sh
+curl -fsSL https://github.com/amuxos/amux-releases/releases/latest/download/install.sh -o /tmp/amux-install.sh
+bash /tmp/amux-install.sh --runtime codex
+```
+
+使用 `--runtime claude`（需要 Node.js 22+）或 `--runtime pi` 选择其他已安装 Agent。
+添加 `--feishu` 可配置机器人。从源码构建：
 
 ```sh
 git clone https://github.com/amuxos/amux.git
@@ -88,7 +96,8 @@ Codex 和 Pi 不需要该 sidecar。脚本不安装或升级原生 Agent。
 目录包含 `dist/`、`node_modules/` 和 `package.json`；若已处于相邻的
 `../sidecars/claude-sdk/` 布局，可省略此参数。独立脚本可通过
 `--source-root /path/to/public-amux` 或 `AMUX_INSTALL_SOURCE_ROOT` 选择要构建的
-公共 checkout，内部发行版源码根目录会被拒绝。默认没有公共下载 URL。
+公共 checkout，内部发行版源码根目录会被拒绝。独立安装器从 `amuxos/amux-releases`
+下载预编译包，可通过 `--version vX.Y.Z` 固定版本。
 全部参数见 `bash scripts/install.sh --help`；`--no-modify-path` 跳过添加 shell PATH
 条目（清空卸载仍会移除旧的托管条目）。安装后打开新 shell，或在当前 shell 执行
 脚本打印的 PATH 命令。
@@ -100,7 +109,8 @@ Codex 和 Pi 不需要该 sidecar。脚本不安装或升级原生 Agent。
 本地 Session、Task 和 Schedule 需要本地 Hub 和 Runtime，但不需要飞书。
 `amux setup local` 负责配置它们；`amux setup feishu` 通过飞书官方应用注册流程添加
 可选 Bot 集成。已有安装重新构建后执行 `make upgrade`，无需重复 setup。
-更新使用显式指定的本地二进制或 operator 配置的发行源；默认没有下载服务器或 Pack 市场。
+`amux update --restart` 下载公共最新版本，在替换二进制及配套 Claude SDK 前校验
+SHA256。`AMUX_RELEASE_URL` 或 `--release-url` 可覆盖清单/归档来源。默认没有 Pack 市场。
 
 Profile Pack 使用 manifest v1.1，支持在运行时消费外部 Git Pack。可选的专家编辑能力
 需要单独配置兼容的 authoring runtime；源码构建不会隐式下载它。
