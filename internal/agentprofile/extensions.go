@@ -82,17 +82,17 @@ type Customization struct {
 	RuntimeCatalog                   []RuntimeCatalogSource
 	AllowUnlistedNativeRuntimeModels bool
 	RuntimeModelUsesBinaryThinking   func(string) bool
-	ValidateProvider                 func(string, *Provider) error
-	PermissionModeArgs               func(string, string) ([]string, error)
-	PiProviderConfig                 func(Profile) (PiProviderConfig, error)
-	AppendDefaultProviderArgs        func(Profile, string, []string, []string) []string
-	AppendUpstreamProviderArgs       func(Profile, string, []string) []string
-	LaunchProcessArgs                func(string, []string) []string
-	ProviderProjectionFiles          func(Profile) []ProjectionFile
-	MaterializeConfig                func(Profile, string) (string, error)
-	InstructionsFile                 func(string) string
-	SkillProjectionDir               func(string) string
-	MaterializeMCP                   func(string, *task.Sandbox, adapter.Placement, string, string, string, string) ([]string, error)
+	// ValidateAdditionalProvider admits combinations not implemented by core.
+	// Shared field and wire rules run first; native combinations never call it.
+	ValidateAdditionalProvider func(string, *Provider) error
+	PermissionModeArgs         func(string, string) ([]string, error)
+	PiProviderConfig           func(Profile) (PiProviderConfig, error)
+	AppendDefaultProviderArgs  func(Profile, string, []string, []string) []string
+	AppendUpstreamProviderArgs func(Profile, string, []string) []string
+	LaunchProcessArgs          func(string, []string) []string
+	ProviderProjectionFiles    func(Profile) []ProjectionFile
+	MaterializeConfig          func(Profile, string) (string, error)
+	MaterializeMCP             func(string, *task.Sandbox, adapter.Placement, string, string, string, string) ([]string, error)
 }
 
 var customization Customization

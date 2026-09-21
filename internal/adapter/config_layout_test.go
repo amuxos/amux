@@ -21,8 +21,8 @@ func TestConfigLayoutByAgent(t *testing.T) {
 		t.Fatalf("claude MCP placement wrong: %+v", cl[SurfaceMCP])
 	}
 
-	// codex supports rules and per-launch amux MCP, but not skills or the
-	// --append-system-prompt flag.
+	// codex supports workspace rules, skills and per-launch amux MCP, but not
+	// the --append-system-prompt flag.
 	for _, name := range []string{"codex"} {
 		l, err := Layout(name)
 		if err != nil {
@@ -34,8 +34,11 @@ func TestConfigLayoutByAgent(t *testing.T) {
 		if !l[SurfaceMCP].Supported || l[SurfaceMCP].Kind != "extra-arg" || l[SurfaceMCP].Path != "-c" {
 			t.Fatalf("%s MCP placement wrong: %+v", name, l[SurfaceMCP])
 		}
-		if l[SurfaceSkills].Supported || l[SurfaceSystemPrompt].Supported {
-			t.Fatalf("%s should support only rules and MCP, got %+v", name, l)
+		if !l[SurfaceSkills].Supported || l[SurfaceSkills].Kind != "cwd-rel" || l[SurfaceSkills].Path != ".agents/skills" {
+			t.Fatalf("%s skills placement wrong: %+v", name, l[SurfaceSkills])
+		}
+		if l[SurfaceSystemPrompt].Supported {
+			t.Fatalf("%s should not support system prompt flags", name)
 		}
 	}
 

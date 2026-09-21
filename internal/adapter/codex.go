@@ -18,11 +18,9 @@ func (a *CodexAdapter) Capabilities() Capabilities {
 		CwdSwitch:         CwdSwitchResume,
 		NativeResult:      true,
 		ConfigLayout: map[Surface]Placement{
-			// codex reads AGENTS.md from its working directory. Skills (HOME-based)
-			// and a system-prompt injection (codex -c instructions) are deferred to
-			// Phase B (the codex config key is unverified).
-			SurfaceRules: {Supported: true, Kind: "cwd-rel", Path: "AGENTS.md"},
-			SurfaceMCP:   {Supported: true, Kind: "extra-arg", Path: "-c"},
+			SurfaceRules:  {Supported: true, Kind: "cwd-rel", Path: "AGENTS.md"},
+			SurfaceSkills: {Supported: true, Kind: "cwd-rel", Path: ".agents/skills"},
+			SurfaceMCP:    {Supported: true, Kind: "extra-arg", Path: "-c"},
 		},
 	})
 }

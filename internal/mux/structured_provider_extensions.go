@@ -51,3 +51,44 @@ func startDistributionStructuredProc(opts StructuredLaunchOptions, watchdog conf
 func StartStructuredProc(opts StructuredLaunchOptions) (session.Proc, <-chan []byte, error) {
 	return startStructuredProc(opts)
 }
+
+// ResponsesChatCommand builds arguments for a distribution-owned supervisor in
+// the runtime executable. Core retains the launch backend, identity and lifecycle.
+type ResponsesChatCommand func(ResponsesChatOptions, []string) ([]string, error)
+
+var responsesChatCommand ResponsesChatCommand
+
+func RegisterResponsesChatCommand(command ResponsesChatCommand) error {
+	release, err := extensionstate.BeginRegistration()
+	if err != nil {
+		return err
+	}
+	defer release()
+	if command == nil {
+		return fmt.Errorf("responses-chat command builder is required")
+	}
+	structuredProviderMu.Lock()
+	defer structuredProviderMu.Unlock()
+	if responsesChatCommand != nil {
+		return fmt.Errorf("responses-chat command builder is already registered")
+	}
+	responsesChatCommand = command
+	return nil
+}
+
+func responsesChatCommandArgs(options ResponsesChatOptions, args []string) ([]string, error) {
+	structuredProviderMu.RLock()
+	command := responsesChatCommand
+	structuredProviderMu.RUnlock()
+	if command == nil {
+		return nil, fmt.Errorf("responses-chat command builder is not registered")
+	}
+	result, err := command(options, append([]string(nil), args...))
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 || strings.TrimSpace(result[0]) == "" {
+		return nil, fmt.Errorf("responses-chat command builder returned an empty command")
+	}
+	return result, nil
+}

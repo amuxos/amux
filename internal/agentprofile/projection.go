@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/amuxos/amux/internal/adapter"
 )
 
 type ProjectionResult struct {
@@ -129,25 +131,34 @@ func providerProjectionFiles(profile Profile) []providerProjection {
 			{name: "AGENTS.md", body: func(Profile) string { return body }},
 			{name: "CLAUDE.md", body: claudeProjectionBody},
 		}
-	case "codex", "pi":
-		return []providerProjection{{name: "AGENTS.md", body: func(Profile) string { return body }}}
 	default:
-		return []providerProjection{{name: distributionInstructionsFile(profile.Type), body: func(Profile) string { return body }}}
+		return []providerProjection{{name: providerInstructionsFile(profile.Type), body: func(Profile) string { return body }}}
 	}
 }
 
-func providerSkillProjectionDir(agentType string) string {
-	switch strings.TrimSpace(agentType) {
-	case "codex":
-		return filepath.Join(".agents", "skills")
-	case "claude":
-		return filepath.Join(".claude", "skills")
-	case "pi":
-		// pi project-level skill discovery root: `./.pi/skills/` (CONFIG_DIR_NAME).
-		return filepath.Join(".pi", "skills")
-	default:
-		return distributionSkillProjectionDir(agentType)
+// Workspace projections use the adapter's relative layout paths. A home-relative
+// skill layout can also be rendered into a task workspace (for example Claude).
+func providerLayoutPath(agentType string, surface adapter.Surface) string {
+	layout, err := adapter.Layout(strings.TrimSpace(agentType))
+	if err != nil {
+		return ""
 	}
+	placement := layout[surface]
+	if !placement.Supported || (placement.Kind != "cwd-rel" && placement.Kind != "home-rel") {
+		return ""
+	}
+	return filepath.FromSlash(placement.Path)
+}
+
+func providerInstructionsFile(agentType string) string {
+	if path := providerLayoutPath(agentType, adapter.SurfaceRules); path != "" {
+		return path
+	}
+	return "amux-context.md"
+}
+
+func providerSkillProjectionDir(agentType string) string {
+	return providerLayoutPath(agentType, adapter.SurfaceSkills)
 }
 
 func projectSkillDirectories(profile Profile, root string) ([]string, error) {

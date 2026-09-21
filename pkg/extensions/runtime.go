@@ -29,6 +29,8 @@ type AutoModelSelector = adapter.AutoModelSelector
 type StructuredLaunchOptions = mux.StructuredLaunchOptions
 type StructuredProviderConfig = config.StructuredProviderConfig
 type StructuredProviderFactory = mux.StructuredProviderFactory
+type ResponsesChatOptions = mux.ResponsesChatOptions
+type ResponsesChatCommand = mux.ResponsesChatCommand
 type AppServerStartOptions = codex.StartOptions
 type AppServerProviderRegistration = codex.ProviderRegistration
 type AppServerProc = codex.Proc
@@ -79,3 +81,7 @@ func ResolveExecutableFromEnvPATH(name string, env []string) (string, error) {
 	return provider.ResolveExecutableFromEnvPATH(name, env)
 }
 func TextUserInput(text string) UserInput { return session.TextUserInput(text) }
+
+func RegisterResponsesChatCommand(command ResponsesChatCommand) error {
+	return mux.RegisterResponsesChatCommand(command)
+}

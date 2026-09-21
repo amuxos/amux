@@ -206,3 +206,10 @@ Group watch eligibility and inherited execution settings use the target group’
 policy. Explicit capability execution overrides still apply within the group’s
 isolation requirement. Full design and transition cases live in
 [the implementation specification](../superpowers/specs/2026-09-16-feishu-group-session-defaults-design.md).
+
+## Distribution default migrations
+
+Distributions declare exact old-to-new profile reference mappings for retired
+defaults. Bridge owns the affected tables, parameterized updates and transaction.
+Mappings apply simultaneously, preserve unrelated settings and historical session
+identities, and are idempotent; targets cannot also be migration sources.
