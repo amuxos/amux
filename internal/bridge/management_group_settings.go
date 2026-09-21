@@ -176,7 +176,7 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 			if err != nil {
 				return groupSettingsErrorToast(err), true, nil
 			}
-			update(renderGroupSettingsEditCard(state, draft, b.groupSettingsCardScope(settings, chatName)))
+			update(renderGroupSettingsEditCardAtPage(state, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action)))
 			return cardToast("success", "已打开本群设置，尚未保存"), true, nil
 		}
 		submitted, err := draft.settings(settings)
@@ -441,7 +441,43 @@ func renderCurrentGroupSettingsCard(state managementState, settings *GroupSettin
 	return marshalNativeManagementCard(managementCardView{Title: "当前群设置", Subtitle: "仅管理当前助手在本群的设置", Summary: "amux 当前群设置", Theme: "blue", Elements: elements, Buttons: buttons})
 }
 
-func renderGroupSettingsEditCard(state managementState, draft managementGroupSettingsDraft, scope map[string]string) string {
+// Feishu rejects a card above managementGroupSettingsLimitElements tagged nodes:
+// every element carrying a tag counts, including the plain_text inside each
+// select option. The editor is one form whose size tracks the profile and model
+// catalogs, so it is budgeted and paginated instead of assumed to fit.
+const (
+	// managementGroupSettingsLimitElements is Feishu's per-card element ceiling.
+	// Every element carrying a tag counts, including the plain_text inside each
+	// select option. Verified against the live API: 200 is accepted, 201 is
+	// rejected with ErrCode 11310 / "element exceeds the limit".
+	managementGroupSettingsLimitElements = 200
+	// managementGroupSettingsElementReserve keeps the card clear of the ceiling.
+	// managementCardTaggedNodeCount matches Feishu's accounting exactly on real
+	// editor cards, so this only guards against a future element type the
+	// counter does not model.
+	managementGroupSettingsElementReserve = 1
+	// managementGroupSettingsMaxBytes is Feishu's separate size ceiling, which
+	// rejects with "card over max size" (ErrCode 200860) independently of the
+	// element count. Measured at ~150KB serialized, so this stays well clear.
+	managementGroupSettingsMaxBytes = 128 * 1024
+	// groupSettingsPageKey carries the editor page through the buttons that
+	// re-render it, so changing page or refreshing model options keeps both the
+	// page and every value already entered in the form.
+	groupSettingsPageKey = "group_page"
+)
+
+func groupSettingsPageFromAction(action *callback.CallBackAction) int {
+	page, err := strconv.Atoi(managementCallbackString(action, groupSettingsPageKey))
+	if err != nil || page < 0 {
+		return 0
+	}
+	return page
+}
+
+// managementGroupSettingsEditFields builds the editor rows in display order.
+// Pagination runs afterwards so a large catalog cannot push the card past the
+// element limit.
+func managementGroupSettingsEditFields(state managementState, draft managementGroupSettingsDraft) []cardElement {
 	selectedAgent := groupSettingsOptional(draft["group_agent"], managementGroupInheritProfile)
 	if selectedAgent == "" {
 		selectedAgent = state.DefaultAgent
@@ -509,13 +545,195 @@ func renderGroupSettingsEditCard(state managementState, draft managementGroupSet
 	inputField("上下文条数", "group_context_limit", "非负整数")
 	inputField("群会话总上限（0 不限）", "group_max_total", "非负整数")
 	inputField("每用户会话上限（0 不限）", "group_max_per_user", "非负整数")
-	values := make(map[string]string, len(scope)+len(draft))
+	return form
+}
+
+// renderGroupSettingsEditCardAtPage renders one editor page. A page past the
+// end falls back to the last page so a shrinking catalog cannot strand the user
+// on an empty card.
+func renderGroupSettingsEditCardAtPage(state managementState, draft managementGroupSettingsDraft, scope map[string]string, page int) string {
+	pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft), draft, scope)
+	if page >= len(pages) {
+		page = len(pages) - 1
+	}
+	if page < 0 {
+		page = 0
+	}
+	return renderGroupSettingsEditCardPage(draft, scope, pages[page], page, len(pages))
+}
+
+// groupSettingsEditNodeBudget is the node allowance for the finished card. The
+// Feishu limit is exact, so the reserve only absorbs drift between the counted
+// nodes and what Feishu charges.
+func groupSettingsEditNodeBudget() int {
+	return managementGroupSettingsLimitElements - managementGroupSettingsElementReserve
+}
+
+// paginateManagementGroupSettings groups rows into pages that each render
+// within the element budget. Each candidate page is measured by rendering the
+// real card, so element costs stay correct as rows change.
+//
+// A card that fits on one page is never split. The single-page attempt is
+// measured without the page indicator, because that is the card the user would
+// actually get; only a card that genuinely overflows pays for the indicator.
+func paginateManagementGroupSettings(rows []cardElement, draft managementGroupSettingsDraft, scope map[string]string) [][]cardElement {
+	if len(rows) == 0 {
+		return [][]cardElement{{}}
+	}
+	// A row is atomic: a select carries its whole option list and cannot be
+	// split across pages. Shrink any single row that would not fit alone, so a
+	// pathological catalog degrades to a shorter option list instead of an
+	// over-limit card that Feishu rejects outright.
+	rows = groupSettingsFitRows(rows, draft, scope)
+	if groupSettingsPageFits(rows, draft, scope, 1) {
+		return [][]cardElement{rows}
+	}
+	return groupSettingsPaginateRows(rows, draft, scope, 2)
+}
+
+// groupSettingsFitRows truncates the option list of any row that cannot fit a
+// page by itself. The option currently selected is always preserved so the
+// rendered card still shows the effective value.
+func groupSettingsFitRows(rows []cardElement, draft managementGroupSettingsDraft, scope map[string]string) []cardElement {
+	out := make([]cardElement, 0, len(rows))
+	for _, row := range rows {
+		if groupSettingsPageFits([]cardElement{row}, draft, scope, 2) {
+			out = append(out, row)
+			continue
+		}
+		out = append(out, groupSettingsShrinkRow(row, draft, scope))
+	}
+	return out
+}
+
+// groupSettingsShrinkRow binary-searches the largest option count that lets the
+// row fit a page on its own, keeping the selected option in the list.
+func groupSettingsShrinkRow(row cardElement, draft managementGroupSettingsDraft, scope map[string]string) cardElement {
+	total := managementRowOptionCount(row)
+	if total == 0 {
+		return row
+	}
+	best := row
+	lo, hi := 1, total
+	for lo <= hi {
+		mid := (lo + hi) / 2
+		candidate := groupSettingsRowWithOptions(row, mid)
+		if groupSettingsPageFits([]cardElement{candidate}, draft, scope, 2) {
+			best = candidate
+			lo = mid + 1
+			continue
+		}
+		hi = mid - 1
+	}
+	return best
+}
+
+// managementRowOptionCount returns the option count of the row's select, or 0
+// when the row holds no select.
+func managementRowOptionCount(row cardElement) int {
+	if option, ok := managementRowSelect(&row); ok {
+		return len(option.Options)
+	}
+	return 0
+}
+
+// groupSettingsRowWithOptions returns a copy of the row whose select carries at
+// most max options. The initial option is kept first when truncation would
+// otherwise drop it, so the card never loses the effective value, and a note is
+// added under the control so the shortened list is visible rather than silent.
+func groupSettingsRowWithOptions(row cardElement, max int) cardElement {
+	clone := row
+	clone.Columns = append([]cardColumn(nil), row.Columns...)
+	for ci := range clone.Columns {
+		elements := append([]cardElement(nil), clone.Columns[ci].Elements...)
+		for ei := range elements {
+			element := &elements[ei]
+			if element.Tag != "select_static" || len(element.Options) <= max {
+				continue
+			}
+			total := len(element.Options)
+			// Keep the selected option first so truncation cannot hide the
+			// value the card is actually showing.
+			kept := make([]cardOption, 0, max)
+			for _, option := range element.Options {
+				if option.Value == element.InitialOption {
+					kept = append(kept, option)
+					break
+				}
+			}
+			for _, option := range element.Options {
+				if len(kept) >= max {
+					break
+				}
+				if option.Value == element.InitialOption {
+					continue
+				}
+				kept = append(kept, option)
+			}
+			element.Options = kept
+			// Append the note after the loop over elements so the walk cannot
+			// revisit it as a select.
+			elements = append(elements,
+				managementHintElement(fmt.Sprintf("选项过多，仅显示 %d/%d 项；当前值已保留。", len(kept), total)))
+		}
+		clone.Columns[ci].Elements = elements
+	}
+	return clone
+}
+
+// managementRowSelect returns the select element of a two-element field row.
+func managementRowSelect(row *cardElement) (*cardElement, bool) {
+	for ci := range row.Columns {
+		for ei := range row.Columns[ci].Elements {
+			if row.Columns[ci].Elements[ei].Tag == "select_static" {
+				return &row.Columns[ci].Elements[ei], true
+			}
+		}
+	}
+	return nil, false
+}
+
+// groupSettingsPaginateRows splits rows using the card shape of a multi-page
+// card when pagesHint is above one, so the indicator's own nodes are budgeted.
+func groupSettingsPaginateRows(rows []cardElement, draft managementGroupSettingsDraft, scope map[string]string, pagesHint int) [][]cardElement {
+	pages := make([][]cardElement, 0, 1)
+	current := make([]cardElement, 0, len(rows))
+	for _, row := range rows {
+		candidate := append(append([]cardElement(nil), current...), row)
+		if len(current) > 0 && !groupSettingsPageFits(candidate, draft, scope, pagesHint) {
+			pages = append(pages, current)
+			current = []cardElement{row}
+			continue
+		}
+		current = candidate
+	}
+	pages = append(pages, current)
+	return pages
+}
+
+// groupSettingsPageFits reports whether a page of rows renders within budget.
+func groupSettingsPageFits(rows []cardElement, draft managementGroupSettingsDraft, scope map[string]string, pagesHint int) bool {
+	card := renderGroupSettingsEditCardPage(draft, scope, rows, 0, pagesHint)
+	if len(card) > managementGroupSettingsMaxBytes {
+		return false
+	}
+	return managementCardTaggedNodeCount(card) <= groupSettingsEditNodeBudget()
+}
+
+// renderGroupSettingsEditCardPage assembles one editor page. Every button
+// carries the full draft plus the page it should re-render, so switching pages
+// or refreshing model options never discards values already entered.
+func renderGroupSettingsEditCardPage(draft managementGroupSettingsDraft, scope map[string]string, rows []cardElement, page, pages int) string {
+	values := make(map[string]string, len(scope)+len(draft)+1)
 	for key, value := range scope {
 		values[key] = value
 	}
 	for key, value := range draft {
 		values[key] = value
 	}
+	values[groupSettingsPageKey] = strconv.Itoa(page)
+	form := make([]cardElement, 0, len(rows)+1)
+	form = append(form, rows...)
 	submit := func(action, label string) cardElement {
 		button := managementFormSubmitButton(action, label)
 		button.Value, _ = json.Marshal(managementButtonValue(groupSettingsScopedButton(action, label, "primary", values)))
@@ -525,14 +743,47 @@ func renderGroupSettingsEditCard(state managementState, draft managementGroupSet
 	save.Confirm = managementConfirm("保存本群设置？", "执行参数只影响新会话，已有话题保留原设置。切换连续会话模式会停用原连续会话入口，已接受任务继续完成；新连续会话从空白上下文开始。首次保存后本群与助手全局连续会话分开。")
 	refresh := submit(managementActionGroupSettingsEdit, "更新模型选项")
 	refresh.Type = "default"
-	form = append(form, managementFormButtonRowElement(save, refresh))
+	if pages > 1 {
+		form = append(form, managementFormButtonRowElement(save, refresh, groupSettingsPageButton(scope, draft, page-1, "上一页", page > 0), groupSettingsPageButton(scope, draft, page+1, "下一页", page < pages-1)))
+	} else {
+		form = append(form, managementFormButtonRowElement(save, refresh))
+	}
+	elements := []cardElement{
+		managementHintElement("新话题和新开的连续会话使用本群设置；已有会话不变。仅专家可选择跟随助手，其余字段保存后独立于助手默认值。"),
+		managementHintElement("更换专家或运行引擎后可点击“更新模型选项”；所有已填值都会保留，不兼容的组合将在保存时明确报错。"),
+	}
+	if pages > 1 {
+		elements = append(elements, managementHintElement(fmt.Sprintf("设置项较多，当前第 %d/%d 页；切换分页不会丢失已填内容。", page+1, pages)))
+	}
+	elements = append(elements, cardElement{Tag: "form", Name: "group_settings_form", Direction: "vertical", VerticalSpacing: "8px", Elements: form})
 	return marshalNativeManagementCard(managementCardView{
 		Title: "修改本群设置", Subtitle: valueOrPlaceholder(scope["chat_name"], "未命名群") + " · " + scope["chat_id"], Summary: "amux 本群设置编辑", Theme: "blue",
-		Elements: []cardElement{
-			managementHintElement("新话题和新开的连续会话使用本群设置；已有会话不变。仅专家可选择跟随助手，其余字段保存后独立于助手默认值。"),
-			managementHintElement("更换专家或运行引擎后可点击“更新模型选项”；所有已填值都会保留，不兼容的组合将在保存时明确报错。"),
-			{Tag: "form", Name: "group_settings_form", Direction: "vertical", VerticalSpacing: "8px", Elements: form},
-		},
-		Buttons: []managementButton{groupSettingsScopedButton(managementActionGroupSettingsOpen, "取消", "default", scope)},
+		Elements: elements,
+		Buttons:  []managementButton{groupSettingsScopedButton(managementActionGroupSettingsOpen, "取消", "default", scope)},
 	})
+}
+
+// groupSettingsPageButton renders a page switch. Disabled edges stay visible so
+// the row keeps its shape across pages; they carry no action when disabled.
+//
+// Feishu requires every element name in a card to be unique, so the name is
+// suffixed per direction rather than reusing the refresh button's action name.
+func groupSettingsPageButton(scope map[string]string, draft managementGroupSettingsDraft, page int, label string, enabled bool) cardElement {
+	button := managementFormSubmitButton(managementActionGroupSettingsEdit, label)
+	button.Type = "default"
+	button.Name = fmt.Sprintf("%s.page.%d", managementActionGroupSettingsEdit, page)
+	if !enabled {
+		button.Disabled = true
+		return button
+	}
+	values := make(map[string]string, len(scope)+len(draft)+1)
+	for key, value := range scope {
+		values[key] = value
+	}
+	for key, value := range draft {
+		values[key] = value
+	}
+	values[groupSettingsPageKey] = strconv.Itoa(page)
+	button.Value, _ = json.Marshal(managementButtonValue(groupSettingsScopedButton(managementActionGroupSettingsEdit, label, "default", values)))
+	return button
 }

@@ -3,6 +3,7 @@ package bridge
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -459,5 +460,220 @@ func TestGroupSettingsCardPreservesGroupWatchEntry(t *testing.T) {
 		if operation == "add" && (!strings.Contains(card, "将本群移出值守") || !strings.Contains(card, "修改本群设置")) {
 			t.Fatalf("watch update lost settings surface: %s", card)
 		}
+	}
+}
+
+// groupSettingsBudgetState builds a management state whose profile and model
+// catalogs are large enough to push the editor past Feishu's element ceiling.
+// The numbers mirror a real deployment: a builtin assistant exposing a wide
+// model list alongside many pack-provided profiles.
+func groupSettingsBudgetState(profiles, models int) managementState {
+	state := managementState{DefaultAgent: "builtin/codex", ProfileName: "amux test0"}
+	if models < 1 {
+		models = 1
+	}
+	supported := make([]string, 0, models)
+	for i := 0; i < models; i++ {
+		supported = append(supported, fmt.Sprintf("model-%03d", i))
+	}
+	state.Profiles = append(state.Profiles, managementProfileSummary{
+		Ref: "builtin/codex", Name: "Codex", AgentType: "codex", Model: supported[0],
+		SupportedModels: supported,
+	})
+	for i := 1; i < profiles; i++ {
+		state.Profiles = append(state.Profiles, managementProfileSummary{
+			Ref: fmt.Sprintf("expert-agents/agent-%03d", i), Name: fmt.Sprintf("专家 %03d", i),
+			AgentType: "codex", Model: supported[0], Description: "来自专家库的专家",
+			SupportedModels: []string{supported[0]},
+		})
+	}
+	runtimeModels := make([]agentprofile.RuntimeModelOption, 0, models)
+	for _, ref := range supported {
+		runtimeModels = append(runtimeModels, agentprofile.RuntimeModelOption{Ref: ref})
+	}
+	state.Runtimes = []agentprofile.RuntimeOption{{Ref: "codex", DisplayName: "Codex", Models: runtimeModels}}
+	return state
+}
+
+func groupSettingsBudgetScope() map[string]string {
+	return map[string]string{"chat_name": "Test group", "chat_id": "oc_test"}
+}
+
+// Every rendered page must stay inside Feishu's ceiling. managementCardTaggedNodeCount
+// matches Feishu's own accounting on live cards, so the assertion is exact.
+func TestGroupSettingsEditCardStaysWithinElementLimit(t *testing.T) {
+	enableGroupSettingsExperiment(t)
+	scope := groupSettingsBudgetScope()
+	for _, tc := range []struct{ profiles, models int }{
+		{1, 1}, {31, 32}, {60, 32}, {120, 32}, {31, 80}, {200, 32}, {200, 200},
+	} {
+		t.Run(fmt.Sprintf("profiles=%d/models=%d", tc.profiles, tc.models), func(t *testing.T) {
+			state := groupSettingsBudgetState(tc.profiles, tc.models)
+			draft := managementGroupSettingsDraft{"group_agent": "builtin/codex"}
+			pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft), draft, scope)
+			if len(pages) == 0 {
+				t.Fatal("pagination produced no pages")
+			}
+			for index, page := range pages {
+				card := renderGroupSettingsEditCardPage(draft, scope, page, index, len(pages))
+				nodes := managementCardTaggedNodeCount(card)
+				if nodes > managementGroupSettingsLimitElements {
+					t.Fatalf("page %d has %d tagged nodes, over the %d limit",
+						index+1, nodes, managementGroupSettingsLimitElements)
+				}
+				if len(card) > managementGroupSettingsMaxBytes {
+					t.Fatalf("page %d is %d bytes, over the %d budget",
+						index+1, len(card), managementGroupSettingsMaxBytes)
+				}
+			}
+		})
+	}
+}
+
+// Pagination must not engage while the editor still fits, or every existing
+// group would gain a page switcher for no reason.
+func TestGroupSettingsEditCardAvoidsPaginationWhenItFits(t *testing.T) {
+	enableGroupSettingsExperiment(t)
+	scope := groupSettingsBudgetScope()
+	state := groupSettingsBudgetState(31, 32)
+	draft := managementGroupSettingsDraft{"group_agent": "builtin/codex"}
+	pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft), draft, scope)
+	if len(pages) != 1 {
+		t.Fatalf("editor paginated into %d pages while it still fits on one", len(pages))
+	}
+	card := renderGroupSettingsEditCardPage(draft, scope, pages[0], 0, 1)
+	if nodes := managementCardTaggedNodeCount(card); nodes > managementGroupSettingsLimitElements {
+		t.Fatalf("single page has %d tagged nodes, over the limit", nodes)
+	}
+}
+
+// A page request past the end must fall back to the last page rather than
+// render an empty card after the catalog shrinks.
+func TestGroupSettingsEditCardClampsOutOfRangePage(t *testing.T) {
+	enableGroupSettingsExperiment(t)
+	state := groupSettingsBudgetState(31, 32)
+	draft := managementGroupSettingsDraft{"group_agent": "builtin/codex"}
+	card := renderGroupSettingsEditCardAtPage(state, draft, groupSettingsBudgetScope(), 99)
+	if !strings.Contains(card, "group_settings_form") {
+		t.Fatal("out-of-range page did not fall back to a rendered editor")
+	}
+	if nodes := managementCardTaggedNodeCount(card); nodes > managementGroupSettingsLimitElements {
+		t.Fatalf("clamped page has %d tagged nodes, over the limit", nodes)
+	}
+}
+
+// Truncating an oversized select must keep the selected value visible, or the
+// card would show a value the user can neither see nor re-select.
+func TestGroupSettingsOversizedSelectKeepsSelectedOption(t *testing.T) {
+	enableGroupSettingsExperiment(t)
+	scope := groupSettingsBudgetScope()
+	state := groupSettingsBudgetState(200, 200)
+	for _, selected := range []string{"model-000", "model-100", "model-199"} {
+		t.Run(selected, func(t *testing.T) {
+			draft := managementGroupSettingsDraft{"group_agent": "builtin/codex", "group_model": selected}
+			rows := groupSettingsFitRows(managementGroupSettingsEditFields(state, draft), draft, scope)
+			for _, row := range rows {
+				selectElement, ok := managementRowSelect(&row)
+				if !ok || selectElement.Name != "group_model" {
+					continue
+				}
+				for _, option := range selectElement.Options {
+					if option.Value == selected {
+						return
+					}
+				}
+				t.Fatalf("selected model %q was truncated out of %d options", selected, len(selectElement.Options))
+			}
+			t.Fatal("model select not found in editor rows")
+		})
+	}
+}
+
+// Switching pages must carry the draft, so values entered on one page survive
+// a trip to another.
+func TestGroupSettingsPageButtonCarriesDraft(t *testing.T) {
+	enableGroupSettingsExperiment(t)
+	scope := groupSettingsBudgetScope()
+	draft := managementGroupSettingsDraft{
+		"group_agent": "builtin/codex", "group_cwd": "/tmp/work", groupSettingsPageKey: "0",
+	}
+	card := renderGroupSettingsEditCardPage(draft, scope, []cardElement{managementHintElement("x")}, 0, 3)
+	if !strings.Contains(card, groupSettingsPageKey) {
+		t.Fatal("page indicator missing from a multi-page editor card")
+	}
+	values := managementButtonValue(groupSettingsScopedButton(managementActionGroupSettingsEdit, "下一页", "default", map[string]string{}))
+	if values[managementActionKey] != managementActionGroupSettingsEdit {
+		t.Fatalf("page button action = %q", values[managementActionKey])
+	}
+}
+
+// Feishu rejects a card whose elements share a name (ErrCode 11310,
+// "name(...) duplicate"), which is easy to trip once a second control reuses an
+// action name. Guard every rendered page, including the paginated shape.
+func TestGroupSettingsEditCardElementNamesAreUnique(t *testing.T) {
+	enableGroupSettingsExperiment(t)
+	scope := groupSettingsBudgetScope()
+	for _, tc := range []struct{ profiles, models int }{{31, 32}, {60, 32}, {200, 200}} {
+		t.Run(fmt.Sprintf("profiles=%d/models=%d", tc.profiles, tc.models), func(t *testing.T) {
+			state := groupSettingsBudgetState(tc.profiles, tc.models)
+			draft := managementGroupSettingsDraft{"group_agent": "builtin/codex"}
+			pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft), draft, scope)
+			for index, page := range pages {
+				card := renderGroupSettingsEditCardPage(draft, scope, page, index, len(pages))
+				names := map[string]int{}
+				collectCardElementNames(t, card, names)
+				for name, count := range names {
+					if count > 1 {
+						t.Fatalf("page %d repeats element name %q %d times", index+1, name, count)
+					}
+				}
+			}
+		})
+	}
+}
+
+// collectCardElementNames records every non-empty element name in a card.
+func collectCardElementNames(t *testing.T, raw string, names map[string]int) {
+	t.Helper()
+	var document any
+	if err := json.Unmarshal([]byte(raw), &document); err != nil {
+		t.Fatalf("unmarshal card: %v", err)
+	}
+	var walk func(any)
+	walk = func(node any) {
+		switch typed := node.(type) {
+		case map[string]any:
+			if name, ok := typed["name"].(string); ok && strings.TrimSpace(name) != "" {
+				names[name]++
+			}
+			for _, child := range typed {
+				walk(child)
+			}
+		case []any:
+			for _, child := range typed {
+				walk(child)
+			}
+		}
+	}
+	walk(document)
+}
+
+// The production entry point must never hand Feishu an over-limit card, for any
+// page index and any catalog size.
+func TestGroupSettingsEditCardProductionEntryStaysWithinLimit(t *testing.T) {
+	enableGroupSettingsExperiment(t)
+	scope := groupSettingsBudgetScope()
+	draft := managementGroupSettingsDraft{"group_agent": "builtin/codex"}
+	for _, tc := range []struct{ profiles, models int }{{3, 4}, {31, 32}, {200, 200}, {500, 500}} {
+		t.Run(fmt.Sprintf("profiles=%d/models=%d", tc.profiles, tc.models), func(t *testing.T) {
+			state := groupSettingsBudgetState(tc.profiles, tc.models)
+			for page := 0; page < 8; page++ {
+				card := renderGroupSettingsEditCardAtPage(state, draft, scope, page)
+				if nodes := managementCardTaggedNodeCount(card); nodes > managementGroupSettingsLimitElements {
+					t.Fatalf("page %d rendered %d tagged nodes, over the %d limit",
+						page, nodes, managementGroupSettingsLimitElements)
+				}
+			}
+		})
 	}
 }
