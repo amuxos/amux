@@ -253,7 +253,7 @@ launch revision, preventing an expert from changing its own behavior mid-executi
 
 | Location | Change |
 | --- | --- |
-| `docs/current/*.md` | Update Agent Profile, Distributed Task, and Feishu product rules before implementation |
+| `docs/current/*.md`, `docs/reference/agent-profile-format.md`, `docs/distributed-task-model.md` | Update Agent Profile, Distributed Task, and Feishu product rules before implementation |
 | `internal/agentprofile` | Read, temporary worktrees, patches, Contract, tree hashes, and integration with the publication flow |
 | `proto/amux/v1/amux.proto` | Current-turn grants and read/change RPCs |
 | `internal/bridge/router.go` | Derive turn grants from authenticated Feishu messages |

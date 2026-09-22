@@ -91,7 +91,7 @@ MCP 进程直接读取该目录。不要把 `AMUX_SESSION_ID` 人工写进全局
 
 ## 接入后的行为
 
-- `tools/list` 返回 agent profile discovery、task、persistent agent 和 schedule 等全部主工具。
+- `tools/list` 返回 agent profile discovery、task、persistent agent、session、schedule、memory 和 local-expert 等全部主工具。
 - 只调用 `tools/list` 展示的工具名；已淘汰或未展示的名称会返回未知工具错误。
 - 外部 host 通常没有 `AMUX_SESSION_ID`，因此未显式传 `parent_session_id` 的 task 是独立顶层任务。
 - 所有工具以当前用户的 amux 配置、hub 权限和 credential policy 执行；stdio 层没有额外认证。

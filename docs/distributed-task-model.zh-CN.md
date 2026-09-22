@@ -7,7 +7,7 @@
 Hub 认证请求、冻结执行身份、选择合适的 Runtime，并在派发前预留容量。
 选中 Runtime 的 Task runner 在本地执行 child Session，在进程内强制校验所有权。
 Hub 路由请求并维护 Task 到 target 的真相映射，不直接驱动 child Session。
-终态 Task 通过 reconciliation 释放预留容量。
+终态 Task 通过 reconciliation 释放预留容量；未提交的预留还会按 TTL 过期作为兜底。
 
 Task 是有界执行，拥有规范化终态结果、结构化结果、事件日志和文件变更证据。
 Agent Instance 持续存在并接受后续工作。取消和中断始终与正在运行的执行关联。
@@ -47,7 +47,7 @@ Canonical `UsageObserved` 和 `ResultObserved.Usage` 也会投影为持久化 Ta
 由 `amux-session:<session_id>` 发起的协调委派通过既有 Task admission 与授权保留
 parent Session，并解析活动 ParentTurnID。其它发起者不推断 parent。
 协调等待在 `tool` 和 `usage` 事件上推进 TaskEvent cursor，不人为生成 status 或文本
-事件，也不因纯用量更新唤醒 parent Agent。
+事件，也不因纯 tool 或用量更新唤醒 parent Agent。
 
 子 Session 与交互式 Session 使用相同的 [Hub 记忆模型](current/agent-memory-product-model.zh-CN.md)。
 新建子会话以有效启动凭据查询记忆范围，独立于 Profile 保存范围前提。Hub 用户隔离开启时，

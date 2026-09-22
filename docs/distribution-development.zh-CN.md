@@ -28,7 +28,7 @@
 `cmd` 路径保持为标准构建入口，具体实现和测试位于 `app`。
 
 Pi 的通用文件布局与扩展渲染由核心维护。发行版通过 Profile customization 的
-`ValidateProvider` 和 `PiProviderConfig` 注册额外平台的校验、连接地址、API 与模型
+`ValidateAdditionalProvider` 和 `PiProviderConfig` 注册额外平台的校验、连接地址、API 与模型
 兼容配置；默认 `openai-compat` 路径仍由公共核心处理。CLI customization 的
 `CredentialSetExamples` 可以追加发行版凭据示例，示例使用传入的命令路径。
 `SetupCommands` hook 可返回新建的 Cobra 命令，在 `amux setup` 下提供可选本地组件

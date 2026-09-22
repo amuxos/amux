@@ -4,11 +4,13 @@
 
 [English](cli-product-model.md) | [简体中文](cli-product-model.zh-CN.md)
 
-主要命令组为 `setup`、`session`、`task`、`agent`、`schedule`、`memory` 和 `system`。
+主要命令组为 `setup`、`session`、`task`、`agent`、`schedule`、`memory`、`isolation` 和 `system`。
 Session、Task 和 Schedule 使用 Hub 控制面。每个 Runtime 在本机执行工作，并通过
 出站 tunnel 连接 Hub。本地使用需要 Hub，但不要求飞书 Bridge。
 `local` Target 别名标识配置的本地 Runtime，也适用于 `session list` 过滤，
 不要求 Runtime 本身名为 `local`。
+`isolation` 命令组管理 Principal 账号、别名、委派授权和隔离 helper 服务；
+隔离与凭据访问规则遵循 Task 模型。
 
 `bridge feishu group-settings` 管理本机安装的群默认设置。命令要求开启默认关闭的
 `bridge.feishu.group_settings.enabled` 实验；在私聊 `/amux` 的实验功能页开启并重启后
@@ -25,12 +27,14 @@ Target 标识 Runtime 的位置。Session 是与一个智能体持续进行的�
 显式指定 Runtime 时，即使模型名不在 Runtime 建议列表中，也原样传给原生 Agent。
 没有 Runtime 覆盖时，Profile 显式声明的 `supported_models` 仍是模型允许列表。
 
-所有 Session 使用相同的行式终端 UI。提交的文本进入 Session 队列。
-Detach 只结束 UI 连接，不结束 Session。原始字节输入和终端尺寸调整不是 transport
+所有 Session 使用相同的行式终端 UI。提交的文本进入 Session 队列；
+`session queue` 查看待处理输入，`session queue cancel` 和 `session queue clear`
+分别移除单条和全部条目。Detach 只结束 UI 连接，不结束 Session。原始字节输入和终端尺寸调整不是 transport
 操作。重启、恢复和模型切换遵循所选 Agent 的能力。
 兼容 Codex 的 Provider 原生历史缺失时，重启、恢复和自动唤醒使用可用的 amux 对话
 记录恢复，同时保留 Session 身份、工作区与执行设置。
 
+`amux setup` 接受 `local`、`hub`、`remote`、`feishu` 和 `feishu-local` 目标；
 `amux setup local` 配置本地 Hub 和 Runtime，在支持的宿主上使用原生服务管理。
 `amux install --source <directory>` 安装本地二进制。
 `amux update --source <directory> --restart` 更新已有安装，无需重复 setup。
@@ -81,7 +85,8 @@ Task 事件 JSON 流通过 `kind=usage` 暴露数值型 `usage` 对象，包括 
 Agent Profile 或 Runtime。search 和 show 返回有界 JSON，包含版本和续读信息。
 upsert 从 `--file` 或标准输入读取 UTF-8 正文；upsert 和 forget 必须指定
 `--expected-revision`（之前读到的 hash，新建用 `absent`）。export 将单份完整文档写到
-标准输出，分页期间版本变化则报错。命令和 `amux.memory_search|get|upsert|forget`
+标准输出，分页期间版本变化则报错。export 仅输出纯文本；search、show、upsert 和
+forget 接受 `--json`。命令和 `amux.memory_search|get|upsert|forget`
 MCP 工具不接受作用域或 Principal 覆盖参数：Hub 认证调用方并选择作用域。
 受管进程将冻结的 `AMUX_MEMORY_BINDING` 作为前置条件传入；缺少绑定的旧受管进程
 必须新建对话。关闭记忆后，运行时 MCP 发现不展示记忆工具，直接调用也会拒绝；

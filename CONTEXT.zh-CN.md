@@ -21,9 +21,9 @@ _避免使用_：Consumer（消费者）
 _避免使用_：Administrator persona（管理员画像）
 
 **Bot governance mode（Bot 治理模式）**：
-每个飞书 Bot Profile 独立选择 `personal` 或 `team`。Personal 将该 Bot 的能力限制给
-owner；Team 允许授权成员使用该 Bot 暴露的能力。治理模式不决定系统拓扑、工作区
-策略或 `thread|singleton` 交互模式。
+每个飞书 Bot Profile 独立选择 `owner_only`（个人）或 `shared`（团队）。owner_only 将该
+Bot 的能力限制给 owner；shared 允许授权成员使用该 Bot 暴露的能力。治理模式不决定系统
+拓扑、工作区策略或 `thread|singleton` 交互模式。
 _避免使用_：Deployment mode、edition、audience mode（部署模式、版本、受众模式）
 
 **System hosting topology（系统托管拓扑）**：

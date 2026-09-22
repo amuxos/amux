@@ -3,11 +3,14 @@
 [English](cli-product-model.md) | [简体中文](cli-product-model.zh-CN.md)
 
 The primary command groups are `setup`, `session`, `task`, `agent`, `schedule`,
-`memory` and `system`. Sessions, tasks and schedules use the hub control plane. Each
-runtime executes work locally and connects to the hub through an outbound tunnel.
+`memory`, `isolation` and `system`. Sessions, tasks and schedules use the hub
+control plane. Each runtime executes work locally and connects to the hub
+through an outbound tunnel.
 Local operation requires a hub, but does not require the Feishu bridge.
 The `local` target alias identifies the configured local runtime, including
 when filtering `session list`; it does not require a runtime named `local`.
+The `isolation` group manages principal accounts, aliases, delegations and the
+isolation helper service; access rules follow the task model.
 
 `bridge feishu group-settings` manages the local installation's group defaults.
 These commands require the default-off `bridge.feishu.group_settings.enabled`
@@ -33,15 +36,18 @@ is absent from runtime suggestions. Without a runtime override, a profile's
 explicit `supported_models` remains its model allowlist.
 
 Every session uses the same line-oriented terminal UI. Submitted text enters the
-session queue. Detach ends the UI connection without ending the session. Raw byte
+session queue; `session queue` lists pending inputs, and `session queue cancel`
+/ `session queue clear` drop one or all entries. Detach ends the UI connection
+without ending the session. Raw byte
 input and terminal resize are not transport operations. Restart/resume and model
 changes follow the selected agent's capabilities.
 If a Codex-compatible provider's native history is missing, restart, resume and
 automatic wake recover using the available amux conversation transcript while
 retaining the session identity, workspace and execution settings.
 
-`amux setup local` configures the local hub and runtime using native service
-supervision where supported. `amux install --source <directory>` installs local
+`amux setup` accepts `local`, `hub`, `remote`, `feishu` and `feishu-local`
+targets; `amux setup local` configures the local hub and runtime using native
+service supervision where supported. `amux install --source <directory>` installs local
 binaries. `amux update --source <directory> --restart` updates an existing
 installation without repeating setup. Public updates use the platform manifest
 from `amuxos/amux-releases` by default. `AMUX_RELEASE_URL` overrides the source;
@@ -110,6 +116,7 @@ JSON including revisions and continuation metadata. Upsert reads UTF-8 content
 from `--file` or standard input; upsert and forget require `--expected-revision`
 (a previously read hash, or `absent` for creation). Export writes one complete
 document to standard output and fails if its revision changes during paging.
+Export is plain text only; search, show, upsert and forget accept `--json`.
 The commands and `amux.memory_search|get|upsert|forget` MCP tools have no scope or
 principal override: the Hub authenticates the caller and selects the scope.
 Managed processes pass their frozen `AMUX_MEMORY_BINDING` as a precondition;

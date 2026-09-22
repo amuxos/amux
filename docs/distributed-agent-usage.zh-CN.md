@@ -16,6 +16,8 @@ amux agent list
 amux task submit "审查当前工作目录，给出有证据的缺陷清单" --profile builtin/codex --wait
 ```
 
+`--wait` 使任务成为阻塞任务；阻塞任务不允许 `--permission escalate-to-main`。
+
 省略 `--wait` 得到 task ID，随后可检查状态、跟随事件或取消：
 
 ```sh
@@ -38,6 +40,15 @@ amux task respond <task-id> --permission <permission-id> --allow
 拒绝时使用 `--deny`。凭据通过 `--credential-profile <name>` 引用，设置方法见
 [凭据示例](../examples/03-credential-profiles/README.zh-CN.md)。已识别调用方使用其 Principal
 的凭据；服务身份切换通过已授权的 `--run-as` alias，由 hub 解析并冻结身份。
+
+定时或一次性工作使用 Schedule。给会话发定时提示用
+`amux schedule create <session-ref> <spec> <prompt>`；独立子任务用
+`amux schedule create-task <spec> --agent <profile> --task "<文本>"`。spec 支持
+五段 cron 表达式、`every <间隔>`、`daily HH:MM`，单次执行用 `at <时间>`。
+每次触发都重新校验权限；一次性 Schedule 触发后即消费，不重试。定时子任务接受
+`--permission-policy default|policy-allow|deny-all`，不支持升级到主 Agent。
+用 `amux schedule list`、`enable`/`disable`、`update`、`remove` 管理，用
+`amux schedule runs` 查看历史触发。
 
 结果保存在 task 历史中。清理前先查看候选：
 

@@ -20,7 +20,7 @@ amux runs and coordinates Codex, Claude and Pi sessions across local and remote
 machines, with a CLI, terminal UI, task and schedule APIs, and an optional
 Feishu/Lark bot bridge.
 
-Source candidate for `https://github.com/amuxos/amux.git`; Go module:
+This repository is the public source of amux; Go module:
 `github.com/amuxos/amux`. Original code, docs and examples use [Apache-2.0](LICENSE)
 unless marked otherwise, permitting commercial use and proprietary integration
 under its terms. See [License and attribution](docs/licensing.md).
@@ -119,6 +119,8 @@ Codex and Pi need no sidecar. The script never installs or upgrades native agent
 <summary>Advanced installation options</summary>
 
 - **Local binaries:** `--source /path/to/binaries` must contain `amux`, `amuxd` and `amuxlet`.
+- **Agent profile:** `--agent-profile <ref>` selects a builtin profile explicitly and derives the runtime from it.
+- **Force source build:** `--from-source` builds from the checkout even outside one.
 - **Claude sidecar:** pass `--claude-sidecar /path/to/claude-sdk` with `dist/`, `node_modules/` and `package.json`, or use the sibling `../sidecars/claude-sdk/` layout.
 - **Source checkout:** a standalone script accepts `--source-root /path/to/public-amux` or `AMUX_INSTALL_SOURCE_ROOT`; internal distribution roots are rejected.
 - **Shell PATH:** `--no-modify-path` skips adding an entry; clean uninstall still removes the old managed entry.
@@ -126,6 +128,24 @@ Codex and Pi need no sidecar. The script never installs or upgrades native agent
 See `bash scripts/install.sh --help` for all flags.
 
 </details>
+
+## Quickstart
+
+With the CLI installed, configure the local system once, then start a session
+and hand it work:
+
+```sh
+amux setup local
+amux session run builtin/codex --name demo
+amux session send demo "Summarize this repository's layout"
+amux session attach demo   # live timeline; /detach or Ctrl-] to leave
+```
+
+One installation runs a Hub (`amuxd`) that owns identity, routing and
+scheduling, plus local or remote Runtimes (`amuxlet`) that execute agent
+sessions. Sessions hold ongoing conversations; tasks are bounded executions with
+results; schedules fire prompts or subtasks on a cron-like spec. The optional
+Feishu bridge and external MCP hosts plug into the same control plane.
 
 ## Operation
 
@@ -138,27 +158,29 @@ Local sessions, tasks and schedules need the Hub and Runtime, not Feishu:
 | Upgrade after rebuilding, without repeating setup | `make upgrade` |
 | Download and install the latest public release | `amux update --restart` |
 
-Public updates verify SHA256 before replacing binaries and the bundled Claude
-SDK. Override the manifest/archive source with `AMUX_RELEASE_URL` or `--release-url`.
+Public updates from the default release manifest verify SHA256 before replacing
+binaries and the bundled Claude SDK. Override the manifest/archive source with
+`AMUX_RELEASE_URL` or `--release-url`; custom URLs pointing directly at an
+archive skip checksum verification.
 
 Profile Packs use manifest v1.1 and support external Git Packs; there is no default
 marketplace. Optional expert authoring needs a separately configured compatible
 runtime, never downloaded implicitly by source builds. Bundled skills and the
-desktop application are outside this candidate.
+desktop application are not part of this repository.
 
 ## Development
 
 Examples and operating guides are listed in the [documentation index](docs/README.md)
 and [examples index](examples/README.md).
 
-This public core builds independently. Other distributions depend on its Go
+This module builds independently. Other distributions depend on its Go
 module and register extensions before calling its application entrypoints.
 See [distribution development](docs/distribution-development.md).
 
 `make check` verifies generated transport and references, runs Go tests, checks
 third-party notices with Python 3, builds commands, and tests the sidecar when
 npm is available. Live-account tests are excluded. Some fixtures and resources
-remain outside this candidate pending review; the suite does not establish
+remain outside this repository pending review; the suite does not establish
 complete product acceptance coverage.
 
 - [CLI model](docs/current/cli-product-model.md)

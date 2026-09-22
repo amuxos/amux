@@ -12,7 +12,8 @@ default endpoints and Pi compatibility settings belong to registered distributio
 extensions; the shared Pi renderer consumes their configuration.
 Runtime model suggestions are not an allowlist. An explicit native model name is
 passed to the selected agent without inferring a provider, endpoint or credential.
-Reasoning effort remains constrained by the adapter's supported values.
+Reasoning effort remains constrained by the runtime catalog's supported values
+for the selected model.
 
 Distributions may provide optional per-model display names in their runtime
 catalog. Model pickers and session summaries use these labels, falling back to
@@ -38,6 +39,16 @@ Provider and ACP implementations emit typed payloads. The session-owned canonica
 timeline assigns turn identity and order and accepts exactly one terminal event
 per turn. Provider message identifiers remain provenance. Observing a result does
 not itself complete a turn. The session owns completion policy and queue advancement.
+
+Sessions have an explicit lifecycle: `created`, `running`, `idle`, `sleeping` and
+`archived`. A running session becomes eligible for automatic sleep only when its
+idle timeout (never below 60 seconds) has elapsed with an empty queue, no turn in
+flight and no pending permission prompts; sleep is recorded as manual, idle
+timeout or restart failure. Sleeping sessions keep their identity and workspace
+and wake on new input; archiving ends routability. Restart, resume and hot
+model/effort reconfiguration (`set-model` without a process restart) follow the
+selected agent's capabilities; Codex supports in-process reconfiguration, others
+restart with handoff.
 
 When an ACP agent's output closes, the broker stops accepting requests and drains
 requests already being handled before closing client connections. Pending prompt
@@ -89,8 +100,9 @@ disable native memory reading and generation, plus a persisted disabled thread
 memory mode. Unsupported native contracts fail visibly before any turn. Claude
 merges append-system-prompt arguments and sets `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`
 for each managed launch, including resumes. This also disables Claude subagent
-persistent memory; ordinary CLAUDE.md instructions still load. Pi uses the CLI
-protocol: its reviewed core has no built-in automatic long-term memory to disable.
+persistent memory; ordinary CLAUDE.md instructions still load. Pi launches use its
+JSONL RPC mode: its reviewed core has no built-in automatic long-term memory to
+disable.
 User extensions can implement their own memory and are not covered by that claim;
 amux does not disable unrelated extensions. Other providers report memory
 unavailability without assuming that a compatible transport supports Codex's
@@ -133,8 +145,8 @@ in-memory flag-settings control before accepting prompts. These values take
 precedence over user/project/local settings while preserving other settings and
 managed policy. Credentials are not passed in command-line arguments or written
 to settings files. Failure to apply the overrides fails startup explicitly.
-SDK results marked `is_error`, including those with subtype `success`, terminate
-the turn as an error and preserve the reported failure message.
+SDK results marked `is_error`, or carrying any subtype other than `success`,
+terminate the turn as an error and preserve the reported failure message.
 
 ## Distribution customization contracts
 
@@ -151,4 +163,6 @@ Core owns credential transport, isolation and process lifecycle; the distributio
 owns the supervisor command and arguments. The public distribution still does
 not provide a compatibility gateway.
 
-Codex advertises its existing workspace skill support through `ConfigLayout`, including the `supports_skills` capability exposed by MCP.
+Adapters whose configuration layout supports workspace skills (including Codex)
+advertise that support through `ConfigLayout`; MCP exposes it as the
+`supports_skills` capability.

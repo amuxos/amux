@@ -227,7 +227,7 @@ patch + confirmed preview_receipt
 
 | 位置 | 改动 |
 | --- | --- |
-| `docs/current/*.md` | 实现前同步 Agent Profile、Distributed Task 和 Feishu 产品规则 |
+| `docs/current/*.md`、`docs/reference/agent-profile-format.zh-CN.md`、`docs/distributed-task-model.zh-CN.md` | 实现前同步 Agent Profile、Distributed Task 和 Feishu 产品规则 |
 | `internal/agentprofile` | read、临时 worktree、patch、Contract、tree hash 与现有发布流程适配 |
 | `proto/amux/v1/amux.proto` | current-turn grant 和 read/change RPC |
 | `internal/bridge/router.go` | 从已认证 Feishu 消息生成 turn grant |

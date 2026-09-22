@@ -4,22 +4,47 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-- [Public binary releases](operations/public-releases.md)
-- [Public core and independent distributions](distribution-development.md)
-- [License and attribution](licensing.md), [third-party notices](../THIRD_PARTY_NOTICES.md), and [contributing](../CONTRIBUTING.md)
-- [CLI model](current/cli-product-model.md), [Agent model](current/agent-adapter-product-model.md), and [Bridge model](current/feishu-bridge-product-model.md)
-- [Feishu thread context model](current/feishu-thread-context-model.md)
-- [Agent memory model](current/agent-memory-product-model.md) and [design](agent-memory-design.md)
-- [Local expert editing in natural language](local-expert-natural-language-authoring-design.md)
-- [Architecture decision records](adr/README.md)
-- [Task model](distributed-task-model.md) and [task guide](distributed-agent-usage.md)
+## Get started
+
+- [amux overview and installation](../README.md) — install, quickstart, daily operation
+- [Task guide](distributed-agent-usage.md) — first task, permissions, schedules
+- [Source examples](../examples/README.md)
+
+## Product models
+
+Current behavior contracts:
+
+- [CLI model](current/cli-product-model.md)
+- [Agent model](current/agent-adapter-product-model.md)
+- [Agent memory model](current/agent-memory-product-model.md)
+- [Bridge model](current/feishu-bridge-product-model.md) and [Feishu thread context model](current/feishu-thread-context-model.md)
+- [Product language model](current/i18n-product-model.md) (target specification)
+
+## Reference
+
 - Generated [CLI](reference/cli.md), [configuration](reference/configuration.md), and [MCP](reference/mcp.md) references
 - [Agent Profile Pack format](reference/agent-profile-format.md)
 - [Desktop Gateway API](reference/desktop-client.md)
+- [Chat template examples](reference/chat-template-agent-examples.md)
+
+## Guides and design
+
+- [Task model](distributed-task-model.md)
 - [External MCP hosts](mcp-external-hosts.md)
+- [Public core and independent distributions](distribution-development.md)
+- [Agent memory design](agent-memory-design.md)
+- [Local expert editing in natural language](local-expert-natural-language-authoring-design.md)
+
+## Operations
+
+- [Public binary releases](operations/public-releases.md)
 - [Linux UID/DAC isolation operations](operations/linux-dac-isolation.md)
-- [Source examples](../examples/README.md) and [chat template examples](reference/chat-template-agent-examples.md)
-- [Bridge ownership split record](reports/2026-09-10-bridge-ownership-split-plan.md)
+
+## Project
+
+- [License and attribution](licensing.md), [third-party notices](../THIRD_PARTY_NOTICES.md), [contributing](../CONTRIBUTING.md), and the project [glossary](../CONTEXT.md)
+- [Architecture decision records](adr/README.md)
+- Reports capture implementation stages at the time they were written, for example the [bridge ownership split record](reports/2026-09-10-bridge-ownership-split-plan.md)
 
 Product models define current behavior. Formats and generated references live in
 `reference/`; executable operating procedures live in `operations/`. Retained ADRs

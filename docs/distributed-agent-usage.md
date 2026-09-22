@@ -19,6 +19,9 @@ Submit a task with an explicit completion condition and wait for it:
 amux task submit "Review the working directory and report defects with evidence" --profile builtin/codex --wait
 ```
 
+`--wait` makes the task blocking; blocking tasks reject `--permission
+escalate-to-main`.
+
 Omit `--wait` to receive a task ID, then inspect status, follow events, or cancel:
 
 ```sh
@@ -43,6 +46,17 @@ Use `--deny` to reject. Reference credentials with `--credential-profile <name>`
 see the [credential example](../examples/03-credential-profiles/README.md).
 Identified callers use their Principal's credentials. An authorized `--run-as`
 alias switches service identity; the Hub resolves and freezes that identity.
+
+Recurring or one-shot work uses schedules. Session prompts use
+`amux schedule create <session-ref> <spec> <prompt>`; standalone subtasks use
+`amux schedule create-task <spec> --agent <profile> --task "<text>"`. The spec is a
+five-field cron expression, `every <interval>`, `daily HH:MM`, or `at <time>` for a
+single fire. Authorization is re-checked on every fire, and a consumed one-shot
+schedule is not retried. Scheduled subtasks accept
+`--permission-policy default|policy-allow|deny-all`; escalation to the main agent
+is not available for them. Manage schedules with `amux schedule list`,
+`enable`/`disable`, `update` and `remove`, and inspect past fires with
+`amux schedule runs`.
 
 Results remain in task history. Preview cleanup candidates first:
 

@@ -38,14 +38,17 @@ a new version for corrections. Concurrency serializes releases.
 Each version has `install.sh`, `version.txt`, `latest.json`, four platform tarballs,
 and their `.sha256` files. The installer resolves `version.txt` once and downloads
 the pinned platform filename and checksum. `amux update --restart` and update
-checks use `latest.json`; the updater verifies SHA256 before extraction.
+checks use `latest.json`; on that manifest path the updater verifies SHA256
+before extraction (a custom `--release-url`/`AMUX_RELEASE_URL` pointing directly
+at a `.tar.gz` archive skips checksum verification).
 Both paths reject unsupported archive entries. Packages include license notices
 and a platform-matched Claude SDK sidecar. Native agents and Node remain external
 prerequisites. The privileged isolation helper has its own installation process.
 
 For a mirror, `AMUX_RELEASE_BASE_URL` selects the installer's GitHub-style
 releases directory; configure `AMUX_RELEASE_URL` for subsequent CLI and service
-update checks. Environment overrides are not automatically persisted into native
+update checks (`AMUX_SCM_LATEST_URL` remains accepted as a legacy fallback).
+Environment overrides are not automatically persisted into native
 service environments. Local binary and source installation remain available.
 
 Version rollback is not database rollback. File activation failures restore the

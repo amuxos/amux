@@ -103,7 +103,7 @@ binding of amux-managed Sessions.
 
 ## Behavior after connection
 
-- `tools/list` returns the main profile discovery, task, persistent agent, and schedule tools.
+- `tools/list` returns the main profile discovery, task, persistent agent, session, schedule, memory and local-expert tools.
 - Call only names exposed by `tools/list`; retired or unlisted names return unknown-tool errors.
 - External hosts usually have no `AMUX_SESSION_ID`, so tasks without an explicit `parent_session_id` are independent top-level tasks.
 - Tools use the current user's amux configuration, Hub permissions, and credential policy. stdio adds no separate authentication.

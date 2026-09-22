@@ -11,7 +11,7 @@ Codex、Claude 和 Pi 是公共集成。Adapter 描述可执行文件发现、�
 Pi 使用 Chat Completions。附加 Provider 平台、默认端点和 Pi 兼容设置属于注册的发行版
 扩展；公共 Pi 渲染器消费这些配置。Runtime 模型建议不是允许列表。
 显式原生模型名直接传给所选 Agent，不据此推断 Provider、端点或凭据。
-思考强度仍受 Adapter 支持的值约束。
+思考强度仍受 Runtime 目录为所选模型声明的支持值约束。
 
 发行版可以在 Runtime 目录中为模型提供可选显示名。模型选择和会话摘要使用该名称，
 未提供时回退为模型 ref。显示名不改变持久化 ref、Provider 绑定、上游模型名或已有会话。
@@ -30,6 +30,13 @@ Codex 使用 app-server 协议，Claude 使用 Claude Agent SDK sidecar。
 Provider 与 ACP 实现直接发出 typed payload。Session 拥有的 canonical Timeline 分配
 turn 身份与顺序，并且每个 turn 只接受一个终态事件。Provider message ID 仅保留为
 来源信息。观察到结果本身不结束 turn。Session 拥有完成策略和队列推进权。
+
+Session 有明确的生命周期：`created`、`running`、`idle`、`sleeping`、`archived`。
+运行中的 Session 只有在空闲超时（不低于 60 秒）到期、队列为空、没有进行中的
+轮次且没有待处理权限提示时，才符合自动睡眠条件；睡眠原因记录为手动、空闲超时
+或重启失败。睡眠的 Session 保留身份与工作区，收到新输入时唤醒；归档后不再可路由。
+重启、恢复以及模型/思考强度的热切换（`set-model` 不重启进程）取决于所选 Agent 的
+能力：Codex 支持进程内重配，其它 Agent 通过交接重启完成。
 
 ACP Agent 的输出关闭后，broker 停止接收新请求，等待正在处理的请求收尾后再关闭
 客户端连接。待处理的 prompt 结果、终态事件和确认响应保持原有顺序。连接写入有
@@ -69,8 +76,8 @@ Codex 追加 developer instructions，并用进程/线程配置关闭原生记�
 同时持久设置线程记忆模式为 disabled。不支持这些原生契约的版本在首轮前明确失败。
 Claude 合并 append-system-prompt 参数，每次受管启动（包括恢复）都设置
 `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`。它也关闭 Claude 子 Agent 的持久记忆；
-普通 CLAUDE.md 指令仍然加载。Pi 使用 CLI 协议：已审查的核心没有需要关闭的内置
-自动长期记忆。用户扩展可以自行实现记忆，这不在上述结论范围内；amux 不关闭无关
+普通 CLAUDE.md 指令仍然加载。Pi 启动使用其 JSONL RPC 模式：已审查的核心没有需要
+关闭的内置自动长期记忆。用户扩展可以自行实现记忆，这不在上述结论范围内；amux 不关闭无关
 扩展。其它 Provider 明确提示记忆不可用，不会因为传输兼容就假定支持 Codex 的
 记忆控制。不修改全局 Agent 配置和原生记忆文件。
 
@@ -102,8 +109,8 @@ Hub 按 Principal 管理登录态及上游凭据；包括远端 Runtime 在内�
 Claude 启动带有 `AMUX_MODEL_SERVICE` 标记时，sidecar 在接受输入前通过 SDK 内存中的
 flag-settings 控制接口应用选定网关、凭据、模型别名及上下文/输出限制。这些值优先于
 用户、项目、本地设置，保留其它设置和管理策略；凭据不进入命令行参数或设置文件。
-应用失败时明确拒绝启动。SDK 结果标记 `is_error` 时，即使 subtype 是 `success`，
-也将轮次标为失败并保留具体错误信息。
+应用失败时明确拒绝启动。SDK 结果带 `is_error` 标记，或 subtype 不是 `success` 时，
+该轮以失败结束并保留报告的错误信息。
 
 ## 发行版定制契约
 
@@ -117,4 +124,5 @@ Agent/平台组合；原生 Codex、Pi 的 OpenAI-compatible 规则由公共核�
 凭据传递、隔离和进程生命周期；发行版负责 supervisor 命令及参数。公共发行版
 仍不提供兼容网关。
 
-Codex 通过 `ConfigLayout` 声明已有的工作区 Skill 支持，MCP 的 `supports_skills` 能力信息也据此返回。
+配置布局支持工作区 Skill 的 Adapter（包括 Codex）通过 `ConfigLayout` 声明该支持；
+MCP 的 `supports_skills` 能力信息据此返回。

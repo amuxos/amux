@@ -39,8 +39,10 @@ NOTICE、两种语言的第三方声明指南、go.mod 和 Go 依赖声明集合
 `AMUX_PACKAGE_BUILD_ROOT` 时也使用相同位置；其中的许可材料适用于公共核心及所列依赖，
 不适用于该发行版自己的代码或额外依赖。发行方还需补充实际产物要求的其它声明。
 
-公共发行打包器包含 Go 二进制及这些声明，不捆绑可选的 Claude SDK sidecar 或单独
+公共发行打包器包含 Go 二进制及这些声明，默认不捆绑可选的 Claude SDK sidecar
+（需要时用 `--with-sidecar` 打包）或单独
 安装的 Agent；它们的条款独立于 amux 的 Apache-2.0 授权。添加额外组件前，应阅读
 [第三方声明](../THIRD_PARTY_NOTICES.zh-CN.md)，包括 MPL 源码获取地址和 Anthropic SDK 条款。
+`make check` 会校验 Go 声明文件是否为最新，依赖变更后需刷新。
 
 贡献的许可规则见 [CONTRIBUTING.md](../CONTRIBUTING.zh-CN.md)。

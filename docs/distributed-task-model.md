@@ -6,7 +6,8 @@ The hub authenticates requests, freezes execution identity, selects an eligible
 runtime and reserves capacity before dispatch. The selected runtime's task runner
 executes a child session locally, enforcing ownership in process. The hub routes
 requests and maintains task-to-target truth; it does not drive child sessions
-directly. Terminal tasks release reservations through reconciliation.
+directly. Terminal tasks release reservations through reconciliation, and
+uncommitted reservations additionally expire by TTL as a backstop.
 
 A task is a bounded execution with normalized terminal outcome, structured result,
 event log and changed-file evidence. An agent instance is persistent and accepts
@@ -59,7 +60,8 @@ Coordination delegations initiated by `amux-session:<session_id>` preserve that
 parent session through existing Task admission and authorization, which resolves
 the active ParentTurnID. Other initiators do not infer a parent. Coordination
 wait advances its TaskEvent cursor over `tool` and `usage` events without
-manufacturing status or text events or waking the parent Agent for pure usage.
+manufacturing status or text events or waking the parent Agent for pure tool or
+usage updates.
 
 Child Sessions use the same [Hub memory model](current/agent-memory-product-model.md)
 as interactive Sessions. A fresh child resolves memory with its effective launch

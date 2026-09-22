@@ -17,9 +17,11 @@ directory. Runtime availability and helper readiness never select a global
 fallback. Session access alone does not authorize access to another principal's
 memory. Service executions use their effective service principal.
 
-The CLI and MCP tools search, read, conditionally write and forget documents
-through the Hub. Paths are relative to the server-derived scope. Absolute paths,
-traversal and symlink escapes are rejected. Search matches literal keywords and
+The CLI and MCP tools search, read, conditionally write, forget and export
+documents through the Hub. Paths are relative to the server-derived scope and
+restricted to safe components: absolute paths, traversal, symlink escapes,
+hidden (dot-prefixed) or empty components, and over-long or non-UTF-8 names are
+rejected. Search matches literal keywords and
 returns bounded snippets; scanning limits are reported as incomplete results.
 Reads return bounded text, continuation information and a whole-file hash.
 Writes use that hash as a precondition, or `absent` for creation. A per-scope
@@ -28,8 +30,9 @@ updates. Multiple-file edits are not a transaction. Deleting a document does
 not erase already-read conversation history or duplicates in other documents.
 
 Supported Agent launches receive one stable memory protocol and a frozen scope
-precondition. New native conversations read a small `MEMORY.md` through tools;
-other material is read on demand. There is no per-turn automatic retrieval or
+precondition. New native conversations read a small `MEMORY.md` through tools
+(the entry budget applies only to that exact filename); other material is read
+on demand. There is no per-turn automatic retrieval or
 prompt rewriting. The protocol is independent of profile projection. Existing
 unmanaged native conversations do not silently adopt a new memory policy.
 The managed Runtime keeps the scope fixed for the conversation; requests with

@@ -37,7 +37,7 @@ patches, source overlays, or exported copies. `cmd` remains the standard build
 entrypoint; implementations and tests live in `app`.
 
 The core owns Pi's common file layout and extension rendering. Distributions use
-Profile customization's `ValidateProvider` and `PiProviderConfig` to register
+Profile customization's `ValidateAdditionalProvider` and `PiProviderConfig` to register
 validation, connection URLs, APIs, and model compatibility settings for additional
 platforms. The core still handles the default `openai-compat` path. CLI
 customization's `CredentialSetExamples` can append distribution-specific credential

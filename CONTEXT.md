@@ -19,10 +19,10 @@ be held by the same person as a Feishu user.
 _Avoid_: Administrator persona
 
 **Bot governance mode**:
-The per-Feishu-Bot-Profile choice between `personal` and `team`. Personal limits
-that Bot's capabilities to its owner; Team allows authorized members to use the
-capabilities that Bot exposes. Governance does not choose system topology,
-workspace policy, or `thread|singleton` interaction mode.
+The per-Feishu-Bot-Profile choice between `owner_only` (personal) and `shared`
+(team). Owner_only limits that Bot's capabilities to its owner; shared allows
+authorized members to use the capabilities that Bot exposes. Governance does not
+choose system topology, workspace policy, or `thread|singleton` interaction mode.
 _Avoid_: Deployment mode, edition, audience mode
 
 **System hosting topology**:

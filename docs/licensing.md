@@ -51,10 +51,13 @@ release archive. The same location is used when a dependent distribution sets
 its listed dependencies, not the distribution's own code or added dependencies.
 Distributors must supply the additional notices their actual artifacts require.
 
-The public release packager contains Go binaries and these notices. It does not
-bundle the optional Claude SDK sidecar or separately installed agents. Their
+The public release packager contains Go binaries and these notices. By default it
+does not bundle the optional Claude SDK sidecar (`--with-sidecar` bundles it on
+request) or separately installed agents. Their
 terms remain separate from amux's Apache-2.0 grant. See
 [Third-party notices](../THIRD_PARTY_NOTICES.md), including the MPL source links
 and Anthropic SDK terms, before assembling a distribution with extra components.
+`make check` verifies the Go notices file is current, so refresh it after
+dependency changes.
 
 Contribution licensing is described in [CONTRIBUTING.md](../CONTRIBUTING.md).

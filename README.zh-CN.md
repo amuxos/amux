@@ -19,7 +19,7 @@
 amux 在本地和远端机器上运行、协调 Codex、Claude 和 Pi Session，提供 CLI、终端 UI、
 Task 与 Schedule API，以及可选的飞书/Lark Bot Bridge。
 
-这是 `https://github.com/amuxos/amux.git` 的源码候选版本，Go module 为
+本仓库是 amux 的开源源码，Go module 为
 `github.com/amuxos/amux`。原创源码、文档和示例默认采用 [Apache-2.0](LICENSE)，
 允许依协议商业使用和闭源集成；另有标注者除外。详见[许可说明](docs/licensing.zh-CN.md)。
 
@@ -109,6 +109,8 @@ Codex 和 Pi 无需 sidecar；脚本不安装或升级原生 Agent。
 <summary>高级安装选项</summary>
 
 - **本地二进制：** `--source /path/to/binaries`，目录须包含 `amux`、`amuxd` 和 `amuxlet`。
+- **Agent Profile：** `--agent-profile <ref>` 显式选择内置 Profile，并据此推导 Runtime。
+- **强制源码构建：** `--from-source` 即使不在源码 checkout 中也从源码构建。
 - **Claude sidecar：** `--claude-sidecar /path/to/claude-sdk`，须包含 `dist/`、`node_modules/` 和 `package.json`；也可采用相邻的 `../sidecars/claude-sdk/` 布局。
 - **源码目录：** 独立脚本接受 `--source-root /path/to/public-amux` 或 `AMUX_INSTALL_SOURCE_ROOT`，拒绝内部发行版根目录。
 - **Shell PATH：** `--no-modify-path` 跳过添加条目；清空卸载仍会移除旧的托管条目。
@@ -116,6 +118,24 @@ Codex 和 Pi 无需 sidecar；脚本不安装或升级原生 Agent。
 全部参数见 `bash scripts/install.sh --help`。
 
 </details>
+
+<a id="quickstart"></a>
+
+## 快速上手
+
+安装完成后先配置一次本地系统，然后启动一个 Session 并交给它工作：
+
+```sh
+amux setup local
+amux session run builtin/codex --name demo
+amux session send demo "总结这个仓库的目录结构"
+amux session attach demo   # 实时时间线；/detach 或 Ctrl-] 退出
+```
+
+一套安装包含：Hub（`amuxd`）负责身份、路由与调度；本地或远端 Runtime
+（`amuxlet`）执行 Agent Session。Session 是持续对话，Task 是有结果的有界执行，
+Schedule 按 cron 风格规则触发提示词或子任务。可选的飞书 Bridge 和外部 MCP Host
+接入同一控制面。
 
 <a id="operation"></a>
 
@@ -130,12 +150,13 @@ Codex 和 Pi 无需 sidecar；脚本不安装或升级原生 Agent。
 | 重新构建后升级，无需重复 setup | `make upgrade` |
 | 下载安装公共最新版本 | `amux update --restart` |
 
-公共更新在替换二进制和配套 Claude SDK 前校验 SHA256。
-用 `AMUX_RELEASE_URL` 或 `--release-url` 覆盖清单/归档来源。
+来自默认发行清单的公共更新在替换二进制和配套 Claude SDK 前校验 SHA256。
+用 `AMUX_RELEASE_URL` 或 `--release-url` 覆盖清单/归档来源；直接指向归档包的
+自定义地址不校验 checksum。
 
 Profile Pack 使用 manifest v1.1，支持外部 Git Pack，默认没有 Pack 市场。
 可选专家编辑需单独配置兼容的 authoring runtime，源码构建不会隐式下载。
-捆绑 Skill 和桌面应用不在本候选版本范围内。
+捆绑 Skill 和桌面应用不在本仓库范围内。
 
 <a id="development"></a>
 
@@ -143,12 +164,12 @@ Profile Pack 使用 manifest v1.1，支持外部 Git Pack，默认没有 Pack �
 
 示例与操作指南见 [文档导航](docs/README.zh-CN.md) 和 [示例导航](examples/README.zh-CN.md)。
 
-公共核心可独立构建。其它发行版依赖其 Go module，在调用应用入口前注册扩展。
+本 module 可独立构建。其它发行版依赖其 Go module，在调用应用入口前注册扩展。
 详见[发行版开发指南](docs/distribution-development.zh-CN.md)。
 
 `make check` 校验生成的协议与参考文档、用 Python 3 检查第三方声明、运行 Go 测试并
 构建命令；npm 可用时测试 sidecar。不运行真实外部账号测试。部分 fixture 和资源仍待审核，
-未纳入候选版本；当前套件不代表完整产品验收覆盖。
+未纳入本仓库；当前套件不代表完整产品验收覆盖。
 
 - [CLI 模型](docs/current/cli-product-model.zh-CN.md)
 - [Agent 模型](docs/current/agent-adapter-product-model.zh-CN.md)
