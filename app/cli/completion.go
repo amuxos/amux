@@ -396,8 +396,11 @@ func feishuProfileConfigKeys(profile string) []string {
 		groupWatchBase + "enabled",
 		groupWatchBase + "chat_ids",
 		groupWatchBase + "sender_types",
+		groupWatchBase + "chat_sender_types.",
 		groupWatchBase + "poll_interval_seconds",
 		groupWatchBase + "lookback_seconds",
+		groupWatchBase + "dedup.enabled",
+		groupWatchBase + "dedup.window_seconds",
 		groupWatchBase + "max_active_sessions_per_chat",
 		groupWatchBase + "idle_timeout_seconds",
 		groupWatchBase + "agent_profile_ref",
@@ -436,7 +439,8 @@ func completeConfigValueForKey(key, toComplete string) ([]string, cobra.ShellCom
 	}
 	switch key {
 	case "runtime.auto_start", "bridge.feishu.prompt.shared_thread_enabled", "bridge.feishu.prompt.topic_root_enabled",
-		"bridge.feishu.document_comments.enabled", "bridge.feishu.bot_to_bot.enabled", "bridge.feishu.group_watch.enabled":
+		"bridge.feishu.document_comments.enabled", "bridge.feishu.bot_to_bot.enabled", "bridge.feishu.group_watch.enabled",
+		"bridge.feishu.group_watch.dedup.enabled":
 		return boolValueCompletions(toComplete), cobra.ShellCompDirectiveNoFileComp
 	case "bridge.feishu.prompt.shared_thread_template_file", "bridge.feishu.workspace_defaults.cwd":
 		return nil, cobra.ShellCompDirectiveDefault
@@ -444,13 +448,13 @@ func completeConfigValueForKey(key, toComplete string) ([]string, cobra.ShellCom
 		if parseFeishuProfileDocumentCommentsKey(key) == "enabled" {
 			return boolValueCompletions(toComplete), cobra.ShellCompDirectiveNoFileComp
 		}
-		if parseFeishuProfileGroupWatchKey(key) == "enabled" {
+		if field := parseFeishuProfileGroupWatchKey(key); field == "enabled" || field == "dedup.enabled" {
 			return boolValueCompletions(toComplete), cobra.ShellCompDirectiveNoFileComp
 		}
 		if parseFeishuProfileBotToBotKey(key) == "enabled" {
 			return boolValueCompletions(toComplete), cobra.ShellCompDirectiveNoFileComp
 		}
-		if field := groupWatchConfigField(key); field == "sender_types" {
+		if field := groupWatchConfigField(key); field == "sender_types" || field == "chat_sender_types" {
 			return filterCompletionValues([]string{"user", "app", "user app"}, toComplete), cobra.ShellCompDirectiveNoFileComp
 		}
 		if parseFeishuProfileInteractionModeKey(key) {

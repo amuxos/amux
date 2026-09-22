@@ -108,8 +108,11 @@ amux system config unset <key>
 | `bridge.feishu.group_watch.enabled` | boolean | false | — | Yes | Installation-wide group watch switch; root messages with text or valid image, file, or merged-forward material can trigger it automatically. |
 | `bridge.feishu.group_watch.chat_ids` | string array | [] | — | Yes | Group chat_ids allowed to trigger automatically. |
 | `bridge.feishu.group_watch.sender_types` | string array | [user, app] | user、app | Yes | Message sender types allowed to trigger automatically. |
+| `bridge.feishu.group_watch.chat_sender_types.<chat_id>` | string array | Inherits sender_types | chat_id must also be present in chat_ids; values are user or app | Yes | Sender types allowed to trigger automatically for one watched group; groups without an override use sender_types. |
 | `bridge.feishu.group_watch.poll_interval_seconds` | integer seconds | 15 | 5-300 | Yes | History polling interval to recover messages from other apps. |
 | `bridge.feishu.group_watch.lookback_seconds` | integer seconds | 60 | 5-3600 and at least the polling interval | Yes | History recovery lookback window. |
+| `bridge.feishu.group_watch.dedup.enabled` | boolean | false | — | Yes | Whether to suppress duplicate app-authored alerts in the same group before creating a Session or reply card. |
+| `bridge.feishu.group_watch.dedup.window_seconds` | integer seconds | 1800 (30 minutes) | 60-86400 | Yes | Semantic deduplication window for app-authored alerts, measured from the last matching alert that was allowed to create a Session. The fingerprint uses the sending app, Rule ID and title, or normalized visible content when those fields are unavailable. |
 | `bridge.feishu.group_watch.max_active_sessions_per_chat` | integer | 50 | 1-500 | Yes | Maximum active group watch Sessions per watched group for the current agent. |
 | `bridge.feishu.group_watch.idle_timeout_seconds` | integer seconds | 10800 (3 hours) | 60-604800 | Yes | Automatic sleep threshold for new group watch Sessions. |
 | `bridge.feishu.group_watch.thinking_process` | enum | collapsed | expanded、collapsed、hidden | Yes | Installation-wide group watch activity display mode. |
@@ -150,8 +153,11 @@ amux system config unset <key>
 | `bridge.feishu.profiles.<profile>.group_watch.enabled` | boolean | Inherit installation settings | — | Yes | Profile-level group watch switch; image-only, file-only, and merged-forward messages without text can also trigger automatically. |
 | `bridge.feishu.profiles.<profile>.group_watch.chat_ids` | string array | Inherit installation settings | — | Yes | Profile-level watched-group allowlist. |
 | `bridge.feishu.profiles.<profile>.group_watch.sender_types` | string array | Inherit installation settings | user、app | Yes | Profile-level sender types. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_sender_types.<chat_id>` | string array | Inherit installation settings | chat_id must also be present in this Profile's effective chat_ids; values are user or app | Yes | Profile-level sender type override for one watched group; groups without an override use the current Profile's sender_types. |
 | `bridge.feishu.profiles.<profile>.group_watch.poll_interval_seconds` | integer seconds | Inherit installation settings | 5-300 | Yes | Profile-level history polling interval. |
 | `bridge.feishu.profiles.<profile>.group_watch.lookback_seconds` | integer seconds | Inherit installation settings | 5-3600 | Yes | Profile-level history lookback window. |
+| `bridge.feishu.profiles.<profile>.group_watch.dedup.enabled` | boolean | Inherit installation settings | — | Yes | Profile-level semantic deduplication switch for app-authored alerts. |
+| `bridge.feishu.profiles.<profile>.group_watch.dedup.window_seconds` | integer seconds | Inherit installation settings (1800) | 60-86400 | Yes | Profile-level semantic deduplication window for app-authored alerts. |
 | `bridge.feishu.profiles.<profile>.group_watch.max_active_sessions_per_chat` | integer | Inherit installation settings (50) | 1-500 | Yes | Profile-level active Session limit per group. |
 | `bridge.feishu.profiles.<profile>.group_watch.idle_timeout_seconds` | integer seconds | Inherit installation settings (10800) | 60-604800 | Yes | Profile-level automatic sleep threshold for group watch. |
 | `bridge.feishu.profiles.<profile>.group_watch.agent_profile_ref` | string | Empty (inherit assistant) | — | Yes | Agent Profile for new group-watch Sessions. An empty value inherits the group’s effective default Profile; a custom selection is independent of Runtime. |

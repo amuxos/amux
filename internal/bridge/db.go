@@ -513,6 +513,42 @@ func (b *bridgeDB) migrate() error {
 		return err
 	}
 	if _, err := b.db.Exec(`
+		CREATE TABLE IF NOT EXISTS feishu_group_watch_alert_dedup (
+			bridge_id       TEXT NOT NULL,
+			chat_id         TEXT NOT NULL,
+			sender_id       TEXT NOT NULL,
+			fingerprint     TEXT NOT NULL,
+			last_message_id TEXT NOT NULL DEFAULT '',
+			last_seen_at    INTEGER NOT NULL,
+			accepted_message_id TEXT NOT NULL DEFAULT '',
+			accepted_at     INTEGER NOT NULL DEFAULT 0,
+			suppressed_count INTEGER NOT NULL DEFAULT 0,
+			PRIMARY KEY (bridge_id, chat_id, sender_id, fingerprint)
+		)
+	`); err != nil {
+		return err
+	}
+	if err := b.addColumnIfMissing(`ALTER TABLE feishu_group_watch_alert_dedup ADD COLUMN accepted_message_id TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	if err := b.addColumnIfMissing(`ALTER TABLE feishu_group_watch_alert_dedup ADD COLUMN accepted_at INTEGER NOT NULL DEFAULT 0`); err != nil {
+		return err
+	}
+	for _, column := range []string{
+		"pending_message_id TEXT NOT NULL DEFAULT ''",
+		"pending_at INTEGER NOT NULL DEFAULT 0",
+		"submission_started_at INTEGER NOT NULL DEFAULT 0",
+		"target_id TEXT NOT NULL DEFAULT ''",
+		"session_name TEXT NOT NULL DEFAULT ''",
+	} {
+		if err := b.addColumnIfMissing("ALTER TABLE feishu_group_watch_alert_dedup ADD COLUMN " + column); err != nil {
+			return err
+		}
+	}
+	if _, err := b.db.Exec(`CREATE INDEX IF NOT EXISTS idx_feishu_group_watch_alert_dedup_seen ON feishu_group_watch_alert_dedup(last_seen_at)`); err != nil {
+		return err
+	}
+	if _, err := b.db.Exec(`
 		CREATE TABLE IF NOT EXISTS feishu_image_notices (
 			bridge_id TEXT NOT NULL,
 			target_id TEXT NOT NULL,

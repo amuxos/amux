@@ -123,6 +123,142 @@ func TestGroupWatchEventAutomaticallyCreatesThreadTask(t *testing.T) {
 	}
 }
 
+func TestGroupWatchDedupSuppressesRepeatedAppAlertBeforeSessionCreation(t *testing.T) {
+	b, hub := newBridgeForInputTest(t)
+	setGroupWatchDedupTestCatalog(b)
+	b.secrets = &Secrets{AppId: "cli_amux", OpenId: "owner-open", BotOpenId: "ou_amux", BotName: "GroupWatch 助手"}
+	b.groupWatchConfig = config.BridgeFeishuGroupWatchConfig{
+		Enabled: true, ChatIDs: []string{"oc_alarm"}, SenderTypes: []string{"app"},
+		DedupEnabled: true, DedupWindowSeconds: 1800,
+	}
+	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
+	setBridgeTestBotDefaultAgent(t, b, "builtin/codex")
+	b.threadNotice = func(context.Context, string, string) error { return nil }
+
+	first := groupWatchBotEvent("oc_alarm", "om_alarm_1", "ou_alarm_bot", "[service][warn]特征监控任务 lag\nRule ID: 2071\nlag: 100K")
+	second := groupWatchBotEvent("oc_alarm", "om_alarm_2", "ou_alarm_bot", "[service][warn]特征监控任务 lag\nRule ID: 2071\nlag: 200K")
+	if err := b.handleMessage(context.Background(), first); err != nil {
+		t.Fatalf("handle first alert: %v", err)
+	}
+	if err := b.handleMessage(context.Background(), second); err != nil {
+		t.Fatalf("handle duplicate alert: %v", err)
+	}
+	if len(hub.routes) != 2 || hub.routes[0].method != "Run" || hub.routes[1].method != "Submit" {
+		t.Fatalf("routes = %+v, want only first alert Run and Submit", hub.routes)
+	}
+	if chat, err := b.db.FindByRootMsg(b.currentBridgeId(), "om_alarm_2"); err != nil || chat != nil {
+		t.Fatalf("duplicate binding = %+v, err=%v; want none", chat, err)
+	}
+}
+
+func TestGroupWatchDedupDisabledKeepsRepeatedAppAlerts(t *testing.T) {
+	b, hub := newBridgeForInputTest(t)
+	b.groupWatchConfig = config.BridgeFeishuGroupWatchConfig{
+		Enabled: true, ChatIDs: []string{"oc_alarm"}, SenderTypes: []string{"app"},
+		DedupEnabled: false, DedupWindowSeconds: 1800,
+	}
+	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
+	setBridgeTestBotDefaultAgent(t, b, "builtin/codex")
+	b.threadNotice = func(context.Context, string, string) error { return nil }
+
+	for _, id := range []string{"om_alarm_1", "om_alarm_2"} {
+		if err := b.routeGroupWatchMessage(context.Background(), groupWatchMessage{
+			ChatID: "oc_alarm", MessageID: id, SenderID: "ou_alarm_bot", SenderType: "app",
+			Text: "[service][warn]特征监控任务 lag\nRule ID: 2071",
+		}); err != nil {
+			t.Fatalf("route app alert %s: %v", id, err)
+		}
+	}
+	if len(hub.routes) != 4 {
+		t.Fatalf("routes = %+v, want two alerts when dedup is disabled", hub.routes)
+	}
+}
+
+func TestGroupWatchDedupDoesNotSuppressUserMessages(t *testing.T) {
+	b, hub := newBridgeForInputTest(t)
+	setGroupWatchDedupTestCatalog(b)
+	b.groupWatchConfig = config.BridgeFeishuGroupWatchConfig{
+		Enabled: true, ChatIDs: []string{"oc_alarm"}, SenderTypes: []string{"user"},
+		DedupEnabled: true, DedupWindowSeconds: 1800,
+	}
+	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
+	setBridgeTestBotDefaultAgent(t, b, "builtin/codex")
+	b.threadNotice = func(context.Context, string, string) error { return nil }
+
+	for _, id := range []string{"om_user_1", "om_user_2"} {
+		if err := b.routeGroupWatchMessage(context.Background(), groupWatchMessage{
+			ChatID: "oc_alarm", MessageID: id, SenderID: "ou_user", SenderType: "user", Text: "同一句话",
+		}); err != nil {
+			t.Fatalf("route user message %s: %v", id, err)
+		}
+	}
+	if len(hub.routes) != 4 {
+		t.Fatalf("routes = %+v, want two independent user sessions", hub.routes)
+	}
+}
+
+func TestGroupWatchChatSenderTypesOverrideDefaultPerChat(t *testing.T) {
+	b, hub := newBridgeForInputTest(t)
+	b.groupWatchConfig = config.BridgeFeishuGroupWatchConfig{
+		Enabled:     true,
+		ChatIDs:     []string{"oc_alarm", "oc_qa", "oc_default"},
+		SenderTypes: []string{"user"},
+		ChatSenderTypes: map[string][]string{
+			"oc_alarm": {"app"},
+			"oc_qa":    {"user", "app"},
+		},
+	}
+	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
+	setBridgeTestBotDefaultAgent(t, b, "builtin/codex")
+	b.threadNotice = func(context.Context, string, string) error { return nil }
+
+	inputs := []groupWatchMessage{
+		{ChatID: "oc_alarm", MessageID: "om_alarm_app", SenderID: "ou_alarm_bot", SenderType: "app", Text: "报警 Bot"},
+		{ChatID: "oc_alarm", MessageID: "om_alarm_user", SenderID: "ou_user", SenderType: "user", Text: "报警群用户"},
+		{ChatID: "oc_qa", MessageID: "om_qa_user", SenderID: "ou_user", SenderType: "user", Text: "答疑群用户"},
+		{ChatID: "oc_qa", MessageID: "om_qa_app", SenderID: "ou_qa_bot", SenderType: "app", Text: "答疑群 Bot"},
+		{ChatID: "oc_default", MessageID: "om_default_user", SenderID: "ou_user", SenderType: "user", Text: "默认群用户"},
+		{ChatID: "oc_default", MessageID: "om_default_app", SenderID: "ou_default_bot", SenderType: "app", Text: "默认群 Bot"},
+	}
+	for _, input := range inputs {
+		if err := b.routeGroupWatchMessage(context.Background(), input); err != nil {
+			t.Fatalf("route %s: %v", input.MessageID, err)
+		}
+	}
+	if len(hub.routes) != 8 {
+		t.Fatalf("routes = %+v, want four accepted messages", hub.routes)
+	}
+	var accepted []string
+	for _, call := range hub.routes {
+		if call.method == "Submit" {
+			accepted = append(accepted, call.payload.(*pb.SubmitRequest).Text)
+		}
+	}
+	got := strings.Join(accepted, "\n")
+	for _, want := range []string{"报警 Bot", "答疑群用户", "答疑群 Bot", "默认群用户"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("accepted = %q, want %q", got, want)
+		}
+	}
+	for _, notWant := range []string{"报警群用户", "默认群 Bot"} {
+		if strings.Contains(got, notWant) {
+			t.Fatalf("accepted = %q, should not contain %q", got, notWant)
+		}
+	}
+}
+
+func TestGroupWatchAlertFingerprintUsesRuleIDAndTitle(t *testing.T) {
+	first := groupWatchAlertFingerprint(groupWatchMessage{Text: "[service][warn]特征监控任务 lag\nRule ID: 2071\nlag: 100K"})
+	second := groupWatchAlertFingerprint(groupWatchMessage{Text: "  [SERVICE][WARN]特征监控任务   lag  \n**规则ID**：2071\nlag: 200K"})
+	different := groupWatchAlertFingerprint(groupWatchMessage{Text: "[service][warn]另一个报警\nRule ID: 2071\nlag: 200K"})
+	if first == "" || first != second {
+		t.Fatalf("fingerprints = %q/%q, want same non-empty fingerprint", first, second)
+	}
+	if first == different {
+		t.Fatalf("different titles share fingerprint %q", first)
+	}
+}
+
 func TestGroupWatchActiveSessionLimitExcludesSleepingSessions(t *testing.T) {
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{AppId: "cli_amux", OpenId: "owner-open", BotOpenId: "ou_amux"}

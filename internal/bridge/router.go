@@ -30,6 +30,7 @@ func (b *Bridge) routeToSessionInChatWithMention(ctx context.Context, chatID, ro
 type routeInputOptions struct {
 	groupRouted              bool
 	source                   routeInputSource
+	alertDedup               *groupWatchAlertDedup
 	agentProfileRef          string
 	runtimeRef               string
 	modelRef                 string
@@ -82,6 +83,18 @@ func (b *Bridge) routeToSessionInChatWithMentionOptions(ctx context.Context, cha
 		log.Debug().Str("message_id", msgID).Msg("bridge: duplicate message ignored")
 		return nil
 	}
+
+	if isGroupWatch && opts.alertDedup != nil {
+		accepted, err := b.db.GroupWatchAlertAccepted(*opts.alertDedup, time.Now())
+		if err != nil || accepted {
+			unlock()
+			if err != nil {
+				return err
+			}
+			return b.db.ObserveGroupWatchDuplicate(*opts.alertDedup, msgID, time.Now())
+		}
+	}
+
 	if chat == nil {
 		err = b.routeFreshTopicInput(ctx, chatID, rootMsgID, msgID, openID, text, mention, ws, opts)
 		unlock()
@@ -394,6 +407,7 @@ func (b *Bridge) routeFreshTopicInput(ctx context.Context, chatID, rootMsgID, ms
 		if isGroupWatch {
 			return b.runAndBindNaturalEntryWithOptions(ctx, chatID, rootMsgID, msgID, openID, text, mention, naturalEntryOptions{
 				source:                   routeInputSourceGroupWatch,
+				alertDedup:               opts.alertDedup,
 				agentProfileRef:          opts.agentProfileRef,
 				runtimeRef:               opts.runtimeRef,
 				modelRef:                 opts.modelRef,
@@ -559,6 +573,7 @@ type topicRunRequest struct {
 
 type naturalEntryOptions struct {
 	source                   routeInputSource
+	alertDedup               *groupWatchAlertDedup
 	agentProfileRef          string
 	runtimeRef               string
 	modelRef                 string

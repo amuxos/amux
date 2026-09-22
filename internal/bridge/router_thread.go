@@ -490,7 +490,30 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 	} else if existing != nil && existing.RootMsgID != rootMsgID {
 		return b.notifyThread(ctx, rootMsgID, fmt.Sprintf("session 已绑定到另一个话题: %s/%s", target.Name, sessionName))
 	}
-	if opts.source == routeInputSourceGroupWatch {
+	if opts.alertDedup != nil {
+		unlock := b.lockRoute("group-watch-alert:" + opts.alertDedup.lockKey())
+		defer unlock()
+		claimed, err := b.claimGroupWatchAlert(ctx, opts.alertDedup, msgID, target.ID, sessionName)
+		if err != nil || !claimed {
+			return err
+		}
+	}
+	claimMessageID := msgID
+	if opts.alertDedup != nil && opts.alertDedup.ResumeClaim != nil {
+		prior := opts.alertDedup.ResumeClaim
+		claimMessageID, rootMsgID, sessionName = prior.MessageID, prior.MessageID, prior.SessionName
+		// Continue the original topic and Runtime; the new matching alert supplies input.
+		target.ID, target.Name = prior.TargetID, prior.TargetID
+	}
+	finishAlert := opts.alertDedup != nil && opts.alertDedup.Resume == nil
+	defer func() {
+		if finishAlert {
+			if finishErr := b.db.FinishGroupWatchAlert(*opts.alertDedup, claimMessageID, false, time.Now()); finishErr != nil {
+				log.Error().Err(finishErr).Msg("bridge: release unstarted group watch alert")
+			}
+		}
+	}()
+	if opts.source == routeInputSourceGroupWatch && (opts.alertDedup == nil || opts.alertDedup.Resume == nil) {
 		capacityUnlock := b.lockRoute("group-watch-capacity:" + b.currentBridgeId() + ":" + chatID)
 		defer capacityUnlock()
 		blocked, err := b.enforceGroupWatchActiveSessionLimit(ctx, rootMsgID, chatID, opts.maxActiveSessionsPerChat)
@@ -591,10 +614,38 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 	if policy.settings != nil {
 		cwd = policy.settings.DefaultCwd
 	}
-	res, ok, err := b.runFeishuSession(ctx, rootMsgID, chatID, openID, target.ID, sessionName, cwd, launch, idleTimeoutSeconds)
+
+	var res sessionlaunch.SessionRef
+	ok := false
+	if opts.alertDedup != nil && opts.alertDedup.Resume != nil {
+		recovered := opts.alertDedup.Resume
+		res = sessionlaunch.SessionRef{TargetID: target.ID, Name: recovered.Name, AgentProfile: recovered.AgentProfile, AgentType: recovered.AgentType, EffectiveModel: recovered.EffectiveModel}
+		ok = true
+	} else {
+		res, ok, err = b.runFeishuSession(ctx, rootMsgID, chatID, openID, target.ID, sessionName, cwd, launch, idleTimeoutSeconds)
+	}
+	if opts.alertDedup != nil {
+		finishAlert = false // Keep creation/Submit uncertainty durable until resolved.
+		if !ok && res.Name == "" {
+			recovered, probeErr := b.groupWatchSession(ctx, target.ID, sessionName)
+			if probeErr != nil {
+				return fmt.Errorf("resolve group watch launch outcome: %w", probeErr)
+			}
+			if recovered == nil {
+				if finishErr := b.db.FinishGroupWatchAlert(*opts.alertDedup, claimMessageID, false, time.Now()); finishErr != nil {
+					return finishErr
+				}
+				return err
+			}
+			res = sessionlaunch.SessionRef{TargetID: target.ID, Name: recovered.Name, AgentProfile: recovered.AgentProfile, AgentType: recovered.AgentType, EffectiveModel: recovered.EffectiveModel}
+		}
+		ok = res.Name != ""
+	}
 	if !ok {
 		return err
 	}
+
+	alertAcceptedAt := time.Now()
 	if err := b.bindResolvedThreadWithOptions(ctx, chatID, rootMsgID, openID, resolvedBridgeSession{TargetID: target.ID, TargetName: target.Name, SessionName: res.Name, AgentProfile: res.AgentProfile, AgentType: res.AgentType, EffectiveModel: res.EffectiveModel}, bindThreadOptions{DisplayTitle: displayTitleFromRequest(routedText), SkipNotice: true, EntrySource: entrySource}); err != nil {
 		return err
 	}
@@ -644,11 +695,21 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 	if opts.source == routeInputSourceGroupWatch || mention.ExternalBot {
 		notificationOpenID = ""
 	}
+	if opts.alertDedup != nil {
+		if err := b.db.StartGroupWatchAlertSubmission(*opts.alertDedup, claimMessageID, time.Now()); err != nil {
+			return err
+		}
+	}
 	if _, err := b.submitToSessionForMessages(ctx, chat, input, compactTurnInputRefs(notificationOpenID, msgID)); err != nil {
 		if notifyErr := b.notifyThread(ctx, rootMsgID, taskSubmitFailureText()); notifyErr != nil {
 			return notifyErr
 		}
 		return err
+	}
+	if opts.alertDedup != nil {
+		if finishErr := b.db.FinishGroupWatchAlert(*opts.alertDedup, claimMessageID, true, alertAcceptedAt); finishErr != nil {
+			return finishErr
+		}
 	}
 	if b.canAddReaction() && msgID != "" {
 		b.addReactionAsync(msgID, "OneSecond")

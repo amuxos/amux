@@ -2,14 +2,17 @@ package bridge
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	"github.com/rs/zerolog/log"
@@ -31,6 +34,8 @@ type groupWatchState struct {
 }
 
 const maxGroupWatchPollPages = 4
+
+var groupWatchRuleIDPattern = regexp.MustCompile("(?i)(?:rule[ _-]*id|ruleid|规则[ _-]*id|规则编号)[*_`~\\s]*[:：=#]?[*_`~\\s]*([a-z0-9._-]+)")
 
 type groupWatchMessage struct {
 	ChatID     string
@@ -60,6 +65,7 @@ func (c *groupWatchState) groupWatchSnapshot() config.BridgeFeishuGroupWatchConf
 	cfg := c.groupWatchConfig
 	cfg.ChatIDs = append([]string(nil), cfg.ChatIDs...)
 	cfg.SenderTypes = append([]string(nil), cfg.SenderTypes...)
+	cfg.ChatSenderTypes = cloneGroupWatchChatSenderTypes(cfg.ChatSenderTypes)
 	return cfg
 }
 
@@ -69,6 +75,7 @@ func (c *groupWatchState) setGroupWatchConfig(cfg config.BridgeFeishuGroupWatchC
 	}
 	cfg.ChatIDs = append([]string(nil), cfg.ChatIDs...)
 	cfg.SenderTypes = append([]string(nil), cfg.SenderTypes...)
+	cfg.ChatSenderTypes = cloneGroupWatchChatSenderTypes(cfg.ChatSenderTypes)
 	c.groupWatchMu.Lock()
 	c.groupWatchConfig = cfg
 	if c.groupWatchConfigChanged == nil {
@@ -154,6 +161,7 @@ func (b *Bridge) updateGroupWatchForProfile(operation, chatID string) (config.Br
 		}
 		if len(next.ChatIDs) == 0 {
 			next.SenderTypes = []string{"user", "app"}
+			next.ChatSenderTypes = nil
 			next.PollIntervalSeconds = 15
 			next.LookbackSeconds = 60
 		}
@@ -164,8 +172,10 @@ func (b *Bridge) updateGroupWatchForProfile(operation, chatID string) (config.Br
 			return next, fmt.Errorf("chat_id is required")
 		}
 		next.ChatIDs = removeGroupWatchChat(next.ChatIDs, chatID)
+		delete(next.ChatSenderTypes, chatID)
 		if len(next.ChatIDs) == 0 {
 			next.Enabled = false
+			next.ChatSenderTypes = nil
 		}
 	case "pause":
 		next.Enabled = false
@@ -312,7 +322,7 @@ func (b *Bridge) handleGroupWatchEvent(ctx context.Context, event *larkim.P2Mess
 		}
 		return false, nil
 	}
-	if !b.groupWatchSenderAllowed(senderType) {
+	if !b.groupWatchSenderAllowed(chatID, senderType) {
 		return false, nil
 	}
 	if senderType == "app" {
@@ -361,8 +371,12 @@ func (b *Bridge) routeGroupWatchMessage(ctx context.Context, msg groupWatchMessa
 		return nil
 	}
 	cfg := b.groupWatchSnapshot()
-	if !cfg.Enabled || !groupWatchConfigHasChat(cfg, msg.ChatID) || !groupWatchConfigAllowsSender(cfg, msg.SenderType) {
+	if !cfg.Enabled || !groupWatchConfigHasChat(cfg, msg.ChatID) || !groupWatchConfigAllowsSender(cfg, msg.ChatID, msg.SenderType) {
 		return nil
+	}
+	dedup, err := b.prepareGroupWatchAlertDedup(ctx, cfg, msg)
+	if err != nil {
+		return err
 	}
 	mode, err := b.interactionModeForChat(msg.ChatID)
 	if err != nil {
@@ -388,6 +402,7 @@ func (b *Bridge) routeGroupWatchMessage(ctx context.Context, msg groupWatchMessa
 		botMentionInfo{PreserveText: true},
 		routeInputOptions{
 			source:                   routeInputSourceGroupWatch,
+			alertDedup:               dedup,
 			agentProfileRef:          cfg.AgentProfileRef,
 			runtimeRef:               cfg.RuntimeRef,
 			modelRef:                 cfg.ModelRef,
@@ -396,6 +411,38 @@ func (b *Bridge) routeGroupWatchMessage(ctx context.Context, msg groupWatchMessa
 			idleTimeoutSeconds:       cfg.IdleTimeoutSeconds,
 		},
 	)
+}
+
+func groupWatchAlertFingerprint(msg groupWatchMessage) string {
+	text := normalizeGroupWatchAlertText(msg.Text)
+	if text == "" {
+		return ""
+	}
+	title := ""
+	for _, line := range strings.Split(text, "\n") {
+		if !groupWatchRuleIDPattern.MatchString(line) {
+			title = strings.TrimSpace(line)
+			break
+		}
+	}
+	identity := text
+	if match := groupWatchRuleIDPattern.FindStringSubmatch(text); len(match) == 2 && title != "" {
+		identity = "rule_id=" + strings.ToLower(match[1]) + "\ntitle=" + strings.ToLower(title)
+	}
+	sum := sha256.Sum256([]byte(identity))
+	return fmt.Sprintf("%x", sum[:])
+}
+
+func normalizeGroupWatchAlertText(text string) string {
+	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.Join(strings.FieldsFunc(line, unicode.IsSpace), " ")
+		if line != "" {
+			out = append(out, line)
+		}
+	}
+	return strings.Join(out, "\n")
 }
 
 func (b *Bridge) enforceGroupWatchActiveSessionLimit(ctx context.Context, rootMsgID, chatID string, limit int) (bool, error) {
@@ -627,7 +674,7 @@ func (b *Bridge) groupWatchMessageFromHistory(raw *larkim.Message, start, end ti
 		senderType = normalizeGroupWatchSenderType(stringPtr(raw.Sender.SenderType))
 		senderID = strings.TrimSpace(stringPtr(raw.Sender.Id))
 	}
-	if !b.groupWatchSenderAllowed(senderType) || b.isOwnGroupWatchSender(senderType, senderID) {
+	if !b.groupWatchSenderAllowed(chatID, senderType) || b.isOwnGroupWatchSender(senderType, senderID) {
 		return groupWatchMessage{}, false
 	}
 	if senderID == "" {
@@ -701,18 +748,33 @@ func groupWatchHistoryCreateTime(msg *larkim.Message) time.Time {
 	return createdAt
 }
 
-func (b *Bridge) groupWatchSenderAllowed(senderType string) bool {
-	return groupWatchConfigAllowsSender(b.groupWatchSnapshot(), senderType)
+func (b *Bridge) groupWatchSenderAllowed(chatID, senderType string) bool {
+	return groupWatchConfigAllowsSender(b.groupWatchSnapshot(), chatID, senderType)
 }
 
-func groupWatchConfigAllowsSender(cfg config.BridgeFeishuGroupWatchConfig, senderType string) bool {
+func groupWatchConfigAllowsSender(cfg config.BridgeFeishuGroupWatchConfig, chatID, senderType string) bool {
 	senderType = normalizeGroupWatchSenderType(senderType)
-	for _, allowed := range cfg.SenderTypes {
+	allowedTypes := cfg.SenderTypes
+	if specific := cfg.ChatSenderTypes[strings.TrimSpace(chatID)]; len(specific) > 0 {
+		allowedTypes = specific
+	}
+	for _, allowed := range allowedTypes {
 		if senderType != "" && senderType == normalizeGroupWatchSenderType(allowed) {
 			return true
 		}
 	}
 	return false
+}
+
+func cloneGroupWatchChatSenderTypes(values map[string][]string) map[string][]string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(values))
+	for chatID, senderTypes := range values {
+		out[chatID] = append([]string(nil), senderTypes...)
+	}
+	return out
 }
 
 func (b *Bridge) isOwnGroupWatchSender(senderType, senderID string) bool {

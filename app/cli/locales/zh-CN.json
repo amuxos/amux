@@ -1,0 +1,5 @@
+{
+  "config.sender_types": {"other": "%s 仅支持 user 和 app"},
+  "config.integer_range": {"other": "%s 必须为 %d 到 %d 之间的整数"},
+  "config.boolean": {"other": "%s 必须为 true 或 false"}
+}

@@ -16,7 +16,7 @@ options:
 		}
 		for i, segment := range pattern {
 			switch segment {
-			case "<profile>", "<label>":
+			case "<profile>", "<label>", "<chat_id>":
 				if !configProfileNamePattern.MatchString(parts[i]) {
 					continue options
 				}

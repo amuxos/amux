@@ -68,6 +68,42 @@ description as session input. Deleted messages and messages without valid text
 or materials do not start a session. Existing sender, group, deduplication,
 capacity and loop-prevention rules still apply.
 
+The group-watch `sender_types` list is the default sender allowlist for watched
+groups in the effective configuration. `chat_sender_types.<chat_id>` may
+override that allowlist for one watched group, so one Bot profile can accept
+App-authored alerts in one group and user-authored messages in another. The
+override does not enroll a group by itself; the chat must still be present in
+`chat_ids`. Groups without an override continue to use `sender_types`.
+
+Optional alert deduplication applies only to app-authored group-watch root
+messages and runs before Session creation or any reply card is sent. It is
+disabled by default. When enabled, the Bridge derives a stable fingerprint from
+the sending app and normalized visible card text, preferring a Rule ID plus the
+card title when present, and suppresses another matching alert in the same chat
+for the configured window measured from confirmed Session creation. Suppressed
+duplicates do not extend the window. Atomic durable reservations prevent competing
+roots from starting together. Capacity/policy rejection releases a reservation;
+a failed Run is released only after the Runtime confirms that the named Session
+is absent. An unavailable Runtime leaves the outcome pending. After at least one
+minute, a later matching alert reconciles that reservation with the Runtime before
+retrying. Only running, idle or sleeping Sessions are considered started; a
+`created` Session remains unresolved. A recovered Session with a durable input
+receipt suppresses the duplicate; otherwise the Bridge reuses its original topic
+and Session to submit the new matching alert instead of creating another Session.
+The window is committed after successful input submission, using the confirmed
+creation time (or recovery confirmation time). Before dispatching Submit, the
+Bridge persists that dispatch may have happened. If its response/receipt is lost,
+matching alerts are suppressed for the configured window from dispatch, without
+automatically replaying the uncertain submission. After that window, a new alert
+may start normally. An archived/failed Session without a dispatched input releases
+the launch reservation; it cannot block future alerts indefinitely. User-authored messages and different chats remain
+independent. Message-ID deduplication still applies before semantic alert
+deduplication. Event Bot Open IDs and history App IDs are resolved to the same
+App ID using the complete group Bot catalog. Enabling alert deduplication requires
+the chat Bot listing permission (`im:chat.members:read`); failed, incomplete, or
+unmatched lookups return an error without consuming the message ID. Material-only
+image, file, audio, video and forwarded-message placeholders are not fingerprints.
+
 App-authored root alerts that mention only people remain eligible for group
 watch. Mentions of the current bot use ordinary routing; mentions of other bots
 exclude an App message from automatic handling, including mixed human/bot

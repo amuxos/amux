@@ -192,11 +192,18 @@ func SetBridgeFeishuGroupWatch(profile string, value BridgeFeishuGroupWatchConfi
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
 	if err := updateConfigFileWithLock(path, func(cfg map[string]any) error {
+		chatSenderTypes := cloneGroupWatchChatSenderTypes(value.ChatSenderTypes)
+		if chatSenderTypes == nil {
+			chatSenderTypes = map[string][]string{}
+		}
 		setNestedConfigValue(cfg, strings.Split(base+".enabled", "."), value.Enabled)
 		setNestedConfigValue(cfg, strings.Split(base+".chat_ids", "."), append([]string(nil), value.ChatIDs...))
 		setNestedConfigValue(cfg, strings.Split(base+".sender_types", "."), append([]string(nil), value.SenderTypes...))
+		setNestedConfigValue(cfg, strings.Split(base+".chat_sender_types", "."), chatSenderTypes)
 		setNestedConfigValue(cfg, strings.Split(base+".poll_interval_seconds", "."), value.PollIntervalSeconds)
 		setNestedConfigValue(cfg, strings.Split(base+".lookback_seconds", "."), value.LookbackSeconds)
+		setNestedConfigValue(cfg, strings.Split(base+".dedup.enabled", "."), value.DedupEnabled)
+		setNestedConfigValue(cfg, strings.Split(base+".dedup.window_seconds", "."), value.DedupWindowSeconds)
 		setNestedConfigValue(cfg, strings.Split(base+".max_active_sessions_per_chat", "."), value.MaxActiveSessionsPerChat)
 		setNestedConfigValue(cfg, strings.Split(base+".idle_timeout_seconds", "."), value.IdleTimeoutSeconds)
 		setNestedConfigValue(cfg, strings.Split(base+".agent_profile_ref", "."), value.AgentProfileRef)
@@ -211,8 +218,15 @@ func SetBridgeFeishuGroupWatch(profile string, value BridgeFeishuGroupWatchConfi
 	viper.Set(base+".enabled", value.Enabled)
 	viper.Set(base+".chat_ids", append([]string(nil), value.ChatIDs...))
 	viper.Set(base+".sender_types", append([]string(nil), value.SenderTypes...))
+	chatSenderTypes := cloneGroupWatchChatSenderTypes(value.ChatSenderTypes)
+	if chatSenderTypes == nil {
+		chatSenderTypes = map[string][]string{}
+	}
+	viper.Set(base+".chat_sender_types", chatSenderTypes)
 	viper.Set(base+".poll_interval_seconds", value.PollIntervalSeconds)
 	viper.Set(base+".lookback_seconds", value.LookbackSeconds)
+	viper.Set(base+".dedup.enabled", value.DedupEnabled)
+	viper.Set(base+".dedup.window_seconds", value.DedupWindowSeconds)
 	viper.Set(base+".max_active_sessions_per_chat", value.MaxActiveSessionsPerChat)
 	viper.Set(base+".idle_timeout_seconds", value.IdleTimeoutSeconds)
 	viper.Set(base+".agent_profile_ref", value.AgentProfileRef)

@@ -208,8 +208,11 @@ type BridgeFeishuGroupWatchConfig struct {
 	Enabled                  bool
 	ChatIDs                  []string
 	SenderTypes              []string
+	ChatSenderTypes          map[string][]string
 	PollIntervalSeconds      int
 	LookbackSeconds          int
+	DedupEnabled             bool
+	DedupWindowSeconds       int
 	MaxActiveSessionsPerChat int
 	IdleTimeoutSeconds       int
 	AgentProfileRef          string
@@ -222,8 +225,10 @@ type BridgeFeishuGroupWatchConfig struct {
 const (
 	DefaultFeishuGroupWatchMaxActiveSessionsPerChat = 50
 	DefaultFeishuGroupWatchIdleTimeoutSeconds       = 3 * 60 * 60
+	DefaultFeishuGroupWatchDedupWindowSeconds       = 30 * 60
 	MaxFeishuGroupWatchActiveSessionsPerChat        = 500
 	MaxFeishuGroupWatchIdleTimeoutSeconds           = 7 * 24 * 60 * 60
+	MaxFeishuGroupWatchDedupWindowSeconds           = 24 * 60 * 60
 )
 
 // ValidateBridgeFeishuGroupWatchInteraction enforces the product boundary between
@@ -656,8 +661,11 @@ func GetBridgeFeishuGroupWatch() BridgeFeishuGroupWatchConfig {
 		Enabled:                  viper.GetBool("bridge.feishu.group_watch.enabled"),
 		ChatIDs:                  viper.GetStringSlice("bridge.feishu.group_watch.chat_ids"),
 		SenderTypes:              []string{"user", "app"},
+		ChatSenderTypes:          readGroupWatchChatSenderTypes("bridge.feishu.group_watch.chat_sender_types"),
 		PollIntervalSeconds:      15,
 		LookbackSeconds:          60,
+		DedupEnabled:             false,
+		DedupWindowSeconds:       DefaultFeishuGroupWatchDedupWindowSeconds,
 		MaxActiveSessionsPerChat: DefaultFeishuGroupWatchMaxActiveSessionsPerChat,
 		IdleTimeoutSeconds:       DefaultFeishuGroupWatchIdleTimeoutSeconds,
 		ThinkingProcess:          DefaultFeishuThinkingProcess,
@@ -670,6 +678,12 @@ func GetBridgeFeishuGroupWatch() BridgeFeishuGroupWatchConfig {
 	}
 	if viper.IsSet("bridge.feishu.group_watch.lookback_seconds") {
 		cfg.LookbackSeconds = viper.GetInt("bridge.feishu.group_watch.lookback_seconds")
+	}
+	if viper.IsSet("bridge.feishu.group_watch.dedup.enabled") {
+		cfg.DedupEnabled = viper.GetBool("bridge.feishu.group_watch.dedup.enabled")
+	}
+	if viper.IsSet("bridge.feishu.group_watch.dedup.window_seconds") {
+		cfg.DedupWindowSeconds = viper.GetInt("bridge.feishu.group_watch.dedup.window_seconds")
 	}
 	if viper.IsSet("bridge.feishu.group_watch.max_active_sessions_per_chat") {
 		cfg.MaxActiveSessionsPerChat = viper.GetInt("bridge.feishu.group_watch.max_active_sessions_per_chat")
@@ -690,6 +704,7 @@ func GetBridgeFeishuGroupWatchForProfile(profile string) BridgeFeishuGroupWatchC
 		return cfg
 	}
 	base := "bridge.feishu.profiles." + profile + ".group_watch"
+	dedupBase := base + ".dedup"
 	if viper.IsSet(base + ".enabled") {
 		cfg.Enabled = viper.GetBool(base + ".enabled")
 	}
@@ -699,11 +714,20 @@ func GetBridgeFeishuGroupWatchForProfile(profile string) BridgeFeishuGroupWatchC
 	if viper.IsSet(base + ".sender_types") {
 		cfg.SenderTypes = viper.GetStringSlice(base + ".sender_types")
 	}
+	if viper.IsSet(base + ".chat_sender_types") {
+		cfg.ChatSenderTypes = readGroupWatchChatSenderTypes(base + ".chat_sender_types")
+	}
 	if viper.IsSet(base + ".poll_interval_seconds") {
 		cfg.PollIntervalSeconds = viper.GetInt(base + ".poll_interval_seconds")
 	}
 	if viper.IsSet(base + ".lookback_seconds") {
 		cfg.LookbackSeconds = viper.GetInt(base + ".lookback_seconds")
+	}
+	if viper.IsSet(dedupBase + ".enabled") {
+		cfg.DedupEnabled = viper.GetBool(dedupBase + ".enabled")
+	}
+	if viper.IsSet(dedupBase + ".window_seconds") {
+		cfg.DedupWindowSeconds = viper.GetInt(dedupBase + ".window_seconds")
 	}
 	if viper.IsSet(base + ".max_active_sessions_per_chat") {
 		cfg.MaxActiveSessionsPerChat = viper.GetInt(base + ".max_active_sessions_per_chat")
@@ -732,11 +756,15 @@ func normalizeBridgeFeishuGroupWatch(cfg BridgeFeishuGroupWatchConfig) BridgeFei
 		"user": true,
 		"app":  true,
 	})
+	cfg.ChatSenderTypes = normalizeGroupWatchChatSenderTypes(cfg.ChatSenderTypes)
 	if cfg.PollIntervalSeconds < 5 || cfg.PollIntervalSeconds > 300 {
 		cfg.PollIntervalSeconds = 15
 	}
 	if cfg.LookbackSeconds < cfg.PollIntervalSeconds || cfg.LookbackSeconds > 3600 {
 		cfg.LookbackSeconds = max(60, cfg.PollIntervalSeconds)
+	}
+	if cfg.DedupWindowSeconds < 60 || cfg.DedupWindowSeconds > MaxFeishuGroupWatchDedupWindowSeconds {
+		cfg.DedupWindowSeconds = DefaultFeishuGroupWatchDedupWindowSeconds
 	}
 	if cfg.MaxActiveSessionsPerChat < 1 || cfg.MaxActiveSessionsPerChat > MaxFeishuGroupWatchActiveSessionsPerChat {
 		cfg.MaxActiveSessionsPerChat = DefaultFeishuGroupWatchMaxActiveSessionsPerChat
@@ -745,6 +773,45 @@ func normalizeBridgeFeishuGroupWatch(cfg BridgeFeishuGroupWatchConfig) BridgeFei
 		cfg.IdleTimeoutSeconds = DefaultFeishuGroupWatchIdleTimeoutSeconds
 	}
 	return cfg
+}
+
+func readGroupWatchChatSenderTypes(key string) map[string][]string {
+	raw := viper.GetStringMapStringSlice(key)
+	out := make(map[string][]string, len(raw))
+	for chatID, value := range raw {
+		out[chatID] = append([]string(nil), value...)
+	}
+	return out
+}
+
+func normalizeGroupWatchChatSenderTypes(values map[string][]string) map[string][]string {
+	out := make(map[string][]string, len(values))
+	for chatID, senderTypes := range values {
+		chatID = strings.TrimSpace(chatID)
+		if chatID == "" {
+			continue
+		}
+		senderTypes = cleanUniqueStrings(senderTypes, true, map[string]bool{
+			"user": true,
+			"app":  true,
+		})
+		if len(senderTypes) == 0 {
+			continue
+		}
+		out[chatID] = senderTypes
+	}
+	return out
+}
+
+func cloneGroupWatchChatSenderTypes(values map[string][]string) map[string][]string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(values))
+	for chatID, senderTypes := range values {
+		out[chatID] = append([]string(nil), senderTypes...)
+	}
+	return out
 }
 
 func cleanUniqueStrings(values []string, lower bool, allowed map[string]bool) []string {

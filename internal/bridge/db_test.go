@@ -213,6 +213,91 @@ func TestBridgeDBMessageSeenPersistsAcrossReopen(t *testing.T) {
 	}
 }
 
+func TestBridgeDBGroupWatchAlertDedupUsesLastAcceptedWindowAndScope(t *testing.T) {
+	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	now := time.Unix(2_000_000_000, 0)
+	window := 30 * time.Minute
+
+	claim := func(bridgeID, chatID, senderID, messageID string, at time.Time) bool {
+		t.Helper()
+		accepted, err := db.ClaimGroupWatchAlert(bridgeID, chatID, senderID, "fingerprint", messageID, at, window)
+		if err != nil {
+			t.Fatalf("ClaimGroupWatchAlert: %v", err)
+		}
+		return accepted
+	}
+	if !claim("feishu:bot-a", "oc-a", "app-a", "om-1", now) {
+		t.Fatal("first alert was suppressed")
+	}
+	if claim("feishu:bot-a", "oc-a", "app-a", "om-2", now.Add(20*time.Minute)) {
+		t.Fatal("duplicate alert inside window was accepted")
+	}
+	if !claim("feishu:bot-a", "oc-a", "app-a", "om-3", now.Add(40*time.Minute)) {
+		t.Fatal("alert after original accepted window was suppressed")
+	}
+	if claim("feishu:bot-a", "oc-a", "app-a", "om-4", now.Add(50*time.Minute)) {
+		t.Fatal("duplicate alert inside the new accepted window was accepted")
+	}
+	if !claim("feishu:bot-a", "oc-b", "app-a", "om-5", now.Add(time.Minute)) {
+		t.Fatal("same alert in another chat was suppressed")
+	}
+	if !claim("feishu:bot-a", "oc-a", "app-b", "om-6", now.Add(time.Minute)) {
+		t.Fatal("same alert from another app was suppressed")
+	}
+
+	var lastSeen int64
+	var acceptedAt int64
+	var lastMessage string
+	var acceptedMessage string
+	var suppressedCount int
+	if err := db.db.QueryRow(`
+		SELECT last_seen_at, last_message_id, accepted_at, accepted_message_id, suppressed_count
+		FROM feishu_group_watch_alert_dedup
+		WHERE bridge_id=? AND chat_id=? AND sender_id=? AND fingerprint=?`,
+		"feishu:bot-a", "oc-a", "app-a", "fingerprint",
+	).Scan(&lastSeen, &lastMessage, &acceptedAt, &acceptedMessage, &suppressedCount); err != nil {
+		t.Fatalf("query dedup row: %v", err)
+	}
+	if lastSeen != now.Add(50*time.Minute).Unix() || lastMessage != "om-4" ||
+		acceptedAt != now.Add(40*time.Minute).Unix() || acceptedMessage != "om-3" || suppressedCount != 1 {
+		t.Fatalf("dedup row = lastSeen %d message %q acceptedAt %d acceptedMessage %q suppressed %d, want last duplicate at +50m and accepted at +40m",
+			lastSeen, lastMessage, acceptedAt, acceptedMessage, suppressedCount)
+	}
+}
+
+func TestBridgeDBGroupWatchAlertDedupLegacyRowWithoutAcceptedAtAllowsNextAlert(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bridge.db")
+	db, err := openBridgeDB(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	now := time.Unix(2_000_000_000, 0)
+	if _, err := db.db.Exec(`
+		INSERT INTO feishu_group_watch_alert_dedup
+		(bridge_id, chat_id, sender_id, fingerprint, last_message_id, last_seen_at)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		"feishu:bot-a", "oc-a", "app-a", "fingerprint", "old-suppressed", now.Unix(),
+	); err != nil {
+		t.Fatalf("insert legacy row: %v", err)
+	}
+
+	accepted, err := db.ClaimGroupWatchAlert(
+		"feishu:bot-a", "oc-a", "app-a", "fingerprint", "new-alert", now.Add(time.Minute), 30*time.Minute,
+	)
+	if err != nil {
+		t.Fatalf("ClaimGroupWatchAlert: %v", err)
+	}
+	if !accepted {
+		t.Fatal("legacy row without accepted_at suppressed next alert")
+	}
+}
+
 func TestBridgeDBClaimsBotTurnsWithDurableDedupeAndLimit(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db, err := openBridgeDB(path)
@@ -837,4 +922,17 @@ func TestIsDuplicateColumnError(t *testing.T) {
 	if !strings.Contains("duplicate column name", "duplicate column") {
 		t.Fatal("sanity")
 	}
+}
+
+// Test convenience: exercise both phases for an immediately successful launch.
+func (b *bridgeDB) ClaimGroupWatchAlert(bridgeID, chatID, senderID, fingerprint, messageID string, now time.Time, window time.Duration) (bool, error) {
+	a := groupWatchAlertDedup{BridgeID: bridgeID, ChatID: chatID, SenderID: senderID, Fingerprint: fingerprint, Window: window}
+	claimed, err := b.ReserveGroupWatchAlert(a, messageID, "target", "session", now)
+	if err != nil {
+		return false, err
+	}
+	if !claimed {
+		return false, b.ObserveGroupWatchDuplicate(a, messageID, now)
+	}
+	return true, b.FinishGroupWatchAlert(a, messageID, true, now)
 }

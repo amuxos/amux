@@ -491,11 +491,17 @@ func TestGetBridgeFeishuGroupWatchDefaultsDisabled(t *testing.T) {
 	if got.PollIntervalSeconds != 15 || got.LookbackSeconds != 60 {
 		t.Fatalf("group_watch intervals = %d/%d, want 15/60", got.PollIntervalSeconds, got.LookbackSeconds)
 	}
+	if got.DedupEnabled || got.DedupWindowSeconds != 1800 {
+		t.Fatalf("group_watch dedup = %v/%d, want false/1800", got.DedupEnabled, got.DedupWindowSeconds)
+	}
 	if got.MaxActiveSessionsPerChat != 50 || got.IdleTimeoutSeconds != 10800 {
 		t.Fatalf("group_watch capacity/idle = %d/%d, want 50/10800", got.MaxActiveSessionsPerChat, got.IdleTimeoutSeconds)
 	}
 	if fmt.Sprint(got.SenderTypes) != "[user app]" {
 		t.Fatalf("group_watch sender types = %v, want [user app]", got.SenderTypes)
+	}
+	if len(got.ChatSenderTypes) != 0 {
+		t.Fatalf("group_watch chat sender types = %v, want empty", got.ChatSenderTypes)
 	}
 }
 
@@ -506,8 +512,13 @@ chat_ids = ["oc_global"]
 sender_types = ["user"]
 poll_interval_seconds = 20
 lookback_seconds = 90
-max_active_sessions_per_chat = 80
-idle_timeout_seconds = 14400
+
+[bridge.feishu.group_watch.dedup]
+enabled = true
+window_seconds = 1200
+
+[bridge.feishu.group_watch.chat_sender_types]
+oc_global = ["app"]
 
 [bridge.feishu.profiles.group_watch.group_watch]
 chat_ids = ["oc_alarm", "oc_incident", "oc_alarm"]
@@ -517,6 +528,13 @@ max_active_sessions_per_chat = 25
 idle_timeout_seconds = 7200
 agent_profile_ref = "builtin/codex"
 model_ref = "custom/example-model"
+
+[bridge.feishu.profiles.group_watch.group_watch.chat_sender_types]
+oc_alarm = ["APP", "invalid", "app"]
+oc_incident = ["user"]
+
+[bridge.feishu.profiles.group_watch.group_watch.dedup]
+window_seconds = 600
 `)
 	requireLoad(t, path)
 
@@ -530,8 +548,16 @@ model_ref = "custom/example-model"
 	if fmt.Sprint(got.SenderTypes) != "[app user]" {
 		t.Fatalf("profile group_watch sender types = %v, want supported normalized override", got.SenderTypes)
 	}
+	if !slices.Equal(got.ChatSenderTypes["oc_alarm"], []string{"app"}) ||
+		!slices.Equal(got.ChatSenderTypes["oc_incident"], []string{"user"}) ||
+		len(got.ChatSenderTypes["oc_global"]) != 0 {
+		t.Fatalf("profile group_watch chat sender types = %v, want normalized profile override", got.ChatSenderTypes)
+	}
 	if got.PollIntervalSeconds != 10 || got.LookbackSeconds != 90 {
 		t.Fatalf("profile group_watch intervals = %d/%d, want 10/inherited 90", got.PollIntervalSeconds, got.LookbackSeconds)
+	}
+	if !got.DedupEnabled || got.DedupWindowSeconds != 600 {
+		t.Fatalf("profile group_watch dedup = %v/%d, want inherited true/override 600", got.DedupEnabled, got.DedupWindowSeconds)
 	}
 	if got.MaxActiveSessionsPerChat != 25 || got.IdleTimeoutSeconds != 7200 {
 		t.Fatalf("profile group_watch capacity/idle = %d/%d, want 25/7200", got.MaxActiveSessionsPerChat, got.IdleTimeoutSeconds)
@@ -892,8 +918,11 @@ lookback_seconds = 120
 		Enabled:                  true,
 		ChatIDs:                  []string{"oc_qa", "oc_alert", "oc_qa"},
 		SenderTypes:              []string{"user", "app"},
+		ChatSenderTypes:          map[string][]string{"oc_alert": {"app", "user", "app"}, "oc_empty": {"invalid"}},
 		PollIntervalSeconds:      15,
 		LookbackSeconds:          60,
+		DedupEnabled:             true,
+		DedupWindowSeconds:       1800,
 		MaxActiveSessionsPerChat: 40,
 		IdleTimeoutSeconds:       5400,
 		AgentProfileRef:          "builtin/codex",
@@ -909,7 +938,9 @@ lookback_seconds = 120
 		got := config.GetBridgeFeishuGroupWatchForProfile("bot_a")
 		if !got.Enabled || fmt.Sprint(got.ChatIDs) != "[oc_qa oc_alert]" ||
 			fmt.Sprint(got.SenderTypes) != "[user app]" || got.PollIntervalSeconds != 15 || got.LookbackSeconds != 60 ||
+			!slices.Equal(got.ChatSenderTypes["oc_alert"], []string{"app", "user"}) || len(got.ChatSenderTypes["oc_empty"]) != 0 ||
 			got.MaxActiveSessionsPerChat != 40 || got.IdleTimeoutSeconds != 5400 ||
+			!got.DedupEnabled || got.DedupWindowSeconds != 1800 ||
 			got.AgentProfileRef != "builtin/codex" || got.RuntimeRef != "codex" ||
 			got.ModelRef != "custom/example-model" || got.ReasoningEffort != "high" {
 			t.Fatalf("%s group watch = %+v, want normalized complete override", stage, got)
@@ -931,6 +962,9 @@ chat_ids = ["oc_alert"]
 sender_types = ["user", "app"]
 poll_interval_seconds = 15
 lookback_seconds = 60
+
+[bridge.feishu.profiles.bot_a.group_watch.chat_sender_types]
+oc_alert = ["app"]
 `)
 	requireLoad(t, path)
 	t.Cleanup(viper.Reset)
@@ -949,6 +983,7 @@ lookback_seconds = 60
 		t.Helper()
 		got := config.GetBridgeFeishuGroupWatchForProfile("bot_a")
 		if !got.Enabled || fmt.Sprint(got.ChatIDs) != "[oc_alert]" ||
+			!slices.Equal(got.ChatSenderTypes["oc_alert"], []string{"app"}) ||
 			got.AgentProfileRef != "builtin/codex" || got.RuntimeRef != "codex" ||
 			got.ModelRef != "custom/example-model" || got.ReasoningEffort != "high" ||
 			got.ThinkingProcess != config.FeishuThinkingProcessCollapsed {

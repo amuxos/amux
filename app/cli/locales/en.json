@@ -1,0 +1,5 @@
+{
+  "config.sender_types": {"other": "%s only supports user and app"},
+  "config.integer_range": {"other": "%s must be an integer from %d to %d"},
+  "config.boolean": {"other": "%s must be true or false"}
+}

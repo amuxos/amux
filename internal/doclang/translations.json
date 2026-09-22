@@ -1831,6 +1831,18 @@
     "en": "Message sender types allowed to trigger automatically.",
     "zh-CN": "允许自动触发的消息发送者类型。"
   },
+  "继承 sender_types": {
+    "en": "Inherits sender_types",
+    "zh-CN": "继承 sender_types"
+  },
+  "chat_id 必须也在 chat_ids 中；值为 user、app": {
+    "en": "chat_id must also be present in chat_ids; values are user or app",
+    "zh-CN": "chat_id 必须也在 chat_ids 中；值为 user、app"
+  },
+  "指定单个值守群允许自动触发的发送者类型；未配置的群使用 sender_types。": {
+    "en": "Sender types allowed to trigger automatically for one watched group; groups without an override use sender_types.",
+    "zh-CN": "指定单个值守群允许自动触发的发送者类型；未配置的群使用 sender_types。"
+  },
   "其它 App 消息的历史补偿轮询周期。": {
     "en": "History polling interval to recover messages from other apps.",
     "zh-CN": "其它 App 消息的历史补偿轮询周期。"
@@ -2026,6 +2038,14 @@
   "Profile 级发送者类型。": {
     "en": "Profile-level sender types.",
     "zh-CN": "Profile 级发送者类型。"
+  },
+  "chat_id 必须也在该 Profile 的有效 chat_ids 中；值为 user、app": {
+    "en": "chat_id must also be present in this Profile's effective chat_ids; values are user or app",
+    "zh-CN": "chat_id 必须也在该 Profile 的有效 chat_ids 中；值为 user、app"
+  },
+  "Profile 级单值守群发送者类型覆盖；未覆盖的群使用当前 Profile 的 sender_types。": {
+    "en": "Profile-level sender type override for one watched group; groups without an override use the current Profile's sender_types.",
+    "zh-CN": "Profile 级单值守群发送者类型覆盖；未覆盖的群使用当前 Profile 的 sender_types。"
   },
   "Profile 级历史轮询周期。": {
     "en": "Profile-level history polling interval.",
@@ -2826,6 +2846,30 @@
   "群值守新 Session 使用的专家；空值继承该群有效默认专家；自定义配置与 Runtime 独立。": {
     "en": "Agent Profile for new group-watch Sessions. An empty value inherits the group’s effective default Profile; a custom selection is independent of Runtime.",
     "zh-CN": "群值守新 Session 使用的专家；空值继承该群有效默认专家；自定义配置与 Runtime 独立。"
+  },
+  "1800（30 分钟）": {
+    "en": "1800 (30 minutes)",
+    "zh-CN": "1800（30 分钟）"
+  },
+  "继承安装级（1800）": {
+    "en": "Inherit installation settings (1800)",
+    "zh-CN": "继承安装级（1800）"
+  },
+  "是否在创建 Session 和回复卡片前抑制同群内 App 发送的重复报警。": {
+    "en": "Whether to suppress duplicate app-authored alerts in the same group before creating a Session or reply card.",
+    "zh-CN": "是否在创建 Session 和回复卡片前抑制同群内 App 发送的重复报警。"
+  },
+  "App 报警语义去重窗口，从上一次允许创建 Session 的同类报警开始计算；按发送 App、Rule ID 与标题（提取不到时按规范化可见内容）生成指纹。": {
+    "en": "Semantic deduplication window for app-authored alerts, measured from the last matching alert that was allowed to create a Session. The fingerprint uses the sending app, Rule ID and title, or normalized visible content when those fields are unavailable.",
+    "zh-CN": "App 报警语义去重窗口，从上一次允许创建 Session 的同类报警开始计算；按发送 App、Rule ID 与标题（提取不到时按规范化可见内容）生成指纹。"
+  },
+  "Profile 级 App 报警语义去重开关。": {
+    "en": "Profile-level semantic deduplication switch for app-authored alerts.",
+    "zh-CN": "Profile 级 App 报警语义去重开关。"
+  },
+  "Profile 级 App 报警语义去重窗口。": {
+    "en": "Profile-level semantic deduplication window for app-authored alerts.",
+    "zh-CN": "Profile 级 App 报警语义去重窗口。"
   },
   "群值守新 Session 使用的运行引擎；继承任务配置时使用该群有效默认 Runtime，自定义配置时必填。": {
     "en": "Runtime for new group-watch Sessions. Inherited execution uses the group’s effective default Runtime; custom execution requires this field.",

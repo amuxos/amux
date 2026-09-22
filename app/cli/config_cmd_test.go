@@ -372,11 +372,16 @@ func TestConfigSetBridgeFeishuProfileGroupWatch(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	for _, args := range [][]string{
+		{"set", "bridge.feishu.group_watch.chat_sender_types.oc_global", "app"},
 		{"set", "bridge.feishu.profiles.group_watch.group_watch.enabled", "true"},
 		{"set", "bridge.feishu.profiles.group_watch.group_watch.chat_ids", "oc_alarm oc_incident"},
 		{"set", "bridge.feishu.profiles.group_watch.group_watch.sender_types", "user app"},
+		{"set", "bridge.feishu.profiles.group_watch.group_watch.chat_sender_types.oc_alarm", "app"},
+		{"set", "bridge.feishu.profiles.group_watch.group_watch.chat_sender_types.oc_incident", "user app"},
 		{"set", "bridge.feishu.profiles.group_watch.group_watch.poll_interval_seconds", "10"},
 		{"set", "bridge.feishu.profiles.group_watch.group_watch.lookback_seconds", "60"},
+		{"set", "bridge.feishu.profiles.group_watch.group_watch.dedup.enabled", "true"},
+		{"set", "bridge.feishu.profiles.group_watch.group_watch.dedup.window_seconds", "1800"},
 		{"set", "bridge.feishu.profiles.group_watch.group_watch.max_active_sessions_per_chat", "50"},
 		{"set", "bridge.feishu.profiles.group_watch.group_watch.idle_timeout_seconds", "10800"},
 	} {
@@ -392,12 +397,19 @@ func TestConfigSetBridgeFeishuProfileGroupWatch(t *testing.T) {
 	}
 	text := string(data)
 	for _, want := range []string{
+		"[bridge.feishu.group_watch.chat_sender_types]",
+		"oc_global = ['app']",
 		"[bridge.feishu.profiles.group_watch.group_watch]",
 		"enabled = true",
 		"chat_ids = ['oc_alarm', 'oc_incident']",
 		"sender_types = ['user', 'app']",
+		"[bridge.feishu.profiles.group_watch.group_watch.chat_sender_types]",
+		"oc_alarm = ['app']",
+		"oc_incident = ['user', 'app']",
 		"poll_interval_seconds = 10",
 		"lookback_seconds = 60",
+		"[bridge.feishu.profiles.group_watch.group_watch.dedup]",
+		"window_seconds = 1800",
 		"max_active_sessions_per_chat = 50",
 		"idle_timeout_seconds = 10800",
 	} {

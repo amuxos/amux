@@ -108,8 +108,11 @@ amux system config unset <key>
 | `bridge.feishu.group_watch.enabled` | 布尔值 | false | — | 是 | 群值守安装级开关；允许有正文或有效图片、文件、合并转发素材的根消息自动触发。 |
 | `bridge.feishu.group_watch.chat_ids` | 字符串数组 | [] | — | 是 | 允许自动触发的群 chat_id。 |
 | `bridge.feishu.group_watch.sender_types` | 字符串数组 | [user, app] | user、app | 是 | 允许自动触发的消息发送者类型。 |
+| `bridge.feishu.group_watch.chat_sender_types.<chat_id>` | 字符串数组 | 继承 sender_types | chat_id 必须也在 chat_ids 中；值为 user、app | 是 | 指定单个值守群允许自动触发的发送者类型；未配置的群使用 sender_types。 |
 | `bridge.feishu.group_watch.poll_interval_seconds` | 整数秒数 | 15 | 5-300 | 是 | 其它 App 消息的历史补偿轮询周期。 |
 | `bridge.feishu.group_watch.lookback_seconds` | 整数秒数 | 60 | 5-3600 且不小于轮询周期 | 是 | 历史补偿回看窗口。 |
+| `bridge.feishu.group_watch.dedup.enabled` | 布尔值 | false | — | 是 | 是否在创建 Session 和回复卡片前抑制同群内 App 发送的重复报警。 |
+| `bridge.feishu.group_watch.dedup.window_seconds` | 整数秒数 | 1800（30 分钟） | 60-86400 | 是 | App 报警语义去重窗口，从上一次允许创建 Session 的同类报警开始计算；按发送 App、Rule ID 与标题（提取不到时按规范化可见内容）生成指纹。 |
 | `bridge.feishu.group_watch.max_active_sessions_per_chat` | 整数 | 50 | 1-500 | 是 | 当前智能体每个值守群允许的群值守活跃 Session 上限。 |
 | `bridge.feishu.group_watch.idle_timeout_seconds` | 整数秒数 | 10800（3 小时） | 60-604800 | 是 | 群值守新 Session 的自动休眠阈值。 |
 | `bridge.feishu.group_watch.thinking_process` | 枚举 | collapsed | expanded、collapsed、hidden | 是 | 安装级群值守处理过程展示方式。 |
@@ -150,8 +153,11 @@ amux system config unset <key>
 | `bridge.feishu.profiles.<profile>.group_watch.enabled` | 布尔值 | 继承安装级 | — | 是 | Profile 级群值守开关；纯图片、纯文件和无正文合并转发也可自动触发。 |
 | `bridge.feishu.profiles.<profile>.group_watch.chat_ids` | 字符串数组 | 继承安装级 | — | 是 | Profile 级值守群白名单。 |
 | `bridge.feishu.profiles.<profile>.group_watch.sender_types` | 字符串数组 | 继承安装级 | user、app | 是 | Profile 级发送者类型。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_sender_types.<chat_id>` | 字符串数组 | 继承安装级 | chat_id 必须也在该 Profile 的有效 chat_ids 中；值为 user、app | 是 | Profile 级单值守群发送者类型覆盖；未覆盖的群使用当前 Profile 的 sender_types。 |
 | `bridge.feishu.profiles.<profile>.group_watch.poll_interval_seconds` | 整数秒数 | 继承安装级 | 5-300 | 是 | Profile 级历史轮询周期。 |
 | `bridge.feishu.profiles.<profile>.group_watch.lookback_seconds` | 整数秒数 | 继承安装级 | 5-3600 | 是 | Profile 级历史回看窗口。 |
+| `bridge.feishu.profiles.<profile>.group_watch.dedup.enabled` | 布尔值 | 继承安装级 | — | 是 | Profile 级 App 报警语义去重开关。 |
+| `bridge.feishu.profiles.<profile>.group_watch.dedup.window_seconds` | 整数秒数 | 继承安装级（1800） | 60-86400 | 是 | Profile 级 App 报警语义去重窗口。 |
 | `bridge.feishu.profiles.<profile>.group_watch.max_active_sessions_per_chat` | 整数 | 继承安装级（50） | 1-500 | 是 | Profile 级每群活跃 Session 上限。 |
 | `bridge.feishu.profiles.<profile>.group_watch.idle_timeout_seconds` | 整数秒数 | 继承安装级（10800） | 60-604800 | 是 | Profile 级群值守自动休眠阈值。 |
 | `bridge.feishu.profiles.<profile>.group_watch.agent_profile_ref` | 字符串 | 空（继承助手） | — | 是 | 群值守新 Session 使用的专家；空值继承该群有效默认专家；自定义配置与 Runtime 独立。 |

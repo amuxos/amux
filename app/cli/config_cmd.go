@@ -12,6 +12,7 @@ import (
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
@@ -112,7 +113,7 @@ func newConfigCmd() *cobra.Command {
 			RunE: func(cmd *cobra.Command, args []string) error {
 				return config.UpdateConfigFile(defaultConfigPath(), func(raw map[string]any) error {
 					cfg := cliConfigFile(raw)
-					if err := setConfigValue(cfg, args[0], args[1]); err != nil {
+					if err := setConfigValueLocale(cfg, args[0], args[1], configCommandLocale(cmd)); err != nil {
 						return err
 					}
 					return validateCLIGroupWatchInteractionCompatibility(cfg, args[0])
@@ -229,6 +230,10 @@ func cliFeishuInteractionMode(cfg cliConfigFile, profile string, preferCandidate
 }
 
 func setConfigValue(cfg cliConfigFile, key, raw string) error {
+	return setConfigValueLocale(cfg, key, raw, i18n.English)
+}
+
+func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale) error {
 	parts := strings.Split(key, ".")
 	if !supportedConfigKey(key) {
 		return commandValidationError(fmt.Errorf("unsupported config key %q", key))
@@ -291,7 +296,9 @@ func setConfigValue(cfg cliConfigFile, key, raw string) error {
 		key == "bridge.feishu.bot_to_bot.enabled" ||
 		parseFeishuProfileBotToBotKey(key) == "enabled" ||
 		key == "bridge.feishu.group_watch.enabled" ||
+		key == "bridge.feishu.group_watch.dedup.enabled" ||
 		parseFeishuProfileGroupWatchKey(key) == "enabled" ||
+		parseFeishuProfileGroupWatchKey(key) == "dedup.enabled" ||
 		key == "mcp.enabled" ||
 		key == "memory.enabled" ||
 		key == "bridge.feishu.presentation.completion_notification_enabled" ||
@@ -299,6 +306,9 @@ func setConfigValue(cfg cliConfigFile, key, raw string) error {
 		key == "mcp.auto_inject" {
 		parsed, err := strconv.ParseBool(raw)
 		if err != nil {
+			if groupWatchConfigField(key) == "dedup.enabled" {
+				return commandValidationError(fmt.Errorf("%s", configCatalog.Format(locale, "config.boolean", key)))
+			}
 			return commandValidationError(fmt.Errorf("%s must be true or false", key))
 		}
 		value = parsed
@@ -339,8 +349,18 @@ func setConfigValue(cfg cliConfigFile, key, raw string) error {
 			for i, senderType := range values {
 				values[i] = strings.ToLower(strings.TrimSpace(senderType))
 				if values[i] != "user" && values[i] != "app" {
-					return commandValidationError(fmt.Errorf("%s only supports user and app", key))
+					return commandValidationError(fmt.Errorf("%s", configCatalog.Format(locale, "config.sender_types", key)))
 				}
+			}
+		}
+		value = values
+	}
+	if groupWatchChatSenderTypesKey(key) {
+		values := strings.Fields(raw)
+		for i, senderType := range values {
+			values[i] = strings.ToLower(strings.TrimSpace(senderType))
+			if values[i] != "user" && values[i] != "app" {
+				return commandValidationError(fmt.Errorf("%s", configCatalog.Format(locale, "config.sender_types", key)))
 			}
 		}
 		value = values
@@ -363,6 +383,13 @@ func setConfigValue(cfg cliConfigFile, key, raw string) error {
 		}
 		if err != nil || parsed < minimum || parsed > maximum {
 			return commandValidationError(fmt.Errorf("%s must be an integer from %d to %d", key, minimum, maximum))
+		}
+		value = int64(parsed)
+	}
+	if groupWatchConfigField(key) == "dedup.window_seconds" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 60 || parsed > config.MaxFeishuGroupWatchDedupWindowSeconds {
+			return commandValidationError(fmt.Errorf("%s", configCatalog.Format(locale, "config.integer_range", key, 60, config.MaxFeishuGroupWatchDedupWindowSeconds)))
 		}
 		value = int64(parsed)
 	}
@@ -576,7 +603,7 @@ func supportedConfigKeys() []string {
 
 func supportedConfigKey(key string) bool {
 	for _, supported := range supportedConfigKeys() {
-		if strings.Contains(supported, "<profile>") || strings.Contains(supported, "<label>") {
+		if strings.Contains(supported, "<profile>") || strings.Contains(supported, "<label>") || strings.Contains(supported, "<chat_id>") {
 			continue
 		}
 		if key == supported {
@@ -584,6 +611,9 @@ func supportedConfigKey(key string) bool {
 		}
 	}
 	if isRuntimeLabelKey(key) {
+		return true
+	}
+	if groupWatchChatSenderTypesKey(key) {
 		return true
 	}
 	return parseFeishuProfileWorkspaceDefaultsKey(key) != "" ||
@@ -705,7 +735,7 @@ func parseFeishuProfileBotToBotKey(key string) string {
 
 func parseFeishuProfileGroupWatchKey(key string) string {
 	parts := strings.Split(key, ".")
-	if len(parts) != 6 {
+	if len(parts) != 6 && len(parts) != 7 {
 		return ""
 	}
 	if parts[0] != "bridge" ||
@@ -713,6 +743,15 @@ func parseFeishuProfileGroupWatchKey(key string) string {
 		parts[2] != "profiles" ||
 		!configProfileNamePattern.MatchString(parts[3]) ||
 		parts[4] != "group_watch" {
+		return ""
+	}
+	if len(parts) == 7 {
+		if parts[5] == "dedup" && (parts[6] == "enabled" || parts[6] == "window_seconds") {
+			return "dedup." + parts[6]
+		}
+		if parts[5] == "chat_sender_types" && configProfileNamePattern.MatchString(parts[6]) {
+			return "chat_sender_types"
+		}
 		return ""
 	}
 	switch parts[5] {
@@ -748,8 +787,11 @@ func parseFeishuProfileExecutionKey(key string) string {
 func groupWatchConfigField(key string) string {
 	const prefix = "bridge.feishu.group_watch."
 	if strings.HasPrefix(key, prefix) {
+		if globalGroupWatchChatSenderTypesKey(key) {
+			return "chat_sender_types"
+		}
 		switch field := strings.TrimPrefix(key, prefix); field {
-		case "enabled", "chat_ids", "sender_types", "poll_interval_seconds", "lookback_seconds", "max_active_sessions_per_chat", "idle_timeout_seconds", "thinking_process":
+		case "enabled", "chat_ids", "sender_types", "poll_interval_seconds", "lookback_seconds", "dedup.enabled", "dedup.window_seconds", "max_active_sessions_per_chat", "idle_timeout_seconds", "thinking_process":
 			return field
 		}
 	}
@@ -758,6 +800,19 @@ func groupWatchConfigField(key string) string {
 		return ""
 	}
 	return field
+}
+
+func groupWatchChatSenderTypesKey(key string) bool {
+	return globalGroupWatchChatSenderTypesKey(key) || parseFeishuProfileGroupWatchKey(key) == "chat_sender_types"
+}
+
+func globalGroupWatchChatSenderTypesKey(key string) bool {
+	const prefix = "bridge.feishu.group_watch.chat_sender_types."
+	if !strings.HasPrefix(key, prefix) {
+		return false
+	}
+	chatID := strings.TrimPrefix(key, prefix)
+	return configProfileNamePattern.MatchString(chatID)
 }
 
 func isWorkspaceDefaultsArgsConfigKey(key string) bool {
