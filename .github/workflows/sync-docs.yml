@@ -1,0 +1,77 @@
+name: sync-docs
+
+# Sync the bilingual documentation set into the amuxos/amuxos-web website repo.
+# Event-driven on doc changes, with a nightly backstop in case a path filter
+# misses a file. Requires the WEB_REPO_PAT secret (a token with contents:write
+# on amuxos/amuxos-web).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'README.zh-CN.md'
+      - 'CONTEXT.md'
+      - 'CONTEXT.zh-CN.md'
+      - 'CONTRIBUTING.md'
+      - 'CONTRIBUTING.zh-CN.md'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'THIRD_PARTY_NOTICES.zh-CN.md'
+      - 'examples/README.md'
+      - 'examples/README.zh-CN.md'
+      - '.github/workflows/sync-docs.yml'
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-docs
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: amux
+
+      - uses: actions/checkout@v4
+        with:
+          repository: amuxos/amuxos-web
+          token: ${{ secrets.WEB_REPO_PAT }}
+          path: web
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Sync docs into the website source tree
+        run: python3 web/sync-docs.py amux
+
+      - name: Build docs site (fails on dead links)
+        run: |
+          cd web
+          npm install -g npm@latest
+          npm ci
+          npm run docs:build
+
+      - name: Commit and push if changed
+        run: |
+          cd web
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "sync-docs: no changes"
+            exit 0
+          fi
+          git config user.name "amux-docs-bot"
+          git config user.email "docs-bot@amuxos.com"
+          git add docs/upstream docs/.vitepress/generated.mjs docs/.vitepress/.synced-manifest.json
+          git commit -m "docs: sync from amuxos/amux@${{ github.sha }}"
+          git push origin main
