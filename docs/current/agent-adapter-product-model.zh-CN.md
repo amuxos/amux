@@ -79,3 +79,17 @@ HOME 下，并清空继承的 `CLAUDE_CONFIG_DIR`，保留该 HOME 内默认的 
 `--approve`，除非调用者显式指定信任参数。private-home 启动继续使用自身原生
 信任文件。
 参见[原生兼容性证据](../reports/2026-09-17-native-memory-compatibility.zh-CN.md)。
+
+## 发行版定制契约
+
+Provider 校验始终先执行公共必填字段与通信协议规则。发行版只校验额外的
+Agent/平台组合；原生 Codex、Pi 的 OpenAI-compatible 规则由公共核心维护。
+
+工作区规则文件和 Skill 使用 Adapter 声明的配置布局。Claude 的附加指令文件等
+特殊渲染继续由公共核心处理；发行版不再重复声明普通投影路径。
+
+提供可选 Responses-to-Chat 功能的发行版注册 Runtime 命令构造器。公共核心负责
+凭据传递、隔离和进程生命周期；发行版负责 supervisor 命令及参数。公共发行版
+仍不提供兼容网关。
+
+Codex 通过 `ConfigLayout` 声明已有的工作区 Skill 支持，MCP 的 `supports_skills` 能力信息也据此返回。

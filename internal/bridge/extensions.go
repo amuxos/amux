@@ -2,9 +2,9 @@ package bridge
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/amuxos/amux/internal/agentui"
@@ -19,8 +19,10 @@ type Extension struct {
 	ReplyCardAgent         func(string) bool
 	AgentTypeName          func(string) string
 	CoordinationProfile    func(string) bool
-	MigrateDefaults        func(*sql.Tx) error
-	ConsoleSetup           func(context.Context, string, ConsoleOptions) ConsoleResult
+	// DefaultProfileReplacements maps retired default refs to replacements.
+	// Targets cannot also be sources, so repeated migrations are idempotent.
+	DefaultProfileReplacements map[string]string
+	ConsoleSetup               func(context.Context, string, ConsoleOptions) ConsoleResult
 }
 
 type extensionRegistry struct {
@@ -51,6 +53,18 @@ func (r *extensionRegistry) register(extension Extension) error {
 	if r.used {
 		return fmt.Errorf("bridge extension registration must precede first use")
 	}
+	// Clone and validate before publication; callers cannot mutate migration policy.
+	replacements := make(map[string]string, len(extension.DefaultProfileReplacements))
+	for old, next := range extension.DefaultProfileReplacements {
+		if strings.TrimSpace(old) == "" || strings.TrimSpace(next) == "" {
+			return fmt.Errorf("default profile replacements require non-empty references")
+		}
+		if _, chains := extension.DefaultProfileReplacements[next]; chains {
+			return fmt.Errorf("default profile replacement target %q is also a source", next)
+		}
+		replacements[old] = next
+	}
+	extension.DefaultProfileReplacements = replacements
 	r.extension = extension
 	r.registered = true
 	return nil

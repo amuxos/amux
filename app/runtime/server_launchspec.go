@@ -167,14 +167,10 @@ func launchSpecProviderProfileSkillRoots(spec, cwd string) []string {
 		return nil
 	}
 	placement := layout[adapter.SurfaceSkills]
-	skillDir := placement.Path
-	if agentType == "codex" {
-		// Profile workspace projection already supports this root even though
-		// task-path ConfigLayout does not yet advertise skills for this adapter.
-		skillDir = filepath.Join(".agents", "skills")
-	} else if !placement.Supported || placement.Kind != "cwd-rel" {
+	if !placement.Supported || placement.Kind != "cwd-rel" {
 		return nil
 	}
+	skillDir := placement.Path
 	roots := make([]string, 0, len(decoded.ProfileSpec.Skills))
 	for _, skill := range decoded.ProfileSpec.Skills {
 		skill = strings.TrimSpace(skill)

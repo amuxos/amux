@@ -2,8 +2,6 @@ package bridge
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"os"
 	"os/exec"
 	"strings"
@@ -65,8 +63,6 @@ func TestBridgeExtensionWiring(t *testing.T) {
 		}
 	}
 
-	migrationFailure := errors.New("forced extension migration failure")
-	failMigration := false
 	if err := RegisterExtension(Extension{
 		ActivityPossiblyQueued: func(agent string, activity *agentui.ActivityView) bool { return agent == "custom" && activity != nil },
 		ProviderErrorNotice:    func(text string) string { return "notice:" + text },
@@ -76,15 +72,7 @@ func TestBridgeExtensionWiring(t *testing.T) {
 		ConsoleSetup: func(_ context.Context, appID string, opts ConsoleOptions) ConsoleResult {
 			return ConsoleResult{OK: true, Message: appID, SessionFile: opts.SessionFilePath}
 		},
-		MigrateDefaults: func(tx *sql.Tx) error {
-			if _, err := tx.Exec(`UPDATE defaults SET value='new'`); err != nil {
-				return err
-			}
-			if failMigration {
-				return migrationFailure
-			}
-			return nil
-		},
+		DefaultProfileReplacements: map[string]string{"old": "new"},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -98,30 +86,24 @@ func TestBridgeExtensionWiring(t *testing.T) {
 	if !result.OK || result.Message != "app" || result.SessionFile != "test-session" {
 		t.Fatalf("console hook result = %+v", result)
 	}
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
+}
+
+func TestDefaultProfileReplacementPolicyIsImmutableAndIdempotent(t *testing.T) {
+	for _, replacements := range []map[string]string{
+		{"": "current"}, {"old": ""}, {"old": "old"}, {"old": "middle", "middle": "current"},
+	} {
+		var registry extensionRegistry
+		if err := registry.register(Extension{DefaultProfileReplacements: replacements}); err == nil {
+			t.Fatalf("invalid replacements accepted: %v", replacements)
+		}
+	}
+	replacements := map[string]string{"old": "current"}
+	var registry extensionRegistry
+	if err := registry.register(Extension{DefaultProfileReplacements: replacements}); err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
-	if _, err := db.Exec(`CREATE TABLE defaults (value TEXT); INSERT INTO defaults VALUES ('old')`); err != nil {
-		t.Fatal(err)
-	}
-	bridgeDB := &bridgeDB{db: db}
-	if err := bridgeDB.migrateDistributionDefaults(); err != nil {
-		t.Fatal(err)
-	}
-	var got string
-	if err := db.QueryRow(`SELECT value FROM defaults`).Scan(&got); err != nil || got != "new" {
-		t.Fatalf("committed migration value = %q, error = %v", got, err)
-	}
-	if _, err := db.Exec(`UPDATE defaults SET value='old'`); err != nil {
-		t.Fatal(err)
-	}
-	failMigration = true
-	if err := bridgeDB.migrateDistributionDefaults(); !errors.Is(err, migrationFailure) {
-		t.Fatalf("migration failure = %v", err)
-	}
-	if err := db.QueryRow(`SELECT value FROM defaults`).Scan(&got); err != nil || got != "old" {
-		t.Fatalf("failed migration was not rolled back: value = %q, error = %v", got, err)
+	replacements["old"] = "changed"
+	if got := registry.snapshot().DefaultProfileReplacements["old"]; got != "current" {
+		t.Fatalf("caller mutated registered policy: %q", got)
 	}
 }

@@ -20,15 +20,3 @@ func materializeDistributionConfig(profile Profile, root string) (string, error)
 	}
 	return "", nil
 }
-func distributionInstructionsFile(agentType string) string {
-	if customization.InstructionsFile != nil {
-		return customization.InstructionsFile(agentType)
-	}
-	return "amux-context.md"
-}
-func distributionSkillProjectionDir(agentType string) string {
-	if customization.SkillProjectionDir != nil {
-		return customization.SkillProjectionDir(agentType)
-	}
-	return ""
-}

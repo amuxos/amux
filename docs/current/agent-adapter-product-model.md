@@ -100,3 +100,20 @@ Built-in Linux DAC launches do not modify the service user's workspace trust;
 Pi uses its per-launch `--approve` override unless the caller selected an explicit
 trust flag. Private-home launches continue using their own native trust files.
 See the [native compatibility evidence](../reports/2026-09-17-native-memory-compatibility.md).
+
+## Distribution customization contracts
+
+Provider validation always applies shared required-field and wire-protocol rules.
+Distributions validate only additional agent/platform combinations; native
+Codex and Pi OpenAI-compatible rules remain owned by core.
+
+Workspace rules and skills use the adapter's declared configuration layout.
+Special renderers such as Claude's additional instructions file remain in core;
+distributions do not separately redeclare ordinary projection paths.
+
+An optional Responses-to-Chat distribution registers its runtime command builder.
+Core owns credential transport, isolation and process lifecycle; the distribution
+owns the supervisor command and arguments. The public distribution still does
+not provide a compatibility gateway.
+
+Codex advertises its existing workspace skill support through `ConfigLayout`, including the `supports_skills` capability exposed by MCP.

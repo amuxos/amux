@@ -315,12 +315,10 @@ func startStructuredProc(opts StructuredLaunchOptions) (session.Proc, <-chan []b
 				return nil, nil, fmt.Errorf("resolve amuxlet executable for responses-chat supervisor: %w", err)
 			}
 			startOpts.Executable = executable
-			startOpts.ExtraArgs = append([]string{
-				"_responses_chat_supervisor",
-				"--upstream-base-url", opts.ResponsesChat.UpstreamBaseURL,
-				"--api-key-env", opts.ResponsesChat.APIKeyEnv,
-				"--",
-			}, opts.ExtraArgs...)
+			startOpts.ExtraArgs, err = responsesChatCommandArgs(*opts.ResponsesChat, opts.ExtraArgs)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 		return codex.Start(context.Background(), startOpts)
 	case "pi-rpc":

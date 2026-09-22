@@ -51,14 +51,15 @@ func TestFreezeClosesAllRegistries(t *testing.T) {
 		"protocol": func() error {
 			return adapter.RegisterProtocol("late-test", adapter.ProtocolRegistration{ProviderID: "late-test"})
 		},
-		"app-server":   func() error { return codex.RegisterProvider("late-test", codex.ProviderRegistration{}) },
-		"structured":   func() error { return mux.RegisterStructuredProvider("late-test", nil) },
-		"config":       func() error { return config.RegisterExtension(config.Extension{}) },
-		"distribution": func() error { return distribution.Register(distribution.Options{}) },
-		"profiles":     func() error { return agentprofile.RegisterCustomization(agentprofile.Customization{}) },
-		"bridge":       func() error { return bridge.RegisterExtension(bridge.Extension{}) },
-		"CLI":          func() error { return cli.RegisterHooks(cli.Hooks{}) },
-		"runtime":      func() error { return runtime.RegisterHooks(runtime.Hooks{}) },
+		"app-server":     func() error { return codex.RegisterProvider("late-test", codex.ProviderRegistration{}) },
+		"responses-chat": func() error { return mux.RegisterResponsesChatCommand(nil) },
+		"structured":     func() error { return mux.RegisterStructuredProvider("late-test", nil) },
+		"config":         func() error { return config.RegisterExtension(config.Extension{}) },
+		"distribution":   func() error { return distribution.Register(distribution.Options{}) },
+		"profiles":       func() error { return agentprofile.RegisterCustomization(agentprofile.Customization{}) },
+		"bridge":         func() error { return bridge.RegisterExtension(bridge.Extension{}) },
+		"CLI":            func() error { return cli.RegisterHooks(cli.Hooks{}) },
+		"runtime":        func() error { return runtime.RegisterHooks(runtime.Hooks{}) },
 	}
 	for name, register := range registries {
 		t.Run(name, func(t *testing.T) {
