@@ -1,0 +1,2267 @@
+{
+  "management.you.do.not.have.permission.to.manage.this.assistant": {
+    "other": "You do not have permission to manage this assistant"
+  },
+  "management.cannot.read.experiment.settings.check.the.configuration.file": {
+    "other": "Cannot read experiment settings. Check the configuration file."
+  },
+  "management.cannot.save.experiment.settings.check.the.configuration.file": {
+    "other": "Cannot save experiment settings. Check the configuration file."
+  },
+  "management.saved.confirm.the.restart.to.apply.changes": {
+    "other": "Saved. Confirm the restart to apply changes."
+  },
+  "management.saved.restart.amux.to.apply.changes": {
+    "other": "Saved. Restart amux to apply changes."
+  },
+  "management.experiments.opened": {
+    "other": "Experiments opened"
+  },
+  "management.configuration.selection.updated": {
+    "other": "Configuration selection updated"
+  },
+  "management.preparing.the.assistant.please.wait": {
+    "other": "Preparing the assistant. Please wait."
+  },
+  "management.configuration.changed.please.confirm.again": {
+    "other": "Configuration changed. Please confirm again."
+  },
+  "management.assistant.configuration.saved": {
+    "other": "Assistant configuration saved"
+  },
+  "management.assistant.settings.opened": {
+    "other": "Assistant settings opened"
+  },
+  "management.integrations.opened": {
+    "other": "Integrations opened"
+  },
+  "management.agent.collaboration.settings.opened": {
+    "other": "Agent collaboration settings opened"
+  },
+  "management.invalid.agent.collaboration.settings.refresh.and.try.again": {
+    "other": "Invalid agent collaboration settings. Refresh and try again."
+  },
+  "management.agent.collaboration.settings.are.updating.wait.for.the.card": {
+    "other": "Agent collaboration settings are updating. Wait for the card to refresh."
+  },
+  "management.enabling.agent.collaboration": {
+    "other": "Enabling agent collaboration"
+  },
+  "management.disabling.agent.collaboration": {
+    "other": "Disabling agent collaboration"
+  },
+  "management.checking.feishu.permissions.please.wait": {
+    "other": "Checking Feishu permissions. Please wait."
+  },
+  "management.rechecking.feishu.permissions": {
+    "other": "Rechecking Feishu permissions"
+  },
+  "management.a.permission.request.is.in.progress.please.wait": {
+    "other": "A permission request is in progress. Please wait."
+  },
+  "management.requesting.permission.from.the.administrator": {
+    "other": "Requesting permission from the administrator"
+  },
+  "management.group.watch.management.opened": {
+    "other": "Group watch management opened"
+  },
+  "management.available.models.updated": {
+    "other": "Available models updated"
+  },
+  "management.group.watch.execution.settings.opened": {
+    "other": "Group watch execution settings opened"
+  },
+  "management.group.watch.execution.settings.are.updating.wait.for.the": {
+    "other": "Group watch execution settings are updating. Wait for the card to refresh."
+  },
+  "management.saving.group.watch.task.settings": {
+    "other": "Saving group watch task settings"
+  },
+  "management.separate.conversation.per.topic": {
+    "other": "Separate conversation per topic"
+  },
+  "management.cannot.save.group.watch.settings.try.again.later": {
+    "other": "Cannot save group watch settings. Try again later."
+  },
+  "management.document.comment.settings.opened": {
+    "other": "Document comment settings opened"
+  },
+  "management.available.execution.options.updated": {
+    "other": "Available execution options updated"
+  },
+  "management.document.comment.execution.settings.opened": {
+    "other": "Document comment execution settings opened"
+  },
+  "management.document.comment.settings.are.updating.wait.for.the.card": {
+    "other": "Document comment settings are updating. Wait for the card to refresh."
+  },
+  "management.saving.comment.task.settings": {
+    "other": "Saving comment task settings"
+  },
+  "management.invalid.document.comment.settings.refresh.and.try.again": {
+    "other": "Invalid document comment settings. Refresh and try again."
+  },
+  "management.enabling.document.comments": {
+    "other": "Enabling document comments"
+  },
+  "management.disabling.document.comments": {
+    "other": "Disabling document comments"
+  },
+  "management.updating.assistant.settings.please.wait": {
+    "other": "Updating assistant settings. Please wait."
+  },
+  "management.confirm.changing.the.current.expert.or.model": {
+    "other": "Confirm changing the current expert or model"
+  },
+  "management.assistant.settings.saved": {
+    "other": "Assistant settings saved"
+  },
+  "management.confirmation.expired.make.your.selection.again": {
+    "other": "Confirmation expired. Make your selection again."
+  },
+  "management.processing.please.wait": {
+    "other": "Processing. Please wait."
+  },
+  "management.recovery.action.expired.make.your.selection.again": {
+    "other": "Recovery action expired. Make your selection again."
+  },
+  "management.creating.a.blank.persistent.conversation.please.wait": {
+    "other": "Creating a blank persistent conversation. Please wait."
+  },
+  "management.machine.side.binding.instructions.displayed": {
+    "other": "Machine-side binding instructions displayed"
+  },
+  "management.binding.detected": {
+    "other": "Binding detected"
+  },
+  "management.settings.changed.latest.state.refreshed": {
+    "other": "Settings changed. Latest state refreshed."
+  },
+  "management.no.binding.detected.yet": {
+    "other": "No binding detected yet"
+  },
+  "management.returned.to.recovery.options": {
+    "other": "Returned to recovery options"
+  },
+  "management.recovery.action.expired": {
+    "other": "Recovery action expired"
+  },
+  "management.deferred.for.now": {
+    "other": "Deferred for now"
+  },
+  "management.changes.cancelled": {
+    "other": "Changes cancelled"
+  },
+  "management.opening.the.expert.library": {
+    "other": "Opening the expert library"
+  },
+  "management.invalid.expert.library.page.open.it.again": {
+    "other": "Invalid expert library page. Open it again."
+  },
+  "management.an.expert.library.operation.is.in.progress.wait.for": {
+    "other": "An expert library operation is in progress. Wait for it to finish."
+  },
+  "management.switching.expert.library.pages": {
+    "other": "Switching expert library pages"
+  },
+  "management.cannot.identify.the.expert.library.to.manage.open.it": {
+    "other": "Cannot identify the expert library to manage. Open it again."
+  },
+  "management.opening.expert.library.management": {
+    "other": "Opening expert library management"
+  },
+  "management.cannot.identify.the.expert.to.add": {
+    "other": "Cannot identify the expert to add"
+  },
+  "management.cannot.check.the.expert.library.operation.status.right.now": {
+    "other": "Cannot check the expert library operation status right now"
+  },
+  "management.operation.submitted.wait.for.the.card.to.refresh": {
+    "other": "Operation submitted. Wait for the card to refresh."
+  },
+  "management.adding.experts": {
+    "other": "Adding experts"
+  },
+  "management.cannot.identify.the.expert.to.update": {
+    "other": "Cannot identify the expert to update"
+  },
+  "management.checking.for.updates": {
+    "other": "Checking for updates"
+  },
+  "management.cannot.identify.the.expert.to.remove": {
+    "other": "Cannot identify the expert to remove"
+  },
+  "management.cannot.check.expert.usage.right.now": {
+    "other": "Cannot check expert usage right now"
+  },
+  "management.experts.in.this.pack.are.defaults.for.d.feishu": {
+    "other": "Experts in this pack are defaults for %d Feishu assistants. Change those defaults before removing the pack."
+  },
+  "management.this.expert.pack.is.still.used.by.feishu.assistants": {
+    "other": "This expert pack is still used by Feishu assistants"
+  },
+  "management.removing.experts": {
+    "other": "Removing experts"
+  },
+  "management.assistant.overview.opened": {
+    "other": "Assistant overview opened"
+  },
+  "management.system.status.opened": {
+    "other": "System status opened"
+  },
+  "management.confirm.restarting.amux": {
+    "other": "Confirm restarting amux"
+  },
+  "management.confirmation.expired.try.again": {
+    "other": "Confirmation expired. Try again."
+  },
+  "management.a.system.maintenance.operation.is.already.in.progress": {
+    "other": "A system maintenance operation is already in progress"
+  },
+  "management.cannot.schedule.status.recovery.after.restart.try.again.later": {
+    "other": "Cannot schedule status recovery after restart. Try again later."
+  },
+  "management.restarting.amux": {
+    "other": "Restarting amux"
+  },
+  "management.cannot.identify.the.version.to.dismiss": {
+    "other": "Cannot identify the version to dismiss"
+  },
+  "management.cannot.save.update.notification.settings.right.now": {
+    "other": "Cannot save update notification settings right now"
+  },
+  "management.notifications.dismissed.for.this.version": {
+    "other": "Notifications dismissed for this version"
+  },
+  "management.confirmation.expired.check.for.updates.again": {
+    "other": "Confirmation expired. Check for updates again."
+  },
+  "management.cannot.schedule.status.recovery.after.upgrade.try.again.later": {
+    "other": "Cannot schedule status recovery after upgrade. Try again later."
+  },
+  "management.upgrading.amux": {
+    "other": "Upgrading amux"
+  },
+  "management.help.opened": {
+    "other": "Help opened"
+  },
+  "management.this.action.is.not.supported.yet": {
+    "other": "This action is not supported yet"
+  },
+  "management.separate.topics.with.user.isolation.are.unavailable.in.this": {
+    "other": "Separate topics with user isolation are unavailable in this environment: %s. This mode requires Linux with user isolation enabled. Settings are unchanged."
+  },
+  "management.back.to.overview": {
+    "other": "Back to overview"
+  },
+  "management.running.normally": {
+    "other": "Running normally"
+  },
+  "management.d.runtimes.available.ready.for.tasks": {
+    "other": "%d runtimes available · Ready for tasks",
+    "one": "%d runtime available · Ready for tasks"
+  },
+  "management.cannot.start.new.tasks.right.now": {
+    "other": "Cannot start new tasks right now"
+  },
+  "management.no.runtimes.available.check.system.status": {
+    "other": "No runtimes available · Check System status"
+  },
+  "management.current.configuration": {
+    "other": "Current configuration"
+  },
+  "management.manage": {
+    "other": "Manage"
+  },
+  "management.send.amux.again.to.refresh.status": {
+    "other": "Send /amux again to refresh status"
+  },
+  "management.default.expert": {
+    "other": "Default expert"
+  },
+  "management.runtime": {
+    "other": "Runtime"
+  },
+  "management.default.model": {
+    "other": "Default model"
+  },
+  "management.reasoning.effort": {
+    "other": "Reasoning effort"
+  },
+  "management.activity.display": {
+    "other": "Activity display"
+  },
+  "management.system.status": {
+    "other": "System status"
+  },
+  "management.assistant.settings": {
+    "other": "Assistant settings"
+  },
+  "management.expert.library": {
+    "other": "Expert library"
+  },
+  "management.experiments": {
+    "other": "Experiments"
+  },
+  "management.help": {
+    "other": "Help"
+  },
+  "management.view.update": {
+    "other": "View update"
+  },
+  "management.new.amux.version.available": {
+    "other": "New amux version available: "
+  },
+  "management.unknown": {
+    "other": "Unknown"
+  },
+  "management.current": {
+    "other": " (current: "
+  },
+  "management.current.settings": {
+    "other": "Current settings"
+  },
+  "management.version": {
+    "other": "Version"
+  },
+  "management.uptime": {
+    "other": "Uptime"
+  },
+  "management.connected.assistants": {
+    "other": "Connected assistants"
+  },
+  "management.d": {
+    "other": "%d"
+  },
+  "management.hub.host.ip": {
+    "other": "Hub host IP"
+  },
+  "management.continue.the.same.conversation": {
+    "other": "Continue the same conversation?"
+  },
+  "management.messages.sent.to.the.assistant.from.authorized.locations.will": {
+    "other": "Messages sent to the assistant from authorized locations will continue the same conversation."
+  },
+  "management.cancel": {
+    "other": "Cancel"
+  },
+  "management.choose.how.messages.are.handled": {
+    "other": "Choose how messages are handled"
+  },
+  "management.no.experts.are.available.add.experts.to.the.library": {
+    "other": "No experts are available. Add experts to the library first."
+  },
+  "management.search.experts.libraries.or.descriptions": {
+    "other": "Search experts, libraries, or descriptions"
+  },
+  "management.choose.a.runtime": {
+    "other": "Choose a runtime"
+  },
+  "management.choose.a.model.supported.by.this.runtime": {
+    "other": "Choose a model supported by this runtime"
+  },
+  "management.choose.reasoning.effort": {
+    "other": "Choose reasoning effort"
+  },
+  "management.choose.how.activity.is.displayed": {
+    "other": "Choose how activity is displayed"
+  },
+  "management.collapsed.default": {
+    "other": "Collapsed (default)"
+  },
+  "management.expanded": {
+    "other": "Expanded"
+  },
+  "management.hidden": {
+    "other": "Hidden"
+  },
+  "management.runtime.new.sessions.only": {
+    "other": "Runtime (new sessions only)"
+  },
+  "management.default.model.new.sessions.only": {
+    "other": "Default model (new sessions only)"
+  },
+  "management.reasoning.effort.new.sessions.only": {
+    "other": "Reasoning effort (new sessions only)"
+  },
+  "management.use.the.runtime.default.model": {
+    "other": "Use the runtime default model"
+  },
+  "management.use": {
+    "other": "Use "
+  },
+  "management.default.model.130": {
+    "other": " default model"
+  },
+  "management.use.the.runtime.default.effort": {
+    "other": "Use the runtime default effort"
+  },
+  "management.keep.current.unavailable.in.library": {
+    "other": "Keep current (unavailable in library) · "
+  },
+  "management.no.experts.are.available.in.the.library": {
+    "other": "No experts are available in the library."
+  },
+  "management.search.all.d.experts.in.the.library": {
+    "other": "Search all %d experts in the library.",
+    "one": "Search all %d expert in the library."
+  },
+  "management.continue.the.same.conversation.135": {
+    "other": "Continue the same conversation"
+  },
+  "management.separate.topics.user.isolation": {
+    "other": "Separate topics (user isolation)"
+  },
+  "management.messages.sent.to.the.assistant.continue.the.previous.conversation": {
+    "other": "Messages sent to the assistant continue the previous conversation."
+  },
+  "management.each.new.topic.is.independent.and.runs.in.a": {
+    "other": "Each new topic is independent and runs in a separate user environment (isolation mode)."
+  },
+  "management.each.new.topic.starts.fresh.independently.of.other.topics": {
+    "other": "Each new topic starts fresh, independently of other topics."
+  },
+  "management.each.new.topic.uses.an.empty.workspace.under.its": {
+    "other": "Each new topic uses an empty workspace under its isolated user"
+  },
+  "management.each.new.topic.uses.a.separate.empty.workspace": {
+    "other": "Each new topic uses a separate empty workspace"
+  },
+  "management.current.workspace": {
+    "other": "Current workspace: "
+  },
+  "management.current.workspace.not.recorded.rebind.it.on.the.machine": {
+    "other": "Current workspace: not recorded. Rebind it on the machine running amux."
+  },
+  "management.continue.the.same.conversation.144": {
+    "other": "Continue the same conversation"
+  },
+  "management.use.separate.conversations.per.topic": {
+    "other": "Use separate conversations per topic"
+  },
+  "management.private.chat.send.a.message.directly.group.chat.mention": {
+    "other": "Private chat: send a message directly\nGroup chat: mention the assistant and send a message\n"
+  },
+  "management.private.chat.send.a.message.to.start.a.task": {
+    "other": "Private chat: send a message to start a task\nGroup chat: mention the assistant and send a message to start a task\nContinue in the corresponding Feishu topic\n"
+  },
+  "management.continues.the.previous.conversation": {
+    "other": ": continues the previous conversation.\n"
+  },
+  "management.starts.each.new.topic.independently": {
+    "other": ": starts each new topic independently.\n"
+  },
+  "management.keeps.topics.independent.each.in.a.separate.user.environment": {
+    "other": ": keeps topics independent, each in a separate user environment (isolation mode)."
+  },
+  "management.to.let.other.group.members.use.the.assistant.mention": {
+    "other": "To let other group members use the assistant, mention it in that group and send “开启协作模式”. To restore owner-only access, mention it and send “关闭协作模式”."
+  },
+  "management.d.days.d.hours": {
+    "other": "%s %s"
+  },
+  "management.d.days": {
+    "other": "%d days",
+    "one": "%d day"
+  },
+  "management.d.hours": {
+    "other": "%d hours",
+    "one": "%d hour"
+  },
+  "management.d.minutes": {
+    "other": "%d minutes",
+    "one": "%d minute"
+  },
+  "management.less.than.1.minute": {
+    "other": "Less than 1 minute"
+  },
+  "management.choose.on.or.off": {
+    "other": "Choose on or off"
+  },
+  "management.the.notification.threshold.must.be.an.integer.from.0": {
+    "other": "The notification threshold must be an integer from 0 to 604800 seconds"
+  },
+  "management.choose.whether.to.enable.per.group.settings": {
+    "other": "Choose whether to enable per-group settings"
+  },
+  "management.choose.whether.to.enable.agent.memory": {
+    "other": "Choose whether to enable Agent memory"
+  },
+  "management.choose.on.or.off.161": {
+    "other": "Choose on or off"
+  },
+  "management.off": {
+    "other": "Off"
+  },
+  "management.on": {
+    "other": "On"
+  },
+  "management.currently.d.seconds.leave.blank.to.keep": {
+    "other": "Currently %d seconds; leave blank to keep",
+    "one": "Currently %d second; leave blank to keep"
+  },
+  "management.notify.when.a.task.taking.at.least.d.seconds": {
+    "other": "Notify when a task taking at least %d seconds finishes",
+    "one": "Notify when a task taking at least %d second finishes"
+  },
+  "management.notify.only.when.input.is.needed.or.a.task": {
+    "other": "Notify only when input is needed or a task fails"
+  },
+  "management.notify.when.long.tasks.finish": {
+    "other": "Notify when long tasks finish"
+  },
+  "management.long.conversation.completion.notifications": {
+    "other": "Long-conversation completion notifications"
+  },
+  "management.notification.threshold.seconds": {
+    "other": "Notification threshold (seconds)"
+  },
+  "management.notify.the.turn.initiator.through.a.private.card.linking": {
+    "other": "Notify the turn initiator through a private card linking to the original topic, without adding a topic message. Success, input-needed, and failure notifications all require the threshold; read status is not checked. Agent-initiated turns do not notify. Set 0 or disable the switch to stop all new notifications. An assistant-specific threshold takes precedence."
+  },
+  "management.per.group.settings": {
+    "other": "Per-group settings"
+  },
+  "management.set.an.expert.runtime.model.reasoning.effort.and.conversation": {
+    "other": "Set an expert, runtime, model, reasoning effort, and conversation mode for each group. Off by default. Disabling retains saved settings and pauses new tasks in those groups."
+  },
+  "management.agent.memory": {
+    "other": "Agent memory"
+  },
+  "management.remember.preferences.and.experience.across.conversations.without.an.agent": {
+    "other": "Remember preferences and experience across conversations, without an Agent Profile"
+  },
+  "management.supports.codex.claude.and.pi.shared.across.runtimes.in": {
+    "other": "Supports Codex, Claude, and Pi. Shared across runtimes in this amux system; separate per user with user isolation. Off by default. Enable and restart to use in new conversations. Disabling blocks reads and writes but preserves files; content already in existing conversations remains."
+  },
+  "management.save.and.restart": {
+    "other": "Save and restart"
+  },
+  "management.applies.to.all.assistants.in.this.instance": {
+    "other": "Applies to all assistants in this instance"
+  },
+  "management.amux.experiments": {
+    "other": "amux experiments"
+  },
+  "management.restart.pending.saved.settings.are.not.active.yet": {
+    "other": "Restart pending · Saved settings are not active yet"
+  },
+  "management.advanced.settings": {
+    "other": "Advanced settings"
+  },
+  "management.confirm.restart": {
+    "other": "Confirm restart"
+  },
+  "management.experiment.settings.saved.restart.pending": {
+    "other": "Experiment settings saved; restart pending"
+  },
+  "management.experiment.settings.are.saved.restarting.briefly.takes.assistants.offline": {
+    "other": "Experiment settings are saved. Restarting briefly takes assistants offline without deleting sessions. Cancelling keeps the settings for a later restart."
+  },
+  "management.invalid.group.settings.card.scope.send.amux.again.in": {
+    "other": "Invalid group settings card scope. Send /amux again in the target group."
+  },
+  "management.per.group.settings.are.unavailable.in.private.chat": {
+    "other": "Per-group settings are unavailable in private chat"
+  },
+  "management.the.current.persistent.conversation.does.not.belong.to.this": {
+    "other": "The current persistent conversation does not belong to this group"
+  },
+  "management.only.the.owner.can.manage.group.settings": {
+    "other": "Only the owner can manage group settings"
+  },
+  "management.cannot.verify.the.group.settings.card.check.the.assistant": {
+    "other": "Cannot verify the group settings card. Check the assistant credentials."
+  },
+  "management.group.settings.opened.not.saved.yet": {
+    "other": "Group settings opened; not saved yet"
+  },
+  "management.choose.whether.to.add.or.remove.this.group.from": {
+    "other": "Choose whether to add or remove this group from watch"
+  },
+  "management.current.group.settings.opened": {
+    "other": "Current group settings opened"
+  },
+  "management.group.settings.saved.new.execution.options.apply.only.to": {
+    "other": "Group settings saved. New execution options apply only to new sessions."
+  },
+  "management.new.persistent.conversation.ready.the.next.group.message.starts": {
+    "other": "New persistent conversation ready. The next group message starts with blank context."
+  },
+  "management.group.settings.changed.send.amux.again.in.the.target": {
+    "other": "Group settings changed. Send /amux again in the target group before editing."
+  },
+  "management.invalid.format.for.group.settings.field.s": {
+    "other": "Invalid format for group settings field %s"
+  },
+  "management.choose.a.valid.group.conversation.mode": {
+    "other": "Choose a valid group conversation mode"
+  },
+  "management.enter.a.native.model.name.or.select.the.default": {
+    "other": "Enter a native model name or select the default model"
+  },
+  "management.extra.arguments.must.be.a.json.string.array.such": {
+    "other": "Extra arguments must be a JSON string array, such as [\"--flag\", \"value with spaces\"]"
+  },
+  "management.extra.arguments.must.be.a.json.string.array": {
+    "other": "Extra arguments must be a JSON string array"
+  },
+  "management.idle.timeout.in.seconds": {
+    "other": "Idle timeout in seconds"
+  },
+  "management.context.message.count": {
+    "other": "Context message count"
+  },
+  "management.group.session.limit": {
+    "other": "Group session limit"
+  },
+  "management.session.limit.per.user": {
+    "other": "Session limit per user"
+  },
+  "management.s.must.be.a.nonnegative.integer": {
+    "other": "%s must be a nonnegative integer"
+  },
+  "management.selected.for.this.group": {
+    "other": "Selected for this group"
+  },
+  "management.follow.the.assistant.default.expert": {
+    "other": "Follow the assistant default expert"
+  },
+  "management.independent.group.settings": {
+    "other": "Independent group settings"
+  },
+  "management.using.assistant.settings.group.settings.not.saved.yet": {
+    "other": "Using assistant settings (group settings not saved yet)"
+  },
+  "management.using.assistant.settings": {
+    "other": "Using assistant settings"
+  },
+  "management.continue.the.same.conversation.in.this.group": {
+    "other": "Continue the same conversation in this group"
+  },
+  "management.assistant.conversation.currently.also.covers.other.groups.or.private": {
+    "other": "Assistant conversation (currently also covers other groups or private chats)"
+  },
+  "management.only.the.owner.can.start.tasks": {
+    "other": "Only the owner can start tasks"
+  },
+  "management.group.members.can.start.tasks.subject.to.assistant.and": {
+    "other": "Group members can start tasks (subject to assistant and execution permissions)"
+  },
+  "management.the.selected.expert.s.native.runtime": {
+    "other": "The selected expert's native runtime"
+  },
+  "management.group.name": {
+    "other": "Group name"
+  },
+  "management.unnamed.group": {
+    "other": "Unnamed group"
+  },
+  "management.group.id": {
+    "other": "Group ID"
+  },
+  "management.current.assistant": {
+    "other": "Current assistant"
+  },
+  "management.settings.source": {
+    "other": "Settings source"
+  },
+  "management.default.expert.for.new.sessions": {
+    "other": "Default expert for new sessions"
+  },
+  "management.message.handling": {
+    "other": "Message handling"
+  },
+  "management.access": {
+    "other": "Access"
+  },
+  "management.model": {
+    "other": "Model"
+  },
+  "management.target.machine": {
+    "other": "Target machine"
+  },
+  "management.automatic": {
+    "other": "Automatic"
+  },
+  "management.working.directory": {
+    "other": "Working directory"
+  },
+  "management.runtime.default.directory": {
+    "other": "Runtime default directory"
+  },
+  "management.extra.arguments": {
+    "other": "Extra arguments"
+  },
+  "management.group.session.limit.per.user.limit": {
+    "other": "Group session limit / per-user limit"
+  },
+  "management.saved.execution.options.apply.only.to.new.sessions.existing": {
+    "other": "Saved execution options apply only to new sessions. Existing topics and the current persistent conversation retain their original expert, model, execution identity, and environment. Enabling user isolation does not migrate existing topics."
+  },
+  "management.edit.group.settings": {
+    "other": "Edit group settings"
+  },
+  "management.not.created.yet.the.next.valid.task.starts.this": {
+    "other": "Not created yet; the next valid task starts this group's conversation and replies directly in the group"
+  },
+  "management.reply.directly.in.this.group": {
+    "other": "Reply directly in this group"
+  },
+  "management.session.binding.unavailable.start.a.new.conversation": {
+    "other": " (session binding unavailable; start a new conversation)"
+  },
+  "management.not.recorded": {
+    "other": "Not recorded"
+  },
+  "management.current.persistent.conversation": {
+    "other": "Current persistent conversation"
+  },
+  "management.current.session.expert": {
+    "other": "Current session expert"
+  },
+  "management.current.session.model": {
+    "other": "Current session model"
+  },
+  "management.new.persistent.conversation": {
+    "other": "New persistent conversation"
+  },
+  "management.start.a.new.conversation.with.blank.context": {
+    "other": "Start a new conversation with blank context?"
+  },
+  "management.the.current.session.stops.accepting.new.input.history.is": {
+    "other": "The current session stops accepting new input. History is retained and accepted tasks continue. The next group message uses this group's new-session defaults and replies directly in the group."
+  },
+  "management.group.watch": {
+    "other": "Group watch: "
+  },
+  "management.watch.uses.a.separate.expert": {
+    "other": "; watch uses a separate expert: "
+  },
+  "management.add.this.group.to.watch": {
+    "other": "Add this group to watch"
+  },
+  "management.confirm.adding.this.group.to.watch": {
+    "other": "Confirm adding this group to watch?"
+  },
+  "management.new.topics.in.this.group.will.be.handled.automatically": {
+    "other": "New topics in this group will be handled automatically. If group watch is paused, adding this group also resumes watch for the other configured groups."
+  },
+  "management.remove.this.group.from.watch": {
+    "other": "Remove this group from watch"
+  },
+  "management.current.group.settings": {
+    "other": "Current group settings"
+  },
+  "management.manage.only.this.assistant.s.settings.in.this.group": {
+    "other": "Manage only this assistant's settings in this group"
+  },
+  "management.amux.current.group.settings": {
+    "other": "amux current group settings"
+  },
+  "management.follow.assistant.default.expert": {
+    "other": "Follow assistant default expert · "
+  },
+  "management.use.the.selected.expert.s.native.runtime": {
+    "other": "Use the selected expert's native runtime"
+  },
+  "management.enter.a.native.model.name": {
+    "other": "Enter a native model name"
+  },
+  "management.current.value.validated.on.save": {
+    "other": "Current value (validated on save) · "
+  },
+  "management.select.an.option": {
+    "other": "Select an option"
+  },
+  "management.group.conversation.mode": {
+    "other": "Group conversation mode"
+  },
+  "management.native.model.name.when.selected.above": {
+    "other": "Native model name (when selected above)"
+  },
+  "management.for.example.a.model.name.supported.by.the.runtime": {
+    "other": "For example, a model name supported by the runtime"
+  },
+  "management.collapsed": {
+    "other": "Collapsed"
+  },
+  "management.who.can.start.tasks": {
+    "other": "Who can start tasks"
+  },
+  "management.owner.only": {
+    "other": "Owner only"
+  },
+  "management.group.members.subject.to.assistant.and.execution.permissions": {
+    "other": "Group members (subject to assistant and execution permissions)"
+  },
+  "management.leave.blank.for.automatic.selection": {
+    "other": "Leave blank for automatic selection"
+  },
+  "management.absolute.path.on.the.target.machine.leave.blank.for": {
+    "other": "Absolute path on the target machine; leave blank for the default directory"
+  },
+  "management.extra.arguments.json.string.array": {
+    "other": "Extra arguments (JSON string array)"
+  },
+  "management.idle.timeout.seconds.0.to.disable.or.at.least": {
+    "other": "Idle timeout (seconds: 0 to disable, or at least 60)"
+  },
+  "management.nonnegative.integer": {
+    "other": "Nonnegative integer"
+  },
+  "management.group.session.limit.0.for.unlimited": {
+    "other": "Group session limit (0 for unlimited)"
+  },
+  "management.session.limit.per.user.0.for.unlimited": {
+    "other": "Session limit per user (0 for unlimited)"
+  },
+  "management.showing.d.d.options.current.value.retained": {
+    "other": "Showing %d/%d options; current value retained."
+  },
+  "management.save.group.settings": {
+    "other": "Save group settings"
+  },
+  "management.save.these.group.settings": {
+    "other": "Save these group settings?"
+  },
+  "management.execution.options.affect.only.new.sessions.existing.topics.keep": {
+    "other": "Execution options affect only new sessions; existing topics keep their settings. Switching conversation mode retires the old conversation entry while accepted tasks continue. The new conversation starts with blank context. The first save separates this group from the assistant's global conversation."
+  },
+  "management.refresh.model.options": {
+    "other": "Refresh model options"
+  },
+  "management.previous.page": {
+    "other": "Previous page"
+  },
+  "management.next.page": {
+    "other": "Next page"
+  },
+  "management.new.topics.and.new.persistent.conversations.use.these.group": {
+    "other": "New topics and new persistent conversations use these group settings; existing sessions are unchanged. Only the expert can follow the assistant default. Other saved fields are independent of assistant defaults."
+  },
+  "management.after.changing.the.expert.or.runtime.click.refresh.model": {
+    "other": "After changing the expert or runtime, click Refresh model options. Entered values are retained; incompatible combinations produce an error on save."
+  },
+  "management.page.d.d.of.settings.changing.pages.preserves.entered": {
+    "other": "Page %d/%d of settings. Changing pages preserves entered values."
+  },
+  "management.amux.group.settings.editor": {
+    "other": "amux group settings editor"
+  },
+  "management.choose.task.configuration": {
+    "other": "Choose task configuration"
+  },
+  "management.inherit.assistant.defaults": {
+    "other": "Inherit assistant defaults"
+  },
+  "management.custom": {
+    "other": "Custom"
+  },
+  "management.changes.apply.only.to.new.watch.topics.existing.topics": {
+    "other": "Changes apply only to new watch topics. Existing topics keep their original expert and model."
+  },
+  "management.task.configuration": {
+    "other": "Task configuration"
+  },
+  "management.choose.the.expert.for.group.watch": {
+    "other": "Choose the expert for group watch"
+  },
+  "management.expert": {
+    "other": "Expert"
+  },
+  "management.runtime.new.watch.topics.only": {
+    "other": "Runtime (new watch topics only)"
+  },
+  "management.model.new.watch.topics.only": {
+    "other": "Model (new watch topics only)"
+  },
+  "management.reasoning.effort.new.watch.topics.only": {
+    "other": "Reasoning effort (new watch topics only)"
+  },
+  "management.save": {
+    "other": "Save"
+  },
+  "management.edit.watch.task.settings": {
+    "other": "Edit watch task settings"
+  },
+  "management.set.the.expert.and.execution.options.for.new.watch": {
+    "other": "Set the expert and execution options for new watch topics"
+  },
+  "management.edit.group.watch.task.settings": {
+    "other": "Edit group watch task settings"
+  },
+  "management.not.configured": {
+    "other": "Not configured"
+  },
+  "management.enabled.d.groups": {
+    "other": "Enabled · %d groups",
+    "one": "Enabled · %d group"
+  },
+  "management.paused.d.groups": {
+    "other": "Paused · %d groups",
+    "one": "Paused · %d group"
+  },
+  "management.back.to.integrations": {
+    "other": "Back to integrations"
+  },
+  "management.current.status": {
+    "other": "Current status"
+  },
+  "management.active.topic.limit.per.group": {
+    "other": "Active topic limit per group"
+  },
+  "management.automatic.sleep": {
+    "other": "Automatic sleep"
+  },
+  "management.send.amux.in.the.target.group.the.owner.will": {
+    "other": "Send /amux in the target group. The owner will receive an option to add it to watch."
+  },
+  "management.edit.task.settings": {
+    "other": "Edit task settings"
+  },
+  "management.request.permissions": {
+    "other": "Request permissions"
+  },
+  "management.request.these.permissions.from.the.organization.administrator": {
+    "other": "Request these permissions from the organization administrator?"
+  },
+  "management.the.app.will.request.permissions.from.the.tenant.administrator": {
+    "other": "The app will request permissions from the tenant administrator. Capabilities resume when approval takes effect; publishing an app version may be required."
+  },
+  "management.developer.console": {
+    "other": "Developer console"
+  },
+  "management.watched.group.s.s": {
+    "other": "Watched group: %s (%s)"
+  },
+  "management.remove.from.watch": {
+    "other": "Remove from watch"
+  },
+  "management.resume.group.watch": {
+    "other": "Resume group watch"
+  },
+  "management.pause.group.watch": {
+    "other": "Pause group watch"
+  },
+  "management.group.watch.312": {
+    "other": "Group watch"
+  },
+  "management.automatically.handle.new.topics.in.selected.groups": {
+    "other": "Automatically handle new topics in selected groups"
+  },
+  "management.amux.group.watch.management": {
+    "other": "amux group watch management"
+  },
+  "management.affects.only.newly.created.watch.topics": {
+    "other": "Affects only newly created watch topics"
+  },
+  "management.saving.group.watch.task.settings.316": {
+    "other": "Saving group watch task settings"
+  },
+  "management.checking.the.expert.and.execution.options": {
+    "other": "Checking the expert and execution options."
+  },
+  "management.owner.mode": {
+    "other": "Owner mode"
+  },
+  "management.only.the.owner.can.mention.the.assistant.to.start": {
+    "other": "Only the owner can mention the assistant to start tasks"
+  },
+  "management.collaboration.mode": {
+    "other": "Collaboration mode"
+  },
+  "management.group.members.can.mention.the.assistant.to.start.tasks": {
+    "other": "Group members can mention the assistant to start tasks"
+  },
+  "management.the.owner.can.mention.the.assistant.and.send.or": {
+    "other": "The owner can mention the assistant and send “开启协作模式” or “关闭协作模式”, or “开启群值守” or “关闭群值守”."
+  },
+  "management.the.owner.can.mention.the.assistant.with.amux.in": {
+    "other": "The owner can mention the assistant with /amux in this group, then edit Current group settings in private chat. New execution options affect only new sessions; existing topics keep their original settings.\n"
+  },
+  "management.to.change.this.open.assistant.settings.in.private.chat": {
+    "other": " To change this, open Assistant settings in private chat.\n"
+  },
+  "management.not.included": {
+    "other": "Not included"
+  },
+  "management.start.a.task": {
+    "other": "Start a task"
+  },
+  "management.mention.assistant.task": {
+    "other": "Mention assistant + task"
+  },
+  "management.per.group.settings.experiment.is.disabled.new.tasks.in": {
+    "other": "Per-group settings experiment is disabled. New tasks in this group are paused."
+  },
+  "management.current.group": {
+    "other": "Current group"
+  },
+  "management.confirm.enable": {
+    "other": "Confirm enable"
+  },
+  "management.enable.group.watch": {
+    "other": "Enable group watch"
+  },
+  "management.enable.group.watch.332": {
+    "other": "Enable group watch?"
+  },
+  "management.new.topics.in.s.will.be.handled.automatically": {
+    "other": "New topics in “%s” will be handled automatically."
+  },
+  "management.watch.will.also.resume.for.d.other.configured.groups": {
+    "other": " Watch will also resume for %d other configured groups.",
+    "one": " Watch will also resume for %d other configured group."
+  },
+  "management.confirm.disable": {
+    "other": "Confirm disable"
+  },
+  "management.disable.group.watch": {
+    "other": "Disable group watch"
+  },
+  "management.disable.group.watch.337": {
+    "other": "Disable group watch?"
+  },
+  "management.new.topics.in.s.will.no.longer.be.handled": {
+    "other": "New topics in “%s” will no longer be handled automatically. Existing topics are unaffected."
+  },
+  "management.check.the.group.name.before.confirming": {
+    "other": "Check the group name before confirming"
+  },
+  "management.amux.group.watch.confirmation": {
+    "other": "amux group watch confirmation"
+  },
+  "management.execution.expert": {
+    "other": "Execution expert"
+  },
+  "management.affects.only.this.assistant.full.settings.are.in.private": {
+    "other": "Affects only this assistant. Full settings are in private /amux under Integrations → Group watch."
+  },
+  "management.paused": {
+    "other": "Paused"
+  },
+  "management.enabled": {
+    "other": "Enabled"
+  },
+  "management.included": {
+    "other": "Included"
+  },
+  "management.new.topics.in.s.will.be.handled.automatically.after": {
+    "other": "New topics in “%s” will be handled automatically after joining."
+  },
+  "management.group.watch.handles.new.topics.started.by.members.and": {
+    "other": "Group watch handles new topics started by members and agents automatically, with a separate conversation for each topic."
+  },
+  "management.back.to.assistant.settings": {
+    "other": "Back to assistant settings"
+  },
+  "management.group.watch.requires.separate.conversations.per.topic.change.message": {
+    "other": "Group watch requires separate conversations per topic. Change message handling in Assistant settings first."
+  },
+  "management.current.group.management": {
+    "other": "Current group management"
+  },
+  "management.manage.only.this.assistant.in.this.group": {
+    "other": "Manage only this assistant in this group"
+  },
+  "management.amux.current.group.management": {
+    "other": "amux current group management"
+  },
+  "management.you.just.sent.amux.in.this.group": {
+    "other": "You just sent /amux in this group"
+  },
+  "management.current.task": {
+    "other": "Current task"
+  },
+  "management.running": {
+    "other": "Running"
+  },
+  "management.amux.current.task": {
+    "other": "amux current task"
+  },
+  "management.status": {
+    "other": "Status"
+  },
+  "management.continue.sending.messages.to.collaborate.use.interrupt.to.stop": {
+    "other": "Continue sending messages to collaborate. Use /interrupt to stop the current reply or /stop to end the task."
+  },
+  "management.document.comments": {
+    "other": "Document comments"
+  },
+  "management.enable.go.to.assistant.settings.integrations.and.enable.document": {
+    "other": "Enable: go to Assistant settings → Integrations and enable document comments."
+  },
+  "management.use.mention.the.assistant.in.a.comment.with.your": {
+    "other": "Use: mention the assistant in a comment with your request. Owner only."
+  },
+  "management.topics.each.root.comment.is.independent.mention.the.assistant": {
+    "other": "Topics: each root comment is independent. Mention the assistant again under the same comment to continue that topic."
+  },
+  "management.expert.new.topics.use.the.current.default.expert.existing": {
+    "other": "Expert: new topics use the current default expert. Existing topics keep their original expert."
+  },
+  "management.body.the.assistant.replies.through.comments.and.does.not": {
+    "other": "Body: the assistant replies through comments and does not modify the document body."
+  },
+  "management.enable.mention.the.assistant.in.the.target.group.and": {
+    "other": "Enable: mention the assistant in the target group and send “开启群值守”; the owner then confirms."
+  },
+  "management.disable.mention.the.assistant.in.the.target.group.and": {
+    "other": "Disable: mention the assistant in the target group and send “关闭群值守”; confirmation removes the group from watch."
+  },
+  "management.manage.send.amux.privately.then.open.assistant.settings.integrations": {
+    "other": "Manage: send /amux privately, then open Assistant settings → Integrations → Group watch."
+  },
+  "management.let.other.group.members.use.the.assistant": {
+    "other": "Let other group members use the assistant"
+  },
+  "management.send.a.task.directly.to.begin": {
+    "other": "Send a task directly to begin"
+  },
+  "management.amux.help": {
+    "other": "amux help"
+  },
+  "management.choose.instructions.for.your.current.context": {
+    "other": "Choose instructions for your current context"
+  },
+  "management.private.chat.send.a.task.directly": {
+    "other": "Private chat: send a task directly"
+  },
+  "management.group.chat.mention.the.assistant.with.a.task": {
+    "other": "Group chat: mention the assistant with a task"
+  },
+  "management.topic.reply.to.add.requirements": {
+    "other": "Topic: reply to add requirements"
+  },
+  "management.other.entry.points": {
+    "other": "Other entry points"
+  },
+  "management.documents.mention.the.assistant.in.a.comment": {
+    "other": "Documents: mention the assistant in a comment"
+  },
+  "management.help.view.all.commands.for.the.current.context": {
+    "other": "/help: view all commands for the current context"
+  },
+  "management.mention.the.assistant.with.a.task.to.begin.no": {
+    "other": "Mention the assistant with a task to begin. No additional setup is needed."
+  },
+  "management.group.chat.entry": {
+    "other": "Group chat entry"
+  },
+  "management.mention.assistant.task.start.working": {
+    "other": "Mention assistant + task — start working"
+  },
+  "management.group.chat.help": {
+    "other": "Group chat help"
+  },
+  "management.mention.the.assistant.with.a.task.to.begin": {
+    "other": "Mention the assistant with a task to begin"
+  },
+  "management.amux.group.chat.help": {
+    "other": "amux group chat help"
+  },
+  "management.mention.the.assistant.with.a.task.to.begin.in": {
+    "other": "Mention the assistant with a task to begin in this topic."
+  },
+  "management.mention.assistant.task.create.a.task": {
+    "other": "Mention assistant + task — create a task"
+  },
+  "management.amux.task.entry.help": {
+    "other": "amux task entry help"
+  },
+  "management.keep.sending.messages.to.collaborate.with.the.assistant": {
+    "other": "Keep sending messages to collaborate with the assistant."
+  },
+  "management.topic.help": {
+    "other": "Topic help"
+  },
+  "management.keep.sending.messages.to.collaborate": {
+    "other": "Keep sending messages to collaborate"
+  },
+  "management.amux.topic.help": {
+    "other": "amux topic help"
+  },
+  "management.cannot.restart.amux.right.now.retry.on.the.deployment": {
+    "other": "Cannot restart amux right now. Retry on the deployment machine."
+  },
+  "management.retry.restart": {
+    "other": "Retry restart"
+  },
+  "management.restart.could.not.be.started.try.again.later": {
+    "other": "Restart could not be started. Try again later."
+  },
+  "management.cannot.upgrade.amux.right.now.retry.on.the.deployment": {
+    "other": "Cannot upgrade amux right now. Retry on the deployment machine."
+  },
+  "management.check.for.updates.again": {
+    "other": "Check for updates again"
+  },
+  "management.upgrade.did.not.finish.check.available.versions.and.try": {
+    "other": "Upgrade did not finish. Check available versions and try again."
+  },
+  "management.cannot.check.for.updates.right.now.retry.on.the": {
+    "other": "Cannot check for updates right now. Retry on the deployment machine."
+  },
+  "management.retry.update.check": {
+    "other": "Retry update check"
+  },
+  "management.update.check.failed.try.again.later": {
+    "other": "Update check failed. Try again later."
+  },
+  "management.assistant.status": {
+    "other": "Assistant status"
+  },
+  "management.amux.needs.attention": {
+    "other": "amux needs attention"
+  },
+  "management.no.runtimes.are.available.check.again.then.open.system": {
+    "other": "No runtimes are available. Check again, then open System status if this continues."
+  },
+  "management.check.again": {
+    "other": "Check again"
+  },
+  "management.running.normally.send.a.task.to.begin": {
+    "other": "Running normally. Send a task to begin."
+  },
+  "management.amux.running.normally": {
+    "other": "amux running normally"
+  },
+  "management.needs.attention": {
+    "other": "Needs attention"
+  },
+  "management.check.for.updates": {
+    "other": "Check for updates"
+  },
+  "management.restart.amux": {
+    "other": "Restart amux"
+  },
+  "management.restart.amux.409": {
+    "other": "Restart amux?"
+  },
+  "management.the.feishu.assistant.will.briefly.go.offline.existing.sessions": {
+    "other": "The Feishu assistant will briefly go offline. Existing sessions will not be deleted."
+  },
+  "management.dismiss.this.version": {
+    "other": "Dismiss this version"
+  },
+  "management.no.runtimes.are.available.check.again.before.restarting.amux": {
+    "other": "No runtimes are available. Check again before restarting amux."
+  },
+  "management.amux.system.status": {
+    "other": "amux system status"
+  },
+  "management.the.feishu.assistant.will.briefly.go.offline": {
+    "other": "The Feishu assistant will briefly go offline"
+  },
+  "management.confirm.amux.restart": {
+    "other": "Confirm amux restart"
+  },
+  "management.existing.sessions.will.not.be.deleted.recovery.normally.takes": {
+    "other": "Existing sessions will not be deleted. Recovery normally takes a few seconds; send /amux afterward to check status."
+  },
+  "management.amux.restarting": {
+    "other": "amux restarting"
+  },
+  "management.send.amux.after.recovery.to.check.status": {
+    "other": "Send /amux after recovery to check status."
+  },
+  "management.amux.recovered": {
+    "other": "amux recovered"
+  },
+  "management.running.normally.ready.to.continue": {
+    "other": "Running normally. Ready to continue."
+  },
+  "management.amux.restart.complete": {
+    "other": "amux restart complete"
+  },
+  "management.amux.restarted": {
+    "other": "amux restarted"
+  },
+  "management.runtimes.still.need.attention": {
+    "other": "Runtimes still need attention"
+  },
+  "management.amux.needs.attention.after.restart": {
+    "other": "amux needs attention after restart"
+  },
+  "management.no.runtimes.are.available.yet.check.again.later": {
+    "other": "No runtimes are available yet. Check again later."
+  },
+  "management.updates.will.not.install.automatically": {
+    "other": "Updates will not install automatically"
+  },
+  "management.amux.checking.for.updates": {
+    "other": "amux checking for updates"
+  },
+  "management.current.version": {
+    "other": "Current version"
+  },
+  "management.already.on.the.latest.version": {
+    "other": "Already on the latest version"
+  },
+  "management.an.update.is.available": {
+    "other": "An update is available"
+  },
+  "management.back.to.system.status": {
+    "other": "Back to system status"
+  },
+  "management.already.on.the.latest.version.432": {
+    "other": "Already on the latest version."
+  },
+  "management.the.new.version.will.install.and.restart.amux.only": {
+    "other": "The new version will install and restart amux only after confirmation."
+  },
+  "management.upgrade.to": {
+    "other": "Upgrade to "
+  },
+  "management.upgrade.amux": {
+    "other": "Upgrade amux?"
+  },
+  "management.this.will.install": {
+    "other": "This will install "
+  },
+  "management.and.restart.amux.the.feishu.assistant.will.briefly.go": {
+    "other": " and restart amux. The Feishu assistant will briefly go offline."
+  },
+  "management.update.check": {
+    "other": "Update check"
+  },
+  "management.amux.update.check.results": {
+    "other": "amux update check results"
+  },
+  "management.available.version": {
+    "other": "Available version"
+  },
+  "management.amux.upgrading": {
+    "other": "amux upgrading"
+  },
+  "management.target.version": {
+    "other": "Target version"
+  },
+  "management.refreshes.automatically.after.reconnecting": {
+    "other": "Refreshes automatically after reconnecting."
+  },
+  "management.amux.reconnected.version.needs.verification": {
+    "other": "amux reconnected; version needs verification"
+  },
+  "management.the.current.version.differs.from.the.target.check.for": {
+    "other": "The current version differs from the target. Check for updates again."
+  },
+  "management.amux.reconnected.runtimes.still.need.attention": {
+    "other": "amux reconnected; runtimes still need attention"
+  },
+  "management.no.runtimes.are.available.after.the.upgrade.yet.check": {
+    "other": "No runtimes are available after the upgrade yet. Check again later."
+  },
+  "management.update.result.needs.verification": {
+    "other": "Update result needs verification"
+  },
+  "management.amux.update.result.needs.verification": {
+    "other": "amux update result needs verification"
+  },
+  "management.amux.upgrade.complete": {
+    "other": "amux upgrade complete"
+  },
+  "management.upgrade.status": {
+    "other": "Upgrade status"
+  },
+  "management.complete": {
+    "other": "Complete"
+  },
+  "management.operation.failed": {
+    "other": "Operation failed"
+  },
+  "management.system.state.unchanged": {
+    "other": "System state unchanged"
+  },
+  "management.amux.system.maintenance.failed": {
+    "other": "amux system maintenance failed"
+  },
+  "management.this.pack.is.no.longer.in.the.expert.library": {
+    "other": "This pack is no longer in the expert library. The list has been refreshed."
+  },
+  "management.this.expert.pack": {
+    "other": "This expert pack"
+  },
+  "management.the.expert.library.changed.and.has.been.refreshed.confirm": {
+    "other": "The expert library changed and has been refreshed. Confirm again before continuing."
+  },
+  "management.added": {
+    "other": "Added "
+  },
+  "management.with.automatic.updates.enabled.its.experts.are.now.available": {
+    "other": " with automatic updates enabled. Its experts are now available for selection."
+  },
+  "management.updated": {
+    "other": " updated."
+  },
+  "management.removed": {
+    "other": "Removed "
+  },
+  "management.existing.tasks.are.unaffected": {
+    "other": ". Existing tasks are unaffected."
+  },
+  "management.could.not.add": {
+    "other": "Could not add "
+  },
+  "management.the.expert.library.is.unchanged.check.that.the.amux": {
+    "other": ". The expert library is unchanged. Check that the amux machine is healthy and can access the organization repository, then retry."
+  },
+  "management.could.not.remove": {
+    "other": "Could not remove "
+  },
+  "management.the.expert.library.is.unchanged": {
+    "other": ". The expert library is unchanged."
+  },
+  "management.update.failed.current.experts.remain.available": {
+    "other": " update failed. Current experts remain available."
+  },
+  "management.expert.library.operation.incomplete": {
+    "other": "Expert library operation incomplete"
+  },
+  "management.expert.library.updated": {
+    "other": "Expert library updated"
+  },
+  "management.expert.library.operation.results": {
+    "other": "Expert library operation results"
+  },
+  "management.view.expert.library": {
+    "other": "View expert library"
+  },
+  "management.manage.available.experts": {
+    "other": "Manage available experts"
+  },
+  "management.amux.expert.library": {
+    "other": "amux expert library"
+  },
+  "management.all.assistants.in.this.amux.system.share.the.expert": {
+    "other": "All assistants in this amux system share the expert library. Adding, updating, or removing packs affects all assistants."
+  },
+  "management.all.assistants.in.this.amux.system.share.local.experts": {
+    "other": "All assistants in this amux system share local experts. Only published versions appear here. Edit or restore them on the machine running amux."
+  },
+  "management.page.d.d": {
+    "other": "Page %d / %d"
+  },
+  "management.the.same.git.repository.is.loaded.more.than.once": {
+    "other": "The same Git repository is loaded more than once. Resolve this on the machine running amux before updating or removing it."
+  },
+  "management.choose.an.expert": {
+    "other": "Choose an expert"
+  },
+  "management.manage.expert.library": {
+    "other": "Manage expert library"
+  },
+  "management.all.assistants.in.this.amux.system.share.the.expert.481": {
+    "other": "All assistants in this amux system share the expert library. Changes here affect all assistants."
+  },
+  "management.remove": {
+    "other": "Remove"
+  },
+  "management.remove.483": {
+    "other": "Remove "
+  },
+  "management.new.tasks.will.no.longer.be.able.to.select": {
+    "other": "New tasks will no longer be able to select experts from this pack. Existing tasks are unaffected."
+  },
+  "management.the.last.update.failed.current.experts.remain.available": {
+    "other": "The last update failed. Current experts remain available."
+  },
+  "management.automatic.updates.are.enabled.you.can.also.check.manually": {
+    "other": "Automatic updates are enabled. You can also check manually at any time."
+  },
+  "management.automatic.updates.are.off.you.can.check.for.updates": {
+    "other": "Automatic updates are off. You can check for updates manually."
+  },
+  "management.back.to.expert.library": {
+    "other": "Back to expert library"
+  },
+  "management.expert.library.management": {
+    "other": "Expert library management"
+  },
+  "management.check.for.updates.or.remove": {
+    "other": "Check for updates or remove"
+  },
+  "management.amux.expert.library.management": {
+    "other": "amux expert library management"
+  },
+  "management.loaded": {
+    "other": "Loaded"
+  },
+  "management.update.failed": {
+    "other": "Update failed"
+  },
+  "management.action.needed": {
+    "other": "Action needed"
+  },
+  "management.contents": {
+    "other": "Contents"
+  },
+  "management.d.experts.version.s": {
+    "other": "%d experts · Version %s",
+    "one": "%d expert · Version %s"
+  },
+  "management.available.to.add": {
+    "other": "Available to add"
+  },
+  "management.configuration.needed": {
+    "other": "Configuration needed"
+  },
+  "management.the.default.library.identifier.is.used.by.another.git": {
+    "other": "The default library identifier is used by another Git repository. Add this pack with a different identifier on the machine running amux."
+  },
+  "management.add": {
+    "other": "Add "
+  },
+  "management.its.experts.will.appear.in.assistant.settings.and.stay": {
+    "other": "Its experts will appear in Assistant settings and stay updated automatically. The current expert will not change."
+  },
+  "management.built.in.experts": {
+    "other": "Built-in experts"
+  },
+  "management.local.experts": {
+    "other": "Local experts"
+  },
+  "management.loaded.libraries": {
+    "other": "Loaded libraries"
+  },
+  "management.expert.marketplace": {
+    "other": "Expert marketplace"
+  },
+  "management.no.built.in.experts": {
+    "other": "No built-in experts."
+  },
+  "management.no.local.experts.create.a.copy.of.a.built": {
+    "other": "No local experts. Create a copy of a built-in expert to begin."
+  },
+  "management.all.marketplace.libraries.are.already.loaded": {
+    "other": "All marketplace libraries are already loaded."
+  },
+  "management.no.external.expert.libraries.are.loaded.yet": {
+    "other": "No external expert libraries are loaded yet."
+  },
+  "management.too.much.content.on.this.page": {
+    "other": "Too much content on this page"
+  },
+  "management.reopen.this.section": {
+    "other": "Reopen this section"
+  },
+  "management.amux.expert.library.page.too.large": {
+    "other": "amux expert library page too large"
+  },
+  "management.content.exceeds.feishu.card.limits.and.could.not.be": {
+    "other": "Content exceeds Feishu card limits and could not be displayed in full."
+  },
+  "management.reopen.this.section.514": {
+    "other": "Reopen this section"
+  },
+  "management.version.515": {
+    "other": "Version "
+  },
+  "management.expert.library.unavailable": {
+    "other": "Expert library unavailable"
+  },
+  "management.try.again.later": {
+    "other": "Try again later"
+  },
+  "management.amux.expert.library.unavailable": {
+    "other": "amux expert library unavailable"
+  },
+  "management.cannot.read.the.expert.library.nothing.was.changed": {
+    "other": "Cannot read the expert library. Nothing was changed."
+  },
+  "management.retry": {
+    "other": "Retry"
+  },
+  "management.checking.expert.library.updates": {
+    "other": "Checking expert library updates"
+  },
+  "management.reading.the.latest.version": {
+    "other": "Reading the latest version"
+  },
+  "management.adding.expert.library": {
+    "other": "Adding expert library"
+  },
+  "management.downloading.and.checking": {
+    "other": "Downloading and checking"
+  },
+  "management.removing.expert.library": {
+    "other": "Removing expert library"
+  },
+  "management.existing.tasks.will.not.be.affected": {
+    "other": "Existing tasks will not be affected"
+  },
+  "management.refreshes.automatically.when.complete": {
+    "other": "Refreshes automatically when complete."
+  },
+  "management.this.expert.is.no.longer.in.the.library.refresh": {
+    "other": "This expert is no longer in the library. Refresh and choose again."
+  },
+  "management.no.experts.are.available.add.experts.first": {
+    "other": "No experts are available. Add experts first."
+  },
+  "management.this.model.is.not.supported.by.the.selected.runtime": {
+    "other": "This model is not supported by the selected runtime. Choose again."
+  },
+  "management.this.runtime.is.unavailable.refresh.and.choose.again": {
+    "other": "This runtime is unavailable. Refresh and choose again."
+  },
+  "management.this.reasoning.effort.is.unavailable.for.the.selected.runtime": {
+    "other": "This reasoning effort is unavailable for the selected runtime and model. Choose again."
+  },
+  "management.settings.saved.checking.feishu.permissions.for.enabled.capabilities": {
+    "other": "Settings saved. Checking Feishu permissions for enabled capabilities."
+  },
+  "management.could.not.save.agent.collaboration.settings.settings.are.unchanged": {
+    "other": "Could not save agent collaboration settings. Settings are unchanged. Try again later."
+  },
+  "management.could.not.enable.document.comments.settings.are.unchanged.check": {
+    "other": "Could not enable document comments. Settings are unchanged. Check document permissions or try again later."
+  },
+  "management.could.not.disable.document.comments.settings.are.unchanged.try": {
+    "other": "Could not disable document comments. Settings are unchanged. Try again later."
+  },
+  "management.task.settings.saved.they.apply.only.to.new.comment": {
+    "other": "Task settings saved. They apply only to new comment topics."
+  },
+  "management.could.not.save.task.settings.settings.are.unchanged.refresh": {
+    "other": "Could not save task settings. Settings are unchanged. Refresh and select the expert and execution options again."
+  },
+  "management.task.settings.saved.they.apply.only.to.new.watch": {
+    "other": "Task settings saved. They apply only to new watch topics."
+  },
+  "management.could.not.save.task.settings.settings.are.unchanged.refresh.540": {
+    "other": "Could not save task settings. Settings are unchanged. Refresh and select the expert and model again."
+  },
+  "management.built.in": {
+    "other": "Built-in"
+  },
+  "management.local": {
+    "other": "Local"
+  },
+  "management.current.selection": {
+    "other": "Current selection"
+  },
+  "management.complete.setup": {
+    "other": "Complete setup"
+  },
+  "management.configure.assistant": {
+    "other": "Configure assistant"
+  },
+  "management.set.message.handling.expert.and.model.for.new.tasks": {
+    "other": "Set message handling, expert, and model for new tasks"
+  },
+  "management.configure.amux.assistant": {
+    "other": "Configure amux assistant"
+  },
+  "management.assistant.ready": {
+    "other": "Assistant ready"
+  },
+  "management.you.can.now.send.tasks.directly": {
+    "other": "You can now send tasks directly"
+  },
+  "management.amux.assistant.ready": {
+    "other": "amux assistant ready"
+  },
+  "management.edit.defaults": {
+    "other": "Edit defaults"
+  },
+  "management.manage.integrations": {
+    "other": "Manage integrations"
+  },
+  "management.task.defaults": {
+    "other": "Task defaults"
+  },
+  "management.integrations": {
+    "other": "Integrations"
+  },
+  "management.these.settings.affect.only.this.assistant": {
+    "other": "These settings affect only this assistant"
+  },
+  "management.amux.assistant.settings": {
+    "other": "amux assistant settings"
+  },
+  "management.disabled": {
+    "other": "Disabled"
+  },
+  "management.takes.effect.with.separate.conversations.per.topic": {
+    "other": "Takes effect with separate conversations per topic"
+  },
+  "management.mention.the.assistant.in.a.comment.to.start.a": {
+    "other": "Mention the assistant in a comment to start a task"
+  },
+  "management.agent.to.agent": {
+    "other": "Agent-to-agent"
+  },
+  "management.receive.tasks.from.other.agents.and.call.agents.in": {
+    "other": "Receive tasks from other agents and call agents in the group"
+  },
+  "management.d.capabilities.d.enabled": {
+    "other": "%d capabilities · %d enabled"
+  },
+  "management.d.capabilities.total.d.enabled": {
+    "other": "%d capabilities total · %d enabled"
+  },
+  "management.check.feishu.permissions": {
+    "other": "Check Feishu permissions"
+  },
+  "management.feishu.permissions.check.unavailable": {
+    "other": "Feishu permissions · Check unavailable"
+  },
+  "management.feishu.permissions.none.missing": {
+    "other": "Feishu permissions · None missing"
+  },
+  "management.feishu.permissions.not.checked.yet": {
+    "other": "Feishu permissions · Not checked yet"
+  },
+  "management.amux.integrations": {
+    "other": "amux integrations"
+  },
+  "management.check.complete.all.permissions.required.by.enabled.capabilities.are": {
+    "other": "Check complete. All permissions required by enabled capabilities are available."
+  },
+  "management.permission.check.failed.temporarily.try.again.later.existing.capability": {
+    "other": "Permission check failed temporarily. Try again later. Existing capability state is unchanged."
+  },
+  "management.check.complete.some.permissions.still.need.to.be.granted": {
+    "other": "Check complete. Some permissions still need to be granted and an app version published."
+  },
+  "management.permission.request.sent.to.the.administrator.exempt.permissions.take": {
+    "other": "Permission request sent to the administrator. Exempt permissions take effect immediately; others resume after administrator approval."
+  },
+  "management.recheck.complete.all.permissions.required.by.enabled.capabilities.are": {
+    "other": "Recheck complete. All permissions required by enabled capabilities are available."
+  },
+  "management.open.settings": {
+    "other": "Open settings"
+  },
+  "management.enable.agent.collaboration": {
+    "other": "Enable agent collaboration"
+  },
+  "management.disable.agent.collaboration": {
+    "other": "Disable agent collaboration"
+  },
+  "management.execution.mode": {
+    "other": "Execution mode"
+  },
+  "management.one.task.at.a.time": {
+    "other": "One task at a time"
+  },
+  "management.maximum.per.topic": {
+    "other": "Maximum per topic"
+  },
+  "management.d.turns": {
+    "other": "%d turns",
+    "one": "%d turn"
+  },
+  "management.how.to.use": {
+    "other": "How to use"
+  },
+  "management.when.enabled.in.groups.that.use.separate.topics.and": {
+    "other": "When enabled in groups that use separate topics and allow members to use the assistant, other agents can mention this assistant to hand off work. This assistant can call agents in the group after an explicit user request or confirmation. Group membership is checked again before sending."
+  },
+  "management.amux.agent.collaboration.settings": {
+    "other": "amux agent collaboration settings"
+  },
+  "management.enable.document.comments": {
+    "other": "Enable document comments"
+  },
+  "management.disable.document.comments": {
+    "other": "Disable document comments"
+  },
+  "management.the.owner.can.mention.this.assistant.in.a.document": {
+    "other": "The owner can mention this assistant in a document comment with a request to start work on that comment topic."
+  },
+  "management.amux.document.comment.settings": {
+    "other": "amux document comment settings"
+  },
+  "management.changes.apply.only.to.new.comment.topics.existing.topics": {
+    "other": "Changes apply only to new comment topics. Existing topics keep their original expert and execution options."
+  },
+  "management.choose.the.expert.for.document.comments": {
+    "other": "Choose the expert for document comments"
+  },
+  "management.runtime.new.comment.topics.only": {
+    "other": "Runtime (new comment topics only)"
+  },
+  "management.model.new.comment.topics.only": {
+    "other": "Model (new comment topics only)"
+  },
+  "management.reasoning.effort.new.comment.topics.only": {
+    "other": "Reasoning effort (new comment topics only)"
+  },
+  "management.edit.comment.task.settings": {
+    "other": "Edit comment task settings"
+  },
+  "management.set.the.expert.and.execution.options.for.new.comment": {
+    "other": "Set the expert and execution options for new comment topics"
+  },
+  "management.edit.document.comment.task.settings": {
+    "other": "Edit document comment task settings"
+  },
+  "management.choose.a.task.configuration.for.document.comments": {
+    "other": "Choose a task configuration for document comments"
+  },
+  "management.choose.the.runtime.for.document.comments": {
+    "other": "Choose the runtime for document comments"
+  },
+  "management.this.reasoning.effort.is.not.supported.by.the.selected": {
+    "other": "This reasoning effort is not supported by the selected runtime and model. Choose again."
+  },
+  "management.choose.the.activity.display.for.group.watch": {
+    "other": "Choose the activity display for group watch"
+  },
+  "management.choose.a.task.configuration.for.group.watch": {
+    "other": "Choose a task configuration for group watch"
+  },
+  "management.choose.the.runtime.for.group.watch": {
+    "other": "Choose the runtime for group watch"
+  },
+  "management.processing": {
+    "other": "Processing: "
+  },
+  "management.affects.only.this.assistant": {
+    "other": "Affects only this assistant"
+  },
+  "management.updating.document.comment.settings": {
+    "other": "Updating document comment settings"
+  },
+  "management.checking.feishu.permissions.and.saving.settings": {
+    "other": "Checking Feishu permissions and saving settings."
+  },
+  "management.takes.effect.when.saved": {
+    "other": "Takes effect when saved"
+  },
+  "management.edit.amux.assistant.defaults": {
+    "other": "Edit amux assistant defaults"
+  },
+  "management.confirm.default.expert.change": {
+    "other": "Confirm default expert change"
+  },
+  "management.the.current.conversation.and.workspace.will.be.retained": {
+    "other": "The current conversation and workspace will be retained"
+  },
+  "management.confirm.change": {
+    "other": "Confirm change"
+  },
+  "management.current.default.expert": {
+    "other": "Current default expert"
+  },
+  "management.new.default.expert": {
+    "other": "New default expert"
+  },
+  "management.model.in.use": {
+    "other": "Model in use"
+  },
+  "management.confirm.default.model.change": {
+    "other": "Confirm default model change"
+  },
+  "management.current.default.model": {
+    "other": "Current default model"
+  },
+  "management.new.default.model": {
+    "other": "New default model"
+  },
+  "management.confirm.recreating.the.persistent.conversation": {
+    "other": "Confirm recreating the persistent conversation"
+  },
+  "management.the.original.conversation.context.cannot.be.recovered": {
+    "other": "The original conversation context cannot be recovered"
+  },
+  "management.confirm.creation": {
+    "other": "Confirm creation"
+  },
+  "management.current.message.handling": {
+    "other": "Current message handling"
+  },
+  "management.switch.to": {
+    "other": "Switch to"
+  },
+  "management.assistant.settings.need.confirmation": {
+    "other": "Assistant settings need confirmation"
+  },
+  "management.expert.unavailable.cannot.determine.the.default.model": {
+    "other": "Expert unavailable; cannot determine the default model"
+  },
+  "management.expert.default": {
+    "other": "Expert default · "
+  },
+  "management.expert.default.model": {
+    "other": "Expert default model"
+  },
+  "management.use.expert.default.model": {
+    "other": "Use expert default model ("
+  },
+  "management.use.expert.default.model.627": {
+    "other": "Use expert default model"
+  },
+  "management.separate.conversations.per.topic.are.still.active.existing.settings": {
+    "other": "Separate conversations per topic are still active. Existing settings are unchanged."
+  },
+  "management.the.original.conversation.and.project.directory.are.unavailable.choose": {
+    "other": "The original conversation and project directory are unavailable. Choose a recovery option."
+  },
+  "management.cannot.recover.the.original.conversation": {
+    "other": "Cannot recover the original conversation"
+  },
+  "management.choose.how.to.continue": {
+    "other": "Choose how to continue"
+  },
+  "management.original.conversation.cannot.be.recovered": {
+    "other": "Original conversation cannot be recovered"
+  },
+  "management.new.blank.persistent.conversation": {
+    "other": "New blank persistent conversation"
+  },
+  "management.create.a.blank.persistent.conversation": {
+    "other": "Create a blank persistent conversation?"
+  },
+  "management.the.new.workspace.will.not.contain.the.original.project": {
+    "other": "The new workspace will not contain the original project files or conversation history."
+  },
+  "management.bind.an.existing.project": {
+    "other": "Bind an existing project"
+  },
+  "management.not.now": {
+    "other": "Not now"
+  },
+  "management.on.the.machine.running.amux.enter.the.project.directory": {
+    "other": "On the machine running amux, enter the project directory and run:"
+  },
+  "management.separate.conversations.per.topic.remain.active.until.binding.completes": {
+    "other": "Separate conversations per topic remain active until binding completes"
+  },
+  "management.check.binding": {
+    "other": "Check binding"
+  },
+  "management.back.to.recovery.options": {
+    "other": "Back to recovery options"
+  },
+  "management.saving.defaults": {
+    "other": "Saving defaults"
+  },
+  "management.refreshes.automatically.when.complete.643": {
+    "other": "Refreshes automatically when complete"
+  },
+  "management.preparing.a.new.persistent.conversation": {
+    "other": "Preparing a new persistent conversation"
+  },
+  "management.the.current.conversation.remains.usable.switches.automatically.when.ready": {
+    "other": "The current conversation remains usable; switches automatically when ready"
+  },
+  "management.creating.a.blank.persistent.conversation": {
+    "other": "Creating a blank persistent conversation"
+  },
+  "management.switches.automatically.when.created": {
+    "other": "Switches automatically when created"
+  },
+  "management.save.failed": {
+    "other": "Save failed"
+  },
+  "management.settings.unchanged.you.can.try.again": {
+    "other": "Settings unchanged. You can try again."
+  },
+  "management.amux.assistant.settings.failed": {
+    "other": "amux assistant settings failed"
+  },
+  "management.configuration.changed.the.latest.state.has.been.refreshed.make": {
+    "other": "Configuration changed. The latest state has been refreshed. Make your selection again."
+  },
+  "management.failure.reason.no.specific.error.returned.current.settings.are": {
+    "other": "Failure reason: no specific error returned. Current settings are unchanged."
+  },
+  "management.no.specific.error.returned": {
+    "other": "No specific error returned"
+  },
+  "management.failure.reason": {
+    "other": "Failure reason: "
+  },
+  "management.current.settings.are.unchanged": {
+    "other": ". Current settings are unchanged."
+  },
+  "management.not.selected": {
+    "other": "Not selected"
+  },
+  "management.runtime.default.model": {
+    "other": "Runtime default model"
+  },
+  "management.runtime.default.effort": {
+    "other": "Runtime default effort"
+  },
+  "management.affects.only.newly.created.comment.topics": {
+    "other": "Affects only newly created comment topics"
+  },
+  "management.saving.document.comment.task.settings": {
+    "other": "Saving document comment task settings"
+  },
+  "management.message.handling.question": {
+    "other": "How to handle messages"
+  },
+  "management.message.handling.summary": {
+    "other": "Message handling"
+  },
+  "management.language": {
+    "other": "Interface language"
+  },
+  "management.language.auto": {
+    "other": "Follow Feishu language"
+  },
+  "management.language.saved": {
+    "other": "Interface language saved"
+  },
+  "management.language.failed": {
+    "other": "Could not save the interface language. Try again later."
+  },
+  "management.language.invalid": {
+    "other": "Invalid language selection. Open /amux again."
+  },
+  "management.watch.added": {
+    "other": "Added this group to watch"
+  },
+  "management.watch.removed": {
+    "other": "Removed this group from watch"
+  },
+  "management.watch.paused": {
+    "other": "Group watch paused"
+  },
+  "management.watch.resumed": {
+    "other": "Group watch resumed"
+  },
+  "management.watch.saved": {
+    "other": "Group watch settings saved"
+  },
+  "management.help.active_topic.amux": {
+    "other": "Show the current task status"
+  },
+  "management.help.active_topic.help": {
+    "other": "Show available actions for the current task"
+  },
+  "management.help.active_topic.interrupt": {
+    "other": "Stop the current response and keep the task"
+  },
+  "management.help.active_topic.stop": {
+    "other": "End the current task"
+  },
+  "management.help.active_topic.skill": {
+    "other": "Choose a skill loaded by the current %s session"
+  },
+  "management.help.active_topic.compact": {
+    "other": "Compact the current context and retain a summary"
+  },
+  "management.help.active_topic.clear": {
+    "other": "Clear the current context and start a new conversation"
+  },
+  "management.help.active_topic.status": {
+    "other": "Show the current session status"
+  },
+  "management.help.active_topic.restart": {
+    "other": "Restart the current session"
+  },
+  "management.help.active_topic.bind": {
+    "other": "Bind to another session"
+  },
+  "management.help.fresh_topic.amux": {
+    "other": "Show how to start a task"
+  },
+  "management.help.fresh_topic.help": {
+    "other": "Show how to start a task"
+  },
+  "management.help.fresh_topic.group_watch_on": {
+    "other": "Owner only: confirm to handle new topics in this group automatically"
+  },
+  "management.help.fresh_topic.group_watch_off": {
+    "other": "Owner only: confirm to remove this group from watch"
+  },
+  "management.help.fresh_topic.run": {
+    "other": "Create a task session explicitly"
+  },
+  "management.help.fresh_topic.bind": {
+    "other": "Bind to an existing session"
+  },
+  "management.help.group.amux": {
+    "other": "Show access settings for this group"
+  },
+  "management.help.group.help": {
+    "other": "Show group chat help"
+  },
+  "management.help.group.collaboration_on": {
+    "other": "Owner only: let group members mention the assistant to start tasks"
+  },
+  "management.help.group.collaboration_off": {
+    "other": "Owner only: restrict access to the owner"
+  },
+  "management.help.group.group_watch_on": {
+    "other": "Owner only: confirm to handle new topics in this group automatically"
+  },
+  "management.help.group.group_watch_off": {
+    "other": "Owner only: confirm to remove this group from watch"
+  },
+  "management.help.group.run": {
+    "other": "Create a task session explicitly"
+  },
+  "management.help.group.bind": {
+    "other": "Bind to an existing session"
+  },
+  "management.help.private.amux": {
+    "other": "Show assistant status, settings and system maintenance"
+  },
+  "management.help.private.help": {
+    "other": "Show private chat help"
+  },
+  "management.help.private.run": {
+    "other": "Create a task session in this message topic"
+  },
+  "management.help.private.bind": {
+    "other": "Bind this message topic to an existing session"
+  },
+  "management.help.private.status": {
+    "other": "Show the bound session status"
+  },
+  "management.help.private.restart": {
+    "other": "Restart the bound session"
+  },
+  "management.help.private.interrupt": {
+    "other": "Stop the current response and keep the task"
+  },
+  "management.help.private.stop": {
+    "other": "End the current task"
+  },
+  "management.help.private.skill": {
+    "other": "Choose a skill loaded by the current session"
+  },
+  "management.help.private.compact": {
+    "other": "Compact context and retain a summary"
+  },
+  "management.help.private.clear": {
+    "other": "Keep the session binding and start a fresh conversation"
+  },
+  "management.help.section.common": {
+    "other": "Common commands"
+  },
+  "management.help.section.access": {
+    "other": "Group access"
+  },
+  "management.help.section.watch": {
+    "other": "Group watch"
+  },
+  "management.help.section.task": {
+    "other": "Current task"
+  },
+  "management.help.section.entry": {
+    "other": "Task entry points"
+  },
+  "management.help.section.start": {
+    "other": "Start a task"
+  },
+  "management.permission.notice": {
+    "other": "The assistant needs these Feishu app permissions: %s. After approval, publish an app version."
+  },
+  "management.permission.title": {
+    "other": "Additional permissions needed for %s"
+  },
+  "management.permission.request.hint": {
+    "other": "Choose Request permissions to apply to your organization administrator. Permissions may take effect immediately or after approval. You may also need to publish an app version."
+  },
+  "management.permission.guide.hint": {
+    "other": "Open the permission confirmation page to review the prefilled permissions, then publish an app version to activate them."
+  },
+  "management.permission.confirm.page": {
+    "other": "Permission confirmation page"
+  },
+  "management.permission.required": {
+    "other": "Additional permissions needed"
+  },
+  "management.permission.high.sensitivity": {
+    "other": "The remaining permissions are highly sensitive. Apply for them manually in the developer console."
+  },
+  "management.permission.none.available": {
+    "other": "No further permissions can be requested for this app version. Rechecking authorization. If permissions are still missing, use the confirmation page and publish an app version."
+  },
+  "management.permission.rate.limited": {
+    "other": "The permission request limit has been reached. Apply in the developer console."
+  },
+  "management.permission.pending": {
+    "other": "These permissions have already been requested. Wait for administrator approval."
+  },
+  "management.permission.failed": {
+    "other": "Could not request permissions. Try again later or apply manually in the developer console."
+  },
+  "management.capability.core_messaging": {
+    "other": "Messaging"
+  },
+  "management.capability.native_commands": {
+    "other": "Native commands"
+  },
+  "management.capability.bot_to_bot": {
+    "other": "Agent collaboration"
+  },
+  "management.capability.group_watch": {
+    "other": "Group watch"
+  },
+  "management.capability.document_comments": {
+    "other": "Document comments"
+  },
+  "management.capability.feishu_integration": {
+    "other": "Feishu integrations"
+  },
+  "management.capability.fallback": {
+    "other": "Integration"
+  },
+  "management.watch.requires.topics": {
+    "other": "Group %s: group watch requires separate conversations per topic. Pause group watch before switching to a persistent conversation."
+  },
+  "management.impact.execution": {
+    "other": "Keep the current conversation and workspace while changing execution settings. History migrates if the runtime changes. You can continue using the conversation until preparation finishes."
+  },
+  "management.impact.recreate": {
+    "other": "The original context is unavailable. Confirm to start a new persistent conversation in the original workspace %s. Separate conversations per topic remain active until preparation finishes."
+  },
+  "management.impact.recovery": {
+    "other": "The original conversation and project directory are unavailable. Create a blank persistent conversation or bind an existing project again."
+  },
+  "management.error.isolation": {
+    "other": "Separate topics with user isolation are unavailable in this environment: %s. This mode requires Linux with user isolation enabled. Settings are unchanged."
+  },
+  "management.error.target.missing": {
+    "other": "The current conversation has no recorded runtime target. Bind it again on the machine running amux."
+  },
+  "management.error.target.unavailable": {
+    "other": "The current conversation runtime target is unavailable. Try again later."
+  },
+  "management.error.cwd.missing": {
+    "other": "The current conversation has no recorded working directory. Bind it again on the machine running amux."
+  },
+  "management.error.execution.failed": {
+    "other": "Could not change execution settings for the current conversation: %s"
+  },
+  "management.error.execution.empty": {
+    "other": "Could not change execution settings: the response was empty."
+  },
+  "management.error.execution.decode": {
+    "other": "Could not decode the execution settings result: %s"
+  },
+  "management.error.execution.pending": {
+    "other": "Execution settings are still being changed. Try again later."
+  },
+  "management.error.original.target": {
+    "other": "The original conversation runtime target is unavailable. Try again later."
+  },
+  "management.recheck": {
+    "other": "Recheck"
+  },
+  "management.permission.affected": {
+    "other": "Affected integrations: %s. "
+  },
+  "management.permission.integration.notice": {
+    "other": "Some Feishu integrations are unavailable. %sThe assistant needs these Feishu app permissions: %s. After approval, publish an app version."
+  },
+  "management.permission.capability.notice": {
+    "other": "%s is unavailable. %sThe assistant needs these Feishu app permissions: %s. After approval, publish an app version."
+  },
+  "management.list.separator": {
+    "other": ", "
+  },
+  "management.permission.fallback.link": {
+    "other": "Request permissions: %s"
+  }
+}

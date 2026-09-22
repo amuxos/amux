@@ -80,6 +80,8 @@ func (c Command) SingletonDisposition() SingletonDisposition {
 }
 
 type HelpItem struct {
+	ID          Command
+	SectionID   string
 	Section     string
 	Command     string
 	Description string
@@ -105,6 +107,7 @@ type definition struct {
 	id                 Command
 	command            string
 	section            string
+	sectionID          string
 	aliases            map[Scope][]string
 	description        map[Scope]string
 	dynamicDescription map[Scope]func() string
@@ -113,9 +116,10 @@ type definition struct {
 
 var catalog = []definition{
 	{
-		id:      CommandAmux,
-		command: "/amux",
-		section: "常用命令",
+		id:        CommandAmux,
+		command:   "/amux",
+		section:   "常用命令",
+		sectionID: "common",
 		aliases: map[Scope][]string{
 			ScopePrivate:     {"/amux"},
 			ScopeGroup:       {"/amux", "查看设置", "当前设置", "查看默认专家", "查看默认助手"},
@@ -138,9 +142,10 @@ var catalog = []definition{
 		},
 	},
 	{
-		id:      CommandHelp,
-		command: "/help",
-		section: "常用命令",
+		id:        CommandHelp,
+		command:   "/help",
+		section:   "常用命令",
+		sectionID: "common",
 		aliases: map[Scope][]string{
 			ScopePrivate:     {"/help", "/h", "/?", "帮助"},
 			ScopeGroup:       {"/help", "/h", "/?", "帮助"},
@@ -163,9 +168,10 @@ var catalog = []definition{
 		},
 	},
 	{
-		id:      CommandCollaborationOn,
-		command: "开启协作模式",
-		section: "群权限",
+		id:        CommandCollaborationOn,
+		command:   "开启协作模式",
+		section:   "群权限",
+		sectionID: "access",
 		aliases: map[Scope][]string{
 			ScopeGroup: {"开启协作模式"},
 		},
@@ -174,9 +180,10 @@ var catalog = []definition{
 		},
 	},
 	{
-		id:      CommandCollaborationOff,
-		command: "关闭协作模式",
-		section: "群权限",
+		id:        CommandCollaborationOff,
+		command:   "关闭协作模式",
+		section:   "群权限",
+		sectionID: "access",
 		aliases: map[Scope][]string{
 			ScopeGroup: {"关闭协作模式", "切回负责人模式"},
 		},
@@ -185,9 +192,10 @@ var catalog = []definition{
 		},
 	},
 	{
-		id:      CommandGroupWatchOn,
-		command: "开启群值守",
-		section: "群值守",
+		id:        CommandGroupWatchOn,
+		command:   "开启群值守",
+		section:   "群值守",
+		sectionID: "watch",
 		aliases: map[Scope][]string{
 			ScopeGroup:      {"开启群值守"},
 			ScopeFreshTopic: {"开启群值守"},
@@ -198,9 +206,10 @@ var catalog = []definition{
 		},
 	},
 	{
-		id:      CommandGroupWatchOff,
-		command: "关闭群值守",
-		section: "群值守",
+		id:        CommandGroupWatchOff,
+		command:   "关闭群值守",
+		section:   "群值守",
+		sectionID: "watch",
 		aliases: map[Scope][]string{
 			ScopeGroup:      {"关闭群值守"},
 			ScopeFreshTopic: {"关闭群值守"},
@@ -211,9 +220,10 @@ var catalog = []definition{
 		},
 	},
 	{
-		id:      CommandInterrupt,
-		command: "/interrupt",
-		section: "当前任务",
+		id:        CommandInterrupt,
+		command:   "/interrupt",
+		section:   "当前任务",
+		sectionID: "task",
 		aliases: map[Scope][]string{
 			ScopeActiveTopic: {"/interrupt", "中断", "停一下"},
 		},
@@ -223,9 +233,10 @@ var catalog = []definition{
 		nativeSlash: nativeSlash("停止当前回答，保留任务", "Interrupt the current response and keep the session"),
 	},
 	{
-		id:      CommandStop,
-		command: "/stop",
-		section: "当前任务",
+		id:        CommandStop,
+		command:   "/stop",
+		section:   "当前任务",
+		sectionID: "task",
 		aliases: map[Scope][]string{
 			ScopeActiveTopic: {"/stop", "停止", "结束任务"},
 		},
@@ -235,9 +246,10 @@ var catalog = []definition{
 		nativeSlash: nativeSlash("结束当前任务", "Stop the current session"),
 	},
 	{
-		id:      CommandSkill,
-		command: "/skill",
-		section: "当前任务",
+		id:        CommandSkill,
+		command:   "/skill",
+		section:   "当前任务",
+		sectionID: "task",
 		aliases: map[Scope][]string{
 			ScopeActiveTopic: {"/skill"},
 		},
@@ -249,9 +261,10 @@ var catalog = []definition{
 		nativeSlash: nativeSlash("选择当前 Session 已加载的 Skill", "Choose a skill loaded by the current session"),
 	},
 	{
-		id:      CommandCompact,
-		command: "/compact",
-		section: "当前任务",
+		id:        CommandCompact,
+		command:   "/compact",
+		section:   "当前任务",
+		sectionID: "task",
 		aliases: map[Scope][]string{
 			ScopeActiveTopic: {"/compact"},
 		},
@@ -261,9 +274,10 @@ var catalog = []definition{
 		nativeSlash: nativeSlash("压缩当前上下文并保留关键摘要", "Compact the current context and retain a summary"),
 	},
 	{
-		id:      CommandClear,
-		command: "/clear",
-		section: "当前任务",
+		id:        CommandClear,
+		command:   "/clear",
+		section:   "当前任务",
+		sectionID: "task",
 		aliases: map[Scope][]string{
 			ScopeActiveTopic: {"/clear"},
 		},
@@ -300,28 +314,28 @@ func newNativeSlashCommand(command, zhCN, enUS string) NativeSlashCommand {
 func helpOnly() map[Scope][]HelpItem {
 	return map[Scope][]HelpItem{
 		ScopePrivate: {
-			{Section: "任务入口", Command: "/run <profile> -n <name>", Description: "在当前消息话题创建任务 Session"},
-			{Section: "任务入口", Command: "/bind <target/session>", Description: "在当前消息话题接入已有 Session"},
-			{Section: "当前任务", Command: "/status", Description: "查看已绑定 Session 状态"},
-			{Section: "当前任务", Command: "/restart", Description: "重新启动已绑定 Session"},
-			{Section: "当前任务", Command: "/interrupt", Description: "停止当前回答，保留任务"},
-			{Section: "当前任务", Command: "/stop", Description: "结束当前任务"},
-			{Section: distribution.CodexCompatibleGroup, Command: "/skill", Description: "选择当前 Session 已加载的 Skill"},
-			{Section: distribution.CodexCompatibleGroup, Command: "/compact", Description: "压缩上下文并保留关键摘要"},
-			{Section: distribution.CodexCompatibleGroup, Command: "/clear", Description: "保留 Session 绑定并切换到全新对话"},
+			{SectionID: "entry", Section: "任务入口", Command: "/run <profile> -n <name>", ID: CommandRun, Description: "在当前消息话题创建任务 Session"},
+			{SectionID: "entry", Section: "任务入口", Command: "/bind <target/session>", ID: CommandBind, Description: "在当前消息话题接入已有 Session"},
+			{SectionID: "task", Section: "当前任务", Command: "/status", ID: CommandStatus, Description: "查看已绑定 Session 状态"},
+			{SectionID: "task", Section: "当前任务", Command: "/restart", ID: CommandRestart, Description: "重新启动已绑定 Session"},
+			{SectionID: "task", Section: "当前任务", Command: "/interrupt", ID: CommandInterrupt, Description: "停止当前回答，保留任务"},
+			{SectionID: "task", Section: "当前任务", Command: "/stop", ID: CommandStop, Description: "结束当前任务"},
+			{SectionID: "agent", Section: distribution.CodexCompatibleGroup, Command: "/skill", ID: CommandSkill, Description: "选择当前 Session 已加载的 Skill"},
+			{SectionID: "agent", Section: distribution.CodexCompatibleGroup, Command: "/compact", ID: CommandCompact, Description: "压缩上下文并保留关键摘要"},
+			{SectionID: "agent", Section: distribution.CodexCompatibleGroup, Command: "/clear", ID: CommandClear, Description: "保留 Session 绑定并切换到全新对话"},
 		},
 		ScopeGroup: {
-			{Section: "任务入口", Command: "/run <profile> -n <name>", Description: "显式创建任务 Session"},
-			{Section: "任务入口", Command: "/bind <target/session>", Description: "接入已有 Session"},
+			{SectionID: "entry", Section: "任务入口", Command: "/run <profile> -n <name>", ID: CommandRun, Description: "显式创建任务 Session"},
+			{SectionID: "entry", Section: "任务入口", Command: "/bind <target/session>", ID: CommandBind, Description: "接入已有 Session"},
 		},
 		ScopeFreshTopic: {
-			{Section: "开始任务", Command: "/run <profile> -n <name>", Description: "显式创建任务 Session"},
-			{Section: "开始任务", Command: "/bind <target/session>", Description: "接入已有 Session"},
+			{SectionID: "start", Section: "开始任务", Command: "/run <profile> -n <name>", ID: CommandRun, Description: "显式创建任务 Session"},
+			{SectionID: "start", Section: "开始任务", Command: "/bind <target/session>", ID: CommandBind, Description: "接入已有 Session"},
 		},
 		ScopeActiveTopic: {
-			{Section: "当前任务", Command: "/status", Description: "查看当前 Session 状态"},
-			{Section: "当前任务", Command: "/restart", Description: "重新启动当前 Session"},
-			{Section: "当前任务", Command: "/bind <target/session>", Description: "改为接入其他 Session"},
+			{SectionID: "task", Section: "当前任务", Command: "/status", ID: CommandStatus, Description: "查看当前 Session 状态"},
+			{SectionID: "task", Section: "当前任务", Command: "/restart", ID: CommandRestart, Description: "重新启动当前 Session"},
+			{SectionID: "task", Section: "当前任务", Command: "/bind <target/session>", ID: CommandBind, Description: "改为接入其他 Session"},
 		},
 	}
 }
@@ -412,6 +426,8 @@ func Help(scope Scope) []HelpItem {
 			continue
 		}
 		items = append(items, HelpItem{
+			ID:          item.id,
+			SectionID:   item.sectionID,
 			Section:     item.section,
 			Command:     item.command,
 			Description: description,

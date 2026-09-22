@@ -27,13 +27,16 @@ func (b *Bridge) managementAgentPackSnapshot() (agentprofile.PackCatalogSnapshot
 	}
 	return b.managementPackActions.Snapshot()
 }
+
 func (b *Bridge) runManagementAgentPackLibraryOpen(openID, messageID string, surface managementSurface) {
 	b.runManagementAgentPackLibraryView(openID, messageID, managementPackLibraryView{}, surface)
 }
+
 func (b *Bridge) runManagementAgentPackLibraryView(openID, messageID string, view managementPackLibraryView, surface managementSurface) {
 	b.runManagementAgentPackLibraryViewWithNotice(openID, messageID, view, "", surface)
 }
-func (b *Bridge) runManagementAgentPackLibraryViewWithNotice(openID, messageID string, view managementPackLibraryView, notice string, surface managementSurface) {
+
+func (b *Bridge) runManagementAgentPackLibraryViewWithNotice(openID string, messageID string, view managementPackLibraryView, notice any, surface managementSurface) {
 	version, viewLock := b.beginManagementPackLibraryView(openID, messageID)
 	go func() {
 		defer b.finishManagementPackLibraryView(openID, messageID, version)
@@ -57,6 +60,7 @@ func (b *Bridge) runManagementAgentPackLibraryViewWithNotice(openID, messageID s
 		b.writeManagementCardFromCallback(ctx, openID, messageID, card)
 	}()
 }
+
 func (b *Bridge) runManagementLoadedPackView(openID, messageID, namespace string, view managementPackLibraryView, surface managementSurface) {
 	version, viewLock := b.beginManagementPackLibraryView(openID, messageID)
 	go func() {
@@ -71,7 +75,7 @@ func (b *Bridge) runManagementLoadedPackView(openID, messageID, namespace string
 				card = renderLoadedPackManagementCard(pack, view)
 				card = renderManagementCardForSurface(card, surface, managementViewLibrary)
 			} else {
-				card = renderAgentPackLibraryCardViewForSurface(snapshot, view, "这组专家已不在专家库中，已刷新当前列表。", surface)
+				card = renderAgentPackLibraryCardViewForSurface(snapshot, view, managementCopy("management.this.pack.is.no.longer.in.the.expert.library"), surface)
 			}
 		} else {
 			card = renderManagementCardForSurface(card, surface, managementViewLibrary)
@@ -86,6 +90,7 @@ func (b *Bridge) runManagementLoadedPackView(openID, messageID, namespace string
 		b.writeManagementCardFromCallback(ctx, openID, messageID, card)
 	}()
 }
+
 func managementLoadedPackByNamespace(snapshot agentprofile.PackCatalogSnapshot, namespace string) (agentprofile.LoadedPackState, bool) {
 	namespace = strings.TrimSpace(namespace)
 	for _, pack := range snapshot.Loaded {
@@ -95,6 +100,7 @@ func managementLoadedPackByNamespace(snapshot agentprofile.PackCatalogSnapshot, 
 	}
 	return agentprofile.LoadedPackState{}, false
 }
+
 func managementPackLibraryViewFromCallback(action *callback.CallBackAction) (managementPackLibraryView, bool) {
 	if action == nil {
 		return managementPackLibraryView{}, false
@@ -112,10 +118,11 @@ func managementPackLibraryViewFromCallback(action *callback.CallBackAction) (man
 	view.Page = page
 	return view, true
 }
+
 func (b *Bridge) runManagementAgentPackOperation(openID, messageID, action, target, expectedGeneration string, view managementPackLibraryView, surface managementSurface) {
 	go func() {
 		defer b.endManagementPackOperation(openID, messageID)
-		displayName := valueOrPlaceholder(target, "这组专家")
+		displayName := managementValueOrPlaceholder(target, managementCopy("management.this.expert.pack"))
 		if before, err := b.managementAgentPackSnapshot(); err == nil {
 			displayName = managementPackDisplayName(before, target)
 		}
@@ -144,20 +151,20 @@ func (b *Bridge) runManagementAgentPackOperation(openID, messageID, action, targ
 			operationErr = fmt.Errorf("unsupported Agent Pack operation %q", action)
 		}
 		operationCancel()
-		notice := ""
+		var notice any = ""
 		success := operationErr == nil && len(blockingReferences) == 0
 		if len(blockingReferences) > 0 {
-			notice = fmt.Sprintf("这组专家中有专家正被 %d 个飞书助手设为默认专家，请先更换后再移除。", len(blockingReferences))
+			notice = managementCopy("management.experts.in.this.pack.are.defaults.for.d.feishu", len(blockingReferences))
 		} else if errors.Is(operationErr, agentprofile.ErrCatalogStateChanged) {
-			notice = "专家库已发生变化，已为你刷新。请重新确认后操作。"
+			notice = managementCopy("management.the.expert.library.changed.and.has.been.refreshed.confirm")
 		} else if operationErr != nil {
 			notice = managementPackOperationFailureNotice(action, displayName)
 		} else if action == managementActionPackInstall {
-			notice = "已添加 " + displayName + "，并已开启自动更新。现在可以选择其中的专家。"
+			notice = managementConcat(managementCopy("management.added"), displayName, managementCopy("management.with.automatic.updates.enabled.its.experts.are.now.available"))
 		} else if action == managementActionPackSync {
-			notice = displayName + " 更新完成。"
+			notice = managementConcat(displayName, managementCopy("management.updated"))
 		} else {
-			notice = "已移除 " + displayName + "。已有任务不受影响。"
+			notice = managementConcat(managementCopy("management.removed"), displayName, managementCopy("management.existing.tasks.are.unaffected"))
 		}
 		snapshot, snapshotErr := b.managementAgentPackSnapshot()
 		var finalCard string
@@ -175,6 +182,7 @@ func (b *Bridge) runManagementAgentPackOperation(openID, messageID, action, targ
 		b.writeManagementCardFromCallbackWithFallback(finalCtx, openID, messageID, finalCard, fallbackCard)
 	}()
 }
+
 func (b *Bridge) beginAndConsumeManagementPackOperation(openID, messageID, action, target, nonce string) (started, consumed bool, err error) {
 	if !b.beginManagementPackOperation(openID, messageID) {
 		return false, false, nil
@@ -185,6 +193,7 @@ func (b *Bridge) beginAndConsumeManagementPackOperation(openID, messageID, actio
 	}
 	return true, consumed, err
 }
+
 func (c *managementPackState) beginManagementPackOperation(openID, messageID string) bool {
 	if c == nil {
 		return false
@@ -201,6 +210,7 @@ func (c *managementPackState) beginManagementPackOperation(openID, messageID str
 	state.viewVersion = c.nextPackLibraryView
 	return true
 }
+
 func (c *managementPackState) endManagementPackOperation(openID, messageID string) {
 	if c == nil {
 		return
@@ -213,6 +223,7 @@ func (c *managementPackState) endManagementPackOperation(openID, messageID strin
 	}
 	c.packMu.Unlock()
 }
+
 func (c *managementPackState) managementPackOperationActive(openID, messageID string) bool {
 	if c == nil {
 		return false
@@ -223,6 +234,7 @@ func (c *managementPackState) managementPackOperationActive(openID, messageID st
 	state := c.packLibraryCards[key]
 	return state != nil && state.operationActive
 }
+
 func (c *managementPackState) beginManagementPackLibraryView(openID, messageID string) (uint64, *sync.Mutex) {
 	key := managementPackLibraryCardKey(openID, messageID)
 	c.packMu.Lock()
@@ -232,6 +244,7 @@ func (c *managementPackState) beginManagementPackLibraryView(openID, messageID s
 	state.viewVersion = c.nextPackLibraryView
 	return state.viewVersion, &state.viewLock
 }
+
 func (c *managementPackState) managementPackLibraryViewCurrent(openID, messageID string, version uint64) bool {
 	if c == nil {
 		return false
@@ -242,6 +255,7 @@ func (c *managementPackState) managementPackLibraryViewCurrent(openID, messageID
 	state := c.packLibraryCards[key]
 	return state != nil && state.viewVersion == version
 }
+
 func (c *managementPackState) finishManagementPackLibraryView(openID, messageID string, version uint64) {
 	if c == nil {
 		return
@@ -254,6 +268,7 @@ func (c *managementPackState) finishManagementPackLibraryView(openID, messageID 
 	}
 	c.packMu.Unlock()
 }
+
 func (c *managementPackState) lockManagementPackLibraryView(openID, messageID string) func() {
 	key := managementPackLibraryCardKey(openID, messageID)
 	c.packMu.Lock()
@@ -262,6 +277,7 @@ func (c *managementPackState) lockManagementPackLibraryView(openID, messageID st
 	lock.Lock()
 	return lock.Unlock
 }
+
 func (c *managementPackState) managementPackLibraryCardStateLocked(key string) *managementPackLibraryCardState {
 	if c.packLibraryCards == nil {
 		c.packLibraryCards = make(map[string]*managementPackLibraryCardState)
@@ -273,9 +289,11 @@ func (c *managementPackState) managementPackLibraryCardStateLocked(key string) *
 	}
 	return state
 }
+
 func managementPackLibraryCardKey(openID, messageID string) string {
 	return strings.TrimSpace(openID) + "\x00" + strings.TrimSpace(messageID)
 }
+
 func (b *Bridge) consumeManagementPackOperation(openID, action, target, nonce string) (bool, error) {
 	nonce = strings.TrimSpace(nonce)
 	if b == nil || b.db == nil {
@@ -287,7 +305,8 @@ func (b *Bridge) consumeManagementPackOperation(openID, action, target, nonce st
 	key := "agent-pack:" + b.currentBridgeId() + ":" + strings.TrimSpace(openID) + ":" + action + ":" + strings.TrimSpace(target) + ":" + nonce
 	return b.db.ConsumeManagementAction(key)
 }
-func managementPackDisplayName(snapshot agentprofile.PackCatalogSnapshot, target string) string {
+
+func managementPackDisplayName(snapshot agentprofile.PackCatalogSnapshot, target string) any {
 	target = strings.TrimSpace(target)
 	for _, pack := range snapshot.Loaded {
 		if pack.Namespace == target {
@@ -299,29 +318,32 @@ func managementPackDisplayName(snapshot agentprofile.PackCatalogSnapshot, target
 			return valueOrPlaceholder(pack.DisplayName, pack.Namespace)
 		}
 	}
-	return valueOrPlaceholder(target, "这组专家")
+	return managementValueOrPlaceholder(target, managementCopy("management.this.expert.pack"))
 }
-func managementPackOperationFailureNotice(action, displayName string) string {
+
+func managementPackOperationFailureNotice(action string, displayName any) any {
 	if action == managementActionPackInstall {
-		return "未能添加 " + displayName + "，专家库没有变化。请确认运行 amux 的机器状态正常并可访问组织仓库后重试。"
+		return managementConcat(managementCopy("management.could.not.add"), displayName, managementCopy("management.the.expert.library.is.unchanged.check.that.the.amux"))
 	}
 	if action == managementActionPackRemove {
-		return "未能移除 " + displayName + "，专家库没有变化。"
+		return managementConcat(managementCopy("management.could.not.remove"), displayName, managementCopy("management.the.expert.library.is.unchanged"))
 	}
-	return displayName + " 更新失败，当前专家仍可继续使用。"
+	return managementConcat(displayName, managementCopy("management.update.failed.current.experts.remain.available"))
 }
-func renderAgentPackOperationResultFallbackCard(notice string, success bool) string {
-	title := "专家库操作未完成"
+
+func renderAgentPackOperationResultFallbackCard(notice any, success bool) string {
+	title := managementCopy("management.expert.library.operation.incomplete")
 	theme := "orange"
 	icon := managementIcon("warning_outlined", "orange")
 	if success {
-		title = "专家库已更新"
+		title = managementCopy("management.expert.library.updated")
 		theme = "green"
 		icon = managementIcon("check_outlined", "green")
 	}
-	return marshalNativeManagementCard(managementCardView{Title: title, Subtitle: "专家库操作结果", Summary: title, Theme: theme, Icon: icon, Elements: []cardElement{managementHintElement(truncateCardText(notice, 240))}, Buttons: []managementButton{{Text: "查看专家库", Type: "primary", Action: managementActionPackLibraryOpen}, {Text: "返回助手设置", Type: "default", Action: managementActionSettingsOpen}}})
+	return marshalNativeManagementCard(managementCardView{Title: title, Subtitle: managementCopy("management.expert.library.operation.results"), Summary: title, Theme: theme, Icon: icon, Elements: []cardElement{managementHintElement(managementTruncateText(notice, 240))}, Buttons: []managementButton{{Text: managementCopy("management.view.expert.library"), Type: "primary", Action: managementActionPackLibraryOpen}, {Text: managementCopy("management.back.to.assistant.settings"), Type: "default", Action: managementActionSettingsOpen}}})
 }
-func renderAgentPackLibraryCardViewForSurface(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, notice string, surface managementSurface) string {
+
+func renderAgentPackLibraryCardViewForSurface(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, notice any, surface managementSurface) string {
 	maxElements := managementPackLibraryMaxElements
 	maxBytes := managementPackLibraryMaxBytes
 	if surface == managementSurfaceAmux {
@@ -335,7 +357,8 @@ func renderAgentPackLibraryCardViewForSurface(snapshot agentprofile.PackCatalogS
 	}
 	return renderManagementCardForSurface(renderAgentPackLibraryPageTooLargeCard(view), surface, managementViewLibrary)
 }
-func renderAgentPackLibraryCardViewWithBudget(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, notice string, maxElements, maxBytes int) string {
+
+func renderAgentPackLibraryCardViewWithBudget(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, notice any, maxElements, maxBytes int) string {
 	view = normalizeManagementPackLibraryView(snapshot, view)
 	operationNonce := newManagementConfirmationNonce()
 	var pages [][]cardElement
@@ -348,12 +371,13 @@ func renderAgentPackLibraryCardViewWithBudget(snapshot agentprofile.PackCatalogS
 		}
 		view.Page = clampedPage
 	}
-	card := marshalNativeManagementCard(managementCardView{Title: "专家库", Subtitle: "管理可用专家", Summary: "amux 专家库", Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: managementPackLibraryCardElements(snapshot, view, notice, pages[view.Page], len(pages))})
+	card := marshalNativeManagementCard(managementCardView{Title: managementCopy("management.expert.library"), Subtitle: managementCopy("management.manage.available.experts"), Summary: managementCopy("management.amux.expert.library"), Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: managementPackLibraryCardElements(snapshot, view, notice, pages[view.Page], len(pages))})
 	if managementCardTaggedNodeCount(card) <= maxElements && len(card) <= maxBytes {
 		return card
 	}
 	return renderAgentPackLibraryPageTooLargeCard(view)
 }
+
 func defaultManagementPackLibraryView(snapshot agentprofile.PackCatalogSnapshot) managementPackLibraryView {
 	switch {
 	case len(snapshot.LocalExperts) > 0:
@@ -366,6 +390,7 @@ func defaultManagementPackLibraryView(snapshot agentprofile.PackCatalogSnapshot)
 		return managementPackLibraryView{Section: managementPackLibrarySectionBuiltins}
 	}
 }
+
 func normalizeManagementPackLibraryView(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView) managementPackLibraryView {
 	switch view.Section {
 	case managementPackLibrarySectionBuiltins, managementPackLibrarySectionLocal, managementPackLibrarySectionLoaded, managementPackLibrarySectionMarket:
@@ -375,18 +400,19 @@ func normalizeManagementPackLibraryView(snapshot agentprofile.PackCatalogSnapsho
 	view.Page = max(view.Page, 0)
 	return view
 }
-func managementPackLibraryCardElements(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, notice string, items []cardElement, totalPages int) []cardElement {
+
+func managementPackLibraryCardElements(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, notice any, items []cardElement, totalPages int) []cardElement {
 	elements := make([]cardElement, 0, len(items)+9)
-	if strings.TrimSpace(notice) != "" {
-		elements = append(elements, managementHintElement(truncateCardText(notice, 240)))
+	if strings.TrimSpace(managementDefaultText(notice)) != "" {
+		elements = append(elements, managementHintElement(managementTruncateText(notice, 240)))
 	}
-	hint := "当前 amux 的所有助手共享专家库；添加、更新或移除会影响所有助手。"
+	hint := managementCopy("management.all.assistants.in.this.amux.system.share.the.expert")
 	if view.Section == managementPackLibrarySectionLocal {
-		hint = "当前 amux 的所有助手共享本地专家；这里只展示已发布版本，编辑和恢复请在运行 amux 的机器上完成。"
+		hint = managementCopy("management.all.assistants.in.this.amux.system.share.local.experts")
 	}
 	elements = append(elements, managementHintElement(hint))
 	elements = append(elements, managementPackLibrarySectionNavigation(snapshot, view.Section))
-	backButton := managementButton{Text: "返回助手设置", Type: "default", Action: managementActionSettingsOpen, Name: managementActionSettingsOpen + ".pack_library.back"}
+	backButton := managementButton{Text: managementCopy("management.back.to.assistant.settings"), Type: "default", Action: managementActionSettingsOpen, Name: managementActionSettingsOpen + ".pack_library.back"}
 	elements = append(elements, managementDividerElement())
 	elements = append(elements, managementSectionTitleElement(managementPackLibrarySectionTitle(view.Section)))
 	if len(items) == 0 {
@@ -401,21 +427,23 @@ func managementPackLibraryCardElements(snapshot agentprofile.PackCatalogSnapshot
 	elements = append(elements, managementSplitActionRowElement(cardElement{}, managementNavigationButtonElement(backButton)))
 	return elements
 }
+
 func managementPackLibraryPaginationElement(view managementPackLibraryView, totalPages int) cardElement {
-	page := managementTextElement(fmt.Sprintf("第 %d / %d 页", view.Page+1, totalPages), "notation", "grey", nil)
+	page := managementTextElement(managementCopy("management.page.d.d", view.Page+1, totalPages), "notation", "grey", nil)
 	columns := []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{page}}}
 	pageButtons := make([]managementButton, 0, 2)
 	if view.Page > 0 {
-		pageButtons = append(pageButtons, managementPackLibraryNavigateButton("上一页", view.Section, view.Page-1))
+		pageButtons = append(pageButtons, managementPackLibraryNavigateButton(managementCopy("management.previous.page"), view.Section, view.Page-1))
 	}
 	if view.Page+1 < totalPages {
-		pageButtons = append(pageButtons, managementPackLibraryNavigateButton("下一页", view.Section, view.Page+1))
+		pageButtons = append(pageButtons, managementPackLibraryNavigateButton(managementCopy("management.next.page"), view.Section, view.Page+1))
 	}
 	for _, button := range pageButtons {
 		columns = append(columns, cardColumn{Tag: "column", Width: "auto", HorizontalAlign: "right", VerticalAlign: "center", Elements: []cardElement{managementButtonElement(button)}})
 	}
 	return cardElement{Tag: "column_set", FlexMode: "none", HorizontalSpacing: "8px", Columns: columns}
 }
+
 func managementPackLibraryItemChunks(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, operationNonce string) [][]cardElement {
 	switch view.Section {
 	case managementPackLibrarySectionBuiltins:
@@ -446,59 +474,64 @@ func managementPackLibraryItemChunks(snapshot agentprofile.PackCatalogSnapshot, 
 		return nil
 	}
 }
+
 func managementLoadedPackElements(pack agentprofile.LoadedPackState, view managementPackLibraryView, _ string) []cardElement {
 	elements := []cardElement{managementDividerElement(), managementTextElement(pack.DisplayName, "normal", "default", nil)}
 	elements = append(elements, managementLoadedPackSummaryElement(pack))
 	if len(pack.DuplicateNamespaces) > 0 {
-		return append(elements, managementHintElement("同一 Git 仓库被重复加载。请在运行 amux 的机器上处理后再更新或移除。"))
+		return append(elements, managementHintElement(managementCopy("management.the.same.git.repository.is.loaded.more.than.once")))
 	}
 	viewValues := managementPackLibraryViewValues(view)
-	buttons := []managementButton{{Text: "选择专家", Type: "default", Action: managementActionSettingsEdit, Name: managementActionSettingsEdit + ".pack." + pack.Namespace}, {Text: "管理专家库", Type: "default", Action: managementActionPackManage, Name: managementActionPackManage + "." + pack.Namespace, Values: mergeManagementButtonValues(viewValues, map[string]string{"namespace": pack.Namespace})}}
+	buttons := []managementButton{{Text: managementCopy("management.choose.an.expert"), Type: "default", Action: managementActionSettingsEdit, Name: managementActionSettingsEdit + ".pack." + pack.Namespace}, {Text: managementCopy("management.manage.expert.library"), Type: "default", Action: managementActionPackManage, Name: managementActionPackManage + "." + pack.Namespace, Values: mergeManagementButtonValues(viewValues, map[string]string{"namespace": pack.Namespace})}}
 	elements = append(elements, managementButtonRowElement(buttons))
 	return elements
 }
+
 func renderLoadedPackManagementCard(pack agentprofile.LoadedPackState, view managementPackLibraryView) string {
-	elements := []cardElement{managementHintElement("当前 amux 的所有助手共享专家库；这里的修改会影响所有助手。"), managementLoadedPackSummaryElement(pack)}
+	elements := []cardElement{managementHintElement(managementCopy("management.all.assistants.in.this.amux.system.share.the.expert.481")), managementLoadedPackSummaryElement(pack)}
 	if len(pack.DuplicateNamespaces) > 0 {
-		elements = append(elements, managementHintElement("同一 Git 仓库被重复加载。请在运行 amux 的机器上处理后再更新或移除。"))
+		elements = append(elements, managementHintElement(managementCopy("management.the.same.git.repository.is.loaded.more.than.once")))
 	} else {
 		operationNonce := newManagementConfirmationNonce()
 		viewValues := managementPackLibraryViewValues(view)
-		elements = append(elements, managementButtonRowElement([]managementButton{{Text: "检查更新", Type: "primary", Action: managementActionPackSync, Name: managementActionPackSync + "." + pack.Namespace, Values: mergeManagementButtonValues(viewValues, map[string]string{"namespace": pack.Namespace, "operation_nonce": operationNonce, "expected_generation": pack.Generation})}, {Text: "移除", Type: "default", Action: managementActionPackRemove, Name: managementActionPackRemove + "." + pack.Namespace, Values: mergeManagementButtonValues(viewValues, map[string]string{"namespace": pack.Namespace, "operation_nonce": operationNonce, "expected_generation": pack.Generation}), Confirm: managementConfirm("移除 "+pack.DisplayName+"？", "移除后，新任务将不能再选择其中的专家；已有任务不受影响。")}}))
+		elements = append(elements, managementButtonRowElement([]managementButton{{Text: managementCopy("management.check.for.updates"), Type: "primary", Action: managementActionPackSync, Name: managementActionPackSync + "." + pack.Namespace, Values: mergeManagementButtonValues(viewValues, map[string]string{"namespace": pack.Namespace, "operation_nonce": operationNonce, "expected_generation": pack.Generation})}, {Text: managementCopy("management.remove"), Type: "default", Action: managementActionPackRemove, Name: managementActionPackRemove + "." + pack.Namespace, Values: mergeManagementButtonValues(viewValues, map[string]string{"namespace": pack.Namespace, "operation_nonce": operationNonce, "expected_generation": pack.Generation}), Confirm: managementConfirm(managementConcat(managementCopy("management.remove.483"), pack.DisplayName, "？"), managementCopy("management.new.tasks.will.no.longer.be.able.to.select"))}}))
 		switch {
 		case strings.TrimSpace(pack.LastError) != "":
-			elements = append(elements, managementHintElement("上次更新失败，当前专家仍可继续使用。"))
+			elements = append(elements, managementHintElement(managementCopy("management.the.last.update.failed.current.experts.remain.available")))
 		case pack.AutoSync:
-			elements = append(elements, managementHintElement("已开启自动更新；也可以随时手动检查。"))
+			elements = append(elements, managementHintElement(managementCopy("management.automatic.updates.are.enabled.you.can.also.check.manually")))
 		default:
-			elements = append(elements, managementHintElement("自动更新尚未开启，可以手动检查更新。"))
+			elements = append(elements, managementHintElement(managementCopy("management.automatic.updates.are.off.you.can.check.for.updates")))
 		}
 	}
-	elements = append(elements, managementDividerElement(), managementFormButtonRowElement(managementNavigationButtonElement(managementPackLibraryNavigateButton("返回专家库", view.Section, view.Page))))
-	return marshalNativeManagementCard(managementCardView{Title: valueOrPlaceholder(pack.DisplayName, "专家库管理"), Subtitle: "检查更新或移除", Summary: "amux 专家库管理", Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: elements})
+	elements = append(elements, managementDividerElement(), managementFormButtonRowElement(managementNavigationButtonElement(managementPackLibraryNavigateButton(managementCopy("management.back.to.expert.library"), view.Section, view.Page))))
+	return marshalNativeManagementCard(managementCardView{Title: managementValueOrPlaceholder(pack.DisplayName, managementCopy("management.expert.library.management")), Subtitle: managementCopy("management.check.for.updates.or.remove"), Summary: managementCopy("management.amux.expert.library.management"), Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: elements})
 }
+
 func managementLoadedPackSummaryElement(pack agentprofile.LoadedPackState) cardElement {
-	status := "已加载"
+	status := managementCopy("management.loaded")
 	if strings.TrimSpace(pack.LastError) != "" {
-		status = "更新失败"
+		status = managementCopy("management.update.failed")
 	}
 	if len(pack.DuplicateNamespaces) > 0 {
-		status = "需要处理"
+		status = managementCopy("management.action.needed")
 	}
-	return managementCompactSummaryElement(managementSummaryItem{Title: "状态", Body: status}, managementSummaryItem{Title: "内容", Body: fmt.Sprintf("%d 个专家 · 版本 %s", pack.ProfileCount, managementShortRevision(pack.CurrentRevision))})
+	return managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.status"), Body: status}, managementSummaryItem{Title: managementCopy("management.contents"), Body: managementCopy("management.d.experts.version.s", pack.ProfileCount, managementShortRevision(pack.CurrentRevision))})
 }
+
 func managementMarketPackElements(pack agentprofile.CatalogPackState, view managementPackLibraryView, operationNonce string) []cardElement {
-	status := "可添加"
+	status := managementCopy("management.available.to.add")
 	if pack.NamespaceConflict {
-		status = "需要配置"
+		status = managementCopy("management.configuration.needed")
 	}
 	elements := []cardElement{managementMarketPackHeaderElement(pack.DisplayName, pack.Description, pack.GitURL, status)}
 	if pack.NamespaceConflict {
-		return append(elements, managementHintElement("默认专家库标识已被另一 Git 仓库使用。请在运行 amux 的机器上换一个标识添加。"))
+		return append(elements, managementHintElement(managementCopy("management.the.default.library.identifier.is.used.by.another.git")))
 	}
-	return append(elements, managementButtonRowElement([]managementButton{{Text: "添加 " + pack.DisplayName, Type: "default", Action: managementActionPackInstall, Name: managementActionPackInstall + "." + pack.Namespace, Values: mergeManagementButtonValues(managementPackLibraryViewValues(view), map[string]string{"catalog_id": pack.ID, "operation_nonce": operationNonce, "expected_generation": pack.Generation}), Confirm: managementConfirm("添加 "+pack.DisplayName+"？", "添加后，其中的专家会出现在助手设置中并自动保持更新；当前专家不会改变。")}}))
+	return append(elements, managementButtonRowElement([]managementButton{{Text: managementConcat(managementCopy("management.add"), pack.DisplayName), Type: "default", Action: managementActionPackInstall, Name: managementActionPackInstall + "." + pack.Namespace, Values: mergeManagementButtonValues(managementPackLibraryViewValues(view), map[string]string{"catalog_id": pack.ID, "operation_nonce": operationNonce, "expected_generation": pack.Generation}), Confirm: managementConfirm(managementConcat(managementCopy("management.add"), pack.DisplayName, "？"), managementCopy("management.its.experts.will.appear.in.assistant.settings.and.stay"))}}))
 }
-func paginateManagementPackLibrary(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, notice string, chunks [][]cardElement, maxElements, maxBytes int) [][]cardElement {
+
+func paginateManagementPackLibrary(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, notice any, chunks [][]cardElement, maxElements, maxBytes int) [][]cardElement {
 	if len(chunks) == 0 {
 		return [][]cardElement{{}}
 	}
@@ -508,7 +541,7 @@ func paginateManagementPackLibrary(snapshot agentprofile.PackCatalogSnapshot, vi
 	budgetView.Page = 1
 	for _, chunk := range chunks {
 		candidate := append(append([]cardElement(nil), current...), chunk...)
-		card := marshalNativeManagementCard(managementCardView{Title: "专家库", Subtitle: "管理可用专家", Summary: "amux 专家库", Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: managementPackLibraryCardElements(snapshot, budgetView, notice, candidate, 999)})
+		card := marshalNativeManagementCard(managementCardView{Title: managementCopy("management.expert.library"), Subtitle: managementCopy("management.manage.available.experts"), Summary: managementCopy("management.amux.expert.library"), Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: managementPackLibraryCardElements(snapshot, budgetView, notice, candidate, 999)})
 		if len(current) > 0 && (managementCardTaggedNodeCount(card) > maxElements || len(card) > maxBytes) {
 			pages = append(pages, current)
 			current = append([]cardElement(nil), chunk...)
@@ -519,30 +552,34 @@ func paginateManagementPackLibrary(snapshot agentprofile.PackCatalogSnapshot, vi
 	pages = append(pages, current)
 	return pages
 }
+
 func managementPackLibrarySectionNavigation(snapshot agentprofile.PackCatalogSnapshot, active managementPackLibrarySection) cardElement {
 	items := []struct {
 		section managementPackLibrarySection
-		label   string
+		label   any
 		count   int
-	}{{managementPackLibrarySectionBuiltins, "预置专家", len(snapshot.Builtins)}, {managementPackLibrarySectionLocal, "本地专家", len(snapshot.LocalExperts)}, {managementPackLibrarySectionLoaded, "已加载专家库", len(snapshot.Loaded)}, {managementPackLibrarySectionMarket, "专家库市场", len(snapshot.Market)}}
+	}{{managementPackLibrarySectionBuiltins, managementCopy("management.built.in.experts"), len(snapshot.Builtins)}, {managementPackLibrarySectionLocal, managementCopy("management.local.experts"), len(snapshot.LocalExperts)}, {managementPackLibrarySectionLoaded, managementCopy("management.loaded.libraries"), len(snapshot.Loaded)}, {managementPackLibrarySectionMarket, managementCopy("management.expert.marketplace"), len(snapshot.Market)}}
 	buttons := make([]managementButton, 0, len(items))
 	for _, item := range items {
 		buttonType := "default"
 		if item.section == active {
 			buttonType = "primary"
 		}
-		buttons = append(buttons, managementPackLibraryNavigateButton(fmt.Sprintf("%s %d", item.label, item.count), item.section, 0))
+		buttons = append(buttons, managementPackLibraryNavigateButton(managementConcat(item.label, " ", strconv.Itoa(item.count)), item.section, 0))
 		buttons[len(buttons)-1].Name = fmt.Sprintf("%s.section.%s", managementActionPackLibraryNavigate, item.section)
 		buttons[len(buttons)-1].Type = buttonType
 	}
 	return managementButtonRowElement(buttons)
 }
-func managementPackLibraryNavigateButton(text string, section managementPackLibrarySection, page int) managementButton {
+
+func managementPackLibraryNavigateButton(text any, section managementPackLibrarySection, page int) managementButton {
 	return managementButton{Text: text, Type: "default", Action: managementActionPackLibraryNavigate, Name: fmt.Sprintf("%s.page.%s.%d", managementActionPackLibraryNavigate, section, page), Values: managementPackLibraryViewValues(managementPackLibraryView{Section: section, Page: page})}
 }
+
 func managementPackLibraryViewValues(view managementPackLibraryView) map[string]string {
 	return map[string]string{"section": string(view.Section), "page": strconv.Itoa(max(view.Page, 0))}
 }
+
 func mergeManagementButtonValues(base, extra map[string]string) map[string]string {
 	values := make(map[string]string, len(base)+len(extra))
 	for key, value := range base {
@@ -553,30 +590,33 @@ func mergeManagementButtonValues(base, extra map[string]string) map[string]strin
 	}
 	return values
 }
-func managementPackLibrarySectionTitle(section managementPackLibrarySection) string {
+
+func managementPackLibrarySectionTitle(section managementPackLibrarySection) any {
 	switch section {
 	case managementPackLibrarySectionBuiltins:
-		return "预置专家"
+		return managementCopy("management.built.in.experts")
 	case managementPackLibrarySectionLocal:
-		return "本地专家"
+		return managementCopy("management.local.experts")
 	case managementPackLibrarySectionMarket:
-		return "专家库市场"
+		return managementCopy("management.expert.marketplace")
 	default:
-		return "已加载专家库"
+		return managementCopy("management.loaded.libraries")
 	}
 }
-func managementPackLibraryEmptyText(section managementPackLibrarySection) string {
+
+func managementPackLibraryEmptyText(section managementPackLibrarySection) any {
 	switch section {
 	case managementPackLibrarySectionBuiltins:
-		return "暂无预置专家。"
+		return managementCopy("management.no.built.in.experts")
 	case managementPackLibrarySectionLocal:
-		return "暂无本地专家，可以从预置专家创建副本。"
+		return managementCopy("management.no.local.experts.create.a.copy.of.a.built")
 	case managementPackLibrarySectionMarket:
-		return "市场中的专家库都已加载。"
+		return managementCopy("management.all.marketplace.libraries.are.already.loaded")
 	default:
-		return "当前还没有加载外部专家库。"
+		return managementCopy("management.no.external.expert.libraries.are.loaded.yet")
 	}
 }
+
 func managementCardTaggedNodeCount(card string) int {
 	var document any
 	if err := json.Unmarshal([]byte(card), &document); err != nil {
@@ -602,11 +642,13 @@ func managementCardTaggedNodeCount(card string) int {
 	walk(document)
 	return count
 }
+
 func renderAgentPackLibraryPageTooLargeCard(view managementPackLibraryView) string {
-	return marshalNativeManagementCard(managementCardView{Title: "本页内容过多", Subtitle: "请重新打开当前分区", Summary: "amux 专家库内容过多", Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementHintElement("内容超过飞书卡片限制，未能完整显示。")}, Buttons: []managementButton{managementPackLibraryNavigateButton("重新打开当前分区", view.Section, 0), {Text: "返回助手设置", Type: "default", Action: managementActionSettingsOpen}}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.too.much.content.on.this.page"), Subtitle: managementCopy("management.reopen.this.section"), Summary: managementCopy("management.amux.expert.library.page.too.large"), Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementHintElement(managementCopy("management.content.exceeds.feishu.card.limits.and.could.not.be"))}, Buttons: []managementButton{managementPackLibraryNavigateButton(managementCopy("management.reopen.this.section.514"), view.Section, 0), {Text: managementCopy("management.back.to.assistant.settings"), Type: "default", Action: managementActionSettingsOpen}}})
 }
-func managementMarketPackHeaderElement(displayName, description, gitURL, status string) cardElement {
-	title := managementTextElement(strings.TrimSpace(displayName)+" · "+strings.TrimSpace(status), "normal", "default", nil)
+
+func managementMarketPackHeaderElement(displayName string, description string, gitURL string, status any) cardElement {
+	title := managementTextElement(managementConcat(strings.TrimSpace(displayName), " · ", status), "normal", "default", nil)
 	title.Text.Lines = 1
 	content := []cardElement{title}
 	if strings.TrimSpace(description) != "" {
@@ -620,6 +662,7 @@ func managementMarketPackHeaderElement(displayName, description, gitURL, status 
 	}
 	return cardElement{Tag: "column_set", FlexMode: "none", Margin: "6px 0px 2px 0px", Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, Direction: "vertical", VerticalAlign: "top", VerticalSpacing: "2px", BackgroundStyle: "grey-50", Padding: "8px 10px 8px 10px", Elements: content}}}
 }
+
 func managementBuiltinExpertRowElement(expert agentprofile.BuiltinExpertState) cardElement {
 	name := managementTextElement(expert.Name, "normal", "default", nil)
 	name.Text.Lines = 1
@@ -632,41 +675,45 @@ func managementBuiltinExpertRowElement(expert agentprofile.BuiltinExpertState) c
 	}
 	return cardElement{Tag: "column_set", FlexMode: "none", HorizontalSpacing: "12px", VerticalAlign: "center", Columns: columns}
 }
+
 func managementLocalExpertRowElement(expert agentprofile.LocalExpertState) cardElement {
 	title := managementTextElement(expert.Ref, "normal", "default", nil)
 	title.Text.Lines = 1
-	detailParts := []string{managementAgentTypeName(expert.AgentType)}
+	detailParts := []any{managementAgentTypeName(expert.AgentType)}
 	if revision := managementShortRevision(expert.Revision); revision != "" {
-		detailParts = append(detailParts, "版本 "+revision)
+		detailParts = append(detailParts, managementConcat(managementCopy("management.version.515"), revision))
 	}
 	if description := strings.Join(strings.Fields(expert.Description), " "); description != "" {
 		detailParts = append(detailParts, truncateCardText(description, managementMarketPackDescriptionMaxRunes))
 	}
-	detail := managementTextElement(strings.Join(detailParts, " · "), "notation", "grey", nil)
+	detail := managementTextElement(managementJoin(" · ", detailParts...), "notation", "grey", nil)
 	detail.Text.Lines = 2
 	return cardElement{Tag: "column_set", FlexMode: "none", HorizontalSpacing: "12px", VerticalAlign: "center", Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{title, detail}}}}
 }
+
 func renderAgentPackLibraryFailureCard() string {
-	return marshalNativeManagementCard(managementCardView{Title: "专家库暂不可用", Subtitle: "请稍后重试", Summary: "amux 专家库不可用", Theme: "red", Icon: managementIcon("warning_outlined", "red"), Elements: []cardElement{managementHintElement("无法读取专家库，本次未做任何更改。")}, Buttons: []managementButton{{Text: "重试", Type: "primary", Action: managementActionPackLibraryOpen}, {Text: "返回助手设置", Type: "default", Action: managementActionSettingsOpen}}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.expert.library.unavailable"), Subtitle: managementCopy("management.try.again.later"), Summary: managementCopy("management.amux.expert.library.unavailable"), Theme: "red", Icon: managementIcon("warning_outlined", "red"), Elements: []cardElement{managementHintElement(managementCopy("management.cannot.read.the.expert.library.nothing.was.changed"))}, Buttons: []managementButton{{Text: managementCopy("management.retry"), Type: "primary", Action: managementActionPackLibraryOpen}, {Text: managementCopy("management.back.to.assistant.settings"), Type: "default", Action: managementActionSettingsOpen}}})
 }
+
 func renderAgentPackOperationCard(action string) string {
-	title := "正在检查专家库更新"
-	subtitle := "正在读取最新版本"
+	title := managementCopy("management.checking.expert.library.updates")
+	subtitle := managementCopy("management.reading.the.latest.version")
 	if action == managementActionPackInstall {
-		title = "正在添加专家库"
-		subtitle = "正在下载并检查"
+		title = managementCopy("management.adding.expert.library")
+		subtitle = managementCopy("management.downloading.and.checking")
 	} else if action == managementActionPackRemove {
-		title = "正在移除专家库"
-		subtitle = "已有任务不会受到影响"
+		title = managementCopy("management.removing.expert.library")
+		subtitle = managementCopy("management.existing.tasks.will.not.be.affected")
 	}
-	return marshalNativeManagementCard(managementCardView{Title: title, Subtitle: subtitle, Summary: title, Theme: "blue", Icon: managementIcon("refresh_outlined", "blue"), Elements: []cardElement{managementHintElement("完成后自动刷新。")}})
+	return marshalNativeManagementCard(managementCardView{Title: title, Subtitle: subtitle, Summary: title, Theme: "blue", Icon: managementIcon("refresh_outlined", "blue"), Elements: []cardElement{managementHintElement(managementCopy("management.refreshes.automatically.when.complete"))}})
 }
+
 func managementShortRevision(revision string) string {
 	revision = strings.TrimSpace(revision)
 	if len(revision) > 7 {
 		return revision[:7]
 	}
-	return valueOrPlaceholder(revision, "未知")
+	return valueOrPlaceholder(revision, "unknown")
 }
 
 type managementPackLibrarySection string

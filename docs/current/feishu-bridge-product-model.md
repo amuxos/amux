@@ -213,3 +213,36 @@ Distributions declare exact old-to-new profile reference mappings for retired
 defaults. Bridge owns the affected tables, parameterized updates and transaction.
 Mappings apply simultaneously, preserve unrelated settings and historical session
 identities, and are idempotent; targets cannot also be migration sources.
+
+## Management interface language
+
+`/amux` product copy is owned by stable keys in a shared English/Simplified Chinese
+catalog. Templates interpolate runtime values without translating user-provided
+names, paths, identifiers, diagnostics, or Agent output. Catalog validation checks
+key and argument parity and the shared formatter owns plural selection and fallback.
+
+Management cards use JSON 2.0 **local** `i18n_content` fields and callback toasts
+use `i18n`, following the viewer's Feishu/Lark language. JSON 2.0 does not support
+global `i18n_elements`. English is the fallback for unsupported client languages.
+The `/amux` overview offers automatic, English and Simplified Chinese display.
+The preference is persisted per Bot/user. Explicit selection applies only to
+server-recorded private management cards. Shared and pre-upgrade cards retain
+per-viewer automatic display; reopen `/amux` to apply a preference to a new card.
+The preference does not change Agent reply language. If a permission card fails
+to send, its plain-text fallback uses the saved language; automatic mode includes
+both languages because plain messages cannot select language per viewer.
+Initial delivery, in-place updates, confirmation dialogs, asynchronous results and
+restart recovery preserve the same language policy. Callback values and
+execution authorization remain language-independent.
+
+Sources: [Feishu card localization](https://open.feishu.cn/document/uAjLw4CM/ukzMukzMukzM/feishu-cards/configure-multi-language-content)
+and the SDK callback `Toast.I18nContent` contract.
+
+The platform-independent formatter lives in `internal/i18n`; bridge-owned copy is
+in `internal/bridge/locales/{en,zh-CN}.json`. Add semantic keys in both catalogs
+and pass dynamic values as template arguments. Rendering accepts explicit product
+messages or literal strings; it never looks up a translation using user content.
+English count messages provide singular forms where needed. Tests compare rendered
+languages, preserve callback payloads, check card budgets and exercise persisted
+preferences, shared-card isolation and failed-update fallback. CLI, desktop and
+Agent-generated content are outside this first migration.

@@ -19,6 +19,7 @@ import (
 
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 	"github.com/amuxos/amux/internal/sessionlaunch"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
@@ -69,6 +70,7 @@ type BotSettingsResult struct {
 	Status            string
 	State             BotProfileState
 	ImpactSummary     string
+	ImpactMessage     i18n.Text
 	ConfirmationToken string
 }
 
@@ -131,7 +133,8 @@ func (b *Bridge) applyBotSettings(ctx context.Context, req BotSettingsRequest) (
 		return BotSettingsResult{
 			Status:            BotSettingsStatusNeedsConfirmation,
 			State:             current,
-			ImpactSummary:     "将保留当前连续对话和工作区并切换执行配置；运行引擎变化时会迁移历史上下文。准备完成前，当前对话仍可继续使用。",
+			ImpactSummary:     managementDefaultText(managementCopy("management.impact.execution")),
+			ImpactMessage:     managementCopy("management.impact.execution"),
 			ConfirmationToken: b.issueBotSettingsConfirmation(req),
 		}, nil
 	}
@@ -139,7 +142,7 @@ func (b *Bridge) applyBotSettings(ctx context.Context, req BotSettingsRequest) (
 	if req.Interaction == config.FeishuInteractionThread {
 		if req.IsolationRequired {
 			if ok, reason := b.isolationLaunchSupported(); !ok {
-				return BotSettingsResult{}, fmt.Errorf("当前环境不支持「每个话题独立（用户隔离）」：%s。该模式需要已启用用户隔离的 Linux 环境，设置未被修改", reason)
+				return BotSettingsResult{}, managementLocalizedError("management.error.isolation", reason)
 			}
 		}
 		return b.applyThreadBotSettings(req)
@@ -186,18 +189,18 @@ func (b *Bridge) applySingletonBotSettings(ctx context.Context, current BotProfi
 		return BotSettingsResult{}, err
 	}
 	if binding == nil || (strings.TrimSpace(binding.TargetID) == "" && strings.TrimSpace(binding.TargetName) == "") {
-		return BotSettingsResult{}, fmt.Errorf("当前连续对话的运行目标未记录，请在运行 amux 的机器上重新绑定")
+		return BotSettingsResult{}, managementLocalizedError("management.error.target.missing")
 	}
 	target := findBotSettingsTarget(b.hub.ListTargets(), binding.TargetID, binding.TargetName)
 	if target == nil {
-		return BotSettingsResult{}, fmt.Errorf("当前连续对话所在的运行目标暂时不可用，请稍后重试")
+		return BotSettingsResult{}, managementLocalizedError("management.error.target.unavailable")
 	}
 	cwd := strings.TrimSpace(binding.Cwd)
 	if retained := findBotSettingsSession(target, binding.SessionName); retained != nil && strings.TrimSpace(retained.Cwd) != "" {
 		cwd = strings.TrimSpace(retained.Cwd)
 	}
 	if cwd == "" {
-		return BotSettingsResult{}, fmt.Errorf("当前连续对话的工作目录未记录，请在运行 amux 的机器上重新绑定")
+		return BotSettingsResult{}, managementLocalizedError("management.error.cwd.missing")
 	}
 	if current.DefaultAgent == req.DefaultAgent {
 		return b.reconfigureAndCommitSingletonBotSettings(ctx, req, binding, target, cwd)
@@ -226,17 +229,17 @@ func (b *Bridge) reconfigureAndCommitSingletonBotSettings(ctx context.Context, r
 		Name: binding.SessionName, Replacement: replacement, PreserveHistory: true,
 	})
 	if err != nil {
-		return BotSettingsResult{}, fmt.Errorf("切换当前连续对话的执行配置失败：%w", err)
+		return BotSettingsResult{}, managementWrapError(err, "management.error.execution.failed")
 	}
 	if resp == nil {
-		return BotSettingsResult{}, fmt.Errorf("切换当前连续对话的执行配置失败：返回为空")
+		return BotSettingsResult{}, managementLocalizedError("management.error.execution.empty")
 	}
 	var out pb.RunResponse
 	if err := json.Unmarshal(resp.Payload, &out); err != nil {
-		return BotSettingsResult{}, fmt.Errorf("解析连续对话执行配置切换结果：%w", err)
+		return BotSettingsResult{}, managementWrapError(err, "management.error.execution.decode")
 	}
 	if out.Session == nil || !strings.EqualFold(strings.TrimSpace(out.Session.State), "running") {
-		return BotSettingsResult{}, fmt.Errorf("连续对话执行配置尚未切换完成，请稍后重试")
+		return BotSettingsResult{}, managementLocalizedError("management.error.execution.pending")
 	}
 	updated := *binding
 	updated.Enabled = true
@@ -288,13 +291,14 @@ func (b *Bridge) restoreOrRebuildSingletonBotSettings(ctx context.Context, curre
 		return b.issueBotSettingsRecoveryChoice(current, req), nil
 	}
 	if target == nil {
-		return BotSettingsResult{}, fmt.Errorf("原连续对话所在的运行目标暂时不可用，请稍后重试")
+		return BotSettingsResult{}, managementLocalizedError("management.error.original.target")
 	}
 	if !req.Confirmed {
 		return BotSettingsResult{
 			Status:            BotSettingsStatusNeedsConfirmation,
 			State:             current,
-			ImpactSummary:     fmt.Sprintf("原对话上下文已丢失。确认后将在原工作区 %s 新建一段连续对话；准备完成前仍保持每个话题独立。", cwd),
+			ImpactSummary:     managementDefaultText(managementCopy("management.impact.recreate", cwd)),
+			ImpactMessage:     managementCopy("management.impact.recreate", cwd),
 			ConfirmationToken: b.issueBotSettingsConfirmation(req),
 		}, nil
 	}
@@ -331,7 +335,8 @@ func botSettingsRecoveryChoice(current BotProfileState, confirmationToken string
 	return BotSettingsResult{
 		Status:            BotSettingsStatusNeedsRecoveryChoice,
 		State:             current,
-		ImpactSummary:     "原连续对话和项目目录均不可用。请选择新建空白连续对话，或重新绑定已有项目。",
+		ImpactSummary:     managementDefaultText(managementCopy("management.impact.recovery")),
+		ImpactMessage:     managementCopy("management.impact.recovery"),
 		ConfirmationToken: confirmationToken,
 	}
 }

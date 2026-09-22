@@ -169,17 +169,19 @@ type cardHeader struct {
 }
 
 type cardTitle struct {
-	Tag       string `json:"tag"`
-	Content   string `json:"content"`
-	ElementID string `json:"element_id,omitempty"`
-	TextSize  string `json:"text_size,omitempty"`
-	TextColor string `json:"text_color,omitempty"`
-	TextAlign string `json:"text_align,omitempty"`
-	Lines     int    `json:"lines,omitempty"`
+	I18nContent map[string]string `json:"i18n_content,omitempty"`
+	Tag         string            `json:"tag"`
+	Content     string            `json:"content"`
+	ElementID   string            `json:"element_id,omitempty"`
+	TextSize    string            `json:"text_size,omitempty"`
+	TextColor   string            `json:"text_color,omitempty"`
+	TextAlign   string            `json:"text_align,omitempty"`
+	Lines       int               `json:"lines,omitempty"`
 }
 
 type cardSummary struct {
-	Content string `json:"content"`
+	I18nContent map[string]string `json:"i18n_content,omitempty"`
+	Content     string            `json:"content"`
 }
 
 type cardIcon struct {
@@ -194,45 +196,46 @@ type cardConfirm struct {
 }
 
 type cardElement struct {
-	Tag               string          `json:"tag"`
-	ElementID         string          `json:"element_id,omitempty"`
-	Content           string          `json:"content,omitempty"`
-	Actions           []cardAction    `json:"actions,omitempty"`
-	Text              *cardTitle      `json:"text,omitempty"`
-	Icon              *cardIcon       `json:"icon,omitempty"`
-	Type              string          `json:"type,omitempty"`
-	Size              string          `json:"size,omitempty"`
-	URL               string          `json:"url,omitempty"`
-	Value             json.RawMessage `json:"value,omitempty"`
-	Behaviors         []cardBehavior  `json:"behaviors,omitempty"`
-	Name              string          `json:"name,omitempty"`
-	Disabled          bool            `json:"disabled,omitempty"`
-	Expanded          bool            `json:"expanded,omitempty"`
-	Header            *panelHeader    `json:"header,omitempty"`
-	Elements          []cardElement   `json:"elements,omitempty"`
-	Columns           []cardColumn    `json:"columns,omitempty"`
-	FlexMode          string          `json:"flex_mode,omitempty"`
-	Options           []cardOption    `json:"options,omitempty"`
-	Placeholder       *cardTitle      `json:"placeholder,omitempty"`
-	Required          bool            `json:"required,omitempty"`
-	ActionType        string          `json:"action_type,omitempty"`
-	InitialOption     string          `json:"initial_option,omitempty"`
-	DefaultValue      string          `json:"default_value,omitempty"`
-	Width             string          `json:"width,omitempty"`
-	Direction         string          `json:"direction,omitempty"`
-	VerticalSpacing   string          `json:"vertical_spacing,omitempty"`
-	HorizontalSpacing string          `json:"horizontal_spacing,omitempty"`
-	HorizontalAlign   string          `json:"horizontal_align,omitempty"`
-	VerticalAlign     string          `json:"vertical_align,omitempty"`
-	TextSize          string          `json:"text_size,omitempty"`
-	BackgroundStyle   string          `json:"background_style,omitempty"`
-	BackgroundColor   string          `json:"background_color,omitempty"`
-	HasBorder         bool            `json:"has_border,omitempty"`
-	BorderColor       string          `json:"border_color,omitempty"`
-	CornerRadius      string          `json:"corner_radius,omitempty"`
-	Padding           string          `json:"padding,omitempty"`
-	Margin            string          `json:"margin,omitempty"`
-	Confirm           *cardConfirm    `json:"confirm,omitempty"`
+	I18nContent       map[string]string `json:"i18n_content,omitempty"`
+	Tag               string            `json:"tag"`
+	ElementID         string            `json:"element_id,omitempty"`
+	Content           string            `json:"content,omitempty"`
+	Actions           []cardAction      `json:"actions,omitempty"`
+	Text              *cardTitle        `json:"text,omitempty"`
+	Icon              *cardIcon         `json:"icon,omitempty"`
+	Type              string            `json:"type,omitempty"`
+	Size              string            `json:"size,omitempty"`
+	URL               string            `json:"url,omitempty"`
+	Value             json.RawMessage   `json:"value,omitempty"`
+	Behaviors         []cardBehavior    `json:"behaviors,omitempty"`
+	Name              string            `json:"name,omitempty"`
+	Disabled          bool              `json:"disabled,omitempty"`
+	Expanded          bool              `json:"expanded,omitempty"`
+	Header            *panelHeader      `json:"header,omitempty"`
+	Elements          []cardElement     `json:"elements,omitempty"`
+	Columns           []cardColumn      `json:"columns,omitempty"`
+	FlexMode          string            `json:"flex_mode,omitempty"`
+	Options           []cardOption      `json:"options,omitempty"`
+	Placeholder       *cardTitle        `json:"placeholder,omitempty"`
+	Required          bool              `json:"required,omitempty"`
+	ActionType        string            `json:"action_type,omitempty"`
+	InitialOption     string            `json:"initial_option,omitempty"`
+	DefaultValue      string            `json:"default_value,omitempty"`
+	Width             string            `json:"width,omitempty"`
+	Direction         string            `json:"direction,omitempty"`
+	VerticalSpacing   string            `json:"vertical_spacing,omitempty"`
+	HorizontalSpacing string            `json:"horizontal_spacing,omitempty"`
+	HorizontalAlign   string            `json:"horizontal_align,omitempty"`
+	VerticalAlign     string            `json:"vertical_align,omitempty"`
+	TextSize          string            `json:"text_size,omitempty"`
+	BackgroundStyle   string            `json:"background_style,omitempty"`
+	BackgroundColor   string            `json:"background_color,omitempty"`
+	HasBorder         bool              `json:"has_border,omitempty"`
+	BorderColor       string            `json:"border_color,omitempty"`
+	CornerRadius      string            `json:"corner_radius,omitempty"`
+	Padding           string            `json:"padding,omitempty"`
+	Margin            string            `json:"margin,omitempty"`
+	Confirm           *cardConfirm      `json:"confirm,omitempty"`
 }
 
 type cardBehavior struct {

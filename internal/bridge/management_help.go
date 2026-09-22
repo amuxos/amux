@@ -1,67 +1,84 @@
 package bridge
 
-import "github.com/amuxos/amux/internal/bridge/command"
+import (
+	"github.com/amuxos/amux/internal/bridge/command"
+	"github.com/amuxos/amux/internal/distribution"
+)
 
 func renderManagementHelpCard(state managementState) string {
 	mode := managementNormalizeDraft(managementDraftFromState(state)).Interaction
 	elements := []cardElement{
-		managementCompactSummaryElement(managementSummaryItem{Title: managementMessageHandlingSummary, Body: managementInteractionText(mode)}),
+		managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.message.handling.summary"), Body: managementInteractionText(mode)}),
 		managementSectionTitleElement(managementInteractionHelpTitle(mode)),
 		managementHelpBlockElement(managementTextElement(managementInteractionHelpBody(mode), "normal", "default", nil)),
-		managementSectionTitleElement("云文档评论"),
+		managementSectionTitleElement(managementCopy("management.document.comments")),
 		managementHelpBlockElement(
-			managementTextElement("开启：前往「助手设置 → 接入能力」开启云文档评论。", "normal", "default", managementIconPtr("setting_outlined", "grey")),
-			managementTextElement("使用：在评论中 @智能体 并提出要求；仅负责人可用。", "normal", "default", managementIconPtr("robot_outlined", "grey")),
-			managementTextElement("话题：每条主评论独立处理；在同一评论下继续 @智能体 可沿用原话题。", "normal", "default", managementIconPtr("info_outlined", "grey")),
-			managementTextElement("专家：新话题使用当前默认专家；已创建话题不会随默认专家变化。", "normal", "default", managementIconPtr("info_outlined", "grey")),
-			managementTextElement("正文：助手只通过评论回复，不会修改文档正文。", "normal", "default", managementIconPtr("info_outlined", "grey"))),
-		managementSectionTitleElement("群值守"),
+			managementTextElement(managementCopy("management.enable.go.to.assistant.settings.integrations.and.enable.document"), "normal", "default", managementIconPtr("setting_outlined", "grey")),
+			managementTextElement(managementCopy("management.use.mention.the.assistant.in.a.comment.with.your"), "normal", "default", managementIconPtr("robot_outlined", "grey")),
+			managementTextElement(managementCopy("management.topics.each.root.comment.is.independent.mention.the.assistant"), "normal", "default", managementIconPtr("info_outlined", "grey")),
+			managementTextElement(managementCopy("management.expert.new.topics.use.the.current.default.expert.existing"), "normal", "default", managementIconPtr("info_outlined", "grey")),
+			managementTextElement(managementCopy("management.body.the.assistant.replies.through.comments.and.does.not"), "normal", "default", managementIconPtr("info_outlined", "grey"))),
+		managementSectionTitleElement(managementCopy("management.group.watch.312")),
 		managementHelpBlockElement(
-			managementTextElement("开启：在目标群 @智能体 发送“开启群值守”，再由负责人确认。", "normal", "default", managementIconPtr("setting_outlined", "grey")),
-			managementTextElement("关闭：在目标群 @智能体 发送“关闭群值守”，确认后移出当前群。", "normal", "default", managementIconPtr("setting_outlined", "grey")),
-			managementTextElement("管理：私聊发送 /amux，前往「助手设置 → 接入能力 → 群值守」。", "normal", "default", managementIconPtr("info_outlined", "grey"))),
-		managementSectionTitleElement("让群里的其他人使用"),
+			managementTextElement(managementCopy("management.enable.mention.the.assistant.in.the.target.group.and"), "normal", "default", managementIconPtr("setting_outlined", "grey")),
+			managementTextElement(managementCopy("management.disable.mention.the.assistant.in.the.target.group.and"), "normal", "default", managementIconPtr("setting_outlined", "grey")),
+			managementTextElement(managementCopy("management.manage.send.amux.privately.then.open.assistant.settings.integrations"), "normal", "default", managementIconPtr("info_outlined", "grey"))),
+		managementSectionTitleElement(managementCopy("management.let.other.group.members.use.the.assistant")),
 		managementHelpBlockElement(managementTextElement(managementGroupCollaborationHintText(), "normal", "default", nil)),
 	}
 	elements = append(elements, managementCommandHelpElements(command.ScopePrivate)...)
-	return marshalNativeManagementCard(managementCardView{Title: "使用帮助", Subtitle: "直接发送任务即可开始", Summary: "amux 使用帮助", Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: elements})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.help"), Subtitle: managementCopy("management.send.a.task.directly.to.begin"), Summary: managementCopy("management.amux.help"), Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: elements})
 }
+
 func renderManagementCompactHelpCard() string {
-	return marshalNativeManagementCard(managementCardView{Title: "使用帮助", Subtitle: "选择当前场景的使用方式", Summary: "amux 使用帮助", Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: []cardElement{managementSectionTitleElement("开始任务"), managementHelpBlockElement(managementTextElement("私聊：直接发送任务", "normal", "default", managementIconPtr("robot_outlined", "grey")), managementTextElement("群聊：@智能体 + 任务", "normal", "default", managementIconPtr("robot_outlined", "grey")), managementTextElement("话题：继续回复即可补充要求", "normal", "default", managementIconPtr("info_outlined", "grey"))), managementSectionTitleElement("其他入口"), managementHelpBlockElement(managementTextElement("云文档：在评论中 @智能体", "normal", "default", managementIconPtr("info_outlined", "grey")), managementTextElement("/help：查看当前场景的完整命令", "normal", "default", managementIconPtr("info_outlined", "grey")))}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.help"), Subtitle: managementCopy("management.choose.instructions.for.your.current.context"), Summary: managementCopy("management.amux.help"), Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: []cardElement{managementSectionTitleElement(managementCopy("management.start.a.task")), managementHelpBlockElement(managementTextElement(managementCopy("management.private.chat.send.a.task.directly"), "normal", "default", managementIconPtr("robot_outlined", "grey")), managementTextElement(managementCopy("management.group.chat.mention.the.assistant.with.a.task"), "normal", "default", managementIconPtr("robot_outlined", "grey")), managementTextElement(managementCopy("management.topic.reply.to.add.requirements"), "normal", "default", managementIconPtr("info_outlined", "grey"))), managementSectionTitleElement(managementCopy("management.other.entry.points")), managementHelpBlockElement(managementTextElement(managementCopy("management.documents.mention.the.assistant.in.a.comment"), "normal", "default", managementIconPtr("info_outlined", "grey")), managementTextElement(managementCopy("management.help.view.all.commands.for.the.current.context"), "normal", "default", managementIconPtr("info_outlined", "grey")))}})
 }
+
 func renderWorkspaceHelpCard() string {
-	elements := []cardElement{managementHelpBlockElement(managementTextElement("@智能体 + 任务即可开始，无需额外配置。", "normal", "default", nil)), managementSectionTitleElement("群聊入口"), managementHelpBlockElement(managementTextElement("@智能体 + 任务　让助手开始处理", "normal", "default", managementIconPtr("robot_outlined", "grey")))}
+	elements := []cardElement{managementHelpBlockElement(managementTextElement(managementCopy("management.mention.the.assistant.with.a.task.to.begin.no"), "normal", "default", nil)), managementSectionTitleElement(managementCopy("management.group.chat.entry")), managementHelpBlockElement(managementTextElement(managementCopy("management.mention.assistant.task.start.working"), "normal", "default", managementIconPtr("robot_outlined", "grey")))}
 	elements = append(elements, managementCommandHelpElements(command.ScopeGroup)...)
-	return marshalNativeManagementCard(managementCardView{Title: "群聊帮助", Subtitle: "@智能体 + 任务即可开始", Summary: "amux 群聊帮助", Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: elements})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.group.chat.help"), Subtitle: managementCopy("management.mention.the.assistant.with.a.task.to.begin"), Summary: managementCopy("management.amux.group.chat.help"), Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: elements})
 }
+
 func renderSessionEntryHelpCard() string {
-	elements := []cardElement{managementHelpBlockElement(managementTextElement("@智能体 + 任务即可在这个话题开始。", "normal", "default", nil)), managementSectionTitleElement("开始任务"), managementHelpBlockElement(managementTextElement("@智能体 + 任务　让助手创建任务", "normal", "default", managementIconPtr("robot_outlined", "grey")))}
+	elements := []cardElement{managementHelpBlockElement(managementTextElement(managementCopy("management.mention.the.assistant.with.a.task.to.begin.in"), "normal", "default", nil)), managementSectionTitleElement(managementCopy("management.start.a.task")), managementHelpBlockElement(managementTextElement(managementCopy("management.mention.assistant.task.create.a.task"), "normal", "default", managementIconPtr("robot_outlined", "grey")))}
 	elements = append(elements, managementCommandHelpElements(command.ScopeFreshTopic)...)
-	return marshalNativeManagementCard(managementCardView{Title: "开始任务", Subtitle: "@智能体 + 任务即可开始", Summary: "amux 任务入口帮助", Theme: "default", Icon: managementIcon("robot_outlined", "grey"), Elements: elements})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.start.a.task"), Subtitle: managementCopy("management.mention.the.assistant.with.a.task.to.begin"), Summary: managementCopy("management.amux.task.entry.help"), Theme: "default", Icon: managementIcon("robot_outlined", "grey"), Elements: elements})
 }
+
 func renderBoundTopicHelpCard() string {
-	elements := []cardElement{managementHelpBlockElement(managementTextElement("继续发送消息即可与助手协作。", "normal", "default", nil))}
+	elements := []cardElement{managementHelpBlockElement(managementTextElement(managementCopy("management.keep.sending.messages.to.collaborate.with.the.assistant"), "normal", "default", nil))}
 	elements = append(elements, managementCommandHelpElements(command.ScopeActiveTopic)...)
-	return marshalNativeManagementCard(managementCardView{Title: "话题帮助", Subtitle: "继续发送消息即可协作", Summary: "amux 话题帮助", Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: elements})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.topic.help"), Subtitle: managementCopy("management.keep.sending.messages.to.collaborate"), Summary: managementCopy("management.amux.topic.help"), Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: elements})
 }
+
 func managementCommandHelpElements(scope command.Scope) []cardElement {
 	items := command.Help(scope)
 	elements := make([]cardElement, 0, len(items)*2)
 	currentSection := ""
+	var sectionText any
 	var rows []cardElement
 	flush := func() {
 		if currentSection == "" || len(rows) == 0 {
 			return
 		}
-		elements = append(elements, managementSectionTitleElement(currentSection), managementHelpBlockElement(rows...))
+		elements = append(elements, managementSectionTitleElement(sectionText), managementHelpBlockElement(rows...))
 		rows = nil
 	}
 	for _, item := range items {
 		if item.Section != currentSection {
 			flush()
 			currentSection = item.Section
+			sectionText = item.Section
+			if item.SectionID != "agent" {
+				sectionText = managementCopy("management.help.section." + item.SectionID)
+			}
 		}
-		rows = append(rows, managementTextElement(item.Command+"　"+item.Description, "normal", "default", managementIconPtr("info_outlined", "grey")))
+		description := managementCopy("management.help." + string(scope) + "." + string(item.ID))
+		if scope == command.ScopeActiveTopic && item.ID == command.CommandSkill {
+			description = managementCopy("management.help.active_topic.skill", distribution.CodexCompatibleLabel)
+		}
+		rows = append(rows, managementTextElement(managementConcat(item.Command, "　", description), "normal", "default", managementIconPtr("info_outlined", "grey")))
 	}
 	flush()
 	return elements

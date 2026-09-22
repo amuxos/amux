@@ -1239,11 +1239,11 @@ func TestRenderAgentPackStatusCardsUseExpertLibraryLanguage(t *testing.T) {
 	}
 
 	for _, want := range []string{"未能添加 Expert Agents", "专家库没有变化"} {
-		if notice := managementPackOperationFailureNotice(managementActionPackInstall, "Expert Agents"); !strings.Contains(notice, want) {
+		if notice := managementPackOperationFailureNotice(managementActionPackInstall, "Expert Agents"); !strings.Contains(managementDefaultText(notice), want) {
 			t.Fatalf("install failure notice = %q, want %q", notice, want)
 		}
 	}
-	if notice := managementPackOperationFailureNotice(managementActionPackSync, "Expert Agents"); notice != "Expert Agents 更新失败，当前专家仍可继续使用。" {
+	if notice := managementPackOperationFailureNotice(managementActionPackSync, "Expert Agents"); managementDefaultText(notice) != "Expert Agents 更新失败，当前专家仍可继续使用。" {
 		t.Fatalf("sync failure notice = %q", notice)
 	}
 }
@@ -1499,7 +1499,7 @@ func TestManagementUptimeText(t *testing.T) {
 		"days and hours": {startedAt: now.Add(-54 * time.Hour), want: "2 天 6 小时"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := managementUptimeText(tt.startedAt, now); got != tt.want {
+			if got := managementDefaultText(managementUptimeText(tt.startedAt, now)); got != tt.want {
 				t.Fatalf("managementUptimeText() = %q, want %q", got, tt.want)
 			}
 		})
@@ -2752,11 +2752,11 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 			}
 		}
 	}
-	if len(doc.Body.Elements) != 9 || managementTextContent(doc.Body.Elements[3]) != "当前配置" || managementTextContent(doc.Body.Elements[6]) != "管理" {
+	if len(doc.Body.Elements) != 10 || managementTextContent(doc.Body.Elements[3]) != "当前配置" || managementTextContent(doc.Body.Elements[6]) != "管理" {
 		t.Fatalf("/amux body = %#v, want status → current config → management hierarchy", doc.Body.Elements)
 	}
 	if managementTextContent(doc.Body.Elements[8]) != "重新发送 /amux 刷新状态" {
-		t.Fatal("refresh hint must be the final overview element")
+		t.Fatal("refresh hint must precede the language selector")
 	}
 	if button := findManagementButtonByAction(t, sentCard, managementActionExperimentsOpen); button.Width != "fill" || button.Type != "default" || button.Icon == nil || button.Icon.Color != "grey" {
 		t.Fatalf("experiment entry = %#v, want full-width quiet management button with icon", button)
@@ -2784,7 +2784,7 @@ func TestManagementOverviewKeepsOneStatusBlockAndPromotesSystemOnlyWhenAttention
 			t.Fatalf("healthy overview = %s, want %q", healthy, want)
 		}
 	}
-	if got := strings.Count(healthy, "运行正常"); got != 1 {
+	if got := strings.Count(healthy, `"content":"运行正常"`); got != 1 {
 		t.Fatalf("healthy overview status count = %d, want one consolidated status block: %s", got, healthy)
 	}
 	if system := findManagementButtonByAction(t, healthy, managementActionSystemMaintenance); system.Type != "default" {
@@ -3132,11 +3132,11 @@ func TestAmuxSettingsFailureKeepsFocusedRecoveryFlow(t *testing.T) {
 
 func TestSettingsFailureReasonRedactsCredentials(t *testing.T) {
 	message := managementSettingsFailureMessage(errors.New("provider rejected token=secret-value and Bearer abcdefghijklmnop"))
-	if !strings.Contains(message, "provider rejected") || !strings.Contains(message, "[REDACTED]") {
+	if !strings.Contains(managementDefaultText(message), "provider rejected") || !strings.Contains(managementDefaultText(message), "[REDACTED]") {
 		t.Fatalf("message = %q, want concrete redacted reason", message)
 	}
 	for _, secret := range []string{"secret-value", "abcdefghijklmnop"} {
-		if strings.Contains(message, secret) {
+		if strings.Contains(managementDefaultText(message), secret) {
 			t.Fatalf("message = %q, leaked %q", message, secret)
 		}
 	}

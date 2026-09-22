@@ -32,6 +32,7 @@ func (c *managementMaintenanceState) beginManagementMaintenance(action string) b
 	c.maintenanceActive = action
 	return true
 }
+
 func (c *managementMaintenanceState) endManagementMaintenance(action string) {
 	if c == nil {
 		return
@@ -42,6 +43,7 @@ func (c *managementMaintenanceState) endManagementMaintenance(action string) {
 		c.maintenanceActive = ""
 	}
 }
+
 func (c *managementMaintenanceState) consumeManagementRestartConfirmation(state managementState, systemInstance, nonce string) bool {
 	systemInstance = strings.TrimSpace(systemInstance)
 	nonce = strings.TrimSpace(nonce)
@@ -60,6 +62,7 @@ func (c *managementMaintenanceState) consumeManagementRestartConfirmation(state 
 	c.maintenanceConfirmations[key] = true
 	return true
 }
+
 func (c *managementMaintenanceState) consumeManagementUpgradeConfirmation(state managementState, systemInstance, expectedVersion, nonce string) bool {
 	systemInstance = strings.TrimSpace(systemInstance)
 	expectedVersion = strings.TrimSpace(expectedVersion)
@@ -79,6 +82,7 @@ func (c *managementMaintenanceState) consumeManagementUpgradeConfirmation(state 
 	c.maintenanceConfirmations[key] = true
 	return true
 }
+
 func (b *Bridge) runManagementSystemRestart(openID, messageID string, surface managementSurface) {
 	go func() {
 		patchCtx, patchCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -95,7 +99,7 @@ func (b *Bridge) runManagementSystemRestart(openID, messageID string, surface ma
 		if b.managementActions == nil {
 			b.endManagementMaintenance("restart")
 			b.clearPendingManagementRecovery(messageID)
-			b.patchManagementMaintenanceFailure(openID, messageID, "暂时无法重启 amux，请在部署机器上重试。", managementActionSystemRestart, "重试重启", surface)
+			b.patchManagementMaintenanceFailure(openID, messageID, managementCopy("management.cannot.restart.amux.right.now.retry.on.the.deployment"), managementActionSystemRestart, managementCopy("management.retry.restart"), surface)
 			return
 		}
 		restartCtx, restartCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -110,9 +114,10 @@ func (b *Bridge) runManagementSystemRestart(openID, messageID string, surface ma
 		b.endManagementMaintenance("restart")
 		b.clearPendingManagementRecovery(messageID)
 		log.Warn().Err(err).Msg("bridge: failed to start management system restart")
-		b.patchManagementMaintenanceFailure(openID, messageID, "未能启动重启，请稍后重试。", managementActionSystemRestart, "重试重启", surface)
+		b.patchManagementMaintenanceFailure(openID, messageID, managementCopy("management.restart.could.not.be.started.try.again.later"), managementActionSystemRestart, managementCopy("management.retry.restart"), surface)
 	}()
 }
+
 func (b *Bridge) runManagementSystemUpgrade(openID, messageID, expectedVersion string, surface managementSurface) {
 	go func() {
 		patchCtx, patchCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -129,7 +134,7 @@ func (b *Bridge) runManagementSystemUpgrade(openID, messageID, expectedVersion s
 		if b.managementActions == nil {
 			b.endManagementMaintenance("upgrade")
 			b.clearPendingManagementRecovery(messageID)
-			b.patchManagementMaintenanceFailure(openID, messageID, "暂时无法升级 amux，请在部署机器上重试。", managementActionSystemUpdate, "重新检查更新", surface)
+			b.patchManagementMaintenanceFailure(openID, messageID, managementCopy("management.cannot.upgrade.amux.right.now.retry.on.the.deployment"), managementActionSystemUpdate, managementCopy("management.check.for.updates.again"), surface)
 			return
 		}
 		upgradeCtx, upgradeCancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -144,9 +149,10 @@ func (b *Bridge) runManagementSystemUpgrade(openID, messageID, expectedVersion s
 		b.endManagementMaintenance("upgrade")
 		b.clearPendingManagementRecovery(messageID)
 		log.Warn().Err(err).Str("expected_version", expectedVersion).Msg("bridge: management upgrade failed")
-		b.patchManagementMaintenanceFailure(openID, messageID, "升级没有完成，请重新检查可用版本后再试。", managementActionSystemUpdate, "重新检查更新", surface)
+		b.patchManagementMaintenanceFailure(openID, messageID, managementCopy("management.upgrade.did.not.finish.check.available.versions.and.try"), managementActionSystemUpdate, managementCopy("management.check.for.updates.again"), surface)
 	}()
 }
+
 func (b *Bridge) clearPendingManagementRecovery(messageID string) {
 	if b == nil || b.db == nil {
 		return
@@ -155,6 +161,7 @@ func (b *Bridge) clearPendingManagementRecovery(messageID string) {
 		log.Warn().Err(err).Str("message_id", messageID).Msg("bridge: clear pending management recovery")
 	}
 }
+
 func (b *Bridge) startPendingManagementRecovery(ctx context.Context) {
 	if b == nil || b.db == nil {
 		return
@@ -193,6 +200,7 @@ func (b *Bridge) startPendingManagementRecovery(ctx context.Context) {
 		}
 	}()
 }
+
 func (b *Bridge) recoverPendingManagementCardOnce(ctx context.Context, allowAttention bool) (bool, error) {
 	if b == nil || b.db == nil {
 		return true, nil
@@ -229,6 +237,7 @@ func (b *Bridge) recoverPendingManagementCardOnce(ctx context.Context, allowAtte
 	}
 	return true, nil
 }
+
 func (b *Bridge) runManagementUpdateCheck(openID, messageID string, state managementState, surface managementSurface) {
 	go func() {
 		defer b.endManagementMaintenance("update_check")
@@ -237,7 +246,7 @@ func (b *Bridge) runManagementUpdateCheck(openID, messageID string, state manage
 		b.writeManagementCardFromCallback(patchCtx, openID, messageID, checkingCard)
 		patchCancel()
 		if b.managementActions == nil {
-			b.patchManagementMaintenanceFailure(openID, messageID, "暂时无法检查更新，请在部署机器上重试。", managementActionSystemUpdate, "重试检查更新", surface)
+			b.patchManagementMaintenanceFailure(openID, messageID, managementCopy("management.cannot.check.for.updates.right.now.retry.on.the"), managementActionSystemUpdate, managementCopy("management.retry.update.check"), surface)
 			return
 		}
 		checkCtx, checkCancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -245,7 +254,7 @@ func (b *Bridge) runManagementUpdateCheck(openID, messageID string, state manage
 		checkCancel()
 		if err != nil {
 			log.Warn().Err(err).Msg("bridge: management update check failed")
-			b.patchManagementMaintenanceFailure(openID, messageID, "检查更新失败，请稍后重试。", managementActionSystemUpdate, "重试检查更新", surface)
+			b.patchManagementMaintenanceFailure(openID, messageID, managementCopy("management.update.check.failed.try.again.later"), managementActionSystemUpdate, managementCopy("management.retry.update.check"), surface)
 			return
 		}
 		finalCtx, finalCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -254,12 +263,14 @@ func (b *Bridge) runManagementUpdateCheck(openID, messageID string, state manage
 		b.writeManagementCardFromCallback(finalCtx, openID, messageID, resultCard)
 	}()
 }
-func (b *Bridge) patchManagementMaintenanceFailure(openID, messageID, message, retryAction, retryText string, surface managementSurface) {
+
+func (b *Bridge) patchManagementMaintenanceFailure(openID, messageID string, message any, retryAction string, retryText any, surface managementSurface) {
 	finalCtx, finalCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer finalCancel()
 	card := renderFocusedManagementCardForSurface(renderSystemMaintenanceFailureCard(message, retryAction, retryText), surface)
 	b.writeManagementCardFromCallback(finalCtx, openID, messageID, card)
 }
+
 func (b *Bridge) updateManagementCardFromCallback(openID, messageID, cardJSON string) {
 	if strings.TrimSpace(openID) == "" || strings.TrimSpace(cardJSON) == "" {
 		return
@@ -273,9 +284,11 @@ func (b *Bridge) updateManagementCardFromCallback(openID, messageID, cardJSON st
 		b.writeManagementCardFromCallback(sendCtx, openID, messageID, cardJSON)
 	}()
 }
+
 func (b *Bridge) writeManagementCardFromCallback(ctx context.Context, openID, messageID, cardJSON string) {
 	b.writeManagementCardFromCallbackIf(ctx, openID, messageID, cardJSON, nil)
 }
+
 func (b *Bridge) writeManagementCardFromCallbackIf(ctx context.Context, openID, messageID, cardJSON string, current func() bool) {
 	unlock := b.lockRoute("management-card\x00" + strings.TrimSpace(messageID))
 	defer unlock()
@@ -284,8 +297,9 @@ func (b *Bridge) writeManagementCardFromCallbackIf(ctx context.Context, openID, 
 	}
 	_ = b.deliverManagementCard(ctx, openID, messageID, cardJSON)
 }
+
 func (b *Bridge) writeManagementCardFromCallbackWithFallback(ctx context.Context, openID, messageID, cardJSON, fallbackCardJSON string) {
-	attempted, err := b.patchManagementCard(ctx, messageID, cardJSON)
+	attempted, err := b.patchManagementCard(ctx, messageID, b.managementCardForPatch(openID, messageID, cardJSON))
 	if attempted && err == nil {
 		return
 	}
@@ -308,9 +322,10 @@ func (b *Bridge) writeManagementCardFromCallbackWithFallback(ctx context.Context
 	}
 	_ = b.deliverManagementCard(fallbackCtx, openID, messageID, fallbackCardJSON)
 }
+
 func (b *Bridge) deliverManagementCard(ctx context.Context, openID, messageID, cardJSON string) bool {
 	canSend := b.dmInteractive != nil || b.client != nil
-	attempted, err := b.patchManagementCard(ctx, messageID, cardJSON)
+	attempted, err := b.patchManagementCard(ctx, messageID, b.managementCardForPatch(openID, messageID, cardJSON))
 	if !attempted && !canSend {
 		return false
 	}
@@ -329,6 +344,7 @@ func (b *Bridge) deliverManagementCard(ctx context.Context, openID, messageID, c
 	}
 	return true
 }
+
 func (b *Bridge) patchManagementCard(ctx context.Context, messageID, cardJSON string) (bool, error) {
 	if strings.TrimSpace(messageID) == "" || (b.managementCardPatch == nil && b.client == nil) {
 		return false, nil
@@ -338,57 +354,62 @@ func (b *Bridge) patchManagementCard(ctx context.Context, messageID, cardJSON st
 	}
 	return true, b.patchInteractiveMessage(ctx, messageID, cardJSON, "management card")
 }
+
 func renderSystemStatusCard(state managementState) string {
 	draft := managementDraftFromState(state)
 	if state.SystemStatus != managementSystemHealthy {
-		return marshalNativeManagementCard(managementCardView{Title: "助手状态", Subtitle: "暂时无法开始新任务", Summary: "amux 需要关注", Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementHintElement("当前没有可用的运行环境。请重新检查；仍未恢复时查看系统状态。"), managementHintElement(managementWorkspaceSummary(state))}, Buttons: []managementButton{{Text: "重新检查", Type: "primary", Action: managementActionStatusOpen, Icon: managementIconPtr("refresh_outlined", "blue")}, {Text: "系统状态", Type: "default", Action: managementActionSystemMaintenance, Icon: managementIconPtr("setting_outlined", "grey")}}})
+		return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.assistant.status"), Subtitle: managementCopy("management.cannot.start.new.tasks.right.now"), Summary: managementCopy("management.amux.needs.attention"), Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementHintElement(managementCopy("management.no.runtimes.are.available.check.again.then.open.system")), managementHintElement(managementWorkspaceSummary(state))}, Buttons: []managementButton{{Text: managementCopy("management.check.again"), Type: "primary", Action: managementActionStatusOpen, Icon: managementIconPtr("refresh_outlined", "blue")}, {Text: managementCopy("management.system.status"), Type: "default", Action: managementActionSystemMaintenance, Icon: managementIconPtr("setting_outlined", "grey")}}})
 	}
-	elements := []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementMessageHandlingSummary, Body: managementModeSummary(draft)}, managementSummaryItem{Title: "默认专家", Body: managementDefaultAgentName(state)}), managementHintElement(managementWorkspaceSummary(state))}
-	buttons := []managementButton{{Text: "助手设置", Type: "primary", Action: managementActionSettingsOpen, Icon: managementIconPtr("setting_outlined", "blue")}, {Text: "系统状态", Type: "default", Action: managementActionSystemMaintenance}}
+	elements := []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.message.handling.summary"), Body: managementModeSummary(draft)}, managementSummaryItem{Title: managementCopy("management.default.expert"), Body: managementDefaultAgentName(state)}), managementHintElement(managementWorkspaceSummary(state))}
+	buttons := []managementButton{{Text: managementCopy("management.assistant.settings"), Type: "primary", Action: managementActionSettingsOpen, Icon: managementIconPtr("setting_outlined", "blue")}, {Text: managementCopy("management.system.status"), Type: "default", Action: managementActionSystemMaintenance}}
 	if state.SystemStatus == managementSystemHealthy && state.Update.ShouldPrompt {
 		elements = append(elements, managementUpdateNoticeElement(state.Update))
 		buttons[0].Type = "default"
-		buttons[1].Text = "查看更新"
+		buttons[1].Text = managementCopy("management.view.update")
 		buttons[1].Type = "primary"
 	}
-	return marshalNativeManagementCard(managementCardView{Title: "助手状态", Subtitle: "运行正常，可直接发送任务", Summary: "amux 运行正常", Theme: "green", Icon: managementIcon("robot_outlined", "green"), Elements: elements, Buttons: buttons})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.assistant.status"), Subtitle: managementCopy("management.running.normally.send.a.task.to.begin"), Summary: managementCopy("management.amux.running.normally"), Theme: "green", Icon: managementIcon("robot_outlined", "green"), Elements: elements, Buttons: buttons})
 }
+
 func renderSystemMaintenanceCardForSurface(state managementState, surface managementSurface) string {
-	subtitle := "需要关注"
+	subtitle := managementCopy("management.needs.attention")
 	theme := "orange"
 	iconColor := "orange"
 	if state.SystemStatus == managementSystemHealthy {
-		subtitle = "运行正常"
+		subtitle = managementCopy("management.running.normally")
 		theme = "green"
 		iconColor = "green"
 	}
 	restartValues := map[string]string{"system_instance": managementSystemInstanceID(state), "confirmation_nonce": newManagementConfirmationNonce()}
-	buttons := []managementButton{{Text: "检查更新", Type: "primary", Action: managementActionSystemUpdate, Icon: managementIconPtr("version_outlined", "blue")}, {Text: "重启 amux", Type: "default", Action: managementActionSystemRestartOK, Values: restartValues, Icon: managementIconPtr("refresh_outlined", "grey"), Confirm: managementConfirm("确认重启 amux？", "飞书智能体会短暂离线，现有会话不会删除。")}}
+	buttons := []managementButton{{Text: managementCopy("management.check.for.updates"), Type: "primary", Action: managementActionSystemUpdate, Icon: managementIconPtr("version_outlined", "blue")}, {Text: managementCopy("management.restart.amux"), Type: "default", Action: managementActionSystemRestartOK, Values: restartValues, Icon: managementIconPtr("refresh_outlined", "grey"), Confirm: managementConfirm(managementCopy("management.restart.amux.409"), managementCopy("management.the.feishu.assistant.will.briefly.go.offline.existing.sessions"))}}
 	elements := []cardElement{managementMaintenanceDetailsElement(state)}
 	if state.SystemStatus == managementSystemHealthy && state.Update.ShouldPrompt {
 		elements = append(elements, managementUpdateNoticeElement(state.Update))
-		buttons[0].Text = "查看更新"
-		buttons = []managementButton{buttons[0], {Text: "本版本不再提示", Type: "default", Action: managementActionSystemUpdateDismiss, Values: map[string]string{"version": state.Update.LatestVersion}}, buttons[1]}
+		buttons[0].Text = managementCopy("management.view.update")
+		buttons = []managementButton{buttons[0], {Text: managementCopy("management.dismiss.this.version"), Type: "default", Action: managementActionSystemUpdateDismiss, Values: map[string]string{"version": state.Update.LatestVersion}}, buttons[1]}
 	}
 	if state.SystemStatus != managementSystemHealthy {
-		elements = append(elements, managementHintElement("当前没有可用的运行环境。请先重新检查；仍未恢复时再重启 amux。"))
-		buttons = []managementButton{{Text: "重新检查", Type: "primary", Action: managementActionSystemMaintenance, Icon: managementIconPtr("refresh_outlined", "blue")}, buttons[1]}
+		elements = append(elements, managementHintElement(managementCopy("management.no.runtimes.are.available.check.again.before.restarting.amux")))
+		buttons = []managementButton{{Text: managementCopy("management.check.again"), Type: "primary", Action: managementActionSystemMaintenance, Icon: managementIconPtr("refresh_outlined", "blue")}, buttons[1]}
 	}
 	if surface != managementSurfaceAmux {
-		buttons = append(buttons, managementButton{Text: "返回概览", Type: "default", Action: managementActionStatusOpen})
+		buttons = append(buttons, managementButton{Text: managementCopy("management.back.to.overview"), Type: "default", Action: managementActionStatusOpen})
 	}
-	return marshalNativeManagementCard(managementCardView{Title: "系统状态", Subtitle: subtitle, Summary: "amux 系统状态", Theme: theme, Icon: managementIcon("setting_outlined", iconColor), Elements: elements, Buttons: buttons})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.system.status"), Subtitle: subtitle, Summary: managementCopy("management.amux.system.status"), Theme: theme, Icon: managementIcon("setting_outlined", iconColor), Elements: elements, Buttons: buttons})
 }
+
 func renderSystemRestartConfirmationCard(state managementState) string {
 	values := map[string]string{"system_instance": managementSystemInstanceID(state), "confirmation_nonce": newManagementConfirmationNonce()}
-	return marshalNativeManagementCard(managementCardView{Title: "确认重启", Subtitle: "飞书智能体会短暂离线", Summary: "确认重启 amux", Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementHintElement("现有会话不会删除。预计数秒恢复，恢复后可发送 /amux 查看状态。")}, Buttons: []managementButton{{Text: "确认重启", Type: "primary", Action: managementActionSystemRestartOK, Values: values}, {Text: "取消", Type: "default", Action: managementActionSystemMaintenance}}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.confirm.restart"), Subtitle: managementCopy("management.the.feishu.assistant.will.briefly.go.offline"), Summary: managementCopy("management.confirm.amux.restart"), Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementHintElement(managementCopy("management.existing.sessions.will.not.be.deleted.recovery.normally.takes"))}, Buttons: []managementButton{{Text: managementCopy("management.confirm.restart"), Type: "primary", Action: managementActionSystemRestartOK, Values: values}, {Text: managementCopy("management.cancel"), Type: "default", Action: managementActionSystemMaintenance}}})
 }
+
 func managementSystemInstanceID(state managementState) string {
 	if state.SystemInfo.StartedAt.IsZero() {
 		return ""
 	}
 	return state.SystemInfo.StartedAt.UTC().Format(time.RFC3339Nano)
 }
+
 func newManagementConfirmationNonce() string {
 	var raw [16]byte
 	if _, err := rand.Read(raw[:]); err == nil {
@@ -396,23 +417,28 @@ func newManagementConfirmationNonce() string {
 	}
 	return strconv.FormatInt(time.Now().UnixNano(), 36)
 }
+
 func renderSystemRestartingCard() string {
-	return marshalNativeManagementCard(managementCardView{Title: "正在重启 amux", Subtitle: "飞书智能体会短暂离线", Summary: "amux 正在重启", Theme: "blue", Icon: managementIcon("refresh_outlined", "blue"), Elements: []cardElement{managementHintElement("恢复后可发送 /amux 查看状态。")}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.restarting.amux"), Subtitle: managementCopy("management.the.feishu.assistant.will.briefly.go.offline"), Summary: managementCopy("management.amux.restarting"), Theme: "blue", Icon: managementIcon("refresh_outlined", "blue"), Elements: []cardElement{managementHintElement(managementCopy("management.send.amux.after.recovery.to.check.status"))}})
 }
+
 func renderSystemRecoveredCard(state managementState) string {
 	draft := managementDraftFromState(state)
-	return marshalNativeManagementCard(managementCardView{Title: "amux 已恢复", Subtitle: "运行正常，可继续使用", Summary: "amux 重启完成", Theme: "green", Icon: managementIcon("check_outlined", "green"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementMessageHandlingSummary, Body: managementModeSummary(draft)}, managementSummaryItem{Title: "默认专家", Body: managementDefaultAgentName(state)})}, Buttons: []managementButton{{Text: "助手设置", Type: "primary", Action: managementActionSettingsOpen, Icon: managementIconPtr("setting_outlined", "blue")}, {Text: "系统状态", Type: "default", Action: managementActionSystemMaintenance}}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.amux.recovered"), Subtitle: managementCopy("management.running.normally.ready.to.continue"), Summary: managementCopy("management.amux.restart.complete"), Theme: "green", Icon: managementIcon("check_outlined", "green"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.message.handling.summary"), Body: managementModeSummary(draft)}, managementSummaryItem{Title: managementCopy("management.default.expert"), Body: managementDefaultAgentName(state)})}, Buttons: []managementButton{{Text: managementCopy("management.assistant.settings"), Type: "primary", Action: managementActionSettingsOpen, Icon: managementIconPtr("setting_outlined", "blue")}, {Text: managementCopy("management.system.status"), Type: "default", Action: managementActionSystemMaintenance}}})
 }
+
 func renderSystemRecoveryAttentionCard(state managementState) string {
-	return marshalNativeManagementCard(managementCardView{Title: "amux 已重启", Subtitle: "运行环境仍需关注", Summary: "amux 重启后需要关注", Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementHintElement("仍没有可用的运行环境，请稍后重新检查。")}, Buttons: []managementButton{{Text: "重新检查", Type: "primary", Action: managementActionStatusOpen, Icon: managementIconPtr("refresh_outlined", "blue")}, {Text: "系统状态", Type: "default", Action: managementActionSystemMaintenance}}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.amux.restarted"), Subtitle: managementCopy("management.runtimes.still.need.attention"), Summary: managementCopy("management.amux.needs.attention.after.restart"), Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementHintElement(managementCopy("management.no.runtimes.are.available.yet.check.again.later"))}, Buttons: []managementButton{{Text: managementCopy("management.check.again"), Type: "primary", Action: managementActionStatusOpen, Icon: managementIconPtr("refresh_outlined", "blue")}, {Text: managementCopy("management.system.status"), Type: "default", Action: managementActionSystemMaintenance}}})
 }
+
 func renderSystemUpdateCheckingCard(state managementState) string {
-	return marshalNativeManagementCard(managementCardView{Title: "正在检查更新", Subtitle: "不会自动安装", Summary: "amux 正在检查更新", Theme: "blue", Icon: managementIcon("refresh_outlined", "blue"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: "当前版本", Body: valueOrPlaceholder(state.SystemInfo.Version, "未知")})}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.checking.for.updates"), Subtitle: managementCopy("management.updates.will.not.install.automatically"), Summary: managementCopy("management.amux.checking.for.updates"), Theme: "blue", Icon: managementIcon("refresh_outlined", "blue"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.current.version"), Body: managementValueOrPlaceholder(state.SystemInfo.Version, managementCopy("management.unknown"))})}})
 }
+
 func renderSystemUpdateResultCard(state managementState, result ManagementUpdateInfo) string {
-	status := "当前已是最新版本"
+	status := managementCopy("management.already.on.the.latest.version")
 	if result.UpdateAvailable {
-		status = "发现可用版本"
+		status = managementCopy("management.an.update.is.available")
 	}
 	theme := "green"
 	iconColor := "green"
@@ -420,31 +446,34 @@ func renderSystemUpdateResultCard(state managementState, result ManagementUpdate
 		theme = "orange"
 		iconColor = "orange"
 	}
-	buttons := []managementButton{{Text: "返回系统状态", Type: "default", Action: managementActionSystemMaintenance}}
-	hint := "当前已是最新版本。"
+	buttons := []managementButton{{Text: managementCopy("management.back.to.system.status"), Type: "default", Action: managementActionSystemMaintenance}}
+	hint := managementCopy("management.already.on.the.latest.version.432")
 	if result.UpdateAvailable {
-		hint = "确认后才会安装新版本并重启 amux。"
-		buttons = []managementButton{{Text: "升级到 " + result.LatestVersion, Type: "primary", Action: managementActionSystemUpgrade, Values: map[string]string{"system_instance": managementSystemInstanceID(state), "confirmation_nonce": newManagementConfirmationNonce(), "expected_version": result.LatestVersion}, Icon: managementIconPtr("version_outlined", "blue"), Confirm: managementConfirm("确认升级 amux？", "将安装 "+result.LatestVersion+" 并重启 amux，飞书智能体会短暂离线。")}, {Text: "本版本不再提示", Type: "default", Action: managementActionSystemUpdateDismiss, Values: map[string]string{"version": result.LatestVersion}}, {Text: "返回系统状态", Type: "default", Action: managementActionSystemMaintenance}}
+		hint = managementCopy("management.the.new.version.will.install.and.restart.amux.only")
+		buttons = []managementButton{{Text: managementConcat(managementCopy("management.upgrade.to"), result.LatestVersion), Type: "primary", Action: managementActionSystemUpgrade, Values: map[string]string{"system_instance": managementSystemInstanceID(state), "confirmation_nonce": newManagementConfirmationNonce(), "expected_version": result.LatestVersion}, Icon: managementIconPtr("version_outlined", "blue"), Confirm: managementConfirm(managementCopy("management.upgrade.amux"), managementConcat(managementCopy("management.this.will.install"), result.LatestVersion, managementCopy("management.and.restart.amux.the.feishu.assistant.will.briefly.go")))}, {Text: managementCopy("management.dismiss.this.version"), Type: "default", Action: managementActionSystemUpdateDismiss, Values: map[string]string{"version": result.LatestVersion}}, {Text: managementCopy("management.back.to.system.status"), Type: "default", Action: managementActionSystemMaintenance}}
 	}
-	return marshalNativeManagementCard(managementCardView{Title: "更新检查", Subtitle: status, Summary: "amux 更新检查结果", Theme: theme, Icon: managementIcon("version_outlined", iconColor), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: "当前版本", Body: valueOrPlaceholder(result.CurrentVersion, "未知")}, managementSummaryItem{Title: "可用版本", Body: valueOrPlaceholder(result.LatestVersion, "未知")}), managementHintElement(hint)}, Buttons: buttons})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.update.check"), Subtitle: status, Summary: managementCopy("management.amux.update.check.results"), Theme: theme, Icon: managementIcon("version_outlined", iconColor), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.current.version"), Body: managementValueOrPlaceholder(result.CurrentVersion, managementCopy("management.unknown"))}, managementSummaryItem{Title: managementCopy("management.available.version"), Body: managementValueOrPlaceholder(result.LatestVersion, managementCopy("management.unknown"))}), managementHintElement(hint)}, Buttons: buttons})
 }
+
 func renderSystemUpgradingCard(expectedVersion string) string {
-	return marshalNativeManagementCard(managementCardView{Title: "正在升级 amux", Subtitle: "飞书智能体会短暂离线", Summary: "amux 正在升级", Theme: "blue", Icon: managementIcon("version_outlined", "blue"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: "目标版本", Body: valueOrPlaceholder(expectedVersion, "未知")}), managementHintElement("恢复连接后自动刷新。")}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.upgrading.amux"), Subtitle: managementCopy("management.the.feishu.assistant.will.briefly.go.offline"), Summary: managementCopy("management.amux.upgrading"), Theme: "blue", Icon: managementIcon("version_outlined", "blue"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.target.version"), Body: managementValueOrPlaceholder(expectedVersion, managementCopy("management.unknown"))}), managementHintElement(managementCopy("management.refreshes.automatically.after.reconnecting"))}})
 }
+
 func renderSystemUpgradeRecoveredCard(state managementState, expectedVersion string) string {
 	currentVersion := strings.TrimSpace(state.SystemInfo.Version)
 	expectedVersion = strings.TrimSpace(expectedVersion)
 	if state.SystemStatus != managementSystemHealthy || currentVersion == "" || currentVersion != expectedVersion {
-		subtitle := "amux 已重新连接，但版本需要确认"
-		hint := "当前版本与目标版本不一致，请重新检查更新。"
+		subtitle := managementCopy("management.amux.reconnected.version.needs.verification")
+		hint := managementCopy("management.the.current.version.differs.from.the.target.check.for")
 		if state.SystemStatus != managementSystemHealthy {
-			subtitle = "amux 已重新连接，运行环境仍需关注"
-			hint = "升级后暂时没有可用的运行环境，可以稍后重新检查。"
+			subtitle = managementCopy("management.amux.reconnected.runtimes.still.need.attention")
+			hint = managementCopy("management.no.runtimes.are.available.after.the.upgrade.yet.check")
 		}
-		return marshalNativeManagementCard(managementCardView{Title: "更新结果待确认", Subtitle: subtitle, Summary: "amux 更新结果需要确认", Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: "当前版本", Body: valueOrPlaceholder(currentVersion, "未知")}, managementSummaryItem{Title: "目标版本", Body: valueOrPlaceholder(expectedVersion, "未知")}), managementHintElement(hint)}, Buttons: []managementButton{{Text: "重新检查更新", Type: "primary", Action: managementActionSystemUpdate, Icon: managementIconPtr("refresh_outlined", "blue")}, {Text: "返回概览", Type: "default", Action: managementActionStatusOpen}}})
+		return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.update.result.needs.verification"), Subtitle: subtitle, Summary: managementCopy("management.amux.update.result.needs.verification"), Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.current.version"), Body: managementValueOrPlaceholder(currentVersion, managementCopy("management.unknown"))}, managementSummaryItem{Title: managementCopy("management.target.version"), Body: managementValueOrPlaceholder(expectedVersion, managementCopy("management.unknown"))}), managementHintElement(hint)}, Buttons: []managementButton{{Text: managementCopy("management.check.for.updates.again"), Type: "primary", Action: managementActionSystemUpdate, Icon: managementIconPtr("refresh_outlined", "blue")}, {Text: managementCopy("management.back.to.overview"), Type: "default", Action: managementActionStatusOpen}}})
 	}
-	return marshalNativeManagementCard(managementCardView{Title: "amux 升级完成", Subtitle: "运行正常，可继续使用", Summary: "amux 升级完成", Theme: "green", Icon: managementIcon("check_outlined", "green"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: "当前版本", Body: currentVersion}, managementSummaryItem{Title: "升级状态", Body: "已完成"})}, Buttons: []managementButton{{Text: "返回概览", Type: "primary", Action: managementActionStatusOpen}, {Text: "系统状态", Type: "default", Action: managementActionSystemMaintenance}}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.amux.upgrade.complete"), Subtitle: managementCopy("management.running.normally.ready.to.continue"), Summary: managementCopy("management.amux.upgrade.complete"), Theme: "green", Icon: managementIcon("check_outlined", "green"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.current.version"), Body: currentVersion}, managementSummaryItem{Title: managementCopy("management.upgrade.status"), Body: managementCopy("management.complete")})}, Buttons: []managementButton{{Text: managementCopy("management.back.to.overview"), Type: "primary", Action: managementActionStatusOpen}, {Text: managementCopy("management.system.status"), Type: "default", Action: managementActionSystemMaintenance}}})
 }
-func renderSystemMaintenanceFailureCard(message, retryAction, retryText string) string {
-	return marshalNativeManagementCard(managementCardView{Title: "操作失败", Subtitle: "系统状态未更改", Summary: "amux 系统维护失败", Theme: "red", Icon: managementIcon("warning_outlined", "red"), Elements: []cardElement{managementHintElement(message)}, Buttons: []managementButton{{Text: retryText, Type: "primary", Action: retryAction}, {Text: "返回系统状态", Type: "default", Action: managementActionSystemMaintenance}}})
+
+func renderSystemMaintenanceFailureCard(message any, retryAction string, retryText any) string {
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.operation.failed"), Subtitle: managementCopy("management.system.state.unchanged"), Summary: managementCopy("management.amux.system.maintenance.failed"), Theme: "red", Icon: managementIcon("warning_outlined", "red"), Elements: []cardElement{managementHintElement(message)}, Buttons: []managementButton{{Text: retryText, Type: "primary", Action: retryAction}, {Text: managementCopy("management.back.to.system.status"), Type: "default", Action: managementActionSystemMaintenance}}})
 }

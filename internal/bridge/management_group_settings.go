@@ -53,12 +53,12 @@ func (b *Bridge) groupSettingsFromCardScope(action *callback.CallBackAction) (*G
 	chatName := managementCallbackString(action, "chat_name")
 	version, err := strconv.ParseInt(managementCallbackString(action, "expected_version"), 10, 64)
 	if err != nil || version < 0 || bridgeID != b.currentBridgeId() || chatID == "" {
-		return nil, "", fmt.Errorf("群设置卡片范围无效，请在目标群重新发送 /amux")
+		return nil, "", managementLocalizedError("management.invalid.group.settings.card.scope.send.amux.again.in")
 	}
 	want := b.groupSettingsScopeToken(bridgeID, chatID, chatName, version)
 	got := managementCallbackString(action, "group_scope")
 	if want == "" || !hmac.Equal([]byte(want), []byte(got)) {
-		return nil, "", fmt.Errorf("群设置卡片范围无效，请在目标群重新发送 /amux")
+		return nil, "", managementLocalizedError("management.invalid.group.settings.card.scope.send.amux.again.in")
 	}
 	// Even an authentic old card must not modify a chat now known to be private.
 	ws, err := b.db.ReadWorkspace(bridgeID, chatID)
@@ -66,7 +66,7 @@ func (b *Bridge) groupSettingsFromCardScope(action *callback.CallBackAction) (*G
 		return nil, "", err
 	}
 	if ws.Kind == WorkspaceKindPrivate {
-		return nil, "", fmt.Errorf("私聊不支持群独立设置")
+		return nil, "", managementLocalizedError("management.per.group.settings.are.unavailable.in.private.chat")
 	}
 	settings, err := b.groupSettingsDraft(chatID)
 	if err != nil {
@@ -110,7 +110,7 @@ func (b *Bridge) currentGroupSettingsCard(settings *GroupSettings, chatName stri
 			return "", err
 		}
 		if current != nil && current.ChatID != settings.ChatID {
-			return "", fmt.Errorf("当前连续会话不属于本群")
+			return "", managementLocalizedError("management.the.current.persistent.conversation.does.not.belong.to.this")
 		}
 	}
 	return renderCurrentGroupSettingsCard(state, settings, root, current, b.groupSettingsCardScope(settings, chatName)), nil
@@ -118,7 +118,7 @@ func (b *Bridge) currentGroupSettingsCard(settings *GroupSettings, chatName stri
 
 func (b *Bridge) sendCurrentGroupSettingsCard(ctx context.Context, openID, chatID, chatName string) error {
 	if !b.isBotOwner(openID) {
-		return fmt.Errorf("只有负责人可以管理群设置")
+		return managementLocalizedError("management.only.the.owner.can.manage.group.settings")
 	}
 	settings, err := b.groupSettingsDraft(chatID)
 	if err != nil {
@@ -129,10 +129,10 @@ func (b *Bridge) sendCurrentGroupSettingsCard(ctx context.Context, openID, chatI
 		return err
 	}
 	if workspace.Kind == WorkspaceKindPrivate {
-		return fmt.Errorf("私聊不支持群独立设置")
+		return managementLocalizedError("management.per.group.settings.are.unavailable.in.private.chat")
 	}
 	if b.groupSettingsScopeToken(settings.BridgeID, settings.ChatID, strings.TrimSpace(chatName), settings.Version) == "" {
-		return fmt.Errorf("无法验证群设置卡片，请检查智能体凭据")
+		return managementLocalizedError("management.cannot.verify.the.group.settings.card.check.the.assistant")
 	}
 	card, err := b.currentGroupSettingsCard(settings, chatName)
 	if err != nil {
@@ -152,7 +152,7 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 		openID = event.Event.Operator.OpenID
 	}
 	if !b.isBotOwner(openID) {
-		return cardToast("error", "只有负责人可以管理群设置"), true, nil
+		return cardToast("error", managementCopy("management.only.the.owner.can.manage.group.settings")), true, nil
 	}
 	if err := requireGroupSettingsExperiment(); err != nil {
 		return groupSettingsErrorToast(err), true, nil
@@ -177,7 +177,7 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 				return groupSettingsErrorToast(err), true, nil
 			}
 			update(renderGroupSettingsEditCardAtPage(state, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action)))
-			return cardToast("success", "已打开本群设置，尚未保存"), true, nil
+			return cardToast("success", managementCopy("management.group.settings.opened.not.saved.yet")), true, nil
 		}
 		submitted, err := draft.settings(settings)
 		if err == nil {
@@ -199,7 +199,7 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 	if action == managementActionGroupSettingsWatch {
 		operation := managementCallbackString(event.Event.Action, "operation")
 		if operation != "add" && operation != "remove" {
-			return cardToast("error", "请选择加入或移出本群值守"), true, nil
+			return cardToast("error", managementCopy("management.choose.whether.to.add.or.remove.this.group.from")), true, nil
 		}
 		if _, err := b.updateGroupWatchForProfile(operation, settings.ChatID); err != nil {
 			return groupSettingsErrorToast(err), true, nil
@@ -210,22 +210,22 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 		return groupSettingsErrorToast(err), true, nil
 	}
 	update(card)
-	message := "已打开当前群设置"
+	var message any = managementCopy("management.current.group.settings.opened")
 	if action == managementActionGroupSettingsSave {
-		message = "本群设置已保存，仅新会话采用新的执行参数"
+		message = managementCopy("management.group.settings.saved.new.execution.options.apply.only.to")
 	} else if action == managementActionGroupConversationNew {
-		message = "已新开连续会话，下一条群消息从空白上下文开始"
+		message = managementCopy("management.new.persistent.conversation.ready.the.next.group.message.starts")
 	} else if action == managementActionGroupSettingsWatch {
-		message = groupWatchOperationSuccessText(managementCallbackString(event.Event.Action, "operation"))
+		message = managementGroupWatchSuccessText(managementCallbackString(event.Event.Action, "operation"))
 	}
 	return cardToast("success", message), true, nil
 }
 
 func groupSettingsErrorToast(err error) *callback.CardActionTriggerResponse {
 	if errors.Is(err, errGroupSettingsChanged) {
-		return cardToast("warning", "群设置已变化，请在目标群重新发送 /amux 后再修改")
+		return cardToast("warning", managementCopy("management.group.settings.changed.send.amux.again.in.the.target"))
 	}
-	return cardToast("error", truncateCardText(err.Error(), 240))
+	return cardToast("error", managementTruncateText(managementErrorText(err), 240))
 }
 
 type managementGroupSettingsDraft map[string]string
@@ -269,7 +269,7 @@ func groupSettingsDraftFromCallback(settings *GroupSettings, action *callback.Ca
 		}
 		text, ok := value.(string)
 		if !ok {
-			return nil, fmt.Errorf("群设置字段 %s 格式无效", key)
+			return nil, managementLocalizedError("management.invalid.format.for.group.settings.field.s", key)
 		}
 		draft[key] = strings.TrimSpace(text)
 	}
@@ -280,7 +280,7 @@ func (draft managementGroupSettingsDraft) settings(base *GroupSettings) (*GroupS
 	settings := *base
 	interaction := draft["group_interaction"]
 	if !managementValidInteraction(interaction) {
-		return nil, fmt.Errorf("请选择有效的群内处理方式")
+		return nil, managementLocalizedError("management.choose.a.valid.group.conversation.mode")
 	}
 	settings.InteractionMode, settings.IsolationRequired = managementDecomposeInteraction(interaction)
 	settings.DefaultAgent = groupSettingsOptional(draft["group_agent"], managementGroupInheritProfile)
@@ -289,7 +289,7 @@ func (draft managementGroupSettingsDraft) settings(base *GroupSettings) (*GroupS
 	if settings.DefaultModelRef == managementGroupNativeModel {
 		settings.DefaultModelRef = draft["group_native_model"]
 		if settings.DefaultModelRef == "" {
-			return nil, fmt.Errorf("请填写原生模型名称，或选择默认模型")
+			return nil, managementLocalizedError("management.enter.a.native.model.name.or.select.the.default")
 		}
 	}
 	settings.DefaultReasoningEffort = managementReasoningEffortFromForm(draft["group_reasoning"])
@@ -301,28 +301,29 @@ func (draft managementGroupSettingsDraft) settings(base *GroupSettings) (*GroupS
 	}
 	var args []any
 	if !strings.HasPrefix(rawArgs, "[") || json.Unmarshal([]byte(rawArgs), &args) != nil {
-		return nil, fmt.Errorf("附加参数须为 JSON 字符串数组，例如 [\"--flag\", \"value with spaces\"]")
+		return nil, managementLocalizedError("management.extra.arguments.must.be.a.json.string.array.such")
 	}
 	settings.DefaultArgs = make([]string, 0, len(args))
 	for _, arg := range args {
 		value, ok := arg.(string)
 		if !ok {
-			return nil, fmt.Errorf("附加参数须为 JSON 字符串数组")
+			return nil, managementLocalizedError("management.extra.arguments.must.be.a.json.string.array")
 		}
 		settings.DefaultArgs = append(settings.DefaultArgs, value)
 	}
 	for _, field := range []struct {
-		key, label string
-		target     *int
+		key    string
+		label  any
+		target *int
 	}{
-		{"group_idle_seconds", "空闲回收秒数", &settings.IdleTimeoutSeconds},
-		{"group_context_limit", "上下文条数", &settings.ThreadContextLimit},
-		{"group_max_total", "群会话总上限", &settings.MaxSessionsTotal},
-		{"group_max_per_user", "每用户会话上限", &settings.MaxSessionsPerUser},
+		{"group_idle_seconds", managementCopy("management.idle.timeout.in.seconds"), &settings.IdleTimeoutSeconds},
+		{"group_context_limit", managementCopy("management.context.message.count"), &settings.ThreadContextLimit},
+		{"group_max_total", managementCopy("management.group.session.limit"), &settings.MaxSessionsTotal},
+		{"group_max_per_user", managementCopy("management.session.limit.per.user"), &settings.MaxSessionsPerUser},
 	} {
 		value, err := strconv.Atoi(draft[field.key])
 		if err != nil || value < 0 {
-			return nil, fmt.Errorf("%s须为非负整数", field.label)
+			return nil, managementLocalizedError("management.s.must.be.a.nonnegative.integer", field.label)
 		}
 		*field.target = value
 	}
@@ -336,19 +337,19 @@ func groupSettingsOptional(value, sentinel string) string {
 	return value
 }
 
-func groupSettingsScopedButton(action, label, buttonType string, scope map[string]string) managementButton {
+func groupSettingsScopedButton(action string, label any, buttonType string, scope map[string]string) managementButton {
 	return managementButton{Action: action, Text: label, Type: buttonType, Values: scope}
 }
 
 func renderCurrentGroupSettingsCard(state managementState, settings *GroupSettings, root string, current *LarkChat, scope map[string]string) string {
-	agentRef, source := settings.DefaultAgent, "本群指定"
+	agentRef, source := settings.DefaultAgent, managementCopy("management.selected.for.this.group")
 	if agentRef == "" {
-		agentRef, source = state.DefaultAgent, "跟随助手默认专家"
+		agentRef, source = state.DefaultAgent, managementCopy("management.follow.the.assistant.default.expert")
 	}
-	policy := "本群独立设置"
+	policy := managementCopy("management.independent.group.settings")
 	if settings.Version == 0 {
-		policy = "沿用助手设置（尚未保存本群设置）"
-		source = "沿用助手设置"
+		policy = managementCopy("management.using.assistant.settings.group.settings.not.saved.yet")
+		source = managementCopy("management.using.assistant.settings")
 	}
 	interaction := settings.InteractionMode
 	if settings.IsolationRequired {
@@ -356,18 +357,18 @@ func renderCurrentGroupSettingsCard(state managementState, settings *GroupSettin
 	}
 	interactionText := managementInteractionText(interaction)
 	if interaction == config.FeishuInteractionSingleton {
-		interactionText = "本群继续同一对话"
+		interactionText = managementCopy("management.continue.the.same.conversation.in.this.group")
 		if settings.Version == 0 {
-			interactionText = "助手连续会话（现有范围含其他群或私聊）"
+			interactionText = managementCopy("management.assistant.conversation.currently.also.covers.other.groups.or.private")
 		}
 	}
-	access := "只有负责人可发起任务"
+	access := managementCopy("management.only.the.owner.can.start.tasks")
 	if settings.Mode == WorkspaceModeShared {
-		access = "群成员可发起任务（仍需满足助手与执行权限）"
+		access = managementCopy("management.group.members.can.start.tasks.subject.to.assistant.and")
 	}
 	runtime := managementRuntimeLabel(state, settings.DefaultRuntimeRef)
 	if settings.DefaultRuntimeRef == "" {
-		runtime = "所选专家的原生运行引擎"
+		runtime = managementCopy("management.the.selected.expert.s.native.runtime")
 	}
 	args, _ := json.Marshal(settings.DefaultArgs)
 	if settings.DefaultArgs == nil {
@@ -375,53 +376,53 @@ func renderCurrentGroupSettingsCard(state managementState, settings *GroupSettin
 	}
 	elements := []cardElement{
 		managementCompactSummaryElement(
-			managementSummaryItem{Title: "群名称", Body: valueOrPlaceholder(scope["chat_name"], "未命名群")},
-			managementSummaryItem{Title: "群标识", Body: settings.ChatID},
-			managementSummaryItem{Title: "当前助手", Body: state.ProfileName},
-			managementSummaryItem{Title: "设置来源", Body: policy}),
+			managementSummaryItem{Title: managementCopy("management.group.name"), Body: managementValueOrPlaceholder(scope["chat_name"], managementCopy("management.unnamed.group"))},
+			managementSummaryItem{Title: managementCopy("management.group.id"), Body: settings.ChatID},
+			managementSummaryItem{Title: managementCopy("management.current.assistant"), Body: state.ProfileName},
+			managementSummaryItem{Title: managementCopy("management.settings.source"), Body: policy}),
 		managementKeyValueListElement("group_settings_future_defaults",
-			managementSummaryItem{Title: "新会话默认专家", Body: managementProfileNameByRef(state, agentRef) + " · " + agentRef + "（" + source + "）"},
-			managementSummaryItem{Title: "处理方式", Body: interactionText},
-			managementSummaryItem{Title: "使用权限", Body: access},
-			managementSummaryItem{Title: "运行引擎", Body: runtime},
-			managementSummaryItem{Title: "模型", Body: managementRuntimeModelLabel(settings.DefaultModelRef)},
-			managementSummaryItem{Title: "思考强度", Body: managementReasoningEffortLabel(settings.DefaultReasoningEffort)},
-			managementSummaryItem{Title: "处理过程展示", Body: managementThinkingProcessLabel(settings.ThinkingProcess)},
-			managementSummaryItem{Title: "目标机器", Body: valueOrPlaceholder(settings.DefaultTarget, "自动选择")},
-			managementSummaryItem{Title: "工作目录", Body: valueOrPlaceholder(settings.DefaultCwd, "运行环境默认目录")},
-			managementSummaryItem{Title: "附加参数", Body: string(args)},
-			managementSummaryItem{Title: "空闲回收秒数", Body: strconv.Itoa(settings.IdleTimeoutSeconds)},
-			managementSummaryItem{Title: "上下文条数", Body: strconv.Itoa(settings.ThreadContextLimit)},
-			managementSummaryItem{Title: "群会话总上限 / 每用户上限", Body: fmt.Sprintf("%d / %d", settings.MaxSessionsTotal, settings.MaxSessionsPerUser)}),
-		managementHintElement("保存后的执行参数只用于新会话。已有话题与当前连续会话保留创建时的专家、模型、执行身份和环境；开启用户隔离不会迁移已有话题。"),
+			managementSummaryItem{Title: managementCopy("management.default.expert.for.new.sessions"), Body: managementConcat(managementProfileNameByRef(state, agentRef), " · ", agentRef, "（", source, "）")},
+			managementSummaryItem{Title: managementCopy("management.message.handling"), Body: interactionText},
+			managementSummaryItem{Title: managementCopy("management.access"), Body: access},
+			managementSummaryItem{Title: managementCopy("management.runtime"), Body: runtime},
+			managementSummaryItem{Title: managementCopy("management.model"), Body: managementRuntimeModelLabel(settings.DefaultModelRef)},
+			managementSummaryItem{Title: managementCopy("management.reasoning.effort"), Body: managementReasoningEffortLabel(settings.DefaultReasoningEffort)},
+			managementSummaryItem{Title: managementCopy("management.activity.display"), Body: managementThinkingProcessLabel(settings.ThinkingProcess)},
+			managementSummaryItem{Title: managementCopy("management.target.machine"), Body: managementValueOrPlaceholder(settings.DefaultTarget, managementCopy("management.automatic"))},
+			managementSummaryItem{Title: managementCopy("management.working.directory"), Body: managementValueOrPlaceholder(settings.DefaultCwd, managementCopy("management.runtime.default.directory"))},
+			managementSummaryItem{Title: managementCopy("management.extra.arguments"), Body: string(args)},
+			managementSummaryItem{Title: managementCopy("management.idle.timeout.in.seconds"), Body: strconv.Itoa(settings.IdleTimeoutSeconds)},
+			managementSummaryItem{Title: managementCopy("management.context.message.count"), Body: strconv.Itoa(settings.ThreadContextLimit)},
+			managementSummaryItem{Title: managementCopy("management.group.session.limit.per.user.limit"), Body: fmt.Sprintf("%d / %d", settings.MaxSessionsTotal, settings.MaxSessionsPerUser)}),
+		managementHintElement(managementCopy("management.saved.execution.options.apply.only.to.new.sessions.existing")),
 	}
-	buttons := []managementButton{groupSettingsScopedButton(managementActionGroupSettingsEdit, "修改本群设置", "primary", scope)}
+	buttons := []managementButton{groupSettingsScopedButton(managementActionGroupSettingsEdit, managementCopy("management.edit.group.settings"), "primary", scope)}
 	if settings.InteractionMode == config.FeishuInteractionSingleton && settings.Version > 0 {
-		status := "尚未创建；下一条有效任务开始本群连续会话，直接在群聊中回复"
-		profile, model := "—", "—"
+		status := managementCopy("management.not.created.yet.the.next.valid.task.starts.this")
+		var profile, model any = "—", "—"
 		if root != "" {
-			status = "直接在本群回复"
+			status = managementCopy("management.reply.directly.in.this.group")
 			if current == nil {
-				status += "（会话绑定不可用，请新开连续会话）"
+				status = managementConcat(status, managementCopy("management.session.binding.unavailable.start.a.new.conversation"))
 			} else {
 				profile = valueOrPlaceholder(current.AgentProfile, current.AgentType)
-				model = valueOrPlaceholder(current.EffectiveModel, "未记录")
-				status += " · " + current.SessionName
+				model = managementValueOrPlaceholder(current.EffectiveModel, managementCopy("management.not.recorded"))
+				status = managementConcat(status, " · "+current.SessionName)
 			}
 		}
 		elements = append(elements, managementKeyValueListElement("group_settings_current_session",
-			managementSummaryItem{Title: "当前连续会话", Body: status},
-			managementSummaryItem{Title: "当前会话专家", Body: profile},
-			managementSummaryItem{Title: "当前会话模型", Body: model}))
-		reset := groupSettingsScopedButton(managementActionGroupConversationNew, "新开连续会话", "default", scope)
-		reset.Confirm = managementConfirm("从空白上下文开始新的连续会话？", "当前会话不再接受新输入；历史保留，已接受的任务继续完成。下一条群消息使用本群的新会话默认设置，结果直接在本群回复。")
+			managementSummaryItem{Title: managementCopy("management.current.persistent.conversation"), Body: status},
+			managementSummaryItem{Title: managementCopy("management.current.session.expert"), Body: profile},
+			managementSummaryItem{Title: managementCopy("management.current.session.model"), Body: model}))
+		reset := groupSettingsScopedButton(managementActionGroupConversationNew, managementCopy("management.new.persistent.conversation"), "default", scope)
+		reset.Confirm = managementConfirm(managementCopy("management.start.a.new.conversation.with.blank.context"), managementCopy("management.the.current.session.stops.accepting.new.input.history.is"))
 		buttons = append(buttons, reset)
 	}
 	joinedWatch := groupWatchConfigHasChat(state.GroupWatch, settings.ChatID)
-	watchText := "群值守：" + managementGroupWatchCommandStatus(state, settings.ChatID)
+	watchText := managementConcat(managementCopy("management.group.watch"), managementGroupWatchCommandStatus(state, settings.ChatID))
 	if joinedWatch {
 		if state.GroupWatch.AgentProfileRef != "" {
-			watchText += "；值守使用独立专家：" + state.GroupWatch.AgentProfileRef
+			watchText = managementConcat(watchText, managementConcat(managementCopy("management.watch.uses.a.separate.expert"), state.GroupWatch.AgentProfileRef))
 		}
 	}
 	elements = append(elements, managementHintElement(watchText))
@@ -431,14 +432,14 @@ func renderCurrentGroupSettingsCard(state managementState, settings *GroupSettin
 			values[key] = value
 		}
 		values["operation"] = "add"
-		watch := groupSettingsScopedButton(managementActionGroupSettingsWatch, "将本群加入值守", "default", values)
-		watch.Confirm = managementConfirm("确认加入群值守？", "本群的新话题会自动交给助手处理。如果已有群值守被暂停，加入本群会一并恢复这些已配置群的值守。")
+		watch := groupSettingsScopedButton(managementActionGroupSettingsWatch, managementCopy("management.add.this.group.to.watch"), "default", values)
+		watch.Confirm = managementConfirm(managementCopy("management.confirm.adding.this.group.to.watch"), managementCopy("management.new.topics.in.this.group.will.be.handled.automatically"))
 		if joinedWatch {
-			watch.Text, values["operation"], watch.Confirm = "将本群移出值守", "remove", nil
+			watch.Text, values["operation"], watch.Confirm = managementCopy("management.remove.this.group.from.watch"), "remove", nil
 		}
 		buttons = append(buttons, watch)
 	}
-	return marshalNativeManagementCard(managementCardView{Title: "当前群设置", Subtitle: "仅管理当前助手在本群的设置", Summary: "amux 当前群设置", Theme: "blue", Elements: elements, Buttons: buttons})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.current.group.settings"), Subtitle: managementCopy("management.manage.only.this.assistant.s.settings.in.this.group"), Summary: managementCopy("management.amux.current.group.settings"), Theme: "blue", Elements: elements, Buttons: buttons})
 }
 
 // Feishu rejects a card above managementGroupSettingsLimitElements tagged nodes:
@@ -487,8 +488,8 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 	if modelRef == managementGroupNativeModel {
 		modelRef = draft["group_native_model"]
 	}
-	profileOptions := append([]cardOption{{Text: cardTitle{Tag: "plain_text", Content: "跟随助手默认专家 · " + state.DefaultAgent}, Value: managementGroupInheritProfile}}, managementProfileOptions(state, true)...)
-	runtimeOptions := append([]cardOption{{Text: cardTitle{Tag: "plain_text", Content: "使用所选专家的原生运行引擎"}, Value: managementGroupNativeRuntime}}, managementRuntimeOptions(state)...)
+	profileOptions := append([]cardOption{{Text: managementStyledText(managementConcat(managementCopy("management.follow.assistant.default.expert"), state.DefaultAgent), cardTitle{Tag: "plain_text"}), Value: managementGroupInheritProfile}}, managementProfileOptions(state, true)...)
+	runtimeOptions := append([]cardOption{{Text: managementStyledText(managementCopy("management.use.the.selected.expert.s.native.runtime"), cardTitle{Tag: "plain_text"}), Value: managementGroupNativeRuntime}}, managementRuntimeOptions(state)...)
 	modelOptions := managementModelOptions(state, selectedAgent)
 	effectiveRuntime := runtimeRef
 	if runtimeRef != "" {
@@ -496,9 +497,9 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 	} else if profile, ok := managementProfileByRef(state, selectedAgent); ok {
 		effectiveRuntime = profile.AgentType
 	}
-	modelOptions = append(modelOptions, cardOption{Text: cardTitle{Tag: "plain_text", Content: "输入原生模型名称"}, Value: managementGroupNativeModel})
+	modelOptions = append(modelOptions, cardOption{Text: managementStyledText(managementCopy("management.enter.a.native.model.name"), cardTitle{Tag: "plain_text"}), Value: managementGroupNativeModel})
 	form := []cardElement{}
-	selectField := func(label, key string, options []cardOption) {
+	selectField := func(label any, key string, options []cardOption) {
 		initial := draft[key]
 		found := false
 		for _, option := range options {
@@ -508,43 +509,43 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 			}
 		}
 		if initial != "" && !found {
-			options = append(options, cardOption{Text: cardTitle{Tag: "plain_text", Content: "当前值（保存时检查） · " + initial}, Value: initial})
+			options = append(options, cardOption{Text: managementStyledText(managementConcat(managementCopy("management.current.value.validated.on.save"), initial), cardTitle{Tag: "plain_text"}), Value: initial})
 		}
-		form = append(form, managementSettingsFieldRow(label, managementSelectStaticElement(key, "请选择", initial, options)))
+		form = append(form, managementSettingsFieldRow(label, managementSelectStaticElement(key, managementCopy("management.select.an.option"), initial, options)))
 	}
-	inputField := func(label, key, placeholder string) {
-		form = append(form, managementSettingsFieldRow(label, cardElement{Tag: "input", Name: key, DefaultValue: draft[key], Width: "fill", Placeholder: &cardTitle{Tag: "plain_text", Content: placeholder}}))
+	inputField := func(label any, key string, placeholder any) {
+		form = append(form, managementSettingsFieldRow(label, cardElement{Tag: "input", Name: key, DefaultValue: draft[key], Width: "fill", Placeholder: managementStyledTextPtr(placeholder, cardTitle{Tag: "plain_text"})}))
 	}
-	selectField("群内处理方式", "group_interaction", []cardOption{
-		{Text: cardTitle{Tag: "plain_text", Content: "本群继续同一对话"}, Value: config.FeishuInteractionSingleton},
-		{Text: cardTitle{Tag: "plain_text", Content: "每个话题独立"}, Value: config.FeishuInteractionThread},
-		{Text: cardTitle{Tag: "plain_text", Content: "每个话题独立（用户隔离）"}, Value: interactionModeThreadIsolated},
+	selectField(managementCopy("management.group.conversation.mode"), "group_interaction", []cardOption{
+		{Text: managementStyledText(managementCopy("management.continue.the.same.conversation.in.this.group"), cardTitle{Tag: "plain_text"}), Value: config.FeishuInteractionSingleton},
+		{Text: managementStyledText(managementCopy("management.separate.conversation.per.topic"), cardTitle{Tag: "plain_text"}), Value: config.FeishuInteractionThread},
+		{Text: managementStyledText(managementCopy("management.separate.topics.user.isolation"), cardTitle{Tag: "plain_text"}), Value: interactionModeThreadIsolated},
 	})
-	selectField("新会话默认专家", "group_agent", profileOptions)
-	selectField("运行引擎", "group_runtime", runtimeOptions)
-	selectField("模型", "group_model", modelOptions)
-	inputField("原生模型名称（上方选择“输入原生模型名称”时使用）", "group_native_model", "例如引擎支持的模型名")
+	selectField(managementCopy("management.default.expert.for.new.sessions"), "group_agent", profileOptions)
+	selectField(managementCopy("management.runtime"), "group_runtime", runtimeOptions)
+	selectField(managementCopy("management.model"), "group_model", modelOptions)
+	inputField(managementCopy("management.native.model.name.when.selected.above"), "group_native_model", managementCopy("management.for.example.a.model.name.supported.by.the.runtime"))
 	reasoningOptions := managementRuntimeReasoningOptions(state, effectiveRuntime, modelRef)
 	if runtimeRef == "" {
 		reasoningOptions = managementProfileReasoningOptions(state, selectedAgent, modelRef)
 	}
-	selectField("思考强度", "group_reasoning", reasoningOptions)
-	selectField("处理过程展示", "group_thinking", []cardOption{
-		{Text: cardTitle{Tag: "plain_text", Content: "折叠展示"}, Value: config.FeishuThinkingProcessCollapsed},
-		{Text: cardTitle{Tag: "plain_text", Content: "展开展示"}, Value: config.FeishuThinkingProcessExpanded},
-		{Text: cardTitle{Tag: "plain_text", Content: "不展示"}, Value: config.FeishuThinkingProcessHidden},
+	selectField(managementCopy("management.reasoning.effort"), "group_reasoning", reasoningOptions)
+	selectField(managementCopy("management.activity.display"), "group_thinking", []cardOption{
+		{Text: managementStyledText(managementCopy("management.collapsed"), cardTitle{Tag: "plain_text"}), Value: config.FeishuThinkingProcessCollapsed},
+		{Text: managementStyledText(managementCopy("management.expanded"), cardTitle{Tag: "plain_text"}), Value: config.FeishuThinkingProcessExpanded},
+		{Text: managementStyledText(managementCopy("management.hidden"), cardTitle{Tag: "plain_text"}), Value: config.FeishuThinkingProcessHidden},
 	})
-	selectField("谁可以发起任务", "group_access", []cardOption{
-		{Text: cardTitle{Tag: "plain_text", Content: "只有负责人"}, Value: WorkspaceModeOwnerOnly},
-		{Text: cardTitle{Tag: "plain_text", Content: "群成员（仍需满足助手与执行权限）"}, Value: WorkspaceModeShared},
+	selectField(managementCopy("management.who.can.start.tasks"), "group_access", []cardOption{
+		{Text: managementStyledText(managementCopy("management.owner.only"), cardTitle{Tag: "plain_text"}), Value: WorkspaceModeOwnerOnly},
+		{Text: managementStyledText(managementCopy("management.group.members.subject.to.assistant.and.execution.permissions"), cardTitle{Tag: "plain_text"}), Value: WorkspaceModeShared},
 	})
-	inputField("目标机器", "group_target", "留空自动选择")
-	inputField("工作目录", "group_cwd", "目标机器上的绝对路径；留空使用默认目录")
-	inputField("附加参数（JSON 字符串数组）", "group_args", `["--flag", "value with spaces"]`)
-	inputField("空闲回收时间（秒，0 关闭，或至少 60）", "group_idle_seconds", "非负整数")
-	inputField("上下文条数", "group_context_limit", "非负整数")
-	inputField("群会话总上限（0 不限）", "group_max_total", "非负整数")
-	inputField("每用户会话上限（0 不限）", "group_max_per_user", "非负整数")
+	inputField(managementCopy("management.target.machine"), "group_target", managementCopy("management.leave.blank.for.automatic.selection"))
+	inputField(managementCopy("management.working.directory"), "group_cwd", managementCopy("management.absolute.path.on.the.target.machine.leave.blank.for"))
+	inputField(managementCopy("management.extra.arguments.json.string.array"), "group_args", `["--flag", "value with spaces"]`)
+	inputField(managementCopy("management.idle.timeout.seconds.0.to.disable.or.at.least"), "group_idle_seconds", managementCopy("management.nonnegative.integer"))
+	inputField(managementCopy("management.context.message.count"), "group_context_limit", managementCopy("management.nonnegative.integer"))
+	inputField(managementCopy("management.group.session.limit.0.for.unlimited"), "group_max_total", managementCopy("management.nonnegative.integer"))
+	inputField(managementCopy("management.session.limit.per.user.0.for.unlimited"), "group_max_per_user", managementCopy("management.nonnegative.integer"))
 	return form
 }
 
@@ -674,7 +675,7 @@ func groupSettingsRowWithOptions(row cardElement, max int) cardElement {
 			// Append the note after the loop over elements so the walk cannot
 			// revisit it as a select.
 			elements = append(elements,
-				managementHintElement(fmt.Sprintf("选项过多，仅显示 %d/%d 项；当前值已保留。", len(kept), total)))
+				managementHintElement(managementCopy("management.showing.d.d.options.current.value.retained", len(kept), total)))
 		}
 		clone.Columns[ci].Elements = elements
 	}
@@ -734,32 +735,32 @@ func renderGroupSettingsEditCardPage(draft managementGroupSettingsDraft, scope m
 	values[groupSettingsPageKey] = strconv.Itoa(page)
 	form := make([]cardElement, 0, len(rows)+1)
 	form = append(form, rows...)
-	submit := func(action, label string) cardElement {
+	submit := func(action string, label any) cardElement {
 		button := managementFormSubmitButton(action, label)
 		button.Value, _ = json.Marshal(managementButtonValue(groupSettingsScopedButton(action, label, "primary", values)))
 		return button
 	}
-	save := submit(managementActionGroupSettingsSave, "保存本群设置")
-	save.Confirm = managementConfirm("保存本群设置？", "执行参数只影响新会话，已有话题保留原设置。切换连续会话模式会停用原连续会话入口，已接受任务继续完成；新连续会话从空白上下文开始。首次保存后本群与助手全局连续会话分开。")
-	refresh := submit(managementActionGroupSettingsEdit, "更新模型选项")
+	save := submit(managementActionGroupSettingsSave, managementCopy("management.save.group.settings"))
+	save.Confirm = managementConfirm(managementCopy("management.save.these.group.settings"), managementCopy("management.execution.options.affect.only.new.sessions.existing.topics.keep"))
+	refresh := submit(managementActionGroupSettingsEdit, managementCopy("management.refresh.model.options"))
 	refresh.Type = "default"
 	if pages > 1 {
-		form = append(form, managementFormButtonRowElement(save, refresh, groupSettingsPageButton(scope, draft, page-1, "上一页", page > 0), groupSettingsPageButton(scope, draft, page+1, "下一页", page < pages-1)))
+		form = append(form, managementFormButtonRowElement(save, refresh, groupSettingsPageButton(scope, draft, page-1, managementCopy("management.previous.page"), page > 0), groupSettingsPageButton(scope, draft, page+1, managementCopy("management.next.page"), page < pages-1)))
 	} else {
 		form = append(form, managementFormButtonRowElement(save, refresh))
 	}
 	elements := []cardElement{
-		managementHintElement("新话题和新开的连续会话使用本群设置；已有会话不变。仅专家可选择跟随助手，其余字段保存后独立于助手默认值。"),
-		managementHintElement("更换专家或运行引擎后可点击“更新模型选项”；所有已填值都会保留，不兼容的组合将在保存时明确报错。"),
+		managementHintElement(managementCopy("management.new.topics.and.new.persistent.conversations.use.these.group")),
+		managementHintElement(managementCopy("management.after.changing.the.expert.or.runtime.click.refresh.model")),
 	}
 	if pages > 1 {
-		elements = append(elements, managementHintElement(fmt.Sprintf("设置项较多，当前第 %d/%d 页；切换分页不会丢失已填内容。", page+1, pages)))
+		elements = append(elements, managementHintElement(managementCopy("management.page.d.d.of.settings.changing.pages.preserves.entered", page+1, pages)))
 	}
 	elements = append(elements, cardElement{Tag: "form", Name: "group_settings_form", Direction: "vertical", VerticalSpacing: "8px", Elements: form})
 	return marshalNativeManagementCard(managementCardView{
-		Title: "修改本群设置", Subtitle: valueOrPlaceholder(scope["chat_name"], "未命名群") + " · " + scope["chat_id"], Summary: "amux 本群设置编辑", Theme: "blue",
+		Title: managementCopy("management.edit.group.settings"), Subtitle: managementConcat(managementValueOrPlaceholder(scope["chat_name"], managementCopy("management.unnamed.group")), " · ", scope["chat_id"]), Summary: managementCopy("management.amux.group.settings.editor"), Theme: "blue",
 		Elements: elements,
-		Buttons:  []managementButton{groupSettingsScopedButton(managementActionGroupSettingsOpen, "取消", "default", scope)},
+		Buttons:  []managementButton{groupSettingsScopedButton(managementActionGroupSettingsOpen, managementCopy("management.cancel"), "default", scope)},
 	})
 }
 
@@ -768,7 +769,7 @@ func renderGroupSettingsEditCardPage(draft managementGroupSettingsDraft, scope m
 //
 // Feishu requires every element name in a card to be unique, so the name is
 // suffixed per direction rather than reusing the refresh button's action name.
-func groupSettingsPageButton(scope map[string]string, draft managementGroupSettingsDraft, page int, label string, enabled bool) cardElement {
+func groupSettingsPageButton(scope map[string]string, draft managementGroupSettingsDraft, page int, label any, enabled bool) cardElement {
 	button := managementFormSubmitButton(managementActionGroupSettingsEdit, label)
 	button.Type = "default"
 	button.Name = fmt.Sprintf("%s.page.%d", managementActionGroupSettingsEdit, page)

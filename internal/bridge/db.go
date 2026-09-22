@@ -644,7 +644,15 @@ func (b *bridgeDB) migrate() error {
 		return err
 	}
 	if _, err := b.db.Exec(`
-		CREATE TABLE IF NOT EXISTS feishu_management_recovery (
+		CREATE TABLE IF NOT EXISTS feishu_management_locales (
+ bridge_id TEXT NOT NULL, open_id TEXT NOT NULL, locale TEXT NOT NULL CHECK(locale IN ('en','zh-CN')),
+ PRIMARY KEY(bridge_id,open_id)
+ );
+ CREATE TABLE IF NOT EXISTS feishu_private_management_cards (
+ bridge_id TEXT NOT NULL, message_id TEXT NOT NULL, open_id TEXT NOT NULL,
+ PRIMARY KEY(bridge_id,message_id)
+ );
+ CREATE TABLE IF NOT EXISTS feishu_management_recovery (
 			bridge_id TEXT PRIMARY KEY,
 			open_id TEXT NOT NULL,
 			message_id TEXT NOT NULL DEFAULT '',

@@ -371,11 +371,12 @@ func stringValues(value any) []string {
 	return nil
 }
 
-func cardToast(kind, content string) *callback.CardActionTriggerResponse {
-	return &callback.CardActionTriggerResponse{Toast: &callback.Toast{Type: kind, Content: content}}
+func cardToast(kind string, content any) *callback.CardActionTriggerResponse {
+	text := managementPlainText(content)
+	return &callback.CardActionTriggerResponse{Toast: &callback.Toast{Type: kind, Content: text.Content, I18nContent: text.I18nContent}}
 }
 
-func cardToastWithCard(kind, content, cardJSON string) *callback.CardActionTriggerResponse {
+func cardToastWithCard(kind string, content any, cardJSON string) *callback.CardActionTriggerResponse {
 	response := cardToast(kind, content)
 	var data any
 	if json.Unmarshal([]byte(cardJSON), &data) == nil {

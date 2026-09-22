@@ -589,26 +589,22 @@ func (b *Bridge) notifyCapabilityPermissionIssue(ctx context.Context, issue capa
 	notifyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	card := renderCapabilityPermissionCard(issue)
-	var err error
-	if b.dmInteractive != nil {
-		_, _, err = b.dmInteractive(notifyCtx, ownerOpenID, card)
-	} else {
-		_, _, err = b.sendInteractiveToDM(notifyCtx, ownerOpenID, card, "capability permission card")
-	}
+	err := b.sendManagementCardToDM(notifyCtx, ownerOpenID, card)
 	if err == nil {
 		return nil
 	}
-	text := capabilityPermissionNotice(issue)
+	text := managementCapabilityPermissionNotice(issue)
 	if issue.GrantURL != "" {
-		text += "\n申请权限：" + issue.GrantURL
+		text = managementConcat(text, "\n", managementCopy("management.permission.fallback.link", issue.GrantURL))
 	}
+	fallbackText := b.managementFallbackText(ownerOpenID, text)
 	fallbackCtx, fallbackCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer fallbackCancel()
 	var fallbackErr error
 	if b.dmNotice != nil {
-		_, _, fallbackErr = b.dmNotice(fallbackCtx, ownerOpenID, text)
+		_, _, fallbackErr = b.dmNotice(fallbackCtx, ownerOpenID, fallbackText)
 	} else {
-		_, _, fallbackErr = b.sendDM(fallbackCtx, ownerOpenID, text)
+		_, _, fallbackErr = b.sendDM(fallbackCtx, ownerOpenID, fallbackText)
 	}
 	if fallbackErr == nil {
 		return nil
@@ -639,28 +635,28 @@ func capabilityPermissionNotice(issue capabilityPermissionIssue) string {
 
 func renderCapabilityPermissionCard(issue capabilityPermissionIssue) string {
 	elements := []cardElement{
-		managementTextElement(capabilityPermissionNotice(issue), "normal", "orange", managementIconPtr("warning_outlined", "orange")),
-		managementHintElement("点击「申请权限」向企业管理员发起授权申请；免审权限立即生效，需审核权限在管理员审核后自动恢复，也可能需要发布应用版本。"),
+		managementTextElement(managementCapabilityPermissionNotice(issue), "normal", "orange", managementIconPtr("warning_outlined", "orange")),
+		managementHintElement(managementCopy("management.permission.request.hint")),
 	}
 	var buttons []managementButton
 	if len(issue.Scopes) > 0 {
 		buttons = append(buttons, managementButton{
-			Text:    "申请权限",
+			Text:    managementCopy("management.request.permissions"),
 			Type:    "primary",
 			Action:  managementActionPermissionApply,
 			Name:    "amux.capabilities.permissions.apply",
-			Confirm: managementConfirm("向企业管理员申请这些权限？", "应用会向租户管理员发起权限授权申请；审核生效后能力自动恢复，可能需要发布应用版本。"),
+			Confirm: managementConfirm(managementCopy("management.request.these.permissions.from.the.organization.administrator"), managementCopy("management.the.app.will.request.permissions.from.the.tenant.administrator")),
 		})
 	}
 	if issue.GrantURL != "" {
-		buttons = append(buttons, managementButton{Text: "开发者后台", Type: "default", URL: issue.GrantURL})
+		buttons = append(buttons, managementButton{Text: managementCopy("management.developer.console"), Type: "default", URL: issue.GrantURL})
 	}
 	if issue.Capability == capabilityFeishuIntegration {
-		buttons = append(buttons, managementButton{Text: "重新检测", Type: "default", Action: managementActionPermissionRecheck})
+		buttons = append(buttons, managementButton{Text: managementCopy("management.recheck"), Type: "default", Action: managementActionPermissionRecheck})
 	}
 	return marshalNativeManagementCard(managementCardView{
-		Title:    issue.Name + "需要补充权限",
-		Summary:  capabilityPermissionNotice(issue),
+		Title:    managementCopy("management.permission.title", managementCapabilityName(issue)),
+		Summary:  managementCapabilityPermissionNotice(issue),
 		Theme:    "orange",
 		Icon:     managementIcon("warning_outlined", "orange"),
 		Elements: elements,
@@ -672,22 +668,22 @@ func renderCapabilityPermissionCard(issue capabilityPermissionIssue) string {
 // apply together with the official registration confirmation page URL that
 // pre-fills the missing scopes, so the owner can move them into the
 // pending-publish state in one click.
-func renderPermissionGrantGuideCard(issue capabilityPermissionIssue, notice, confirmURL string) string {
+func renderPermissionGrantGuideCard(issue capabilityPermissionIssue, notice any, confirmURL string) string {
 	elements := []cardElement{
 		managementTextElement(notice, "normal", "orange", managementIconPtr("warning_outlined", "orange")),
-		managementHintElement("打开「申请确认页」会预填所需权限，确认后权限进入待发布；发布应用版本后生效，能力会自动恢复。"),
+		managementHintElement(managementCopy("management.permission.guide.hint")),
 	}
 	var buttons []managementButton
 	if strings.TrimSpace(confirmURL) != "" {
-		buttons = append(buttons, managementButton{Text: "申请确认页", Type: "primary", URL: strings.TrimSpace(confirmURL)})
+		buttons = append(buttons, managementButton{Text: managementCopy("management.permission.confirm.page"), Type: "primary", URL: strings.TrimSpace(confirmURL)})
 	}
 	if issue.GrantURL != "" {
-		buttons = append(buttons, managementButton{Text: "开发者后台", Type: "default", URL: issue.GrantURL})
+		buttons = append(buttons, managementButton{Text: managementCopy("management.developer.console"), Type: "default", URL: issue.GrantURL})
 	}
-	buttons = append(buttons, managementButton{Text: "重新检测", Type: "default", Action: managementActionPermissionRecheck})
+	buttons = append(buttons, managementButton{Text: managementCopy("management.recheck"), Type: "default", Action: managementActionPermissionRecheck})
 	return marshalNativeManagementCard(managementCardView{
-		Title:    "需要补充权限",
-		Summary:  capabilityPermissionNotice(issue),
+		Title:    managementCopy("management.permission.required"),
+		Summary:  managementCapabilityPermissionNotice(issue),
 		Theme:    "orange",
 		Icon:     managementIcon("warning_outlined", "orange"),
 		Elements: elements,

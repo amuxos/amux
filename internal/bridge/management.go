@@ -69,9 +69,6 @@ const (
 	botMenuStatus   = "amux.system.status"
 	botMenuHelp     = "amux.help"
 
-	managementMessageHandlingQuestion = "消息如何处理"
-	managementMessageHandlingSummary  = "处理方式"
-
 	// interactionModeThreadIsolated is the card-facing composite value for the
 	// 每个话题独立(用户隔离) option. It is not a routing mode: it decomposes to
 	// (thread, isolation_required=true) at the settings persistence boundary
@@ -166,7 +163,7 @@ func (b *Bridge) handleBotMenu(ctx context.Context, event *larkapplication.P2Bot
 	}
 }
 
-func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback.CardActionTriggerEvent) (*callback.CardActionTriggerResponse, bool, error) {
+func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback.CardActionTriggerEvent) (response *callback.CardActionTriggerResponse, handled bool, err error) {
 	if event == nil || event.Event == nil || event.Event.Action == nil {
 		return nil, false, nil
 	}
@@ -174,6 +171,11 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	if action == "" {
 		return nil, false, nil
 	}
+	defer func() {
+		if event.Event.Operator != nil {
+			b.localizeManagementToast(response, event.Event.Operator.OpenID)
+		}
+	}()
 	if response, handled, err := b.handleGroupSettingsCardAction(ctx, event, action); handled {
 		return response, true, err
 	}
@@ -182,7 +184,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		openID = event.Event.Operator.OpenID
 	}
 	if !b.ownerConfirmed() || !b.canUseBridge(openID) {
-		return cardToast("error", "你没有权限管理这个智能体"), true, nil
+		return cardToast("error", managementCopy("management.you.do.not.have.permission.to.manage.this.assistant")), true, nil
 	}
 	messageID := ""
 	if event.Event.Context != nil {
@@ -190,6 +192,9 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	}
 	if action != managementActionPermissionRecheck {
 		b.invalidateFeishuPermissionRecheck(messageID)
+	}
+	if action == managementActionLanguage {
+		return b.changeManagementLocale(openID, messageID, event.Event.Action), true, nil
 	}
 	state := b.managementState()
 	surface := managementSurfaceFromCallback(event.Event.Action)
@@ -220,7 +225,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	capabilitiesCard := func(current managementState) string {
 		return renderCapabilitiesCard(current)
 	}
-	documentCommentsCard := func(current managementState, notice string) string {
+	documentCommentsCard := func(current managementState, notice any) string {
 		return renderDocumentCommentsCardWithNotice(current, notice)
 	}
 	systemMaintenanceCard := func(current managementState) string {
@@ -236,30 +241,30 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	case managementActionExperimentsOpen, managementActionExperimentsSave, managementActionExperimentsSaveRestart:
 		saved, err := config.ReadExperimentsSettings()
 		if err != nil {
-			return cardToast("error", "无法读取实验功能配置，请检查配置文件"), true, nil
+			return cardToast("error", managementCopy("management.cannot.read.experiment.settings.check.the.configuration.file")), true, nil
 		}
 		if action != managementActionExperimentsOpen {
 			update, err := managementExperimentsSettingsFromCallback(event.Event.Action, saved)
 			if err != nil {
-				return cardToast("error", err.Error()), true, nil
+				return cardToast("error", managementErrorText(err)), true, nil
 			}
 			saved, err = config.UpdateExperimentsSettings(update)
 			if err != nil {
-				return cardToast("error", "实验功能保存失败，请检查配置文件"), true, nil
+				return cardToast("error", managementCopy("management.cannot.save.experiment.settings.check.the.configuration.file")), true, nil
 			}
 		}
 		if action == managementActionExperimentsSaveRestart {
 			updateFocusedCard(renderManagementExperimentsRestartConfirmationCard(state))
-			return cardToast("success", "已保存，请确认重启"), true, nil
+			return cardToast("success", managementCopy("management.saved.confirm.the.restart.to.apply.changes")), true, nil
 		}
 		updateFocusedCard(renderManagementExperimentsCard(saved, config.GetExperimentsSettings()))
 		if action == managementActionExperimentsSave {
-			return cardToast("success", "已保存，重启 amux 后生效"), true, nil
+			return cardToast("success", managementCopy("management.saved.restart.amux.to.apply.changes")), true, nil
 		}
-		return cardToast("success", "已打开实验功能"), true, nil
+		return cardToast("success", managementCopy("management.experiments.opened")), true, nil
 	case managementActionOnboardingEdit:
 		updateFocusedCard(renderOnboardingDraftCard(state, managementDraftFromCallback(event.Event.Action, state)))
-		return cardToast("success", "已更新配置选择"), true, nil
+		return cardToast("success", managementCopy("management.configuration.selection.updated")), true, nil
 	case managementActionOnboardingSubmit:
 		if message := managementProfileSubmissionError(event.Event.Action, state); message != "" {
 			updateFocusedCard(renderOnboardingDraftCard(state, managementDraftFromState(state)))
@@ -281,7 +286,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		if draft.Interaction != state.Mode {
 			req := managementBotSettingsRequest(state, draft, messageID, openID)
 			b.runManagementSettingsTransition(openID, messageID, state, draft, req, true, surface)
-			return cardToast("success", "正在准备助手，请稍候"), true, nil
+			return cardToast("success", managementCopy("management.preparing.the.assistant.please.wait")), true, nil
 		}
 		if managementUsesThreadRouting(state.Mode) {
 			updated, err := b.commitThreadManagementSettings(state, draft)
@@ -289,7 +294,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 				if errors.Is(err, errBotProfileStateChanged) {
 					updated = b.managementState()
 					updateFocusedCard(renderOnboardingDraftCard(updated, managementDraftFromState(updated)))
-					return cardToast("warning", "配置已变化，请重新确认"), true, nil
+					return cardToast("warning", managementCopy("management.configuration.changed.please.confirm.again")), true, nil
 				}
 				return cardToast("error", managementSettingsFailureMessage(err)), true, nil
 			}
@@ -303,60 +308,60 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		}
 		draft = managementDraftFromState(state)
 		updateCard(renderOnboardingCompleteCard(state, draft), managementViewSettings)
-		return cardToast("success", "助手配置已保存"), true, nil
+		return cardToast("success", managementCopy("management.assistant.configuration.saved")), true, nil
 	case managementActionSettingsOpen:
 		if surface == managementSurfaceAmux {
 			updateCard(settingsSummaryCard(state), managementViewSettings)
 		} else {
 			updateSettingsEditCard(state, managementDraftFromState(state))
 		}
-		return cardToast("success", "已打开助手设置"), true, nil
+		return cardToast("success", managementCopy("management.assistant.settings.opened")), true, nil
 	case managementActionSettingsEdit:
 		updateSettingsEditCard(state, managementDraftFromCallback(event.Event.Action, state))
-		return cardToast("success", "已更新配置选择"), true, nil
+		return cardToast("success", managementCopy("management.configuration.selection.updated")), true, nil
 	case managementActionCapabilitiesOpen:
 		updateFocusedCard(capabilitiesCard(state))
-		return cardToast("success", "已打开接入能力"), true, nil
+		return cardToast("success", managementCopy("management.integrations.opened")), true, nil
 	case managementActionBotToBotOpen:
 		updateFocusedCard(renderBotToBotCard(state))
-		return cardToast("success", "已打开智能体协作设置"), true, nil
+		return cardToast("success", managementCopy("management.agent.collaboration.settings.opened")), true, nil
 	case managementActionBotToBotSet:
 		enabled, err := strconv.ParseBool(managementCallbackString(event.Event.Action, "enabled"))
 		if err != nil {
-			return cardToast("warning", "无法识别智能体协作设置，请刷新后重试"), true, nil
+			return cardToast("warning", managementCopy("management.invalid.agent.collaboration.settings.refresh.and.try.again")), true, nil
 		}
 		if !b.beginManagementBotToBotSettings() {
-			return cardToast("warning", "智能体协作设置正在更新，请等待卡片刷新"), true, nil
+			return cardToast("warning", managementCopy("management.agent.collaboration.settings.are.updating.wait.for.the.card")), true, nil
 		}
 		b.runManagementBotToBotSettingsUpdate(openID, messageID, enabled, surface)
 		if enabled {
-			return cardToast("success", "正在开启智能体协作"), true, nil
+			return cardToast("success", managementCopy("management.enabling.agent.collaboration")), true, nil
 		}
-		return cardToast("success", "正在关闭智能体协作"), true, nil
+		return cardToast("success", managementCopy("management.disabling.agent.collaboration")), true, nil
 	case managementActionPermissionRecheck:
 		version, ok := b.beginFeishuPermissionRecheck(messageID)
 		if !ok {
-			return cardToast("warning", "飞书权限正在检测，请稍候"), true, nil
+			return cardToast("warning", managementCopy("management.checking.feishu.permissions.please.wait")), true, nil
 		}
 		b.runFeishuPermissionRecheck(openID, messageID, surface, version)
-		return cardToast("success", "正在重新检测飞书权限"), true, nil
+		return cardToast("success", managementCopy("management.rechecking.feishu.permissions")), true, nil
 	case managementActionPermissionApply:
 		version, ok := b.beginFeishuPermissionApply(messageID)
 		if !ok {
-			return cardToast("warning", "权限申请正在进行，请稍候"), true, nil
+			return cardToast("warning", managementCopy("management.a.permission.request.is.in.progress.please.wait")), true, nil
 		}
 		b.runFeishuPermissionApply(openID, messageID, surface, version)
-		return cardToast("success", "正在向管理员申请权限"), true, nil
+		return cardToast("success", managementCopy("management.requesting.permission.from.the.administrator")), true, nil
 	case managementActionGroupWatchOpen:
 		updateFocusedCard(renderGroupWatchManagementCardWithNames(state, b.resolveGroupWatchNames(ctx, state.GroupWatch.ChatIDs)))
-		return cardToast("success", "已打开群值守管理"), true, nil
+		return cardToast("success", managementCopy("management.group.watch.management.opened")), true, nil
 	case managementActionGroupWatchEdit:
 		draft := managementGroupWatchDraftFromCallback(event.Event.Action, state)
 		updateFocusedCard(renderGroupWatchEditCard(state, draft))
 		if managementGroupWatchDraftField(event.Event.Action) == "group_watch_agent" {
-			return cardToast("success", "已更新可选模型"), true, nil
+			return cardToast("success", managementCopy("management.available.models.updated")), true, nil
 		}
-		return cardToast("success", "已打开群值守执行配置"), true, nil
+		return cardToast("success", managementCopy("management.group.watch.execution.settings.opened")), true, nil
 	case managementActionGroupWatchSave:
 		if message := managementGroupWatchSubmissionError(event.Event.Action, state); message != "" {
 			updateFocusedCard(renderGroupWatchEditCard(
@@ -367,10 +372,10 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		}
 		draft := managementGroupWatchDraftFromCallback(event.Event.Action, state)
 		if !b.beginManagementGroupWatchExecution() {
-			return cardToast("warning", "群值守执行配置正在更新，请等待卡片刷新"), true, nil
+			return cardToast("warning", managementCopy("management.group.watch.execution.settings.are.updating.wait.for.the")), true, nil
 		}
 		b.runManagementGroupWatchExecutionUpdate(openID, messageID, draft, surface)
-		return cardToast("success", "正在保存值守任务配置"), true, nil
+		return cardToast("success", managementCopy("management.saving.group.watch.task.settings")), true, nil
 	case managementActionGroupWatchUpdate:
 		operation := managementCallbackString(event.Event.Action, "operation")
 		chatID := managementCallbackString(event.Event.Action, "chat_id")
@@ -378,10 +383,10 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		view := managementCallbackString(event.Event.Action, "view")
 		updated, updateErr := b.updateGroupWatchForProfile(operation, chatID)
 		if updateErr != nil {
-			if strings.Contains(updateErr.Error(), "每个话题独立") {
-				return cardToast("warning", updateErr.Error()), true, nil
+			if errors.Is(updateErr, errGroupWatchInteraction) {
+				return cardToast("warning", managementErrorText(updateErr)), true, nil
 			}
-			return cardToast("error", "群值守设置保存失败，请稍后重试"), true, nil
+			return cardToast("error", managementCopy("management.cannot.save.group.watch.settings.try.again.later")), true, nil
 		}
 		state = b.managementState()
 		if view == "current_group" && strings.TrimSpace(chatID) != "" {
@@ -396,17 +401,17 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		} else {
 			updateFocusedCard(renderGroupWatchManagementCardWithNames(state, b.resolveGroupWatchNames(ctx, state.GroupWatch.ChatIDs)))
 		}
-		return cardToast("success", groupWatchOperationSuccessText(operation)), true, nil
+		return cardToast("success", managementGroupWatchSuccessText(operation)), true, nil
 	case managementActionDocumentCommentsOpen:
 		updateFocusedCard(documentCommentsCard(state, ""))
-		return cardToast("success", "已打开云文档评论设置"), true, nil
+		return cardToast("success", managementCopy("management.document.comment.settings.opened")), true, nil
 	case managementActionDocumentCommentsEdit:
 		draft := managementDocumentCommentsDraftFromCallback(event.Event.Action, state)
 		updateFocusedCard(renderDocumentCommentsEditCard(state, draft))
 		if field := managementDocumentCommentsDraftField(event.Event.Action); field == "document_comments_agent" || field == "document_comments_runtime_ref" || field == "document_comments_model_ref" {
-			return cardToast("success", "已更新可选执行参数"), true, nil
+			return cardToast("success", managementCopy("management.available.execution.options.updated")), true, nil
 		}
-		return cardToast("success", "已打开云文档评论执行配置"), true, nil
+		return cardToast("success", managementCopy("management.document.comment.execution.settings.opened")), true, nil
 	case managementActionDocumentCommentsSave:
 		if message := managementDocumentCommentsSubmissionError(event.Event.Action, state); message != "" {
 			updateFocusedCard(renderDocumentCommentsEditCard(
@@ -417,23 +422,23 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		}
 		draft := managementDocumentCommentsDraftFromCallback(event.Event.Action, state)
 		if !b.beginManagementDocumentSettings() {
-			return cardToast("warning", "云文档评论设置正在更新，请等待卡片刷新"), true, nil
+			return cardToast("warning", managementCopy("management.document.comment.settings.are.updating.wait.for.the.card")), true, nil
 		}
 		b.runManagementDocumentExecutionUpdate(openID, messageID, draft, surface)
-		return cardToast("success", "正在保存评论任务配置"), true, nil
+		return cardToast("success", managementCopy("management.saving.comment.task.settings")), true, nil
 	case managementActionDocumentCommentsSet:
 		enabled, err := strconv.ParseBool(managementCallbackString(event.Event.Action, "enabled"))
 		if err != nil {
-			return cardToast("warning", "无法识别云文档评论设置，请刷新后重试"), true, nil
+			return cardToast("warning", managementCopy("management.invalid.document.comment.settings.refresh.and.try.again")), true, nil
 		}
 		if !b.beginManagementDocumentSettings() {
-			return cardToast("warning", "云文档评论设置正在更新，请等待卡片刷新"), true, nil
+			return cardToast("warning", managementCopy("management.document.comment.settings.are.updating.wait.for.the.card")), true, nil
 		}
 		b.runManagementDocumentSettingsUpdate(openID, messageID, enabled, surface)
 		if enabled {
-			return cardToast("success", "正在开启云文档评论"), true, nil
+			return cardToast("success", managementCopy("management.enabling.document.comments")), true, nil
 		}
-		return cardToast("success", "正在关闭云文档评论"), true, nil
+		return cardToast("success", managementCopy("management.disabling.document.comments")), true, nil
 	case managementActionSettingsSave:
 		if message := managementProfileSubmissionError(event.Event.Action, state); message != "" {
 			updateSettingsEditCard(state, managementDraftFromState(state))
@@ -455,7 +460,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		if draft.Interaction != state.Mode {
 			req := managementBotSettingsRequest(state, draft, messageID, openID)
 			b.runManagementSettingsTransition(openID, messageID, state, draft, req, false, surface)
-			return cardToast("success", "正在更新助手设置，请稍候"), true, nil
+			return cardToast("success", managementCopy("management.updating.assistant.settings.please.wait")), true, nil
 		}
 		if state.Mode == config.FeishuInteractionSingleton && managementExecutionDiffers(state, draft) {
 			req := managementBotSettingsRequest(state, draft, messageID, openID)
@@ -466,10 +471,10 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			if result.Status == BotSettingsStatusStateChanged {
 				updated := b.managementState()
 				updateSettingsEditCard(updated, managementDraftFromState(updated))
-				return cardToast("warning", "配置已变化，请重新确认"), true, nil
+				return cardToast("warning", managementCopy("management.configuration.changed.please.confirm.again")), true, nil
 			}
 			updateFocusedCard(renderSettingsConfirmationCard(state, draft, req, result))
-			return cardToast("warning", "请确认是否更换当前专家或模型"), true, nil
+			return cardToast("warning", managementCopy("management.confirm.changing.the.current.expert.or.model")), true, nil
 		}
 		if managementUsesThreadRouting(state.Mode) {
 			updated, err := b.commitThreadManagementSettings(state, draft)
@@ -477,7 +482,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 				if errors.Is(err, errBotProfileStateChanged) {
 					updated = b.managementState()
 					updateSettingsEditCard(updated, managementDraftFromState(updated))
-					return cardToast("warning", "配置已变化，请重新确认"), true, nil
+					return cardToast("warning", managementCopy("management.configuration.changed.please.confirm.again")), true, nil
 				}
 				return cardToast("error", managementSettingsFailureMessage(err)), true, nil
 			}
@@ -490,23 +495,23 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			state = b.managementState()
 		}
 		updateCard(settingsSummaryCard(state), managementViewSettings)
-		return cardToast("success", "助手设置已保存"), true, nil
+		return cardToast("success", managementCopy("management.assistant.settings.saved")), true, nil
 	case managementActionSettingsConfirm:
 		req, token, ok := managementConfirmedBotSettingsRequest(event.Event.Action, openID)
 		if !ok || !managementValidDefaultAgent(state, req.DefaultAgent) || !b.consumeBotSettingsConfirmation(token, req) {
 			updateSettingsEditCard(state, managementDraftFromState(state))
-			return cardToast("warning", "确认已失效，请重新选择"), true, nil
+			return cardToast("warning", managementCopy("management.confirmation.expired.make.your.selection.again")), true, nil
 		}
 		draft := managementSettingsDraft{Interaction: req.Interaction, DefaultAgent: req.DefaultAgent,
 			DefaultRuntimeRef: req.DefaultRuntimeRef, DefaultModelRef: req.DefaultModelRef,
 			DefaultReasoningEffort: req.DefaultReasoningEffort,
 			ThinkingProcess:        managementCallbackString(event.Event.Action, "thinking_process")}
 		b.runManagementSettingsTransition(openID, messageID, state, draft, req, false, surface)
-		return cardToast("success", "正在处理中，请稍候"), true, nil
+		return cardToast("success", managementCopy("management.processing.please.wait")), true, nil
 	case managementActionSettingsRecoveryBlank:
 		req, token, ok := b.validManagementRecoveryCallback(event.Event.Action, openID)
 		if !ok || !managementRecoveryStateMatches(state, req) || !managementValidDefaultAgent(state, req.DefaultAgent) || !b.consumeBotSettingsConfirmation(token, req) {
-			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, "恢复操作已失效，请重新选择")
+			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, managementCopy("management.recovery.action.expired.make.your.selection.again"))
 		}
 		req.RecoveryAction = BotSettingsRecoveryCreateBlank
 		req.RecoveryAttemptID = token
@@ -515,171 +520,171 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			DefaultReasoningEffort: req.DefaultReasoningEffort,
 			ThinkingProcess:        managementCallbackString(event.Event.Action, "thinking_process")}
 		b.runManagementSettingsTransition(openID, messageID, state, draft, req, false, surface)
-		return cardToast("success", "正在新建空白连续对话，请稍候"), true, nil
+		return cardToast("success", managementCopy("management.creating.a.blank.persistent.conversation.please.wait")), true, nil
 	case managementActionSettingsRecoveryBind:
 		req, token, ok := b.validManagementRecoveryCallback(event.Event.Action, openID)
 		if !ok || !managementRecoveryStateMatches(state, req) {
-			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, "恢复操作已失效，请重新选择")
+			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, managementCopy("management.recovery.action.expired.make.your.selection.again"))
 		}
 		updateFocusedCard(renderSettingsManualBindCard(state, req, managementCallbackString(event.Event.Action, "thinking_process"), token, ""))
-		return cardToast("success", "已显示机器侧绑定步骤"), true, nil
+		return cardToast("success", managementCopy("management.machine.side.binding.instructions.displayed")), true, nil
 	case managementActionSettingsRecoveryCheck:
 		req, token, ok := b.validManagementRecoveryCallback(event.Event.Action, openID)
 		if !ok {
-			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, "恢复操作已失效，请重新选择")
+			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, managementCopy("management.recovery.action.expired.make.your.selection.again"))
 		}
 		if state.Mode == config.FeishuInteractionSingleton && botSessionReady(state.BotSession) {
 			b.consumeBotSettingsConfirmation(token, req)
 			updateCard(settingsSummaryCard(state), managementViewSettings)
-			return cardToast("success", "已检测到绑定"), true, nil
+			return cardToast("success", managementCopy("management.binding.detected")), true, nil
 		}
 		if !managementRecoveryStateMatches(state, req) {
 			updateCard(settingsSummaryCard(state), managementViewSettings)
-			return cardToast("warning", "设置已变化，已刷新最新状态"), true, nil
+			return cardToast("warning", managementCopy("management.settings.changed.latest.state.refreshed")), true, nil
 		}
-		updateFocusedCard(renderSettingsManualBindCard(state, req, managementCallbackString(event.Event.Action, "thinking_process"), token, "尚未检测到绑定"))
-		return cardToast("warning", "尚未检测到绑定"), true, nil
+		updateFocusedCard(renderSettingsManualBindCard(state, req, managementCallbackString(event.Event.Action, "thinking_process"), token, managementCopy("management.no.binding.detected.yet")))
+		return cardToast("warning", managementCopy("management.no.binding.detected.yet")), true, nil
 	case managementActionSettingsRecoveryBack:
 		req, token, ok := b.validManagementRecoveryCallback(event.Event.Action, openID)
 		if !ok || !managementRecoveryStateMatches(state, req) {
-			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, "恢复操作已失效，请重新选择")
+			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, managementCopy("management.recovery.action.expired.make.your.selection.again"))
 		}
 		choice := botSettingsRecoveryChoice(BotProfileState{
 			InteractionMode: state.Mode, DefaultAgent: state.DefaultAgent, Version: state.Version,
 		}, token)
 		updateFocusedCard(renderSettingsRecoveryChoiceCard(state, managementDraftFromState(state), req, choice, ""))
-		return cardToast("success", "已返回恢复选项"), true, nil
+		return cardToast("success", managementCopy("management.returned.to.recovery.options")), true, nil
 	case managementActionSettingsRecoveryDismiss:
 		req, token, ok := b.validManagementRecoveryCallback(event.Event.Action, openID)
 		if !ok || !managementRecoveryStateMatches(state, req) || !b.consumeBotSettingsConfirmation(token, req) {
-			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, "恢复操作已失效")
+			return b.expiredManagementRecoveryCallback(openID, messageID, state, surface, managementCopy("management.recovery.action.expired"))
 		}
 		updateCard(settingsSummaryCard(state), managementViewSettings)
-		return cardToast("success", "已暂不处理"), true, nil
+		return cardToast("success", managementCopy("management.deferred.for.now")), true, nil
 	case managementActionSettingsCancel:
 		updateCard(settingsSummaryCard(state), managementViewSettings)
-		return cardToast("success", "已取消修改"), true, nil
+		return cardToast("success", managementCopy("management.changes.cancelled")), true, nil
 	case managementActionPackLibraryOpen:
 		b.runManagementAgentPackLibraryOpen(openID, messageID, surface)
-		return cardToast("success", "正在打开专家库"), true, nil
+		return cardToast("success", managementCopy("management.opening.the.expert.library")), true, nil
 	case managementActionPackLibraryNavigate:
 		view, ok := managementPackLibraryViewFromCallback(event.Event.Action)
 		if !ok {
-			return cardToast("warning", "无法识别专家库页面，请重新打开"), true, nil
+			return cardToast("warning", managementCopy("management.invalid.expert.library.page.open.it.again")), true, nil
 		}
 		if b.managementPackOperationActive(openID, messageID) {
-			return cardToast("warning", "已有专家库操作正在进行，请等待完成"), true, nil
+			return cardToast("warning", managementCopy("management.an.expert.library.operation.is.in.progress.wait.for")), true, nil
 		}
 		b.runManagementAgentPackLibraryView(openID, messageID, view, surface)
-		return cardToast("success", "正在切换专家库页面"), true, nil
+		return cardToast("success", managementCopy("management.switching.expert.library.pages")), true, nil
 	case managementActionPackManage:
 		namespace := managementCallbackString(event.Event.Action, "namespace")
 		view, ok := managementPackLibraryViewFromCallback(event.Event.Action)
 		if namespace == "" || !ok {
-			return cardToast("warning", "无法识别要管理的专家库，请重新打开"), true, nil
+			return cardToast("warning", managementCopy("management.cannot.identify.the.expert.library.to.manage.open.it")), true, nil
 		}
 		if b.managementPackOperationActive(openID, messageID) {
-			return cardToast("warning", "已有专家库操作正在进行，请等待完成"), true, nil
+			return cardToast("warning", managementCopy("management.an.expert.library.operation.is.in.progress.wait.for")), true, nil
 		}
 		b.runManagementLoadedPackView(openID, messageID, namespace, view, surface)
-		return cardToast("success", "正在打开专家库管理"), true, nil
+		return cardToast("success", managementCopy("management.opening.expert.library.management")), true, nil
 	case managementActionPackInstall:
 		catalogID := managementCallbackString(event.Event.Action, "catalog_id")
 		expectedGeneration := managementCallbackString(event.Event.Action, "expected_generation")
 		if catalogID == "" || expectedGeneration == "" || b.managementPackActions == nil {
-			return cardToast("error", "无法识别要添加的专家"), true, nil
+			return cardToast("error", managementCopy("management.cannot.identify.the.expert.to.add")), true, nil
 		}
 		started, consumed, consumeErr := b.beginAndConsumeManagementPackOperation(
 			openID, messageID, action, catalogID, managementCallbackString(event.Event.Action, "operation_nonce"),
 		)
 		if consumeErr != nil {
-			return cardToast("error", "暂时无法确认专家库操作状态"), true, nil
+			return cardToast("error", managementCopy("management.cannot.check.the.expert.library.operation.status.right.now")), true, nil
 		}
 		if !started {
-			return cardToast("warning", "已有专家库操作正在进行，请等待完成"), true, nil
+			return cardToast("warning", managementCopy("management.an.expert.library.operation.is.in.progress.wait.for")), true, nil
 		}
 		if !consumed {
-			return cardToast("warning", "该操作已提交，请等待卡片刷新"), true, nil
+			return cardToast("warning", managementCopy("management.operation.submitted.wait.for.the.card.to.refresh")), true, nil
 		}
 		view, _ := managementPackLibraryViewFromCallback(event.Event.Action)
 		b.runManagementAgentPackOperation(openID, messageID, managementActionPackInstall, catalogID, expectedGeneration, view, surface)
-		return cardToast("success", "正在添加专家"), true, nil
+		return cardToast("success", managementCopy("management.adding.experts")), true, nil
 	case managementActionPackSync:
 		namespace := managementCallbackString(event.Event.Action, "namespace")
 		expectedGeneration := managementCallbackString(event.Event.Action, "expected_generation")
 		if namespace == "" || expectedGeneration == "" || b.managementPackActions == nil {
-			return cardToast("error", "无法识别要更新的专家"), true, nil
+			return cardToast("error", managementCopy("management.cannot.identify.the.expert.to.update")), true, nil
 		}
 		started, consumed, consumeErr := b.beginAndConsumeManagementPackOperation(
 			openID, messageID, action, namespace, managementCallbackString(event.Event.Action, "operation_nonce"),
 		)
 		if consumeErr != nil {
-			return cardToast("error", "暂时无法确认专家库操作状态"), true, nil
+			return cardToast("error", managementCopy("management.cannot.check.the.expert.library.operation.status.right.now")), true, nil
 		}
 		if !started {
-			return cardToast("warning", "已有专家库操作正在进行，请等待完成"), true, nil
+			return cardToast("warning", managementCopy("management.an.expert.library.operation.is.in.progress.wait.for")), true, nil
 		}
 		if !consumed {
-			return cardToast("warning", "该操作已提交，请等待卡片刷新"), true, nil
+			return cardToast("warning", managementCopy("management.operation.submitted.wait.for.the.card.to.refresh")), true, nil
 		}
 		view, _ := managementPackLibraryViewFromCallback(event.Event.Action)
 		b.runManagementAgentPackOperation(openID, messageID, managementActionPackSync, namespace, expectedGeneration, view, surface)
-		return cardToast("success", "正在检查更新"), true, nil
+		return cardToast("success", managementCopy("management.checking.for.updates")), true, nil
 	case managementActionPackRemove:
 		namespace := managementCallbackString(event.Event.Action, "namespace")
 		expectedGeneration := managementCallbackString(event.Event.Action, "expected_generation")
 		if namespace == "" || expectedGeneration == "" || b.managementPackActions == nil || b.db == nil {
-			return cardToast("error", "无法识别要移除的专家"), true, nil
+			return cardToast("error", managementCopy("management.cannot.identify.the.expert.to.remove")), true, nil
 		}
 		started, consumed, consumeErr := b.beginAndConsumeManagementPackOperation(
 			openID, messageID, action, namespace, managementCallbackString(event.Event.Action, "operation_nonce"),
 		)
 		if consumeErr != nil {
-			return cardToast("error", "暂时无法确认专家库操作状态"), true, nil
+			return cardToast("error", managementCopy("management.cannot.check.the.expert.library.operation.status.right.now")), true, nil
 		}
 		if !started {
-			return cardToast("warning", "已有专家库操作正在进行，请等待完成"), true, nil
+			return cardToast("warning", managementCopy("management.an.expert.library.operation.is.in.progress.wait.for")), true, nil
 		}
 		if !consumed {
-			return cardToast("warning", "该操作已提交，请等待卡片刷新"), true, nil
+			return cardToast("warning", managementCopy("management.operation.submitted.wait.for.the.card.to.refresh")), true, nil
 		}
 		references, err := b.db.BotDefaultAgentReferences(namespace)
 		if err != nil {
 			b.endManagementPackOperation(openID, messageID)
-			return cardToast("error", "暂时无法检查专家使用情况"), true, nil
+			return cardToast("error", managementCopy("management.cannot.check.expert.usage.right.now")), true, nil
 		}
 		if len(references) > 0 {
 			b.endManagementPackOperation(openID, messageID)
-			notice := fmt.Sprintf("这组专家中有专家正被 %d 个飞书助手设为默认专家，请先更换后再移除。", len(references))
+			notice := managementCopy("management.experts.in.this.pack.are.defaults.for.d.feishu", len(references))
 			view, _ := managementPackLibraryViewFromCallback(event.Event.Action)
 			b.runManagementAgentPackLibraryViewWithNotice(openID, messageID, view, notice, surface)
-			return cardToast("warning", "这组专家仍被飞书助手使用"), true, nil
+			return cardToast("warning", managementCopy("management.this.expert.pack.is.still.used.by.feishu.assistants")), true, nil
 		}
 		view, _ := managementPackLibraryViewFromCallback(event.Event.Action)
 		b.runManagementAgentPackOperation(openID, messageID, managementActionPackRemove, namespace, expectedGeneration, view, surface)
-		return cardToast("success", "正在移除专家"), true, nil
+		return cardToast("success", managementCopy("management.removing.experts")), true, nil
 	case managementActionStatusOpen:
 		updateCard(overviewCard(state), managementViewOverview)
-		return cardToast("success", "已打开助手概览"), true, nil
+		return cardToast("success", managementCopy("management.assistant.overview.opened")), true, nil
 	case managementActionSystemMaintenance:
 		updateCard(systemMaintenanceCard(state), managementViewSystem)
-		return cardToast("success", "已打开系统状态"), true, nil
+		return cardToast("success", managementCopy("management.system.status.opened")), true, nil
 	case managementActionSystemRestart, "system.restart.open":
 		updateFocusedCard(renderSystemRestartConfirmationCard(state))
-		return cardToast("warning", "请确认是否重启 amux"), true, nil
+		return cardToast("warning", managementCopy("management.confirm.restarting.amux")), true, nil
 	case managementActionSystemRestartOK:
 		systemInstance := managementCallbackString(event.Event.Action, "system_instance")
 		nonce := managementCallbackString(event.Event.Action, "confirmation_nonce")
 		if !b.consumeManagementRestartConfirmation(state, systemInstance, nonce) {
 			updateCard(systemMaintenanceCard(state), managementViewSystem)
-			return cardToast("warning", "确认已失效，请重新操作"), true, nil
+			return cardToast("warning", managementCopy("management.confirmation.expired.try.again")), true, nil
 		}
 		if !b.beginManagementMaintenance("restart") {
-			return cardToast("warning", "已有系统维护操作正在进行"), true, nil
+			return cardToast("warning", managementCopy("management.a.system.maintenance.operation.is.already.in.progress")), true, nil
 		}
 		if b.db == nil {
 			b.endManagementMaintenance("restart")
-			return cardToast("error", "无法安排重启后的状态恢复，请稍后重试"), true, nil
+			return cardToast("error", managementCopy("management.cannot.schedule.status.recovery.after.restart.try.again.later")), true, nil
 		}
 		if err := b.db.UpsertPendingManagementRecoveryForSurface(
 			b.currentBridgeId(),
@@ -691,41 +696,41 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		); err != nil {
 			b.endManagementMaintenance("restart")
 			log.Warn().Err(err).Msg("bridge: persist pending management recovery")
-			return cardToast("error", "无法安排重启后的状态恢复，请稍后重试"), true, nil
+			return cardToast("error", managementCopy("management.cannot.schedule.status.recovery.after.restart.try.again.later")), true, nil
 		}
 		b.runManagementSystemRestart(openID, messageID, surface)
-		return cardToast("success", "正在重启 amux"), true, nil
+		return cardToast("success", managementCopy("management.restarting.amux")), true, nil
 	case managementActionSystemUpdate, "system.update.open":
 		if !b.beginManagementMaintenance("update_check") {
-			return cardToast("warning", "已有系统维护操作正在进行"), true, nil
+			return cardToast("warning", managementCopy("management.a.system.maintenance.operation.is.already.in.progress")), true, nil
 		}
 		b.runManagementUpdateCheck(openID, messageID, state, surface)
-		return cardToast("success", "正在检查更新"), true, nil
+		return cardToast("success", managementCopy("management.checking.for.updates")), true, nil
 	case managementActionSystemUpdateDismiss:
 		version := managementCallbackString(event.Event.Action, "version")
 		if b.managementActions == nil || version == "" {
-			return cardToast("error", "无法识别要忽略的版本"), true, nil
+			return cardToast("error", managementCopy("management.cannot.identify.the.version.to.dismiss")), true, nil
 		}
 		if err := b.managementActions.DismissUpdate(version); err != nil {
 			log.Warn().Err(err).Str("version", version).Msg("bridge: dismiss management update prompt")
-			return cardToast("error", "暂时无法保存更新提示设置"), true, nil
+			return cardToast("error", managementCopy("management.cannot.save.update.notification.settings.right.now")), true, nil
 		}
 		updateCard(systemMaintenanceCard(b.managementState()), managementViewSystem)
-		return cardToast("success", "此版本不再提示"), true, nil
+		return cardToast("success", managementCopy("management.notifications.dismissed.for.this.version")), true, nil
 	case managementActionSystemUpgrade:
 		systemInstance := managementCallbackString(event.Event.Action, "system_instance")
 		nonce := managementCallbackString(event.Event.Action, "confirmation_nonce")
 		expectedVersion := managementCallbackString(event.Event.Action, "expected_version")
 		if !b.consumeManagementUpgradeConfirmation(state, systemInstance, expectedVersion, nonce) {
 			updateCard(systemMaintenanceCard(state), managementViewSystem)
-			return cardToast("warning", "确认已失效，请重新检查更新"), true, nil
+			return cardToast("warning", managementCopy("management.confirmation.expired.check.for.updates.again")), true, nil
 		}
 		if !b.beginManagementMaintenance("upgrade") {
-			return cardToast("warning", "已有系统维护操作正在进行"), true, nil
+			return cardToast("warning", managementCopy("management.a.system.maintenance.operation.is.already.in.progress")), true, nil
 		}
 		if b.db == nil {
 			b.endManagementMaintenance("upgrade")
-			return cardToast("error", "无法安排升级后的状态恢复，请稍后重试"), true, nil
+			return cardToast("error", managementCopy("management.cannot.schedule.status.recovery.after.upgrade.try.again.later")), true, nil
 		}
 		if err := b.db.UpsertPendingManagementRecoveryForSurface(
 			b.currentBridgeId(),
@@ -737,19 +742,19 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		); err != nil {
 			b.endManagementMaintenance("upgrade")
 			log.Warn().Err(err).Msg("bridge: persist pending upgrade recovery")
-			return cardToast("error", "无法安排升级后的状态恢复，请稍后重试"), true, nil
+			return cardToast("error", managementCopy("management.cannot.schedule.status.recovery.after.upgrade.try.again.later")), true, nil
 		}
 		b.runManagementSystemUpgrade(openID, messageID, expectedVersion, surface)
-		return cardToast("success", "正在升级 amux"), true, nil
+		return cardToast("success", managementCopy("management.upgrading.amux")), true, nil
 	case managementActionHelpOpen:
 		helpCard := renderManagementHelpCard(state)
 		if surface == managementSurfaceAmux {
 			helpCard = renderManagementCompactHelpCard()
 		}
 		updateCard(helpCard, managementViewHelp)
-		return cardToast("success", "已打开使用帮助"), true, nil
+		return cardToast("success", managementCopy("management.help.opened")), true, nil
 	default:
-		return cardToast("warning", "暂不支持这个操作"), true, nil
+		return cardToast("warning", managementCopy("management.this.action.is.not.supported.yet")), true, nil
 	}
 }
 
@@ -764,7 +769,6 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 
 // The installed update command owns the restart. A new amuxd will
 // consume the persisted recovery record.
-
 const managementProfileDefaultModelOption = "__profile_default__"
 const managementRuntimeDefaultReasoningOption = "__runtime_default_reasoning__"
 
@@ -775,7 +779,6 @@ const managementRuntimeDefaultReasoningOption = "__runtime_default_reasoning__"
 
 // Cards sent by the removed experimental command may still be visible
 // or pending recovery during an upgrade. Keep them on the current /amux surface.
-
 type managementState struct {
 	ProfileName                     string
 	OwnerOpenID                     string
@@ -917,7 +920,7 @@ func (b *Bridge) commitThreadManagementSettingsStable(state managementState, dra
 	}
 	if draft.Interaction == interactionModeThreadIsolated {
 		if ok, reason := b.isolationLaunchSupported(); !ok {
-			return state, fmt.Errorf("当前环境不支持「每个话题独立（用户隔离）」：%s。该模式需要已启用用户隔离的 Linux 环境，设置未被修改", reason)
+			return state, managementLocalizedError("management.separate.topics.with.user.isolation.are.unavailable.in.this", reason)
 		}
 	}
 	if _, err := b.db.CommitThreadBotSettingsWithLaunch(b.currentBridgeId(), state.Version, draft.DefaultAgent,

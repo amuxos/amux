@@ -20,6 +20,8 @@ import (
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
+var errGroupWatchInteraction = errors.New("group watch requires topic conversations")
+
 // groupWatchState owns group-watch configuration and change notification.
 type groupWatchState struct {
 	groupWatchMu            sync.RWMutex
@@ -182,7 +184,7 @@ func (b *Bridge) updateGroupWatchForProfile(operation, chatID string) (config.Br
 				return next, err
 			}
 			if err := config.ValidateBridgeFeishuGroupWatchInteraction(next, mode); err != nil {
-				return next, fmt.Errorf("群 %s: %w", configuredChat, err)
+				return next, errors.Join(errGroupWatchInteraction, managementLocalizedError("management.watch.requires.topics", configuredChat))
 			}
 		}
 	}

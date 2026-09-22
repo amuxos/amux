@@ -1,0 +1,2255 @@
+{
+  "management.you.do.not.have.permission.to.manage.this.assistant": {
+    "other": "你没有权限管理这个智能体"
+  },
+  "management.cannot.read.experiment.settings.check.the.configuration.file": {
+    "other": "无法读取实验功能配置，请检查配置文件"
+  },
+  "management.cannot.save.experiment.settings.check.the.configuration.file": {
+    "other": "实验功能保存失败，请检查配置文件"
+  },
+  "management.saved.confirm.the.restart.to.apply.changes": {
+    "other": "已保存，请确认重启"
+  },
+  "management.saved.restart.amux.to.apply.changes": {
+    "other": "已保存，重启 amux 后生效"
+  },
+  "management.experiments.opened": {
+    "other": "已打开实验功能"
+  },
+  "management.configuration.selection.updated": {
+    "other": "已更新配置选择"
+  },
+  "management.preparing.the.assistant.please.wait": {
+    "other": "正在准备助手，请稍候"
+  },
+  "management.configuration.changed.please.confirm.again": {
+    "other": "配置已变化，请重新确认"
+  },
+  "management.assistant.configuration.saved": {
+    "other": "助手配置已保存"
+  },
+  "management.assistant.settings.opened": {
+    "other": "已打开助手设置"
+  },
+  "management.integrations.opened": {
+    "other": "已打开接入能力"
+  },
+  "management.agent.collaboration.settings.opened": {
+    "other": "已打开智能体协作设置"
+  },
+  "management.invalid.agent.collaboration.settings.refresh.and.try.again": {
+    "other": "无法识别智能体协作设置，请刷新后重试"
+  },
+  "management.agent.collaboration.settings.are.updating.wait.for.the.card": {
+    "other": "智能体协作设置正在更新，请等待卡片刷新"
+  },
+  "management.enabling.agent.collaboration": {
+    "other": "正在开启智能体协作"
+  },
+  "management.disabling.agent.collaboration": {
+    "other": "正在关闭智能体协作"
+  },
+  "management.checking.feishu.permissions.please.wait": {
+    "other": "飞书权限正在检测，请稍候"
+  },
+  "management.rechecking.feishu.permissions": {
+    "other": "正在重新检测飞书权限"
+  },
+  "management.a.permission.request.is.in.progress.please.wait": {
+    "other": "权限申请正在进行，请稍候"
+  },
+  "management.requesting.permission.from.the.administrator": {
+    "other": "正在向管理员申请权限"
+  },
+  "management.group.watch.management.opened": {
+    "other": "已打开群值守管理"
+  },
+  "management.available.models.updated": {
+    "other": "已更新可选模型"
+  },
+  "management.group.watch.execution.settings.opened": {
+    "other": "已打开群值守执行配置"
+  },
+  "management.group.watch.execution.settings.are.updating.wait.for.the": {
+    "other": "群值守执行配置正在更新，请等待卡片刷新"
+  },
+  "management.saving.group.watch.task.settings": {
+    "other": "正在保存值守任务配置"
+  },
+  "management.separate.conversation.per.topic": {
+    "other": "每个话题独立"
+  },
+  "management.cannot.save.group.watch.settings.try.again.later": {
+    "other": "群值守设置保存失败，请稍后重试"
+  },
+  "management.document.comment.settings.opened": {
+    "other": "已打开云文档评论设置"
+  },
+  "management.available.execution.options.updated": {
+    "other": "已更新可选执行参数"
+  },
+  "management.document.comment.execution.settings.opened": {
+    "other": "已打开云文档评论执行配置"
+  },
+  "management.document.comment.settings.are.updating.wait.for.the.card": {
+    "other": "云文档评论设置正在更新，请等待卡片刷新"
+  },
+  "management.saving.comment.task.settings": {
+    "other": "正在保存评论任务配置"
+  },
+  "management.invalid.document.comment.settings.refresh.and.try.again": {
+    "other": "无法识别云文档评论设置，请刷新后重试"
+  },
+  "management.enabling.document.comments": {
+    "other": "正在开启云文档评论"
+  },
+  "management.disabling.document.comments": {
+    "other": "正在关闭云文档评论"
+  },
+  "management.updating.assistant.settings.please.wait": {
+    "other": "正在更新助手设置，请稍候"
+  },
+  "management.confirm.changing.the.current.expert.or.model": {
+    "other": "请确认是否更换当前专家或模型"
+  },
+  "management.assistant.settings.saved": {
+    "other": "助手设置已保存"
+  },
+  "management.confirmation.expired.make.your.selection.again": {
+    "other": "确认已失效，请重新选择"
+  },
+  "management.processing.please.wait": {
+    "other": "正在处理中，请稍候"
+  },
+  "management.recovery.action.expired.make.your.selection.again": {
+    "other": "恢复操作已失效，请重新选择"
+  },
+  "management.creating.a.blank.persistent.conversation.please.wait": {
+    "other": "正在新建空白连续对话，请稍候"
+  },
+  "management.machine.side.binding.instructions.displayed": {
+    "other": "已显示机器侧绑定步骤"
+  },
+  "management.binding.detected": {
+    "other": "已检测到绑定"
+  },
+  "management.settings.changed.latest.state.refreshed": {
+    "other": "设置已变化，已刷新最新状态"
+  },
+  "management.no.binding.detected.yet": {
+    "other": "尚未检测到绑定"
+  },
+  "management.returned.to.recovery.options": {
+    "other": "已返回恢复选项"
+  },
+  "management.recovery.action.expired": {
+    "other": "恢复操作已失效"
+  },
+  "management.deferred.for.now": {
+    "other": "已暂不处理"
+  },
+  "management.changes.cancelled": {
+    "other": "已取消修改"
+  },
+  "management.opening.the.expert.library": {
+    "other": "正在打开专家库"
+  },
+  "management.invalid.expert.library.page.open.it.again": {
+    "other": "无法识别专家库页面，请重新打开"
+  },
+  "management.an.expert.library.operation.is.in.progress.wait.for": {
+    "other": "已有专家库操作正在进行，请等待完成"
+  },
+  "management.switching.expert.library.pages": {
+    "other": "正在切换专家库页面"
+  },
+  "management.cannot.identify.the.expert.library.to.manage.open.it": {
+    "other": "无法识别要管理的专家库，请重新打开"
+  },
+  "management.opening.expert.library.management": {
+    "other": "正在打开专家库管理"
+  },
+  "management.cannot.identify.the.expert.to.add": {
+    "other": "无法识别要添加的专家"
+  },
+  "management.cannot.check.the.expert.library.operation.status.right.now": {
+    "other": "暂时无法确认专家库操作状态"
+  },
+  "management.operation.submitted.wait.for.the.card.to.refresh": {
+    "other": "该操作已提交，请等待卡片刷新"
+  },
+  "management.adding.experts": {
+    "other": "正在添加专家"
+  },
+  "management.cannot.identify.the.expert.to.update": {
+    "other": "无法识别要更新的专家"
+  },
+  "management.checking.for.updates": {
+    "other": "正在检查更新"
+  },
+  "management.cannot.identify.the.expert.to.remove": {
+    "other": "无法识别要移除的专家"
+  },
+  "management.cannot.check.expert.usage.right.now": {
+    "other": "暂时无法检查专家使用情况"
+  },
+  "management.experts.in.this.pack.are.defaults.for.d.feishu": {
+    "other": "这组专家中有专家正被 %d 个飞书助手设为默认专家，请先更换后再移除。"
+  },
+  "management.this.expert.pack.is.still.used.by.feishu.assistants": {
+    "other": "这组专家仍被飞书助手使用"
+  },
+  "management.removing.experts": {
+    "other": "正在移除专家"
+  },
+  "management.assistant.overview.opened": {
+    "other": "已打开助手概览"
+  },
+  "management.system.status.opened": {
+    "other": "已打开系统状态"
+  },
+  "management.confirm.restarting.amux": {
+    "other": "请确认是否重启 amux"
+  },
+  "management.confirmation.expired.try.again": {
+    "other": "确认已失效，请重新操作"
+  },
+  "management.a.system.maintenance.operation.is.already.in.progress": {
+    "other": "已有系统维护操作正在进行"
+  },
+  "management.cannot.schedule.status.recovery.after.restart.try.again.later": {
+    "other": "无法安排重启后的状态恢复，请稍后重试"
+  },
+  "management.restarting.amux": {
+    "other": "正在重启 amux"
+  },
+  "management.cannot.identify.the.version.to.dismiss": {
+    "other": "无法识别要忽略的版本"
+  },
+  "management.cannot.save.update.notification.settings.right.now": {
+    "other": "暂时无法保存更新提示设置"
+  },
+  "management.notifications.dismissed.for.this.version": {
+    "other": "此版本不再提示"
+  },
+  "management.confirmation.expired.check.for.updates.again": {
+    "other": "确认已失效，请重新检查更新"
+  },
+  "management.cannot.schedule.status.recovery.after.upgrade.try.again.later": {
+    "other": "无法安排升级后的状态恢复，请稍后重试"
+  },
+  "management.upgrading.amux": {
+    "other": "正在升级 amux"
+  },
+  "management.help.opened": {
+    "other": "已打开使用帮助"
+  },
+  "management.this.action.is.not.supported.yet": {
+    "other": "暂不支持这个操作"
+  },
+  "management.separate.topics.with.user.isolation.are.unavailable.in.this": {
+    "other": "当前环境不支持「每个话题独立（用户隔离）」：%s。该模式需要已启用用户隔离的 Linux 环境，设置未被修改"
+  },
+  "management.back.to.overview": {
+    "other": "返回概览"
+  },
+  "management.running.normally": {
+    "other": "运行正常"
+  },
+  "management.d.runtimes.available.ready.for.tasks": {
+    "other": "可用运行环境 %d 个 · 可以开始任务"
+  },
+  "management.cannot.start.new.tasks.right.now": {
+    "other": "暂时无法开始新任务"
+  },
+  "management.no.runtimes.available.check.system.status": {
+    "other": "没有可用运行环境 · 请查看「系统状态」"
+  },
+  "management.current.configuration": {
+    "other": "当前配置"
+  },
+  "management.manage": {
+    "other": "管理"
+  },
+  "management.send.amux.again.to.refresh.status": {
+    "other": "重新发送 /amux 刷新状态"
+  },
+  "management.default.expert": {
+    "other": "默认专家"
+  },
+  "management.runtime": {
+    "other": "运行引擎"
+  },
+  "management.default.model": {
+    "other": "默认模型"
+  },
+  "management.reasoning.effort": {
+    "other": "思考强度"
+  },
+  "management.activity.display": {
+    "other": "处理过程展示"
+  },
+  "management.system.status": {
+    "other": "系统状态"
+  },
+  "management.assistant.settings": {
+    "other": "助手设置"
+  },
+  "management.expert.library": {
+    "other": "专家库"
+  },
+  "management.experiments": {
+    "other": "实验功能"
+  },
+  "management.help": {
+    "other": "使用帮助"
+  },
+  "management.view.update": {
+    "other": "查看更新"
+  },
+  "management.new.amux.version.available": {
+    "other": "发现 amux 新版本 "
+  },
+  "management.unknown": {
+    "other": "未知"
+  },
+  "management.current": {
+    "other": "（当前 "
+  },
+  "management.current.settings": {
+    "other": "当前设置"
+  },
+  "management.version": {
+    "other": "版本"
+  },
+  "management.uptime": {
+    "other": "运行时长"
+  },
+  "management.connected.assistants": {
+    "other": "已连接智能体"
+  },
+  "management.d": {
+    "other": "%d 个"
+  },
+  "management.hub.host.ip": {
+    "other": "Hub 主机 IP"
+  },
+  "management.continue.the.same.conversation": {
+    "other": "改为继续同一对话？"
+  },
+  "management.messages.sent.to.the.assistant.from.authorized.locations.will": {
+    "other": "在已授权位置中发给智能体的消息会接着同一段对话处理。"
+  },
+  "management.cancel": {
+    "other": "取消"
+  },
+  "management.choose.how.messages.are.handled": {
+    "other": "选择消息处理方式"
+  },
+  "management.no.experts.are.available.add.experts.to.the.library": {
+    "other": "专家库中暂无可用专家，请先添加专家。"
+  },
+  "management.search.experts.libraries.or.descriptions": {
+    "other": "搜索专家、专家库或说明"
+  },
+  "management.choose.a.runtime": {
+    "other": "选择运行引擎"
+  },
+  "management.choose.a.model.supported.by.this.runtime": {
+    "other": "选择该运行引擎支持的模型"
+  },
+  "management.choose.reasoning.effort": {
+    "other": "选择思考强度"
+  },
+  "management.choose.how.activity.is.displayed": {
+    "other": "选择处理过程展示方式"
+  },
+  "management.collapsed.default": {
+    "other": "折叠展示（默认）"
+  },
+  "management.expanded": {
+    "other": "展开展示"
+  },
+  "management.hidden": {
+    "other": "不展示"
+  },
+  "management.runtime.new.sessions.only": {
+    "other": "运行引擎（仅影响新会话）"
+  },
+  "management.default.model.new.sessions.only": {
+    "other": "默认模型（仅影响新会话）"
+  },
+  "management.reasoning.effort.new.sessions.only": {
+    "other": "思考强度（仅影响新会话）"
+  },
+  "management.use.the.runtime.default.model": {
+    "other": "使用运行引擎默认模型"
+  },
+  "management.use": {
+    "other": "使用 "
+  },
+  "management.default.model.130": {
+    "other": " 默认模型"
+  },
+  "management.use.the.runtime.default.effort": {
+    "other": "使用运行引擎默认强度"
+  },
+  "management.keep.current.unavailable.in.library": {
+    "other": "保持当前（库中不可用） · "
+  },
+  "management.no.experts.are.available.in.the.library": {
+    "other": "当前专家库暂无可用专家。"
+  },
+  "management.search.all.d.experts.in.the.library": {
+    "other": "可搜索专家库中的全部专家，共 %d 个。"
+  },
+  "management.continue.the.same.conversation.135": {
+    "other": "继续同一对话"
+  },
+  "management.separate.topics.user.isolation": {
+    "other": "每个话题独立（用户隔离）"
+  },
+  "management.messages.sent.to.the.assistant.continue.the.previous.conversation": {
+    "other": "发给智能体的消息会接着之前的对话处理。"
+  },
+  "management.each.new.topic.is.independent.and.runs.in.a": {
+    "other": "每个新话题互不影响，且各自运行在独立的用户环境（隔离模式）。"
+  },
+  "management.each.new.topic.starts.fresh.independently.of.other.topics": {
+    "other": "每个新话题都从头开始，话题之间互不影响。"
+  },
+  "management.each.new.topic.uses.an.empty.workspace.under.its": {
+    "other": "每个新话题使用隔离用户下的独立空工作区"
+  },
+  "management.each.new.topic.uses.a.separate.empty.workspace": {
+    "other": "每个新话题使用独立空工作区"
+  },
+  "management.current.workspace": {
+    "other": "当前工作区："
+  },
+  "management.current.workspace.not.recorded.rebind.it.on.the.machine": {
+    "other": "当前工作区：未记录，请在运行 amux 的机器上重新绑定"
+  },
+  "management.continue.the.same.conversation.144": {
+    "other": "如何继续同一对话"
+  },
+  "management.use.separate.conversations.per.topic": {
+    "other": "如何让每个话题独立"
+  },
+  "management.private.chat.send.a.message.directly.group.chat.mention": {
+    "other": "私聊智能体：直接发送消息\n群聊：@智能体 后发送消息\n"
+  },
+  "management.private.chat.send.a.message.to.start.a.task": {
+    "other": "私聊智能体：发送消息发起任务\n群聊：@智能体 后发送消息发起任务\n在对应飞书话题中继续讨论\n"
+  },
+  "management.continues.the.previous.conversation": {
+    "other": "：接着之前的对话处理。\n"
+  },
+  "management.starts.each.new.topic.independently": {
+    "other": "：新话题从头开始，互不影响。\n"
+  },
+  "management.keeps.topics.independent.each.in.a.separate.user.environment": {
+    "other": "：新话题互不影响，且各自运行在独立的用户环境（隔离模式）。"
+  },
+  "management.to.let.other.group.members.use.the.assistant.mention": {
+    "other": "需要让群里的其他人使用时，请在对应群里 @当前智能体 发送“开启协作模式”；需要恢复为仅负责人使用时，请同样 @当前智能体 发送“关闭协作模式”。"
+  },
+  "management.d.days.d.hours": {
+    "other": "%s %s"
+  },
+  "management.d.days": {
+    "other": "%d 天"
+  },
+  "management.d.hours": {
+    "other": "%d 小时"
+  },
+  "management.d.minutes": {
+    "other": "%d 分钟"
+  },
+  "management.less.than.1.minute": {
+    "other": "不到 1 分钟"
+  },
+  "management.choose.on.or.off": {
+    "other": "请选择开启或关闭"
+  },
+  "management.the.notification.threshold.must.be.an.integer.from.0": {
+    "other": "通知阈值须为 0 到 604800 秒的整数"
+  },
+  "management.choose.whether.to.enable.per.group.settings": {
+    "other": "请选择开启或关闭群独立配置"
+  },
+  "management.choose.whether.to.enable.agent.memory": {
+    "other": "请选择开启或关闭 Agent 记忆"
+  },
+  "management.choose.on.or.off.161": {
+    "other": "选择开关"
+  },
+  "management.off": {
+    "other": "关闭"
+  },
+  "management.on": {
+    "other": "开启"
+  },
+  "management.currently.d.seconds.leave.blank.to.keep": {
+    "other": "当前 %d 秒；留空保持"
+  },
+  "management.notify.when.a.task.taking.at.least.d.seconds": {
+    "other": "任务耗时达到 %d 秒，结束时提醒你"
+  },
+  "management.notify.only.when.input.is.needed.or.a.task": {
+    "other": "仅在等待补充或失败时提醒你"
+  },
+  "management.notify.when.long.tasks.finish": {
+    "other": "开启后，长任务结束时提醒你"
+  },
+  "management.long.conversation.completion.notifications": {
+    "other": "长会话完成通知"
+  },
+  "management.notification.threshold.seconds": {
+    "other": "通知阈值（秒）"
+  },
+  "management.notify.the.turn.initiator.through.a.private.card.linking": {
+    "other": "通过私聊卡片提醒本轮发起人，点击返回原话题，不在话题内追加消息。成功、等待补充和失败均达到阈值才提醒，不判断已读。智能体自动触发不提醒。0 关闭全部新增提醒。关闭开关则停止全部新增提醒。单个助手的阈值配置优先。"
+  },
+  "management.per.group.settings": {
+    "other": "群独立配置"
+  },
+  "management.set.an.expert.runtime.model.reasoning.effort.and.conversation": {
+    "other": "为每个群单独设置专家、Runtime、模型、思考强度和会话模式。默认关闭；关闭后保留已保存配置，暂停这些群的新任务。"
+  },
+  "management.agent.memory": {
+    "other": "Agent 记忆"
+  },
+  "management.remember.preferences.and.experience.across.conversations.without.an.agent": {
+    "other": "跨对话记住偏好与经验，无需 Agent Profile"
+  },
+  "management.supports.codex.claude.and.pi.shared.across.runtimes.in": {
+    "other": "支持 Codex、Claude、Pi。整个 amux 系统跨 Runtime 共享；用户隔离模式下按用户分开。默认关闭，开启并重启后用于新对话。关闭阻止读写并保留记忆文件，已进入旧对话的内容不会清除。"
+  },
+  "management.save.and.restart": {
+    "other": "保存并重启"
+  },
+  "management.applies.to.all.assistants.in.this.instance": {
+    "other": "对当前实例的全部助手生效"
+  },
+  "management.amux.experiments": {
+    "other": "amux 实验功能"
+  },
+  "management.restart.pending.saved.settings.are.not.active.yet": {
+    "other": "待重启 · 已保存的设置尚未生效"
+  },
+  "management.advanced.settings": {
+    "other": "高级设置"
+  },
+  "management.confirm.restart": {
+    "other": "确认重启"
+  },
+  "management.experiment.settings.saved.restart.pending": {
+    "other": "实验设置已保存，等待重启"
+  },
+  "management.experiment.settings.are.saved.restarting.briefly.takes.assistants.offline": {
+    "other": "实验设置已保存。重启时助手会短暂离线，现有会话不会删除。取消则保留设置，稍后重启生效。"
+  },
+  "management.invalid.group.settings.card.scope.send.amux.again.in": {
+    "other": "群设置卡片范围无效，请在目标群重新发送 /amux"
+  },
+  "management.per.group.settings.are.unavailable.in.private.chat": {
+    "other": "私聊不支持群独立设置"
+  },
+  "management.the.current.persistent.conversation.does.not.belong.to.this": {
+    "other": "当前连续会话不属于本群"
+  },
+  "management.only.the.owner.can.manage.group.settings": {
+    "other": "只有负责人可以管理群设置"
+  },
+  "management.cannot.verify.the.group.settings.card.check.the.assistant": {
+    "other": "无法验证群设置卡片，请检查智能体凭据"
+  },
+  "management.group.settings.opened.not.saved.yet": {
+    "other": "已打开本群设置，尚未保存"
+  },
+  "management.choose.whether.to.add.or.remove.this.group.from": {
+    "other": "请选择加入或移出本群值守"
+  },
+  "management.current.group.settings.opened": {
+    "other": "已打开当前群设置"
+  },
+  "management.group.settings.saved.new.execution.options.apply.only.to": {
+    "other": "本群设置已保存，仅新会话采用新的执行参数"
+  },
+  "management.new.persistent.conversation.ready.the.next.group.message.starts": {
+    "other": "已新开连续会话，下一条群消息从空白上下文开始"
+  },
+  "management.group.settings.changed.send.amux.again.in.the.target": {
+    "other": "群设置已变化，请在目标群重新发送 /amux 后再修改"
+  },
+  "management.invalid.format.for.group.settings.field.s": {
+    "other": "群设置字段 %s 格式无效"
+  },
+  "management.choose.a.valid.group.conversation.mode": {
+    "other": "请选择有效的群内处理方式"
+  },
+  "management.enter.a.native.model.name.or.select.the.default": {
+    "other": "请填写原生模型名称，或选择默认模型"
+  },
+  "management.extra.arguments.must.be.a.json.string.array.such": {
+    "other": "附加参数须为 JSON 字符串数组，例如 [\"--flag\", \"value with spaces\"]"
+  },
+  "management.extra.arguments.must.be.a.json.string.array": {
+    "other": "附加参数须为 JSON 字符串数组"
+  },
+  "management.idle.timeout.in.seconds": {
+    "other": "空闲回收秒数"
+  },
+  "management.context.message.count": {
+    "other": "上下文条数"
+  },
+  "management.group.session.limit": {
+    "other": "群会话总上限"
+  },
+  "management.session.limit.per.user": {
+    "other": "每用户会话上限"
+  },
+  "management.s.must.be.a.nonnegative.integer": {
+    "other": "%s须为非负整数"
+  },
+  "management.selected.for.this.group": {
+    "other": "本群指定"
+  },
+  "management.follow.the.assistant.default.expert": {
+    "other": "跟随助手默认专家"
+  },
+  "management.independent.group.settings": {
+    "other": "本群独立设置"
+  },
+  "management.using.assistant.settings.group.settings.not.saved.yet": {
+    "other": "沿用助手设置（尚未保存本群设置）"
+  },
+  "management.using.assistant.settings": {
+    "other": "沿用助手设置"
+  },
+  "management.continue.the.same.conversation.in.this.group": {
+    "other": "本群继续同一对话"
+  },
+  "management.assistant.conversation.currently.also.covers.other.groups.or.private": {
+    "other": "助手连续会话（现有范围含其他群或私聊）"
+  },
+  "management.only.the.owner.can.start.tasks": {
+    "other": "只有负责人可发起任务"
+  },
+  "management.group.members.can.start.tasks.subject.to.assistant.and": {
+    "other": "群成员可发起任务（仍需满足助手与执行权限）"
+  },
+  "management.the.selected.expert.s.native.runtime": {
+    "other": "所选专家的原生运行引擎"
+  },
+  "management.group.name": {
+    "other": "群名称"
+  },
+  "management.unnamed.group": {
+    "other": "未命名群"
+  },
+  "management.group.id": {
+    "other": "群标识"
+  },
+  "management.current.assistant": {
+    "other": "当前助手"
+  },
+  "management.settings.source": {
+    "other": "设置来源"
+  },
+  "management.default.expert.for.new.sessions": {
+    "other": "新会话默认专家"
+  },
+  "management.message.handling": {
+    "other": "处理方式"
+  },
+  "management.access": {
+    "other": "使用权限"
+  },
+  "management.model": {
+    "other": "模型"
+  },
+  "management.target.machine": {
+    "other": "目标机器"
+  },
+  "management.automatic": {
+    "other": "自动选择"
+  },
+  "management.working.directory": {
+    "other": "工作目录"
+  },
+  "management.runtime.default.directory": {
+    "other": "运行环境默认目录"
+  },
+  "management.extra.arguments": {
+    "other": "附加参数"
+  },
+  "management.group.session.limit.per.user.limit": {
+    "other": "群会话总上限 / 每用户上限"
+  },
+  "management.saved.execution.options.apply.only.to.new.sessions.existing": {
+    "other": "保存后的执行参数只用于新会话。已有话题与当前连续会话保留创建时的专家、模型、执行身份和环境；开启用户隔离不会迁移已有话题。"
+  },
+  "management.edit.group.settings": {
+    "other": "修改本群设置"
+  },
+  "management.not.created.yet.the.next.valid.task.starts.this": {
+    "other": "尚未创建；下一条有效任务开始本群连续会话，直接在群聊中回复"
+  },
+  "management.reply.directly.in.this.group": {
+    "other": "直接在本群回复"
+  },
+  "management.session.binding.unavailable.start.a.new.conversation": {
+    "other": "（会话绑定不可用，请新开连续会话）"
+  },
+  "management.not.recorded": {
+    "other": "未记录"
+  },
+  "management.current.persistent.conversation": {
+    "other": "当前连续会话"
+  },
+  "management.current.session.expert": {
+    "other": "当前会话专家"
+  },
+  "management.current.session.model": {
+    "other": "当前会话模型"
+  },
+  "management.new.persistent.conversation": {
+    "other": "新开连续会话"
+  },
+  "management.start.a.new.conversation.with.blank.context": {
+    "other": "从空白上下文开始新的连续会话？"
+  },
+  "management.the.current.session.stops.accepting.new.input.history.is": {
+    "other": "当前会话不再接受新输入；历史保留，已接受的任务继续完成。下一条群消息使用本群的新会话默认设置，结果直接在本群回复。"
+  },
+  "management.group.watch": {
+    "other": "群值守："
+  },
+  "management.watch.uses.a.separate.expert": {
+    "other": "；值守使用独立专家："
+  },
+  "management.add.this.group.to.watch": {
+    "other": "将本群加入值守"
+  },
+  "management.confirm.adding.this.group.to.watch": {
+    "other": "确认加入群值守？"
+  },
+  "management.new.topics.in.this.group.will.be.handled.automatically": {
+    "other": "本群的新话题会自动交给助手处理。如果已有群值守被暂停，加入本群会一并恢复这些已配置群的值守。"
+  },
+  "management.remove.this.group.from.watch": {
+    "other": "将本群移出值守"
+  },
+  "management.current.group.settings": {
+    "other": "当前群设置"
+  },
+  "management.manage.only.this.assistant.s.settings.in.this.group": {
+    "other": "仅管理当前助手在本群的设置"
+  },
+  "management.amux.current.group.settings": {
+    "other": "amux 当前群设置"
+  },
+  "management.follow.assistant.default.expert": {
+    "other": "跟随助手默认专家 · "
+  },
+  "management.use.the.selected.expert.s.native.runtime": {
+    "other": "使用所选专家的原生运行引擎"
+  },
+  "management.enter.a.native.model.name": {
+    "other": "输入原生模型名称"
+  },
+  "management.current.value.validated.on.save": {
+    "other": "当前值（保存时检查） · "
+  },
+  "management.select.an.option": {
+    "other": "请选择"
+  },
+  "management.group.conversation.mode": {
+    "other": "群内处理方式"
+  },
+  "management.native.model.name.when.selected.above": {
+    "other": "原生模型名称（上方选择“输入原生模型名称”时使用）"
+  },
+  "management.for.example.a.model.name.supported.by.the.runtime": {
+    "other": "例如引擎支持的模型名"
+  },
+  "management.collapsed": {
+    "other": "折叠展示"
+  },
+  "management.who.can.start.tasks": {
+    "other": "谁可以发起任务"
+  },
+  "management.owner.only": {
+    "other": "只有负责人"
+  },
+  "management.group.members.subject.to.assistant.and.execution.permissions": {
+    "other": "群成员（仍需满足助手与执行权限）"
+  },
+  "management.leave.blank.for.automatic.selection": {
+    "other": "留空自动选择"
+  },
+  "management.absolute.path.on.the.target.machine.leave.blank.for": {
+    "other": "目标机器上的绝对路径；留空使用默认目录"
+  },
+  "management.extra.arguments.json.string.array": {
+    "other": "附加参数（JSON 字符串数组）"
+  },
+  "management.idle.timeout.seconds.0.to.disable.or.at.least": {
+    "other": "空闲回收时间（秒，0 关闭，或至少 60）"
+  },
+  "management.nonnegative.integer": {
+    "other": "非负整数"
+  },
+  "management.group.session.limit.0.for.unlimited": {
+    "other": "群会话总上限（0 不限）"
+  },
+  "management.session.limit.per.user.0.for.unlimited": {
+    "other": "每用户会话上限（0 不限）"
+  },
+  "management.showing.d.d.options.current.value.retained": {
+    "other": "选项过多，仅显示 %d/%d 项；当前值已保留。"
+  },
+  "management.save.group.settings": {
+    "other": "保存本群设置"
+  },
+  "management.save.these.group.settings": {
+    "other": "保存本群设置？"
+  },
+  "management.execution.options.affect.only.new.sessions.existing.topics.keep": {
+    "other": "执行参数只影响新会话，已有话题保留原设置。切换连续会话模式会停用原连续会话入口，已接受任务继续完成；新连续会话从空白上下文开始。首次保存后本群与助手全局连续会话分开。"
+  },
+  "management.refresh.model.options": {
+    "other": "更新模型选项"
+  },
+  "management.previous.page": {
+    "other": "上一页"
+  },
+  "management.next.page": {
+    "other": "下一页"
+  },
+  "management.new.topics.and.new.persistent.conversations.use.these.group": {
+    "other": "新话题和新开的连续会话使用本群设置；已有会话不变。仅专家可选择跟随助手，其余字段保存后独立于助手默认值。"
+  },
+  "management.after.changing.the.expert.or.runtime.click.refresh.model": {
+    "other": "更换专家或运行引擎后可点击“更新模型选项”；所有已填值都会保留，不兼容的组合将在保存时明确报错。"
+  },
+  "management.page.d.d.of.settings.changing.pages.preserves.entered": {
+    "other": "设置项较多，当前第 %d/%d 页；切换分页不会丢失已填内容。"
+  },
+  "management.amux.group.settings.editor": {
+    "other": "amux 本群设置编辑"
+  },
+  "management.choose.task.configuration": {
+    "other": "选择任务配置"
+  },
+  "management.inherit.assistant.defaults": {
+    "other": "继承助手默认"
+  },
+  "management.custom": {
+    "other": "自定义"
+  },
+  "management.changes.apply.only.to.new.watch.topics.existing.topics": {
+    "other": "保存后仅影响之后创建的值守话题；已有话题继续使用创建时的专家和模型。"
+  },
+  "management.task.configuration": {
+    "other": "任务配置"
+  },
+  "management.choose.the.expert.for.group.watch": {
+    "other": "选择群值守使用的专家"
+  },
+  "management.expert": {
+    "other": "专家"
+  },
+  "management.runtime.new.watch.topics.only": {
+    "other": "运行引擎（仅影响新值守话题）"
+  },
+  "management.model.new.watch.topics.only": {
+    "other": "模型（仅影响新值守话题）"
+  },
+  "management.reasoning.effort.new.watch.topics.only": {
+    "other": "思考强度（仅影响新值守话题）"
+  },
+  "management.save": {
+    "other": "保存"
+  },
+  "management.edit.watch.task.settings": {
+    "other": "修改值守任务配置"
+  },
+  "management.set.the.expert.and.execution.options.for.new.watch": {
+    "other": "设置新值守话题使用的专家和执行参数"
+  },
+  "management.edit.group.watch.task.settings": {
+    "other": "修改群值守任务配置"
+  },
+  "management.not.configured": {
+    "other": "未配置"
+  },
+  "management.enabled.d.groups": {
+    "other": "已开启 · %d 个群"
+  },
+  "management.paused.d.groups": {
+    "other": "已暂停 · %d 个群"
+  },
+  "management.back.to.integrations": {
+    "other": "返回接入能力"
+  },
+  "management.current.status": {
+    "other": "当前状态"
+  },
+  "management.active.topic.limit.per.group": {
+    "other": "每群活跃上限"
+  },
+  "management.automatic.sleep": {
+    "other": "自动休眠"
+  },
+  "management.send.amux.in.the.target.group.the.owner.will": {
+    "other": "在目标群发送 /amux，负责人会收到加入值守的入口。"
+  },
+  "management.edit.task.settings": {
+    "other": "修改任务配置"
+  },
+  "management.request.permissions": {
+    "other": "申请权限"
+  },
+  "management.request.these.permissions.from.the.organization.administrator": {
+    "other": "向企业管理员申请这些权限？"
+  },
+  "management.the.app.will.request.permissions.from.the.tenant.administrator": {
+    "other": "应用会向租户管理员发起权限授权申请；审核生效后能力自动恢复，可能需要发布应用版本。"
+  },
+  "management.developer.console": {
+    "other": "开发者后台"
+  },
+  "management.watched.group.s.s": {
+    "other": "值守群：%s（%s）"
+  },
+  "management.remove.from.watch": {
+    "other": "移出值守"
+  },
+  "management.resume.group.watch": {
+    "other": "恢复群值守"
+  },
+  "management.pause.group.watch": {
+    "other": "暂停群值守"
+  },
+  "management.group.watch.312": {
+    "other": "群值守"
+  },
+  "management.automatically.handle.new.topics.in.selected.groups": {
+    "other": "自动处理指定群的新话题"
+  },
+  "management.amux.group.watch.management": {
+    "other": "amux 群值守管理"
+  },
+  "management.affects.only.newly.created.watch.topics": {
+    "other": "只影响之后创建的值守话题"
+  },
+  "management.saving.group.watch.task.settings.316": {
+    "other": "正在保存群值守任务配置"
+  },
+  "management.checking.the.expert.and.execution.options": {
+    "other": "正在检查专家和执行参数。"
+  },
+  "management.owner.mode": {
+    "other": "负责人模式"
+  },
+  "management.only.the.owner.can.mention.the.assistant.to.start": {
+    "other": "只有负责人可以 @智能体 发起任务"
+  },
+  "management.collaboration.mode": {
+    "other": "协作模式"
+  },
+  "management.group.members.can.mention.the.assistant.to.start.tasks": {
+    "other": "群成员都可以 @智能体 发起任务"
+  },
+  "management.the.owner.can.mention.the.assistant.and.send.or": {
+    "other": "负责人可 @智能体 发送“开启协作模式”或“关闭协作模式”，以及“开启群值守”或“关闭群值守”。"
+  },
+  "management.the.owner.can.mention.the.assistant.with.amux.in": {
+    "other": "负责人可在本群 @智能体 发送 /amux，并在私聊的“当前群设置”中修改。新执行参数只用于新会话，已有话题保留创建时的设置。\n"
+  },
+  "management.to.change.this.open.assistant.settings.in.private.chat": {
+    "other": " 如需修改，请私聊智能体打开“助手设置”。\n"
+  },
+  "management.not.included": {
+    "other": "未加入"
+  },
+  "management.start.a.task": {
+    "other": "开始任务"
+  },
+  "management.mention.assistant.task": {
+    "other": "@智能体 + 任务"
+  },
+  "management.per.group.settings.experiment.is.disabled.new.tasks.in": {
+    "other": "群独立配置实验已关闭，本群已暂停新任务"
+  },
+  "management.current.group": {
+    "other": "当前群"
+  },
+  "management.confirm.enable": {
+    "other": "确认开启"
+  },
+  "management.enable.group.watch": {
+    "other": "开启群值守"
+  },
+  "management.enable.group.watch.332": {
+    "other": "确认开启群值守？"
+  },
+  "management.new.topics.in.s.will.be.handled.automatically": {
+    "other": "开启后，“%s”的新话题会自动交给助手处理。"
+  },
+  "management.watch.will.also.resume.for.d.other.configured.groups": {
+    "other": " 当前智能体另有 %d 个已配置群，也会一并恢复值守。"
+  },
+  "management.confirm.disable": {
+    "other": "确认关闭"
+  },
+  "management.disable.group.watch": {
+    "other": "关闭群值守"
+  },
+  "management.disable.group.watch.337": {
+    "other": "确认关闭群值守？"
+  },
+  "management.new.topics.in.s.will.no.longer.be.handled": {
+    "other": "关闭后，“%s”的新话题不再自动处理；已有话题不受影响。"
+  },
+  "management.check.the.group.name.before.confirming": {
+    "other": "请核对群名称后确认"
+  },
+  "management.amux.group.watch.confirmation": {
+    "other": "amux 群值守确认"
+  },
+  "management.execution.expert": {
+    "other": "执行专家"
+  },
+  "management.affects.only.this.assistant.full.settings.are.in.private": {
+    "other": "仅影响当前智能体；完整设置可在私聊 /amux 的“接入能力 → 群值守”中管理。"
+  },
+  "management.paused": {
+    "other": "已暂停"
+  },
+  "management.enabled": {
+    "other": "已开启"
+  },
+  "management.included": {
+    "other": "已加入"
+  },
+  "management.new.topics.in.s.will.be.handled.automatically.after": {
+    "other": "加入后，“%s”的新话题会自动交给助手处理。"
+  },
+  "management.group.watch.handles.new.topics.started.by.members.and": {
+    "other": "群值守会自动处理群成员和智能体发起的新话题；每个话题独立处理。"
+  },
+  "management.back.to.assistant.settings": {
+    "other": "返回助手设置"
+  },
+  "management.group.watch.requires.separate.conversations.per.topic.change.message": {
+    "other": "群值守仅支持“每个话题独立”。请先返回助手修改处理方式。"
+  },
+  "management.current.group.management": {
+    "other": "当前群管理"
+  },
+  "management.manage.only.this.assistant.in.this.group": {
+    "other": "仅管理当前智能体在本群的设置"
+  },
+  "management.amux.current.group.management": {
+    "other": "amux 当前群管理"
+  },
+  "management.you.just.sent.amux.in.this.group": {
+    "other": "你刚刚在该群发送了 /amux"
+  },
+  "management.current.task": {
+    "other": "当前任务"
+  },
+  "management.running": {
+    "other": "运行中"
+  },
+  "management.amux.current.task": {
+    "other": "amux 当前任务"
+  },
+  "management.status": {
+    "other": "状态"
+  },
+  "management.continue.sending.messages.to.collaborate.use.interrupt.to.stop": {
+    "other": "继续发送消息即可协作；使用 /interrupt 停止当前回答，使用 /stop 结束任务。"
+  },
+  "management.document.comments": {
+    "other": "云文档评论"
+  },
+  "management.enable.go.to.assistant.settings.integrations.and.enable.document": {
+    "other": "开启：前往「助手设置 → 接入能力」开启云文档评论。"
+  },
+  "management.use.mention.the.assistant.in.a.comment.with.your": {
+    "other": "使用：在评论中 @智能体 并提出要求；仅负责人可用。"
+  },
+  "management.topics.each.root.comment.is.independent.mention.the.assistant": {
+    "other": "话题：每条主评论独立处理；在同一评论下继续 @智能体 可沿用原话题。"
+  },
+  "management.expert.new.topics.use.the.current.default.expert.existing": {
+    "other": "专家：新话题使用当前默认专家；已创建话题不会随默认专家变化。"
+  },
+  "management.body.the.assistant.replies.through.comments.and.does.not": {
+    "other": "正文：助手只通过评论回复，不会修改文档正文。"
+  },
+  "management.enable.mention.the.assistant.in.the.target.group.and": {
+    "other": "开启：在目标群 @智能体 发送“开启群值守”，再由负责人确认。"
+  },
+  "management.disable.mention.the.assistant.in.the.target.group.and": {
+    "other": "关闭：在目标群 @智能体 发送“关闭群值守”，确认后移出当前群。"
+  },
+  "management.manage.send.amux.privately.then.open.assistant.settings.integrations": {
+    "other": "管理：私聊发送 /amux，前往「助手设置 → 接入能力 → 群值守」。"
+  },
+  "management.let.other.group.members.use.the.assistant": {
+    "other": "让群里的其他人使用"
+  },
+  "management.send.a.task.directly.to.begin": {
+    "other": "直接发送任务即可开始"
+  },
+  "management.amux.help": {
+    "other": "amux 使用帮助"
+  },
+  "management.choose.instructions.for.your.current.context": {
+    "other": "选择当前场景的使用方式"
+  },
+  "management.private.chat.send.a.task.directly": {
+    "other": "私聊：直接发送任务"
+  },
+  "management.group.chat.mention.the.assistant.with.a.task": {
+    "other": "群聊：@智能体 + 任务"
+  },
+  "management.topic.reply.to.add.requirements": {
+    "other": "话题：继续回复即可补充要求"
+  },
+  "management.other.entry.points": {
+    "other": "其他入口"
+  },
+  "management.documents.mention.the.assistant.in.a.comment": {
+    "other": "云文档：在评论中 @智能体"
+  },
+  "management.help.view.all.commands.for.the.current.context": {
+    "other": "/help：查看当前场景的完整命令"
+  },
+  "management.mention.the.assistant.with.a.task.to.begin.no": {
+    "other": "@智能体 + 任务即可开始，无需额外配置。"
+  },
+  "management.group.chat.entry": {
+    "other": "群聊入口"
+  },
+  "management.mention.assistant.task.start.working": {
+    "other": "@智能体 + 任务　让助手开始处理"
+  },
+  "management.group.chat.help": {
+    "other": "群聊帮助"
+  },
+  "management.mention.the.assistant.with.a.task.to.begin": {
+    "other": "@智能体 + 任务即可开始"
+  },
+  "management.amux.group.chat.help": {
+    "other": "amux 群聊帮助"
+  },
+  "management.mention.the.assistant.with.a.task.to.begin.in": {
+    "other": "@智能体 + 任务即可在这个话题开始。"
+  },
+  "management.mention.assistant.task.create.a.task": {
+    "other": "@智能体 + 任务　让助手创建任务"
+  },
+  "management.amux.task.entry.help": {
+    "other": "amux 任务入口帮助"
+  },
+  "management.keep.sending.messages.to.collaborate.with.the.assistant": {
+    "other": "继续发送消息即可与助手协作。"
+  },
+  "management.topic.help": {
+    "other": "话题帮助"
+  },
+  "management.keep.sending.messages.to.collaborate": {
+    "other": "继续发送消息即可协作"
+  },
+  "management.amux.topic.help": {
+    "other": "amux 话题帮助"
+  },
+  "management.cannot.restart.amux.right.now.retry.on.the.deployment": {
+    "other": "暂时无法重启 amux，请在部署机器上重试。"
+  },
+  "management.retry.restart": {
+    "other": "重试重启"
+  },
+  "management.restart.could.not.be.started.try.again.later": {
+    "other": "未能启动重启，请稍后重试。"
+  },
+  "management.cannot.upgrade.amux.right.now.retry.on.the.deployment": {
+    "other": "暂时无法升级 amux，请在部署机器上重试。"
+  },
+  "management.check.for.updates.again": {
+    "other": "重新检查更新"
+  },
+  "management.upgrade.did.not.finish.check.available.versions.and.try": {
+    "other": "升级没有完成，请重新检查可用版本后再试。"
+  },
+  "management.cannot.check.for.updates.right.now.retry.on.the": {
+    "other": "暂时无法检查更新，请在部署机器上重试。"
+  },
+  "management.retry.update.check": {
+    "other": "重试检查更新"
+  },
+  "management.update.check.failed.try.again.later": {
+    "other": "检查更新失败，请稍后重试。"
+  },
+  "management.assistant.status": {
+    "other": "助手状态"
+  },
+  "management.amux.needs.attention": {
+    "other": "amux 需要关注"
+  },
+  "management.no.runtimes.are.available.check.again.then.open.system": {
+    "other": "当前没有可用的运行环境。请重新检查；仍未恢复时查看系统状态。"
+  },
+  "management.check.again": {
+    "other": "重新检查"
+  },
+  "management.running.normally.send.a.task.to.begin": {
+    "other": "运行正常，可直接发送任务"
+  },
+  "management.amux.running.normally": {
+    "other": "amux 运行正常"
+  },
+  "management.needs.attention": {
+    "other": "需要关注"
+  },
+  "management.check.for.updates": {
+    "other": "检查更新"
+  },
+  "management.restart.amux": {
+    "other": "重启 amux"
+  },
+  "management.restart.amux.409": {
+    "other": "确认重启 amux？"
+  },
+  "management.the.feishu.assistant.will.briefly.go.offline.existing.sessions": {
+    "other": "飞书智能体会短暂离线，现有会话不会删除。"
+  },
+  "management.dismiss.this.version": {
+    "other": "本版本不再提示"
+  },
+  "management.no.runtimes.are.available.check.again.before.restarting.amux": {
+    "other": "当前没有可用的运行环境。请先重新检查；仍未恢复时再重启 amux。"
+  },
+  "management.amux.system.status": {
+    "other": "amux 系统状态"
+  },
+  "management.the.feishu.assistant.will.briefly.go.offline": {
+    "other": "飞书智能体会短暂离线"
+  },
+  "management.confirm.amux.restart": {
+    "other": "确认重启 amux"
+  },
+  "management.existing.sessions.will.not.be.deleted.recovery.normally.takes": {
+    "other": "现有会话不会删除。预计数秒恢复，恢复后可发送 /amux 查看状态。"
+  },
+  "management.amux.restarting": {
+    "other": "amux 正在重启"
+  },
+  "management.send.amux.after.recovery.to.check.status": {
+    "other": "恢复后可发送 /amux 查看状态。"
+  },
+  "management.amux.recovered": {
+    "other": "amux 已恢复"
+  },
+  "management.running.normally.ready.to.continue": {
+    "other": "运行正常，可继续使用"
+  },
+  "management.amux.restart.complete": {
+    "other": "amux 重启完成"
+  },
+  "management.amux.restarted": {
+    "other": "amux 已重启"
+  },
+  "management.runtimes.still.need.attention": {
+    "other": "运行环境仍需关注"
+  },
+  "management.amux.needs.attention.after.restart": {
+    "other": "amux 重启后需要关注"
+  },
+  "management.no.runtimes.are.available.yet.check.again.later": {
+    "other": "仍没有可用的运行环境，请稍后重新检查。"
+  },
+  "management.updates.will.not.install.automatically": {
+    "other": "不会自动安装"
+  },
+  "management.amux.checking.for.updates": {
+    "other": "amux 正在检查更新"
+  },
+  "management.current.version": {
+    "other": "当前版本"
+  },
+  "management.already.on.the.latest.version": {
+    "other": "当前已是最新版本"
+  },
+  "management.an.update.is.available": {
+    "other": "发现可用版本"
+  },
+  "management.back.to.system.status": {
+    "other": "返回系统状态"
+  },
+  "management.already.on.the.latest.version.432": {
+    "other": "当前已是最新版本。"
+  },
+  "management.the.new.version.will.install.and.restart.amux.only": {
+    "other": "确认后才会安装新版本并重启 amux。"
+  },
+  "management.upgrade.to": {
+    "other": "升级到 "
+  },
+  "management.upgrade.amux": {
+    "other": "确认升级 amux？"
+  },
+  "management.this.will.install": {
+    "other": "将安装 "
+  },
+  "management.and.restart.amux.the.feishu.assistant.will.briefly.go": {
+    "other": " 并重启 amux，飞书智能体会短暂离线。"
+  },
+  "management.update.check": {
+    "other": "更新检查"
+  },
+  "management.amux.update.check.results": {
+    "other": "amux 更新检查结果"
+  },
+  "management.available.version": {
+    "other": "可用版本"
+  },
+  "management.amux.upgrading": {
+    "other": "amux 正在升级"
+  },
+  "management.target.version": {
+    "other": "目标版本"
+  },
+  "management.refreshes.automatically.after.reconnecting": {
+    "other": "恢复连接后自动刷新。"
+  },
+  "management.amux.reconnected.version.needs.verification": {
+    "other": "amux 已重新连接，但版本需要确认"
+  },
+  "management.the.current.version.differs.from.the.target.check.for": {
+    "other": "当前版本与目标版本不一致，请重新检查更新。"
+  },
+  "management.amux.reconnected.runtimes.still.need.attention": {
+    "other": "amux 已重新连接，运行环境仍需关注"
+  },
+  "management.no.runtimes.are.available.after.the.upgrade.yet.check": {
+    "other": "升级后暂时没有可用的运行环境，可以稍后重新检查。"
+  },
+  "management.update.result.needs.verification": {
+    "other": "更新结果待确认"
+  },
+  "management.amux.update.result.needs.verification": {
+    "other": "amux 更新结果需要确认"
+  },
+  "management.amux.upgrade.complete": {
+    "other": "amux 升级完成"
+  },
+  "management.upgrade.status": {
+    "other": "升级状态"
+  },
+  "management.complete": {
+    "other": "已完成"
+  },
+  "management.operation.failed": {
+    "other": "操作失败"
+  },
+  "management.system.state.unchanged": {
+    "other": "系统状态未更改"
+  },
+  "management.amux.system.maintenance.failed": {
+    "other": "amux 系统维护失败"
+  },
+  "management.this.pack.is.no.longer.in.the.expert.library": {
+    "other": "这组专家已不在专家库中，已刷新当前列表。"
+  },
+  "management.this.expert.pack": {
+    "other": "这组专家"
+  },
+  "management.the.expert.library.changed.and.has.been.refreshed.confirm": {
+    "other": "专家库已发生变化，已为你刷新。请重新确认后操作。"
+  },
+  "management.added": {
+    "other": "已添加 "
+  },
+  "management.with.automatic.updates.enabled.its.experts.are.now.available": {
+    "other": "，并已开启自动更新。现在可以选择其中的专家。"
+  },
+  "management.updated": {
+    "other": " 更新完成。"
+  },
+  "management.removed": {
+    "other": "已移除 "
+  },
+  "management.existing.tasks.are.unaffected": {
+    "other": "。已有任务不受影响。"
+  },
+  "management.could.not.add": {
+    "other": "未能添加 "
+  },
+  "management.the.expert.library.is.unchanged.check.that.the.amux": {
+    "other": "，专家库没有变化。请确认运行 amux 的机器状态正常并可访问组织仓库后重试。"
+  },
+  "management.could.not.remove": {
+    "other": "未能移除 "
+  },
+  "management.the.expert.library.is.unchanged": {
+    "other": "，专家库没有变化。"
+  },
+  "management.update.failed.current.experts.remain.available": {
+    "other": " 更新失败，当前专家仍可继续使用。"
+  },
+  "management.expert.library.operation.incomplete": {
+    "other": "专家库操作未完成"
+  },
+  "management.expert.library.updated": {
+    "other": "专家库已更新"
+  },
+  "management.expert.library.operation.results": {
+    "other": "专家库操作结果"
+  },
+  "management.view.expert.library": {
+    "other": "查看专家库"
+  },
+  "management.manage.available.experts": {
+    "other": "管理可用专家"
+  },
+  "management.amux.expert.library": {
+    "other": "amux 专家库"
+  },
+  "management.all.assistants.in.this.amux.system.share.the.expert": {
+    "other": "当前 amux 的所有助手共享专家库；添加、更新或移除会影响所有助手。"
+  },
+  "management.all.assistants.in.this.amux.system.share.local.experts": {
+    "other": "当前 amux 的所有助手共享本地专家；这里只展示已发布版本，编辑和恢复请在运行 amux 的机器上完成。"
+  },
+  "management.page.d.d": {
+    "other": "第 %d / %d 页"
+  },
+  "management.the.same.git.repository.is.loaded.more.than.once": {
+    "other": "同一 Git 仓库被重复加载。请在运行 amux 的机器上处理后再更新或移除。"
+  },
+  "management.choose.an.expert": {
+    "other": "选择专家"
+  },
+  "management.manage.expert.library": {
+    "other": "管理专家库"
+  },
+  "management.all.assistants.in.this.amux.system.share.the.expert.481": {
+    "other": "当前 amux 的所有助手共享专家库；这里的修改会影响所有助手。"
+  },
+  "management.remove": {
+    "other": "移除"
+  },
+  "management.remove.483": {
+    "other": "移除 "
+  },
+  "management.new.tasks.will.no.longer.be.able.to.select": {
+    "other": "移除后，新任务将不能再选择其中的专家；已有任务不受影响。"
+  },
+  "management.the.last.update.failed.current.experts.remain.available": {
+    "other": "上次更新失败，当前专家仍可继续使用。"
+  },
+  "management.automatic.updates.are.enabled.you.can.also.check.manually": {
+    "other": "已开启自动更新；也可以随时手动检查。"
+  },
+  "management.automatic.updates.are.off.you.can.check.for.updates": {
+    "other": "自动更新尚未开启，可以手动检查更新。"
+  },
+  "management.back.to.expert.library": {
+    "other": "返回专家库"
+  },
+  "management.expert.library.management": {
+    "other": "专家库管理"
+  },
+  "management.check.for.updates.or.remove": {
+    "other": "检查更新或移除"
+  },
+  "management.amux.expert.library.management": {
+    "other": "amux 专家库管理"
+  },
+  "management.loaded": {
+    "other": "已加载"
+  },
+  "management.update.failed": {
+    "other": "更新失败"
+  },
+  "management.action.needed": {
+    "other": "需要处理"
+  },
+  "management.contents": {
+    "other": "内容"
+  },
+  "management.d.experts.version.s": {
+    "other": "%d 个专家 · 版本 %s"
+  },
+  "management.available.to.add": {
+    "other": "可添加"
+  },
+  "management.configuration.needed": {
+    "other": "需要配置"
+  },
+  "management.the.default.library.identifier.is.used.by.another.git": {
+    "other": "默认专家库标识已被另一 Git 仓库使用。请在运行 amux 的机器上换一个标识添加。"
+  },
+  "management.add": {
+    "other": "添加 "
+  },
+  "management.its.experts.will.appear.in.assistant.settings.and.stay": {
+    "other": "添加后，其中的专家会出现在助手设置中并自动保持更新；当前专家不会改变。"
+  },
+  "management.built.in.experts": {
+    "other": "预置专家"
+  },
+  "management.local.experts": {
+    "other": "本地专家"
+  },
+  "management.loaded.libraries": {
+    "other": "已加载专家库"
+  },
+  "management.expert.marketplace": {
+    "other": "专家库市场"
+  },
+  "management.no.built.in.experts": {
+    "other": "暂无预置专家。"
+  },
+  "management.no.local.experts.create.a.copy.of.a.built": {
+    "other": "暂无本地专家，可以从预置专家创建副本。"
+  },
+  "management.all.marketplace.libraries.are.already.loaded": {
+    "other": "市场中的专家库都已加载。"
+  },
+  "management.no.external.expert.libraries.are.loaded.yet": {
+    "other": "当前还没有加载外部专家库。"
+  },
+  "management.too.much.content.on.this.page": {
+    "other": "本页内容过多"
+  },
+  "management.reopen.this.section": {
+    "other": "请重新打开当前分区"
+  },
+  "management.amux.expert.library.page.too.large": {
+    "other": "amux 专家库内容过多"
+  },
+  "management.content.exceeds.feishu.card.limits.and.could.not.be": {
+    "other": "内容超过飞书卡片限制，未能完整显示。"
+  },
+  "management.reopen.this.section.514": {
+    "other": "重新打开当前分区"
+  },
+  "management.version.515": {
+    "other": "版本 "
+  },
+  "management.expert.library.unavailable": {
+    "other": "专家库暂不可用"
+  },
+  "management.try.again.later": {
+    "other": "请稍后重试"
+  },
+  "management.amux.expert.library.unavailable": {
+    "other": "amux 专家库不可用"
+  },
+  "management.cannot.read.the.expert.library.nothing.was.changed": {
+    "other": "无法读取专家库，本次未做任何更改。"
+  },
+  "management.retry": {
+    "other": "重试"
+  },
+  "management.checking.expert.library.updates": {
+    "other": "正在检查专家库更新"
+  },
+  "management.reading.the.latest.version": {
+    "other": "正在读取最新版本"
+  },
+  "management.adding.expert.library": {
+    "other": "正在添加专家库"
+  },
+  "management.downloading.and.checking": {
+    "other": "正在下载并检查"
+  },
+  "management.removing.expert.library": {
+    "other": "正在移除专家库"
+  },
+  "management.existing.tasks.will.not.be.affected": {
+    "other": "已有任务不会受到影响"
+  },
+  "management.refreshes.automatically.when.complete": {
+    "other": "完成后自动刷新。"
+  },
+  "management.this.expert.is.no.longer.in.the.library.refresh": {
+    "other": "该专家已不在专家库中，请刷新后重新选择"
+  },
+  "management.no.experts.are.available.add.experts.first": {
+    "other": "专家库中暂无可用专家，请先添加专家"
+  },
+  "management.this.model.is.not.supported.by.the.selected.runtime": {
+    "other": "该模型不在所选运行引擎的支持列表中，请重新选择"
+  },
+  "management.this.runtime.is.unavailable.refresh.and.choose.again": {
+    "other": "该运行引擎不可用，请刷新后重新选择"
+  },
+  "management.this.reasoning.effort.is.unavailable.for.the.selected.runtime": {
+    "other": "该思考强度不适用于所选运行引擎和模型，请重新选择"
+  },
+  "management.settings.saved.checking.feishu.permissions.for.enabled.capabilities": {
+    "other": "设置已保存，正在按当前已开启能力校验飞书权限。"
+  },
+  "management.could.not.save.agent.collaboration.settings.settings.are.unchanged": {
+    "other": "智能体协作设置保存失败，当前设置没有改变。请稍后重试。"
+  },
+  "management.could.not.enable.document.comments.settings.are.unchanged.check": {
+    "other": "云文档评论开启失败，当前设置没有改变。请检查助手的云文档权限或稍后重试。"
+  },
+  "management.could.not.disable.document.comments.settings.are.unchanged.try": {
+    "other": "云文档评论关闭失败，当前设置没有改变。请稍后重试。"
+  },
+  "management.task.settings.saved.they.apply.only.to.new.comment": {
+    "other": "任务配置已保存，仅影响新建评论话题。"
+  },
+  "management.could.not.save.task.settings.settings.are.unchanged.refresh": {
+    "other": "任务配置保存失败，当前设置未更改。请刷新后重新选择专家和执行参数。"
+  },
+  "management.task.settings.saved.they.apply.only.to.new.watch": {
+    "other": "任务配置已保存，仅影响之后创建的值守话题。"
+  },
+  "management.could.not.save.task.settings.settings.are.unchanged.refresh.540": {
+    "other": "任务配置保存失败，当前设置未更改。请刷新后重新选择专家和模型。"
+  },
+  "management.built.in": {
+    "other": "预置"
+  },
+  "management.local": {
+    "other": "本地"
+  },
+  "management.current.selection": {
+    "other": "当前选择"
+  },
+  "management.complete.setup": {
+    "other": "完成配置"
+  },
+  "management.configure.assistant": {
+    "other": "配置助手"
+  },
+  "management.set.message.handling.expert.and.model.for.new.tasks": {
+    "other": "设置新任务的处理方式、专家和模型"
+  },
+  "management.configure.amux.assistant": {
+    "other": "配置 amux 助手"
+  },
+  "management.assistant.ready": {
+    "other": "助手已准备好"
+  },
+  "management.you.can.now.send.tasks.directly": {
+    "other": "现在可以直接发送任务"
+  },
+  "management.amux.assistant.ready": {
+    "other": "amux 助手已准备好"
+  },
+  "management.edit.defaults": {
+    "other": "修改默认配置"
+  },
+  "management.manage.integrations": {
+    "other": "管理接入能力"
+  },
+  "management.task.defaults": {
+    "other": "任务默认配置"
+  },
+  "management.integrations": {
+    "other": "接入能力"
+  },
+  "management.these.settings.affect.only.this.assistant": {
+    "other": "以上设置仅影响当前智能体"
+  },
+  "management.amux.assistant.settings": {
+    "other": "amux 助手设置"
+  },
+  "management.disabled": {
+    "other": "已关闭"
+  },
+  "management.takes.effect.with.separate.conversations.per.topic": {
+    "other": "切换到每个话题独立后生效"
+  },
+  "management.mention.the.assistant.in.a.comment.to.start.a": {
+    "other": "在评论中 @智能体 发起任务"
+  },
+  "management.agent.to.agent": {
+    "other": "智能体 @ 智能体"
+  },
+  "management.receive.tasks.from.other.agents.and.call.agents.in": {
+    "other": "接收其他智能体的任务，也可调用群内智能体"
+  },
+  "management.d.capabilities.d.enabled": {
+    "other": "%d 项 · %d 项已开启"
+  },
+  "management.d.capabilities.total.d.enabled": {
+    "other": "共 %d 项能力 · %d 项已开启"
+  },
+  "management.check.feishu.permissions": {
+    "other": "检查飞书权限"
+  },
+  "management.feishu.permissions.check.unavailable": {
+    "other": "飞书权限 · 暂时无法检测"
+  },
+  "management.feishu.permissions.none.missing": {
+    "other": "飞书权限 · 当前未发现缺失"
+  },
+  "management.feishu.permissions.not.checked.yet": {
+    "other": "飞书权限 · 尚未检测"
+  },
+  "management.amux.integrations": {
+    "other": "amux 接入能力"
+  },
+  "management.check.complete.all.permissions.required.by.enabled.capabilities.are": {
+    "other": "检测完成，当前已开启能力所需权限均已满足。"
+  },
+  "management.permission.check.failed.temporarily.try.again.later.existing.capability": {
+    "other": "权限检测暂时失败，请稍后重试；现有能力状态未被改写。"
+  },
+  "management.check.complete.some.permissions.still.need.to.be.granted": {
+    "other": "检测完成，仍有权限需要补齐并发布应用版本。"
+  },
+  "management.permission.request.sent.to.the.administrator.exempt.permissions.take": {
+    "other": "已向管理员发起权限申请；免审权限立即生效，需审核权限在管理员审核通过后自动恢复。"
+  },
+  "management.recheck.complete.all.permissions.required.by.enabled.capabilities.are": {
+    "other": "重新检测完成，当前已开启能力所需权限均已满足。"
+  },
+  "management.open.settings": {
+    "other": "打开设置"
+  },
+  "management.enable.agent.collaboration": {
+    "other": "开启智能体协作"
+  },
+  "management.disable.agent.collaboration": {
+    "other": "关闭智能体协作"
+  },
+  "management.execution.mode": {
+    "other": "执行方式"
+  },
+  "management.one.task.at.a.time": {
+    "other": "单任务串行"
+  },
+  "management.maximum.per.topic": {
+    "other": "每话题最多"
+  },
+  "management.d.turns": {
+    "other": "%d 轮"
+  },
+  "management.how.to.use": {
+    "other": "如何使用"
+  },
+  "management.when.enabled.in.groups.that.use.separate.topics.and": {
+    "other": "开启后，在「每个话题独立」且允许群成员使用的群中，其他智能体可以 @当前智能体 交接任务；经用户明确要求或确认后，当前智能体也可以调用群内智能体。发送前会再次确认目标仍在群中。"
+  },
+  "management.amux.agent.collaboration.settings": {
+    "other": "amux 智能体协作设置"
+  },
+  "management.enable.document.comments": {
+    "other": "开启云文档评论"
+  },
+  "management.disable.document.comments": {
+    "other": "关闭云文档评论"
+  },
+  "management.the.owner.can.mention.this.assistant.in.a.document": {
+    "other": "负责人在云文档评论中 @当前智能体 并提出要求，即可开始处理该评论话题。"
+  },
+  "management.amux.document.comment.settings": {
+    "other": "amux 云文档评论设置"
+  },
+  "management.changes.apply.only.to.new.comment.topics.existing.topics": {
+    "other": "保存后仅影响新建评论话题；已有评论话题继续使用创建时的专家和执行参数。"
+  },
+  "management.choose.the.expert.for.document.comments": {
+    "other": "选择云文档评论使用的专家"
+  },
+  "management.runtime.new.comment.topics.only": {
+    "other": "运行引擎（仅影响新评论话题）"
+  },
+  "management.model.new.comment.topics.only": {
+    "other": "模型（仅影响新评论话题）"
+  },
+  "management.reasoning.effort.new.comment.topics.only": {
+    "other": "思考强度（仅影响新评论话题）"
+  },
+  "management.edit.comment.task.settings": {
+    "other": "修改评论任务配置"
+  },
+  "management.set.the.expert.and.execution.options.for.new.comment": {
+    "other": "设置新评论话题使用的专家和执行参数"
+  },
+  "management.edit.document.comment.task.settings": {
+    "other": "修改云文档评论任务配置"
+  },
+  "management.choose.a.task.configuration.for.document.comments": {
+    "other": "请选择云文档评论的任务配置"
+  },
+  "management.choose.the.runtime.for.document.comments": {
+    "other": "请选择云文档评论使用的运行引擎"
+  },
+  "management.this.reasoning.effort.is.not.supported.by.the.selected": {
+    "other": "该思考强度不受所选运行引擎和模型支持，请重新选择"
+  },
+  "management.choose.the.activity.display.for.group.watch": {
+    "other": "请选择群值守的处理过程展示方式"
+  },
+  "management.choose.a.task.configuration.for.group.watch": {
+    "other": "请选择群值守的任务配置"
+  },
+  "management.choose.the.runtime.for.group.watch": {
+    "other": "请选择群值守使用的运行引擎"
+  },
+  "management.processing": {
+    "other": "正在"
+  },
+  "management.affects.only.this.assistant": {
+    "other": "只影响当前智能体"
+  },
+  "management.updating.document.comment.settings": {
+    "other": "正在更新云文档评论设置"
+  },
+  "management.checking.feishu.permissions.and.saving.settings": {
+    "other": "正在检查飞书权限并保存设置。"
+  },
+  "management.takes.effect.when.saved": {
+    "other": "保存后生效"
+  },
+  "management.edit.amux.assistant.defaults": {
+    "other": "修改 amux 助手默认配置"
+  },
+  "management.confirm.default.expert.change": {
+    "other": "确认更换默认专家"
+  },
+  "management.the.current.conversation.and.workspace.will.be.retained": {
+    "other": "当前对话和工作区将继续保留"
+  },
+  "management.confirm.change": {
+    "other": "确认更换"
+  },
+  "management.current.default.expert": {
+    "other": "当前默认专家"
+  },
+  "management.new.default.expert": {
+    "other": "新的默认专家"
+  },
+  "management.model.in.use": {
+    "other": "使用模型"
+  },
+  "management.confirm.default.model.change": {
+    "other": "确认更换默认模型"
+  },
+  "management.current.default.model": {
+    "other": "当前默认模型"
+  },
+  "management.new.default.model": {
+    "other": "新的默认模型"
+  },
+  "management.confirm.recreating.the.persistent.conversation": {
+    "other": "确认重新创建连续对话"
+  },
+  "management.the.original.conversation.context.cannot.be.recovered": {
+    "other": "原对话上下文无法恢复"
+  },
+  "management.confirm.creation": {
+    "other": "确认创建"
+  },
+  "management.current.message.handling": {
+    "other": "当前处理方式"
+  },
+  "management.switch.to": {
+    "other": "切换为"
+  },
+  "management.assistant.settings.need.confirmation": {
+    "other": "需要确认助手设置"
+  },
+  "management.expert.unavailable.cannot.determine.the.default.model": {
+    "other": "专家不可用，无法确定默认模型"
+  },
+  "management.expert.default": {
+    "other": "专家默认 · "
+  },
+  "management.expert.default.model": {
+    "other": "专家默认模型"
+  },
+  "management.use.expert.default.model": {
+    "other": "使用专家默认模型（"
+  },
+  "management.use.expert.default.model.627": {
+    "other": "使用专家默认模型"
+  },
+  "management.separate.conversations.per.topic.are.still.active.existing.settings": {
+    "other": "当前仍为「每个话题独立」，没有修改现有设置。"
+  },
+  "management.the.original.conversation.and.project.directory.are.unavailable.choose": {
+    "other": "原连续对话和项目目录均不可用，请选择恢复方式。"
+  },
+  "management.cannot.recover.the.original.conversation": {
+    "other": "无法恢复原连续对话"
+  },
+  "management.choose.how.to.continue": {
+    "other": "请选择如何继续"
+  },
+  "management.original.conversation.cannot.be.recovered": {
+    "other": "原连续对话无法恢复"
+  },
+  "management.new.blank.persistent.conversation": {
+    "other": "新建空白连续对话"
+  },
+  "management.create.a.blank.persistent.conversation": {
+    "other": "新建空白连续对话？"
+  },
+  "management.the.new.workspace.will.not.contain.the.original.project": {
+    "other": "新工作区不包含原项目文件和历史上下文。"
+  },
+  "management.bind.an.existing.project": {
+    "other": "绑定已有项目"
+  },
+  "management.not.now": {
+    "other": "暂不处理"
+  },
+  "management.on.the.machine.running.amux.enter.the.project.directory": {
+    "other": "在运行 amux 的机器上进入项目目录，执行："
+  },
+  "management.separate.conversations.per.topic.remain.active.until.binding.completes": {
+    "other": "绑定完成前仍使用「每个话题独立」"
+  },
+  "management.check.binding": {
+    "other": "检查绑定结果"
+  },
+  "management.back.to.recovery.options": {
+    "other": "返回恢复选项"
+  },
+  "management.saving.defaults": {
+    "other": "正在保存默认配置"
+  },
+  "management.refreshes.automatically.when.complete.643": {
+    "other": "完成后自动刷新"
+  },
+  "management.preparing.a.new.persistent.conversation": {
+    "other": "正在准备新的连续对话"
+  },
+  "management.the.current.conversation.remains.usable.switches.automatically.when.ready": {
+    "other": "当前对话仍可使用；准备完成后自动切换"
+  },
+  "management.creating.a.blank.persistent.conversation": {
+    "other": "正在新建空白连续对话"
+  },
+  "management.switches.automatically.when.created": {
+    "other": "创建完成后自动切换"
+  },
+  "management.save.failed": {
+    "other": "保存失败"
+  },
+  "management.settings.unchanged.you.can.try.again": {
+    "other": "设置未更改，可重新尝试"
+  },
+  "management.amux.assistant.settings.failed": {
+    "other": "amux 助手设置失败"
+  },
+  "management.configuration.changed.the.latest.state.has.been.refreshed.make": {
+    "other": "配置已发生变化，已刷新为最新状态，请重新选择。"
+  },
+  "management.failure.reason.no.specific.error.returned.current.settings.are": {
+    "other": "失败原因：未返回具体错误。当前设置没有改变。"
+  },
+  "management.no.specific.error.returned": {
+    "other": "未返回具体错误"
+  },
+  "management.failure.reason": {
+    "other": "失败原因："
+  },
+  "management.current.settings.are.unchanged": {
+    "other": "。当前设置没有改变。"
+  },
+  "management.not.selected": {
+    "other": "未选择"
+  },
+  "management.runtime.default.model": {
+    "other": "运行引擎默认模型"
+  },
+  "management.runtime.default.effort": {
+    "other": "运行引擎默认强度"
+  },
+  "management.affects.only.newly.created.comment.topics": {
+    "other": "只影响之后创建的评论话题"
+  },
+  "management.saving.document.comment.task.settings": {
+    "other": "正在保存云文档评论任务配置"
+  },
+  "management.message.handling.question": {
+    "other": "消息如何处理"
+  },
+  "management.message.handling.summary": {
+    "other": "处理方式"
+  },
+  "management.language": {
+    "other": "界面语言"
+  },
+  "management.language.auto": {
+    "other": "跟随飞书语言"
+  },
+  "management.language.saved": {
+    "other": "界面语言已保存"
+  },
+  "management.language.failed": {
+    "other": "无法保存界面语言，请稍后重试"
+  },
+  "management.language.invalid": {
+    "other": "语言选项无效，请重新打开 /amux"
+  },
+  "management.watch.added": {
+    "other": "已将当前群加入值守"
+  },
+  "management.watch.removed": {
+    "other": "已将当前群移出值守"
+  },
+  "management.watch.paused": {
+    "other": "已暂停群值守"
+  },
+  "management.watch.resumed": {
+    "other": "已恢复群值守"
+  },
+  "management.watch.saved": {
+    "other": "群值守设置已保存"
+  },
+  "management.help.active_topic.amux": {
+    "other": "查看当前任务状态"
+  },
+  "management.help.active_topic.help": {
+    "other": "查看当前任务可用操作"
+  },
+  "management.help.active_topic.interrupt": {
+    "other": "停止当前回答，保留任务"
+  },
+  "management.help.active_topic.stop": {
+    "other": "结束当前任务"
+  },
+  "management.help.active_topic.skill": {
+    "other": "选择当前 %s Session 已加载的 Skill"
+  },
+  "management.help.active_topic.compact": {
+    "other": "压缩当前上下文并保留关键摘要"
+  },
+  "management.help.active_topic.clear": {
+    "other": "清空当前上下文并开始新对话"
+  },
+  "management.help.active_topic.status": {
+    "other": "查看当前 Session 状态"
+  },
+  "management.help.active_topic.restart": {
+    "other": "重新启动当前 Session"
+  },
+  "management.help.active_topic.bind": {
+    "other": "改为接入其他 Session"
+  },
+  "management.help.fresh_topic.amux": {
+    "other": "查看如何开始任务"
+  },
+  "management.help.fresh_topic.help": {
+    "other": "查看开始任务方法"
+  },
+  "management.help.fresh_topic.group_watch_on": {
+    "other": "仅负责人：确认后自动处理本群的新话题"
+  },
+  "management.help.fresh_topic.group_watch_off": {
+    "other": "仅负责人：确认后将本群移出值守"
+  },
+  "management.help.fresh_topic.run": {
+    "other": "显式创建任务 Session"
+  },
+  "management.help.fresh_topic.bind": {
+    "other": "接入已有 Session"
+  },
+  "management.help.group.amux": {
+    "other": "查看当前群权限"
+  },
+  "management.help.group.help": {
+    "other": "查看群聊使用方法"
+  },
+  "management.help.group.collaboration_on": {
+    "other": "仅负责人：允许群成员 @智能体 发起任务"
+  },
+  "management.help.group.collaboration_off": {
+    "other": "仅负责人：恢复为只有负责人可以使用"
+  },
+  "management.help.group.group_watch_on": {
+    "other": "仅负责人：确认后自动处理本群的新话题"
+  },
+  "management.help.group.group_watch_off": {
+    "other": "仅负责人：确认后将本群移出值守"
+  },
+  "management.help.group.run": {
+    "other": "显式创建任务 Session"
+  },
+  "management.help.group.bind": {
+    "other": "接入已有 Session"
+  },
+  "management.help.private.amux": {
+    "other": "查看助手状态、设置和系统维护"
+  },
+  "management.help.private.help": {
+    "other": "查看私聊使用方法"
+  },
+  "management.help.private.run": {
+    "other": "在当前消息话题创建任务 Session"
+  },
+  "management.help.private.bind": {
+    "other": "在当前消息话题接入已有 Session"
+  },
+  "management.help.private.status": {
+    "other": "查看已绑定 Session 状态"
+  },
+  "management.help.private.restart": {
+    "other": "重新启动已绑定 Session"
+  },
+  "management.help.private.interrupt": {
+    "other": "停止当前回答，保留任务"
+  },
+  "management.help.private.stop": {
+    "other": "结束当前任务"
+  },
+  "management.help.private.skill": {
+    "other": "选择当前 Session 已加载的 Skill"
+  },
+  "management.help.private.compact": {
+    "other": "压缩上下文并保留关键摘要"
+  },
+  "management.help.private.clear": {
+    "other": "保留 Session 绑定并切换到全新对话"
+  },
+  "management.help.section.common": {
+    "other": "常用命令"
+  },
+  "management.help.section.access": {
+    "other": "群权限"
+  },
+  "management.help.section.watch": {
+    "other": "群值守"
+  },
+  "management.help.section.task": {
+    "other": "当前任务"
+  },
+  "management.help.section.entry": {
+    "other": "任务入口"
+  },
+  "management.help.section.start": {
+    "other": "开始任务"
+  },
+  "management.permission.notice": {
+    "other": "当前智能体缺少飞书应用权限 %s。申请并开通后，请发布应用版本。"
+  },
+  "management.permission.title": {
+    "other": "%s需要补充权限"
+  },
+  "management.permission.request.hint": {
+    "other": "点击「申请权限」向企业管理员发起授权申请；免审权限立即生效，需审核权限在管理员审核后自动恢复，也可能需要发布应用版本。"
+  },
+  "management.permission.guide.hint": {
+    "other": "打开「申请确认页」会预填所需权限，确认后权限进入待发布；发布应用版本后生效，能力会自动恢复。"
+  },
+  "management.permission.confirm.page": {
+    "other": "申请确认页"
+  },
+  "management.permission.required": {
+    "other": "需要补充权限"
+  },
+  "management.permission.high.sensitivity": {
+    "other": "剩余缺失权限为高敏权限，无法直接申请；请在开发者后台手动申请。"
+  },
+  "management.permission.none.available": {
+    "other": "当前应用版本没有可继续申请的权限，正在重新检测实际授权状态。若仍有缺失，请通过「申请确认页」补充并发布应用版本。"
+  },
+  "management.permission.rate.limited": {
+    "other": "权限申请次数已达上限，请改用开发者后台申请。"
+  },
+  "management.permission.pending": {
+    "other": "这些权限已申请过，等待管理员审核即可。"
+  },
+  "management.permission.failed": {
+    "other": "权限申请失败，请稍后重试，或通过开发者后台手动申请。"
+  },
+  "management.capability.core_messaging": {
+    "other": "基础消息"
+  },
+  "management.capability.native_commands": {
+    "other": "原生命令"
+  },
+  "management.capability.bot_to_bot": {
+    "other": "智能体协作"
+  },
+  "management.capability.group_watch": {
+    "other": "群值守"
+  },
+  "management.capability.document_comments": {
+    "other": "云文档评论"
+  },
+  "management.capability.feishu_integration": {
+    "other": "飞书接入"
+  },
+  "management.capability.fallback": {
+    "other": "接入能力"
+  },
+  "management.watch.requires.topics": {
+    "other": "群 %s：群值守与“继续同一对话”不兼容；请先暂停当前智能体的群值守，群值守仅支持“每个话题独立”"
+  },
+  "management.impact.execution": {
+    "other": "将保留当前连续对话和工作区并切换执行配置；运行引擎变化时会迁移历史上下文。准备完成前，当前对话仍可继续使用。"
+  },
+  "management.impact.recreate": {
+    "other": "原对话上下文已丢失。确认后将在原工作区 %s 新建一段连续对话；准备完成前仍保持每个话题独立。"
+  },
+  "management.impact.recovery": {
+    "other": "原连续对话和项目目录均不可用。请选择新建空白连续对话，或重新绑定已有项目。"
+  },
+  "management.error.isolation": {
+    "other": "当前环境不支持「每个话题独立（用户隔离）」：%s。该模式需要已启用用户隔离的 Linux 环境，设置未被修改"
+  },
+  "management.error.target.missing": {
+    "other": "当前连续对话的运行目标未记录，请在运行 amux 的机器上重新绑定"
+  },
+  "management.error.target.unavailable": {
+    "other": "当前连续对话所在的运行目标暂时不可用，请稍后重试"
+  },
+  "management.error.cwd.missing": {
+    "other": "当前连续对话的工作目录未记录，请在运行 amux 的机器上重新绑定"
+  },
+  "management.error.execution.failed": {
+    "other": "切换当前连续对话的执行配置失败：%s"
+  },
+  "management.error.execution.empty": {
+    "other": "切换当前连续对话的执行配置失败：返回为空"
+  },
+  "management.error.execution.decode": {
+    "other": "解析连续对话执行配置切换结果：%s"
+  },
+  "management.error.execution.pending": {
+    "other": "连续对话执行配置尚未切换完成，请稍后重试"
+  },
+  "management.error.original.target": {
+    "other": "原连续对话所在的运行目标暂时不可用，请稍后重试"
+  },
+  "management.recheck": {
+    "other": "重新检测"
+  },
+  "management.permission.affected": {
+    "other": "受影响能力：%s。"
+  },
+  "management.permission.integration.notice": {
+    "other": "部分飞书接入能力受限：%s当前智能体缺少飞书应用权限 %s。申请并开通后，请发布应用版本。"
+  },
+  "management.permission.capability.notice": {
+    "other": "%s暂不可用：%s当前智能体缺少飞书应用权限 %s。申请并开通后，请发布应用版本。"
+  },
+  "management.list.separator": {
+    "other": "、"
+  },
+  "management.permission.fallback.link": {
+    "other": "申请权限：%s"
+  }
+}
