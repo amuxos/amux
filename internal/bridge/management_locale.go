@@ -142,6 +142,9 @@ func managementLanguageElement() cardElement {
 		{Text: managementPlainText("简体中文"), Value: "zh-CN"},
 	}
 	field := managementSelectStaticElement(managementLanguageField, managementCopy("management.language"), "auto", options)
+	// This selector invokes a callback outside a form; Feishu rejects the
+	// form-only required field on standalone controls.
+	field.Required = false
 	field.Behaviors = []cardBehavior{{Type: "callback", Value: managementButtonValue(managementButton{Action: managementActionLanguage})}}
 	return managementSettingsFieldRow(managementCopy("management.language"), field)
 }

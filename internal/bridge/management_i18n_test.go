@@ -81,12 +81,13 @@ func TestManagementI18nAllPagesAndStableActions(t *testing.T) {
 			if len(card) >= maxFeishuCardBytes {
 				t.Fatalf("card exceeds size limit: %d", len(card))
 			}
-			for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese} {
+			for _, locale := range []i18n.Locale{"", i18n.English, i18n.Chinese} {
 				selected := selectManagementCardLocale(card, locale)
 				var doc any
 				if err := json.Unmarshal([]byte(selected), &doc); err != nil {
 					t.Fatal(err)
 				}
+				assertManagementFormScope(t, doc, false)
 				walkManagementTestText(doc, func(text string) {
 					if strings.Contains(text, "%!") || strings.Contains(text, "management.") {
 						t.Errorf("invalid %s copy: %q", locale, text)
@@ -114,6 +115,29 @@ func TestManagementI18nAllPagesAndStableActions(t *testing.T) {
 		})
 	}
 }
+
+// Feishu rejects form validation fields on standalone callback controls, even
+// when they are nested in a column_set. Validate the actual serialized card.
+func assertManagementFormScope(t *testing.T, value any, inForm bool) {
+	t.Helper()
+	switch node := value.(type) {
+	case map[string]any:
+		inForm = inForm || node["tag"] == "form"
+		if _, present := node["required"]; present && !inForm {
+			t.Errorf("required is not allowed outside form: tag=%v name=%v", node["tag"], node["name"])
+		}
+		for key, child := range node {
+			if key != "value" && key != "behaviors" {
+				assertManagementFormScope(t, child, inForm)
+			}
+		}
+	case []any:
+		for _, child := range node {
+			assertManagementFormScope(t, child, inForm)
+		}
+	}
+}
+
 func walkManagementTestText(value any, visit func(string)) {
 	switch node := value.(type) {
 	case map[string]any:

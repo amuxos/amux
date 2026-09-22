@@ -140,6 +140,12 @@ func isOne(value any) bool {
 // arguments are identical in every language, even if they resemble catalog text.
 type Text struct{ values map[Locale]string }
 
+// Render composes localized presentation fragments without losing their locale.
+// The callback must be pure and use catalog entries for product-owned prose.
+func Render(render func(Locale) string) Text {
+	return Text{values: map[Locale]string{English: render(English), Chinese: render(Chinese)}}
+}
+
 func Literal(value string) Text {
 	return Text{values: map[Locale]string{English: value, Chinese: value}}
 }

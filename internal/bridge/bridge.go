@@ -1453,7 +1453,11 @@ func extractCardKitAnswerText(userDSL string) string {
 		return ""
 	}
 	text := strings.TrimSpace(findCardElementContent(card.Body.Elements, cardKitReplyElementID))
-	text = strings.TrimSpace(strings.TrimPrefix(text, "**最终结果**"))
+	// Older cards embedded the product heading in the answer. New cards keep it
+	// separate, so an identically worded Agent heading must remain literal.
+	if _, hasHeading := findCardElementByID(card.Body.Elements, cardKitAnswerHeadingID); !hasHeading {
+		text = strings.TrimSpace(strings.TrimPrefix(text, "**最终结果**"))
+	}
 	return strings.TrimSpace(cardKitAtTagPattern.ReplaceAllStringFunc(text, func(tag string) string {
 		match := cardKitMentionKeyPattern.FindStringSubmatch(tag)
 		if len(match) > 1 {

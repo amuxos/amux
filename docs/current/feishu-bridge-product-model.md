@@ -251,8 +251,9 @@ Management cards use JSON 2.0 **local** `i18n_content` fields and callback toast
 use `i18n`, following the viewer's Feishu/Lark language. JSON 2.0 does not support
 global `i18n_elements`. English is the fallback for unsupported client languages.
 The `/amux` overview offers automatic, English and Simplified Chinese display.
-The preference is persisted per Bot/user. Explicit selection applies only to
-server-recorded private management cards. Shared and pre-upgrade cards retain
+The preference is persisted per Bot/user. Explicit selection applies to
+server-recorded private management cards and private conversation cards, including
+per-topic DMs and the continuous Bot session. Shared and pre-upgrade cards retain
 per-viewer automatic display; reopen `/amux` to apply a preference to a new card.
 The preference does not change Agent reply language. If a permission card fails
 to send, its plain-text fallback uses the saved language; automatic mode includes
@@ -270,5 +271,19 @@ and pass dynamic values as template arguments. Rendering accepts explicit produc
 messages or literal strings; it never looks up a translation using user content.
 English count messages provide singular forms where needed. Tests compare rendered
 languages, preserve callback payloads, check card budgets and exercise persisted
-preferences, shared-card isolation and failed-update fallback. CLI, desktop and
-Agent-generated content are outside this first migration.
+preferences, shared-card isolation and failed-update fallback. CLI and desktop
+coverage is tracked separately in the [product language model](i18n-product-model.md).
+Agent-generated content retains its original language.
+
+Conversation and subtask cards also use native per-viewer translations for
+status, timing and usage labels, question/follow-up headings, plans, execution
+records, progress and final-result headings, viewer controls and size-limit
+fallbacks. Private conversation cards use the recipient's saved preference, falling back
+to the viewer's client language in automatic mode. Shared cards always retain
+per-viewer translations. Each CardKit delivery snapshots its verified recipient
+and preference so retries and subsequent updates cannot apply a private override
+to a group. Preference changes apply to new cards; historical cards are retained. Product headings are separate
+from the streamed Agent body, so CardKit text updates preserve both translations
+and literal Agent content. Activity replacement and legacy activity cards carry
+the same translations. Truncated progress uses a language-neutral ellipsis.
+Already-delivered historical cards are not rewritten retroactively.

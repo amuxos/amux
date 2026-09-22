@@ -1370,23 +1370,14 @@ func (b *Bridge) sendAgentReplyToBinding(ctx context.Context, chat *LarkChat, te
 }
 
 func (b *Bridge) sendToolActivityToBinding(ctx context.Context, chat *LarkChat, meta toolActivityCardMeta, text string) (string, string, error) {
-	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
-		if err != nil {
-			return "", "", err
-		}
-		return b.sendToolActivityCardToDirectTarget(ctx, bs, meta, text)
-	}
-	return b.sendToolActivityToThread(ctx, chat.RootMsgID, meta, text)
+	return b.sendInteractiveToBinding(ctx, chat, renderToolActivityCard(meta, text), "tool activity card")
 }
 
 func (b *Bridge) patchToolActivityBinding(ctx context.Context, chat *LarkChat, msgID string, meta toolActivityCardMeta, text string) error {
-	if _, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
-		if err != nil {
-			return err
-		}
-		return b.patchToolActivityMessage(ctx, msgID, meta, text)
+	if _, _, err := b.directReplyTargetForBinding(chat); err != nil {
+		return err
 	}
-	return b.patchToolActivityMessage(ctx, msgID, meta, text)
+	return b.patchInteractiveMessage(ctx, msgID, b.sessionCardForPatch(msgID, renderToolActivityCard(meta, text)), "tool activity card")
 }
 
 func (b *Bridge) sendAgentReplyCardToBinding(ctx context.Context, chat *LarkChat, text string) (string, string, error) {
@@ -1409,7 +1400,13 @@ func (b *Bridge) sendInteractiveToBinding(ctx context.Context, chat *LarkChat, c
 	if chat == nil {
 		return "", "", fmt.Errorf("nil lark chat")
 	}
-	return b.sendInteractiveToThread(ctx, chat.RootMsgID, content, label)
+	openID := b.privateThreadRecipient(chat)
+	content = b.managementCardForRecipient(openID, content)
+	messageID, threadID, err := b.sendInteractiveToThread(ctx, chat.RootMsgID, content, label)
+	if err == nil {
+		b.rememberPrivateSessionCard(openID, messageID)
+	}
+	return messageID, threadID, err
 }
 
 func (b *Bridge) patchAgentReplyBinding(ctx context.Context, chat *LarkChat, msgID, text string) error {
@@ -1508,7 +1505,12 @@ func (b *Bridge) sendInteractiveToDirectTarget(ctx context.Context, target *dire
 		if strings.TrimSpace(target.OpenID) == "" {
 			return "", "", fmt.Errorf("direct dm output target is empty")
 		}
-		return b.sendInteractiveToDM(ctx, target.OpenID, content, label)
+		content = b.managementCardForRecipient(target.OpenID, content)
+		messageID, threadID, err := b.sendInteractiveToDM(ctx, target.OpenID, content, label)
+		if err == nil {
+			b.rememberPrivateSessionCard(target.OpenID, messageID)
+		}
+		return messageID, threadID, err
 	case botSessionReplyGroup:
 		if strings.TrimSpace(target.ChatID) == "" {
 			return "", "", fmt.Errorf("direct group output target is empty")

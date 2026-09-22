@@ -16,6 +16,7 @@ import (
 
 const (
 	cardKitReplyElementID         = "answer_text"
+	cardKitAnswerHeadingID        = "answer_heading"
 	cardKitActivityElementID      = "activity_section"
 	cardKitActivityContentID      = "activity_content"
 	cardKitExecutionSummaryID     = "execution_summary"
@@ -30,6 +31,7 @@ const (
 )
 
 type replyCardHandle struct {
+	delivery        replyCardDelivery
 	mode            replyCardMode
 	cardID          string
 	messageID       string
@@ -105,15 +107,17 @@ type cardKitReplyAPI interface {
 }
 
 type bindingReplyCardBackend struct {
-	cardKit      cardKitReplyAPI
-	sendCard     func(context.Context, string, string) (string, error)
-	createLegacy func(context.Context, string) (string, error)
-	patchLegacy  func(context.Context, string, string) error
+	prepareDelivery func() (replyCardDelivery, error)
+	cardKit         cardKitReplyAPI
+	sendCard        func(context.Context, string, string) (string, error)
+	createLegacy    func(context.Context, string) (string, error)
+	patchLegacy     func(context.Context, string, string) error
 }
 
 func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
 	return &bindingReplyCardBackend{
-		cardKit: &larkCardKitReplyAPI{bridge: b},
+		prepareDelivery: func() (replyCardDelivery, error) { return b.prepareSessionCardDelivery(chat) },
+		cardKit:         &larkCardKitReplyAPI{bridge: b},
 		sendCard: func(ctx context.Context, content, requestUUID string) (string, error) {
 			msgID, _, err := b.sendCardKitReplyToBinding(ctx, chat, content, requestUUID)
 			return msgID, err
@@ -142,20 +146,25 @@ func (b *Bridge) sendCardKitReplyToBinding(ctx context.Context, chat *LarkChat, 
 }
 
 func (b *bindingReplyCardBackend) Create(ctx context.Context, text string) (*replyCardHandle, error) {
-	cardID, err := b.cardKit.CreateCard(ctx, renderCardKitReplyData(text))
+	delivery, err := b.delivery()
+	if err != nil {
+		return nil, err
+	}
+	cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(renderCardKitReplyData(text), delivery.locale))
 	if err == nil {
 		var messageID string
 		requestUUID := uuid.NewString()
-		messageID, err = b.sendCard(ctx, renderCardKitMessageContent(cardID), requestUUID)
+		messageID, err = delivery.send(ctx, renderCardKitMessageContent(cardID), requestUUID)
 		ambiguousSend := isAmbiguousCardKitSendError(err)
 		if ambiguousSend {
 			retryCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			messageID, err = b.sendCard(retryCtx, renderCardKitMessageContent(cardID), requestUUID)
+			messageID, err = delivery.send(retryCtx, renderCardKitMessageContent(cardID), requestUUID)
 			cancel()
 			ambiguousSend = isAmbiguousCardKitSendError(err)
 		}
 		if err == nil {
 			return &replyCardHandle{
+				delivery:    delivery,
 				mode:        replyCardModeCardKit,
 				cardID:      cardID,
 				messageID:   messageID,
@@ -167,6 +176,7 @@ func (b *bindingReplyCardBackend) Create(ctx context.Context, text string) (*rep
 		if ambiguousSend {
 			log.Warn().Err(err).Str("card_id", cardID).Msg("bridge: CardKit message delivery remains uncertain; preserving send identity")
 			return &replyCardHandle{
+				delivery:        delivery,
 				mode:            replyCardModeCardKit,
 				cardID:          cardID,
 				lastText:        text,
@@ -203,25 +213,30 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 	if len(activity.JSON) == 0 {
 		return nil, fmt.Errorf("empty turn activity")
 	}
-	cardID, err := b.cardKit.CreateCard(ctx, renderCardKitData(activity.elements()))
+	delivery, err := b.delivery()
+	if err != nil {
+		return nil, err
+	}
+	cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(renderCardKitData(activity.elements()), delivery.locale))
 	if err != nil {
 		return nil, fmt.Errorf("create CardKit activity: %w", err)
 	}
 	requestUUID := uuid.NewString()
-	messageID, err := b.sendCard(ctx, renderCardKitMessageContent(cardID), requestUUID)
+	messageID, err := delivery.send(ctx, renderCardKitMessageContent(cardID), requestUUID)
 	ambiguousSend := isAmbiguousCardKitSendError(err)
 	if ambiguousSend {
 		retryCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		messageID, err = b.sendCard(retryCtx, renderCardKitMessageContent(cardID), requestUUID)
+		messageID, err = delivery.send(retryCtx, renderCardKitMessageContent(cardID), requestUUID)
 		cancel()
 		ambiguousSend = isAmbiguousCardKitSendError(err)
 	}
 	if err == nil {
 		return &replyCardHandle{
+			delivery:     delivery,
 			mode:         replyCardModeCardKit,
 			cardID:       cardID,
 			messageID:    messageID,
-			lastActivity: string(activity.JSON),
+			lastActivity: selectManagementCardLocale(string(activity.JSON), delivery.locale),
 			hasActivity:  true,
 			messageUUID:  requestUUID,
 		}, nil
@@ -229,9 +244,10 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 	if ambiguousSend {
 		log.Warn().Err(err).Str("card_id", cardID).Msg("bridge: CardKit activity delivery remains uncertain; preserving send identity")
 		return &replyCardHandle{
+			delivery:        delivery,
 			mode:            replyCardModeCardKit,
 			cardID:          cardID,
-			lastActivity:    string(activity.JSON),
+			lastActivity:    selectManagementCardLocale(string(activity.JSON), delivery.locale),
 			hasActivity:     true,
 			messageUUID:     requestUUID,
 			deliveryPending: true,
@@ -280,7 +296,7 @@ func (b *bindingReplyCardBackend) update(ctx context.Context, handle *replyCardH
 	var err error
 	if handle.hasAnswer {
 		err = b.cardKit.UpdateElement(ctx, cardKitReplyUpdate{
-			CardID: handle.cardID, ElementID: cardKitReplyElementID, Text: renderFinalResultText(normalizeAgentResultText(text)),
+			CardID: handle.cardID, ElementID: cardKitReplyElementID, Text: renderAgentResultBody(text),
 			UUID: mutationUUID, Sequence: handle.sequence,
 		})
 	} else {
@@ -292,7 +308,7 @@ func (b *bindingReplyCardBackend) update(ctx context.Context, handle *replyCardH
 		}
 		insert := cardKitElementInsert{
 			CardID: handle.cardID, Type: "insert_after", TargetElementID: cardKitActivityContentID,
-			Elements: string(elements), UUID: mutationUUID, Sequence: handle.sequence,
+			Elements: selectManagementCardLocale(string(elements), handle.delivery.locale), UUID: mutationUUID, Sequence: handle.sequence,
 		}
 		err = b.cardKit.InsertElements(ctx, insert)
 		if err != nil && isAmbiguousCardKitMutationError(err) {
@@ -320,7 +336,7 @@ func (b *bindingReplyCardBackend) UpdateActivity(ctx context.Context, handle *re
 	if err := b.retryPendingInsert(ctx, handle); err != nil {
 		return err
 	}
-	raw := string(activity.JSON)
+	raw := selectManagementCardLocale(string(activity.JSON), handle.delivery.locale)
 	if raw == "" {
 		return fmt.Errorf("empty turn activity")
 	}
@@ -342,8 +358,8 @@ func (b *bindingReplyCardBackend) UpdateActivity(ctx context.Context, handle *re
 			return marshalErr
 		}
 		insert := cardKitElementInsert{
-			CardID: handle.cardID, Type: "insert_before", TargetElementID: cardKitReplyElementID,
-			Elements: string(elements), UUID: mutationUUID, Sequence: handle.sequence,
+			CardID: handle.cardID, Type: "insert_before", TargetElementID: cardKitAnswerHeadingID,
+			Elements: selectManagementCardLocale(string(elements), handle.delivery.locale), UUID: mutationUUID, Sequence: handle.sequence,
 		}
 		err = b.cardKit.InsertElements(ctx, insert)
 		if err != nil && isAmbiguousCardKitMutationError(err) {
@@ -401,7 +417,7 @@ func (b *bindingReplyCardBackend) retryPendingInsert(ctx context.Context, handle
 		handle.lastText = pending.answerText
 		handle.hasAnswer = true
 	case pendingInsertActivity:
-		handle.lastActivity = string(pending.activity.JSON)
+		handle.lastActivity = selectManagementCardLocale(string(pending.activity.JSON), handle.delivery.locale)
 		handle.hasActivity = true
 	}
 	return nil
@@ -411,7 +427,11 @@ func (b *bindingReplyCardBackend) ensureDelivered(ctx context.Context, handle *r
 	if handle == nil || !handle.deliveryPending {
 		return nil
 	}
-	messageID, err := b.sendCard(ctx, renderCardKitMessageContent(handle.cardID), handle.messageUUID)
+	send := handle.delivery.send
+	if send == nil {
+		send = b.sendCard
+	}
+	messageID, err := send(ctx, renderCardKitMessageContent(handle.cardID), handle.messageUUID)
 	if err != nil {
 		return err
 	}
@@ -629,17 +649,20 @@ func renderCardKitReplyData(text string) string {
 }
 
 func renderCardKitAnswerElements(text string) []cardElement {
-	elements := []cardElement{{Tag: "markdown", Content: renderFinalResultText(normalizeAgentResultText(text)), ElementID: cardKitReplyElementID}}
+	elements := renderFinalResultElements(text)
 	return append(elements, renderAmuxBrandFooterElements()...)
 }
 
-func renderFinalResultText(text string) string {
-	text = renderArtifactLinks(text)
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return "**最终结果**"
+// Product headings never share a content-only streaming target with Agent text.
+func renderFinalResultElements(text string) []cardElement {
+	return []cardElement{
+		managementContentElement(sessionMessage("result"), cardElement{Tag: "markdown", ElementID: cardKitAnswerHeadingID}),
+		{Tag: "markdown", Content: renderAgentResultBody(text), ElementID: cardKitReplyElementID},
 	}
-	return "**最终结果**\n\n" + text
+}
+
+func renderAgentResultBody(text string) string {
+	return strings.TrimSpace(renderArtifactLinks(normalizeAgentResultText(text)))
 }
 
 func renderCardKitData(elements []cardElement) string {
@@ -701,4 +724,11 @@ func renderCardKitMessageContent(cardID string) string {
 	content.Data.CardID = cardID
 	raw, _ := json.Marshal(content)
 	return string(raw)
+}
+
+func (b *bindingReplyCardBackend) delivery() (replyCardDelivery, error) {
+	if b.prepareDelivery != nil {
+		return b.prepareDelivery()
+	}
+	return replyCardDelivery{send: b.sendCard}, nil
 }

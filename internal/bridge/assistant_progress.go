@@ -4,7 +4,9 @@ import "strings"
 
 const maxAssistantProgressRunes = 6000
 
-const omittedAssistantProgress = "…中间处理动态已省略…"
+// Progress is bounded before a viewer's locale is known. Use a language-neutral
+// omission marker instead of embedding product prose into Agent-owned content.
+const omittedAssistantProgress = "…"
 
 // assistantProgress keeps provider narrative updates out of the final answer
 // while retaining a bounded, chronological user-facing progress history and

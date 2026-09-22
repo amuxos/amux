@@ -12,6 +12,7 @@ import (
 	"github.com/amuxos/amux/internal/agentui"
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/distribution"
+	"github.com/amuxos/amux/internal/i18n"
 )
 
 const (
@@ -25,7 +26,6 @@ const (
 	maxSubtaskDetailRunes                  = 160
 	maxTurnCardActivityBytes               = 18 * 1024
 	maxCompactActivityStepRunes            = 1000
-	processingUpdateTitle                  = "处理过程"
 	amuxBrandDividerID                     = "brand_divider"
 	amuxBrandFooterID                      = "brand_footer"
 	externalBotDelegationTargetElementID   = "external_target"
@@ -516,9 +516,11 @@ func permissionButtonType(opt permissionOption) string {
 func renderToolActivityCard(meta toolActivityCardMeta, text string) string {
 	activity := renderTurnActivity(meta)
 	if meta.Activity == nil {
-		content := toolActivityCardContent(meta.Question, meta.Followup, text)
-		if strings.TrimSpace(content) != "" {
-			setExecutionSummaryDetails(&activity.Element, []cardElement{{Tag: "markdown", Content: content}})
+		content := i18n.Render(func(locale i18n.Locale) string {
+			return toolActivityCardContent(meta.Question, meta.Followup, text, locale)
+		})
+		if strings.TrimSpace(content.For(i18n.Chinese)) != "" {
+			setExecutionSummaryDetails(&activity.Element, []cardElement{managementContentElement(content, cardElement{Tag: "markdown"})})
 			activity.JSON, _ = json.Marshal(activity.Element)
 		}
 	}
@@ -527,6 +529,9 @@ func renderToolActivityCard(meta toolActivityCardMeta, text string) string {
 }
 
 func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
+	if meta.Now.IsZero() {
+		meta.Now = time.Now()
+	}
 	element := renderTurnActivityElement(meta)
 	raw, _ := json.Marshal(element)
 	if len(raw) > maxTurnCardActivityBytes && meta.Activity != nil && strings.TrimSpace(meta.Activity.CurrentStep) != "" {
@@ -557,11 +562,7 @@ func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
 		element = renderCompactActivityElement(meta)
 		raw, _ = json.Marshal(element)
 		if len(raw) > maxTurnCardActivityBytes {
-			element = cardElement{
-				Tag:       "markdown",
-				ElementID: cardKitActivityContentID,
-				Content:   "执行详情过长，请打开完整输出查看。",
-			}
+			element = managementContentElement(sessionMessage("details.long"), cardElement{Tag: "markdown", ElementID: cardKitActivityContentID})
 			raw, _ = json.Marshal(element)
 		}
 	}
@@ -576,7 +577,7 @@ func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
 			ElementID: "viewer_action",
 			Actions: []cardAction{{
 				Tag:  "button",
-				Text: &cardTitle{Tag: "plain_text", Content: "查看完整输出"},
+				Text: managementPlainTextPtr(sessionMessage("view")),
 				Type: "default",
 				URL:  strings.TrimSpace(meta.ViewURL),
 			}},
@@ -588,7 +589,7 @@ func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
 func renderTurnActivityElement(meta toolActivityCardMeta) cardElement {
 	details := renderTurnActivityDetails(meta)
 	if len(details) == 0 {
-		details = []cardElement{{Tag: "markdown", Content: "暂无更多执行详情"}}
+		details = []cardElement{managementContentElement(sessionMessage("details.empty"), cardElement{Tag: "markdown"})}
 	}
 	children := []cardElement{renderExecutionSummaryPanel(meta, details)}
 	if meta.ThinkingProcess != config.FeishuThinkingProcessHidden && meta.Activity != nil {
@@ -617,7 +618,7 @@ func renderTurnActivityElement(meta toolActivityCardMeta) cardElement {
 // compact count-based summary, and the latest processing step so users can
 // still see progress and status in Feishu without opening the full output.
 func renderCompactActivityElement(meta toolActivityCardMeta) cardElement {
-	var summaryParts []string
+	var summaryParts []any
 	if meta.Activity != nil {
 		if len(meta.Activity.Plan) > 0 {
 			done := 0
@@ -627,28 +628,28 @@ func renderCompactActivityElement(meta toolActivityCardMeta) cardElement {
 					done++
 				}
 			}
-			summaryParts = append(summaryParts, "计划进度 "+strconv.Itoa(done)+"/"+strconv.Itoa(len(meta.Activity.Plan)))
+			summaryParts = append(summaryParts, sessionMessage("plan", done, len(meta.Activity.Plan)))
 		}
 		if len(meta.Activity.Tools) > 0 {
-			summaryParts = append(summaryParts, "工具调用 "+strconv.Itoa(len(meta.Activity.Tools))+" 次")
+			summaryParts = append(summaryParts, sessionMessage("calls", len(meta.Activity.Tools)))
 		}
 	}
 	if len(meta.Subtasks) > 0 {
 		if meta.Status == "done" || meta.Status == "waiting" || meta.Status == "failed" || meta.Status == "stopped" {
-			summaryParts = append(summaryParts, "协作任务 "+strconv.Itoa(len(meta.Subtasks))+" 个")
+			summaryParts = append(summaryParts, sessionMessage("subtasks", len(meta.Subtasks)))
 		} else {
 			if count := activeSubtaskCount(meta.Subtasks); count > 0 {
-				summaryParts = append(summaryParts, "协作任务 "+strconv.Itoa(count)+" 个进行中")
+				summaryParts = append(summaryParts, sessionMessage("subtasks.active", count))
 			} else {
-				summaryParts = append(summaryParts, "协作任务 "+strconv.Itoa(len(meta.Subtasks))+" 个")
+				summaryParts = append(summaryParts, sessionMessage("subtasks", len(meta.Subtasks)))
 			}
 		}
 	}
 	var summaryElements []cardElement
 	if len(summaryParts) > 0 {
-		summaryElements = []cardElement{renderActivitySectionBlock(strings.Join(summaryParts, " · "), "compact_summary")}
+		summaryElements = []cardElement{renderActivitySectionBlock(managementJoin(" · ", summaryParts...), "compact_summary")}
 	} else {
-		summaryElements = []cardElement{{Tag: "markdown", Content: "执行详情过长，请打开完整输出查看。"}}
+		summaryElements = []cardElement{managementContentElement(sessionMessage("details.long"), cardElement{Tag: "markdown"})}
 	}
 	children := []cardElement{renderExecutionSummaryPanel(meta, summaryElements)}
 	if meta.ThinkingProcess != config.FeishuThinkingProcessHidden && meta.Activity != nil {
@@ -684,13 +685,8 @@ func renderExecutionSummaryPanel(meta toolActivityCardMeta, elements []cardEleme
 		ElementID:       cardKitExecutionSummaryID,
 		Expanded:        false,
 		VerticalSpacing: "8px",
-		Header: &panelHeader{Title: cardTitle{
-			Tag:       "plain_text",
-			Content:   titlePrefix + toolActivityDisplayTitle(meta),
-			TextSize:  "notation",
-			TextColor: "grey",
-		}},
-		Elements: elements,
+		Header:          &panelHeader{Title: managementStyledText(i18n.Render(func(locale i18n.Locale) string { return titlePrefix + toolActivityDisplayTitle(meta, locale) }), cardTitle{TextSize: "notation", TextColor: "grey", Tag: "plain_text"})},
+		Elements:        elements,
 	}
 }
 
@@ -704,11 +700,13 @@ func setExecutionSummaryDetails(activity *cardElement, details []cardElement) {
 func renderTurnActivityDetails(meta toolActivityCardMeta) []cardElement {
 	view := meta.Activity
 	if view == nil {
-		content := toolActivityCardContent(meta.Question, meta.Followup, "")
-		if content == "" {
+		content := i18n.Render(func(locale i18n.Locale) string {
+			return toolActivityCardContent(meta.Question, meta.Followup, "", locale)
+		})
+		if content.For(i18n.Chinese) == "" {
 			return nil
 		}
-		return []cardElement{{Tag: "markdown", Content: content}}
+		return []cardElement{managementContentElement(content, cardElement{Tag: "markdown"})}
 	}
 	var elements []cardElement
 	if question := strings.TrimSpace(meta.Question); question != "" {
@@ -718,13 +716,14 @@ func renderTurnActivityDetails(meta toolActivityCardMeta) []cardElement {
 		return append(elements, renderCompletedActivityDetails(view, meta.Subtasks)...)
 	}
 	if len(view.Plan) > 0 {
-		elements = append(elements, renderActivitySectionBlock(renderPlan(view.Plan), "plan_progress"))
+		elements = append(elements, renderActivitySectionBlock(i18n.Render(func(locale i18n.Locale) string { return renderPlan(view.Plan, locale) }), "plan_progress"))
 	}
-	if tools := renderToolSection(view.Tools, time.Now()); tools != "" {
-		elements = append(elements, renderExecutionRecordsBlock(tools))
+	if len(view.Tools) > 0 {
+		now := time.Now()
+		elements = append(elements, renderExecutionRecordsBlock(i18n.Render(func(locale i18n.Locale) string { return renderToolSection(view.Tools, now, locale) })))
 	}
-	if subtasks := renderSubtaskSection(meta.Subtasks); subtasks != "" {
-		elements = append(elements, renderActivitySectionBlock(subtasks, "collaboration_tasks"))
+	if len(meta.Subtasks) > 0 {
+		elements = append(elements, renderActivitySectionBlock(i18n.Render(func(locale i18n.Locale) string { return renderSubtaskSection(meta.Subtasks, locale) }), "collaboration_tasks"))
 	}
 	return elements
 }
@@ -760,7 +759,7 @@ func marshalActivityCard(doc cardDoc, meta toolActivityCardMeta) string {
 	doc.Body.Elements = wrapTurnCardElements(elements)
 	bs, _ = json.Marshal(doc)
 	if len(bs) > maxFeishuCardBytes {
-		doc.Body.Elements = []cardElement{{Tag: "markdown", Content: "执行详情过长，请在 session viewer 中查看。"}}
+		doc.Body.Elements = []cardElement{managementContentElement(sessionMessage("details.viewer"), cardElement{Tag: "markdown"})}
 		bs, _ = json.Marshal(doc)
 	}
 	return string(bs)
@@ -784,18 +783,18 @@ func findCardElementByID(elements []cardElement, elementID string) (cardElement,
 }
 
 func renderQuestionBlock(question, followup, elementID string) cardElement {
-	content := "**问题**　" + escapeCardMarkdown(strings.TrimSpace(question))
+	content := sessionMessage("question", escapeCardMarkdown(strings.TrimSpace(question)))
 	if followup = strings.TrimSpace(followup); followup != "" {
-		content += "\n\n**补充**　" + escapeCardMarkdown(followup)
+		content = i18n.Join(content, i18n.Literal("\n\n"), sessionMessage("followup", escapeCardMarkdown(followup)))
 	}
 	return renderPaddedActivityBlock(content, elementID, "blue-50", "8px 12px")
 }
 
-func renderActivitySectionBlock(content, elementID string) cardElement {
+func renderActivitySectionBlock(content any, elementID string) cardElement {
 	return renderPaddedActivityBlock(content, elementID, "grey-50", "10px 12px")
 }
 
-func renderExecutionRecordsBlock(content string) cardElement {
+func renderExecutionRecordsBlock(content any) cardElement {
 	return cardElement{
 		Tag:       "column_set",
 		ElementID: "execution_records",
@@ -808,7 +807,7 @@ func renderExecutionRecordsBlock(content string) cardElement {
 			Padding:       "0px 12px",
 			Elements: []cardElement{
 				{Tag: "hr"},
-				{Tag: "markdown", Content: content, Margin: "8px 0px"},
+				managementContentElement(content, cardElement{Tag: "markdown", Margin: "8px 0px"}),
 				{Tag: "hr"},
 			},
 		}},
@@ -820,12 +819,7 @@ func renderProcessingUpdate(step, mode string) cardElement {
 		Tag:       "collapsible_panel",
 		ElementID: "processing_update",
 		Expanded:  mode != config.FeishuThinkingProcessCollapsed,
-		Header: &panelHeader{Title: cardTitle{
-			Tag:       "plain_text",
-			Content:   processingUpdateTitle,
-			TextSize:  "normal",
-			TextColor: "grey",
-		}, Padding: "4px 0px 6px 0px"},
+		Header:    &panelHeader{Title: managementStyledText(sessionMessage("processing"), cardTitle{Tag: "plain_text", TextSize: "normal", TextColor: "grey"}), Padding: "4px 0px 6px 0px"},
 		Elements: []cardElement{renderActivitySectionBlock(
 			escapeCardMarkdown(truncateAssistantProgress(step, maxActivityStepRunes)),
 			"processing_body",
@@ -833,7 +827,7 @@ func renderProcessingUpdate(step, mode string) cardElement {
 	}
 }
 
-func renderPaddedActivityBlock(content, elementID, background, padding string) cardElement {
+func renderPaddedActivityBlock(content any, elementID, background, padding string) cardElement {
 	return cardElement{
 		Tag:       "column_set",
 		ElementID: elementID,
@@ -845,7 +839,7 @@ func renderPaddedActivityBlock(content, elementID, background, padding string) c
 			VerticalAlign:   "top",
 			BackgroundStyle: background,
 			Padding:         padding,
-			Elements:        []cardElement{{Tag: "markdown", Content: content}},
+			Elements:        []cardElement{managementContentElement(content, cardElement{Tag: "markdown"})},
 		}},
 	}
 }
@@ -853,18 +847,19 @@ func renderPaddedActivityBlock(content, elementID, background, padding string) c
 func renderCompletedActivityDetails(view *agentui.ActivityView, subtasks []subtaskProgress) []cardElement {
 	var elements []cardElement
 	if len(view.Plan) > 0 {
-		elements = append(elements, renderActivitySectionBlock(renderPlan(view.Plan), "plan_progress"))
+		elements = append(elements, renderActivitySectionBlock(i18n.Render(func(locale i18n.Locale) string { return renderPlan(view.Plan, locale) }), "plan_progress"))
 	}
-	if tools := renderToolSection(view.Tools, time.Now()); tools != "" {
-		elements = append(elements, renderExecutionRecordsBlock(tools))
+	if len(view.Tools) > 0 {
+		now := time.Now()
+		elements = append(elements, renderExecutionRecordsBlock(i18n.Render(func(locale i18n.Locale) string { return renderToolSection(view.Tools, now, locale) })))
 	}
-	if subtasks := renderSubtaskSection(subtasks); subtasks != "" {
-		elements = append(elements, renderActivitySectionBlock(subtasks, "collaboration_tasks"))
+	if len(subtasks) > 0 {
+		elements = append(elements, renderActivitySectionBlock(i18n.Render(func(locale i18n.Locale) string { return renderSubtaskSection(subtasks, locale) }), "collaboration_tasks"))
 	}
 	return elements
 }
 
-func renderSubtaskLine(item subtaskProgress) string {
+func renderSubtaskLine(item subtaskProgress, locales ...i18n.Locale) string {
 	identity := ""
 	agentType := strings.TrimSpace(item.AgentType)
 	if profile := strings.TrimSpace(item.AgentProfile); profile != "" {
@@ -875,11 +870,11 @@ func renderSubtaskLine(item subtaskProgress) string {
 	} else if agentType != "" {
 		identity = agentType
 	}
-	line := "- " + escapeCardMarkdown(item.Title) + " · " + item.Status + " · " + formatElapsed(item.Elapsed)
+	line := "- " + escapeCardMarkdown(item.Title) + " · " + sessionSubtaskStatus(item.Status, locales) + " · " + formatElapsed(item.Elapsed, locales...)
 	if identity != "" {
 		line += "  \n  " + escapeCardMarkdown(identity)
 	}
-	if detail := subtaskTerminalDetail(item); detail != "" {
+	if detail := subtaskTerminalDetail(item, locales...); detail != "" {
 		line += "  \n  " + escapeCardMarkdown(detail)
 	}
 	return line
@@ -900,7 +895,7 @@ var (
 	subtaskMarkdownEmphasisUnderscoreRE = regexp.MustCompile(`(?m)(^|[\s(（\[【,，。:：;；!?！？])_([\p{L}\p{N}](?:[^_\n]*[\p{L}\p{N}])?)_($|[\s)）\]】,，。:：;；!?！？])`)
 )
 
-func subtaskTerminalDetail(item subtaskProgress) string {
+func subtaskTerminalDetail(item subtaskProgress, locales ...i18n.Locale) string {
 	status := strings.ToLower(strings.TrimSpace(item.Status))
 	detail := ""
 	switch status {
@@ -909,9 +904,9 @@ func subtaskTerminalDetail(item subtaskProgress) string {
 	case "failed", "error":
 		detail = item.Error
 	case "timed_out", "timeout":
-		detail = "任务执行超时"
+		detail = sessionCopy(locales, "subtasks.timeout")
 	case "cancelled", "canceled", "stopped":
-		detail = "任务已取消"
+		detail = sessionCopy(locales, "subtasks.cancelled")
 	}
 	detail = plainSubtaskDetail(detail)
 	detail = strings.Join(strings.Fields(detail), " ")
@@ -939,27 +934,27 @@ func plainSubtaskDetail(detail string) string {
 	return strings.ReplaceAll(detail, "*", `\*`)
 }
 
-func renderSubtaskSection(subtasks []subtaskProgress) string {
+func renderSubtaskSection(subtasks []subtaskProgress, locales ...i18n.Locale) string {
 	if len(subtasks) == 0 {
 		return ""
 	}
 	lines := make([]string, 0, min(len(subtasks), maxActivitySubtasks)+1)
 	for i, item := range subtasks {
 		if i == maxActivitySubtasks {
-			lines = append(lines, "- 其余子任务请在完整输出中查看")
+			lines = append(lines, sessionCopy(locales, "subtasks.more"))
 			break
 		}
-		lines = append(lines, renderSubtaskLine(item))
+		lines = append(lines, renderSubtaskLine(item, locales...))
 	}
-	return "**协作任务 · " + strconv.Itoa(len(subtasks)) + " 个**\n" + strings.Join(lines, "\n")
+	return "**" + sessionCopy(locales, "subtasks.heading", len(subtasks)) + "**\n" + strings.Join(lines, "\n")
 }
 
-func renderPlan(entries []agentui.PlanEntry) string {
+func renderPlan(entries []agentui.PlanEntry, locales ...i18n.Locale) string {
 	done := 0
 	lines := make([]string, 0, len(entries)+1)
 	for i, entry := range entries {
 		if i == maxPlanEntries {
-			lines = append(lines, "... 其余 "+strconv.Itoa(len(entries)-i)+" 项请在完整输出中查看")
+			lines = append(lines, sessionCopy(locales, "plan.more", len(entries)-i))
 			break
 		}
 		marker := "○"
@@ -972,7 +967,7 @@ func renderPlan(entries []agentui.PlanEntry) string {
 		}
 		lines = append(lines, marker+" "+strconv.Itoa(i+1)+". "+escapeCardMarkdown(truncateCardText(entry.Content, maxPlanEntryRunes)))
 	}
-	return "**计划进度 " + strconv.Itoa(done) + "/" + strconv.Itoa(len(entries)) + "**\n" + strings.Join(lines, "\n")
+	return "**" + sessionCopy(locales, "plan", done, len(entries)) + "**\n" + strings.Join(lines, "\n")
 }
 
 type toolDisplayStatus string
@@ -991,12 +986,12 @@ type toolDisplayRow struct {
 	startedAt    time.Time
 }
 
-func renderToolRows(tools []agentui.ToolEvent, now time.Time) (active, completed string) {
+func renderToolRows(tools []agentui.ToolEvent, now time.Time, locales ...i18n.Locale) (active, completed string) {
 	var activeLines, completedLines []string
-	for _, row := range groupToolDisplayRows(tools) {
+	for _, row := range groupToolDisplayRows(tools, locales...) {
 		line := renderToolDisplayTitle(row.title, row.sourcePrefix)
 		if row.status == toolDisplayRunning && !row.startedAt.IsZero() {
-			line += " · " + formatElapsed(now.Sub(row.startedAt))
+			line += " · " + formatElapsed(now.Sub(row.startedAt), locales...)
 		}
 		if row.count > 1 {
 			line += " ×" + strconv.Itoa(row.count)
@@ -1011,7 +1006,7 @@ func renderToolRows(tools []agentui.ToolEvent, now time.Time) (active, completed
 		}
 	}
 	if len(activeLines) > 0 {
-		active = "**执行记录**\n" + strings.Join(activeLines, "\n")
+		active = "**" + sessionCopy(locales, "records") + "**\n" + strings.Join(activeLines, "\n")
 	}
 	if len(completedLines) > 0 {
 		completed = strings.Join(completedLines, "\n")
@@ -1026,9 +1021,9 @@ func renderToolDisplayTitle(title, sourcePrefix string) string {
 	return "<font color='grey'>" + escapeCardMarkdown(sourcePrefix) + "</font>" + escapeCardMarkdown(strings.TrimPrefix(title, sourcePrefix))
 }
 
-func renderToolSection(tools []agentui.ToolEvent, now time.Time) string {
-	active, completed := renderToolRows(tools, now)
-	rows := strings.TrimPrefix(active, "**执行记录**\n")
+func renderToolSection(tools []agentui.ToolEvent, now time.Time, locales ...i18n.Locale) string {
+	active, completed := renderToolRows(tools, now, locales...)
+	rows := strings.TrimPrefix(active, "**"+sessionCopy(locales, "records")+"**\n")
 	if rows != "" && completed != "" {
 		rows += "\n"
 	}
@@ -1036,10 +1031,10 @@ func renderToolSection(tools []agentui.ToolEvent, now time.Time) string {
 	if rows == "" {
 		return ""
 	}
-	return "**执行记录 · " + strconv.Itoa(len(tools)) + " 次**\n" + rows
+	return "**" + sessionCopy(locales, "records.count", len(tools)) + "**\n" + rows
 }
 
-func groupToolDisplayRows(tools []agentui.ToolEvent) []toolDisplayRow {
+func groupToolDisplayRows(tools []agentui.ToolEvent, locales ...i18n.Locale) []toolDisplayRow {
 	rows := make([]toolDisplayRow, 0, len(tools))
 	rowByKey := make(map[string]int, len(tools))
 	for _, tool := range tools {
@@ -1049,7 +1044,7 @@ func groupToolDisplayRows(tools []agentui.ToolEvent) []toolDisplayRow {
 		}
 		title = strings.Join(strings.Fields(title), " ")
 		if title == "" {
-			title = "工具"
+			title = sessionCopy(locales, "tool")
 		}
 		sourcePrefix := structuredToolSourcePrefix(tool.Name, title)
 		status := toolDisplayStatusFor(tool.Status)
@@ -1097,7 +1092,7 @@ func toolDisplayStatusFor(status string) toolDisplayStatus {
 	}
 }
 
-func usageSummary(raw json.RawMessage) string {
+func usageSummary(raw json.RawMessage, locales ...i18n.Locale) string {
 	if len(raw) == 0 {
 		return ""
 	}
@@ -1135,14 +1130,14 @@ func usageSummary(raw json.RawMessage) string {
 	// remains based on its latest call. Never add repeated usage snapshots.
 	var counts []string
 	if input, ok := numberValue(usage["cumulative_input_tokens"]); ok {
-		text := "累计输入 " + compactNumber(input)
+		text := sessionCopy(locales, "usage.input", compactNumber(input))
 		if cached, ok := numberValue(usage["cumulative_cached_input_tokens"]); ok {
-			text = "累计输入 " + compactNumber(cached) + "/" + compactNumber(input) + "（缓存/总量）"
+			text = sessionCopy(locales, "usage.cached", compactNumber(cached), compactNumber(input))
 		}
 		counts = append(counts, text)
 	}
 	if output, ok := numberValue(usage["cumulative_output_tokens"]); ok {
-		counts = append(counts, "累计输出 "+compactNumber(output))
+		counts = append(counts, sessionCopy(locales, "usage.output", compactNumber(output)))
 	}
 	if len(counts) > 0 {
 		if summary != "" {
@@ -1157,7 +1152,7 @@ func usageSummary(raw json.RawMessage) string {
 		if summary != "" {
 			summary += " · "
 		}
-		summary += "首 token " + compactDurationText(ttft)
+		summary += sessionCopy(locales, "usage.ttft", compactDurationText(ttft))
 	}
 	if tps, ok := numberValue(usage["tokens_per_sec"]); ok && tps > 0 {
 		if summary != "" {
@@ -1235,17 +1230,17 @@ func truncateCardText(text string, maxRunes int) string {
 	return string(runes[:maxRunes]) + "..."
 }
 
-func toolActivityCardTitle(meta toolActivityCardMeta) string {
-	status := "正在处理"
+func toolActivityCardTitle(meta toolActivityCardMeta, locales ...i18n.Locale) string {
+	status := sessionCopy(locales, "status.running")
 	switch meta.Status {
 	case "done":
-		status = "已完成"
+		status = sessionCopy(locales, "status.done")
 	case "waiting":
-		status = "等待你回复"
+		status = sessionCopy(locales, "status.waiting")
 	case "failed":
-		status = "执行失败"
+		status = sessionCopy(locales, "status.failed")
 	case "stopped":
-		status = "已停止"
+		status = sessionCopy(locales, "status.stopped")
 	}
 	now := meta.Now
 	if now.IsZero() {
@@ -1262,11 +1257,11 @@ func toolActivityCardTitle(meta toolActivityCardMeta) string {
 	}
 	modelText := ""
 	if model := strings.TrimSpace(meta.EffectiveModel); model != "" {
-		modelText = " · 模型 " + truncateCardText(managementDefaultText(managementRuntimeModelLabel(model)), 80)
+		modelText = " · " + sessionCopy(locales, "model", truncateCardText(managementDefaultText(managementRuntimeModelLabel(model)), 80))
 	}
 	usageText := ""
 	if meta.Activity != nil {
-		if usage := usageSummary(meta.Activity.UsageJSON); usage != "" {
+		if usage := usageSummary(meta.Activity.UsageJSON, locales...); usage != "" {
 			usageText = " · " + usage
 		}
 	}
@@ -1275,19 +1270,19 @@ func toolActivityCardTitle(meta toolActivityCardMeta) string {
 			silentFor := now.Sub(meta.Activity.LastActivityAt)
 			possiblyQueued := distributionActivityPossiblyQueued(meta.AgentType, meta.Activity)
 			if possiblyQueued && silentFor < turnStatusSilentDelay {
-				return "等待模型响应" + identityText + modelText + " · 请求已提交，可能正在排队"
+				return sessionCopy(locales, "status.model") + identityText + modelText + " · " + sessionCopy(locales, "queue.submitted")
 			}
 			switch {
 			case silentFor >= time.Minute:
 				if possiblyQueued {
-					return "等待模型响应" + identityText + modelText + " · 已等待 " + formatElapsed(silentFor) + " 未收到模型响应，可能仍在排队或服务繁忙，可中断后重试"
+					return sessionCopy(locales, "status.model") + identityText + modelText + " · " + sessionCopy(locales, "queue.long", formatElapsed(silentFor, locales...))
 				}
-				return "仍在处理" + identityText + modelText + " · " + formatElapsed(silentFor) + "未收到新进展" + usageText
+				return sessionCopy(locales, "status.still") + identityText + modelText + " · " + sessionCopy(locales, "status.silent", formatElapsed(silentFor, locales...)) + usageText
 			case silentFor >= turnStatusSilentDelay:
 				if possiblyQueued {
-					return "等待模型响应" + identityText + modelText + " · 可能正在排队，已等待 " + formatElapsed(silentFor) + "，尚未收到模型输出"
+					return sessionCopy(locales, "status.model") + identityText + modelText + " · " + sessionCopy(locales, "queue.waiting", formatElapsed(silentFor, locales...))
 				}
-				return "正在处理" + identityText + modelText + " · 最近更新于 " + formatElapsed(silentFor) + "前" + usageText
+				return sessionCopy(locales, "status.running") + identityText + modelText + " · " + sessionCopy(locales, "status.recent", formatElapsed(silentFor, locales...)) + usageText
 			}
 		}
 	}
@@ -1297,29 +1292,29 @@ func toolActivityCardTitle(meta toolActivityCardMeta) string {
 		if !meta.Activity.FinishedAt.IsZero() {
 			end = meta.Activity.FinishedAt
 		}
-		elapsed = " · " + formatElapsed(end.Sub(meta.Activity.StartedAt))
+		elapsed = " · " + formatElapsed(end.Sub(meta.Activity.StartedAt), locales...)
 	}
 	return status + identityText + modelText + elapsed + usageText
 }
 
-func toolActivityDisplayTitle(meta toolActivityCardMeta) string {
-	title := toolActivityCardTitle(meta)
+func toolActivityDisplayTitle(meta toolActivityCardMeta, locales ...i18n.Locale) string {
+	title := toolActivityCardTitle(meta, locales...)
 	if len(meta.Subtasks) == 0 {
 		return title
 	}
 	if meta.Status == "done" || meta.Status == "waiting" || meta.Status == "failed" || meta.Status == "stopped" {
-		return title + " · 协作任务 " + strconv.Itoa(len(meta.Subtasks)) + " 个"
+		return title + " · " + sessionCopy(locales, "subtasks", len(meta.Subtasks))
 	}
 	if meta.Status == "running" || meta.Status == "" {
 		if count := activeSubtaskCount(meta.Subtasks); count > 0 {
-			return title + " · 协作任务 " + strconv.Itoa(count) + " 个进行中"
+			return title + " · " + sessionCopy(locales, "subtasks.active", count)
 		}
-		return title + " · 协作任务 " + strconv.Itoa(len(meta.Subtasks)) + " 个"
+		return title + " · " + sessionCopy(locales, "subtasks", len(meta.Subtasks))
 	}
 	return title
 }
 
-func toolActivityCardContent(question, followup, text string) string {
+func toolActivityCardContent(question, followup, text string, locales ...i18n.Locale) string {
 	text = strings.TrimSpace(text)
 	question = strings.TrimSpace(question)
 	followup = strings.TrimSpace(followup)
@@ -1328,7 +1323,7 @@ func toolActivityCardContent(question, followup, text string) string {
 	}
 	prefix := "Q: " + question
 	if followup != "" {
-		prefix += "\n补充：" + followup
+		prefix += "\n" + sessionCopy(locales, "followup.plain", followup)
 	}
 	if text == "" {
 		return prefix

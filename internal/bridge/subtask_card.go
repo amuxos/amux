@@ -13,6 +13,7 @@ import (
 
 	"github.com/amuxos/amux/internal/agentui"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 )
 
 // subtaskCardController owns dedicated progress-card claims across parent turns.
@@ -256,12 +257,12 @@ func (s subtaskCardSnapshot) activity(viewURL string, now time.Time) turnCardAct
 		rendered.Element.Columns[0].Elements = append(
 			rendered.Element.Columns[0].Elements,
 			cardElement{Tag: "hr", ElementID: cardKitAnswerDividerElementID},
-			cardElement{
-				Tag:       "markdown",
-				ElementID: cardKitReplyElementID,
-				Content:   renderFinalResultText(result),
-			},
 		)
+		resultElements := renderFinalResultElements(result)
+		resultElements[1] = managementContentElement(i18n.Render(func(locale i18n.Locale) string {
+			return renderAgentResultBody(subtaskCardFinalText(s.Progress, locale))
+		}), resultElements[1])
+		rendered.Element.Columns[0].Elements = append(rendered.Element.Columns[0].Elements, resultElements...)
 	}
 	rendered.Trailing = append(rendered.Trailing, renderAmuxBrandFooterElements()...)
 	rendered.JSON, _ = json.Marshal(rendered.Element)
@@ -412,7 +413,7 @@ func (b *Bridge) watchSubtaskCard(ctx context.Context, chat *LarkChat, initial s
 		return b.patchInteractiveMessage(
 			sendCtx,
 			messageID,
-			renderSubtaskActivityCard(b.subtaskCardSnapshot(state, now), currentViewURL(), now),
+			b.sessionCardForPatch(messageID, renderSubtaskActivityCard(b.subtaskCardSnapshot(state, now), currentViewURL(), now)),
 			"subtask activity card",
 		)
 	}
@@ -502,19 +503,19 @@ func (b *Bridge) watchSubtaskCard(ctx context.Context, chat *LarkChat, initial s
 	}
 }
 
-func subtaskCardFinalText(progress subtaskProgress) string {
-	if detail := subtaskTerminalDetail(progress); detail != "" {
+func subtaskCardFinalText(progress subtaskProgress, locales ...i18n.Locale) string {
+	if detail := subtaskTerminalDetail(progress, locales...); detail != "" {
 		return detail
 	}
 	switch strings.ToLower(strings.TrimSpace(progress.Status)) {
 	case "succeeded", "success", "completed", "done":
-		return "子 Agent 已完成任务。"
+		return sessionCopy(locales, "subtasks.done")
 	case "failed", "error":
-		return "子 Agent 执行失败。"
+		return sessionCopy(locales, "subtasks.failed")
 	case "timed_out", "timeout":
-		return "子 Agent 执行超时。"
+		return sessionCopy(locales, "subtasks.timedout")
 	case "cancelled", "canceled", "stopped":
-		return "子 Agent 任务已取消。"
+		return sessionCopy(locales, "subtasks.stopped")
 	default:
 		return ""
 	}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/agentui"
+	"github.com/amuxos/amux/internal/i18n"
 )
 
 // toolActivityState only owns hub-specific subtask augmentation. Provider
@@ -130,15 +131,15 @@ func activityViewWithCurrentStep(view *agentui.ActivityView, step string) *agent
 	return &clone
 }
 
-func formatElapsed(d time.Duration) string {
+func formatElapsed(d time.Duration, locales ...i18n.Locale) string {
 	if d < 0 {
 		d = 0
 	}
 	secs := int(d.Seconds())
 	if secs < 60 {
-		return fmt.Sprintf("%d 秒", secs)
+		return sessionCopy(locales, "elapsed.seconds", secs)
 	}
-	return fmt.Sprintf("%d 分 %d 秒", secs/60, secs%60)
+	return sessionCopy(locales, "elapsed.minutes", secs/60, secs%60)
 }
 
 type toolActivitySender struct {
