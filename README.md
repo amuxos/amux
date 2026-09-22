@@ -1,18 +1,29 @@
-# amux
+<h1 align="center">amux</h1>
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+<p align="center">
+  <a href="https://github.com/amuxos/amux-releases/releases/latest"><img src="https://img.shields.io/github/v/release/amuxos/amux-releases?style=flat-square&amp;labelColor=151b28&amp;color=79e8c1&amp;label=release" alt="Latest release"></a>
+  <a href="https://github.com/amuxos/amux-releases/releases"><img src="https://img.shields.io/github/downloads/amuxos/amux-releases/total?style=flat-square&amp;labelColor=151b28&amp;color=93c5fd" alt="Total release asset downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-93c5fd?style=flat-square&amp;labelColor=151b28" alt="License: Apache 2.0"></a>
+</p>
 
-[Website](https://amuxos.com/) · [GitHub](https://github.com/amuxos/amux)
+<p align="center">
+  <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat-square&amp;labelColor=151b28&amp;logo=go&amp;logoColor=white" alt="Source builds: Go 1.25 or newer"></a>
+  <a href="https://github.com/amuxos/amux-releases/releases/latest"><img src="https://img.shields.io/badge/macOS_%26_Linux-arm64_%C2%B7_amd64-a7f3d0?style=flat-square&amp;labelColor=151b28" alt="macOS and Linux, arm64 and amd64"></a>
+  <a href="docs/README.md"><img src="https://img.shields.io/badge/docs-English_%C2%B7_%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-c4b5fd?style=flat-square&amp;labelColor=151b28" alt="Documentation: English and Simplified Chinese"></a>
+</p>
 
-amux runs and coordinates agent sessions across local and remote machines. It
-provides a command-line interface, a terminal session UI, task and schedule APIs,
-and an optional Feishu/Lark bot bridge. Codex, Claude and Pi are supported.
+<p align="center"><a href="https://amuxos.com/">Website</a> · <a href="https://github.com/amuxos/amux">GitHub</a> · <a href="docs/README.md">Documentation</a></p>
 
-This is a source candidate for `https://github.com/amuxos/amux.git`, using the Go
-module `github.com/amuxos/amux`. amux's original source code, documentation, and
-examples are licensed under [Apache-2.0](LICENSE), unless otherwise marked.
-Commercial use and integration into proprietary products are permitted subject
-to the license. See [License and attribution](docs/licensing.md).
+<p align="center"><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a></p>
+
+amux runs and coordinates Codex, Claude and Pi sessions across local and remote
+machines, with a CLI, terminal UI, task and schedule APIs, and an optional
+Feishu/Lark bot bridge.
+
+Source candidate for `https://github.com/amuxos/amux.git`; Go module:
+`github.com/amuxos/amux`. Original code, docs and examples use [Apache-2.0](LICENSE)
+unless marked otherwise, permitting commercial use and proprietary integration
+under its terms. See [License and attribution](docs/licensing.md).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and licensing rules, and
 [AGENTS.md](AGENTS.md) for engineering instructions; Claude Code loads the latter
@@ -28,6 +39,10 @@ curl -fsSL https://github.com/amuxos/amux-releases/releases/latest/download/inst
 bash /tmp/amux-install.sh --runtime codex
 ```
 
+The standalone installer downloads from `amuxos/amux-releases`; add
+`--version vX.Y.Z` to pin a version. After installation, open a new shell or
+run the PATH command printed by the installer.
+
 Use `--runtime claude` (Node.js 22+) or `--runtime pi` for another installed
 agent. Add `--feishu` for bot setup. To build from source:
 
@@ -36,8 +51,8 @@ git clone https://github.com/amuxos/amux.git
 cd amux
 ```
 
-Install Go 1.25 or newer and install/authenticate at least one native agent
-(`codex`, `claude` or `pi`). From the public module directory, run the installer:
+Source builds require Go 1.25+ and an installed, authenticated native agent
+(`codex`, `claude` or `pi`). Run from the public module directory:
 
 ```bash
 # Detect installed agents and choose the runtime interactively.
@@ -50,37 +65,37 @@ bash scripts/install.sh --runtime codex --feishu --interaction-mode singleton
 bash scripts/install.sh --runtime pi
 ```
 
-The installer maps `codex` → `builtin/codex`, `claude` → `builtin/claude`, and
-`pi` → `builtin/pi`. One detected runtime is selected automatically; with
-several installed, choose by number or name. Noninteractive runs should pass
-`--runtime` (or its `--provider` alias). Missing runtimes fail before installation.
-The native agent owns its authentication and default model. `--model` overrides
-the model used by the configured Feishu bot; no endpoint or credential is bundled.
+The installer maps each runtime to its matching `builtin/codex`, `builtin/claude`
+or `builtin/pi` Profile:
 
-The script builds and installs amux, updates shell PATH, configures the local
-system and checks readiness. `--feishu` adds QR provisioning and defaults to
-singleton mode: a named persistent Session is created and bound to the bot.
-Complete the QR flow in an interactive terminal; cancelled/incomplete setup
-stops before Session creation. `default` is the **Feishu Bot Profile name**,
-not an Agent Profile. Change it with `--feishu-profile`; use `--session-name`
-and `--session-cwd` to choose the singleton Session and its workspace.
+- One installed runtime is selected automatically; otherwise choose by number or name.
+- For noninteractive runs, pass `--runtime` (alias `--provider`). Missing runtimes fail before installation.
+- Native agents own authentication and default models. `--model` overrides the Feishu bot's model; no endpoints or credentials are bundled.
+
+The script builds and installs amux, updates PATH, configures the local system
+and checks readiness. With `--feishu`, complete the QR flow in an interactive
+terminal; incomplete setup stops before Session creation.
+
+- Default **singleton** mode creates a named persistent Session and binds the bot.
+- `--feishu-profile` changes the **Bot Profile** name (`default`), not the Agent Profile.
+- `--session-name` and `--session-cwd` select the singleton Session and workspace.
 
 ```bash
 bash scripts/install.sh --runtime claude --feishu --interaction-mode thread \
   --feishu-profile assistant --model sonnet
 ```
 
-Thread mode stores the same Profile/Runtime/Model for new conversations. Reruns
-reuse bot credentials and compatible local singleton Sessions. A conflicting
-Session or binding fails with guidance; it is not deleted. An explicit switch
-to thread mode disables singleton routing and preserves the old Session. An
-explicit `--model` on a reused Session applies `session set-model`.
-Before replacing an existing installation, the script stages and validates the
-new binaries and stops Pack autosync and the local system. A stop failure
-aborts replacement. Ordinary reruns preserve amux configuration, credentials,
-Sessions and Packs, then start the new system and restore autosync if it was
-running. This interrupts active work. The script does not send test prompts or
-chat messages.
+Thread mode saves Profile/Runtime/Model for new conversations. Reruns reuse bot
+credentials and compatible singleton Sessions; conflicts fail with guidance
+without deleting either Session or binding. Switching to thread mode preserves
+the old Session but disables its singleton routing. An explicit `--model` updates
+a reused Session via `session set-model`.
+
+Reinstallation validates staged binaries before stopping Pack autosync and the
+local system; stop failures abort replacement. It preserves configuration,
+credentials, Sessions and Packs, then starts the new system and restores autosync
+if previously running. **Active work is interrupted.** No test prompts or chat
+messages are sent.
 
 For a fresh installation, add `--clean`:
 
@@ -88,64 +103,63 @@ For a fresh installation, add `--clean`:
 bash scripts/install.sh --clean --runtime codex --feishu --interaction-mode singleton
 ```
 
-`--clean` stops and uninstalls the old amux, then deletes all data in
-`AMUX_HOME` (default `~/.amux`), including configuration, credentials, Sessions,
-logs and managed Packs. Feishu must be provisioned again. Native agent
-installations and their own logins are retained. Binaries and the Claude SDK
-are staged outside that directory, so `--source` and `--claude-sidecar` can
-point into the old installation. Keep the source checkout and singleton
-workspace outside the directory being purged. Registered standalone MCP/GUI
-servers are also stopped by uninstall; their external hosts own relaunch.
+**`--clean` deletes all data in `AMUX_HOME` (default `~/.amux`)** after stopping
+and uninstalling amux: configuration, credentials, Sessions, logs and managed
+Packs. Feishu setup must be repeated; native agents and their logins are retained.
 
-Claude also needs Node/npm supported by the pinned SDK. Source installation
-builds and copies its complete sidecar to `~/.amux/sidecars/claude-sdk/`, which
-the installed runtime discovers without an environment override. Codex and Pi
-do not require that sidecar. Native agents are never installed or upgraded by
-this script.
+- Keep the source checkout and singleton workspace outside the purged directory.
+- Binaries and the Claude SDK are staged outside it, so `--source` and `--claude-sidecar` may point into the old installation.
+- Uninstall also stops registered standalone MCP/GUI servers; their external hosts own relaunch.
 
-For local release binaries, use `--source /path/to/binaries` (containing `amux`,
-`amuxd` and `amuxlet`). Claude additionally needs `--claude-sidecar /path/to/claude-sdk`
-containing `dist/`, `node_modules/` and `package.json`, unless it is already in
-the sibling `../sidecars/claude-sdk/` layout. A standalone copy of the script
-can build a checkout selected with `--source-root /path/to/public-amux` or
-`AMUX_INSTALL_SOURCE_ROOT`. It rejects an internal distribution source root.
-A standalone installer downloads prebuilt packages from `amuxos/amux-releases`;
-use `--version vX.Y.Z` to pin a version. See `bash scripts/install.sh --help`
-for all flags; `--no-modify-path` skips adding the shell PATH entry (clean
-uninstall still removes the old managed entry). Open a
-new shell after installation or run the printed PATH command in the current one.
+Claude requires Node/npm compatible with the pinned SDK. Source installs build
+its complete sidecar into `~/.amux/sidecars/claude-sdk/`, discovered automatically.
+Codex and Pi need no sidecar. The script never installs or upgrades native agents.
+
+<details>
+<summary>Advanced installation options</summary>
+
+- **Local binaries:** `--source /path/to/binaries` must contain `amux`, `amuxd` and `amuxlet`.
+- **Claude sidecar:** pass `--claude-sidecar /path/to/claude-sdk` with `dist/`, `node_modules/` and `package.json`, or use the sibling `../sidecars/claude-sdk/` layout.
+- **Source checkout:** a standalone script accepts `--source-root /path/to/public-amux` or `AMUX_INSTALL_SOURCE_ROOT`; internal distribution roots are rejected.
+- **Shell PATH:** `--no-modify-path` skips adding an entry; clean uninstall still removes the old managed entry.
+
+See `bash scripts/install.sh --help` for all flags.
+
+</details>
 
 ## Operation
 
-Local sessions, tasks and schedules require the local hub and runtime, but do not
-require Feishu. `amux setup local` configures them. `amux setup feishu` adds the
-optional bot integration through Feishu's official application registration flow.
-For an existing installation, rebuild and run `make upgrade`; setup need not be
-repeated. `amux update --restart` downloads the latest public release and checks
-its SHA256 before replacing binaries and the bundled Claude SDK.
-`AMUX_RELEASE_URL` or `--release-url` overrides the manifest/archive source.
-There is no default pack marketplace.
+Local sessions, tasks and schedules need the Hub and Runtime, not Feishu:
 
-Profile packs use manifest v1.1. Runtime consumption of external Git packs is
-available. Optional expert authoring needs a separately configured compatible
-authoring runtime; source builds do not download one implicitly. Bundled skills
-and the desktop application are outside this candidate.
+| Action | Command |
+| --- | --- |
+| Configure the local system | `amux setup local` |
+| Add a bot through Feishu's official registration flow | `amux setup feishu` |
+| Upgrade after rebuilding, without repeating setup | `make upgrade` |
+| Download and install the latest public release | `amux update --restart` |
+
+Public updates verify SHA256 before replacing binaries and the bundled Claude
+SDK. Override the manifest/archive source with `AMUX_RELEASE_URL` or `--release-url`.
+
+Profile Packs use manifest v1.1 and support external Git Packs; there is no default
+marketplace. Optional expert authoring needs a separately configured compatible
+runtime, never downloaded implicitly by source builds. Bundled skills and the
+desktop application are outside this candidate.
 
 ## Development
 
 Examples and operating guides are listed in the [documentation index](docs/README.md)
 and [examples index](examples/README.md).
 
-This module is the independently buildable public core. Additional
-distributions depend on it as a Go module and register extensions before calling
-the importable application entrypoints. See the [distribution development guide](docs/distribution-development.md).
+This public core builds independently. Other distributions depend on its Go
+module and register extensions before calling its application entrypoints.
+See [distribution development](docs/distribution-development.md).
 
-`make check` verifies generated transport and reference files, runs the included
-Go tests, checks third-party notices using Python 3, builds the commands, and tests
-the sidecar when npm is available.
-Tests requiring live external accounts are not run. Some existing test fixtures
-and resources remain outside this candidate pending review; the included suite
-is not a claim of complete product acceptance coverage.
+`make check` verifies generated transport and references, runs Go tests, checks
+third-party notices with Python 3, builds commands, and tests the sidecar when
+npm is available. Live-account tests are excluded. Some fixtures and resources
+remain outside this candidate pending review; the suite does not establish
+complete product acceptance coverage.
 
 - [CLI model](docs/current/cli-product-model.md)
 - [Agent model](docs/current/agent-adapter-product-model.md)
@@ -158,13 +172,12 @@ is not a claim of complete product acceptance coverage.
 
 ## License and attribution
 
-When redistributing amux or a derivative work, provide the [LICENSE](LICENSE),
-preserve applicable [NOTICE](NOTICE) attribution and other required notices, and
-mark modified files as described in Apache-2.0 section 4. Attribution may appear
-in accompanying third-party notices, documentation, or an appropriate component
-list in an About view. A prominent logo or website credit is not required.
+Redistributions must include [LICENSE](LICENSE), preserve applicable [NOTICE](NOTICE)
+and other required notices, and mark modified files per Apache-2.0 section 4.
+Attribution may appear in third-party notices, docs or an About component list;
+a prominent logo or website credit is not required.
 
-Dependencies and separately installed agents retain their own licenses and terms;
-see [Third-party notices](THIRD_PARTY_NOTICES.md). Release archives place the
-public core's license material under `licenses/amux/`. The [licensing guide](docs/licensing.md)
-includes integration examples and explains the scope of these obligations.
+Dependencies and native agents retain their own terms; see
+[Third-party notices](THIRD_PARTY_NOTICES.md). Releases include core license material
+under `licenses/amux/`. The [licensing guide](docs/licensing.md) explains obligations
+and integration examples.
