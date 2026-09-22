@@ -114,14 +114,14 @@ func TestCardKitReplyDataEnablesStreamingMarkdown(t *testing.T) {
 		t.Fatalf("body layout = direction:%q spacing:%q padding:%q, want compact baseline rhythm", card.Body.Direction, card.Body.VerticalSpacing, card.Body.Padding)
 	}
 	root := card.Body.Elements[0]
-	if root.Tag != "column_set" || root.ElementID != cardKitActivityElementID || len(root.Columns) != 1 || len(root.Columns[0].Elements) != 3 {
+	if root.Tag != "column_set" || root.ElementID != cardKitActivityElementID || len(root.Columns) != 1 || len(root.Columns[0].Elements) != 4 {
 		t.Fatalf("turn card root = %+v, want one shared activity_section container", root)
 	}
-	element := root.Columns[0].Elements[0]
-	if element.Tag != "markdown" || element.ElementID != cardKitReplyElementID || element.Content != renderFinalResultText("hello **world**") {
+	element := root.Columns[0].Elements[1]
+	if element.Tag != "markdown" || element.ElementID != cardKitReplyElementID || element.Content != renderAgentResultBody("hello **world**") {
 		t.Fatalf("element = %+v", element)
 	}
-	brandDivider, brandFooter := root.Columns[0].Elements[1], root.Columns[0].Elements[2]
+	brandDivider, brandFooter := root.Columns[0].Elements[2], root.Columns[0].Elements[3]
 	if brandDivider.Tag != "hr" || brandDivider.ElementID != amuxBrandDividerID ||
 		brandFooter.Tag != "markdown" || brandFooter.ElementID != amuxBrandFooterID || brandFooter.Content != amuxBrandFooterMarkdown() || brandFooter.TextSize != "notation" {
 		t.Fatalf("brand footer = %+v, %+v", brandDivider, brandFooter)
@@ -178,7 +178,7 @@ func TestCardKitReplyLifecycleUsesFullTextIncreasingSequenceAndFreshUUIDs(t *tes
 	if len(api.updates) != 2 {
 		t.Fatalf("updates = %+v, want 2", api.updates)
 	}
-	if got := []string{api.updates[0].Text, api.updates[1].Text}; !reflect.DeepEqual(got, []string{renderFinalResultText("hello world"), renderFinalResultText("hello world!")}) {
+	if got := []string{api.updates[0].Text, api.updates[1].Text}; !reflect.DeepEqual(got, []string{renderAgentResultBody("hello world"), renderAgentResultBody("hello world!")}) {
 		t.Fatalf("update texts = %#v", got)
 	}
 	if api.updates[0].Sequence != 1 || api.updates[1].Sequence != 2 {
@@ -219,7 +219,7 @@ func TestCardKitReplyUpdateKeepsBridgeOwnedBrandFooterSingle(t *testing.T) {
 	if len(api.updates) != 1 {
 		t.Fatalf("updates = %+v, want one final answer update", api.updates)
 	}
-	if got, want := api.updates[0].Text, "**最终结果**\n\n杭州明天天气有雨"; got != want {
+	if got, want := api.updates[0].Text, "杭州明天天气有雨"; got != want {
 		t.Fatalf("final answer update = %q, want %q", got, want)
 	}
 }
@@ -262,7 +262,7 @@ func TestCardKitMainTurnActivityFirstAddsAnswerToSameCard(t *testing.T) {
 	if insert.Type != "insert_after" || insert.TargetElementID != cardKitActivityContentID || !strings.Contains(insert.Elements, cardKitReplyElementID) {
 		t.Fatalf("answer insert = %+v", insert)
 	}
-	assertInsertedElementOrder(t, insert.Elements, cardKitAnswerDividerElementID, cardKitReplyElementID, amuxBrandDividerID, amuxBrandFooterID)
+	assertInsertedElementOrder(t, insert.Elements, cardKitAnswerDividerElementID, cardKitAnswerHeadingID, cardKitReplyElementID, amuxBrandDividerID, amuxBrandFooterID)
 	if !strings.Contains(insert.Elements, "**最终结果**") {
 		t.Fatalf("answer insert missing final-result heading: %s", insert.Elements)
 	}
@@ -313,12 +313,12 @@ func TestCardKitMainTurnAnswerFirstMovesActivityBeforeAnswer(t *testing.T) {
 		t.Fatalf("sends = %d, want one CardKit message", sends)
 	}
 	assertCardElementOrder(t, api.createdData[0], cardKitActivityElementID)
-	assertTurnCardChildOrder(t, api.createdData[0], cardKitReplyElementID, amuxBrandDividerID, amuxBrandFooterID)
-	if len(api.inserts) != 1 || api.inserts[0].Type != "insert_before" || api.inserts[0].TargetElementID != cardKitReplyElementID {
+	assertTurnCardChildOrder(t, api.createdData[0], cardKitAnswerHeadingID, cardKitReplyElementID, amuxBrandDividerID, amuxBrandFooterID)
+	if len(api.inserts) != 1 || api.inserts[0].Type != "insert_before" || api.inserts[0].TargetElementID != cardKitAnswerHeadingID {
 		t.Fatalf("activity inserts = %+v", api.inserts)
 	}
 	assertInsertedElementOrder(t, api.inserts[0].Elements, cardKitActivityContentID, cardKitAnswerDividerElementID)
-	if len(api.updates) != 1 || api.updates[0].Text != renderFinalResultText("最终回答") {
+	if len(api.updates) != 1 || api.updates[0].Text != renderAgentResultBody("最终回答") {
 		t.Fatalf("answer updates = %+v", api.updates)
 	}
 	if len(api.replaces) != 1 || api.replaces[0].ElementID != cardKitActivityContentID {
@@ -717,7 +717,7 @@ func TestCardKitReplyCalibratesFinishedSplitCard(t *testing.T) {
 	if !handle.finished || handle.lastText != "authoritative" || handle.sequence <= finishSequence {
 		t.Fatalf("handle = %+v, finish sequence = %d", handle, finishSequence)
 	}
-	if len(api.updates) != 1 || api.updates[0].Text != renderFinalResultText("authoritative") {
+	if len(api.updates) != 1 || api.updates[0].Text != renderAgentResultBody("authoritative") {
 		t.Fatalf("updates = %+v", api.updates)
 	}
 }
@@ -819,10 +819,10 @@ func TestBindingReplyCardBackendStreamsCardKitToThread(t *testing.T) {
 		t.Fatalf("update body = %+v", calls[2].body)
 	}
 	innerContent, _ := calls[2].body["content"].(string)
-	if innerContent != renderFinalResultText(updatedText) {
-		t.Fatalf("update content = %q, want final-result Markdown %q", innerContent, renderFinalResultText(updatedText))
+	if innerContent != renderAgentResultBody(updatedText) {
+		t.Fatalf("update content = %q, want final-result Markdown %q", innerContent, renderAgentResultBody(updatedText))
 	}
-	if calls[3].body["sequence"] != float64(2) || calls[3].body["type"] != "insert_before" || calls[3].body["target_element_id"] != cardKitReplyElementID {
+	if calls[3].body["sequence"] != float64(2) || calls[3].body["type"] != "insert_before" || calls[3].body["target_element_id"] != cardKitAnswerHeadingID {
 		t.Fatalf("activity insert body = %+v", calls[3].body)
 	}
 	insertElements, _ := calls[3].body["elements"].(string)

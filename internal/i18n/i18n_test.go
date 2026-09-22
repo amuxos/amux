@@ -61,3 +61,15 @@ func TestCatalogRejectsMissingAndIncompatibleTranslations(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRenderPreservesLocaleDuringComposition(t *testing.T) {
+	c, err := New([]byte(`{"label":{"other":"Name: %s"}}`), []byte(`{"label":{"other":"名称：%s"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	literal := "中文 %s"
+	text := Render(func(locale Locale) string { return "[" + c.Format(locale, "label", literal) + "]" })
+	if text.For(English) != "[Name: 中文 %s]" || text.For(Chinese) != "[名称：中文 %s]" || text.For("unknown") != text.For(English) {
+		t.Fatalf("incorrect composition: %+v", text)
+	}
+}

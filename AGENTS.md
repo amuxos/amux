@@ -19,6 +19,30 @@ generates both languages; maintain `internal/doclang/translations.json` when
 updating generated references. Executable example prompts, Skills, and the
 `CLAUDE.md` include are not paired documentation pages.
 
+## User-facing copy and i18n
+
+Every addition or change to product-owned user-facing copy must include English
+(`en`) and Simplified Chinese (`zh-CN`) in the same change. This applies to Feishu
+cards and notifications, CLI help and human-readable output, terminal UI, and any
+client surface: menus, dialogs, tooltips, accessibility labels, and success,
+error, empty, loading, and permission states. Editing existing wording also
+requires updating both languages. Do not defer one language to a follow-up.
+
+Use the owning surface's i18n catalog and stable message keys; do not introduce
+hardcoded product prose or translate arbitrary rendered strings. Preserve user
+and Agent content, names, paths, IDs, command/flag names, machine-readable output,
+protocol values, and raw third-party diagnostics; translate their product-owned
+labels and wrappers. See the [language model](docs/current/i18n-product-model.md)
+for selection, fallback, and isolation rules and migration status.
+
+Before delivery, validate key coverage, placeholder/plural parity, both language
+variants, and fallback for every affected flow, including error and empty states.
+Cover changed rendering or language-selection behavior with focused tests; reuse
+catalog checks for wording-only edits. A missing translation, raw key shown to a
+user, or incomplete affected flow blocks completion even if English works. PRs
+must state which surfaces and language variants were verified. Existing migration
+gaps do not exempt new or modified copy from this requirement.
+
 <a id="构建与验证"></a>
 
 ## Build and validation

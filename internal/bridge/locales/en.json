@@ -2263,5 +2263,142 @@
   },
   "management.permission.fallback.link": {
     "other": "Request permissions: %s"
+  },
+  "session.processing": {
+    "other": "Processing"
+  },
+  "session.result": {
+    "other": "**Final result**"
+  },
+  "session.question": {
+    "other": "**Question**  %s"
+  },
+  "session.followup": {
+    "other": "**Follow-up**  %s"
+  },
+  "session.followup.plain": {
+    "other": "Follow-up: %s"
+  },
+  "session.details.empty": {
+    "other": "No further execution details"
+  },
+  "session.details.long": {
+    "other": "Execution details are too long. Open the full output to view them."
+  },
+  "session.details.viewer": {
+    "other": "Execution details are too long. View them in the session viewer."
+  },
+  "session.view": {
+    "other": "View full output"
+  },
+  "session.plan": {
+    "other": "Plan progress %d/%d"
+  },
+  "session.plan.more": {
+    "other": "... View the remaining %d items in the full output"
+  },
+  "session.calls": {
+    "other": "%d tool calls",
+    "one": "%d tool call"
+  },
+  "session.records": {
+    "other": "Execution records"
+  },
+  "session.records.count": {
+    "other": "Execution records · %d calls",
+    "one": "Execution records · %d call"
+  },
+  "session.subtasks": {
+    "other": "%d subtasks",
+    "one": "%d subtask"
+  },
+  "session.subtasks.active": {
+    "other": "%d subtasks running",
+    "one": "%d subtask running"
+  },
+  "session.subtasks.heading": {
+    "other": "Subtasks · %d"
+  },
+  "session.subtasks.more": {
+    "other": "- View remaining subtasks in the full output"
+  },
+  "session.subtasks.timeout": {
+    "other": "Task timed out"
+  },
+  "session.subtasks.cancelled": {
+    "other": "Task cancelled"
+  },
+  "session.model": {
+    "other": "Model %s"
+  },
+  "session.usage.input": {
+    "other": "Total input %s"
+  },
+  "session.usage.cached": {
+    "other": "Total input %s/%s (cached/total)"
+  },
+  "session.usage.output": {
+    "other": "Total output %s"
+  },
+  "session.usage.ttft": {
+    "other": "First token %s"
+  },
+  "session.elapsed.seconds": {
+    "other": "%d seconds",
+    "one": "%d second"
+  },
+  "session.elapsed.minutes": {
+    "other": "%d min %d sec"
+  },
+  "session.status.running": {
+    "other": "Processing"
+  },
+  "session.status.done": {
+    "other": "Completed"
+  },
+  "session.status.waiting": {
+    "other": "Waiting for your reply"
+  },
+  "session.status.failed": {
+    "other": "Failed"
+  },
+  "session.status.stopped": {
+    "other": "Stopped"
+  },
+  "session.status.model": {
+    "other": "Waiting for model response"
+  },
+  "session.status.still": {
+    "other": "Still processing"
+  },
+  "session.queue.submitted": {
+    "other": "Request submitted; it may be queued"
+  },
+  "session.queue.long": {
+    "other": "No model response for %s; it may still be queued or busy. You can interrupt and retry."
+  },
+  "session.queue.waiting": {
+    "other": "Possibly queued; waiting %s with no model output yet"
+  },
+  "session.status.silent": {
+    "other": "No new progress for %s"
+  },
+  "session.status.recent": {
+    "other": "Last updated %s ago"
+  },
+  "session.tool": {
+    "other": "Tool"
+  },
+  "session.subtasks.done": {
+    "other": "The sub-agent completed the task."
+  },
+  "session.subtasks.failed": {
+    "other": "The sub-agent failed."
+  },
+  "session.subtasks.timedout": {
+    "other": "The sub-agent timed out."
+  },
+  "session.subtasks.stopped": {
+    "other": "The sub-agent task was cancelled."
   }
 }

@@ -2251,5 +2251,137 @@
   },
   "management.permission.fallback.link": {
     "other": "申请权限：%s"
+  },
+  "session.processing": {
+    "other": "处理过程"
+  },
+  "session.result": {
+    "other": "**最终结果**"
+  },
+  "session.question": {
+    "other": "**问题**　%s"
+  },
+  "session.followup": {
+    "other": "**补充**　%s"
+  },
+  "session.followup.plain": {
+    "other": "补充：%s"
+  },
+  "session.details.empty": {
+    "other": "暂无更多执行详情"
+  },
+  "session.details.long": {
+    "other": "执行详情过长，请打开完整输出查看。"
+  },
+  "session.details.viewer": {
+    "other": "执行详情过长，请在 session viewer 中查看。"
+  },
+  "session.view": {
+    "other": "查看完整输出"
+  },
+  "session.plan": {
+    "other": "计划进度 %d/%d"
+  },
+  "session.plan.more": {
+    "other": "... 其余 %d 项请在完整输出中查看"
+  },
+  "session.calls": {
+    "other": "工具调用 %d 次"
+  },
+  "session.records": {
+    "other": "执行记录"
+  },
+  "session.records.count": {
+    "other": "执行记录 · %d 次"
+  },
+  "session.subtasks": {
+    "other": "协作任务 %d 个"
+  },
+  "session.subtasks.active": {
+    "other": "协作任务 %d 个进行中"
+  },
+  "session.subtasks.heading": {
+    "other": "协作任务 · %d 个"
+  },
+  "session.subtasks.more": {
+    "other": "- 其余子任务请在完整输出中查看"
+  },
+  "session.subtasks.timeout": {
+    "other": "任务执行超时"
+  },
+  "session.subtasks.cancelled": {
+    "other": "任务已取消"
+  },
+  "session.model": {
+    "other": "模型 %s"
+  },
+  "session.usage.input": {
+    "other": "累计输入 %s"
+  },
+  "session.usage.cached": {
+    "other": "累计输入 %s/%s（缓存/总量）"
+  },
+  "session.usage.output": {
+    "other": "累计输出 %s"
+  },
+  "session.usage.ttft": {
+    "other": "首 token %s"
+  },
+  "session.elapsed.seconds": {
+    "other": "%d 秒"
+  },
+  "session.elapsed.minutes": {
+    "other": "%d 分 %d 秒"
+  },
+  "session.status.running": {
+    "other": "正在处理"
+  },
+  "session.status.done": {
+    "other": "已完成"
+  },
+  "session.status.waiting": {
+    "other": "等待你回复"
+  },
+  "session.status.failed": {
+    "other": "执行失败"
+  },
+  "session.status.stopped": {
+    "other": "已停止"
+  },
+  "session.status.model": {
+    "other": "等待模型响应"
+  },
+  "session.status.still": {
+    "other": "仍在处理"
+  },
+  "session.queue.submitted": {
+    "other": "请求已提交，可能正在排队"
+  },
+  "session.queue.long": {
+    "other": "已等待 %s 未收到模型响应，可能仍在排队或服务繁忙，可中断后重试"
+  },
+  "session.queue.waiting": {
+    "other": "可能正在排队，已等待 %s，尚未收到模型输出"
+  },
+  "session.status.silent": {
+    "other": "%s未收到新进展"
+  },
+  "session.status.recent": {
+    "other": "最近更新于 %s前"
+  },
+  "session.tool": {
+    "other": "工具"
+  },
+  "session.subtasks.done": {
+    "other": "子 Agent 已完成任务。"
+  },
+  "session.subtasks.failed": {
+    "other": "子 Agent 执行失败。"
+  },
+  "session.subtasks.timedout": {
+    "other": "子 Agent 执行超时。"
+  },
+  "session.subtasks.stopped": {
+    "other": "子 Agent 任务已取消。"
   }
 }
