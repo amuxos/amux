@@ -127,6 +127,11 @@ func ApplyMaterializeBundle(reader io.Reader, workspace, run, home string) error
 	if err := ensureBundleDir(home, home); err != nil {
 		return err
 	}
+	// CODEX_HOME is pinned here even when no native credentials are staged.
+	// This worker runs as the target UID and rejects symlink destinations.
+	if err := ensureBundleDir(home, filepath.Join(home, ".codex")); err != nil {
+		return err
+	}
 	tr := tar.NewReader(io.LimitReader(reader, maxWorkspaceMaterializeBytes+(64<<20)))
 	var total int64
 	for {

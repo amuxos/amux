@@ -31,6 +31,8 @@ Pi 的通用文件布局与扩展渲染由核心维护。发行版通过 Profile
 `ValidateProvider` 和 `PiProviderConfig` 注册额外平台的校验、连接地址、API 与模型
 兼容配置；默认 `openai-compat` 路径仍由公共核心处理。CLI customization 的
 `CredentialSetExamples` 可以追加发行版凭据示例，示例使用传入的命令路径。
+`SetupCommands` hook 可返回新建的 Cobra 命令，在 `amux setup` 下提供可选本地组件
+安装入口。注册不能执行安装；仅用户显式执行命令时才允许下载或安装组件。
 
 本地联调可在发行版的 `go.mod` 使用相对 `replace` 或不提交的 `go.work`。
 公共版本发布后，发行版应锁定 `github.com/amuxos/amux` 的已发布版本，再移除本地

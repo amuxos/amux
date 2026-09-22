@@ -92,3 +92,20 @@ func responsesChatCommandArgs(options ResponsesChatOptions, args []string) ([]st
 	}
 	return result, nil
 }
+
+// RegisterStructuredLaunchPreparation installs a broker-owned connection setup.
+// Cleanup runs after the agent exits, including when launching fails.
+func RegisterStructuredLaunchPreparation(fn func(*StructuredLaunchOptions) (func(), error)) error {
+	release, err := extensionstate.BeginRegistration()
+	if err != nil {
+		return err
+	}
+	defer release()
+	if fn == nil || prepareStructuredLaunch != nil {
+		return fmt.Errorf("structured launch preparation already registered or nil")
+	}
+	prepareStructuredLaunch = fn
+	return nil
+}
+
+var prepareStructuredLaunch func(*StructuredLaunchOptions) (func(), error)

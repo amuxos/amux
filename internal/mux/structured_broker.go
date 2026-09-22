@@ -245,6 +245,15 @@ func writeResponsesChatCredentialFile(sessDir, sessID string, opts *StructuredLa
 }
 
 func RunStructuredBroker(socketPath, pidFile string, opts StructuredLaunchOptions) error {
+	if prepareStructuredLaunch != nil {
+		cleanup, err := prepareStructuredLaunch(&opts)
+		if cleanup != nil {
+			defer cleanup()
+		}
+		if err != nil {
+			return err
+		}
+	}
 	proc, outCh, err := startStructuredProc(opts)
 	if err != nil {
 		return err

@@ -851,6 +851,7 @@ var Amuxlet_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	Amuxd_ProxyModel_FullMethodName                   = "/amux.v1.Amuxd/ProxyModel"
 	Amuxd_Run_FullMethodName                          = "/amux.v1.Amuxd/Run"
 	Amuxd_Info_FullMethodName                         = "/amux.v1.Amuxd/Info"
 	Amuxd_ListTargets_FullMethodName                  = "/amux.v1.Amuxd/ListTargets"
@@ -911,6 +912,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AmuxdClient interface {
+	// Model services reuse the authenticated actor; no upstream credentials leave the Hub.
+	ProxyModel(ctx context.Context, in *ProxyModelRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyModelChunk], error)
 	Run(ctx context.Context, in *AmuxdRunRequest, opts ...grpc.CallOption) (*RunResponse, error)
 	Info(ctx context.Context, in *HubInfoRequest, opts ...grpc.CallOption) (*HubInfoResponse, error)
 	ListTargets(ctx context.Context, in *ListTargetsRequest, opts ...grpc.CallOption) (*ListTargetsResponse, error)
@@ -977,6 +980,25 @@ type amuxdClient struct {
 func NewAmuxdClient(cc grpc.ClientConnInterface) AmuxdClient {
 	return &amuxdClient{cc}
 }
+
+func (c *amuxdClient) ProxyModel(ctx context.Context, in *ProxyModelRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyModelChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Amuxd_ServiceDesc.Streams[0], Amuxd_ProxyModel_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ProxyModelRequest, ProxyModelChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Amuxd_ProxyModelClient = grpc.ServerStreamingClient[ProxyModelChunk]
 
 func (c *amuxdClient) Run(ctx context.Context, in *AmuxdRunRequest, opts ...grpc.CallOption) (*RunResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -1150,7 +1172,7 @@ func (c *amuxdClient) Interrupt(ctx context.Context, in *AmuxdInterruptRequest, 
 
 func (c *amuxdClient) Attach(ctx context.Context, in *AmuxdAttachRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AttachEvent], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Amuxd_ServiceDesc.Streams[0], Amuxd_Attach_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Amuxd_ServiceDesc.Streams[1], Amuxd_Attach_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1519,7 +1541,7 @@ func (c *amuxdClient) MemoryForget(ctx context.Context, in *MemoryForgetRequest,
 
 func (c *amuxdClient) Tunnel(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[TunnelMsg, TunnelMsg], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Amuxd_ServiceDesc.Streams[1], Amuxd_Tunnel_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Amuxd_ServiceDesc.Streams[2], Amuxd_Tunnel_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1534,6 +1556,8 @@ type Amuxd_TunnelClient = grpc.BidiStreamingClient[TunnelMsg, TunnelMsg]
 // All implementations should embed UnimplementedAmuxdServer
 // for forward compatibility.
 type AmuxdServer interface {
+	// Model services reuse the authenticated actor; no upstream credentials leave the Hub.
+	ProxyModel(*ProxyModelRequest, grpc.ServerStreamingServer[ProxyModelChunk]) error
 	Run(context.Context, *AmuxdRunRequest) (*RunResponse, error)
 	Info(context.Context, *HubInfoRequest) (*HubInfoResponse, error)
 	ListTargets(context.Context, *ListTargetsRequest) (*ListTargetsResponse, error)
@@ -1600,6 +1624,9 @@ type AmuxdServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAmuxdServer struct{}
 
+func (UnimplementedAmuxdServer) ProxyModel(*ProxyModelRequest, grpc.ServerStreamingServer[ProxyModelChunk]) error {
+	return status.Error(codes.Unimplemented, "method ProxyModel not implemented")
+}
 func (UnimplementedAmuxdServer) Run(context.Context, *AmuxdRunRequest) (*RunResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Run not implemented")
 }
@@ -1781,6 +1808,17 @@ func RegisterAmuxdServer(s grpc.ServiceRegistrar, srv AmuxdServer) {
 	}
 	s.RegisterService(&Amuxd_ServiceDesc, srv)
 }
+
+func _Amuxd_ProxyModel_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ProxyModelRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AmuxdServer).ProxyModel(m, &grpc.GenericServerStream[ProxyModelRequest, ProxyModelChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Amuxd_ProxyModelServer = grpc.ServerStreamingServer[ProxyModelChunk]
 
 func _Amuxd_Run_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AmuxdRunRequest)
@@ -2953,6 +2991,11 @@ var Amuxd_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ProxyModel",
+			Handler:       _Amuxd_ProxyModel_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "Attach",
 			Handler:       _Amuxd_Attach_Handler,

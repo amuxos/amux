@@ -510,7 +510,7 @@ func TestGroupSettingsEditCardStaysWithinElementLimit(t *testing.T) {
 		t.Run(fmt.Sprintf("profiles=%d/models=%d", tc.profiles, tc.models), func(t *testing.T) {
 			state := groupSettingsBudgetState(tc.profiles, tc.models)
 			draft := managementGroupSettingsDraft{"group_agent": "builtin/codex"}
-			pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft), draft, scope)
+			pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft, scope), draft, scope)
 			if len(pages) == 0 {
 				t.Fatal("pagination produced no pages")
 			}
@@ -537,7 +537,7 @@ func TestGroupSettingsEditCardAvoidsPaginationWhenItFits(t *testing.T) {
 	scope := groupSettingsBudgetScope()
 	state := groupSettingsBudgetState(31, 32)
 	draft := managementGroupSettingsDraft{"group_agent": "builtin/codex"}
-	pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft), draft, scope)
+	pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft, scope), draft, scope)
 	if len(pages) != 1 {
 		t.Fatalf("editor paginated into %d pages while it still fits on one", len(pages))
 	}
@@ -571,7 +571,7 @@ func TestGroupSettingsOversizedSelectKeepsSelectedOption(t *testing.T) {
 	for _, selected := range []string{"model-000", "model-100", "model-199"} {
 		t.Run(selected, func(t *testing.T) {
 			draft := managementGroupSettingsDraft{"group_agent": "builtin/codex", "group_model": selected}
-			rows := groupSettingsFitRows(managementGroupSettingsEditFields(state, draft), draft, scope)
+			rows := groupSettingsFitRows(managementGroupSettingsEditFields(state, draft, scope), draft, scope)
 			for _, row := range rows {
 				selectElement, ok := managementRowSelect(&row)
 				if !ok || selectElement.Name != "group_model" {
@@ -617,7 +617,7 @@ func TestGroupSettingsEditCardElementNamesAreUnique(t *testing.T) {
 		t.Run(fmt.Sprintf("profiles=%d/models=%d", tc.profiles, tc.models), func(t *testing.T) {
 			state := groupSettingsBudgetState(tc.profiles, tc.models)
 			draft := managementGroupSettingsDraft{"group_agent": "builtin/codex"}
-			pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft), draft, scope)
+			pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft, scope), draft, scope)
 			for index, page := range pages {
 				card := renderGroupSettingsEditCardPage(draft, scope, page, index, len(pages))
 				names := map[string]int{}

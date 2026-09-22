@@ -15,7 +15,8 @@ import (
 // identityPort resolves Feishu launch identities without coupling Bridge to the
 // amuxd principal registry implementation.
 type identityPort struct {
-	resolveExecutionIdentity func(openID, executionRef, targetID string, shared bool) (LaunchIdentity, error)
+	resolveModelServicePrincipal func(string) (string, error)
+	resolveExecutionIdentity     func(openID, executionRef, targetID string, shared bool) (LaunchIdentity, error)
 }
 
 // messagingPort is the outbound Feishu messaging surface used by Bridge.

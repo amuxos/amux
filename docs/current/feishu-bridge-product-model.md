@@ -46,6 +46,10 @@ card. Session or launch identity changes, binding transfers and ended streams
 still establish a new attachment. A newly created session may acquire its
 identity from the first Hub snapshot without replacing its live stream.
 
+Agent reply cards keep status, agent/model identity, timing and usage in the
+collapsible execution summary, without a separate root title bar. This layout
+also applies during streaming, after completion and in compact fallback rendering.
+Model names use readable catalog labels instead of encoded service references.
 Main and child card titles use the same structured usage summary. The latest
 invocation's total is displayed as `22.8k tokens (8%)` when a context window is
 known; otherwise the percentage is omitted. Native provider-thread cumulative
@@ -206,6 +210,28 @@ Group watch eligibility and inherited execution settings use the target group’
 policy. Explicit capability execution overrides still apply within the group’s
 isolation requirement. Full design and transition cases live in
 [the implementation specification](../superpowers/specs/2026-09-16-feishu-group-session-defaults-design.md).
+
+## Model service selection
+
+Distribution model services appear in the model picker for supported engines,
+with signed-in, signed-out, pending or expired state for the acting principal.
+Missing optional service dependencies appear as setup required, with guidance
+from the distribution and a recheck button. Services that declare installation
+support also show an explicit install button. Viewing, selecting or rechecking
+a service never installs software. Only the install action starts dependency
+setup on the Hub, with progress polled in the existing card. Completion returns
+to the login controls; failures offer retry without changing the editor draft.
+Selecting a signed-out service starts its SDK login; a valid login is reused.
+The card carries only a login URL, never credentials or challenge tokens.
+After login, the picker includes all enabled upstream model/configuration pairs
+and their declared reasoning options. Login does not save or switch an engine.
+Changing defaults still affects only new sessions. Another sender or a shared
+execution principal never silently inherits the editor's personal credentials.
+Login controls appear beside the model picker and reflect the current login
+state. Selecting a service or refreshing login preserves the unsaved model and
+reasoning selection. Signed-in service models appear together immediately after
+their service entry, with concise model/configuration labels. Existing saved
+model references remain usable.
 
 ## Distribution default migrations
 

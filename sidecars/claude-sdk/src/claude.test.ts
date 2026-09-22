@@ -217,6 +217,44 @@ test('append instructions reach the SDK through its public systemPrompt option',
   assert.equal((received?.env as Record<string, string>).CLAUDE_CODE_DISABLE_AUTO_MEMORY, '1');
 });
 
+test('SDK and child use native HOME defaults for an empty config override', async () => {
+  const previous = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = '';
+  try {
+    let received: Record<string, unknown> | undefined;
+    const fakeQuery: QueryFn = ({ options }) => {
+      assert.equal(process.env.CLAUDE_CONFIG_DIR, undefined, 'SDK must not resolve config relative to cwd');
+      received = options;
+      return (async function* () {})();
+    };
+    const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), new PassThrough()), fakeQuery);
+    await bridge.startSession({ env: ['CLAUDE_CONFIG_DIR=', 'CLAUDE_CODE_DISABLE_AUTO_MEMORY=1'] });
+    const env = received?.env as Record<string, string>;
+    assert.equal(Object.hasOwn(env, 'CLAUDE_CONFIG_DIR'), false);
+    assert.equal(env.CLAUDE_CODE_DISABLE_AUTO_MEMORY, '1');
+  } finally {
+    if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = previous;
+  }
+});
+
+test('SDK preserves an explicit nonempty config directory', async () => {
+  const previous = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = '/custom/config';
+  try {
+    const fakeQuery: QueryFn = ({ options }) => {
+      assert.equal(process.env.CLAUDE_CONFIG_DIR, '/custom/config');
+      assert.equal((options.env as Record<string, string>).CLAUDE_CONFIG_DIR, '/custom/config');
+      return (async function* () {})();
+    };
+    const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), new PassThrough()), fakeQuery);
+    await bridge.startSession({});
+  } finally {
+    if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = previous;
+  }
+});
+
 test('applyExtraArgs treats --dangerously-skip-permissions as bypass + allow flag', () => {
   const options: Record<string, unknown> = { permissionMode: 'default' };
   applyExtraArgs(options, ['--dangerously-skip-permissions']);

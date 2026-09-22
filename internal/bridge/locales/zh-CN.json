@@ -2383,5 +2383,65 @@
   },
   "session.subtasks.stopped": {
     "other": "子 Agent 任务已取消。"
+  },
+  "management.model.service.updating": {
+    "other": "正在更新模型与登录状态"
+  },
+  "management.model.service.status.signed_in": {
+    "other": "已登录"
+  },
+  "management.model.service.status.signed_out": {
+    "other": "未登录"
+  },
+  "management.model.service.status.expired": {
+    "other": "登录失效"
+  },
+  "management.model.service.status.pending": {
+    "other": "登录中"
+  },
+  "management.model.service.status.unavailable": {
+    "other": "暂时不可用"
+  },
+  "management.model.service.status.setup_required": {
+    "other": "待安装"
+  },
+  "management.model.service.status.installing": {
+    "other": "安装中"
+  },
+  "management.model.service.status.check": {
+    "other": "点击检查登录状态"
+  },
+  "management.model.service.option": {
+    "other": "%s 模型服务 · %s"
+  },
+  "management.model.service.refresh.login": {
+    "other": "刷新登录状态"
+  },
+  "management.model.service.recheck": {
+    "other": "重新检测"
+  },
+  "management.model.service.install.progress": {
+    "other": "查看安装进度"
+  },
+  "management.model.service.login": {
+    "other": "登录 %s"
+  },
+  "management.model.service.model.count": {
+    "other": "%d 个模型配置"
+  },
+  "management.model.service.refresh.models": {
+    "other": "刷新模型列表"
+  },
+  "management.model.service.login.pending": {
+    "other": "完成登录后自动刷新"
+  },
+  "management.model.service.unavailable": {
+    "other": "模型服务暂时不可用，请稍后重试"
+  },
+  "management.model.service.open.login": {
+    "other": "打开登录页面"
+  },
+  "management.model.service.install": {
+    "other": "一键安装"
   }
 }

@@ -409,6 +409,10 @@ func tryStartBridges(
 		if principals != nil {
 			bridgeID := bridge.BridgeIdFromAppId(secrets.AppId)
 			b.SetExecutionIdentityResolver(newFeishuLaunchIdentityResolver(principals, bridgeID, profile, identifiedFeishuLaunches))
+			b.SetModelServicePrincipalResolver(func(openID string) (string, error) {
+				actor, err := resolveFeishuLaunchActor(principals, bridgeID, openID, true)
+				return actor.ActorPrincipalID, err
+			})
 		}
 		b.SetSessionViewer(webBaseURL, webToken)
 		b.SetManagementSystemActions(managementActions)

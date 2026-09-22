@@ -1257,7 +1257,7 @@ func toolActivityCardTitle(meta toolActivityCardMeta, locales ...i18n.Locale) st
 	}
 	modelText := ""
 	if model := strings.TrimSpace(meta.EffectiveModel); model != "" {
-		modelText = " · " + sessionCopy(locales, "model", truncateCardText(model, 80))
+		modelText = " · " + sessionCopy(locales, "model", truncateCardText(managementDefaultText(managementRuntimeModelLabel(model)), 80))
 	}
 	usageText := ""
 	if meta.Activity != nil {

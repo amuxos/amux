@@ -35,6 +35,38 @@ func TestMaterializeWorkspaceRejectsSymlink(t *testing.T) {
 	}
 }
 
+func TestEmptyBundlePreparesCodexHomeAndPreservesExistingFiles(t *testing.T) {
+	home := t.TempDir()
+	apply := func() error {
+		return ApplyMaterializeBundle(bytes.NewReader(nil), t.TempDir(), t.TempDir(), home)
+	}
+	if err := apply(); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(home, ".codex")
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
+		t.Fatalf("private Codex directory: %v %v", info, err)
+	}
+	file := filepath.Join(dir, "auth.json")
+	if err := os.WriteFile(file, []byte("existing"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := apply(); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(file); err != nil || string(data) != "existing" {
+		t.Fatalf("existing file changed: %q %v", data, err)
+	}
+	linkedHome := t.TempDir()
+	if err := os.Symlink(dir, filepath.Join(linkedHome, ".codex")); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyMaterializeBundle(bytes.NewReader(nil), t.TempDir(), t.TempDir(), linkedHome); err == nil {
+		t.Fatal("symlink CODEX_HOME accepted")
+	}
+}
+
 func TestMaterializeBundleRoundTripAndSecretMode(t *testing.T) {
 	sourceRoot := t.TempDir()
 	workspaceSource := filepath.Join(sourceRoot, "workspace")

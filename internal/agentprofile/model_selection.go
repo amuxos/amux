@@ -152,6 +152,13 @@ func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, 
 	if err != nil {
 		return LaunchProjection{}, err
 	}
+	// A dynamically resolved model belongs in the immutable launch snapshot too.
+	// Otherwise later materialization would reject a selection accepted here.
+	if model.Ref != "" {
+		if _, found := findRuntimeModelByRef(runtime.Models, model.Ref); !found {
+			runtime.Models = append(runtime.Models, model)
+		}
+	}
 	if err := ValidateRuntimeReasoningEffort(runtime, model, opts.ReasoningEffort); err != nil {
 		return LaunchProjection{}, err
 	}

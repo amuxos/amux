@@ -32,6 +32,7 @@ func TestPrincipalLaunchEnvRewritesIdentity(t *testing.T) {
 		"USER=service",
 		"LOGNAME=service",
 		"PWD=/home/service",
+		"IS_SANDBOX=0",
 	}, "amux_ab", paths, "/var/lib/amux/principals/amux_ab/workspace/exec_1")
 
 	for key, want := range map[string]string{
@@ -44,6 +45,7 @@ func TestPrincipalLaunchEnvRewritesIdentity(t *testing.T) {
 		"PWD":                 "/var/lib/amux/principals/amux_ab/workspace/exec_1",
 		"XDG_CONFIG_HOME":     paths.Home + "/.config",
 		"XDG_CACHE_HOME":      paths.Home + "/.cache",
+		"IS_SANDBOX":          "1",
 	} {
 		got, ok := envValue(t, env, key)
 		if !ok || got != want {
@@ -77,7 +79,7 @@ func TestPrincipalLaunchEnvKeepsOneEntryPerKey(t *testing.T) {
 	env := principalLaunchEnv([]string{"HOME=/home/service", "USER=service"},
 		"amux_ab", PrincipalPaths{Home: "/principals/amux_ab/home"}, "/work")
 
-	for _, key := range []string{"HOME", "USER", "LOGNAME", "PWD", "AMUX_ISOLATION_BACKEND"} {
+	for _, key := range []string{"HOME", "USER", "LOGNAME", "PWD", "AMUX_ISOLATION_BACKEND", "IS_SANDBOX"} {
 		count := 0
 		for _, entry := range env {
 			if strings.HasPrefix(entry, key+"=") {

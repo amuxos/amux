@@ -36,7 +36,11 @@ func newSetupCmd() *cobra.Command {
 }
 
 func newSetupCmdWithOpener(open systemLifecycleOpener) *cobra.Command {
-	return newSetupLikeCmd("setup [local|hub|remote|feishu|feishu-local]", "Set up this amux installation", open)
+	c := newSetupLikeCmd("setup [local|hub|remote|feishu|feishu-local]", "Set up this amux installation", open)
+	if commands := distributionHooks.SetupCommands; commands != nil {
+		c.AddCommand(commands()...)
+	}
+	return c
 }
 
 func newSetupLikeCmd(use, short string, open systemLifecycleOpener) *cobra.Command {

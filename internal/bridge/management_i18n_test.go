@@ -16,6 +16,7 @@ import (
 	"github.com/amuxos/amux/internal/bridge/command"
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/i18n"
+	"github.com/amuxos/amux/internal/modelservice"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
@@ -63,6 +64,17 @@ func TestManagementI18nAllPagesAndStableActions(t *testing.T) {
 		"group_help":          renderWorkspaceHelpCard(),
 		"entry_help":          renderSessionEntryHelpCard(),
 		"topic_help":          renderBoundTopicHelpCard(),
+	}
+	for _, status := range []string{"", "signed_in", "signed_out", "expired", "pending", "unavailable", "setup_required", "installing"} {
+		for _, count := range []int{1, 2} {
+			serviceState := managementState{ModelServices: []managementModelService{{
+				Service: modelservice.Service{ID: "external", Name: "External", Runtimes: []string{"codex"}},
+				State:   modelservice.State{Status: status, CanInstall: true, LoginURL: "https://auth.example/login", Models: make([]modelservice.Model, count)},
+			}}}
+			cards[fmt.Sprintf("model_service_%s_%d", status, count)] = marshalNativeManagementCard(managementCardView{
+				Elements: modelServiceElements(serviceState, "codex", map[string]string{"default_model_ref": "native-model", "default_reasoning_effort": "high"}, managementActionSettingsEdit),
+			})
+		}
 	}
 	for name, card := range cards {
 		t.Run(name, func(t *testing.T) {

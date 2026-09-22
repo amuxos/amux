@@ -12,6 +12,7 @@ export interface SdkUserMessage {
 export interface SdkQuery extends AsyncIterable<any> {
   interrupt?: () => Promise<void>;
   close?: () => void;
+  applyFlagSettings?: (settings: { env: Record<string, string> }) => Promise<void>;
 }
 
 export type QueryFn = (args: { prompt: AsyncIterable<SdkUserMessage>; options: Record<string, unknown> }) => SdkQuery;
@@ -197,9 +198,39 @@ export class ClaudeBridge {
     if (this.started) return { provider: 'claude' };
     this.started = true;
 
+    // Isolation uses an empty override to mask the service user's setting.
+    // The SDK treats it as a relative path; unset it before importing the SDK
+    // so its own settings/debug files follow the isolated HOME as well.
+    if (process.env.CLAUDE_CONFIG_DIR === '') delete process.env.CLAUDE_CONFIG_DIR;
     const queryFn = this.queryFn ?? (await this.loadQuery());
     const options = this.buildOptions(params);
     this.q = queryFn({ prompt: this.inputGen(), options });
+
+    const env = options.env as Record<string, string>;
+    if (env.AMUX_MODEL_SERVICE) {
+      // Native settings.env overrides inherited process.env. Use the SDK
+      // control channel to pin this explicitly selected route without putting
+      // credentials in --settings argv or changing the user's settings files.
+      const overrides: Record<string, string> = {};
+      for (const name of [
+        'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY',
+        'ANTHROPIC_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL',
+        'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+        'CLAUDE_CODE_SUBAGENT_MODEL', 'CLAUDE_CODE_MAX_CONTEXT_TOKENS',
+        'CLAUDE_CODE_MAX_OUTPUT_TOKENS', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC',
+      ]) {
+        if (env[name] !== undefined) overrides[name] = env[name];
+      }
+      try {
+        if (!this.q.applyFlagSettings) throw new Error('Claude SDK cannot apply model-service settings');
+        await this.q.applyFlagSettings({ env: overrides });
+      } catch (err) {
+        this.q.close?.();
+        this.q = undefined;
+        this.started = false;
+        throw err;
+      }
+    }
 
     // runtime.pid lets the Go side fall back to signalling the process.
     this.peer.notify('runtime.pid', { pid: process.pid });
@@ -263,6 +294,7 @@ export class ClaudeBridge {
       const eq = entry.indexOf('=');
       if (eq > 0) env[entry.slice(0, eq)] = entry.slice(eq + 1);
     }
+    if (env.CLAUDE_CONFIG_DIR === '') delete env.CLAUDE_CONFIG_DIR;
     const options: Record<string, unknown> = {
       cwd: params.cwd,
       env,
@@ -321,9 +353,16 @@ export class ClaudeBridge {
         this.onToolResults(msg.message);
         break;
       case 'result': {
-        if (msg.subtype && msg.subtype !== 'success') {
-          this.emitEvent('error', { error: { message: String(msg.subtype), code: 'result_error' } });
-        } else if (typeof msg.result === 'string' || msg.usage || typeof msg.total_cost_usd === 'number') {
+        if (msg.is_error === true || (msg.subtype && msg.subtype !== 'success')) {
+          const message = (typeof msg.result === 'string' && msg.result)
+            || (Array.isArray(msg.errors) && msg.errors.map(String).join('\n'))
+            || String(msg.subtype ?? 'Claude request failed');
+          const error = { message, code: 'result_error' };
+          this.emitEvent('error', { error });
+          this.emitEvent('turn_done', { state: { state: 'failed', stop_reason: 'error' }, error });
+          break;
+        }
+        if (typeof msg.result === 'string' || msg.usage || typeof msg.total_cost_usd === 'number') {
           // Native turn result: the final text + usage + cost, surfaced so the
           // task control plane can record a summary without an injected envelope.
           // Emitted before turn_done so the runner has it at the terminal signal.

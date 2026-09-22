@@ -13,6 +13,9 @@ Pi 使用 Chat Completions。附加 Provider 平台、默认端点和 Pi 兼容�
 显式原生模型名直接传给所选 Agent，不据此推断 Provider、端点或凭据。
 思考强度仍受 Adapter 支持的值约束。
 
+发行版可以在 Runtime 目录中为模型提供可选显示名。模型选择和会话摘要使用该名称，
+未提供时回退为模型 ref。显示名不改变持久化 ref、Provider 绑定、上游模型名或已有会话。
+
 兼容 Codex 的 Provider 在重启或恢复时明确报告已保存的对话不存在，Runtime 会使用
 可用的 amux 对话交接创建一次新的 Provider 对话。amux Session、执行设置和待处理的
 handoff 保持完整。其它启动失败仍作为错误处理，不丢弃已保存的 Provider 对话身份。
@@ -73,12 +76,34 @@ Claude 合并 append-system-prompt 参数，每次受管启动（包括恢复）
 
 private-home 和 Linux DAC 启动将 `CODEX_HOME`、`PI_CODING_AGENT_DIR` 固定在自身
 HOME 下，并清空继承的 `CLAUDE_CONFIG_DIR`，保留该 HOME 内默认的 `.claude/` 和
-`.claude.json` 布局。Claude SDK 继承 sidecar 的有效
+`.claude.json` 布局。Claude sidecar 在加载 SDK 前，从自身环境及 SDK 子进程环境
+中移除空值 `CLAUDE_CONFIG_DIR`；SDK 将空字符串视为相对目录，并不会采用默认目录。
+Linux DAC 启动同时设置 Claude 的 `IS_SANDBOX=1` 兼容标记：helper 校验独立的
+非 root 宿主机 UID，即使进程在用户命名空间内看到 UID 0。该标记不启用权限模式，
+也不改变隔离加固；private-home 和普通启动不会由 amux 自动添加此标记。
+Claude SDK 继承 sidecar 的有效
 启动环境；Provider 不得在 backend 完成隔离后重新覆盖 Runtime 的原始环境。
 内置 Agent 的 Linux DAC 启动不修改服务用户的工作区信任状态；Pi 使用单次启动的
 `--approve`，除非调用者显式指定信任参数。private-home 启动继续使用自身原生
 信任文件。
 参见[原生兼容性证据](../reports/2026-09-17-native-memory-compatibility.zh-CN.md)。
+
+Linux DAC 物化阶段以目标用户创建 `.codex`，即使没有原生凭据文件也能启动；
+保留已有内容，并拒绝符号链接目标。
+
+## 需要登录的模型服务
+
+发行版可独立于执行引擎注册模型服务。选择服务模型保持原执行引擎及其工具执行逻辑。
+Hub 按 Principal 管理登录态及上游凭据；包括远端 Runtime 在内的每次模型请求，
+都通过现有 AMUX actor 凭据鉴权。Broker 管理与 Agent 同生命周期的回环网关。
+模型引用和启动规格不保存凭据或登录 challenge。目录保留上游模型与配置的组合以及
+声明的思考能力；未知或不可用的选择明确报错。公共发行版不注册任何模型服务。
+
+Claude 启动带有 `AMUX_MODEL_SERVICE` 标记时，sidecar 在接受输入前通过 SDK 内存中的
+flag-settings 控制接口应用选定网关、凭据、模型别名及上下文/输出限制。这些值优先于
+用户、项目、本地设置，保留其它设置和管理策略；凭据不进入命令行参数或设置文件。
+应用失败时明确拒绝启动。SDK 结果标记 `is_error` 时，即使 subtype 是 `success`，
+也将轮次标为失败并保留具体错误信息。
 
 ## 发行版定制契约
 

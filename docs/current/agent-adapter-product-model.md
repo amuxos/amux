@@ -14,6 +14,11 @@ Runtime model suggestions are not an allowlist. An explicit native model name is
 passed to the selected agent without inferring a provider, endpoint or credential.
 Reasoning effort remains constrained by the adapter's supported values.
 
+Distributions may provide optional per-model display names in their runtime
+catalog. Model pickers and session summaries use these labels, falling back to
+the model ref when absent. Labels do not change stored refs, provider bindings,
+upstream model names or existing sessions.
+
 When a Codex-compatible provider explicitly reports that its saved conversation
 is missing during restart or resume, the runtime starts one fresh provider
 conversation with the available amux conversation handoff. The amux session,
@@ -94,12 +99,42 @@ memory controls. No global agent configuration or native memory files are modifi
 Private-home and Linux DAC launches pin `CODEX_HOME` and `PI_CODING_AGENT_DIR`
 beneath their own HOME and clear inherited `CLAUDE_CONFIG_DIR`, preserving
 Claude's default `.claude/` and `.claude.json` layout within that HOME.
+Before loading the SDK, the Claude sidecar removes an empty `CLAUDE_CONFIG_DIR`
+override from its own environment and the SDK child environment; an empty string
+is a relative directory in the SDK, not a request for its default directory.
+Linux DAC launches also set Claude's `IS_SANDBOX=1` compatibility flag: the helper
+validates a dedicated non-root host UID even when the process sees UID 0 inside
+its user namespace. This does not enable a permission mode or change hardening;
+private-home and ordinary launches do not acquire this flag from amux.
+Linux DAC materialization creates `.codex` as the target user even without native
+credential files, preserves existing contents and rejects symlink destinations.
 Claude's SDK inherits the sidecar's effective launch environment; the provider
 must not reapply the Runtime's original environment after backend isolation.
 Built-in Linux DAC launches do not modify the service user's workspace trust;
 Pi uses its per-launch `--approve` override unless the caller selected an explicit
 trust flag. Private-home launches continue using their own native trust files.
 See the [native compatibility evidence](../reports/2026-09-17-native-memory-compatibility.md).
+
+## Authenticated model services
+
+A distribution may add model services independently of the execution engine.
+Selecting a service model keeps the selected engine and its tool execution.
+The Hub owns per-principal login state and upstream credentials. Each model
+request authenticates with the existing AMUX actor credential, including remote
+Runtimes. The broker owns a loopback gateway for the lifetime of its agent;
+credentials and login challenges are not stored in model refs or launch specs.
+Catalog entries preserve the upstream model/configuration pair and declared
+reasoning capabilities. Unknown or unavailable selections fail explicitly.
+No service is registered by the public distribution.
+
+For Claude launches marked with `AMUX_MODEL_SERVICE`, the sidecar applies the
+selected gateway, credentials, model aliases and limits through the SDK's
+in-memory flag-settings control before accepting prompts. These values take
+precedence over user/project/local settings while preserving other settings and
+managed policy. Credentials are not passed in command-line arguments or written
+to settings files. Failure to apply the overrides fails startup explicitly.
+SDK results marked `is_error`, including those with subtype `success`, terminate
+the turn as an error and preserve the reported failure message.
 
 ## Distribution customization contracts
 

@@ -193,8 +193,12 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	if action != managementActionPermissionRecheck {
 		b.invalidateFeishuPermissionRecheck(messageID)
 	}
+	b.advanceModelServiceEditor(messageID)
 	if action == managementActionLanguage {
 		return b.changeManagementLocale(openID, messageID, event.Event.Action), true, nil
+	}
+	if b.handleModelServiceEditor(event, action, openID, messageID) {
+		return cardToast("success", managementCopy("management.model.service.updating")), true, nil
 	}
 	state := b.managementState()
 	surface := managementSurfaceFromCallback(event.Event.Action)
@@ -780,6 +784,7 @@ const managementRuntimeDefaultReasoningOption = "__runtime_default_reasoning__"
 // Cards sent by the removed experimental command may still be visible
 // or pending recovery during an upgrade. Keep them on the current /amux surface.
 type managementState struct {
+	ModelServices                   []managementModelService
 	ProfileName                     string
 	OwnerOpenID                     string
 	Mode                            string

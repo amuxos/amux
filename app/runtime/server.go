@@ -691,6 +691,10 @@ func handleRunSessionPermission(sess *session.Session, ev agentstream.Event) boo
 // drop the mcp_servers.amux.* value that follows
 
 func (s *server) launchProcContext(ctx context.Context, a adapter.Adapter, sess *session.Session, cmd *exec.Cmd, cwd string, env []string) (session.Proc, <-chan struct{}, string, error) {
+	// Broker-owned model relays use the same trusted Hub connection as MCP.
+	hubConfig := config.GetHub()
+	env = memoryprotocol.SetEnv(env, "AMUX_HUB_ADDR", hubConfig.Addr)
+	env = memoryprotocol.SetEnv(env, "AMUX_HUB_TOKEN", hubConfig.Token)
 	snap := sess.Snapshot()
 	identity := snap.ExecutionIdentity
 	launchContext := isolation.LaunchContext{LaunchID: snap.LaunchID, Identity: &identity, Backend: identity.IsolationBackend}
