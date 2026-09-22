@@ -401,6 +401,10 @@ func principalLaunchEnv(env []string, account string, paths PrincipalPaths, dir 
 	env = replaceLaunchEnv(env, "XDG_CONFIG_HOME", paths.Home+"/.config")
 	env = replaceLaunchEnv(env, "XDG_CACHE_HOME", paths.Home+"/.cache")
 	env = replaceLaunchEnv(env, "AMUX_ISOLATION_BACKEND", principal.BackendLinuxDAC)
+	// The helper validates a dedicated non-root host UID. With namespace
+	// hardening the child sees UID 0, so advertise the actual sandbox context
+	// to clients such as Claude without changing their selected permissions.
+	env = replaceLaunchEnv(env, "IS_SANDBOX", "1")
 	if account = strings.TrimSpace(account); account != "" {
 		env = replaceLaunchEnv(env, "USER", account)
 		env = replaceLaunchEnv(env, "LOGNAME", account)

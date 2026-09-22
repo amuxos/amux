@@ -35,6 +35,9 @@ type RuntimeCatalogSource struct {
 	Ref         string
 	DisplayName string
 	Models      []string
+	// ModelDisplayNames optionally labels model refs without changing their
+	// identity or provider binding. Missing labels fall back to the model ref.
+	ModelDisplayNames map[string]string
 	// Capabilities optionally declares per-model reasoning capabilities for a
 	// distribution runtime whose models are not uniformly capable. A model with
 	// a declared capability keeps that declaration verbatim; a model without one
@@ -82,6 +85,7 @@ type Customization struct {
 	RuntimeCatalog                   []RuntimeCatalogSource
 	AllowUnlistedNativeRuntimeModels bool
 	RuntimeModelUsesBinaryThinking   func(string) bool
+	ResolveServiceModel              func(runtime, ref string) (RuntimeModelOption, bool, error)
 	// ValidateAdditionalProvider admits combinations not implemented by core.
 	// Shared field and wire rules run first; native combinations never call it.
 	ValidateAdditionalProvider func(string, *Provider) error
@@ -156,11 +160,12 @@ func RegisterCustomization(next Customization) (err error) {
 	sources := make([]runtimeCatalogSource, 0, len(next.RuntimeCatalog))
 	for _, source := range next.RuntimeCatalog {
 		sources = append(sources, runtimeCatalogSource{
-			ref:          source.Ref,
-			displayName:  source.DisplayName,
-			models:       cloneStrings(source.Models),
-			capabilities: cloneRuntimeModelCapabilities(source.Capabilities),
-			variants:     cloneRuntimeModelVariants(source.Variants),
+			ref:               source.Ref,
+			displayName:       source.DisplayName,
+			models:            cloneStrings(source.Models),
+			modelDisplayNames: cloneStringMap(source.ModelDisplayNames),
+			capabilities:      cloneRuntimeModelCapabilities(source.Capabilities),
+			variants:          cloneRuntimeModelVariants(source.Variants),
 		})
 	}
 	builtinProfiles, catalogPacks, runtimeCatalogSources = profiles, packs, sources

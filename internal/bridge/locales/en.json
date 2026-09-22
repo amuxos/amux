@@ -2263,5 +2263,66 @@
   },
   "management.permission.fallback.link": {
     "other": "Request permissions: %s"
+  },
+  "management.model.service.updating": {
+    "other": "Updating models and sign-in status"
+  },
+  "management.model.service.status.signed_in": {
+    "other": "Signed in"
+  },
+  "management.model.service.status.signed_out": {
+    "other": "Not signed in"
+  },
+  "management.model.service.status.expired": {
+    "other": "Sign-in expired"
+  },
+  "management.model.service.status.pending": {
+    "other": "Signing in"
+  },
+  "management.model.service.status.unavailable": {
+    "other": "Temporarily unavailable"
+  },
+  "management.model.service.status.setup_required": {
+    "other": "Setup required"
+  },
+  "management.model.service.status.installing": {
+    "other": "Installing"
+  },
+  "management.model.service.status.check": {
+    "other": "Check sign-in status"
+  },
+  "management.model.service.option": {
+    "other": "%s model service · %s"
+  },
+  "management.model.service.refresh.login": {
+    "other": "Refresh sign-in status"
+  },
+  "management.model.service.recheck": {
+    "other": "Check again"
+  },
+  "management.model.service.install.progress": {
+    "other": "View installation progress"
+  },
+  "management.model.service.login": {
+    "other": "Sign in to %s"
+  },
+  "management.model.service.model.count": {
+    "other": "%d model configurations",
+    "one": "%d model configuration"
+  },
+  "management.model.service.refresh.models": {
+    "other": "Refresh model list"
+  },
+  "management.model.service.login.pending": {
+    "other": "Refreshes automatically after sign-in"
+  },
+  "management.model.service.unavailable": {
+    "other": "The model service is temporarily unavailable. Try again later."
+  },
+  "management.model.service.open.login": {
+    "other": "Open sign-in page"
+  },
+  "management.model.service.install": {
+    "other": "One-click install"
   }
 }

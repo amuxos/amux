@@ -1,0 +1,80 @@
+// Package modelservice connects distribution model services to existing AMUX
+// principal authentication. It does not implement a second credential system.
+package modelservice
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"sort"
+	"sync"
+
+	"github.com/amuxos/amux/internal/extensionstate"
+)
+
+type Model struct {
+	Ref   string `json:"ref"`
+	Label string `json:"label"`
+}
+
+type State struct {
+	Status     string  `json:"status"` // signed_in, signed_out, pending, expired, setup_required, installing
+	LoginURL   string  `json:"login_url,omitempty"`
+	Notice     string  `json:"notice,omitempty"`
+	Models     []Model `json:"models,omitempty"`
+	CanInstall bool    `json:"can_install,omitempty"`
+}
+
+type Service struct {
+	ID       string
+	Name     string
+	Runtimes []string
+	// Query receives a trusted principal, never a principal supplied in a card.
+	// Actions are status, login, refresh and an explicit install opt-in for
+	// services that return CanInstall. Challenges remain service-private.
+	Query func(context.Context, string, string) (State, error)
+	Proxy func(context.Context, string, http.ResponseWriter, *http.Request) error
+}
+
+var registry = struct {
+	sync.RWMutex
+	services map[string]Service
+}{services: map[string]Service{}}
+
+func Register(s Service) error {
+	release, err := extensionstate.BeginRegistration()
+	if err != nil {
+		return err
+	}
+	defer release()
+	if s.ID == "" || s.Name == "" || s.Query == nil || s.Proxy == nil {
+		return fmt.Errorf("incomplete model service")
+	}
+	registry.Lock()
+	defer registry.Unlock()
+	if _, ok := registry.services[s.ID]; ok {
+		return fmt.Errorf("model service %q already registered", s.ID)
+	}
+	s.Runtimes = append([]string(nil), s.Runtimes...)
+	registry.services[s.ID] = s
+	return nil
+}
+
+func Get(id string) (Service, bool) {
+	registry.RLock()
+	defer registry.RUnlock()
+	s, ok := registry.services[id]
+	return s, ok
+}
+
+func List() []Service {
+	registry.RLock()
+	defer registry.RUnlock()
+	out := make([]Service, 0, len(registry.services))
+	for _, s := range registry.services {
+		s.Runtimes = append([]string(nil), s.Runtimes...)
+		out = append(out, s)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}

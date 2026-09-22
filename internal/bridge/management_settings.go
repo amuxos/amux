@@ -20,6 +20,7 @@ import (
 // managementSettingsState owns settings-editor progress state.
 type managementSettingsState struct {
 	settingsMu                sync.Mutex
+	modelServiceVersions      map[string]uint64
 	onboardingCardSentByOpen  map[string]bool
 	documentSettingsActive    bool
 	botToBotSettingsActive    bool
@@ -1427,6 +1428,7 @@ func renderDocumentCommentsEditCard(state managementState, draft managementDocum
 			modelField.Required = false
 			modelField.Behaviors = changeBehavior("document_comments_model_ref")
 			elements = append(elements, managementSettingsFieldRow(managementCopy("management.model.new.comment.topics.only"), modelField))
+			elements = append(elements, modelServiceElements(state, draft.RuntimeRef, map[string]string{"document_comments_mode": draft.Mode, "document_comments_agent": draft.AgentRef, "document_comments_runtime_ref": draft.RuntimeRef, "document_comments_model_ref": draft.ModelRef, "document_comments_reasoning_effort": draft.ReasoningEffort}, managementActionDocumentCommentsEdit)...)
 			initialReasoningEffort := draft.ReasoningEffort
 			if initialReasoningEffort == "" {
 				initialReasoningEffort = managementRuntimeDefaultReasoningOption
@@ -1852,14 +1854,14 @@ func renderSettingsConfirmationCard(state managementState, draft managementSetti
 
 func managementEffectiveModelLabel(state managementState, agentRef, ref string) any {
 	if ref = strings.TrimSpace(ref); ref != "" {
-		return ref
+		return managementRuntimeModelLabel(ref)
 	}
 	defaultModel := managementDefaultModelDisplayFor(state, agentRef)
 	if defaultModel.Unavailable {
 		return managementCopy("management.expert.unavailable.cannot.determine.the.default.model")
 	}
 	if model := defaultModel.ProfileModel; model != "" {
-		return managementConcat(managementCopy("management.expert.default"), model)
+		return managementConcat(managementCopy("management.expert.default"), managementRuntimeModelLabel(model))
 	}
 	if agentName := defaultModel.AgentName; agentName != "" {
 		return managementConcat(agentName, managementCopy("management.default.model.130"))
@@ -1873,7 +1875,7 @@ func managementProfileDefaultModelOptionLabel(state managementState, agentRef st
 		return managementCopy("management.expert.unavailable.cannot.determine.the.default.model")
 	}
 	if model := defaultModel.ProfileModel; model != "" {
-		return managementConcat(managementCopy("management.use.expert.default.model"), model, "）")
+		return managementConcat(managementCopy("management.use.expert.default.model"), managementRuntimeModelLabel(model), "）")
 	}
 	if agentName := defaultModel.AgentName; agentName != "" {
 		return managementConcat(managementCopy("management.use"), agentName, managementCopy("management.default.model.130"))
@@ -2038,6 +2040,13 @@ func managementRuntimeLabel(state managementState, runtimeRef string) any {
 
 func managementRuntimeModelLabel(modelRef string) any {
 	if modelRef = strings.TrimSpace(modelRef); modelRef != "" {
+		if runtimes, err := agentprofile.RuntimeCatalog(); err == nil {
+			for _, runtime := range runtimes {
+				if model, err := agentprofile.ResolveRuntimeModel(runtime, modelRef); err == nil && model.DisplayName != "" {
+					return model.DisplayName
+				}
+			}
+		}
 		return modelRef
 	}
 	return managementCopy("management.runtime.default.model")

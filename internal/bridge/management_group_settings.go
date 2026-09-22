@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/amuxos/amux/internal/modelservice"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/config"
@@ -166,8 +168,9 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 		messageID = event.Event.Context.OpenMessageID
 	}
 	update := func(card string) { b.updateManagementCardFromCallback(openID, messageID, card) }
+	version := b.advanceModelServiceEditor(messageID)
 	if action == managementActionGroupSettingsEdit || action == managementActionGroupSettingsSave {
-		draft, err := groupSettingsDraftFromCallback(settings, event.Event.Action)
+		draft, err := groupSettingsDraftFromCallback(settings, modelServiceDraftAction(event.Event.Action))
 		if err != nil {
 			return groupSettingsErrorToast(err), true, nil
 		}
@@ -175,6 +178,39 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 			state, err := b.groupSettingsManagementState(settings)
 			if err != nil {
 				return groupSettingsErrorToast(err), true, nil
+			}
+			if len(modelservice.List()) > 0 && b.resolveModelServicePrincipal != nil {
+				service, operation := modelServiceSelection(event.Event.Action)
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+					defer cancel()
+					for {
+						current := b.loadModelServices(ctx, state, openID, service, operation)
+						if !b.modelServiceEditorCurrent(messageID, version) {
+							return
+						}
+						update(renderGroupSettingsEditCardAtPage(current, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action)))
+						pending := false
+						for _, entry := range current.ModelServices {
+							if entry.Service.ID == service && (entry.State.Status == "pending" || entry.State.Status == "installing") {
+								pending = true
+							}
+						}
+						if !pending {
+							return
+						}
+						select {
+						case <-ctx.Done():
+							return
+						case <-time.After(3 * time.Second):
+						}
+						if !b.modelServiceEditorCurrent(messageID, version) {
+							return
+						}
+						operation = "refresh"
+					}
+				}()
+				return cardToast("success", managementCopy("management.model.service.updating")), true, nil
 			}
 			update(renderGroupSettingsEditCardAtPage(state, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action)))
 			return cardToast("success", managementCopy("management.group.settings.opened.not.saved.yet")), true, nil
@@ -272,6 +308,9 @@ func groupSettingsDraftFromCallback(settings *GroupSettings, action *callback.Ca
 			return nil, managementLocalizedError("management.invalid.format.for.group.settings.field.s", key)
 		}
 		draft[key] = strings.TrimSpace(text)
+	}
+	if action.Name == "group_model" && action.Option != "" {
+		draft["group_model"] = action.Option
 	}
 	return draft, nil
 }
@@ -406,7 +445,10 @@ func renderCurrentGroupSettingsCard(state managementState, settings *GroupSettin
 				status = managementConcat(status, managementCopy("management.session.binding.unavailable.start.a.new.conversation"))
 			} else {
 				profile = valueOrPlaceholder(current.AgentProfile, current.AgentType)
-				model = managementValueOrPlaceholder(current.EffectiveModel, managementCopy("management.not.recorded"))
+				model = managementRuntimeModelLabel(current.EffectiveModel)
+				if strings.TrimSpace(current.EffectiveModel) == "" {
+					model = managementCopy("management.not.recorded")
+				}
 				status = managementConcat(status, " · "+current.SessionName)
 			}
 		}
@@ -478,7 +520,7 @@ func groupSettingsPageFromAction(action *callback.CallBackAction) int {
 // managementGroupSettingsEditFields builds the editor rows in display order.
 // Pagination runs afterwards so a large catalog cannot push the card past the
 // element limit.
-func managementGroupSettingsEditFields(state managementState, draft managementGroupSettingsDraft) []cardElement {
+func managementGroupSettingsEditFields(state managementState, draft managementGroupSettingsDraft, scope map[string]string) []cardElement {
 	selectedAgent := groupSettingsOptional(draft["group_agent"], managementGroupInheritProfile)
 	if selectedAgent == "" {
 		selectedAgent = state.DefaultAgent
@@ -497,7 +539,14 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 	} else if profile, ok := managementProfileByRef(state, selectedAgent); ok {
 		effectiveRuntime = profile.AgentType
 	}
-	modelOptions = append(modelOptions, cardOption{Text: managementStyledText(managementCopy("management.enter.a.native.model.name"), cardTitle{Tag: "plain_text"}), Value: managementGroupNativeModel})
+	modelOptions = append(modelOptions, cardOption{Text: managementPlainText(managementCopy("management.enter.a.native.model.name")), Value: managementGroupNativeModel})
+	values := make(map[string]string, len(scope)+len(draft))
+	for key, value := range scope {
+		values[key] = value
+	}
+	for key, value := range draft {
+		values[key] = value
+	}
 	form := []cardElement{}
 	selectField := func(label any, key string, options []cardOption) {
 		initial := draft[key]
@@ -509,9 +558,17 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 			}
 		}
 		if initial != "" && !found {
-			options = append(options, cardOption{Text: managementStyledText(managementConcat(managementCopy("management.current.value.validated.on.save"), initial), cardTitle{Tag: "plain_text"}), Value: initial})
+			var currentLabel any = initial
+			if key == "group_model" {
+				currentLabel = managementRuntimeModelLabel(initial)
+			}
+			options = append(options, cardOption{Text: managementPlainText(managementConcat(managementCopy("management.current.value.validated.on.save"), currentLabel)), Value: initial})
 		}
-		form = append(form, managementSettingsFieldRow(label, managementSelectStaticElement(key, managementCopy("management.select.an.option"), initial, options)))
+		field := managementSelectStaticElement(key, managementCopy("management.select.an.option"), initial, options)
+		if key == "group_model" {
+			field.Behaviors = []cardBehavior{{Type: "callback", Value: managementButtonValue(groupSettingsScopedButton(managementActionGroupSettingsEdit, "", "", values))}}
+		}
+		form = append(form, managementSettingsFieldRow(label, field))
 	}
 	inputField := func(label any, key string, placeholder any) {
 		form = append(form, managementSettingsFieldRow(label, cardElement{Tag: "input", Name: key, DefaultValue: draft[key], Width: "fill", Placeholder: managementStyledTextPtr(placeholder, cardTitle{Tag: "plain_text"})}))
@@ -524,6 +581,7 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 	selectField(managementCopy("management.default.expert.for.new.sessions"), "group_agent", profileOptions)
 	selectField(managementCopy("management.runtime"), "group_runtime", runtimeOptions)
 	selectField(managementCopy("management.model"), "group_model", modelOptions)
+	form = append(form, modelServiceElements(state, effectiveRuntime, values, managementActionGroupSettingsEdit)...)
 	inputField(managementCopy("management.native.model.name.when.selected.above"), "group_native_model", managementCopy("management.for.example.a.model.name.supported.by.the.runtime"))
 	reasoningOptions := managementRuntimeReasoningOptions(state, effectiveRuntime, modelRef)
 	if runtimeRef == "" {
@@ -553,7 +611,12 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 // end falls back to the last page so a shrinking catalog cannot strand the user
 // on an empty card.
 func renderGroupSettingsEditCardAtPage(state managementState, draft managementGroupSettingsDraft, scope map[string]string, page int) string {
-	pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft), draft, scope)
+	pageScope := make(map[string]string, len(scope)+1)
+	for k, v := range scope {
+		pageScope[k] = v
+	}
+	pageScope[groupSettingsPageKey] = strconv.Itoa(page)
+	pages := paginateManagementGroupSettings(managementGroupSettingsEditFields(state, draft, pageScope), draft, scope)
 	if page >= len(pages) {
 		page = len(pages) - 1
 	}

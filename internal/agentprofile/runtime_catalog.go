@@ -21,6 +21,7 @@ type RuntimeOption struct {
 }
 
 type RuntimeModelOption struct {
+	DisplayName               string
 	Ref                       string
 	Kind                      ModelKind
 	AgentModel                string
@@ -35,11 +36,12 @@ type RuntimeModelOption struct {
 }
 
 type runtimeCatalogSource struct {
-	ref          string
-	displayName  string
-	models       []string
-	capabilities map[string]RuntimeModelCapability
-	variants     []RuntimeModelVariant
+	ref               string
+	displayName       string
+	models            []string
+	modelDisplayNames map[string]string
+	capabilities      map[string]RuntimeModelCapability
+	variants          []RuntimeModelVariant
 }
 
 var standardReasoningEfforts = []string{"none", "low", "medium", "high", "xhigh"}
@@ -110,7 +112,10 @@ func buildRuntimeCatalog(sources []runtimeCatalogSource, manifest packManifest) 
 			option.DefaultReasoningEfforts = []string{"low", "medium", "high", "xhigh", "max"}
 		}
 		for _, ref := range source.models {
-			model := RuntimeModelOption{Ref: ref, Kind: ModelKindNative, AgentModel: ref}
+			model := RuntimeModelOption{
+				DisplayName: strings.TrimSpace(source.modelDisplayNames[ref]),
+				Ref:         ref, Kind: ModelKindNative, AgentModel: ref,
+			}
 			if providerDef, ok := manifest.Providers[ref]; ok {
 				provider := providerDef.toProvider()
 				providerRef, _, err := parseProviderModelRef(ref)
@@ -156,6 +161,7 @@ func buildRuntimeCatalog(sources []runtimeCatalogSource, manifest packManifest) 
 				continue
 			}
 			model := RuntimeModelOption{
+				DisplayName:    strings.TrimSpace(source.modelDisplayNames[variantRef]),
 				Ref:            variantRef,
 				Kind:           ModelKindNative,
 				AgentModel:     agentModel,
@@ -212,6 +218,11 @@ func ResolveRuntimeModel(runtime RuntimeOption, requested string) (RuntimeModelO
 	for _, model := range runtime.Models {
 		if model.Ref == requested {
 			return cloneRuntimeModelOption(model), nil
+		}
+	}
+	if customization.ResolveServiceModel != nil {
+		if model, handled, err := customization.ResolveServiceModel(runtime.Ref, requested); handled || err != nil {
+			return model, err
 		}
 	}
 	if allowUnlistedNativeRuntimeModels {

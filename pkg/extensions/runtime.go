@@ -82,6 +82,8 @@ func ResolveExecutableFromEnvPATH(name string, env []string) (string, error) {
 }
 func TextUserInput(text string) UserInput { return session.TextUserInput(text) }
 
+var RegisterStructuredLaunchPreparation = mux.RegisterStructuredLaunchPreparation
+
 func RegisterResponsesChatCommand(command ResponsesChatCommand) error {
 	return mux.RegisterResponsesChatCommand(command)
 }

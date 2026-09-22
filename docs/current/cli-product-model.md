@@ -49,6 +49,9 @@ from `amuxos/amux-releases` by default. `AMUX_RELEASE_URL` overrides the source;
 distributions. Manifest downloads require SHA256 verification before extraction.
 No authoring-runtime source is configured by default. Core installation can
 proceed when optional authoring is unavailable.
+Distributions may register explicit optional-component subcommands under
+`amux setup` through the CLI `SetupCommands` hook. Building the command tree or
+running core install/update never executes these installers.
 
 `scripts/install.sh` provides one onboarding entrypoint for public source builds and local release
 binaries. A standalone copy also downloads the latest public release, or the

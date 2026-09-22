@@ -42,6 +42,7 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 			modelField.Required = false
 			modelField.Behaviors = changeBehavior("group_watch_model_ref")
 			elements = append(elements, managementSettingsFieldRow(managementCopy("management.model.new.watch.topics.only"), modelField))
+			elements = append(elements, modelServiceElements(state, draft.RuntimeRef, map[string]string{"group_watch_mode": draft.Mode, "group_watch_agent": draft.AgentRef, "group_watch_runtime_ref": draft.RuntimeRef, "group_watch_model_ref": draft.ModelRef, "group_watch_reasoning_effort": draft.ReasoningEffort}, managementActionGroupWatchEdit)...)
 			initialReasoningEffort := draft.ReasoningEffort
 			if initialReasoningEffort == "" {
 				initialReasoningEffort = managementRuntimeDefaultReasoningOption

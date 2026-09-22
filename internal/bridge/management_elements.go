@@ -423,7 +423,10 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	thinkingProcessRow := cardElement{Tag: "column_set", FlexMode: "none", Columns: []cardColumn{managementSettingsFieldColumn(managementCopy("management.activity.display"), thinkingProcessField)}}
 	buttons.Margin = "4px 0px 0px 0px"
 	form := cardElement{Tag: "form", Name: name, Direction: "vertical", VerticalSpacing: "8px", Elements: []cardElement{buttons}}
-	return []cardElement{hintRow, profileRow, runtimeRow, modelRow, reasoningRow, interactionRow, thinkingProcessRow, form}
+	values := map[string]string{"interaction": draft.Interaction, "default_agent": draft.DefaultAgent, "default_runtime_ref": draft.DefaultRuntimeRef, "default_model_ref": draft.DefaultModelRef, "default_reasoning_effort": draft.DefaultReasoningEffort, "thinking_process": draft.ThinkingProcess}
+	elements := []cardElement{hintRow, profileRow, runtimeRow, modelRow}
+	elements = append(elements, modelServiceElements(state, draft.DefaultRuntimeRef, values, draftChangeAction)...)
+	return append(elements, reasoningRow, interactionRow, thinkingProcessRow, form)
 }
 
 func managementRuntimeOptions(state managementState) []cardOption {
@@ -453,8 +456,40 @@ func managementRuntimeModelOptions(state managementState, runtimeRef string) []c
 	if !ok {
 		return options
 	}
+	if current := strings.TrimSpace(state.DefaultModelRef); current != "" {
+		found := false
+		for _, model := range runtime.Models {
+			if model.Ref == current {
+				found = true
+			}
+		}
+		if !found {
+			if model, err := agentprofile.ResolveRuntimeModel(runtime, current); err == nil && model.DisplayName != "" {
+				runtime.Models = append(runtime.Models, model)
+			}
+		}
+	}
+	seen := make(map[string]bool)
+	for _, option := range modelServiceOptions(state, runtimeRef) {
+		options = append(options, option)
+		for _, service := range state.ModelServices {
+			if option.Value != modelServiceEntryPrefix+service.Service.ID {
+				continue
+			}
+			for _, model := range service.State.Models {
+				if seen[model.Ref] {
+					continue
+				}
+				options = append(options, cardOption{Text: cardTitle{Tag: "plain_text", Content: model.Label}, Value: model.Ref})
+				seen[model.Ref] = true
+			}
+		}
+	}
 	for _, model := range runtime.Models {
-		options = append(options, cardOption{Text: managementStyledText(model.Ref, cardTitle{Tag: "plain_text"}), Value: model.Ref})
+		if seen[model.Ref] {
+			continue
+		}
+		options = append(options, cardOption{Text: managementPlainText(valueOrPlaceholder(model.DisplayName, model.Ref)), Value: model.Ref})
 	}
 	return options
 }

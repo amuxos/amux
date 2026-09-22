@@ -42,6 +42,9 @@ validation, connection URLs, APIs, and model compatibility settings for addition
 platforms. The core still handles the default `openai-compat` path. CLI
 customization's `CredentialSetExamples` can append distribution-specific credential
 examples using the supplied command path.
+The `SetupCommands` hook may return fresh Cobra commands for optional local
+component setup under `amux setup`. Registration must not perform installation;
+only explicit command execution may download or install the component.
 
 For local integration, use a relative `replace` in the distribution's `go.mod` or
 an uncommitted `go.work`. After the public release, pin a released version of

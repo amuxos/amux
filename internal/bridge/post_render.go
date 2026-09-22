@@ -1262,7 +1262,7 @@ func toolActivityCardTitle(meta toolActivityCardMeta) string {
 	}
 	modelText := ""
 	if model := strings.TrimSpace(meta.EffectiveModel); model != "" {
-		modelText = " · 模型 " + truncateCardText(model, 80)
+		modelText = " · 模型 " + truncateCardText(managementDefaultText(managementRuntimeModelLabel(model)), 80)
 	}
 	usageText := ""
 	if meta.Activity != nil {

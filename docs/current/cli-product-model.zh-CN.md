@@ -38,6 +38,8 @@ Detach 只结束 UI 连接，不结束 Session。原始字节输入和终端尺�
 来源；发行版仍可使用 `AMUX_SCM_LATEST_URL` 和已有归档格式。清单下载必须在解包前
 通过 SHA256 校验。默认不配置 authoring runtime 下载源；可选 authoring 能力不可用
 时，核心安装仍可继续。
+发行版可通过 CLI 的 `SetupCommands` hook 在 `amux setup` 下注册可选组件的
+显式安装子命令。构建命令树或执行核心安装、升级均不会运行这些安装器。
 
 `scripts/install.sh` 为公共源码构建和本地发行二进制提供统一安装入口。独立脚本
 还可下载公共最新版本，或通过 `--version vX.Y.Z` 选择版本。源码 checkout 中仍默认

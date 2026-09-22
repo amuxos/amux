@@ -12,6 +12,8 @@ type ProfileCustomization = agentprofile.Customization
 type ProfileProjectionFile = agentprofile.ProjectionFile
 type ProfilePiProviderConfig = agentprofile.PiProviderConfig
 type BuiltinProfileMetadata = agentprofile.BuiltinMetadata
+type ProfileRuntimeModelOption = agentprofile.RuntimeModelOption
+
 type ProfileRuntimeCatalogSource = agentprofile.RuntimeCatalogSource
 type ProfileRuntimeModelCapability = agentprofile.RuntimeModelCapability
 type ProfileRuntimeModelVariant = agentprofile.RuntimeModelVariant

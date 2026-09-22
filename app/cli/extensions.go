@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/amuxos/amux/internal/extensionstate"
+	"github.com/spf13/cobra"
 )
 
 // Hooks customize distribution-specific command metadata and execution checks.
@@ -14,6 +15,9 @@ type Hooks struct {
 	ParseConfigValue         func(string, string) (any, bool, error)
 	// CredentialSetExamples appends examples using the supplied invocation path.
 	CredentialSetExamples func(string) string
+	// SetupCommands returns fresh optional-component commands. It must not
+	// install anything while the command tree is being built.
+	SetupCommands func() []*cobra.Command
 }
 
 var distributionHooks Hooks
