@@ -193,7 +193,7 @@ without independent settings.
 
 There is no implicit opt-out into a global singleton. Following the default
 Profile only inherits that value. A full opt-out would need an explicit design
-for the resulting shared-context scope change. This design preserves ADR 0001:
+for the resulting shared-context scope change. This design preserves the Bridge model's separation:
 governance, interaction and hosting topology remain distinct.
 
 ## 7. Acceptance
@@ -213,7 +213,7 @@ unsupported environmental cases explicitly and is retained separately.
 ## 8. Implementation references
 
 - [Bridge model](../../current/feishu-bridge-product-model.md) and [thread context](../../current/feishu-thread-context-model.md)
-- [Bot governance ADR](../../adr/0001-bot-governance-independent-of-system-topology.md)
+- [Architecture overview](../../concepts/architecture.md): Bot access and system topology are independent.
 - [Profile format](../../reference/agent-profile-format.md)
 - [Group management](../../../internal/bridge/router_workspace.go), [topic launch](../../../internal/bridge/router_thread.go), and [legacy Bot singleton](../../../internal/bridge/router_botsession.go)
 - [Group summary](../../../internal/bridge/management_groups.go) and [settings cards](../../../internal/bridge/management_group_settings.go)

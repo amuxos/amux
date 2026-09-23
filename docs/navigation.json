@@ -1,0 +1,380 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "start",
+      "title": {
+        "en": "Start in Feishu",
+        "zh-CN": "从飞书开始"
+      },
+      "collapsed": false,
+      "pages": [
+        {
+          "source": "docs/tutorials/first-feishu-bot.md",
+          "title": {
+            "en": "Connect your first bot",
+            "zh-CN": "接入第一个机器人"
+          }
+        },
+        {
+          "source": "docs/tutorials/installation.md",
+          "title": {
+            "en": "Install amux (operator)",
+            "zh-CN": "安装 amux（运维者）"
+          }
+        }
+      ]
+    },
+    {
+      "id": "feishu",
+      "title": {
+        "en": "Work in Feishu",
+        "zh-CN": "在飞书中工作"
+      },
+      "collapsed": false,
+      "pages": [
+        {
+          "source": "docs/guides/feishu-conversations.md",
+          "title": {
+            "en": "Conversations and follow-ups",
+            "zh-CN": "对话与追问"
+          }
+        },
+        {
+          "source": "docs/guides/feishu-groups.md",
+          "title": {
+            "en": "Group settings and access",
+            "zh-CN": "群设置与访问控制"
+          }
+        },
+        {
+          "source": "docs/guides/delegation.md",
+          "title": {
+            "en": "Delegate to other Agents",
+            "zh-CN": "委派给其他 Agent"
+          }
+        },
+        {
+          "source": "docs/guides/automation.md",
+          "title": {
+            "en": "Schedules, group watch and comments",
+            "zh-CN": "定时工作、群值守与评论"
+          }
+        },
+        {
+          "source": "docs/guides/memory.md",
+          "title": {
+            "en": "Memory across conversations",
+            "zh-CN": "跨对话记忆"
+          }
+        }
+      ]
+    },
+    {
+      "id": "concepts",
+      "title": {
+        "en": "Understand the product",
+        "zh-CN": "理解产品概念"
+      },
+      "collapsed": false,
+      "pages": [
+        {
+          "source": "docs/concepts/agents.md",
+          "title": {
+            "en": "Assistants, experts and Agents",
+            "zh-CN": "助手、专家与 Agent"
+          }
+        },
+        {
+          "source": "docs/concepts/execution.md",
+          "title": {
+            "en": "Sessions, Tasks and Schedules",
+            "zh-CN": "Session、Task 与 Schedule"
+          }
+        },
+        {
+          "source": "docs/concepts/architecture.md",
+          "title": {
+            "en": "How amux works",
+            "zh-CN": "amux 如何工作"
+          }
+        }
+      ]
+    },
+    {
+      "id": "reference",
+      "title": {
+        "en": "Reference",
+        "zh-CN": "参考手册"
+      },
+      "collapsed": false,
+      "pages": [
+        {
+          "source": "docs/reference/feishu-commands.md",
+          "title": {
+            "en": "Feishu commands",
+            "zh-CN": "飞书命令"
+          },
+          "status": "generated"
+        },
+        {
+          "source": "docs/reference/cli.md",
+          "title": {
+            "en": "CLI",
+            "zh-CN": "CLI"
+          },
+          "status": "generated"
+        },
+        {
+          "source": "docs/reference/configuration.md",
+          "title": {
+            "en": "Configuration",
+            "zh-CN": "配置"
+          },
+          "status": "generated"
+        },
+        {
+          "source": "docs/reference/mcp.md",
+          "title": {
+            "en": "MCP tools",
+            "zh-CN": "MCP 工具"
+          },
+          "status": "generated"
+        },
+        {
+          "source": "docs/reference/agent-profile-format.md",
+          "title": {
+            "en": "Agent Profile Pack format",
+            "zh-CN": "Agent Profile Pack 格式"
+          }
+        },
+        {
+          "source": "docs/reference/desktop-client.md",
+          "title": {
+            "en": "Desktop Gateway API",
+            "zh-CN": "桌面 Gateway API"
+          }
+        },
+        {
+          "source": "docs/reference/chat-template-agent-examples.md",
+          "title": {
+            "en": "Chat template examples",
+            "zh-CN": "Chat Template 示例"
+          }
+        }
+      ]
+    },
+    {
+      "id": "operations",
+      "title": {
+        "en": "Operate and integrate",
+        "zh-CN": "运维与集成"
+      },
+      "collapsed": false,
+      "pages": [
+        {
+          "source": "docs/operations/troubleshooting.md",
+          "title": {
+            "en": "Troubleshooting",
+            "zh-CN": "排障"
+          }
+        },
+        {
+          "source": "docs/operations/maintenance.md",
+          "title": {
+            "en": "Restart and update",
+            "zh-CN": "重启与更新"
+          }
+        },
+        {
+          "source": "docs/guides/cli-sessions.md",
+          "title": {
+            "en": "Sessions from the CLI",
+            "zh-CN": "通过 CLI 使用会话"
+          }
+        },
+        {
+          "source": "docs/distributed-agent-usage.md",
+          "title": {
+            "en": "Tasks from the CLI",
+            "zh-CN": "通过 CLI 使用 Task"
+          }
+        },
+        {
+          "source": "docs/guides/remote-runtime.md",
+          "title": {
+            "en": "Remote Runtimes",
+            "zh-CN": "远端 Runtime"
+          }
+        },
+        {
+          "source": "docs/mcp-external-hosts.md",
+          "title": {
+            "en": "External MCP hosts",
+            "zh-CN": "外部 MCP Host"
+          }
+        },
+        {
+          "source": "examples/README.md",
+          "title": {
+            "en": "Source examples",
+            "zh-CN": "源码示例"
+          }
+        },
+        {
+          "source": "docs/operations/linux-dac-isolation.md",
+          "title": {
+            "en": "Linux user isolation",
+            "zh-CN": "Linux 用户隔离"
+          }
+        },
+        {
+          "source": "docs/operations/public-releases.md",
+          "title": {
+            "en": "Publish releases",
+            "zh-CN": "发布公共版本"
+          }
+        }
+      ]
+    },
+    {
+      "id": "maintainers",
+      "title": {
+        "en": "Models and maintenance",
+        "zh-CN": "产品模型与维护"
+      },
+      "collapsed": true,
+      "pages": [
+        {
+          "source": "docs/maintainers/documentation-system.md",
+          "title": {
+            "en": "Maintain and regenerate docs",
+            "zh-CN": "维护与重新生成文档"
+          }
+        },
+        {
+          "source": "docs/current/session-product-model.md",
+          "title": {
+            "en": "Session and conversation model",
+            "zh-CN": "Session 与对话模型"
+          }
+        },
+        {
+          "source": "docs/current/agent-adapter-product-model.md",
+          "title": {
+            "en": "Agent and Adapter model",
+            "zh-CN": "Agent 与 Adapter 模型"
+          }
+        },
+        {
+          "source": "docs/distributed-task-model.md",
+          "title": {
+            "en": "Task and Instance model",
+            "zh-CN": "Task 与 Instance 模型"
+          }
+        },
+        {
+          "source": "docs/current/feishu-bridge-product-model.md",
+          "title": {
+            "en": "Feishu Bridge model",
+            "zh-CN": "飞书 Bridge 模型"
+          }
+        },
+        {
+          "source": "docs/current/feishu-thread-context-model.md",
+          "title": {
+            "en": "Thread context model",
+            "zh-CN": "话题上下文模型"
+          }
+        },
+        {
+          "source": "docs/current/agent-memory-product-model.md",
+          "title": {
+            "en": "Memory model",
+            "zh-CN": "记忆模型"
+          }
+        },
+        {
+          "source": "docs/current/cli-product-model.md",
+          "title": {
+            "en": "CLI model",
+            "zh-CN": "CLI 模型"
+          }
+        },
+        {
+          "source": "docs/current/i18n-product-model.md",
+          "title": {
+            "en": "Language migration specification",
+            "zh-CN": "语言迁移目标规格"
+          },
+          "status": "target"
+        },
+        {
+          "source": "docs/agent-memory-design.md",
+          "title": {
+            "en": "Memory design record",
+            "zh-CN": "记忆设计记录"
+          },
+          "status": "historical"
+        },
+        {
+          "source": "docs/local-expert-natural-language-authoring-design.md",
+          "title": {
+            "en": "Expert authoring design",
+            "zh-CN": "专家编写设计"
+          }
+        },
+        {
+          "source": "docs/distribution-development.md",
+          "title": {
+            "en": "Build a distribution",
+            "zh-CN": "开发发行版"
+          }
+        },
+        {
+          "source": "docs/maintainers/agent-event-timeline.md",
+          "title": {
+            "en": "Agent event timeline design record",
+            "zh-CN": "Agent 事件时间线设计记录"
+          },
+          "status": "historical"
+        },
+        {
+          "source": "README.md",
+          "title": {
+            "en": "Repository and installer details",
+            "zh-CN": "仓库与安装器细节"
+          }
+        },
+        {
+          "source": "CONTEXT.md",
+          "title": {
+            "en": "Glossary",
+            "zh-CN": "词汇表"
+          }
+        },
+        {
+          "source": "CONTRIBUTING.md",
+          "title": {
+            "en": "Contributing",
+            "zh-CN": "贡献指南"
+          }
+        },
+        {
+          "source": "docs/licensing.md",
+          "title": {
+            "en": "License and attribution",
+            "zh-CN": "许可与署名"
+          }
+        },
+        {
+          "source": "THIRD_PARTY_NOTICES.md",
+          "title": {
+            "en": "Third-party notices",
+            "zh-CN": "第三方声明"
+          }
+        }
+      ]
+    }
+  ]
+}

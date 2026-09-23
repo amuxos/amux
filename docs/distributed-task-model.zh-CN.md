@@ -4,6 +4,24 @@
 
 [English](distributed-task-model.md) | [简体中文](distributed-task-model.zh-CN.md)
 
+## Task、TaskRun 与 Agent Instance
+
+本 API 中的 Task 是通过 Hub 准入的一次有边界的执行，具体记录为 TaskRun，包含 Task ID、
+子 Session 与 Turn 的关联、状态和结果。普通飞书对话输入是 Session Turn，不一定创建
+TaskRun；界面出现“任务”一词本身不代表 Task 历史中有一条记录。
+
+临时 Task 为当次交办使用子执行。持久 Agent Instance 可依次承载多个 TaskRun，保留
+稳定的 `agent_instance_id`、固定 Runtime、工作区和 HOME 引用以及 Provider 恢复句柄。
+只复用 Profile 引用不会复用实例。实例状态（`active`、`idle`、`archived`）、Session
+状态和 TaskRun 状态是不同维度。TaskRun 终态为 `succeeded`、`failed`、`cancelled`、`timed_out`。
+
+`instance_followup` 提交工作并触发执行；`instance_send` 只写入信箱，等后续唤醒时交付。
+中断实例会取消其当前所属 TaskRun，并保留实例。Task 接收明确输入和获授权资源，不默认
+获取父会话全部聊天历史。父子身份记录保留来源，但不合并上下文。详见
+[Session 模型](current/session-product-model.zh-CN.md)。
+
+## 调度与执行
+
 Hub 认证请求、冻结执行身份、选择合适的 Runtime，并在派发前预留容量。
 选中 Runtime 的 Task runner 在本地执行 child Session，在进程内强制校验所有权。
 Hub 路由请求并维护 Task 到 target 的真相映射，不直接驱动 child Session。
@@ -55,3 +73,17 @@ parent Session，并解析活动 ParentTurnID。其它发起者不推断 parent�
 恢复已有子线程时保留范围绑定；持久实例不能改变有效 Principal。Task 子会话通过记忆 CLI
 访问，不额外注入可以递归创建任务的 MCP 工具。能力查询失败时显示告警，该会话不启用
 amux 记忆，不回退到全局范围。
+
+## 定时执行与权限边界
+
+Hub 定时规则可以向 Session 投递提示，也可以提交临时子 Task。MCP `schedule_create`
+使用子 Task 路径，历史记录保存 Task ID，不包含已完成结果，也不承诺把结果发送回原飞书
+聊天。`ok:task:<id>` 只表示提交成功，最终结果以 Task 记录为准。重复规则在每次触发尝试
+后推进，即使投递失败；已消费的一次性规则不重试。停用或删除 Schedule 不会取消已经
+接受的 Task。实现见 `internal/schedule/spec.go`、`internal/schedule/scheduler.go` 和
+`app/cli/mcp_schedule.go`。
+
+Task 默认权限策略是 `policy-allow`，由解析器在其规则内自动处理请求；`deny-all` 拒绝，
+`escalate-to-main` 上报并等待显式响应。阻塞的 `task_run` 和定时子任务不支持上报。
+权限响应与工作区、操作系统隔离及凭据授权分开。实例等待操作超时也不等于对应 Task
+被取消或超时，最终结果仍需查询该 Task。

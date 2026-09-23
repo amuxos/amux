@@ -1,4 +1,4 @@
-.PHONY: build test check check-fast cli-doc config-doc mcp-doc docs docs-check proto sidecar install upgrade deploy-local-fast uninstall package lint fmt clean
+.PHONY: build test check check-fast cli-doc config-doc mcp-doc feishu-doc docs-index docs docs-check proto sidecar install upgrade deploy-local-fast uninstall package lint fmt clean
 
 BINARIES := amux amuxd amuxlet amux-isolation-helper
 VERSION ?= dev
@@ -32,7 +32,15 @@ mcp-doc:
 	go run -tags mcp_doc ./cmd/amux --language en --output docs/reference/mcp.md
 	go run -tags mcp_doc ./cmd/amux --language zh-CN --output docs/reference/mcp.zh-CN.md
 
-docs: cli-doc config-doc mcp-doc
+feishu-doc:
+	go run ./cmd/amux-feishu-doc --language en --output docs/reference/feishu-commands.md
+	go run ./cmd/amux-feishu-doc --language zh-CN --output docs/reference/feishu-commands.zh-CN.md
+
+docs-index:
+	python3 scripts/docs_catalog.py
+
+docs: cli-doc config-doc mcp-doc feishu-doc
+	$(MAKE) docs-index
 
 docs-check:
 	go run -tags cli_doc ./cmd/amux --language en --check --output docs/reference/cli.md
@@ -41,6 +49,10 @@ docs-check:
 	go run ./cmd/amux-config-doc --language zh-CN --check --output docs/reference/configuration.zh-CN.md
 	go run -tags mcp_doc ./cmd/amux --language en --check --output docs/reference/mcp.md
 	go run -tags mcp_doc ./cmd/amux --language zh-CN --check --output docs/reference/mcp.zh-CN.md
+	go run ./cmd/amux-feishu-doc --language en --check --output docs/reference/feishu-commands.md
+	go run ./cmd/amux-feishu-doc --language zh-CN --check --output docs/reference/feishu-commands.zh-CN.md
+	python3 scripts/docs_catalog.py --check
+	python3 -B -m unittest discover -s scripts -p test_docs_catalog.py
 
 proto:
 	buf generate

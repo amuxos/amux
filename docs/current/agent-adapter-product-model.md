@@ -2,6 +2,22 @@
 
 [English](agent-adapter-product-model.md) | [简体中文](agent-adapter-product-model.zh-CN.md)
 
+## Product identities
+
+Feishu is the primary conversational product entry. Its assistant is represented
+by a Bot Profile; the selected expert is an Agent Profile. A Profile is a reusable
+launch definition, an Agent type is an engine implementation, and a Runtime target
+is an execution location. None is the identity of a running conversation.
+
+A Session holds the conversation and can contain multiple Turns. A persistent
+Agent Instance holds cross-task identity and durable execution references; each
+assignment is a distinct TaskRun. Native Agent subagents do not automatically
+create amux instances. See the [Session model](session-product-model.md) and
+[Task model](../distributed-task-model.md). Public user terminology is explained
+in [Assistants, experts and Agents](../concepts/agents.md).
+
+## Engines and provider behavior
+
 Codex, Claude and Pi are public integrations. Adapters describe executable
 discovery, launch configuration, protocol capabilities and workspace configuration
 layout. Native agent authentication and model settings are used by default.

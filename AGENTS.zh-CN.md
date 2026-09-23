@@ -7,8 +7,8 @@
 本文中的路径相对于本 module 根目录；不要假设父目录存在另一个仓库。
 
 `AGENTS.md` 和引用它的 `CLAUDE.md` 是版本化工程说明，不是个人工作区元数据。
-先读 [CONTEXT.md](CONTEXT.zh-CN.md)、[文档导航](docs/README.zh-CN.md) 和相关 [ADR](docs/adr/README.zh-CN.md)。
-使用既有领域词汇；涉及架构决定时指出与已有 ADR 的冲突并同步修订。
+先读 [CONTEXT.md](CONTEXT.zh-CN.md)、[文档导航](docs/README.zh-CN.md) 和相关产品模型。
+使用既有领域词汇；涉及架构决定时指出与当前产品契约的冲突，并同步修订受影响的模型与设计记录。
 
 公共说明文档同时维护英文 `.md` 和简体中文 `.zh-CN.md`，页首互链，语义保持一致。
 `make docs` 生成两种语言；更新生成参考时同步维护 `internal/doclang/translations.json`。
@@ -172,3 +172,11 @@ gRPC 使用标准 protobuf codec，不恢复旧 JSON codec、手写 transport/pb
 `AMUX_DEBUG_ACP_CHUNKS=1` 记录 Runtime 上的 ACP raw chunks；`AMUX_DEBUG_JSONRPC=1`
 记录 structured provider 的丢弃帧。设置在 `amuxlet` 上，由 broker 子进程继承。
 手工 E2E 使用临时 HOME、独立 Hub 端口并清理测试 daemons/brokers，避免污染真实安装。
+
+## 文档发布
+
+公共文档以飞书用户路径为主线。修改对话身份、绑定或 Turn/Task 边界前，阅读
+[Session 与对话模型](docs/current/session-product-model.zh-CN.md)。新增页面时维护
+显式双语目录 `docs/navigation.json`。`make docs` 还会从真实帮助注册表生成飞书命令参考
+和仓库索引，`make docs-check` 检查其漂移与目录。读者分层、状态标记、检查范围及网站
+重新生成流程见[文档维护指南](docs/maintainers/documentation-system.zh-CN.md)。

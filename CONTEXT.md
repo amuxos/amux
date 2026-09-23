@@ -73,3 +73,11 @@ The control-plane decision governing an actor's access to agent executions and
 automation that can create or drive them. It applies across Sessions, TaskRuns,
 AgentInstances, and Schedules without collapsing those distinct concepts.
 _Avoid_: Object ownership check, RPC authorization
+
+**Agent Profile (expert)**: Reusable launch definition selected by ref; not a live
+Agent or a permission grant. **Bot Profile (assistant)**: the Feishu bot's connection
+and interaction configuration. **Session**: a managed conversation on a Runtime.
+**TaskRun**: one bounded child execution with its own task ID and outcome.
+**Agent Instance**: persistent cross-task identity spanning several TaskRuns.
+See the [user concept map](docs/concepts/agents.md) and
+[Session model](docs/current/session-product-model.md) for relationships and scope.

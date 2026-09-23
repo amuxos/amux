@@ -4,6 +4,19 @@
 
 [English](agent-adapter-product-model.md) | [简体中文](agent-adapter-product-model.zh-CN.md)
 
+## 产品身份
+
+飞书是主要的对话式产品入口。助手由 Bot Profile 表示，所选专家对应 Agent Profile。
+Profile 是可复用启动定义，Agent 类型是执行引擎实现，Runtime target 是执行位置；
+它们都不是某段运行中对话的身份。
+
+Session 持有对话并包含多轮 Turn；持久 Agent Instance 持有跨任务身份和持久执行引用，
+每次交办都是独立 TaskRun。原生 Agent 的子 Agent 不自动创建 amux 实例。
+详见 [Session 模型](session-product-model.zh-CN.md)和 [Task 模型](../distributed-task-model.zh-CN.md)。
+面向用户的术语说明见[助手、专家与 Agent](../concepts/agents.zh-CN.md)。
+
+## 引擎与 Provider 行为
+
 Codex、Claude 和 Pi 是公共集成。Adapter 描述可执行文件发现、启动配置、协议能力
 和工作区配置布局。默认使用原生 Agent 的认证与模型设置；也可以通过 Profile Pack
 显式配置外部模型 Provider。
