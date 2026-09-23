@@ -4,6 +4,26 @@
 
 [English](feishu-bridge-product-model.md) | [简体中文](feishu-bridge-product-model.zh-CN.md)
 
+## 产品入口与对话契约
+
+飞书是产品面向用户的主要交互入口，包含私聊请求、群提及、话题追问、管理卡片与权限
+响应。CLI 和 MCP 继续提供控制及集成入口，普通飞书用户不需要先掌握终端操作。
+
+一条飞书消息可能打开管理、触发控制操作、记录成员讨论，或排队提交 Agent Turn，
+并不总是创建 TaskRun。机器人级 singleton、话题绑定和实验性的群 singleton 具有
+不同复用范围。[Session 模型](session-product-model.zh-CN.md)定义身份与边界，
+[Task 模型](../distributed-task-model.zh-CN.md)定义委派与持久实例。
+
+群协作访问、消息处理方式（`thread|singleton`）和强制 Linux 用户隔离是独立设置。
+协作话题内未提及机器人的成员讨论可成为有限上下文，但不启动新的回答。显式命令仍受
+场景、Agent 能力和绑定控制权限检查约束。
+
+[飞书命令参考](../reference/feishu-commands.zh-CN.md)从命令和帮助注册表及双语管理词表
+生成。展示命令不等于授予执行权限。自然语言委派或定时请求需要 Agent 工具，并应以
+真实记录核实；话题不支持 `/schedule` 和 `/sched`。
+
+## Bridge 职责
+
 可选 Bridge 拥有飞书/Lark API 行为、消息路由、Bot 命令、thread 与 workspace 绑定、
 权限和输出呈现。它不拥有智能体执行，也不改变本地 CLI 的要求。
 
@@ -129,6 +149,21 @@ Parent turn 期间约每两秒发现一次任务，turn 结束时再做最后一
 状态、权限和结果立即更新子卡，输出更新按两秒合并。
 Watcher 可在 parent turn 结束后继续存在，直至 child Task 终态、超时窗口到期或进程退出。
 Parent 摘要保留约三十秒的刷新节奏。
+
+## 对话控制与文档评论
+
+`/compact`、`/clear` 和原生 `/skill` 选择器当前要求 Codex 兼容 Session。
+compact/clear 提交排队控制；interrupt 路由到当前 Session，不代表取消全部关联 Task。
+[Session 模型](session-product-model.zh-CN.md)定义普通追问的抢占与文本合并。
+相关输入路径见 `internal/bridge/` 下的 `router_control.go`、`router_submit.go`、
+`coalesce.go` 和 `skill_picker.go`。
+
+文档评论接入单独启用。在读取文档或启动执行前，要求真实提及机器人、已确认负责人
+以及负责人访问权限。群协作不会把该能力授予其他成员。绑定按机器人、文档和根评论
+区分，同一评论串中的后续提及复用该绑定。接入读取具体请求与可获得的有限文档上下文，
+对事件去重并回复评论，本身不修改文档正文。权限卡发送给发起负责人的私聊，并在评论
+提示前往处理。读取、启动或提交失败都有显式处理；仅启用设置不证明平台权限或订阅
+已经可用。实现见 `internal/bridge/document_comment.go`。
 
 ## 群独立配置
 

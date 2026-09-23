@@ -25,3 +25,14 @@ Python 3 in addition to the tools documented in AGENTS.md. Changing the Claude
 sidecar's dependencies also requires reviewing its lockfile and applicable terms.
 
 Licensing and integration examples are in the [licensing guide](docs/licensing.md).
+
+## Documentation workflow
+
+Feishu user journeys lead the public documentation. Read the
+[Session and conversation model](docs/current/session-product-model.md) when
+changing conversation identity, bindings or Turn/Task boundaries. Maintain the
+explicit bilingual `docs/navigation.json` catalog when adding pages.
+`make docs` now also generates Feishu command references from the live help registry
+and the repository indexes; `make docs-check` checks these and the catalog.
+The [documentation workflow](docs/maintainers/documentation-system.md) defines
+reader layers, status labels, verification scope and website regeneration.

@@ -9,9 +9,10 @@ Paths in this document are relative to this module root. Do not assume a parent 
 
 `AGENTS.md` and its `CLAUDE.md` include are versioned engineering documentation,
 not personal workspace metadata. Read [CONTEXT.md](CONTEXT.md), the
-[documentation index](docs/README.md), and relevant [ADRs](docs/adr/) first.
-Use established domain vocabulary. Identify conflicts with existing ADRs when
-making architectural decisions and update those ADRs.
+[documentation index](docs/README.md), and the relevant product models first.
+Use established domain vocabulary. Identify conflicts with current product
+contracts when making architectural decisions and update the affected models
+and design records.
 
 Maintain public documentation in English `.md` and Simplified Chinese `.zh-CN.md`
 pairs with reciprocal language links and equivalent semantics. `make docs`
@@ -213,3 +214,14 @@ Source directory changes do not move these user data paths.
 the Runtime process; brokers inherit its environment. Debug output may include
 protocol content. Manual E2E tests use a temporary HOME, a separate Hub port,
 and cleaned-up daemons/brokers so they do not alter a real installation.
+
+## Documentation publishing
+
+Feishu user journeys lead the public documentation. Read the
+[Session and conversation model](docs/current/session-product-model.md) when
+changing conversation identity, bindings or Turn/Task boundaries. Maintain the
+explicit bilingual `docs/navigation.json` catalog when adding pages.
+`make docs` now also generates Feishu command references from the live help registry
+and the repository indexes; `make docs-check` checks these and the catalog.
+The [documentation workflow](docs/maintainers/documentation-system.md) defines
+reader layers, status labels, verification scope and website regeneration.

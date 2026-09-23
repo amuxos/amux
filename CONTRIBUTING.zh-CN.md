@@ -20,3 +20,11 @@ AGENTS.md 说明的工具外，还需要 Python 3。Claude sidecar 依赖变化�
 锁文件和适用条款。
 
 许可与集成示例见[许可说明](docs/licensing.zh-CN.md)。
+
+## 文档工作流
+
+公共文档以飞书用户路径为主线。修改对话身份、绑定或 Turn/Task 边界前，阅读
+[Session 与对话模型](docs/current/session-product-model.zh-CN.md)。新增页面时维护
+显式双语目录 `docs/navigation.json`。`make docs` 还会从真实帮助注册表生成飞书命令参考
+和仓库索引，`make docs-check` 检查其漂移与目录。读者分层、状态标记、检查范围及网站
+重新生成流程见[文档维护指南](docs/maintainers/documentation-system.zh-CN.md)。

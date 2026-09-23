@@ -1,0 +1,98 @@
+# Session and conversation product model
+
+[English](session-product-model.md) | [简体中文](session-product-model.zh-CN.md)
+
+Status: current implementation. This model defines conversation identity,
+Feishu bindings and input lifetime. It complements the [Agent contract](agent-adapter-product-model.md),
+[Bridge contract](feishu-bridge-product-model.md) and [Task model](../distributed-task-model.md).
+
+## Objects and identity
+
+A Session is the Runtime-owned managed conversation, addressed by target and
+Session identity. It retains launch settings, workspace, execution identity and
+resumable provider history. An Agent Profile is its launch definition, not its
+identity. The native provider's conversation ID is a resume handle, not the amux
+Session ID. A restart can change the process without changing the Session.
+
+A Turn is one dispatched submission accepted by the Session queue. Several Feishu
+messages may be coalesced into one submission; one message can also trigger a
+control action or add context without starting a Turn. The canonical Timeline
+owns TurnID/TurnSeq and exactly one TurnFinished. Result text alone is not a
+completion signal. A Session can contain many Turns.
+
+Feishu ordinary follow-ups can preempt active work. When a text-only input arrives
+during an active turn, Bridge requests interruption immediately, coalesces the
+burst in a default two-second window and submits the combined input with preemption.
+Material-bearing inputs bypass text coalescing. This is separate from queued
+`compact` / `clear` controls, which do not preempt preceding input. Neither
+interruption nor a context reset rolls back completed tool side effects.
+
+A TaskRun is created through Task admission for a bounded child execution. An
+ordinary Feishu request can drive a Session Turn without any TaskRun. The product
+UI's use of “task” for ongoing work does not establish a TaskRun record. A TaskRun
+records its child Session and exact accepted child Turn; an Agent Instance can
+span multiple TaskRuns with distinct task IDs.
+
+## Feishu binding scopes
+
+| Binding | Reuse rule | Boundary |
+| --- | --- | --- |
+| Topic | Accepted input in an active bound topic reaches its Session | A new independent topic has a separate binding |
+| Bot singleton | Eligible private/group input reuses the Bot Profile's bound Session | Not automatically per-chat or per-user |
+| Group singleton | An opted-in group's eligible input reaches its current group Session | Scoped by Bot and group; distinct from the bot singleton |
+
+Per-group settings are default-off. When enabled for a group they override bot
+message-handling defaults. Existing ordinary topic bindings remain addressable;
+an explicit launch/bind does not replace the group's current continuous conversation.
+Retiring a group singleton stops new input to that conversation but lets accepted
+work complete, including output recovery after a Bridge restart.
+
+In shared active topics, ordinary unmentioned human discussion is recorded as
+bounded context; an explicit mention triggers work. Owner-only admission and
+binding-control authorization are independent checks. A visible card or topic
+does not authorize all readers to drive its Session.
+
+## Lifecycle and user actions
+
+Session state uses `created`, `running`, `idle`, `sleeping`, `archived`. Turn state
+and TaskRun status must not be inferred from these labels. Process liveness alone
+does not say whether a turn is awaiting a tool, permission or completion.
+
+| Action | Meaning |
+| --- | --- |
+| Submit/reply | Queue new input for the existing conversation |
+| Detach | Close a viewer; preserve Session and execution |
+| Interrupt | Request interruption of the active work; preserve Session identity |
+| Sleep/resume | Stop/relaunch the process with resumable state |
+| Restart | Relaunch using the existing Session's settings and available history |
+| Compact | Ask a supporting Agent to summarize its current context |
+| Clear | Start fresh native context while retaining the Session binding, where supported |
+| Stop a topic | Kill its Session and terminate the topic binding |
+| New group continuous conversation | Retire the old input pointer; do not cancel already accepted work |
+
+Bot-wide singleton mode rejects topic-style run/bind/stop operations and directs
+the user to management. Agent-specific controls may be unavailable. Clearing
+context or changing a binding is not deletion of workspace files, stored Hub
+memory or all historical records. An ended topic is not silently reused as a new
+conversation. Default expert changes apply to new launches; existing topic
+Sessions keep their selected expert. Singleton expert replacement follows its
+confirmed management transition.
+
+## Context boundaries
+
+Native conversation history, Feishu context packages, workspaces, explicit Task
+inputs and Hub memory are separate resources. They do not merge merely because
+a bot, Profile or human user is shared. Topic context is bounded, not an export
+of the whole chat. Children receive their explicit task inputs and allowed
+resources, not automatic copies of the parent's complete conversation.
+
+See [thread context](feishu-thread-context-model.md) for selection and truncation,
+and [memory](agent-memory-product-model.md) for principal-derived scope.
+
+## Implementation evidence
+
+- [Event timeline design record](../maintainers/agent-event-timeline.md) preserves the historical rationale and alternatives behind Turn ownership and replay.
+- [Session state and queue](../../internal/session/session.go), [Timeline](../../internal/agentstream/timeline.go).
+- [Topic decisions](../../internal/bridge/inputrouter/router.go), [routing](../../internal/bridge/router.go), [bot singleton](../../internal/bridge/router_botsession.go), [group singleton](../../internal/bridge/router_group_session.go).
+- [Control dispatch](../../internal/bridge/router_control.go), [command policies](../../internal/bridge/command/catalog.go).
+- [TaskRun fields](../../internal/task/types.go), [persistent instance store](../../internal/agentinstance/store.go).

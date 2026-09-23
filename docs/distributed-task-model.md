@@ -2,6 +2,29 @@
 
 [English](distributed-task-model.md) | [简体中文](distributed-task-model.zh-CN.md)
 
+## Task, TaskRun and Agent Instance
+
+“Task” in this API means a bounded execution admitted by the Hub. Its concrete
+record is a TaskRun with a task ID, child Session/Turn correlation, status and
+result. Ordinary Feishu conversation submissions are Session Turns; they need not
+create TaskRuns. The UI word “task” alone does not imply a record in Task history.
+
+An ephemeral Task uses a child execution for that assignment. A persistent Agent
+Instance can own successive TaskRuns while retaining a stable `agent_instance_id`,
+sticky Runtime, workspace/home references and provider resume handle. Reusing a
+Profile reference alone creates no instance reuse. Instance status (`active`,
+`idle`, `archived`), Session state and TaskRun status are separate dimensions.
+Terminal TaskRun outcomes are `succeeded`, `failed`, `cancelled`, `timed_out`.
+
+`instance_followup` submits work and triggers execution; `instance_send` only
+queues mailbox input, delivered on a later wake. Interrupting the instance
+cancels its current owner TaskRun while retaining the instance. Tasks receive
+explicit inputs and authorized resources, not the parent's full chat history
+by default. Parent/child identity records preserve provenance without merging
+contexts. See the [Session model](current/session-product-model.md).
+
+## Scheduling and execution
+
 The hub authenticates requests, freezes execution identity, selects an eligible
 runtime and reserves capacity before dispatch. The selected runtime's task runner
 executes a child session locally, enforcing ownership in process. The hub routes
@@ -72,3 +95,21 @@ their binding on resume, and a persistent instance cannot change its effective
 Principal. Task children use the memory CLI without adding recursive task MCP
 tools. Failed capability discovery emits a warning and leaves that conversation
 without amux memory; it never selects a global fallback.
+
+## Schedule and permission boundaries
+
+Hub schedules either deliver a prompt to a Session or submit an ephemeral child
+Task. MCP `schedule_create` uses the child-Task path; its history records Task IDs,
+not the completed result or a promise to send it to the originating Feishu chat.
+`ok:task:<id>` means submission succeeded; final outcome comes from the Task record.
+Recurring rules advance after each attempted fire, including delivery failure;
+consumed one-shot rules are not retried. Disabling or deleting a Schedule does
+not cancel an already admitted Task. See `internal/schedule/spec.go`,
+`internal/schedule/scheduler.go` and `app/cli/mcp_schedule.go`.
+
+The default Task permission policy is `policy-allow`: the resolver automatically
+handles requests within its rules. `deny-all` rejects requests;
+`escalate-to-main` exposes them for an explicit response. Escalation is unavailable
+for blocking `task_run` and scheduled subtasks. Permission resolution is separate
+from workspace/OS isolation and credential authorization. An instance wait timeout
+also does not cancel or time out its Task; inspect that Task for the final result.

@@ -243,7 +243,7 @@ Profile 目录更新/卸载的引用检查须同时覆盖群显式默认，不�
 实现后若要支持完全退出独立群设置，应另行设计共享上下文范围变化的显式流程。
 
 模型修订应明确补齐当前 Bridge 文档尚未详述的群策略、群连续会话和生效时点。
-本方案保持 ADR 0001 中 governance 与交互模式独立的决定；把交互设置从 Bot 扩展到群，
+本方案保持 Bridge 模型中 governance 与交互模式独立的决定；把交互设置从 Bot 扩展到群，
 并为旧 Bot 级模式保留兼容路径，不把这种扩展解释成 governance 或部署拓扑变化。
 
 ## 7. 验收场景
@@ -273,7 +273,7 @@ Profile 目录更新/卸载的引用检查须同时覆盖群显式默认，不�
 
 - [Bridge 模型](../../current/feishu-bridge-product-model.md)与
   [Thread Context 模型](../../current/feishu-thread-context-model.md)：当前产品边界。
-- [Bot governance ADR](../../adr/0001-bot-governance-independent-of-system-topology.md)：权限与交互模式分别建模。
+- [架构总览](../../concepts/architecture.zh-CN.md)：机器人访问权限与系统拓扑分别建模。
 - [Profile 格式](../../reference/agent-profile-format.md)：Profile 引用、模型约束和快照。
 - [群管理入口](../../../internal/bridge/router_workspace.go)：群配置查询、命令设置和管理入口。
 - [新话题创建](../../../internal/bridge/router_thread.go)：自然和显式入口消费群快照，创建时检查隔离身份。

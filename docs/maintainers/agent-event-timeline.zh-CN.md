@@ -2,9 +2,9 @@
 
 # 由 Canonical Agent Event Timeline 拥有 Agent Turn 生命周期
 
-[English](2026-08-27-canonical-agent-event-timeline.md) | [简体中文](2026-08-27-canonical-agent-event-timeline.zh-CN.md)
+[English](agent-event-timeline.md) | [简体中文](agent-event-timeline.zh-CN.md)
 
-> 从原仓库主干保留的设计记录。文中的日期、阶段、源码行号和实现判断属于记录当时；当前行为以 [CLI 产品模型](../current/cli-product-model.zh-CN.md) 及相关领域产品模型为准。
+> 从原仓库主干保留的设计记录。文中的日期、阶段、源码行号和实现判断属于记录当时；当前行为以 [Session 模型](../current/session-product-model.zh-CN.md)与 [Agent / Adapter 模型](../current/agent-adapter-product-model.zh-CN.md)为准。
 > 源码路径相对于公共仓库根目录；原 `cmd/amux`、`cmd/amuxd`、`cmd/amuxlet` 的实现分别迁至 `app/cli`、`app/hub`、`app/runtime`，`cmd/*` 仅保留发行入口。
 
 状态：已接受；持久化 Timeline、第一方消费者迁移、旧生命周期清理与直接 typed producer emission 均已实现。
@@ -29,7 +29,7 @@ reason 的组合推断终态。Task 和展示消费者随后又重复解释其�
 永久等待。临时修复给 state frame 加入 Provider event type，并在 Runtime 侧重建
 事件。补丁虽有必要，却说明生命周期真相没有唯一所有者。
 
-本 ADR 只取代早期 structured-provider watchdog 设计中的终态所有权与传播机制；
+本设计只取代早期 structured-provider watchdog 设计中的终态所有权与传播机制；
 当前 Provider 规则由 [Agent / Adapter 产品模型](../current/agent-adapter-product-model.zh-CN.md)
 维护。原有 timeout、activity、user-wait 和 tool-wait 策略仍然有效；其到期路径仍清理
 producer 自己的 watchdog/turn 状态，并通过精确的 per-turn capability 发出显式 typed

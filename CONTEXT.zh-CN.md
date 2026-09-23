@@ -66,3 +66,10 @@ Provider message ID 是来源信息，不是 turn 身份；兼容表示不创建
 控制 actor 能否访问智能体执行，以及能否使用创建或驱动执行的自动化的控制面决策。
 它覆盖 Session、TaskRun、AgentInstance 和 Schedule，同时保留这些概念的区别。
 _避免使用_：Object ownership check、RPC authorization（对象所有权检查、RPC 授权）
+
+**Agent Profile（专家）**：按引用选择的可复用启动定义，不是活跃 Agent 或授权。
+**Bot Profile（助手）**：飞书机器人的连接与交互配置。**Session（会话）**：Runtime 上
+受管理的对话。**TaskRun**：带独立任务 ID 和结果的一次有边界子执行。
+**Agent Instance**：跨多次 TaskRun 的持久身份。对象关系和作用域详见
+[用户概念图](docs/concepts/agents.zh-CN.md)与
+[Session 模型](docs/current/session-product-model.zh-CN.md)。

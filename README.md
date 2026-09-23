@@ -29,6 +29,19 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and licensing rules, and
 [AGENTS.md](AGENTS.md) for engineering instructions; Claude Code loads the latter
 through [CLAUDE.md](CLAUDE.md).
 
+## Start in Feishu
+
+Feishu is the primary user interaction entry: send requests in private chat,
+collaborate in group topics, and follow delegated work through progress cards.
+An existing bot is enough to start; ordinary users do not need the CLI.
+
+- [Use an available assistant](docs/guides/feishu-conversations.md)
+- [Connect your first bot](docs/tutorials/first-feishu-bot.md)
+- [Understand experts, Sessions and Tasks](docs/concepts/agents.md)
+- [Troubleshoot a conversation](docs/operations/troubleshooting.md)
+
+The sections below are installation details for operators and contributors.
+
 ## Build and Run
 
 Prebuilt releases require no Go toolchain. Install and authenticate a native

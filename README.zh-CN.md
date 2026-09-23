@@ -28,6 +28,18 @@ Task 与 Schedule API，以及可选的飞书/Lark Bot Bridge。
 
 <a id="build-and-run"></a>
 
+## 从飞书开始
+
+飞书是面向用户的主要交互入口：私聊发起需求，在群话题中协作，通过进度卡片跟踪委派工作。
+已有可用机器人即可开始，普通用户不需要使用 CLI。
+
+- [使用已有助手](docs/guides/feishu-conversations.zh-CN.md)
+- [接入第一个机器人](docs/tutorials/first-feishu-bot.zh-CN.md)
+- [理解专家、Session 和 Task](docs/concepts/agents.zh-CN.md)
+- [排查对话问题](docs/operations/troubleshooting.zh-CN.md)
+
+下文保留运维者和贡献者需要的安装细节。
+
 ## 构建与运行
 
 预编译版本无需 Go 工具链。先安装并登录原生 Agent，再下载安装器：

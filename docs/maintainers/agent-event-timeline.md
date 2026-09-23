@@ -1,8 +1,8 @@
 # Canonical Agent Event Timeline Owns Agent Turn Lifecycle
 
-[English](2026-08-27-canonical-agent-event-timeline.md) | [简体中文](2026-08-27-canonical-agent-event-timeline.zh-CN.md)
+[English](agent-event-timeline.md) | [简体中文](agent-event-timeline.zh-CN.md)
 
-> Retained design record from the original repository's main branch. Dates, phases, source line numbers, and implementation assessments describe the state at the time. For current behavior, use the [CLI product model](../current/cli-product-model.md) and the relevant domain models.
+> Retained design record from the original repository's main branch. Dates, phases, source line numbers, and implementation assessments describe the state at the time. For current behavior, use the [Session model](../current/session-product-model.md) and [Agent / Adapter model](../current/agent-adapter-product-model.md).
 > Source paths are relative to the public repository root. Implementations formerly in `cmd/amux`, `cmd/amuxd`, and `cmd/amuxlet` moved to `app/cli`, `app/hub`, and `app/runtime`; `cmd/*` now contains distribution entrypoints only.
 
 Status: accepted; durable Timeline, first-party consumer migration, legacy lifecycle cleanup and direct typed producer emission are implemented
@@ -31,7 +31,7 @@ could wait forever. The workaround added provider event type to a state frame
 and reconstructed the event on the runtime side. That patch was necessary, but
 it showed that lifecycle truth did not have a single owner.
 
-This ADR supersedes only the terminal-ownership and propagation mechanism
+This design supersedes only the terminal-ownership and propagation mechanism
 described by
 the earlier structured-provider watchdog design (current provider rules are maintained in the
 [Agent / Adapter product model](../current/agent-adapter-product-model.md)).

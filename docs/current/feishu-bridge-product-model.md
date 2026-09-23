@@ -2,6 +2,33 @@
 
 [English](feishu-bridge-product-model.md) | [简体中文](feishu-bridge-product-model.zh-CN.md)
 
+## Product entry and conversation contract
+
+Feishu is the primary user interaction entry for the product: private requests,
+group mentions, topic follow-ups, management cards and permission responses. CLI
+and MCP remain alternative control and integration surfaces; their availability
+does not make a terminal a prerequisite for an ordinary Feishu user.
+
+A Feishu message can open management, invoke a control action, record human
+context, or enqueue an Agent Turn. It does not always create a TaskRun. Bot-wide
+singleton, per-topic bindings and experimental group singleton bindings have
+different reuse scopes. The [Session model](session-product-model.md) defines
+those identities and boundaries; [Task](../distributed-task-model.md) defines
+delegation and persistent instances.
+
+Group shared access, message handling (`thread|singleton`) and required Linux
+user isolation are independent settings. Shared topic discussion without a bot
+mention can become bounded context without starting another response. Explicit
+commands still follow scope, Agent capability and binding-control checks.
+
+The [Feishu command reference](../reference/feishu-commands.md) is generated from
+the command/help registry and its bilingual management catalogs. An advertised
+command is not an authorization grant. Natural-language requests for delegation
+or schedules require Agent tools and must be verified by their actual records;
+`/schedule` and `/sched` are unsupported topic commands.
+
+## Bridge responsibilities
+
 The optional bridge owns Feishu/Lark API behavior, message routing, bot commands,
 thread and workspace bindings, permissions and output presentation. It does not
 own agent execution or change local CLI requirements.
@@ -187,6 +214,26 @@ events. Status, permission and result update the child card immediately; output
 updates are coalesced over two seconds. Watchers survive the parent turn until
 the child task terminates, its timeout window expires or the process exits.
 Parent summaries retain their roughly thirty-second refresh cadence.
+
+## Conversation controls and document comments
+
+`/compact`, `/clear` and the native `/skill` picker currently require a
+Codex-compatible Session. Compact/clear submit queued controls; interrupt routes
+to the active Session instead of cancelling every related Task. The
+[Session model](session-product-model.md) defines ordinary follow-up preemption
+and text coalescing. See `router_control.go`, `router_submit.go`, `coalesce.go`
+and `skill_picker.go` under `internal/bridge/` for these input paths.
+
+Document-comment intake is independently enabled. It requires an actual bot
+mention, a confirmed owner and owner access before reading document content or
+starting execution. Group collaboration does not grant this capability to other
+members. The binding is scoped to Bot, document and root comment; subsequent
+mentions in that comment thread reuse it. Intake reads the concrete request and
+bounded available document context, deduplicates events and replies in comments.
+It does not itself edit the document body. Permission cards go to the initiating
+owner's private chat, with a comment directing them there. Read/launch/submit
+failures produce explicit failure handling; enabling the setting alone does not
+prove platform access or a working subscription. Implementation: `internal/bridge/document_comment.go`.
 
 ## Group-scoped settings
 
