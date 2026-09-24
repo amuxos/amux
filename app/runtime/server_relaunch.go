@@ -32,10 +32,10 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 	snap := sess.Snapshot()
 	// Callers that only change the model (CLI set-model, MCP session_set_model)
 	// do not resolve the profile registry; the replacement carries only the
-	// agent type and the requested model args. Re-project the switch through
-	// the profile registry so provider-backed models get their full provider
-	// configuration; fall back to backfilling the frozen profile identity from
-	// the launch snapshot when the registry cannot resolve the profile.
+	// agent type and the requested model args. Re-project through the saved
+	// explicit runtime or the profile registry so provider-backed models get
+	// their full provider configuration; fall back to backfilling the frozen
+	// profile identity when a legacy profile cannot be resolved.
 	if replacement.ProfileSpec == nil {
 		projected, err := s.reprojectSetModelReplacement(snap, replacement)
 		if err != nil {
@@ -184,10 +184,10 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 }
 
 // reprojectSetModelReplacement rebuilds a model-only replacement through the
-// Agent Profile registry so provider-backed targets carry the full provider
-// projection (process-global provider config, profile spec snapshot, default
-// env). The requested model is read from the caller-patched args — the user's
-// input is the authority — while the session's stored args are the base the
+// saved explicit runtime or Agent Profile registry so provider-backed targets
+// carry the full provider projection (process-global provider config, profile
+// spec snapshot, default env). The requested model comes from the caller's args;
+// the session's stored args are the base from which the
 // previous execution selection is stripped from. Returns false when the
 // registry cannot resolve the session's profile, letting the caller fall back
 // to the frozen-snapshot patch behavior; a profile that resolves but rejects
@@ -201,9 +201,23 @@ func (s *server) reprojectSetModelReplacement(snap session.Snapshot, replacement
 	if !ok || strings.TrimSpace(requested) == "" {
 		return false, nil
 	}
-	profile, err := agentprofile.ResolveProfile(filepath.Join(s.amuxDir, "agent-packs", "registry.json"), profileRef)
-	if err != nil || strings.TrimSpace(profile.Type) != strings.TrimSpace(snap.AgentType) {
-		return false, nil
+	var saved struct {
+		ProfileSpec *pb.AgentProfileSpec `json:"profile_spec"`
+	}
+	var profile agentprofile.Profile
+	var err error
+	if decodeLaunchSpec(snap.LaunchSpec, &saved) && strings.TrimSpace(saved.ProfileSpec.GetRuntimeRef()) != "" {
+		// Runtime selection is independent of the source Profile's model policy.
+		// Keep its frozen identity even when the Pack changed or is unavailable.
+		profile, err = agentprofile.FromPBProfileSpec(saved.ProfileSpec)
+		if err != nil {
+			return false, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
+	} else {
+		profile, err = agentprofile.ResolveProfile(filepath.Join(s.amuxDir, "agent-packs", "registry.json"), profileRef)
+		if err != nil || strings.TrimSpace(profile.Type) != strings.TrimSpace(snap.AgentType) {
+			return false, nil
+		}
 	}
 	projection, err := agentprofile.ProjectModelSwitch(profile, snap.ExtraArgs, requested)
 	if err != nil {

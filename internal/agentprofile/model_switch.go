@@ -29,24 +29,39 @@ type ModelSwitchProjection struct {
 // process-global config key the provider projections write) from storedArgs,
 // and appends the new execution configuration: native selections get a plain
 // model flag, provider-backed selections get the same provider projection
-// ProjectProfileLaunch produces for `run --model`.
+// ProjectProfileLaunch produces for `run --model`. A saved explicit runtime
+// instead owns model selection, just as it does for the initial launch.
 func ProjectModelSwitch(profile Profile, storedArgs []string, requested string) (ModelSwitchProjection, error) {
 	requested = strings.TrimSpace(requested)
 	if requested == "" {
 		return ModelSwitchProjection{}, fmt.Errorf("model is required")
 	}
-	selection, err := resolveModelSwitchSelection(profile, requested)
+	selected := cloneProfile(profile)
+	var selection ResolvedModelSelection
+	var runtimeModel RuntimeModelOption
+	var err error
+	if strings.TrimSpace(profile.ExecutionRuntimeRef) != "" {
+		selected, runtimeModel, err = resolveProfileRuntimeSelection(profile, LaunchOptions{
+			Runtime: profile.ExecutionRuntimeRef, Model: requested, ReasoningEffort: profile.ReasoningEffort,
+		})
+		selection = ResolvedModelSelection{
+			Ref: runtimeModel.Ref, Kind: runtimeModel.Kind, AgentModel: runtimeModel.AgentModel,
+			ProviderRef: runtimeModel.ProviderRef, Provider: cloneProvider(selected.Provider),
+			BackendVariant: runtimeModel.BackendVariant,
+		}
+	} else {
+		selection, err = resolveModelSwitchSelection(profile, requested)
+		selected.Model = selection.Ref
+		selected.ConfiguredModel = selection.Ref
+		selected.Provider = cloneProvider(selection.Provider)
+	}
 	if err != nil {
 		return ModelSwitchProjection{}, err
 	}
-	selected := cloneProfile(profile)
-	selected.Model = selection.Ref
-	selected.ConfiguredModel = selection.Ref
-	selected.Provider = cloneProvider(selection.Provider)
 	if err := validateProvider(selected.Type, selected.Provider); err != nil {
 		return ModelSwitchProjection{}, fmt.Errorf("model %q: %w", selection.Ref, err)
 	}
-	args := append(ModelArgs(profile.Type, selection.Ref), stripModelSwitchExecutionArgs(profile.Type, storedArgs)...)
+	args := append(ModelArgs(selected.Type, variantBaseModel(selection.Ref, selection.AgentModel, selection.BackendVariant)), stripModelSwitchExecutionArgs(profile.Type, storedArgs)...)
 	args = appendDistributionDefaultProviderArgs(selected, selection.Ref, args, args)
 	args = appendUpstreamProviderArgs(selected, selection.Ref, args)
 	// The stored args were stripped of the previous variant above, so append the
@@ -57,6 +72,12 @@ func ProjectModelSwitch(profile Profile, storedArgs []string, requested string) 
 			args = append(args, "-c", fmt.Sprintf("model=%q", agentModel))
 		}
 		args = append(args, "-c", fmt.Sprintf("model_backend_variant=%q", variant))
+	}
+	if selected.ExecutionRuntimeRef != "" {
+		launch := LaunchProjection{ExtraArgs: args}
+		applyLaunchReasoningEffort(&launch, selected, selected.ReasoningEffort)
+		applyDeclaredDefaultEffort(&launch, selected, runtimeModel, selected.ReasoningEffort)
+		args = launch.ExtraArgs
 	}
 	spec := ToPBProfileSpec(selected)
 	spec.Model = selection.Ref

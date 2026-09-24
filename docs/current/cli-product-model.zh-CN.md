@@ -27,6 +27,12 @@ Target 标识 Runtime 的位置。Session 是与一个智能体持续进行的�
 显式指定 Runtime 时，即使模型名不在 Runtime 建议列表中，也原样传给原生 Agent。
 没有 Runtime 覆盖时，Profile 显式声明的 `supported_models` 仍是模型允许列表。
 
+`session set-model` 和 MCP `amux.session_set_model` 保留 Session 启动快照中显式
+选择的 Runtime，按该 Runtime 的模型策略解析目标模型，同时保留冻结的 Profile 身份
+与思考强度，不重新套用源 Profile 的模型允许列表。目标模型不支持已选思考强度时，
+在修改运行中 Session 前报错。没有保存 Runtime 覆盖时，模型切换继续遵循 Profile
+的模型策略。
+
 所有 Session 使用相同的行式终端 UI。提交的文本进入 Session 队列；
 `session queue` 查看待处理输入，`session queue cancel` 和 `session queue clear`
 分别移除单条和全部条目。Detach 只结束 UI 连接，不结束 Session。原始字节输入和终端尺寸调整不是 transport

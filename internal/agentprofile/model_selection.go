@@ -143,14 +143,35 @@ func ProfileNativeRuntimeModel(runtime RuntimeOption, modelRef string) RuntimeMo
 }
 
 func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, explicitEnv []string, opts LaunchOptions) (LaunchProjection, error) {
-	runtime, err := ResolveRuntimeOption(opts.Runtime)
+	selected, model, err := resolveProfileRuntimeSelection(profile, opts)
 	if err != nil {
 		return LaunchProjection{}, err
+	}
+
+	// The explicit Runtime Catalog selection owns model/provider/reasoning.
+	// Workspace default_args predate that selection surface and may still carry
+	// legacy execution flags; retain unrelated args without allowing those flags
+	// to silently replace the saved Bot launch tuple.
+	explicitArgs = stripRuntimeExecutionSelectionArgs(selected.Type, explicitArgs)
+	launch := ProjectProfileLaunch(selected, explicitArgs, explicitEnv, LaunchOptions{Model: variantBaseModel(model.Ref, model.AgentModel, model.BackendVariant)})
+	applyLaunchReasoningEffort(&launch, selected, selected.ReasoningEffort)
+	launch.Runtime = selected.ExecutionRuntimeRef
+	applyLaunchBackendVariant(&launch, model.AgentModel, model.BackendVariant)
+	applyDeclaredDefaultEffort(&launch, selected, model, selected.ReasoningEffort)
+	return launch, nil
+}
+
+// resolveProfileRuntimeSelection shares the runtime model policy and snapshot
+// construction between initial launches and later model-only switches.
+func resolveProfileRuntimeSelection(profile Profile, opts LaunchOptions) (Profile, RuntimeModelOption, error) {
+	runtime, err := ResolveRuntimeOption(opts.Runtime)
+	if err != nil {
+		return Profile{}, RuntimeModelOption{}, err
 	}
 	requestedModel := strings.TrimSpace(opts.Model)
 	model, err := ResolveRuntimeModel(runtime, requestedModel)
 	if err != nil {
-		return LaunchProjection{}, err
+		return Profile{}, RuntimeModelOption{}, err
 	}
 	// A dynamically resolved model belongs in the immutable launch snapshot too.
 	// Otherwise later materialization would reject a selection accepted here.
@@ -160,7 +181,7 @@ func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, 
 		}
 	}
 	if err := ValidateRuntimeReasoningEffort(runtime, model, opts.ReasoningEffort); err != nil {
-		return LaunchProjection{}, err
+		return Profile{}, RuntimeModelOption{}, err
 	}
 
 	selected := cloneProfile(profile)
@@ -170,7 +191,7 @@ func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, 
 	selected.Provider = cloneProvider(model.Provider)
 	selected.DefaultArgs, err = projectProfilePermissionArgs(profile, runtime.AgentType)
 	if err != nil {
-		return LaunchProjection{}, err
+		return Profile{}, RuntimeModelOption{}, err
 	}
 	selected.SupportedModels = make([]string, 0, len(runtime.Models))
 	selected.ModelOptions = make(map[string]ModelOption, len(runtime.Models))
@@ -192,20 +213,9 @@ func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, 
 	selected.ExecutionRuntimeRef = runtime.Ref
 	applyProfileReasoningEffort(&selected, effort)
 	if err := validateProvider(selected.Type, selected.Provider); err != nil {
-		return LaunchProjection{}, fmt.Errorf("runtime %s model %q: %w", runtime.Ref, model.Ref, err)
+		return Profile{}, RuntimeModelOption{}, fmt.Errorf("runtime %s model %q: %w", runtime.Ref, model.Ref, err)
 	}
-
-	// The explicit Runtime Catalog selection owns model/provider/reasoning.
-	// Workspace default_args predate that selection surface and may still carry
-	// legacy execution flags; retain unrelated args without allowing those flags
-	// to silently replace the saved Bot launch tuple.
-	explicitArgs = stripRuntimeExecutionSelectionArgs(runtime.AgentType, explicitArgs)
-	launch := ProjectProfileLaunch(selected, explicitArgs, explicitEnv, LaunchOptions{Model: variantBaseModel(model.Ref, model.AgentModel, model.BackendVariant)})
-	applyLaunchReasoningEffort(&launch, selected, effort)
-	launch.Runtime = runtime.Ref
-	applyLaunchBackendVariant(&launch, model.AgentModel, model.BackendVariant)
-	applyDeclaredDefaultEffort(&launch, selected, model, effort)
-	return launch, nil
+	return selected, model, nil
 }
 
 func applyProfileReasoningEffort(profile *Profile, effort string) {

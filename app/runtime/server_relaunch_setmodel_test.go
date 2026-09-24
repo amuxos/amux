@@ -2,12 +2,20 @@ package runtime
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
 	"github.com/amuxos/amux/internal/adapter"
+	"github.com/amuxos/amux/internal/agentprofile"
+	"github.com/amuxos/amux/internal/clientop"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/store"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
-	"path/filepath"
-	"testing"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // A set-model caller (CLI/MCP) does not resolve the profile registry; the
@@ -72,5 +80,176 @@ func TestReconfigureExecutionBackfillsProfileFromSnapshot(t *testing.T) {
 	got := sess.Snapshot()
 	if got.AgentSessionID != "native-thread" || got.EffectiveModel != "gpt-5.4" {
 		t.Fatalf("snapshot = %+v", got)
+	}
+}
+
+func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		sourceType    string
+		packState     string
+		legacy        bool
+		invalidEffort bool
+		provider      bool
+	}{
+		{name: "restricted profile", sourceType: "codex"},
+		{name: "updated pack", sourceType: "codex", packState: "updated"},
+		{name: "unavailable pack", sourceType: "codex", packState: "unavailable"},
+		{name: "different profile agent", sourceType: "claude"},
+		{name: "provider to native restart", sourceType: "codex", provider: true},
+		{name: "legacy allowlist", sourceType: "codex", legacy: true},
+		{name: "unsupported saved effort", sourceType: "codex", invalidEffort: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			packRoot := filepath.Join(dir, "pack")
+			writeRefreshProfilePack(t, packRoot, tc.sourceType, "gpt-5.4")
+			manifestPath := filepath.Join(packRoot, "dist", "agent-pack.manifest.json")
+			manifest, err := os.ReadFile(manifestPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifest = []byte(strings.Replace(string(manifest), `"providers":[]`, `"supported_models":["gpt-5.4"],"providers":[]`, 1))
+			if err := os.WriteFile(manifestPath, manifest, 0600); err != nil {
+				t.Fatal(err)
+			}
+			registryPath := filepath.Join(dir, "agent-packs", "registry.json")
+			registry := agentprofile.PackRegistry{Packs: map[string]agentprofile.Pack{
+				"team": {Namespace: "team", SourceKind: agentprofile.PackSourceGit, MaterializedPath: packRoot, CurrentRevision: "oldrev"},
+			}}
+			if err := agentprofile.SavePackRegistry(registryPath, registry); err != nil {
+				t.Fatal(err)
+			}
+			profile, err := agentprofile.ResolveProfile(registryPath, "team/coder")
+			if err != nil {
+				t.Fatal(err)
+			}
+			opts := agentprofile.LaunchOptions{Runtime: "codex", Model: "gpt-5.4", ReasoningEffort: "high"}
+			if tc.legacy {
+				opts.Runtime = ""
+			}
+			launch, err := agentprofile.ProjectProfileLaunchChecked(profile, nil, nil, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.invalidEffort {
+				launch.ProfileSpec.ReasoningEffort = "unsupported"
+			}
+			oldReq := &pb.RunRequest{AgentProfile: launch.AgentProfile, AgentType: launch.AgentType, ProfileSpec: launch.ProfileSpec, ExtraArgs: launch.ExtraArgs}
+			if tc.provider {
+				oldReq.ProfileSpec.ProviderRef = "previous"
+				oldReq.ProfileSpec.Provider = &pb.AgentProfileProvider{Ref: "previous", Platform: "openai-compat", WireApi: "responses", BaseUrl: "https://old.example/v1", ApiKeyEnv: "MODEL_API_KEY", UpstreamModel: "old-upstream"}
+				oldReq.ExtraArgs = []string{"--model", "old-upstream", "-c", `model_provider="amux"`, "-c", `model_providers.amux.base_url="https://old.example/v1"`}
+			}
+			if err := materializeProfileWorkspace(oldReq, dir, "", dir); err != nil {
+				t.Fatal(err)
+			}
+			instructionsBefore, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			db, err := store.Open(filepath.Join(dir, "runtime.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			mgr := session.NewManager(db)
+			sess, err := mgr.Create("switch", "codex", dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := mgr.RecordLaunchParams(sess, oldReq.ExtraArgs, nil, "cli", "local", oldReq.AgentProfile, launch.Model, launchSpecSnapshot(oldReq)); err != nil {
+				t.Fatal(err)
+			}
+			if err := mgr.RecordAgentSessionID(sess, "native-thread"); err != nil {
+				t.Fatal(err)
+			}
+			proc := &serverTestProc{}
+			sess.SetProc(proc)
+			if err := mgr.SetRunning(sess); err != nil {
+				t.Fatal(err)
+			}
+			switch tc.packState {
+			case "updated":
+				writeRefreshProfilePack(t, packRoot, tc.sourceType, "gpt-5.5")
+				if err := os.WriteFile(filepath.Join(packRoot, "instructions", "coder", "AGENTS.md"), []byte("# Changed expert\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				pack := registry.Packs["team"]
+				pack.CurrentRevision = "newrev"
+				registry.Packs["team"] = pack
+				if err := agentprofile.SavePackRegistry(registryPath, registry); err != nil {
+					t.Fatal(err)
+				}
+			case "unavailable":
+				if err := os.Remove(registryPath); err != nil {
+					t.Fatal(err)
+				}
+			}
+			srv := &server{mgr: mgr, amuxDir: dir, disableMCPAutoInject: true,
+				startSessionContextHook: func(context.Context, adapter.Adapter, *session.Session, []string, []string) error {
+					if !tc.provider {
+						t.Fatal("native model switch should not restart the process")
+					}
+					if err := mgr.RecordAgentSessionID(sess, "new-native-thread"); err != nil {
+						return err
+					}
+					sess.SetProc(&serverTestProc{})
+					return mgr.SetRunning(sess)
+				},
+			}
+			before := sess.Snapshot()
+			replacement, err := clientop.BuildSetModelReplacement(toProtoSession(sess), "gpt-5.5")
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = srv.reconfigureExecutionAndRelaunch(context.Background(), sess, replacement, true)
+			if tc.legacy || tc.invalidEffort {
+				if status.Code(err) != codes.InvalidArgument {
+					t.Fatalf("error = %v, want InvalidArgument", err)
+				}
+				if proc.closed || len(proc.reconfigurations) != 0 || sess.Snapshot().LaunchSpec != before.LaunchSpec {
+					t.Fatal("rejected switch changed the running session")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := sess.Snapshot()
+			wantCalls, wantThread := []string{"gpt-5.5:high"}, "native-thread"
+			if tc.provider {
+				wantCalls, wantThread = nil, "new-native-thread"
+			}
+			if proc.closed != tc.provider || !reflect.DeepEqual(proc.reconfigurations, wantCalls) || got.AgentSessionID != wantThread || got.ID != before.ID || got.Cwd != before.Cwd {
+				t.Fatalf("model switch did not retain the running conversation: calls=%v snapshot=%+v", proc.reconfigurations, got)
+			}
+			var saved struct {
+				ProfileSpec *pb.AgentProfileSpec `json:"profile_spec"`
+			}
+			if !decodeLaunchSpec(got.LaunchSpec, &saved) || saved.ProfileSpec == nil {
+				t.Fatal("missing profile snapshot")
+			}
+			spec := saved.ProfileSpec
+			if got.EffectiveModel != "gpt-5.5" || spec.RuntimeRef != "codex" || spec.ReasoningEffort != "high" || spec.PinnedRef != launch.ProfileSpec.PinnedRef || spec.Agents != launch.ProfileSpec.Agents {
+				t.Fatalf("execution or frozen profile changed unexpectedly: %+v", spec)
+			}
+			instructionsAfter, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(instructionsAfter) != string(instructionsBefore) {
+				t.Fatal("model switch changed expert instructions")
+			}
+			// A subsequent switch must still use the saved runtime, not fall back
+			// to the original profile's restricted model list.
+			next, err := clientop.BuildSetModelReplacement(toProtoSession(sess), "gpt-5.5")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := srv.reprojectSetModelReplacement(got, next); err != nil {
+				t.Fatalf("second switch: %v", err)
+			}
+		})
 	}
 }

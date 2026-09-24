@@ -35,6 +35,13 @@ With an explicit runtime, a model name is passed to the native agent even when i
 is absent from runtime suggestions. Without a runtime override, a profile's
 explicit `supported_models` remains its model allowlist.
 
+`session set-model` and MCP `amux.session_set_model` retain an explicitly selected
+runtime from the session's launch snapshot. They resolve the target model using
+that runtime's model policy, preserving the frozen Profile identity and reasoning
+effort without reapplying the source Profile's model allowlist. Unsupported
+reasoning effort fails before changing the running session. Without a saved
+runtime override, model switching continues to use the Profile's model policy.
+
 Every session uses the same line-oriented terminal UI. Submitted text enters the
 session queue; `session queue` lists pending inputs, and `session queue cancel`
 / `session queue clear` drop one or all entries. Detach ends the UI connection
