@@ -67,13 +67,23 @@ func TestManagementI18nAllPagesAndStableActions(t *testing.T) {
 	}
 	for _, status := range []string{"", "signed_in", "signed_out", "expired", "pending", "unavailable", "setup_required", "installing"} {
 		for _, count := range []int{1, 2} {
-			serviceState := managementState{ModelServices: []managementModelService{{
+			serviceState := state
+			serviceState.ModelServices = []managementModelService{{
 				Service: modelservice.Service{ID: "external", Name: "External", Runtimes: []string{"codex"}},
 				State:   modelservice.State{Status: status, CanInstall: true, LoginURL: "https://auth.example/login", Models: make([]modelservice.Model, count)},
-			}}}
+			}}
 			cards[fmt.Sprintf("model_service_%s_%d", status, count)] = marshalNativeManagementCard(managementCardView{
 				Elements: modelServiceElements(serviceState, "codex", map[string]string{"default_model_ref": "native-model", "default_reasoning_effort": "high"}, managementActionSettingsEdit),
 			})
+			for editor, card := range map[string]string{
+				"settings":   renderSettingsEditCard(serviceState, draft),
+				"onboarding": renderOnboardingDraftCard(serviceState, draft),
+				"documents":  renderDocumentCommentsEditCard(serviceState, managementDocumentCommentsDraft{Mode: "custom", AgentRef: state.DefaultAgent, RuntimeRef: "codex"}),
+				"watch":      renderGroupWatchEditCard(serviceState, managementGroupWatchDraft{Mode: "custom", AgentRef: state.DefaultAgent, RuntimeRef: "codex"}),
+				"group":      renderGroupSettingsEditCardAtPage(serviceState, managementGroupSettingsDraft{"group_agent": state.DefaultAgent, "group_runtime": "codex"}, nil, 0),
+			} {
+				cards[fmt.Sprintf("model_service_%s_%d_%s", status, count, editor)] = card
+			}
 		}
 	}
 	for name, card := range cards {
@@ -88,6 +98,13 @@ func TestManagementI18nAllPagesAndStableActions(t *testing.T) {
 					t.Fatal(err)
 				}
 				assertManagementFormScope(t, doc, false)
+				names := map[string]int{}
+				collectCardElementNames(t, selected, names)
+				for name, count := range names {
+					if count > 1 {
+						t.Errorf("%s card repeats element name %q %d times", locale, name, count)
+					}
+				}
 				walkManagementTestText(doc, func(text string) {
 					if strings.Contains(text, "%!") || strings.Contains(text, "management.") {
 						t.Errorf("invalid %s copy: %q", locale, text)

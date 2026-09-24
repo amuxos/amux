@@ -316,6 +316,11 @@ reasoning selection. Signed-in service models appear together immediately after
 their service entry, with concise model/configuration labels. Existing saved
 model references remain usable.
 
+Switching the runtime refreshes the settings draft, including optional model
+service controls. Each service action has a distinct card element name, so
+install and recheck controls or multiple services can coexist. Saving submits
+the selected runtime even when an optional service still requires setup.
+
 ## Distribution default migrations
 
 Distributions declare exact old-to-new profile reference mappings for retired

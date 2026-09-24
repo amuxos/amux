@@ -1,11 +1,66 @@
 package bridge
 
 import (
-	"github.com/amuxos/amux/internal/modelservice"
-	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
+	"github.com/amuxos/amux/internal/modelservice"
+	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
+
+func TestRuntimeSwitchToCodexWithModelServicesPreservesSaveDraft(t *testing.T) {
+	for _, status := range []string{"", "signed_in", "signed_out", "expired", "pending", "unavailable", "setup_required", "installing"} {
+		for _, services := range []int{1, 2} {
+			t.Run(fmt.Sprintf("%s/services=%d", status, services), func(t *testing.T) {
+				state := managementState{
+					Mode: config.FeishuInteractionSingleton, Version: 7,
+					DefaultAgent: "builtin/claude", DefaultRuntimeRef: "claude",
+					DefaultModelRef: "native-model", DefaultReasoningEffort: "high",
+					ThinkingProcess: config.FeishuThinkingProcessExpanded,
+				}
+				for n := 0; n < services; n++ {
+					state.ModelServices = append(state.ModelServices, managementModelService{
+						Service: modelservice.Service{ID: fmt.Sprintf("external-%d", n), Name: "External", Runtimes: []string{"codex"}},
+						State:   modelservice.State{Status: status, CanInstall: true},
+					})
+				}
+				// Replay a runtime select callback, then save using the values from
+				// the replacement card, just as Feishu does after a successful patch.
+				draft := managementDraftFromCallback(&callback.CallBackAction{
+					Option: "codex",
+					Value: map[string]any{managementActionKey: managementActionSettingsEdit,
+						managementDraftFieldKey: "default_runtime_ref", "default_runtime_ref": "claude"},
+				}, state)
+				card := renderSettingsEditCard(state, draft)
+				for _, locale := range []i18n.Locale{"", i18n.English, i18n.Chinese} {
+					names := map[string]int{}
+					collectCardElementNames(t, selectManagementCardLocale(card, locale), names)
+					for name, count := range names {
+						if count > 1 {
+							t.Fatalf("%s card repeats element name %q %d times", locale, name, count)
+						}
+					}
+				}
+				button := findManagementButtonByAction(t, card, managementActionSettingsSave)
+				save := &callback.CallBackAction{Name: button.Name}
+				if err := json.Unmarshal(button.Value, &save.Value); err != nil {
+					t.Fatal(err)
+				}
+				savedDraft := managementDraftFromCallback(save, state)
+				req := managementBotSettingsRequest(state, savedDraft, "settings-card", "owner")
+				if req.DefaultRuntimeRef != "codex" || req.DefaultAgent != state.DefaultAgent ||
+					req.DefaultModelRef != state.DefaultModelRef || req.DefaultReasoningEffort != state.DefaultReasoningEffort ||
+					req.Interaction != state.Mode || req.ExpectedVersion != state.Version || savedDraft.ThinkingProcess != state.ThinkingProcess {
+					t.Fatalf("runtime switch lost the save draft: request=%+v draft=%+v", req, savedDraft)
+				}
+			})
+		}
+	}
+}
 
 func TestModelServiceStateDoesNotLeakChallengeAndPreservesDraft(t *testing.T) {
 	state := managementState{ModelServices: []managementModelService{{Service: modelservice.Service{ID: "external", Name: "External", Runtimes: []string{"codex"}}, State: modelservice.State{Status: "pending", LoginURL: "https://auth.example/login"}}}}

@@ -137,15 +137,18 @@ func modelServiceElements(state managementState, runtime string, values map[stri
 		}
 		buttonValues["model_service"] = entry.Service.ID
 		buttonValues["model_service_action"] = operation
+		// Feishu requires unique element names across the card. These controls
+		// share the editor callback action, but identify distinct service actions.
+		namePrefix := action + ".model_service." + entry.Service.ID + "."
 		if entry.State.Status == "setup_required" && entry.State.CanInstall {
 			installValues := make(map[string]string, len(buttonValues))
 			for k, v := range buttonValues {
 				installValues[k] = v
 			}
 			installValues["model_service_action"] = "install"
-			buttons = append(buttons, managementButtonElement(managementButton{Action: action, Text: managementCopy("management.model.service.install"), Type: "primary", Values: installValues}))
+			buttons = append(buttons, managementButtonElement(managementButton{Action: action, Name: namePrefix + "install", Text: managementCopy("management.model.service.install"), Type: "primary", Values: installValues}))
 		}
-		buttons = append(buttons, managementButtonElement(managementButton{Action: action, Text: label, Type: kind, Values: buttonValues}))
+		buttons = append(buttons, managementButtonElement(managementButton{Action: action, Name: namePrefix + operation, Text: label, Type: kind, Values: buttonValues}))
 		elements = append(elements, managementFormButtonRowElement(buttons...))
 	}
 	return elements
