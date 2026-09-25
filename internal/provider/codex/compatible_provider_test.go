@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/config"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -118,6 +119,11 @@ func TestProcMapsThreadTokenUsageUpdated(t *testing.T) {
 		for _, withTotal := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/total=%t", provider, withTotal), func(t *testing.T) {
 				script := fakeCodexTokenUsageScript
+				// Usage arrives before the first delta. Make the later timing
+				// enrichment deterministic instead of depending on process speed.
+				script = strings.Replace(script, "import json, sys", "import json, sys, time", 1)
+				script = strings.Replace(script, `        print(json.dumps({"jsonrpc":"2.0","method":"item/agentMessage/delta"`, `        time.sleep(0.02)
+        print(json.dumps({"jsonrpc":"2.0","method":"item/agentMessage/delta"`, 1)
 				if !withTotal {
 					script = strings.Replace(script, `        print(json.dumps({"jsonrpc":"2.0","method":"thread/tokenUsage/updated"`, `        usage.pop("total")
         print(json.dumps({"jsonrpc":"2.0","method":"thread/tokenUsage/updated"`, 1)
@@ -186,7 +192,18 @@ func TestProcMapsThreadTokenUsageUpdated(t *testing.T) {
 				if result == nil || result.Body == nil || result.Body.Result == nil {
 					t.Fatal("did not observe result carrying usage")
 				}
-				if !bytes.Equal(result.Body.Result.Usage, ev.Body.Usage) {
+				var resultUsage map[string]int64
+				if err := json.Unmarshal(result.Body.Result.Usage, &resultUsage); err != nil {
+					t.Fatalf("decode result usage: %v", err)
+				}
+				if resultUsage["ttft_ms"] <= 0 {
+					t.Fatalf("result usage lacks first-delta timing: %s", result.Body.Result.Usage)
+				}
+				// Turn completion may add timing fields after the last provider
+				// usage frame. The provider's token snapshot must remain exact.
+				delete(resultUsage, "ttft_ms")
+				delete(resultUsage, "tokens_per_sec")
+				if !maps.Equal(resultUsage, usage) {
 					t.Fatalf("result usage = %s, want %s", result.Body.Result.Usage, ev.Body.Usage)
 				}
 			})
