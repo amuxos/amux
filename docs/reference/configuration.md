@@ -150,6 +150,15 @@ amux system config unset <key>
 | `bridge.feishu.profiles.<profile>.document_comments.reasoning_effort` | string | Empty (Runtime engine default) | — | Yes | Reasoning effort for new cloud document comment Sessions. |
 | `bridge.feishu.profiles.<profile>.bot_to_bot.enabled` | boolean | Inherit installation settings | — | Yes | Profile-level agent collaboration switch. |
 | `bridge.feishu.profiles.<profile>.bot_to_bot.max_turns_per_thread` | integer | Inherit installation settings (10) | >0 | Yes | Profile-level agent collaboration turn limit per topic. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.enabled` | boolean | true | — | Yes | Enable watch in this group; automatic work also requires the master watch switch. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.agent_profile_ref` | string | Empty (inherit ordinary conversations in this group) | — | Yes | Watch expert for this group; empty inherits its ordinary conversation execution settings. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.runtime_ref` | string | Empty (inherit ordinary conversations in this group) | — | Yes | Runtime for custom watch execution in this group; required with a custom expert. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.model_ref` | string | Empty (Runtime engine default) | — | Yes | Watch model for this group, validated against the selected runtime. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.reasoning_effort` | string | Empty (Runtime engine default) | — | Yes | Watch reasoning effort for this group, validated against the selected runtime and model. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.thinking_process` | enum | Inherit watch defaults | expanded、collapsed、hidden | Yes | Activity presentation for watch tasks in this group. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.max_active_sessions_per_chat` | integer | Inherit watch defaults | 1-500 | Yes | Maximum active watch Sessions in this group. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.idle_timeout_seconds` | integer seconds | Inherit watch defaults | 60-604800 | Yes | Idle timeout for new watch Sessions in this group. |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.version` | integer | 0 | Non-negative integer | Yes | Watch settings version for this group, used to reject stale card writes. |
 | `bridge.feishu.profiles.<profile>.group_watch.enabled` | boolean | Inherit installation settings | — | Yes | Profile-level group watch switch; image-only, file-only, and merged-forward messages without text can also trigger automatically. |
 | `bridge.feishu.profiles.<profile>.group_watch.chat_ids` | string array | Inherit installation settings | — | Yes | Profile-level watched-group allowlist. |
 | `bridge.feishu.profiles.<profile>.group_watch.sender_types` | string array | Inherit installation settings | user、app | Yes | Profile-level sender types. |

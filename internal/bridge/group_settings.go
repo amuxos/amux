@@ -122,7 +122,7 @@ func (b *Bridge) validateGroupSettings(settings *GroupSettings) error {
 	}
 	if settings.InteractionMode == config.FeishuInteractionSingleton {
 		watch := b.groupWatchSnapshot()
-		if watch.Enabled && groupWatchConfigHasChat(watch, settings.ChatID) {
+		if watch.ForChat(settings.ChatID).Enabled && groupWatchConfigHasChat(watch, settings.ChatID) {
 			return fmt.Errorf("请先关闭本群值守，再切换到本群连续会话")
 		}
 	}
@@ -348,7 +348,7 @@ func ValidateGroupWatchInteractionInDB(path, profile, bridgeID string, watch con
 			}
 			mode = settings.InteractionMode
 		}
-		if err := config.ValidateBridgeFeishuGroupWatchInteraction(watch, mode); err != nil {
+		if err := config.ValidateBridgeFeishuGroupWatchInteraction(watch.ForChat(chatID), mode); err != nil {
 			return fmt.Errorf("群 %s: %w", chatID, err)
 		}
 	}

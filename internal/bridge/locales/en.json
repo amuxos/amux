@@ -2476,5 +2476,47 @@
   },
   "management.model.native.refresh": {
     "other": "Refresh Codex models"
+  },
+  "management.watch.choose_group": {
+    "other": "Choose a watched group below to edit its settings."
+  },
+  "management.watch.edit_group": {
+    "other": "Watch settings for this group"
+  },
+  "management.watch.legacy_defaults": {
+    "other": "Defaults for groups without independent watch settings"
+  },
+  "management.watch.only_this_group": {
+    "other": "Changes apply only to this group. Execution and sleep settings affect new sessions; existing sessions keep their execution settings."
+  },
+  "management.watch.global_paused": {
+    "other": "Watch is paused. If the global switch is paused, resume it from the group-watch list before this group can receive new tasks."
+  },
+  "management.watch.group_unavailable": {
+    "other": "This group is no longer watched. Reopen group watch settings."
+  },
+  "management.watch.choose_status": {
+    "other": "Choose whether watch is enabled for this group"
+  },
+  "management.watch.invalid_limit": {
+    "other": "Enter an active session limit from 1 to 500."
+  },
+  "management.watch.invalid_idle": {
+    "other": "Enter an idle timeout from 60 to 604800 seconds."
+  },
+  "management.watch.stale": {
+    "other": "These settings changed. Reopen the editor before saving."
+  },
+  "management.watch.limit_label": {
+    "other": "Active session limit in this group (1–500)"
+  },
+  "management.watch.idle_label": {
+    "other": "Automatic sleep in seconds (60–604800)"
+  },
+  "management.watch.inherit_group": {
+    "other": "Inherit this group’s conversation defaults"
+  },
+  "management.watch.group_saved": {
+    "other": "Watch settings saved for this group"
   }
 }

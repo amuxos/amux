@@ -150,6 +150,15 @@ amux system config unset <key>
 | `bridge.feishu.profiles.<profile>.document_comments.reasoning_effort` | 字符串 | 空（运行引擎默认） | — | 是 | 云文档评论新 Session 使用的思考强度。 |
 | `bridge.feishu.profiles.<profile>.bot_to_bot.enabled` | 布尔值 | 继承安装级 | — | 是 | Profile 级智能体协作开关。 |
 | `bridge.feishu.profiles.<profile>.bot_to_bot.max_turns_per_thread` | 整数 | 继承安装级（10） | >0 | 是 | Profile 级单话题智能体协作轮数上限。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.enabled` | 布尔值 | true | — | 是 | 本群值守开关，与群值守总开关同时开启才接收自动任务。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.agent_profile_ref` | 字符串 | 空（继承本群普通会话） | — | 是 | 本群值守专家；空值使用本群普通会话的执行配置。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.runtime_ref` | 字符串 | 空（继承本群普通会话） | — | 是 | 本群自定义值守的运行引擎；自定义专家时必填。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.model_ref` | 字符串 | 空（运行引擎默认） | — | 是 | 本群值守模型，按所选运行引擎校验。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.reasoning_effort` | 字符串 | 空（运行引擎默认） | — | 是 | 本群值守思考强度，按所选运行引擎和模型校验。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.thinking_process` | 枚举 | 继承群值守默认值 | expanded、collapsed、hidden | 是 | 本群值守任务的处理过程展示方式。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.max_active_sessions_per_chat` | 整数 | 继承群值守默认值 | 1-500 | 是 | 本群值守活跃 Session 上限。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.idle_timeout_seconds` | 整数秒数 | 继承群值守默认值 | 60-604800 | 是 | 本群新值守 Session 的自动休眠阈值。 |
+| `bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.version` | 整数 | 0 | 非负整数 | 是 | 本群值守设置版本，用于拒绝过期卡片写入。 |
 | `bridge.feishu.profiles.<profile>.group_watch.enabled` | 布尔值 | 继承安装级 | — | 是 | Profile 级群值守开关；纯图片、纯文件和无正文合并转发也可自动触发。 |
 | `bridge.feishu.profiles.<profile>.group_watch.chat_ids` | 字符串数组 | 继承安装级 | — | 是 | Profile 级值守群白名单。 |
 | `bridge.feishu.profiles.<profile>.group_watch.sender_types` | 字符串数组 | 继承安装级 | user、app | 是 | Profile 级发送者类型。 |

@@ -363,7 +363,7 @@ func (b *Bridge) handleGroupWatchCommand(ctx context.Context, chatID, rootMsgID,
 	if !b.canUseBridge(openID) {
 		return b.notifyRootCommand(ctx, chatID, rootMsgID, fmt.Sprintf("当前群值守：%s。只有负责人可以开启或关闭。", status))
 	}
-	cfg := b.groupWatchSnapshot()
+	cfg := b.groupWatchSnapshot().ForChat(chatID)
 	joined := groupWatchConfigHasChat(cfg, chatID)
 	operation, action := "add", "开启"
 	if intent == command.CommandGroupWatchOff {

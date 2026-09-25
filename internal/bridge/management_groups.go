@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -14,9 +13,11 @@ import (
 func renderGroupWatchEditCard(state managementState, draft managementGroupWatchDraft) string {
 	draft = managementNormalizeGroupWatchDraft(state, draft)
 	changeBehavior := func(field string) []cardBehavior {
-		return []cardBehavior{{Type: "callback", Value: managementButtonValue(managementButton{Action: managementActionGroupWatchEdit, Values: map[string]string{"group_watch_mode": draft.Mode, "group_watch_agent": draft.AgentRef, "group_watch_runtime_ref": draft.RuntimeRef, "group_watch_model_ref": draft.ModelRef, "group_watch_reasoning_effort": draft.ReasoningEffort, "group_watch_thinking_process": draft.ThinkingProcess, managementDraftFieldKey: field}})}}
+		values := managementGroupWatchDraftValues(draft)
+		values[managementDraftFieldKey] = field
+		return []cardBehavior{{Type: "callback", Value: managementButtonValue(managementButton{Action: managementActionGroupWatchEdit, Values: values})}}
 	}
-	modeField := managementSelectStaticElement("group_watch_mode", managementCopy("management.choose.task.configuration"), draft.Mode, []cardOption{{Text: managementStyledText(managementCopy("management.inherit.assistant.defaults"), cardTitle{Tag: "plain_text"}), Value: managementDocumentCommentsModeInherit}, {Text: managementStyledText(managementCopy("management.custom"), cardTitle{Tag: "plain_text"}), Value: managementDocumentCommentsModeCustom}})
+	modeField := managementSelectStaticElement("group_watch_mode", managementCopy("management.choose.task.configuration"), draft.Mode, []cardOption{{Text: managementStyledText(managementCopy("management.watch.inherit_group"), cardTitle{Tag: "plain_text"}), Value: managementDocumentCommentsModeInherit}, {Text: managementStyledText(managementCopy("management.custom"), cardTitle{Tag: "plain_text"}), Value: managementDocumentCommentsModeCustom}})
 	modeField.Required = false
 	modeField.Behaviors = changeBehavior("group_watch_mode")
 	elements := []cardElement{managementHintElement(managementCopy("management.changes.apply.only.to.new.watch.topics.existing.topics")), managementSettingsFieldRow(managementCopy("management.task.configuration"), modeField)}
@@ -42,7 +43,7 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 			modelField.Required = false
 			modelField.Behaviors = changeBehavior("group_watch_model_ref")
 			elements = append(elements, managementSettingsFieldRow(managementCopy("management.model.new.watch.topics.only"), modelField))
-			elements = append(elements, modelServiceElements(state, draft.RuntimeRef, map[string]string{"group_watch_mode": draft.Mode, "group_watch_agent": draft.AgentRef, "group_watch_runtime_ref": draft.RuntimeRef, "group_watch_model_ref": draft.ModelRef, "group_watch_reasoning_effort": draft.ReasoningEffort}, managementActionGroupWatchEdit)...)
+			elements = append(elements, modelServiceElements(state, draft.RuntimeRef, managementGroupWatchDraftValues(draft), managementActionGroupWatchEdit)...)
 			initialReasoningEffort := draft.ReasoningEffort
 			if initialReasoningEffort == "" {
 				initialReasoningEffort = managementRuntimeDefaultReasoningOption
@@ -61,12 +62,20 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 	thinkingProcessField.Required = false
 	thinkingProcessField.Behaviors = changeBehavior("group_watch_thinking_process")
 	elements = append(elements, managementSettingsFieldRow(managementCopy("management.activity.display"), thinkingProcessField))
-	submit := managementFormSubmitButton(managementActionGroupWatchSave, managementCopy("management.save"))
-	submit.Value, _ = json.Marshal(managementButtonValue(managementButton{Action: managementActionGroupWatchSave, Values: map[string]string{"group_watch_mode": draft.Mode, "group_watch_agent": draft.AgentRef, "group_watch_runtime_ref": draft.RuntimeRef, "group_watch_model_ref": draft.ModelRef, "group_watch_reasoning_effort": draft.ReasoningEffort, "group_watch_thinking_process": draft.ThinkingProcess}}))
-	buttons := managementFormButtonRowElement(submit, managementCallbackButton(managementActionGroupWatchOpen, managementCopy("management.cancel"), "default"))
-	buttons.Margin = "4px 0px 0px 0px"
-	elements = append(elements, cardElement{Tag: "form", Name: "group_watch_form", Direction: "vertical", VerticalSpacing: "8px", Elements: []cardElement{buttons}})
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.edit.watch.task.settings"), Subtitle: managementCopy("management.set.the.expert.and.execution.options.for.new.watch"), Summary: managementCopy("management.edit.group.watch.task.settings"), Theme: "blue", Icon: managementIcon("edit_outlined", "blue"), Elements: elements})
+	statusField := managementSelectStaticElement("group_watch_enabled", managementCopy("management.watch.choose_status"), draft.Enabled, []cardOption{
+		{Text: managementPlainText(managementCopy("management.on")), Value: "true"},
+		{Text: managementPlainText(managementCopy("management.off")), Value: "false"},
+	})
+	statusField.Required = false
+	statusField.Behaviors = changeBehavior("group_watch_enabled")
+	elements = append([]cardElement{managementSettingsFieldRow(managementCopy("management.current.status"), statusField)}, elements...)
+	for _, field := range []struct{ key, value, label string }{
+		{"group_watch_max_active", draft.MaxActive, "management.watch.limit_label"},
+		{"group_watch_idle_seconds", draft.IdleSeconds, "management.watch.idle_label"},
+	} {
+		elements = append(elements, managementSettingsFieldRow(managementCopy(field.label), cardElement{Tag: "input", Name: field.key, DefaultValue: field.value, Width: "fill", Placeholder: managementPlainTextPtr(managementCopy("management.nonnegative.integer"))}))
+	}
+	return renderGroupWatchEditorPages(state, draft, elements)
 }
 
 func renderGroupWatchManagementCardWithNames(state managementState, names map[string]string) string {
@@ -104,7 +113,7 @@ func renderGroupWatchManagementCardWithNoticeAndNames(state managementState, not
 	if idleTimeoutSeconds%(60*60) == 0 {
 		idleTimeout = managementCopy("management.d.hours", idleTimeoutSeconds/(60*60))
 	}
-	elements := []cardElement{managementSubpageBackElement(managementCopy("management.back.to.integrations"), managementActionCapabilitiesOpen, "amux.group_watch.back.capabilities"), managementDividerElement(), managementKeyValueListElement("amux_group_watch_summary", managementSummaryItem{Title: managementCopy("management.current.status"), Body: status}, managementSummaryItem{Title: managementCopy("management.task.configuration"), Body: executionMode}, managementSummaryItem{Title: managementCopy("management.expert"), Body: agentName}, managementSummaryItem{Title: managementCopy("management.runtime"), Body: runtimeName}, managementSummaryItem{Title: managementCopy("management.model"), Body: modelName}, managementSummaryItem{Title: managementCopy("management.reasoning.effort"), Body: reasoningName}, managementSummaryItem{Title: managementCopy("management.activity.display"), Body: managementThinkingProcessLabel(state.GroupWatch.ThinkingProcess)}, managementSummaryItem{Title: managementCopy("management.active.topic.limit.per.group"), Body: fmt.Sprintf("%d", maxActiveSessions)}, managementSummaryItem{Title: managementCopy("management.automatic.sleep"), Body: idleTimeout}), managementHintElement(managementCopy("management.send.amux.in.the.target.group.the.owner.will")), managementButtonRowElement([]managementButton{{Text: managementCopy("management.edit.task.settings"), Type: "default", Action: managementActionGroupWatchEdit, Name: managementActionGroupWatchEdit}})}
+	elements := []cardElement{managementSubpageBackElement(managementCopy("management.back.to.integrations"), managementActionCapabilitiesOpen, "amux.group_watch.back.capabilities"), managementDividerElement(), managementHintElement(managementCopy("management.watch.legacy_defaults")), managementKeyValueListElement("amux_group_watch_summary", managementSummaryItem{Title: managementCopy("management.current.status"), Body: status}, managementSummaryItem{Title: managementCopy("management.task.configuration"), Body: executionMode}, managementSummaryItem{Title: managementCopy("management.expert"), Body: agentName}, managementSummaryItem{Title: managementCopy("management.runtime"), Body: runtimeName}, managementSummaryItem{Title: managementCopy("management.model"), Body: modelName}, managementSummaryItem{Title: managementCopy("management.reasoning.effort"), Body: reasoningName}, managementSummaryItem{Title: managementCopy("management.activity.display"), Body: managementThinkingProcessLabel(state.GroupWatch.ThinkingProcess)}, managementSummaryItem{Title: managementCopy("management.active.topic.limit.per.group"), Body: fmt.Sprintf("%d", maxActiveSessions)}, managementSummaryItem{Title: managementCopy("management.automatic.sleep"), Body: idleTimeout}), managementHintElement(managementCopy("management.send.amux.in.the.target.group.the.owner.will")), managementHintElement(managementCopy("management.watch.choose_group"))}
 	if strings.TrimSpace(managementDefaultText(notice)) != "" {
 		elements = append(elements, managementHintElement(managementTruncateText(notice, 240)))
 	}
@@ -121,7 +130,7 @@ func renderGroupWatchManagementCardWithNoticeAndNames(state managementState, not
 	}
 	for index, chatID := range state.GroupWatch.ChatIDs {
 		chatName := strings.TrimSpace(names[chatID])
-		elements = append(elements, managementTextElement(managementCopy("management.watched.group.s.s", managementValueOrPlaceholder(chatName, managementCopy("management.unnamed.group")), shortChatID(chatID)), "normal", "default", nil), managementButtonRowElement([]managementButton{{Text: managementCopy("management.remove.from.watch"), Type: "default", Action: managementActionGroupWatchUpdate, Name: fmt.Sprintf("%s.remove.%d", managementActionGroupWatchUpdate, index), Values: map[string]string{"operation": "remove", "chat_id": chatID, "chat_name": chatName, "view": "group_watch_list"}}}))
+		elements = append(elements, managementTextElement(managementConcat(managementCopy("management.watched.group.s.s", managementValueOrPlaceholder(chatName, managementCopy("management.unnamed.group")), shortChatID(chatID)), " · ", managementGroupWatchCommandStatus(state, chatID)), "normal", "default", nil), managementButtonRowElement([]managementButton{{Text: managementCopy("management.remove.from.watch"), Type: "default", Action: managementActionGroupWatchUpdate, Name: fmt.Sprintf("%s.remove.%d", managementActionGroupWatchUpdate, index), Values: map[string]string{"operation": "remove", "chat_id": chatID, "chat_name": chatName, "view": "group_watch_list"}}, groupWatchSettingsButton(chatID, chatName)}))
 	}
 	var buttons []managementButton
 	if len(state.GroupWatch.ChatIDs) > 0 {
@@ -216,7 +225,7 @@ func managementGroupWatchCommandStatus(state managementState, chatID string) any
 	if !groupWatchConfigHasChat(state.GroupWatch, chatID) {
 		return managementCopy("management.not.included")
 	}
-	if !state.GroupWatch.Enabled {
+	if !state.GroupWatch.ForChat(chatID).Enabled {
 		return managementCopy("management.paused")
 	}
 	return managementCopy("management.enabled")
@@ -228,7 +237,7 @@ func renderCurrentGroupWatchCard(state managementState, chatID, chatName string,
 	var status any = managementCopy("management.not.included")
 	actionText := managementCopy("management.add.this.group.to.watch")
 	if joined {
-		status = managementCopy("management.included")
+		status = managementConcat(managementCopy("management.included"), " · ", managementGroupWatchCommandStatus(state, chatID))
 		actionText = managementCopy("management.remove.this.group.from.watch")
 	}
 	actionButton := managementButton{Text: actionText, Type: "primary", Action: managementActionGroupWatchUpdate, Values: map[string]string{"operation": "add", "chat_id": chatID, "chat_name": chatName, "view": "current_group"}}
@@ -239,6 +248,9 @@ func renderCurrentGroupWatchCard(state managementState, chatID, chatName string,
 	}
 	hint := managementCopy("management.group.watch.handles.new.topics.started.by.members.and")
 	buttons := []managementButton{{Text: managementCopy("management.back.to.assistant.settings"), Type: "default", Action: managementActionSettingsOpen}}
+	if joined {
+		buttons = append(buttons, groupWatchSettingsButton(chatID, chatName))
+	}
 	if joined || state.Mode != config.FeishuInteractionSingleton {
 		buttons = append([]managementButton{actionButton}, buttons...)
 	} else {

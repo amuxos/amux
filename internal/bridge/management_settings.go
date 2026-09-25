@@ -609,6 +609,11 @@ func (b *Bridge) runManagementGroupWatchExecutionUpdate(openID, messageID string
 		names := b.resolveGroupWatchNames(nameCtx, state.GroupWatch.ChatIDs)
 		nameCancel()
 		finalCard := renderGroupWatchManagementCardWithNoticeAndNames(state, notice, names)
+		if err == nil && draft.ChatID != "" {
+			state = b.groupWatchManagementState(state, draft.ChatID)
+			fresh := managementGroupWatchDraftFromCallback(&callback.CallBackAction{Value: map[string]any{"chat_id": draft.ChatID, "chat_name": draft.ChatName}}, state)
+			finalCard = renderGroupWatchGroupSummary(state, fresh)
+		}
 		finalCard = renderFocusedManagementCardForSurface(finalCard, surface)
 		finalCtx, finalCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer finalCancel()
@@ -638,6 +643,9 @@ func (b *Bridge) saveManagementGroupWatchExecution(draft managementGroupWatchDra
 			if _, err := resolveBridgeAgentLaunchWithSelection(agentRef, b.db.workspaceDefaults.Args, runtimeRef, modelRef, reasoningEffort); err != nil {
 				return err
 			}
+		}
+		if draft.ChatID != "" {
+			return b.applyGroupWatchChatSettings(draft, agentRef, runtimeRef, modelRef, reasoningEffort)
 		}
 		return b.applyGroupWatchExecutionSettings(agentRef, runtimeRef, modelRef, reasoningEffort, draft.ThinkingProcess)
 	}
@@ -1652,6 +1660,9 @@ func managementGroupWatchDraftFromState(state managementState) managementGroupWa
 
 func managementGroupWatchDraftFromCallback(action *callback.CallBackAction, state managementState) managementGroupWatchDraft {
 	draft := managementGroupWatchDraftFromState(state)
+	if action != nil {
+		draft = managementGroupWatchScopeFromCallback(action, state, draft)
+	}
 	if action == nil {
 		return managementNormalizeGroupWatchDraft(state, draft)
 	}
@@ -1678,6 +1689,8 @@ func managementGroupWatchDraftFromCallback(action *callback.CallBackAction, stat
 	}
 	field := managementGroupWatchDraftField(action)
 	switch field {
+	case "group_watch_enabled":
+		draft.Enabled = strings.TrimSpace(action.Option)
 	case "group_watch_mode":
 		draft.Mode = strings.TrimSpace(action.Option)
 	case "group_watch_agent":
@@ -1702,7 +1715,7 @@ func managementGroupWatchDraftField(action *callback.CallBackAction) string {
 		return ""
 	}
 	for _, field := range []string{"group_watch_mode",
-		"group_watch_agent", "group_watch_runtime_ref", "group_watch_model_ref", "group_watch_reasoning_effort", "group_watch_thinking_process",
+		"group_watch_agent", "group_watch_runtime_ref", "group_watch_model_ref", "group_watch_reasoning_effort", "group_watch_thinking_process", "group_watch_enabled",
 	} {
 		if strings.TrimSpace(action.Name) == field {
 			return field
@@ -1715,6 +1728,9 @@ func managementGroupWatchDraftField(action *callback.CallBackAction) string {
 }
 
 func managementGroupWatchSubmissionError(action *callback.CallBackAction, state managementState) any {
+	if message := managementGroupWatchScopeSubmissionError(action, state); message != "" {
+		return message
+	}
 	thinkingProcess, _ := managementDocumentCommentsCallbackValue(action, "group_watch_thinking_process")
 	if !managementValidThinkingProcess(thinkingProcess) {
 		return managementCopy("management.choose.the.activity.display.for.group.watch")
@@ -1749,6 +1765,7 @@ func managementGroupWatchSubmissionError(action *callback.CallBackAction, state 
 }
 
 func managementNormalizeGroupWatchDraft(state managementState, draft managementGroupWatchDraft) managementGroupWatchDraft {
+	draft = managementGroupWatchScopeDefaults(state, draft)
 	if !managementValidThinkingProcess(draft.ThinkingProcess) {
 		draft.ThinkingProcess = state.GroupWatch.ThinkingProcess
 	}
@@ -2067,6 +2084,13 @@ type managementDocumentCommentsDraft struct {
 	ReasoningEffort string
 }
 type managementGroupWatchDraft struct {
+	ChatID          string
+	ChatName        string
+	Version         string
+	Enabled         string
+	MaxActive       string
+	IdleSeconds     string
+	Page            int
 	Mode            string
 	AgentRef        string
 	RuntimeRef      string

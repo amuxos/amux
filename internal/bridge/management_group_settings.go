@@ -482,8 +482,9 @@ func renderCurrentGroupSettingsCard(state managementState, settings *GroupSettin
 	joinedWatch := groupWatchConfigHasChat(state.GroupWatch, settings.ChatID)
 	watchText := managementConcat(managementCopy("management.group.watch"), managementGroupWatchCommandStatus(state, settings.ChatID))
 	if joinedWatch {
-		if state.GroupWatch.AgentProfileRef != "" {
-			watchText = managementConcat(watchText, managementConcat(managementCopy("management.watch.uses.a.separate.expert"), state.GroupWatch.AgentProfileRef))
+		buttons = append(buttons, groupWatchSettingsButton(settings.ChatID, scope["chat_name"]))
+		if watch := state.GroupWatch.ForChat(settings.ChatID); watch.AgentProfileRef != "" {
+			watchText = managementConcat(watchText, managementConcat(managementCopy("management.watch.uses.a.separate.expert"), watch.AgentProfileRef))
 		}
 	}
 	elements = append(elements, managementHintElement(watchText))

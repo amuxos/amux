@@ -197,10 +197,23 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	if action == managementActionLanguage {
 		return b.changeManagementLocale(openID, messageID, event.Event.Action), true, nil
 	}
+	if action == managementActionGroupWatchEdit || action == managementActionGroupWatchSave {
+		chatID := managementCallbackString(event.Event.Action, "chat_id")
+		if !b.isBotOwner(openID) {
+			return cardToast("error", managementCopy("management.you.do.not.have.permission.to.manage.this.assistant")), true, nil
+		}
+		if chatID == "" || !groupWatchConfigHasChat(b.groupWatchSnapshot(), chatID) {
+			b.updateManagementCardFromCallback(openID, messageID, renderGroupWatchManagementCardWithNoticeAndNames(b.managementState(), managementCopy("management.watch.choose_group"), b.resolveGroupWatchNames(ctx, b.groupWatchSnapshot().ChatIDs)))
+			return cardToast("warning", managementCopy("management.watch.choose_group")), true, nil
+		}
+	}
 	if b.handleModelServiceEditor(event, action, openID, messageID) {
 		return cardToast("success", managementCopy("management.model.service.updating")), true, nil
 	}
 	state := b.managementState()
+	if action == managementActionGroupWatchEdit || action == managementActionGroupWatchSave {
+		state = b.groupWatchManagementState(state, managementCallbackString(event.Event.Action, "chat_id"))
+	}
 	surface := managementSurfaceFromCallback(event.Event.Action)
 	updateCard := func(card string, page managementView) {
 		b.updateManagementCardFromCallback(

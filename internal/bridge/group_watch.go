@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"sort"
 	"strconv"
@@ -66,6 +67,7 @@ func (c *groupWatchState) groupWatchSnapshot() config.BridgeFeishuGroupWatchConf
 	cfg.ChatIDs = append([]string(nil), cfg.ChatIDs...)
 	cfg.SenderTypes = append([]string(nil), cfg.SenderTypes...)
 	cfg.ChatSenderTypes = cloneGroupWatchChatSenderTypes(cfg.ChatSenderTypes)
+	cfg.ChatSettings = maps.Clone(cfg.ChatSettings)
 	return cfg
 }
 
@@ -76,6 +78,7 @@ func (c *groupWatchState) setGroupWatchConfig(cfg config.BridgeFeishuGroupWatchC
 	cfg.ChatIDs = append([]string(nil), cfg.ChatIDs...)
 	cfg.SenderTypes = append([]string(nil), cfg.SenderTypes...)
 	cfg.ChatSenderTypes = cloneGroupWatchChatSenderTypes(cfg.ChatSenderTypes)
+	cfg.ChatSettings = maps.Clone(cfg.ChatSettings)
 	c.groupWatchMu.Lock()
 	c.groupWatchConfig = cfg
 	if c.groupWatchConfigChanged == nil {
@@ -129,7 +132,7 @@ func (b *Bridge) groupWatchStatusForChat(chatID string) string {
 	if !b.groupWatchHasChat(chatID) {
 		return "未加入"
 	}
-	if !b.groupWatchSnapshot().Enabled {
+	if !b.groupWatchSnapshot().ForChat(chatID).Enabled {
 		return "已暂停"
 	}
 	return "已开启"
@@ -167,6 +170,10 @@ func (b *Bridge) updateGroupWatchForProfile(operation, chatID string) (config.Br
 		}
 		next.ChatIDs = appendUniqueGroupWatchChat(next.ChatIDs, chatID)
 		next.Enabled = true
+		if setting, ok := next.ChatSettings[chatID]; ok {
+			setting.Enabled = true
+			next.ChatSettings[chatID] = setting
+		}
 	case "remove":
 		if chatID == "" {
 			return next, fmt.Errorf("chat_id is required")
@@ -193,8 +200,16 @@ func (b *Bridge) updateGroupWatchForProfile(operation, chatID string) (config.Br
 			if err != nil {
 				return next, err
 			}
-			if err := config.ValidateBridgeFeishuGroupWatchInteraction(next, mode); err != nil {
+			if err := config.ValidateBridgeFeishuGroupWatchInteraction(next.ForChat(configuredChat), mode); err != nil {
 				return next, errors.Join(errGroupWatchInteraction, managementLocalizedError("management.watch.requires.topics", configuredChat))
+			}
+		}
+	}
+	if operation == "add" {
+		if setting, ok := next.ChatSettings[chatID]; ok && !b.groupWatchSnapshot().ChatSettings[chatID].Enabled {
+			setting.Enabled = true
+			if err := config.SetBridgeFeishuGroupWatchChat(b.ProfileName(), chatID, setting, setting.Version); err != nil {
+				return next, err
 			}
 		}
 	}
@@ -253,7 +268,7 @@ func (b *Bridge) groupWatchActive() bool {
 		return false
 	}
 	for _, chatID := range b.groupWatchSnapshot().ChatIDs {
-		if mode, err := b.interactionModeForChat(chatID); err == nil && mode == config.FeishuInteractionThread {
+		if mode, err := b.interactionModeForChat(chatID); err == nil && mode == config.FeishuInteractionThread && b.groupWatchSnapshot().ForChat(chatID).Enabled {
 			return true
 		}
 	}
@@ -272,7 +287,7 @@ func (b *Bridge) validateGroupWatchInteractionMode(mode string) error {
 				continue
 			}
 		}
-		if err := config.ValidateBridgeFeishuGroupWatchInteraction(cfg, mode); err != nil {
+		if err := config.ValidateBridgeFeishuGroupWatchInteraction(cfg.ForChat(chatID), mode); err != nil {
 			return err
 		}
 	}
@@ -370,7 +385,7 @@ func (b *Bridge) routeGroupWatchMessage(ctx context.Context, msg groupWatchMessa
 			Msg("bridge: group_watch message ignored because sender identity is missing")
 		return nil
 	}
-	cfg := b.groupWatchSnapshot()
+	cfg := b.groupWatchSnapshot().ForChat(msg.ChatID)
 	if !cfg.Enabled || !groupWatchConfigHasChat(cfg, msg.ChatID) || !groupWatchConfigAllowsSender(cfg, msg.ChatID, msg.SenderType) {
 		return nil
 	}
@@ -597,6 +612,9 @@ func (b *Bridge) pollGroupWatchOnce(ctx context.Context, now time.Time) error {
 	}
 	var pollErrs []error
 	for _, chatID := range cfg.ChatIDs {
+		if !cfg.ForChat(chatID).Enabled {
+			continue
+		}
 		messages, err := list(ctx, chatID, start, now)
 		if err != nil {
 			pollErrs = append(pollErrs, fmt.Errorf("%s: %w", chatID, err))

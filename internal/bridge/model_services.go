@@ -224,6 +224,9 @@ func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
 		base := b.managementState()
+		if action == managementActionGroupWatchEdit {
+			base = b.groupWatchManagementState(base, managementCallbackString(event.Event.Action, "chat_id"))
+		}
 		draftAction := modelServiceDraftAction(event.Event.Action)
 		draft := managementDraftFromCallback(draftAction, base)
 		documentDraft := managementDocumentCommentsDraftFromCallback(draftAction, base)

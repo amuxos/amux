@@ -2458,5 +2458,47 @@
   },
   "management.model.native.refresh": {
     "other": "刷新 Codex 模型"
+  },
+  "management.watch.choose_group": {
+    "other": "请选择下方的值守群，修改该群设置。"
+  },
+  "management.watch.edit_group": {
+    "other": "设置本群值守"
+  },
+  "management.watch.legacy_defaults": {
+    "other": "尚未独立设置的群使用以下默认值"
+  },
+  "management.watch.only_this_group": {
+    "other": "修改仅对本群生效。执行和休眠设置影响新会话，已有会话保留执行参数。"
+  },
+  "management.watch.global_paused": {
+    "other": "当前值守已暂停。如总开关已暂停，请在群值守列表恢复后再接收本群新任务。"
+  },
+  "management.watch.group_unavailable": {
+    "other": "本群已移出值守，请重新打开群值守设置。"
+  },
+  "management.watch.choose_status": {
+    "other": "请选择是否开启本群值守"
+  },
+  "management.watch.invalid_limit": {
+    "other": "活跃会话上限必须为 1–500 的整数。"
+  },
+  "management.watch.invalid_idle": {
+    "other": "自动休眠必须为 60–604800 秒的整数。"
+  },
+  "management.watch.stale": {
+    "other": "设置已变更，请重新打开编辑卡片后保存。"
+  },
+  "management.watch.limit_label": {
+    "other": "本群活跃会话上限（1–500）"
+  },
+  "management.watch.idle_label": {
+    "other": "自动休眠秒数（60–604800）"
+  },
+  "management.watch.inherit_group": {
+    "other": "继承本群普通会话默认值"
+  },
+  "management.watch.group_saved": {
+    "other": "已保存本群值守设置"
   }
 }

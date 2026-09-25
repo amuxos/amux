@@ -209,6 +209,7 @@ type BridgeFeishuGroupWatchConfig struct {
 	ChatIDs                  []string
 	SenderTypes              []string
 	ChatSenderTypes          map[string][]string
+	ChatSettings             map[string]BridgeFeishuGroupWatchChatConfig
 	PollIntervalSeconds      int
 	LookbackSeconds          int
 	DedupEnabled             bool
@@ -238,7 +239,7 @@ func ValidateBridgeFeishuGroupWatchInteraction(groupWatch BridgeFeishuGroupWatch
 		return nil
 	}
 	for _, chatID := range groupWatch.ChatIDs {
-		if strings.TrimSpace(chatID) != "" {
+		if strings.TrimSpace(chatID) != "" && groupWatch.ForChat(chatID).Enabled {
 			return fmt.Errorf("群值守与“继续同一对话”不兼容；请先暂停当前智能体的群值守，群值守仅支持“每个话题独立”")
 		}
 	}
@@ -742,6 +743,7 @@ func GetBridgeFeishuGroupWatchForProfile(profile string) BridgeFeishuGroupWatchC
 	if viper.IsSet(base + ".thinking_process") {
 		cfg.ThinkingProcess = viper.GetString(base + ".thinking_process")
 	}
+	cfg.ChatSettings = readGroupWatchChatSettings(base+".chat_settings", cfg)
 	return normalizeBridgeFeishuGroupWatch(cfg)
 }
 

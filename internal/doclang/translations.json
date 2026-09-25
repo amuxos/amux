@@ -2878,5 +2878,53 @@
   "Release manifest or archive URL used when --source is omitted": {
     "en": "Release manifest or archive URL used when --source is omitted",
     "zh-CN": "省略 --source 时使用的发行清单或归档 URL"
+  },
+  "本群值守开关，与群值守总开关同时开启才接收自动任务。": {
+    "en": "Enable watch in this group; automatic work also requires the master watch switch.",
+    "zh-CN": "本群值守开关，与群值守总开关同时开启才接收自动任务。"
+  },
+  "本群值守专家；空值使用本群普通会话的执行配置。": {
+    "en": "Watch expert for this group; empty inherits its ordinary conversation execution settings.",
+    "zh-CN": "本群值守专家；空值使用本群普通会话的执行配置。"
+  },
+  "本群自定义值守的运行引擎；自定义专家时必填。": {
+    "en": "Runtime for custom watch execution in this group; required with a custom expert.",
+    "zh-CN": "本群自定义值守的运行引擎；自定义专家时必填。"
+  },
+  "本群值守模型，按所选运行引擎校验。": {
+    "en": "Watch model for this group, validated against the selected runtime.",
+    "zh-CN": "本群值守模型，按所选运行引擎校验。"
+  },
+  "本群值守思考强度，按所选运行引擎和模型校验。": {
+    "en": "Watch reasoning effort for this group, validated against the selected runtime and model.",
+    "zh-CN": "本群值守思考强度，按所选运行引擎和模型校验。"
+  },
+  "本群值守任务的处理过程展示方式。": {
+    "en": "Activity presentation for watch tasks in this group.",
+    "zh-CN": "本群值守任务的处理过程展示方式。"
+  },
+  "本群值守活跃 Session 上限。": {
+    "en": "Maximum active watch Sessions in this group.",
+    "zh-CN": "本群值守活跃 Session 上限。"
+  },
+  "本群新值守 Session 的自动休眠阈值。": {
+    "en": "Idle timeout for new watch Sessions in this group.",
+    "zh-CN": "本群新值守 Session 的自动休眠阈值。"
+  },
+  "本群值守设置版本，用于拒绝过期卡片写入。": {
+    "en": "Watch settings version for this group, used to reject stale card writes.",
+    "zh-CN": "本群值守设置版本，用于拒绝过期卡片写入。"
+  },
+  "空（继承本群普通会话）": {
+    "en": "Empty (inherit ordinary conversations in this group)",
+    "zh-CN": "空（继承本群普通会话）"
+  },
+  "继承群值守默认值": {
+    "en": "Inherit watch defaults",
+    "zh-CN": "继承群值守默认值"
+  },
+  "非负整数": {
+    "en": "Non-negative integer",
+    "zh-CN": "非负整数"
   }
 }

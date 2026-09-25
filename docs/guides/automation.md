@@ -143,6 +143,22 @@ One bot can use different sender types for different groups, such as app alerts
 in one group and user questions in another. A per-group sender override only
 changes filtering; it does not enroll an otherwise unwatched group.
 
+### Configure each group
+
+In private `/amux`, open Group watch and choose **Watch settings for this group**
+next to the enrolled group. The group settings card exposes the same entry.
+Select the group's enabled state and inherited/custom task settings, then adjust
+its expert, Runtime, model, reasoning effort, activity display, active-session
+limit (1–500), and automatic sleep (60–604800 seconds). Inherited execution uses
+that group's ordinary conversation defaults. Save applies the complete form only
+to that group; reopening shows its saved values. Use the page controls when the
+editor spans multiple pages; entered values are retained when refreshing models
+or changing pages. A stale editor must be reopened before saving.
+
+Groups without an independent record keep the previous Bot-wide watch defaults.
+The global pause switch still pauses every watched group. Existing Sessions keep
+their execution settings; new Sessions use the saved expert and sleep threshold.
+
 ### Which messages are eligible
 
 | Condition | Current behavior |

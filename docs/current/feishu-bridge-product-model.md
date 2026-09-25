@@ -100,6 +100,21 @@ confirmed Bot owner so principal-scoped model-service login matches the
 configuring operator. Without a configured owner, group watch refuses to start
 the task rather than falling back to the alert sender's identity.
 
+Each watched group has an owner-only settings entry in the private group-watch
+list and its group settings card. The editor saves an independent, versioned
+`group_watch.chat_settings.<chat_id>` record: enabled state, inherited/custom
+execution, expert, Runtime, model, reasoning effort, activity presentation,
+active-session limit (1–500), and idle timeout (60–604800 seconds). A save affects
+only that Bot and group. Existing groups without a record retain the previous
+Bot-wide watch defaults. Inherited execution uses the target group's ordinary
+conversation defaults; a custom tuple replaces only execution selection.
+Global pause remains a master switch. A disabled group is excluded from both
+live intake and history polling. Execution and idle-timeout changes apply to
+new Sessions; capacity checks and activity presentation use the group's current
+policy. Saving validates the complete draft atomically, and rejects stale cards.
+These watch settings do not require the separate group-conversation experiment;
+that experiment's existing admission and isolation rules still apply.
+
 The group-watch `sender_types` list is the default sender allowlist for watched
 groups in the effective configuration. `chat_sender_types.<chat_id>` may
 override that allowlist for one watched group, so one Bot profile can accept

@@ -68,6 +68,7 @@ func TestConfigReferenceCoversConfigReads(t *testing.T) {
 	// with the same name in another family cannot hide an omission.
 	dynamicField := regexp.MustCompile(`(?:base\s*\+\s*"\.|prefix\s*\+\s*")([a-z][a-z0-9_]*)"`)
 	dynamicFamilies := map[string]string{
+		"readGroupWatchChatSettings":                 "bridge.feishu.profiles.<profile>.group_watch.chat_settings.<chat_id>.",
 		"GetBridgeFeishuBotE2EForProfile":            "bridge.feishu.profiles.<profile>.bot_e2e.",
 		"GetBridgeFeishuDocumentCommentsForProfile":  "bridge.feishu.profiles.<profile>.document_comments.",
 		"GetBridgeFeishuBotToBotForProfile":          "bridge.feishu.profiles.<profile>.bot_to_bot.",

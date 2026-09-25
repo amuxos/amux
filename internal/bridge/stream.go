@@ -347,7 +347,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 	}
 	thinkingProcess := func() string {
 		if groupWatchStream {
-			return b.streamThinkingProcess(true)
+			return b.streamThinkingProcess(true, streamChat.ChatID)
 		}
 		if b.db != nil && streamChat.ChatID != "" {
 			if settings, err := b.db.ReadGroupSettings(bridgeID, streamChat.ChatID); err == nil && settings != nil {
@@ -1080,9 +1080,13 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 	}()
 }
 
-func (b *Bridge) streamThinkingProcess(groupWatch bool) string {
+func (b *Bridge) streamThinkingProcess(groupWatch bool, chatIDs ...string) string {
 	if groupWatch {
-		return config.GetBridgeFeishuGroupWatchForProfile(b.ProfileName()).ThinkingProcess
+		cfg := config.GetBridgeFeishuGroupWatchForProfile(b.ProfileName())
+		if len(chatIDs) > 0 {
+			cfg = cfg.ForChat(chatIDs[0])
+		}
+		return cfg.ThinkingProcess
 	}
 	return config.GetBridgeFeishuPresentationForProfile(b.ProfileName()).ThinkingProcess
 }
