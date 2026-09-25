@@ -1188,16 +1188,40 @@ func numberValue(value any) (int64, bool) {
 	}
 }
 
+// compactNumber renders a count with an adaptive magnitude suffix so long-running
+// cumulative totals stay readable: 999 -> "999", 22800 -> "22.8k",
+// 128400000 -> "128.4M", 12345678901 -> "12.3B". The scaled value keeps one
+// decimal digit and drops a trailing ".0". Magnitudes are never rounded up a
+// step, so 999999 stays "999.9k" rather than becoming "1M"; this keeps the two
+// numbers in a "cached/total" pair ordered the same way they are written.
 func compactNumber(value int64) string {
-	if value >= 1000 {
-		whole := value / 1000
-		fraction := (value % 1000) / 100
-		if fraction > 0 {
-			return strconv.FormatInt(whole, 10) + "." + strconv.FormatInt(fraction, 10) + "k"
+	divisor := int64(1)
+	suffix := ""
+	for _, unit := range compactNumberUnits {
+		if value < unit.divisor {
+			break
 		}
-		return strconv.FormatInt(whole, 10) + "k"
+		divisor, suffix = unit.divisor, unit.suffix
 	}
-	return strconv.FormatInt(value, 10)
+	if divisor == 1 {
+		return strconv.FormatInt(value, 10)
+	}
+	whole := value / divisor
+	fraction := (value % divisor) / (divisor / 10)
+	if fraction > 0 {
+		return strconv.FormatInt(whole, 10) + "." + strconv.FormatInt(fraction, 10) + suffix
+	}
+	return strconv.FormatInt(whole, 10) + suffix
+}
+
+// compactNumberUnits lists the magnitude suffixes in ascending order.
+var compactNumberUnits = []struct {
+	divisor int64
+	suffix  string
+}{
+	{1_000, "k"},
+	{1_000_000, "M"},
+	{1_000_000_000, "B"},
 }
 
 // compactDurationText renders a millisecond count as a short human interval

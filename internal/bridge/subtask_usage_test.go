@@ -44,6 +44,21 @@ func TestSubtaskCardUsageRemainsIndependentAndSurvivesFinalization(t *testing.T)
 	assertUsage(b, "累计输入 0/80（缓存/总量） · 累计输出 10")
 }
 
+// A long-running child accumulates past k; the child card scales magnitude
+// units the same way the main card does.
+func TestSubtaskCardUsageAdaptsMagnitudeUnit(t *testing.T) {
+	now := time.Now()
+	state := newSubtaskCardState(subtaskProgress{ID: "task-a", Status: "running", StartedAt: now})
+	state.applyEvent(subtaskEvent{TaskID: "task-a", Seq: 1, Kind: "usage", Usage: []byte(`{"cumulative_input_tokens":128400000,"cumulative_cached_input_tokens":300000,"cumulative_output_tokens":10500000}`)})
+	want := "累计输入 300k/128.4M（缓存/总量） · 累计输出 10.5M"
+	snapshot := state.snapshot(now)
+	for _, card := range []string{renderSubtaskActivityCard(snapshot, "", now), string(snapshot.activity("", now).JSON)} {
+		if !strings.Contains(card, want) {
+			t.Fatalf("card missing %q: %s", want, card)
+		}
+	}
+}
+
 func TestReadSubtaskProgressRestoresFinalUsage(t *testing.T) {
 	usage := []byte(`{"cumulative_input_tokens":343000,"cumulative_cached_input_tokens":300000,"cumulative_output_tokens":12000}`)
 	raw, err := json.Marshal(map[string]any{

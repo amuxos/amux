@@ -1343,6 +1343,47 @@ func TestUsageSummaryShowsSpeedMetrics(t *testing.T) {
 	}
 }
 
+func TestCompactNumberAdaptsMagnitudeUnit(t *testing.T) {
+	cases := []struct {
+		in   int64
+		want string
+	}{
+		{0, "0"},
+		{999, "999"},
+		{1_000, "1k"},
+		{22_800, "22.8k"},
+		{343_000, "343k"},
+		{343_100, "343.1k"},
+		{999_000, "999k"},
+		{999_900, "999.9k"},
+		// The largest value below the M step stays in k rather than rounding up,
+		// so a cached/total pair never renders in an order that contradicts it.
+		{999_949, "999.9k"},
+		{999_999, "999.9k"},
+		{1_000_000, "1M"},
+		{1_008_400, "1M"},
+		{10_500_000, "10.5M"},
+		{128_400_000, "128.4M"},
+		{999_999_999, "999.9M"},
+		{1_000_000_000, "1B"},
+		{1_100_000_000, "1.1B"},
+		{12_345_678_901, "12.3B"},
+	}
+	for _, c := range cases {
+		if got := compactNumber(c.in); got != c.want {
+			t.Fatalf("compactNumber(%d) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestUsageSummaryAdaptsCumulativeMagnitudeUnit(t *testing.T) {
+	raw := json.RawMessage(`{"cumulative_input_tokens":128400000,"cumulative_cached_input_tokens":10500000,"cumulative_output_tokens":12345678901}`)
+	want := "累计输入 10.5M/128.4M（缓存/总量） · 累计输出 12.3B"
+	if got := usageSummary(raw); got != want {
+		t.Fatalf("usageSummary(%s) = %q, want %q", raw, got, want)
+	}
+}
+
 func TestCompactDurationText(t *testing.T) {
 	cases := []struct {
 		ms   int64

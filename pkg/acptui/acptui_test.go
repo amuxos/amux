@@ -898,15 +898,33 @@ func TestCompactTokenCount(t *testing.T) {
 		in   int64
 		want string
 	}{
+		{0, "0"},
 		{999, "999"},
 		{1000, "1k"},
 		{48_000, "48k"},
+		{999_999, "999.9k"},
+		{1_000_000, "1M"},
 		{1_500_000, "1.5M"},
+		{128_400_000, "128.4M"},
+		{1_000_000_000, "1B"},
+		{1_100_000_000, "1.1B"},
 	}
 	for _, c := range cases {
 		if got := compactTokenCount(c.in); got != c.want {
 			t.Fatalf("compactTokenCount(%d) = %q, want %q", c.in, got, c.want)
 		}
+	}
+}
+
+func TestPanelSnapshotAdaptsLargeContextUnits(t *testing.T) {
+	editor := NewLineEditor(func([]byte) {})
+	panel := NewPanel(PanelConfig{SessionName: "work", AgentType: "codex"}, editor)
+	panel.SetSize(80, 14)
+	panel.SetUsage(&UsageStats{TotalTokens: 1_048_576, ContextWindow: 10_000_000})
+
+	got := string(panel.RenderPanel())
+	if !strings.Contains(got, "ctx: 1M/10M (10%)") {
+		t.Fatalf("state line should scale both counts past k:\n%s", got)
 	}
 }
 

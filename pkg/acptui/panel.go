@@ -857,16 +857,43 @@ func compactDuration(ms int64) string {
 	}
 }
 
-// compactTokenCount renders a token count with k/M suffixes.
+// compactTokenCount renders a token count with an adaptive magnitude suffix so
+// long-running totals stay readable: 999 -> "999", 22800 -> "22.8k",
+// 128400000 -> "128.4M", 12345678901 -> "12.3B". The scaled value keeps one
+// decimal digit and drops a trailing ".0". Magnitudes are never rounded up a
+// step, so 999999 stays "999.9k" rather than becoming "1M"; this keeps the two
+// numbers in a "used/window" pair ordered the same way they are written.
+//
+// Counts are formatted the same way across surfaces, but pkg/acptui must not
+// import internal/*, so the rule lives here as well rather than being shared.
 func compactTokenCount(n int64) string {
-	switch {
-	case n >= 1_000_000:
-		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
-	case n >= 1_000:
-		return fmt.Sprintf("%dk", n/1_000)
-	default:
+	divisor := int64(1)
+	suffix := ""
+	for _, unit := range compactTokenUnits {
+		if n < unit.divisor {
+			break
+		}
+		divisor, suffix = unit.divisor, unit.suffix
+	}
+	if divisor == 1 {
 		return fmt.Sprintf("%d", n)
 	}
+	whole := n / divisor
+	fraction := (n % divisor) / (divisor / 10)
+	if fraction > 0 {
+		return fmt.Sprintf("%d.%d%s", whole, fraction, suffix)
+	}
+	return fmt.Sprintf("%d%s", whole, suffix)
+}
+
+// compactTokenUnits lists the magnitude suffixes in ascending order.
+var compactTokenUnits = []struct {
+	divisor int64
+	suffix  string
+}{
+	{1_000, "k"},
+	{1_000_000, "M"},
+	{1_000_000_000, "B"},
 }
 
 func boxTop(width int, title string) string {

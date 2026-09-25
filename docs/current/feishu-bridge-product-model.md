@@ -82,7 +82,11 @@ invocation's total is displayed as `22.8k tokens (8%)` when a context window is
 known; otherwise the percentage is omitted. Native provider-thread cumulative
 input is displayed as `累计输入 300k/343k（缓存/总量）` when cached input is reported,
 or `累计输入 343k` without a cached-input value. Cumulative output is displayed as
-`累计输出 12k`; both use tokens. Explicit zero values are retained. Missing
+`累计输出 12k`; both use tokens. Counts adapt their magnitude unit so a long-running
+total stays readable: `k` below one million, `M` below one billion, then `B`
+(`128.4M`, `12.3B`). The scaled value keeps one decimal digit and drops a trailing
+`.0`, and a magnitude is never rounded up a step, so `999999` renders as `999.9k`
+rather than `1M`. Explicit zero values are retained. Missing
 cumulative fields are omitted, never inferred from the latest invocation or
 summed across updates. Context occupancy still uses the latest invocation,
 independently of cumulative consumption. Optional first-token latency and token
