@@ -25,6 +25,7 @@ func replaceCLIConfigFileForTest(cfg cliConfigFile) error {
 func TestConfigJSONPreservesTypedValues(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	path := filepath.Join(home, ".amux", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
@@ -77,6 +78,7 @@ func TestSystemConfigUsesCanonicalCommand(t *testing.T) {
 func TestConfigSetGetUnset(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	set := newConfigCmd()
 	set.SetArgs([]string{"set", "hub.addr", "127.0.0.1:7000"})
@@ -129,6 +131,7 @@ func TestValidateHubAddressAcceptsSupportedListenerForms(t *testing.T) {
 func TestConfigSetPreservesExistingSections(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	path := filepath.Join(home, ".amux", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
@@ -155,6 +158,7 @@ func TestConfigSetPreservesExistingSections(t *testing.T) {
 func TestConfigSetRuntimeIDDefaultsNameToID(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newConfigCmd()
 	cmd.SetArgs([]string{"set", "runtime.id", "devbox"})
@@ -177,6 +181,7 @@ func TestConfigSetRuntimeIDDefaultsNameToID(t *testing.T) {
 func TestConfigSetRuntimeIDDoesNotOverrideExplicitName(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	path := filepath.Join(home, ".amux", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
@@ -204,6 +209,7 @@ func TestConfigSetRuntimeIDDoesNotOverrideExplicitName(t *testing.T) {
 func TestConfigSetRuntimeIdleTimeoutSeconds(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newConfigCmd()
 	cmd.SetArgs([]string{"set", "runtime.idle_timeout_seconds", "120"})
@@ -224,6 +230,7 @@ func TestConfigSetRuntimeIdleTimeoutSeconds(t *testing.T) {
 func TestConfigSetIdleTimeoutRejectsTooSmallPositiveValue(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newConfigCmd()
 	cmd.SetArgs([]string{"set", "runtime.idle_timeout_seconds", "30"})
@@ -235,6 +242,7 @@ func TestConfigSetIdleTimeoutRejectsTooSmallPositiveValue(t *testing.T) {
 func TestConfigSetBridgeFeishuPromptValues(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	enabled := newConfigCmd()
 	enabled.SetArgs([]string{"set", "bridge.feishu.prompt.shared_thread_enabled", "false"})
@@ -273,6 +281,7 @@ func TestConfigSetBridgeFeishuPromptValues(t *testing.T) {
 func TestConfigSetBridgeFeishuThinkingProcess(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "bridge.feishu.presentation.thinking_process", config.FeishuThinkingProcessCollapsed},
@@ -316,6 +325,7 @@ func TestConfigSetBridgeFeishuThinkingProcess(t *testing.T) {
 func TestConfigSetBridgeFeishuCompletionNotificationThreshold(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "bridge.feishu.presentation.completion_notification_after_seconds", "90"},
@@ -352,6 +362,7 @@ func TestConfigSetBridgeFeishuCompletionNotificationThreshold(t *testing.T) {
 func TestConfigSetBridgeFeishuDocumentCommentsEnabled(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newConfigCmd()
 	cmd.SetArgs([]string{"set", "bridge.feishu.document_comments.enabled", "true"})
@@ -370,6 +381,7 @@ func TestConfigSetBridgeFeishuDocumentCommentsEnabled(t *testing.T) {
 func TestConfigSetBridgeFeishuProfileGroupWatch(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "bridge.feishu.group_watch.chat_sender_types.oc_global", "app"},
@@ -422,6 +434,7 @@ func TestConfigSetBridgeFeishuProfileGroupWatch(t *testing.T) {
 func TestConfigSetBridgeFeishuProfileBotE2E(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newConfigCmd()
 	cmd.SetArgs([]string{"set", "bridge.feishu.profiles.default.bot_e2e.sender_open_ids", "ou_javis ou_javis ou_runner"})
@@ -443,6 +456,7 @@ func TestConfigSetBridgeFeishuProfileBotE2E(t *testing.T) {
 func TestConfigSetBridgeFeishuProfileBotE2ESenderRoles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newConfigCmd()
 	cmd.SetArgs([]string{"set", "bridge.feishu.profiles.default.bot_e2e.sender_roles", "ou_shared=shared,ou_owner=owner"})
@@ -469,6 +483,7 @@ func TestConfigSetBridgeFeishuProfileBotE2ESenderRoles(t *testing.T) {
 func TestConfigSetBridgeFeishuProfileGroupWatchExecution(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	agentKey := "bridge.feishu.profiles.coder.group_watch.agent_profile_ref"
 	runtimeKey := "bridge.feishu.profiles.coder.group_watch.runtime_ref"
 	modelKey := "bridge.feishu.profiles.coder.group_watch.model_ref"
@@ -529,6 +544,7 @@ func TestConfigSetBridgeFeishuProfileGroupWatchExecution(t *testing.T) {
 func TestConfigSetBridgeFeishuProfileDocumentCommentsEnabled(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newConfigCmd()
 	cmd.SetArgs([]string{"set", "bridge.feishu.profiles.coder.document_comments.enabled", "false"})
@@ -550,6 +566,7 @@ func TestConfigSetBridgeFeishuProfileDocumentCommentsEnabled(t *testing.T) {
 func TestConfigSetBridgeFeishuProfileDocumentCommentsExecution(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "bridge.feishu.profiles.coder.document_comments.agent_profile_ref", "builtin/codex"},
@@ -587,6 +604,7 @@ func TestConfigSetBridgeFeishuProfileDocumentCommentsExecution(t *testing.T) {
 func TestConfigDocumentCommentsModelRequiresAgentOverride(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	manifestPath := filepath.Join(repo, "dist", "agent-pack.manifest.json")
 	data, err := os.ReadFile(manifestPath)
@@ -648,6 +666,7 @@ func TestConfigDocumentCommentsModelRequiresAgentOverride(t *testing.T) {
 func TestConfigSetBridgeFeishuWorkspaceDefaults(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "bridge.feishu.workspace_defaults.agent", "codex"},
@@ -686,6 +705,7 @@ func TestConfigSetBridgeFeishuWorkspaceDefaults(t *testing.T) {
 func TestConfigSetBridgeFeishuBotToBot(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "bridge.feishu.bot_to_bot.enabled", "true"},
@@ -725,6 +745,7 @@ func TestConfigSetBridgeFeishuBotToBot(t *testing.T) {
 func TestConfigSetBridgeFeishuProfileWorkspaceDefaults(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "bridge.feishu.profiles.coder.workspace_defaults.agent", "codex"},
@@ -764,6 +785,7 @@ func TestConfigSetBridgeFeishuProfileWorkspaceDefaults(t *testing.T) {
 func TestConfigSetBridgeFeishuProfileWorkspaceDefaultsRejectsUnsafeProfile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newConfigCmd()
 	cmd.SetArgs([]string{"set", "bridge.feishu.profiles.bad/name.workspace_defaults.agent", "codex"})
@@ -775,6 +797,7 @@ func TestConfigSetBridgeFeishuProfileWorkspaceDefaultsRejectsUnsafeProfile(t *te
 func TestConfigSetFeishuProfileInteractionMode(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newConfigCmd()
 	cmd.SetArgs([]string{"set", "bridge.feishu.profiles.bot_a.interaction.mode", "singleton"})
@@ -806,6 +829,7 @@ func TestConfigSetFeishuProfileInteractionMode(t *testing.T) {
 func TestConfigSetRejectsSingletonWithGroupWatchProfile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "bridge.feishu.profiles.bot_a.group_watch.enabled", "true"},
@@ -832,6 +856,7 @@ func TestConfigSetRejectsSingletonWithGroupWatchProfile(t *testing.T) {
 func TestConfigSetRejectsGroupWatchChatsForSingletonProfile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "bridge.feishu.profiles.bot_a.interaction.mode", "singleton"},
@@ -858,6 +883,7 @@ func TestConfigSetRejectsGroupWatchChatsForSingletonProfile(t *testing.T) {
 func TestConfigSetReadsAuthoritativeSingletonStateFromBridgeDB(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("bot_a", &bridge.Secrets{AppId: "cli_bot_a", AppSecret: "secret"}); err != nil {
 		t.Fatalf("SaveProfileSecrets: %v", err)
 	}
@@ -887,6 +913,7 @@ func TestConfigSetReadsAuthoritativeSingletonStateFromBridgeDB(t *testing.T) {
 func TestConfigSetCandidateSingletonOverridesCurrentThreadDBForValidation(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("bot_a", &bridge.Secrets{AppId: "cli_bot_a", AppSecret: "secret"}); err != nil {
 		t.Fatalf("SaveProfileSecrets: %v", err)
 	}
@@ -915,6 +942,7 @@ func TestConfigSetCandidateSingletonOverridesCurrentThreadDBForValidation(t *tes
 func TestConfigSetGlobalGroupWatchChecksSecretOnlySingletonProfiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("bot_hidden", &bridge.Secrets{AppId: "cli_hidden", AppSecret: "secret"}); err != nil {
 		t.Fatalf("SaveProfileSecrets: %v", err)
 	}
@@ -940,6 +968,7 @@ func TestConfigSetGlobalGroupWatchChecksSecretOnlySingletonProfiles(t *testing.T
 func TestConfigSetRuntimeRegistryKeys(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	set := func(k, v string) {
 		t.Helper()
@@ -988,6 +1017,7 @@ func TestConfigSetRuntimeRegistryKeys(t *testing.T) {
 func TestConfigSetMCPKeys(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "mcp.enabled", "false"},
@@ -1030,6 +1060,7 @@ func TestConfigSetMCPKeys(t *testing.T) {
 func TestConfigSetDoesNotMigrateLegacySections(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	path := filepath.Join(home, ".amux", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)

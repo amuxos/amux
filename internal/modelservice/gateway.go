@@ -14,8 +14,10 @@ import (
 	"github.com/amuxos/amux/internal/transport"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // StartGateway is owned by the session broker, so Runtime restarts do not break
@@ -95,7 +97,7 @@ func StartGateway(env []string, service string) (baseURL, key string, closeGatew
 		}
 		stream, err := client.ProxyModel(ctx, &pb.ProxyModelRequest{Service: service, Method: r.Method, Path: r.URL.Path, Headers: headers, Body: body})
 		if err != nil {
-			gatewayError(w, 502, "model service unavailable")
+			gatewayGRPCError(w, err)
 			return
 		}
 		started := false
@@ -106,7 +108,7 @@ func StartGateway(env []string, service string) (baseURL, key string, closeGatew
 			}
 			if err != nil {
 				if !started {
-					gatewayError(w, 502, "model service unavailable; check your login in AMUX")
+					gatewayGRPCError(w, err)
 				} else {
 					panic(http.ErrAbortHandler)
 				}
@@ -136,6 +138,25 @@ func StartGateway(env []string, service string) (baseURL, key string, closeGatew
 	go func() { _ = srv.Serve(lis) }()
 	closeGateway = func() { _ = srv.Close(); _ = conn.Close() }
 	return "http://" + lis.Addr().String() + "/v1", key, closeGateway, nil
+}
+
+func gatewayGRPCError(w http.ResponseWriter, err error) {
+	code, key := http.StatusServiceUnavailable, "unavailable"
+	switch status.Code(err) {
+	case codes.Unauthenticated:
+		code, key = http.StatusUnauthorized, "login_required"
+	case codes.PermissionDenied:
+		code, key = http.StatusForbidden, "access_denied"
+	case codes.InvalidArgument:
+		code, key = http.StatusBadRequest, "invalid_request"
+	case codes.NotFound:
+		code, key = http.StatusNotFound, "not_found"
+	case codes.ResourceExhausted:
+		code, key = http.StatusTooManyRequests, "rate_limited"
+	case codes.DeadlineExceeded:
+		code, key = http.StatusGatewayTimeout, "timed_out"
+	}
+	gatewayError(w, code, errorMessage(key))
 }
 
 func gatewayError(w http.ResponseWriter, code int, message string) {

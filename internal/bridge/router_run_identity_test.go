@@ -34,7 +34,7 @@ func TestFeishuSessionIsolationSelectionStaysWithinScope(t *testing.T) {
 	}
 	check := func(chatID, backend string) {
 		t.Helper()
-		if _, ok, err := b.runFeishuSession(context.Background(), "root-"+chatID, chatID, "owner", "local", "session-"+chatID, t.TempDir(), agentprofile.LaunchProjection{AgentType: "codex"}, 0); err != nil || !ok {
+		if _, ok, err := b.runFeishuSession(context.Background(), "root-"+chatID, chatID, "owner", "owner", "local", "session-"+chatID, t.TempDir(), agentprofile.LaunchProjection{AgentType: "codex"}, 0); err != nil || !ok {
 			t.Fatalf("%s launch ok=%v err=%v", chatID, ok, err)
 		}
 		runs := groupTestRuns(hub)
@@ -105,12 +105,15 @@ func TestFeishuSessionRunCarriesTheResolvedLaunchIdentity(t *testing.T) {
 		ActorToken:          "tok-1",
 		ActorTokenExpiresAt: 1893456000,
 	}
-	b.SetExecutionIdentityResolver(func(string, string, string, bool) (LaunchIdentity, error) {
+	b.SetExecutionIdentityResolver(func(openID, _ string, _ string, _ bool) (LaunchIdentity, error) {
+		if openID != "ou_sender" {
+			t.Fatalf("execution actor = %q, want ordinary message author", openID)
+		}
 		return want, nil
 	})
 
 	if _, ok, err := b.runFeishuSession(
-		context.Background(), "msg-1", "chat-1", "ou_sender", "target-1", "s1", "/tmp",
+		context.Background(), "msg-1", "chat-1", "ou_sender", "ou_sender", "target-1", "s1", "/tmp",
 		agentprofile.LaunchProjection{AgentType: "codex"}, 0,
 	); err != nil || !ok {
 		t.Fatalf("runFeishuSession ok=%v err=%v", ok, err)
@@ -162,7 +165,7 @@ func TestFeishuSessionRunIsolationRequiredRefusesAnonymousLaunch(t *testing.T) {
 	b.SetIsolationSupportChecker(func() (bool, string) { return true, "" })
 
 	if _, ok, err := b.runFeishuSession(
-		context.Background(), "msg-iso", "chat-1", "ou_sender", "target-1", "s1", "/tmp",
+		context.Background(), "msg-iso", "chat-1", "ou_sender", "ou_sender", "target-1", "s1", "/tmp",
 		agentprofile.LaunchProjection{AgentType: "codex"}, 0,
 	); err != nil || ok {
 		t.Fatalf("runFeishuSession ok=%v err=%v, want not-ok refuse (no legacy fallback)", ok, err)
@@ -194,7 +197,7 @@ func TestFeishuSessionRunIsolationRequiredPinsNaturalIdentity(t *testing.T) {
 		return LaunchIdentity{Identity: original, LaunchID: "launch-1"}, nil
 	})
 
-	if _, ok, err := b.runFeishuSession(context.Background(), "msg", "chat", "user", "target", "session", t.TempDir(), agentprofile.LaunchProjection{AgentType: "codex"}, 0); err != nil || !ok {
+	if _, ok, err := b.runFeishuSession(context.Background(), "msg", "chat", "user", "user", "target", "session", t.TempDir(), agentprofile.LaunchProjection{AgentType: "codex"}, 0); err != nil || !ok {
 		t.Fatalf("runFeishuSession ok=%v err=%v", ok, err)
 	}
 	run := hub.routes[0].payload.(*pb.RunRequest)
@@ -227,7 +230,7 @@ func TestFeishuSessionRunIsolationRequiredRejectsExplicitNonisolatedBackend(t *t
 			b.SetExecutionIdentityResolver(func(string, string, string, bool) (LaunchIdentity, error) {
 				return LaunchIdentity{Identity: &pb.ExecutionIdentity{IdentityMode: "identified", EffectivePrincipalId: "principal-1", IsolationBackend: backend}, LaunchID: "launch-1"}, nil
 			})
-			if _, ok, err := b.runFeishuSession(context.Background(), "msg", "chat", "user", "target", "session", t.TempDir(), agentprofile.LaunchProjection{AgentType: "codex"}, 0); err != nil || ok {
+			if _, ok, err := b.runFeishuSession(context.Background(), "msg", "chat", "user", "user", "target", "session", t.TempDir(), agentprofile.LaunchProjection{AgentType: "codex"}, 0); err != nil || ok {
 				t.Fatalf("runFeishuSession ok=%v err=%v", ok, err)
 			}
 			if len(hub.routes) != 0 {

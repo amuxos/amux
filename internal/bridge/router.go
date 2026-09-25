@@ -30,6 +30,7 @@ func (b *Bridge) routeToSessionInChatWithMention(ctx context.Context, chatID, ro
 type routeInputOptions struct {
 	groupRouted              bool
 	source                   routeInputSource
+	executionActorOpenID     string
 	alertDedup               *groupWatchAlertDedup
 	agentProfileRef          string
 	runtimeRef               string
@@ -407,6 +408,7 @@ func (b *Bridge) routeFreshTopicInput(ctx context.Context, chatID, rootMsgID, ms
 		if isGroupWatch {
 			return b.runAndBindNaturalEntryWithOptions(ctx, chatID, rootMsgID, msgID, openID, text, mention, naturalEntryOptions{
 				source:                   routeInputSourceGroupWatch,
+				executionActorOpenID:     opts.executionActorOpenID,
 				alertDedup:               opts.alertDedup,
 				agentProfileRef:          opts.agentProfileRef,
 				runtimeRef:               opts.runtimeRef,
@@ -573,6 +575,7 @@ type topicRunRequest struct {
 
 type naturalEntryOptions struct {
 	source                   routeInputSource
+	executionActorOpenID     string
 	alertDedup               *groupWatchAlertDedup
 	agentProfileRef          string
 	runtimeRef               string

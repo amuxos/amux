@@ -2018,6 +2018,9 @@
   "management.watch.saved": {
     "other": "群值守设置已保存"
   },
+  "management.watch.owner_required": {
+    "other": "⚠️ 群值守任务未启动：尚未配置智能体负责人，无法确定自动任务的执行身份。请先在私聊中完成智能体初始化后重试。"
+  },
   "management.help.active_topic.amux": {
     "other": "查看当前任务状态"
   },

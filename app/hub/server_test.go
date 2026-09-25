@@ -99,6 +99,7 @@ func TestRuntimeChangeCwdRequestPreservesDeferredMode(t *testing.T) {
 func TestFeishuStatusAndBindingsReadHubState(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("default", &bridge.Secrets{
 		AppId:        "cli_test",
 		AppSecret:    "secret",
@@ -164,6 +165,7 @@ func TestFeishuStatusAndBindingsReadHubState(t *testing.T) {
 func TestFeishuBotSessionBindStatusAndOff(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("bot_a", &bridge.Secrets{
 		AppId:     "cli_bot_a",
 		AppSecret: "secret",
@@ -257,6 +259,7 @@ func (c *recordingFeishuBotSessionController) DisableBotSession() error {
 func TestFeishuBotSessionBindRejectsMissingSession(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("bot_a", &bridge.Secrets{AppId: "cli_bot_a", AppSecret: "secret"}); err != nil {
 		t.Fatalf("SaveProfileSecrets: %v", err)
 	}
@@ -278,6 +281,7 @@ func TestFeishuBotSessionBindRejectsMissingSession(t *testing.T) {
 func TestFeishuBotSessionBindWithoutControllerRejectsGroupWatchConfiguredProfile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	configPath := filepath.Join(home, ".amux", "config.toml")
 	if err := config.UpdateConfigFile(configPath, func(raw map[string]any) error {
 		raw["bridge"] = map[string]any{"feishu": map[string]any{"profiles": map[string]any{
@@ -619,6 +623,7 @@ func equalStrings(a, b []string) bool {
 func TestFeishuStatusBindingsAndBotsUseProfiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("planner", &bridge.Secrets{AppId: "cli_planner", AppSecret: "secret", OpenId: "ou_planner", BotName: "planner"}); err != nil {
 		t.Fatalf("SaveProfileSecrets planner: %v", err)
 	}

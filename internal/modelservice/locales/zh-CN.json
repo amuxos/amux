@@ -1,0 +1,9 @@
+{
+  "login_required": {"other": "请为当前执行身份登录模型服务"},
+  "access_denied": {"other": "无权访问模型服务"},
+  "invalid_request": {"other": "模型服务请求无效"},
+  "not_found": {"other": "模型服务不存在"},
+  "rate_limited": {"other": "模型服务请求已被限流"},
+  "timed_out": {"other": "模型服务请求超时"},
+  "unavailable": {"other": "模型服务暂时不可用"}
+}

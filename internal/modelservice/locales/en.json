@@ -1,0 +1,9 @@
+{
+  "login_required": {"other": "model service login required for this execution identity"},
+  "access_denied": {"other": "model service access denied"},
+  "invalid_request": {"other": "invalid model service request"},
+  "not_found": {"other": "model service not found"},
+  "rate_limited": {"other": "model service request limit exceeded"},
+  "timed_out": {"other": "model service timed out"},
+  "unavailable": {"other": "model service unavailable"}
+}

@@ -12,6 +12,7 @@ import (
 func TestProfileSecretsPathUsesDefaultProfileDirectory(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	got, err := ProfileSecretsPath(DefaultProfileName)
 	if err != nil {
@@ -54,6 +55,7 @@ func TestProfileSecretsPathRejectsUnsafeNames(t *testing.T) {
 func TestProfileSecretsRoundTrip(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	want := &Secrets{AppId: "cli_planner", AppSecret: "secret", OpenId: "ou_owner", BotName: "planner"}
 	if err := SaveProfileSecrets("planner", want); err != nil {
@@ -71,6 +73,7 @@ func TestProfileSecretsRoundTrip(t *testing.T) {
 func TestListSecretProfiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, profile := range []string{"coder", "default", "planner"} {
 		if err := SaveProfileSecrets(profile, &Secrets{AppId: "cli_" + profile, AppSecret: "secret"}); err != nil {

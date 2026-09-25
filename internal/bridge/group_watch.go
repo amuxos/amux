@@ -385,6 +385,17 @@ func (b *Bridge) routeGroupWatchMessage(ctx context.Context, msg groupWatchMessa
 	if mode != config.FeishuInteractionThread {
 		return nil
 	}
+	executionActorOpenID := ""
+	if b.secrets != nil {
+		executionActorOpenID = strings.TrimSpace(b.secrets.OpenId)
+	}
+	// Group watch is owner-authorized automation. Preserve the alert sender as
+	// message provenance, but mint the Session actor credential for the owner
+	// who configured the capability and owns any principal-scoped model login.
+	// Legacy bridges without an identity resolver do not require an actor.
+	if executionActorOpenID == "" && b.resolveExecutionIdentity != nil {
+		return b.notifyThread(ctx, msg.RootID, b.groupWatchOwnerUnavailableText())
+	}
 	// Polling reuses its parent context across messages. Each routed input owns
 	// a fresh collector, including its resource budget and expected identity.
 	ctx = context.WithValue(ctx, materialContextKey{}, &materialCollection{seen: map[string]bool{}})
@@ -402,6 +413,7 @@ func (b *Bridge) routeGroupWatchMessage(ctx context.Context, msg groupWatchMessa
 		botMentionInfo{PreserveText: true},
 		routeInputOptions{
 			source:                   routeInputSourceGroupWatch,
+			executionActorOpenID:     executionActorOpenID,
 			alertDedup:               dedup,
 			agentProfileRef:          cfg.AgentProfileRef,
 			runtimeRef:               cfg.RuntimeRef,
@@ -411,6 +423,10 @@ func (b *Bridge) routeGroupWatchMessage(ctx context.Context, msg groupWatchMessa
 			idleTimeoutSeconds:       cfg.IdleTimeoutSeconds,
 		},
 	)
+}
+
+func (b *Bridge) groupWatchOwnerUnavailableText() string {
+	return b.managementFallbackText("", managementCopy("management.watch.owner_required"))
 }
 
 func groupWatchAlertFingerprint(msg groupWatchMessage) string {

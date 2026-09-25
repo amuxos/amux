@@ -93,7 +93,12 @@ Group watch accepts permitted root messages containing text or valid images,
 files or merged forwards. Material-only messages use the shared parser's
 description as session input. Deleted messages and messages without valid text
 or materials do not start a session. Existing sender, group, deduplication,
-capacity and loop-prevention rules still apply.
+capacity and loop-prevention rules still apply. Group watch is automation
+authorized by the Bot owner: message bindings, audit records and context retain
+the real sender, while Session execution identity and actor credentials use the
+confirmed Bot owner so principal-scoped model-service login matches the
+configuring operator. Without a configured owner, group watch refuses to start
+the task rather than falling back to the alert sender's identity.
 
 The group-watch `sender_types` list is the default sender allowlist for watched
 groups in the effective configuration. `chat_sender_types.<chat_id>` may

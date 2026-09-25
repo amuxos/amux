@@ -8,3 +8,6 @@ type ModelServiceModel = modelservice.Model
 
 var RegisterModelService = modelservice.Register
 var StartModelServiceGateway = modelservice.StartGateway
+
+var NewModelServiceProxyError = modelservice.NewProxyError
+var ModelServiceProxyErrorStatus = modelservice.ProxyErrorStatus

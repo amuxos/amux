@@ -168,6 +168,14 @@ Catalog entries preserve the upstream model/configuration pair and declared
 reasoning capabilities. Unknown or unavailable selections fail explicitly.
 No service is registered by the public distribution.
 
+Distribution model services classify failures before writing a response. The Hub
+and broker gateway preserve the classified HTTP status and safe diagnostic,
+including login (401), permission (403), rate limit (429) and timeout (504).
+Unknown failures expose only a generic availability diagnostic. Classified
+diagnostics use English and Simplified Chinese together because this protocol
+has no viewer locale; host language settings do not change its JSON output.
+Errors after streaming starts abort the stream rather than reporting success.
+
 For Claude launches marked with `AMUX_MODEL_SERVICE`, the sidecar applies the
 selected gateway, credentials, model aliases and limits through the SDK's
 in-memory flag-settings control before accepting prompts. These values take

@@ -2,9 +2,7 @@ package modelservice
 
 import (
 	"context"
-	pb "github.com/amuxos/amux/internal/transport/pbgen"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -13,6 +11,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/amuxos/amux/internal/i18n"
+	pb "github.com/amuxos/amux/internal/transport/pbgen"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type relayTestServer struct {
@@ -81,5 +86,72 @@ func TestGatewayActorRotationStreamingAndLocalAuthentication(t *testing.T) {
 	closeGateway()
 	if _, err = client.Get(base + "/models"); err == nil {
 		t.Fatal("gateway survived broker cleanup")
+	}
+}
+
+type relayErrorTestServer struct {
+	pb.UnimplementedAmuxdServer
+	code codes.Code
+}
+
+func (s *relayErrorTestServer) ProxyModel(*pb.ProxyModelRequest, grpc.ServerStreamingServer[pb.ProxyModelChunk]) error {
+	return status.Error(s.code, "private transport diagnostic")
+}
+
+func TestGatewayMapsModelServiceFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		grpcCode   codes.Code
+		httpStatus int
+		key        string
+	}{
+		{name: "login", grpcCode: codes.Unauthenticated, httpStatus: http.StatusUnauthorized, key: "login_required"},
+		{name: "permission", grpcCode: codes.PermissionDenied, httpStatus: http.StatusForbidden, key: "access_denied"},
+		{name: "invalid", grpcCode: codes.InvalidArgument, httpStatus: http.StatusBadRequest, key: "invalid_request"},
+		{name: "missing", grpcCode: codes.NotFound, httpStatus: http.StatusNotFound, key: "not_found"},
+		{name: "limit", grpcCode: codes.ResourceExhausted, httpStatus: http.StatusTooManyRequests, key: "rate_limited"},
+		{name: "timeout", grpcCode: codes.DeadlineExceeded, httpStatus: http.StatusGatewayTimeout, key: "timed_out"},
+		{name: "upstream", grpcCode: codes.Unavailable, httpStatus: http.StatusServiceUnavailable, key: "unavailable"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lis, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := grpc.NewServer()
+			pb.RegisterAmuxdServer(server, &relayErrorTestServer{code: tc.grpcCode})
+			go server.Serve(lis)
+			defer server.Stop()
+
+			base, key, closeGateway, err := StartGateway([]string{
+				"AMUX_HUB_ADDR=" + lis.Addr().String(),
+				"AMUX_ACTOR_TOKEN=actor",
+			}, "test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer closeGateway()
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, base+"/responses", strings.NewReader(`{}`))
+			req.Header.Set("Authorization", "Bearer "+key)
+			response, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, _ := io.ReadAll(response.Body)
+			response.Body.Close()
+			var payload struct{ Error struct{ Message string } }
+			if err := json.Unmarshal(body, &payload); err != nil {
+				t.Fatal(err)
+			}
+			if response.StatusCode != tc.httpStatus || strings.Contains(payload.Error.Message, "private") {
+				t.Fatalf("response = %d %s, want %d with a safe diagnostic", response.StatusCode, body, tc.httpStatus)
+			}
+			for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese, "unsupported"} {
+				message := errorCatalog.Format(locale, tc.key)
+				if message == tc.key || !strings.Contains(payload.Error.Message, message) {
+					t.Fatalf("missing %s diagnostic in %q", locale, payload.Error.Message)
+				}
+			}
+		})
 	}
 }

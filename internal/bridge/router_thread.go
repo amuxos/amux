@@ -276,7 +276,7 @@ func resolveUniqueBridgeProfileShortName(name string) (agentprofile.Profile, err
 	return agentprofile.Profile{}, agentprofile.ErrProfileNotFound
 }
 
-func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, openID, targetID, sessionName, cwd string, launch agentprofile.LaunchProjection, idleTimeoutSeconds int) (sessionlaunch.SessionRef, bool, error) {
+func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, messageAuthorOpenID, executionActorOpenID, targetID, sessionName, cwd string, launch agentprofile.LaunchProjection, idleTimeoutSeconds int) (sessionlaunch.SessionRef, bool, error) {
 	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	var res sessionlaunch.SessionRef
@@ -284,7 +284,7 @@ func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, openID
 	if err != nil {
 		return res, false, err
 	}
-	identity, err := b.executionIdentity(openID, "feishu-session:"+sessionName, targetID, policy.shared, policy.isolationRequired)
+	identity, err := b.executionIdentity(executionActorOpenID, "feishu-session:"+sessionName, targetID, policy.shared, policy.isolationRequired)
 	if err != nil {
 		return res, false, b.notifyThread(ctx, rootMsgID, "⚠️ 无法解析执行身份："+err.Error())
 	}
@@ -301,7 +301,7 @@ func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, openID
 		identity.Identity = pinned
 	}
 	idleTimeout := int64(idleTimeoutSeconds)
-	res, err = b.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{TargetID: targetID, Name: sessionName, Launch: launch, Workspace: sessionlaunch.WorkspaceRequest{Cwd: cwd, Source: "feishu", Scope: b.feishuWorkspaceScope(chatID, openID)}, IdleTimeoutSeconds: &idleTimeout, ExecutionIdentity: identity.Identity, LaunchID: identity.LaunchID, AgentActorToken: identity.ActorToken, AgentActorTokenExpiresAt: identity.ActorTokenExpiresAt})
+	res, err = b.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{TargetID: targetID, Name: sessionName, Launch: launch, Workspace: sessionlaunch.WorkspaceRequest{Cwd: cwd, Source: "feishu", Scope: b.feishuWorkspaceScope(chatID, messageAuthorOpenID)}, IdleTimeoutSeconds: &idleTimeout, ExecutionIdentity: identity.Identity, LaunchID: identity.LaunchID, AgentActorToken: identity.ActorToken, AgentActorTokenExpiresAt: identity.ActorTokenExpiresAt})
 	if err != nil {
 		principalID := ""
 		if identity.Identity != nil {
@@ -427,7 +427,7 @@ func (b *Bridge) runAndBindThread(ctx context.Context, chatID, rootMsgID, openID
 	if blocked {
 		return nil
 	}
-	res, ok, err := b.runFeishuSession(ctx, rootMsgID, chatID, openID, target.ID, req.Name, req.Cwd, launch, ws.IdleTimeoutSeconds)
+	res, ok, err := b.runFeishuSession(ctx, rootMsgID, chatID, openID, openID, target.ID, req.Name, req.Cwd, launch, ws.IdleTimeoutSeconds)
 	if !ok {
 		return err
 	}
@@ -622,7 +622,14 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 		res = sessionlaunch.SessionRef{TargetID: target.ID, Name: recovered.Name, AgentProfile: recovered.AgentProfile, AgentType: recovered.AgentType, EffectiveModel: recovered.EffectiveModel}
 		ok = true
 	} else {
-		res, ok, err = b.runFeishuSession(ctx, rootMsgID, chatID, openID, target.ID, sessionName, cwd, launch, idleTimeoutSeconds)
+		executionActorOpenID := openID
+		if opts.source == routeInputSourceGroupWatch {
+			executionActorOpenID = strings.TrimSpace(opts.executionActorOpenID)
+			if executionActorOpenID == "" && b.resolveExecutionIdentity != nil {
+				return b.notifyThread(ctx, rootMsgID, b.groupWatchOwnerUnavailableText())
+			}
+		}
+		res, ok, err = b.runFeishuSession(ctx, rootMsgID, chatID, openID, executionActorOpenID, target.ID, sessionName, cwd, launch, idleTimeoutSeconds)
 	}
 	if opts.alertDedup != nil {
 		finishAlert = false // Keep creation/Submit uncertainty durable until resolved.

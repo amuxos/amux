@@ -75,6 +75,7 @@ func TestBridgeFeishuSetupDefaultModelRequiresRuntime(t *testing.T) {
 func TestConfigureFeishuSetupLaunchDefaultsPersistsComposite(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := configureFeishuSetupLaunchDefaults(context.Background(), "default", "cli_bot_composite", "builtin/claude", "codex", "gpt-5.4"); err != nil {
 		t.Fatalf("configureFeishuSetupLaunchDefaults: %v", err)
 	}
@@ -90,6 +91,7 @@ func TestConfigureFeishuSetupLaunchDefaultsPersistsComposite(t *testing.T) {
 func TestLocalFeishuBotSessionStatusShowsBinding(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("bot_a", &bridge.Secrets{AppId: "cli_bot_a", AppSecret: "secret"}); err != nil {
 		t.Fatalf("SaveProfileSecrets: %v", err)
 	}
@@ -138,6 +140,7 @@ func TestBridgeFeishuSetupDefaultAgentRequiresThreadMode(t *testing.T) {
 func TestFinalizeFeishuSetupPersistsAuthoritativeDefaultAgent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	profile := "bot_a"
 	secretsPath, err := bridge.ProfileSecretsPath(profile)
 	if err != nil {
@@ -165,6 +168,7 @@ func TestFinalizeFeishuSetupPersistsAuthoritativeDefaultAgent(t *testing.T) {
 func TestConfigureFeishuSetupDefaultAgentWaitsForRegistryLock(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	registryPath := defaultAgentPackRegistryPath()
 	if err := os.MkdirAll(filepath.Dir(registryPath), 0o700); err != nil {
 		t.Fatalf("mkdir registry dir: %v", err)
@@ -190,6 +194,7 @@ func TestConfigureFeishuSetupDefaultAgentWaitsForRegistryLock(t *testing.T) {
 func TestBridgeFeishuSetupNonInteractiveEmptyIsGraceful(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	oldStdout := os.Stdout
 	defer func() { os.Stdout = oldStdout }()
@@ -311,6 +316,7 @@ func TestBridgeFeishuSetupScanWhenStderrIsTTY(t *testing.T) {
 func TestBridgeFeishuSetupWritesInteractionMode(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("bot_a", &bridge.Secrets{
 		AppId:     "cli_bot_a",
 		AppSecret: "secret",
@@ -367,6 +373,7 @@ func TestBridgeFeishuSetupWritesInteractionMode(t *testing.T) {
 func TestBridgeFeishuSetupRejectsSingletonWhenGroupWatchConfigured(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := config.UpdateConfigFile(defaultConfigPath(), func(raw map[string]any) error {
 		return setConfigValue(cliConfigFile(raw), "bridge.feishu.profiles.bot_a.group_watch.enabled", "true")
 	}); err != nil {
@@ -409,6 +416,7 @@ func TestBridgeFeishuSetupRejectsSingletonWhenGroupWatchConfigured(t *testing.T)
 func TestLocalFeishuBotSessionBindRejectsSingletonWhenGroupWatchConfigured(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := config.UpdateConfigFile(defaultConfigPath(), func(raw map[string]any) error {
 		cfg := cliConfigFile(raw)
 		if err := setConfigValue(cfg, "bridge.feishu.profiles.bot_a.group_watch.enabled", "true"); err != nil {
@@ -428,6 +436,7 @@ func TestLocalFeishuBotSessionBindRejectsSingletonWhenGroupWatchConfigured(t *te
 func TestBridgeFeishuSetupDoesNotPromptForOwnerOpenId(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets(bridge.DefaultProfileName, &bridge.Secrets{
 		OpenId:    "ou_existing_owner",
 		BotName:   "amux",
@@ -560,6 +569,7 @@ func TestReadFeishuCredentialsManualAppChangeResetsAppScopedIdentity(t *testing.
 func TestBridgeFeishuBindingsListsBridgeDB(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("AMUX_HUB_ADDR", freeStatusTCPAddr(t))
 	dbPath := filepath.Join(home, ".amux", "bridge.db")
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0700); err != nil {
@@ -614,6 +624,7 @@ func TestBridgeFeishuBindingsListsBridgeDB(t *testing.T) {
 func TestLocalFeishuContextExplainShowsDecision(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("coder", &bridge.Secrets{AppId: "cli_coder", AppSecret: "secret"}); err != nil {
 		t.Fatalf("SaveProfileSecrets: %v", err)
 	}
@@ -685,6 +696,7 @@ func TestLocalFeishuContextExplainShowsDecision(t *testing.T) {
 func TestLocalFeishuStatusIncludesBotIdentity(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("planner", &bridge.Secrets{
 		AppId:     "cli_test",
 		AppSecret: "secret",
@@ -714,6 +726,7 @@ func TestLocalFeishuStatusIncludesBotIdentity(t *testing.T) {
 func TestLocalFeishuStatusDefaultsToDefaultProfile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets(bridge.DefaultProfileName, &bridge.Secrets{
 		AppId:     "cli_default",
 		AppSecret: "secret",
@@ -734,6 +747,7 @@ func TestLocalFeishuStatusDefaultsToDefaultProfile(t *testing.T) {
 func TestLocalFeishuBotsListsProfiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := bridge.SaveProfileSecrets("planner", &bridge.Secrets{AppId: "cli_planner", AppSecret: "secret", OpenId: "ou_planner"}); err != nil {
 		t.Fatalf("SaveProfileSecrets planner: %v", err)
 	}
@@ -782,6 +796,7 @@ func TestPrintFeishuStatusColorizesWhenForced(t *testing.T) {
 func TestEnsureLocalConfigForFeishuSetupPreservesExistingHubAddr(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	cfg := cliConfigFile{}
 	if err := setConfigValue(cfg, "hub.addr", "10.0.0.1:7100"); err != nil {

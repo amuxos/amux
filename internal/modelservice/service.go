@@ -4,9 +4,11 @@ package modelservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/amuxos/amux/internal/extensionstate"
@@ -23,6 +25,48 @@ type State struct {
 	Notice     string  `json:"notice,omitempty"`
 	Models     []Model `json:"models,omitempty"`
 	CanInstall bool    `json:"can_install,omitempty"`
+}
+
+// ProxyError is a safe, classified failure returned by a distribution model
+// service before it has written an HTTP response. Message is safe to expose to
+// the local agent; underlying provider and credential details remain private.
+type ProxyError struct {
+	Status  int
+	Message string
+}
+
+func (e *ProxyError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
+func NewProxyError(status int, message string) error {
+	return &ProxyError{Status: status, Message: message}
+}
+
+func ProxyErrorStatus(err error) (int, bool) {
+	var proxyErr *ProxyError
+	if !errors.As(err, &proxyErr) || proxyErr == nil {
+		return 0, false
+	}
+	return proxyErr.Status, true
+}
+
+// WriteProxyError relays only the safe classified payload, never an enclosing
+// error's diagnostic text. Call it only before the response has started.
+func WriteProxyError(w http.ResponseWriter, err error) bool {
+	var proxyErr *ProxyError
+	if !errors.As(err, &proxyErr) || proxyErr == nil {
+		return false
+	}
+	code, message := proxyErr.Status, proxyErr.Message
+	if code < 400 || code > 599 || strings.TrimSpace(message) == "" {
+		code, message = http.StatusServiceUnavailable, errorMessage("unavailable")
+	}
+	gatewayError(w, code, message)
+	return true
 }
 
 type Service struct {

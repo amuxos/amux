@@ -2030,6 +2030,9 @@
   "management.watch.saved": {
     "other": "Group watch settings saved"
   },
+  "management.watch.owner_required": {
+    "other": "⚠️ Group watch task not started: no assistant owner is configured, so the automation execution identity cannot be determined. Initialize the assistant in a private chat, then try again."
+  },
   "management.help.active_topic.amux": {
     "other": "Show the current task status"
   },

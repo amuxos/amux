@@ -35,6 +35,11 @@ func TestGroupWatchEventAutomaticallyCreatesThreadTask(t *testing.T) {
 		t.Fatalf("SetWorkspaceMode: %v", err)
 	}
 	b.threadNotice = func(context.Context, string, string) error { return nil }
+	var executionOpenID string
+	b.SetExecutionIdentityResolver(func(openID, _, _ string, _ bool) (LaunchIdentity, error) {
+		executionOpenID = openID
+		return LaunchIdentity{ActorToken: "owner-actor-token"}, nil
+	})
 
 	event := feishuMessageEvent("group", "oc_alarm", "om_alarm", "ou_reporter", "支付成功率跌到 91%，trace_id=abc")
 	if err := b.handleMessage(context.Background(), event); err != nil {
@@ -48,6 +53,9 @@ func TestGroupWatchEventAutomaticallyCreatesThreadTask(t *testing.T) {
 	submitReq := hub.routes[1].payload.(*pb.SubmitRequest)
 	if runReq.AgentProfile != "builtin/codex" || submitReq.Text != "支付成功率跌到 91%，trace_id=abc" {
 		t.Fatalf("run/submit = %+v / %+v, want current profile and original alert", runReq, submitReq)
+	}
+	if executionOpenID != "owner-open" || runReq.AgentActorToken != "owner-actor-token" {
+		t.Fatalf("execution actor = %q/%q, want owner-open/owner-actor-token", executionOpenID, runReq.AgentActorToken)
 	}
 	if runReq.IdleTimeoutSeconds != 10800 || !runReq.IdleTimeoutSecondsSet {
 		t.Fatalf("group watch idle timeout = %d/%v, want explicit 10800", runReq.IdleTimeoutSeconds, runReq.IdleTimeoutSecondsSet)
@@ -120,6 +128,38 @@ func TestGroupWatchEventAutomaticallyCreatesThreadTask(t *testing.T) {
 	}
 	if got := hub.routes[2].payload.(*pb.SubmitRequest).Text; got != "请结合最新日志继续分析" {
 		t.Fatalf("mentioned follow-up submit = %q, want mention stripped", got)
+	}
+}
+
+func TestGroupWatchRefusesToLaunchWithoutConfiguredOwner(t *testing.T) {
+	b, hub := newBridgeForInputTest(t)
+	b.secrets = &Secrets{}
+	b.groupWatchConfig = config.BridgeFeishuGroupWatchConfig{
+		Enabled: true, ChatIDs: []string{"oc_alarm"}, SenderTypes: []string{"app"},
+	}
+	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
+	setBridgeTestBotDefaultAgent(t, b, "builtin/codex")
+	b.SetExecutionIdentityResolver(func(string, string, string, bool) (LaunchIdentity, error) {
+		t.Fatal("identity resolver must not be called without an owner")
+		return LaunchIdentity{}, nil
+	})
+	var notices []string
+	b.threadNotice = func(_ context.Context, _ string, text string) error {
+		notices = append(notices, text)
+		return nil
+	}
+
+	err := b.routeGroupWatchMessage(context.Background(), groupWatchMessage{
+		ChatID: "oc_alarm", MessageID: "om_alarm", SenderID: "cli_alarm_bot", SenderType: "app", Text: "alert",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hub.routes) != 0 {
+		t.Fatalf("routes = %+v, want no session launch", hub.routes)
+	}
+	if len(notices) != 1 || !strings.Contains(notices[0], "no assistant owner is configured") || !strings.Contains(notices[0], "尚未配置智能体负责人") {
+		t.Fatalf("notices = %q, want bilingual missing owner guidance", notices)
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/amuxos/amux/internal/modelservice"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"google.golang.org/grpc"
@@ -46,7 +48,17 @@ func (s *hubServer) ProxyModel(req *pb.ProxyModelRequest, stream grpc.ServerStre
 	}
 	w := &modelStreamWriter{stream: stream, header: http.Header{}}
 	if err := service.Proxy(stream.Context(), actor.ActorPrincipalID, w, r); err != nil {
-		return status.Error(codes.Unavailable, "model service request failed")
+		if w.sent {
+			if w.err != nil {
+				return w.err
+			}
+			return status.Error(codes.Unavailable, "model service stream failed")
+		}
+		if modelservice.WriteProxyError(w, err) {
+			return w.err
+		}
+		log.Warn().Str("service", req.Service).Msg("hub: unclassified model service proxy failure")
+		return status.Error(codes.Unavailable, "model service unavailable")
 	}
 	if !w.sent {
 		w.WriteHeader(http.StatusOK)
