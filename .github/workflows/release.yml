@@ -21,6 +21,7 @@ env:
   GOMAXPROCS: '4'
   GOFLAGS: '-p=2'
   GOWORK: 'off'
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
   RELEASE_REPO: amuxos/amux-releases
 
 jobs:
@@ -46,8 +47,31 @@ jobs:
           echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-go@v5
+        id: go
         with:
           go-version: '1.25.14'
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
+        run: |
+          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: go-mod-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum', 'buf.gen.yaml') }}
+          restore-keys: |
+            go-mod-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
+      - name: Cache Go build outputs
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          # Use the checked-out release commit, including manual tag releases.
+          key: go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum', 'buf.gen.yaml') }}-${{ steps.version.outputs.commit }}
+          restore-keys: |
+            go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum', 'buf.gen.yaml') }}-
+            go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -82,11 +106,36 @@ jobs:
           ref: ${{ needs.check.outputs.commit }}
           persist-credentials: false
       - uses: actions/setup-go@v5
+        id: go
         with:
           go-version: '1.25.14'
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
+        run: |
+          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: go-mod-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum', 'buf.gen.yaml') }}
+          restore-keys: |
+            go-mod-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
+      - name: Cache Go build outputs
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          # Use the checked-out release commit, including manual tag releases.
+          key: go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum', 'buf.gen.yaml') }}-release-${{ needs.check.outputs.commit }}
+          restore-keys: |
+            go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum', 'buf.gen.yaml') }}-
+            go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: sidecars/claude-sdk/package-lock.json
       - env:
           RELEASE_VERSION: ${{ needs.check.outputs.version }}
           GOOS: ${{ matrix.os }}

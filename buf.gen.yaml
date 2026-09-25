@@ -1,11 +1,13 @@
 version: v2
 
 plugins:
-  - remote: buf.build/protocolbuffers/go:v1.36.11
+  # Pin generators while reusing Go's module/build caches. Generation does not
+  # require a remote code-generation service or preinstalled plugin binaries.
+  - local: [go, run, google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11]
     out: .
     opt:
       - module=github.com/amuxos/amux
-  - remote: buf.build/grpc/go:v1.6.2
+  - local: [go, run, google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2]
     out: .
     opt:
       - module=github.com/amuxos/amux

@@ -161,6 +161,8 @@ MCP 注册、description、alias 或输入 Schema 改变时同步注册及 dispa
 三种生成参考必须与实现同次提交，禁止手改 `docs/reference/{cli,configuration,mcp}.md`。
 
 协议来源是 `proto/amux/v1/amux.proto`，通过 `buf generate` 生成到 `internal/transport/pbgen/`。
+`buf.gen.yaml` 固定生成器版本并通过 `go run` 调用，复用 Go 模块和编译缓存，
+不需要远端代码生成请求或预装插件二进制。
 gRPC 使用标准 protobuf codec，不恢复旧 JSON codec、手写 transport/pb 或 pbadapter 兼容层。
 
 ## 运行与调试

@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -18,9 +22,12 @@ jobs:
       GOMAXPROCS: "4"
       GOFLAGS: "-p=2"
       GOWORK: "off"
+      # A stalled cache download should fall back to a normal build promptly.
+      SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
+        id: go
         with:
           # The go directive is a language floor (currently 1.25.0), not a
           # toolchain pin. Building with the floor itself is unreliable: Go
@@ -28,7 +35,29 @@ jobs:
           # process working directory (fixed in 1.25.2), which fails internally
           # consistent scans such as internal/memory. Pin a patched toolchain.
           go-version: "1.25.14"
-          cache-dependency-path: go.sum
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
+        run: |
+          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache.outputs.modules }}
+          key: go-mod-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum', 'buf.gen.yaml') }}
+          restore-keys: |
+            go-mod-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
+      - name: Cache Go build outputs
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache.outputs.build }}
+          # Refresh compiled packages after source changes, even when go.sum
+          # is unchanged. Reuse the newest compatible cache on the next run.
+          key: go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum', 'buf.gen.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum', 'buf.gen.yaml') }}-
+            go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

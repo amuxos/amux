@@ -198,7 +198,9 @@ the generating host. Commit both languages of all affected generated references
 with the implementation; do not edit them by hand.
 
 The protocol source is `proto/amux/v1/amux.proto`; `buf generate` writes
-`internal/transport/pbgen/`. gRPC uses the standard protobuf codec. Do not restore
+`internal/transport/pbgen/`. `buf.gen.yaml` pins generators invoked through
+`go run`, reusing Go's module/build caches without remote code-generation requests
+or preinstalled plugin binaries. gRPC uses the standard protobuf codec. Do not restore
 old JSON codecs, handwritten transport/pb, or pbadapter compatibility layers.
 
 <a id="运行与调试"></a>
