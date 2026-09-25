@@ -252,6 +252,9 @@ func TestGroupSettingsCardSaveRejectsInvalidWholeTuple(t *testing.T) {
 			b, _ := groupSettingsCardTestBridge(t)
 			settings := groupSettingsTestDraft(t, b, "group-a")
 			fields := map[string]any{"group_access": WorkspaceModeShared, "group_runtime": "codex", test.key: test.value}
+			if test.key == "group_reasoning" {
+				fields["group_runtime"] = "claude"
+			}
 			groupSettingsTestCallback(t, b, groupSettingsTestAction(b, settings, managementActionGroupSettingsSave, fields), "error")
 			if saved, err := b.db.ReadGroupSettings(b.currentBridgeId(), "group-a"); err != nil || saved != nil {
 				t.Fatalf("invalid tuple partly saved: %+v %v", saved, err)

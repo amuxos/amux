@@ -375,3 +375,8 @@ from the streamed Agent body, so CardKit text updates preserve both translations
 and literal Agent content. Activity replacement and legacy activity cards carry
 the same translations. Truncated progress uses a language-neutral ellipsis.
 Already-delivered historical cards are not rewritten retroactively.
+
+Codex editors refresh native model choices from the actual execution Runtime,
+independently of optional model services. A refresh control retries discovery;
+signed-out and unavailable states do not populate a static GPT fallback. Saved
+model and effort selections survive refresh failures.

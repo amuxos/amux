@@ -100,6 +100,19 @@ providers use the same session timeline and isolation contracts as the builtin
 providers. Unknown providers and duplicate registrations fail before launch.
 The public module must build and test without any distribution module.
 
+Codex native model choices are discovered on the selected Runtime through its
+`codex app-server` account and paginated `model/list` APIs, using the execution
+identity's native environment. Opening or refreshing a settings editor obtains
+a fresh catalog, including model names and reasoning capabilities. The runtime picker does not
+use an embedded GPT list. Explicit provider bindings remain separate.
+A signed-out account, unavailable Runtime, ambiguous target or failed discovery
+does not fall back to guessed models; the editor shows the status and preserves
+existing selections. Native catalogs are suggestions, not authorization: Codex
+validates explicit or previously saved native model/effort values at execution
+time when no live capability snapshot is available. A live snapshot constrains
+the editor's reasoning choices. Optional model-service authentication is
+independent of native Codex authentication.
+
 ## On-demand system memory
 
 When Hub memory is enabled, fresh Codex, Claude, and Pi sessions receive a fixed,

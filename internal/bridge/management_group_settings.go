@@ -89,7 +89,10 @@ func (b *Bridge) groupSettingsManagementState(settings *GroupSettings) (manageme
 	}
 	state := managementState{
 		ProfileName: b.ProfileName(), DefaultAgent: effectiveBotDefaultAgentRef(bot.DefaultAgent),
-		Mode: bot.InteractionMode, GroupWatch: b.groupWatchSnapshot(),
+		Mode: settings.InteractionMode, GroupWatch: b.groupWatchSnapshot(), NativeModelsTargetRef: settings.DefaultTarget,
+	}
+	if settings.IsolationRequired {
+		state.Mode = interactionModeThreadIsolated
 	}
 	state.Profiles = managementSelectableProfiles(managementProfiles(), state.DefaultAgent, settings.DefaultAgent)
 	state.Runtimes, err = agentprofile.RuntimeCatalog()
@@ -179,13 +182,29 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 			if err != nil {
 				return groupSettingsErrorToast(err), true, nil
 			}
-			if len(modelservice.List()) > 0 && b.resolveModelServicePrincipal != nil {
+			if b.hub != nil || (len(modelservice.List()) > 0 && b.resolveModelServicePrincipal != nil) {
+				state.NativeModelsTargetRef = draft["group_target"]
+				state.Mode = draft["group_interaction"]
+				runtimeRef := draft["group_runtime"]
+				if runtimeRef == managementGroupNativeRuntime {
+					profileRef := groupSettingsOptional(draft["group_agent"], managementGroupInheritProfile)
+					if profileRef == "" {
+						profileRef = state.DefaultAgent
+					}
+					if profile, ok := managementProfileByRef(state, profileRef); ok {
+						runtimeRef = profile.AgentType
+					}
+				}
 				service, operation := modelServiceSelection(event.Event.Action)
 				go func() {
 					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 					defer cancel()
 					for {
-						current := b.loadModelServices(ctx, state, openID, service, operation)
+						current := state
+						if runtimeRef == "codex" {
+							current = b.loadNativeModels(ctx, current, openID)
+						}
+						current = b.loadModelServices(ctx, current, openID, service, operation)
 						if !b.modelServiceEditorCurrent(messageID, version) {
 							return
 						}

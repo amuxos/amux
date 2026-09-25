@@ -1424,7 +1424,7 @@ func renderDocumentCommentsEditCard(state managementState, draft managementDocum
 			if initialModelRef == "" {
 				initialModelRef = managementProfileDefaultModelOption
 			}
-			modelField := managementSelectStaticElement("document_comments_model_ref", managementCopy("management.choose.a.model.supported.by.this.runtime"), initialModelRef, managementRuntimeModelOptions(state, draft.RuntimeRef))
+			modelField := managementSelectStaticElement("document_comments_model_ref", managementCopy("management.choose.a.model.supported.by.this.runtime"), initialModelRef, managementRuntimeModelOptions(managementSelectedModelState(state, draft.ModelRef, draft.ReasoningEffort), draft.RuntimeRef))
 			modelField.Required = false
 			modelField.Behaviors = changeBehavior("document_comments_model_ref")
 			elements = append(elements, managementSettingsFieldRow(managementCopy("management.model.new.comment.topics.only"), modelField))
@@ -1433,7 +1433,7 @@ func renderDocumentCommentsEditCard(state managementState, draft managementDocum
 			if initialReasoningEffort == "" {
 				initialReasoningEffort = managementRuntimeDefaultReasoningOption
 			}
-			reasoningField := managementSelectStaticElement("document_comments_reasoning_effort", managementCopy("management.choose.reasoning.effort"), initialReasoningEffort, managementRuntimeReasoningOptions(state, draft.RuntimeRef, draft.ModelRef))
+			reasoningField := managementSelectStaticElement("document_comments_reasoning_effort", managementCopy("management.choose.reasoning.effort"), initialReasoningEffort, managementRuntimeReasoningOptions(managementSelectedModelState(state, draft.ModelRef, draft.ReasoningEffort), draft.RuntimeRef, draft.ModelRef))
 			reasoningField.Required = false
 			reasoningField.Behaviors = changeBehavior("document_comments_reasoning_effort")
 			elements = append(elements, managementSettingsFieldRow(managementCopy("management.reasoning.effort.new.comment.topics.only"), reasoningField))

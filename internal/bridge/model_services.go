@@ -100,7 +100,7 @@ func modelServiceOptions(state managementState, runtime string) []cardOption {
 	return options
 }
 func modelServiceElements(state managementState, runtime string, values map[string]string, action string) []cardElement {
-	var elements []cardElement
+	elements := nativeModelElements(state, runtime, values, action)
 	for _, entry := range state.ModelServices {
 		if !serviceSupports(entry.Service, runtime) {
 			continue
@@ -211,7 +211,7 @@ func modelServiceSelection(action *callback.CallBackAction) (id, operation strin
 // SDK/network calls run outside the Feishu callback deadline. The existing card
 // is patched, and the unsaved editor draft remains the source of form values.
 func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent, action, openID, messageID string) bool {
-	if len(modelservice.List()) == 0 || b.resolveModelServicePrincipal == nil {
+	if b.hub == nil && (len(modelservice.List()) == 0 || b.resolveModelServicePrincipal == nil) {
 		return false
 	}
 	if action != managementActionSettingsEdit && action != managementActionOnboardingEdit && action != managementActionDocumentCommentsEdit && action != managementActionGroupWatchEdit {
@@ -223,14 +223,30 @@ func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
-		state := b.loadModelServices(ctx, b.managementState(), openID, service, operation)
+		base := b.managementState()
+		draftAction := modelServiceDraftAction(event.Event.Action)
+		draft := managementDraftFromCallback(draftAction, base)
+		documentDraft := managementDocumentCommentsDraftFromCallback(draftAction, base)
+		watchDraft := managementGroupWatchDraftFromCallback(draftAction, base)
+		base.Mode = draft.Interaction
+		runtimeRef := draft.DefaultRuntimeRef
+		if action == managementActionDocumentCommentsEdit {
+			runtimeRef = documentDraft.RuntimeRef
+		}
+		if action == managementActionGroupWatchEdit {
+			runtimeRef = watchDraft.RuntimeRef
+		}
+		load := func(operation string) managementState {
+			state := base
+			if runtimeRef == "codex" {
+				state = b.loadNativeModels(ctx, state, openID)
+			}
+			return b.loadModelServices(ctx, state, openID, service, operation)
+		}
+		state := load(operation)
 		if !b.modelServiceEditorCurrent(messageID, version) {
 			return
 		}
-		draftAction := modelServiceDraftAction(event.Event.Action)
-		draft := managementDraftFromCallback(draftAction, state)
-		documentDraft := managementDocumentCommentsDraftFromCallback(draftAction, state)
-		watchDraft := managementGroupWatchDraftFromCallback(draftAction, state)
 		render := func(current managementState) string {
 			switch action {
 			case managementActionOnboardingEdit:
@@ -264,7 +280,7 @@ func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent
 			if !b.modelServiceEditorCurrent(messageID, version) {
 				return
 			}
-			state = b.loadModelServices(ctx, b.managementState(), openID, service, "refresh")
+			state = load("refresh")
 			if !b.modelServiceEditorCurrent(messageID, version) {
 				return
 			}

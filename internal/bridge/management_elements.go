@@ -391,7 +391,10 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	runtimeField := managementSelectStaticElement("default_runtime_ref", managementCopy("management.choose.a.runtime"), draft.DefaultRuntimeRef, runtimeOptions)
 	runtimeField.Required = false
 	runtimeField.Behaviors = draftChangeBehavior("default_runtime_ref")
-	modelOptions := managementRuntimeModelOptions(state, draft.DefaultRuntimeRef)
+	modelState := state
+	modelState.DefaultModelRef = draft.DefaultModelRef
+	modelState.DefaultReasoningEffort = draft.DefaultReasoningEffort
+	modelOptions := managementRuntimeModelOptions(modelState, draft.DefaultRuntimeRef)
 	initialModelRef := draft.DefaultModelRef
 	if initialModelRef == "" {
 		initialModelRef = managementProfileDefaultModelOption
@@ -399,7 +402,7 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	modelField := managementSelectStaticElement("default_model_ref", managementCopy("management.choose.a.model.supported.by.this.runtime"), initialModelRef, modelOptions)
 	modelField.Required = false
 	modelField.Behaviors = draftChangeBehavior("default_model_ref")
-	reasoningOptions := managementRuntimeReasoningOptions(state, draft.DefaultRuntimeRef, draft.DefaultModelRef)
+	reasoningOptions := managementRuntimeReasoningOptions(modelState, draft.DefaultRuntimeRef, draft.DefaultModelRef)
 	initialReasoningEffort := draft.DefaultReasoningEffort
 	if initialReasoningEffort == "" {
 		initialReasoningEffort = managementRuntimeDefaultReasoningOption
@@ -464,7 +467,7 @@ func managementRuntimeModelOptions(state managementState, runtimeRef string) []c
 			}
 		}
 		if !found {
-			if model, err := agentprofile.ResolveRuntimeModel(runtime, current); err == nil && model.DisplayName != "" {
+			if model, err := agentprofile.ResolveRuntimeModel(runtime, current); err == nil && (model.DisplayName != "" || runtimeRef == "codex") {
 				runtime.Models = append(runtime.Models, model)
 			}
 		}
@@ -508,10 +511,23 @@ func managementRuntimeReasoningOptions(state managementState, runtimeRef, modelR
 	if strings.TrimSpace(model.Ref) == "" {
 		efforts = runtime.DefaultReasoningEfforts
 	}
+	if model.NativeCapabilitiesUnknown {
+		efforts = nil
+		// Retain a saved/unsaved effort while discovery is unavailable. Do not
+		// invent additional capabilities for an unknown model.
+		if state.DefaultReasoningEffort != "" {
+			efforts = []string{state.DefaultReasoningEffort}
+		}
+	}
 	for _, effort := range efforts {
 		options = append(options, cardOption{Text: managementStyledText(effort, cardTitle{Tag: "plain_text"}), Value: effort})
 	}
 	return options
+}
+
+func managementSelectedModelState(state managementState, model, effort string) managementState {
+	state.DefaultModelRef, state.DefaultReasoningEffort = model, effort
+	return state
 }
 
 func managementProfileReasoningOptions(state managementState, profileRef, modelRef string) []cardOption {
@@ -582,7 +598,8 @@ func managementProfileOptionLabel(profile managementProfileSummary) any {
 	if library := strings.TrimSpace(profile.LibraryName); library != "" {
 		label = managementConcat(name, "（", managementNonemptyText(profile.LibraryLabel, library), "）")
 	}
-	description := shortActivityText(strings.TrimSpace(profile.Description), 48)
+	// Leave room for runtime discovery controls in bilingual settings cards.
+	description := shortActivityText(strings.TrimSpace(profile.Description), 40)
 	if description != "" {
 		label = managementConcat(label, " · ", description)
 	}

@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	Amuxlet_ListNativeModels_FullMethodName            = "/amux.v1.Amuxlet/ListNativeModels"
 	Amuxlet_PutSessionFile_FullMethodName              = "/amux.v1.Amuxlet/PutSessionFile"
 	Amuxlet_ReadSessionArtifact_FullMethodName         = "/amux.v1.Amuxlet/ReadSessionArtifact"
 	Amuxlet_Run_FullMethodName                         = "/amux.v1.Amuxlet/Run"
@@ -45,6 +46,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AmuxletClient interface {
+	// Native discovery runs under the execution identity, on the selected Runtime.
+	ListNativeModels(ctx context.Context, in *ListNativeModelsRequest, opts ...grpc.CallOption) (*ListNativeModelsResponse, error)
 	// Internal, trusted tunnel only; exact execution and bounded workspace paths.
 	PutSessionFile(ctx context.Context, in *SessionFileRequest, opts ...grpc.CallOption) (*SessionFileResponse, error)
 	ReadSessionArtifact(ctx context.Context, in *SessionFileRequest, opts ...grpc.CallOption) (*SessionFileResponse, error)
@@ -76,6 +79,16 @@ type amuxletClient struct {
 
 func NewAmuxletClient(cc grpc.ClientConnInterface) AmuxletClient {
 	return &amuxletClient{cc}
+}
+
+func (c *amuxletClient) ListNativeModels(ctx context.Context, in *ListNativeModelsRequest, opts ...grpc.CallOption) (*ListNativeModelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNativeModelsResponse)
+	err := c.cc.Invoke(ctx, Amuxlet_ListNativeModels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *amuxletClient) PutSessionFile(ctx context.Context, in *SessionFileRequest, opts ...grpc.CallOption) (*SessionFileResponse, error) {
@@ -291,6 +304,8 @@ func (c *amuxletClient) RevokePrincipalLaunches(ctx context.Context, in *RevokeP
 // All implementations should embed UnimplementedAmuxletServer
 // for forward compatibility.
 type AmuxletServer interface {
+	// Native discovery runs under the execution identity, on the selected Runtime.
+	ListNativeModels(context.Context, *ListNativeModelsRequest) (*ListNativeModelsResponse, error)
 	// Internal, trusted tunnel only; exact execution and bounded workspace paths.
 	PutSessionFile(context.Context, *SessionFileRequest) (*SessionFileResponse, error)
 	ReadSessionArtifact(context.Context, *SessionFileRequest) (*SessionFileResponse, error)
@@ -323,6 +338,9 @@ type AmuxletServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAmuxletServer struct{}
 
+func (UnimplementedAmuxletServer) ListNativeModels(context.Context, *ListNativeModelsRequest) (*ListNativeModelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListNativeModels not implemented")
+}
 func (UnimplementedAmuxletServer) PutSessionFile(context.Context, *SessionFileRequest) (*SessionFileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PutSessionFile not implemented")
 }
@@ -401,6 +419,24 @@ func RegisterAmuxletServer(s grpc.ServiceRegistrar, srv AmuxletServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Amuxlet_ServiceDesc, srv)
+}
+
+func _Amuxlet_ListNativeModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNativeModelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxletServer).ListNativeModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxlet_ListNativeModels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxletServer).ListNativeModels(ctx, req.(*ListNativeModelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Amuxlet_PutSessionFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -763,6 +799,10 @@ var Amuxlet_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "amux.v1.Amuxlet",
 	HandlerType: (*AmuxletServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListNativeModels",
+			Handler:    _Amuxlet_ListNativeModels_Handler,
+		},
 		{
 			MethodName: "PutSessionFile",
 			Handler:    _Amuxlet_PutSessionFile_Handler,

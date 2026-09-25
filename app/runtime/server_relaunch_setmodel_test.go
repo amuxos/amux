@@ -89,7 +89,7 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 		sourceType    string
 		packState     string
 		legacy        bool
-		invalidEffort bool
+		dynamicEffort bool
 		provider      bool
 	}{
 		{name: "restricted profile", sourceType: "codex"},
@@ -98,7 +98,7 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 		{name: "different profile agent", sourceType: "claude"},
 		{name: "provider to native restart", sourceType: "codex", provider: true},
 		{name: "legacy allowlist", sourceType: "codex", legacy: true},
-		{name: "unsupported saved effort", sourceType: "codex", invalidEffort: true},
+		{name: "dynamic native effort", sourceType: "codex", dynamicEffort: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -132,8 +132,8 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if tc.invalidEffort {
-				launch.ProfileSpec.ReasoningEffort = "unsupported"
+			if tc.dynamicEffort {
+				launch.ProfileSpec.ReasoningEffort = "future-effort"
 			}
 			oldReq := &pb.RunRequest{AgentProfile: launch.AgentProfile, AgentType: launch.AgentType, ProfileSpec: launch.ProfileSpec, ExtraArgs: launch.ExtraArgs}
 			if tc.provider {
@@ -204,7 +204,7 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err = srv.reconfigureExecutionAndRelaunch(context.Background(), sess, replacement, true)
-			if tc.legacy || tc.invalidEffort {
+			if tc.legacy {
 				if status.Code(err) != codes.InvalidArgument {
 					t.Fatalf("error = %v, want InvalidArgument", err)
 				}
@@ -217,7 +217,11 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := sess.Snapshot()
-			wantCalls, wantThread := []string{"gpt-5.5:high"}, "native-thread"
+			wantEffort := "high"
+			if tc.dynamicEffort {
+				wantEffort = "future-effort"
+			}
+			wantCalls, wantThread := []string{"gpt-5.5:" + wantEffort}, "native-thread"
 			if tc.provider {
 				wantCalls, wantThread = nil, "new-native-thread"
 			}
@@ -231,7 +235,7 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 				t.Fatal("missing profile snapshot")
 			}
 			spec := saved.ProfileSpec
-			if got.EffectiveModel != "gpt-5.5" || spec.RuntimeRef != "codex" || spec.ReasoningEffort != "high" || spec.PinnedRef != launch.ProfileSpec.PinnedRef || spec.Agents != launch.ProfileSpec.Agents {
+			if got.EffectiveModel != "gpt-5.5" || spec.RuntimeRef != "codex" || spec.ReasoningEffort != wantEffort || spec.PinnedRef != launch.ProfileSpec.PinnedRef || spec.Agents != launch.ProfileSpec.Agents {
 				t.Fatalf("execution or frozen profile changed unexpectedly: %+v", spec)
 			}
 			instructionsAfter, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))

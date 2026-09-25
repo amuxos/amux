@@ -1,0 +1,69 @@
+package runtime
+
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/principal"
+	"github.com/amuxos/amux/internal/provider/codex"
+	pb "github.com/amuxos/amux/internal/transport/pbgen"
+	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+func (s *server) ListNativeModels(parent context.Context, req *pb.ListNativeModelsRequest) (*pb.ListNativeModelsResponse, error) {
+	if req.GetAgentType() != "codex" {
+		return nil, status.Error(codes.InvalidArgument, "native model discovery requires codex")
+	}
+	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
+	defer cancel()
+	identity := principal.FromProtoIdentity(req.ExecutionIdentity)
+	launchID := "models-" + uuid.NewString()
+	// Discovery has its own temporary workspace, never an existing session's.
+	identity.ExecutionStateRef = launchID
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	cwd, _, identity, paths, err := s.prepareExecution(ctx, identity, launchID, &pb.RunRequest{Cwd: home})
+	if err != nil {
+		return nil, err
+	}
+	if identity.IsolationBackend == principal.BackendLinuxDAC {
+		defer func() {
+			cleanup, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			_ = s.isolationRuntime.RemoveRun(cleanup, identity, launchID)
+			_ = s.isolationRuntime.RemoveWorkspace(cleanup, identity, paths.Workspace)
+		}()
+	}
+	launchContext := isolation.LaunchContext{LaunchID: launchID, Identity: &identity, Backend: identity.IsolationBackend}
+	backend, err := s.isolationRuntime.BackendForContext(launchContext)
+	if err != nil {
+		return nil, err
+	}
+	models, signedIn, err := codex.DiscoverModels(ctx, codex.StartOptions{
+		Backend: backend, LaunchContext: launchContext, Cwd: cwd,
+		Env: append(os.Environ(), s.launchEnvForIdentity(identity, nil)...),
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := &pb.ListNativeModelsResponse{Status: "signed_out"}
+	if !signedIn {
+		return result, nil
+	}
+	result.Status = "ready"
+	for _, model := range models {
+		entry := &pb.NativeModel{Model: model.Model, DisplayName: model.DisplayName,
+			DefaultReasoningEffort: model.DefaultReasoningEffort, IsDefault: model.IsDefault}
+		for _, effort := range model.SupportedReasoningEfforts {
+			entry.ReasoningEfforts = append(entry.ReasoningEfforts, effort.ReasoningEffort)
+		}
+		result.Models = append(result.Models, entry)
+	}
+	return result, nil
+}

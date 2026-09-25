@@ -38,7 +38,7 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 			if initialModelRef == "" {
 				initialModelRef = managementProfileDefaultModelOption
 			}
-			modelField := managementSelectStaticElement("group_watch_model_ref", managementCopy("management.choose.a.model.supported.by.this.runtime"), initialModelRef, managementRuntimeModelOptions(state, draft.RuntimeRef))
+			modelField := managementSelectStaticElement("group_watch_model_ref", managementCopy("management.choose.a.model.supported.by.this.runtime"), initialModelRef, managementRuntimeModelOptions(managementSelectedModelState(state, draft.ModelRef, draft.ReasoningEffort), draft.RuntimeRef))
 			modelField.Required = false
 			modelField.Behaviors = changeBehavior("group_watch_model_ref")
 			elements = append(elements, managementSettingsFieldRow(managementCopy("management.model.new.watch.topics.only"), modelField))
@@ -47,7 +47,7 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 			if initialReasoningEffort == "" {
 				initialReasoningEffort = managementRuntimeDefaultReasoningOption
 			}
-			reasoningField := managementSelectStaticElement("group_watch_reasoning_effort", managementCopy("management.choose.reasoning.effort"), initialReasoningEffort, managementRuntimeReasoningOptions(state, draft.RuntimeRef, draft.ModelRef))
+			reasoningField := managementSelectStaticElement("group_watch_reasoning_effort", managementCopy("management.choose.reasoning.effort"), initialReasoningEffort, managementRuntimeReasoningOptions(managementSelectedModelState(state, draft.ModelRef, draft.ReasoningEffort), draft.RuntimeRef, draft.ModelRef))
 			reasoningField.Required = false
 			reasoningField.Behaviors = changeBehavior("group_watch_reasoning_effort")
 			elements = append(elements, managementSettingsFieldRow(managementCopy("management.reasoning.effort.new.watch.topics.only"), reasoningField))

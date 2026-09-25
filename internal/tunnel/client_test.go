@@ -49,6 +49,39 @@ type assertErr struct{}
 
 func (assertErr) Error() string { return "boom" }
 
+type nativeModelServer struct {
+	pb.UnimplementedAmuxletServer
+	request *pb.ListNativeModelsRequest
+}
+
+func (s *nativeModelServer) ListNativeModels(_ context.Context, req *pb.ListNativeModelsRequest) (*pb.ListNativeModelsResponse, error) {
+	s.request = req
+	return &pb.ListNativeModelsResponse{Status: "ready", Models: []*pb.NativeModel{{Model: "runtime-only", ReasoningEfforts: []string{"future"}}}}, nil
+}
+func TestTunnelNativeModelDiscoveryPreservesIdentityAndCapabilities(t *testing.T) {
+	srv := &nativeModelServer{}
+	client := NewClient("addr", "runtime-1", "devbox", nil, srv)
+	raw, err := marshalTunnelPayload(&pb.ListNativeModelsRequest{AgentType: "codex", ExecutionIdentity: &pb.ExecutionIdentity{EffectivePrincipalId: "user-a", IsolationBackend: "linux-dac"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response *pb.TunnelMsg
+	client.handleRequest(context.Background(), func(msg *pb.TunnelMsg) error { response = msg; return nil }, &pb.TunnelMsg{Kind: "req", RequestId: "catalog", Method: "ListNativeModels", Payload: raw})
+	if srv.request == nil || srv.request.ExecutionIdentity.EffectivePrincipalId != "user-a" || srv.request.ExecutionIdentity.IsolationBackend != "linux-dac" {
+		t.Fatalf("identity lost: %+v", srv.request)
+	}
+	var result pb.ListNativeModelsResponse
+	if response == nil || response.Error != "" {
+		t.Fatalf("response=%+v", response)
+	}
+	if err := unmarshalTunnelPayload(response.Payload, &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Models) != 1 || result.Models[0].Model != "runtime-only" || result.Models[0].ReasoningEfforts[0] != "future" {
+		t.Fatalf("catalog lost: %+v", result)
+	}
+}
+
 type recordingSubmitServer struct {
 	pb.UnimplementedAmuxletServer
 	request   *pb.SubmitRequest

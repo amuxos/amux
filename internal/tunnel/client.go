@@ -448,6 +448,18 @@ func (c *Client) handleRequest(ctx context.Context, sendFn func(*pb.TunnelMsg) e
 	}
 
 	switch req.Method {
+	case "ListNativeModels":
+		var r pb.ListNativeModelsRequest
+		if err := unmarshalTunnelPayload(req.Payload, &r); err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		resp, err := c.localSrv.ListNativeModels(reqCtx, &r)
+		if err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		sendResp(resp, "")
 	case "Run":
 		var r pb.RunRequest
 		if err := unmarshalTunnelPayload(req.Payload, &r); err != nil {

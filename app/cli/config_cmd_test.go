@@ -508,6 +508,18 @@ func TestConfigSetBridgeFeishuProfileGroupWatchExecution(t *testing.T) {
 		t.Fatalf("unset agent with model error = %v, want dependency validation", err)
 	}
 	cmd = newConfigCmd()
+	cmd.SetArgs([]string{"set", reasoningKey, "future-effort"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("dynamic native effort rejected: %v", err)
+	}
+	for _, args := range [][]string{{"set", reasoningKey, "high"}, {"set", runtimeKey, "claude"}} {
+		cmd = newConfigCmd()
+		cmd.SetArgs(args)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd = newConfigCmd()
 	cmd.SetArgs([]string{"set", reasoningKey, "invalid"})
 	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "not supported") {
 		t.Fatalf("set unsupported effort error = %v, want runtime capability validation", err)

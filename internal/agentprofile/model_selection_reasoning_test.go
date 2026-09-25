@@ -64,8 +64,6 @@ func TestProfileDefaultRuntimeValidatesReasoningEffort(t *testing.T) {
 		model     string
 		effort    string
 	}{
-		{agentType: "codex", effort: "invalid"},
-		{agentType: "codex", model: "custom-model", effort: "invalid"},
 		{agentType: "claude", model: "opus", effort: "invalid"},
 		{agentType: "pi", effort: "high"},
 		{agentType: "pi", model: "custom-model", effort: "high"},

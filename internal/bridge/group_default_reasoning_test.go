@@ -17,6 +17,7 @@ func TestGroupTopicDefaultRuntimeValidatesAndLaunchesReasoningEffort(t *testing.
 	draft.InteractionMode, draft.DefaultAgent = config.FeishuInteractionThread, "builtin/codex"
 	draft.DefaultRuntimeRef, draft.DefaultModelRef = "", "group-native-model"
 	draft.DefaultArgs = []string{"--verbose"}
+	draft.DefaultAgent = "builtin/claude"
 	draft.DefaultReasoningEffort = "invalid"
 	if _, err := b.applyGroupSettings(context.Background(), draft, draft.Version, "owner"); err == nil || !strings.Contains(err.Error(), "reasoning effort") {
 		t.Fatalf("invalid default-runtime reasoning was accepted: %v", err)
@@ -24,6 +25,7 @@ func TestGroupTopicDefaultRuntimeValidatesAndLaunchesReasoningEffort(t *testing.
 	if saved, err := b.db.ReadGroupSettings(b.currentBridgeId(), draft.ChatID); err != nil || saved != nil {
 		t.Fatalf("invalid draft persisted: %+v, err=%v", saved, err)
 	}
+	draft.DefaultAgent = "builtin/codex"
 	draft.DefaultReasoningEffort = "high"
 	if _, err := b.applyGroupSettings(context.Background(), draft, draft.Version, "owner"); err != nil {
 		t.Fatal(err)

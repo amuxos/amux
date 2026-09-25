@@ -77,6 +77,14 @@ factory。注册的 Provider 与内置 Provider 共用 Session Timeline 和隔�
 未知 Provider 和重复注册在启动前失败。公共 module 必须能够不依赖任何发行版
 module 独立构建和测试。
 
+Codex 原生模型选项由选中的 Runtime 使用执行身份的原生环境，通过
+`codex app-server` 的账号接口和分页 `model/list` 动态获取。打开或刷新设置编辑器
+会重新获取模型名及推理能力；Runtime 选择器不使用内置 GPT 模型列表。显式 Provider 绑定
+独立保留。未登录、Runtime 不可达、目标不唯一或发现失败时，不回退到猜测的模型；
+编辑器显示状态并保留已有选择。原生目录是建议而非授权：没有实时能力快照时，
+显式输入或已保存的原生模型及推理档位交给 Codex 在执行时校验；实时快照约束
+编辑器中的推理选项。可选模型服务与原生 Codex 登录相互独立。
+
 ## 按需系统记忆
 
 Hub 启用记忆后，新建 Codex、Claude、Pi 会话会获得固定短协议，不依赖 Agent

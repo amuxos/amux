@@ -2461,5 +2461,17 @@
   },
   "management.model.service.install": {
     "other": "One-click install"
+  },
+  "management.model.native.ready": {
+    "other": "Codex native models refreshed from the execution environment."
+  },
+  "management.model.native.signed_out": {
+    "other": "Codex is not signed in on this Runtime. Sign in there, then refresh."
+  },
+  "management.model.native.unavailable": {
+    "other": "Codex models unavailable. Check the Runtime and native sign-in, then refresh."
+  },
+  "management.model.native.refresh": {
+    "other": "Refresh Codex models"
   }
 }

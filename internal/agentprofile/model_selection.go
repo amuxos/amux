@@ -123,6 +123,9 @@ func validateProfileReasoningEffort(profile Profile, effort string) error {
 	// only the catalog's reasoning capabilities; its model policy and bindings
 	// must not replace the Profile's selection.
 	model := ProfileNativeRuntimeModel(runtime, configuredModel(profile))
+	if profile.Provider != nil {
+		model.NativeCapabilitiesUnknown = false
+	}
 	return ValidateRuntimeReasoningEffort(runtime, model, effort)
 }
 
@@ -130,7 +133,7 @@ func validateProfileReasoningEffort(profile Profile, effort string) error {
 // authorized by a Profile, including native models absent from the distribution
 // runtime catalog.
 func ProfileNativeRuntimeModel(runtime RuntimeOption, modelRef string) RuntimeModelOption {
-	model := RuntimeModelOption{Ref: strings.TrimSpace(modelRef), SupportedReasoningEfforts: cloneStrings(runtime.DefaultReasoningEfforts)}
+	model := RuntimeModelOption{Ref: strings.TrimSpace(modelRef), SupportedReasoningEfforts: cloneStrings(runtime.DefaultReasoningEfforts), NativeCapabilitiesUnknown: runtime.Ref == "codex"}
 	for _, candidate := range runtime.Models {
 		if candidate.Ref == model.Ref {
 			return cloneRuntimeModelOption(candidate)

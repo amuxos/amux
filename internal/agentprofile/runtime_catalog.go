@@ -12,15 +12,19 @@ import (
 // RuntimeOption supplies the adapter, model/provider catalog and native launch
 // defaults used to execute that content.
 type RuntimeOption struct {
-	Ref                     string
-	AgentType               string
-	DisplayName             string
-	Models                  []RuntimeModelOption
-	DefaultReasoningEfforts []string
-	DefaultReasoningEffort  string
+	NativeDefaultCapabilitiesKnown bool
+	Ref                            string
+	AgentType                      string
+	DisplayName                    string
+	Models                         []RuntimeModelOption
+	DefaultReasoningEfforts        []string
+	DefaultReasoningEffort         string
 }
 
 type RuntimeModelOption struct {
+	// NativeCapabilitiesUnknown delegates validation to the native agent when
+	// no execution-scoped discovery snapshot is available (e.g. offline launch).
+	NativeCapabilitiesUnknown bool
 	DisplayName               string
 	Ref                       string
 	Kind                      ModelKind
@@ -213,7 +217,7 @@ func ResolveRuntimeOption(ref string) (RuntimeOption, error) {
 func ResolveRuntimeModel(runtime RuntimeOption, requested string) (RuntimeModelOption, error) {
 	requested = strings.TrimSpace(requested)
 	if requested == "" {
-		return RuntimeModelOption{Kind: ModelKindDefault}, nil
+		return RuntimeModelOption{Kind: ModelKindDefault, NativeCapabilitiesUnknown: runtime.Ref == "codex" && !runtime.NativeDefaultCapabilitiesKnown}, nil
 	}
 	for _, model := range runtime.Models {
 		if model.Ref == requested {
@@ -225,12 +229,17 @@ func ResolveRuntimeModel(runtime RuntimeOption, requested string) (RuntimeModelO
 			return model, err
 		}
 	}
-	if allowUnlistedNativeRuntimeModels {
+	if allowUnlistedNativeRuntimeModels || runtime.Ref == "codex" {
 		for _, source := range runtimeCatalogSources {
 			if source.ref == runtime.Ref {
+				efforts := cloneStrings(runtime.DefaultReasoningEfforts)
+				if runtime.Ref == "codex" {
+					efforts = nil
+				}
 				return RuntimeModelOption{
 					Ref: requested, Kind: ModelKindNative, AgentModel: requested,
-					SupportedReasoningEfforts: cloneStrings(runtime.DefaultReasoningEfforts),
+					NativeCapabilitiesUnknown: runtime.Ref == "codex",
+					SupportedReasoningEfforts: efforts,
 				}, nil
 			}
 		}
@@ -241,6 +250,9 @@ func ResolveRuntimeModel(runtime RuntimeOption, requested string) (RuntimeModelO
 func ValidateRuntimeReasoningEffort(runtime RuntimeOption, model RuntimeModelOption, effort string) error {
 	effort = strings.TrimSpace(effort)
 	if effort == "" {
+		return nil
+	}
+	if model.NativeCapabilitiesUnknown {
 		return nil
 	}
 	allowed := model.SupportedReasoningEfforts

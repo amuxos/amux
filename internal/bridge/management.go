@@ -784,6 +784,9 @@ const managementRuntimeDefaultReasoningOption = "__runtime_default_reasoning__"
 // Cards sent by the removed experimental command may still be visible
 // or pending recovery during an upgrade. Keep them on the current /amux surface.
 type managementState struct {
+	NativeModelsStatus              string
+	NativeModelsTargetRef           string
+	NativeModelsTargetName          string
 	ModelServices                   []managementModelService
 	ProfileName                     string
 	OwnerOpenID                     string

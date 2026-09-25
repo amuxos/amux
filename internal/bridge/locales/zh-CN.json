@@ -2443,5 +2443,17 @@
   },
   "management.model.service.install": {
     "other": "一键安装"
+  },
+  "management.model.native.ready": {
+    "other": "已从执行环境刷新 Codex 原生模型。"
+  },
+  "management.model.native.signed_out": {
+    "other": "此 Runtime 上的 Codex 尚未登录。请在该环境登录后刷新。"
+  },
+  "management.model.native.unavailable": {
+    "other": "Codex 模型暂不可用，请检查 Runtime 和原生登录后刷新。"
+  },
+  "management.model.native.refresh": {
+    "other": "刷新 Codex 模型"
   }
 }
