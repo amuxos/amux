@@ -42,7 +42,10 @@ checks use `latest.json`; on that manifest path the updater verifies SHA256
 before extraction (a custom `--release-url`/`AMUX_RELEASE_URL` pointing directly
 at a `.tar.gz` archive skips checksum verification).
 Both paths reject unsupported archive entries. Packages include license notices
-and a platform-matched Claude SDK sidecar. Native agents and Node remain external
+and a platform-matched Claude SDK sidecar. Install and update also download the
+managed Agent Pack Contract SCM release from
+`amuxos/agent-pack-contract-releases` into `~/.amux/libexec/agent-pack-contract`
+when `AGENT_PACK_CONTRACT_SCM_URL` is unset. Native agents and Node remain external
 prerequisites. The privileged isolation helper has its own installation process.
 
 For a mirror, `AMUX_RELEASE_BASE_URL` selects the installer's GitHub-style

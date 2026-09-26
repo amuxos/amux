@@ -34,7 +34,10 @@ Actions Secret `AMUX_RELEASE_TOKEN`。到期前更新该 Secret。不要复用�
 `amux update --restart` 和更新检查使用 `latest.json`；清单路径下更新器先校验 SHA256
 再解包（自定义 `--release-url`/`AMUX_RELEASE_URL` 直接指向 `.tar.gz` 归档时跳过校验）。
 两条路径均拒绝不支持的归档条目。包内含许可证和适配平台的 Claude SDK sidecar。
-原生 Agent 和 Node 需要另外安装。特权隔离 helper 使用独立安装流程。
+安装与更新还会在未设置 `AGENT_PACK_CONTRACT_SCM_URL` 时，从
+`amuxos/agent-pack-contract-releases` 下载托管的 Agent Pack Contract SCM 发布包，
+并安装到 `~/.amux/libexec/agent-pack-contract`。原生 Agent 和 Node 需要另外安装。
+特权隔离 helper 使用独立安装流程。
 
 镜像可通过 `AMUX_RELEASE_BASE_URL` 指定安装器使用的 GitHub 风格 releases 目录；
 后续 CLI 和服务更新检查使用 `AMUX_RELEASE_URL`（`AMUX_SCM_LATEST_URL` 作为旧别名
