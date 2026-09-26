@@ -22,7 +22,7 @@ cross-repository secret. The release repository's own workflows are not needed.
 After reviewing and merging a source change, run the complete gate with the CI
 toolchain, then create a stable `vX.Y.Z` tag on the checked main commit and push
 it. `.github/workflows/release.yml` checks that the tag belongs to main, reruns
-the gate, builds four native platform packages, and verifies the complete set.
+the gate, builds five platform packages (macOS/Linux amd64+arm64 native, Windows amd64 cross-compiled with Setup.exe), and verifies the complete set.
 It uploads all assets to a draft release before publishing it as latest.
 
 The public tag is created against the release repository's documentation branch.
@@ -35,8 +35,8 @@ a new version for corrections. Concurrency serializes releases.
 
 ## Download contract
 
-Each version has `install.sh`, `version.txt`, `latest.json`, four platform tarballs,
-and their `.sha256` files. The installer resolves `version.txt` once and downloads
+Each version has `install.sh`, `version.txt`, `latest.json`, platform tarballs for
+macOS/Linux, Windows `*_Setup.exe` plus its tarball, and their `.sha256` files. The installer resolves `version.txt` once and downloads
 the pinned platform filename and checksum. `amux update --restart` and update
 checks use `latest.json`; on that manifest path the updater verifies SHA256
 before extraction (a custom `--release-url`/`AMUX_RELEASE_URL` pointing directly

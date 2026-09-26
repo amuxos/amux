@@ -4,12 +4,18 @@ BINARIES := amux amuxd amuxlet amux-isolation-helper
 VERSION ?= dev
 BUILD_DIR ?= bin
 export GOWORK := off
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+EXE := $(if $(filter windows,$(GOOS)),.exe,)
 
 build:
 	@mkdir -p "$(BUILD_DIR)"
 	@set -e; for bin in $(BINARIES); do \
-		go build -trimpath -buildvcs=false -ldflags "-X main.version=$(VERSION)" -o "$(BUILD_DIR)/$$bin" ./cmd/$$bin; \
+		go build -trimpath -buildvcs=false -ldflags "-X main.version=$(VERSION)" -o "$(BUILD_DIR)/$$bin$(EXE)" ./cmd/$$bin; \
 	done
+	@if [ "$(GOOS)" = "windows" ]; then \
+		go build -trimpath -buildvcs=false -ldflags "-X main.version=$(VERSION)" -o "$(BUILD_DIR)/Setup.exe" ./cmd/amux-setup; \
+	fi
 
 test:
 	go test ./...

@@ -133,6 +133,11 @@ fi
   exit 2
 }
 
+exe=""
+if [[ "$goos" == windows ]]; then
+  exe=".exe"
+fi
+
 if [[ -z "$source_dir" ]]; then
   printf '\n==> make build VERSION=%s GOOS=%s GOARCH=%s CGO_ENABLED=%s\n' "$version" "$goos" "$goarch" "$cgo_enabled"
   CGO_ENABLED="$cgo_enabled" GOOS="$goos" GOARCH="$goarch" make -C "$repo_root" build VERSION="$version" BUILD_DIR="$repo_root/bin"
@@ -143,11 +148,15 @@ source_dir="$(cd "$source_dir" && pwd)"
 dist_dir="$(mkdir -p "$dist_dir" && cd "$dist_dir" && pwd)"
 
 for bin in amux amuxd amuxlet; do
-  if [[ ! -f "$source_dir/$bin" ]]; then
-    printf 'missing %s in %s\n' "$bin" "$source_dir" >&2
+  if [[ ! -f "$source_dir/$bin$exe" ]]; then
+    printf 'missing %s in %s\n' "$bin$exe" "$source_dir" >&2
     exit 1
   fi
 done
+if [[ "$goos" == windows && ! -f "$source_dir/Setup.exe" ]]; then
+  printf 'missing Setup.exe in %s\n' "$source_dir" >&2
+  exit 1
+fi
 
 # The public license applies to the core, even when this script builds a
 # separately licensed distribution through AMUX_PACKAGE_BUILD_ROOT.
@@ -172,8 +181,12 @@ fi
 
 rm -rf "$package_dir" "$archive" "$checksum_file"
 mkdir -p "$package_dir"
-cp "$source_dir/amux" "$source_dir/amuxd" "$source_dir/amuxlet" "$package_dir/"
-chmod 0755 "$package_dir/amux" "$package_dir/amuxd" "$package_dir/amuxlet"
+cp "$source_dir/amux$exe" "$source_dir/amuxd$exe" "$source_dir/amuxlet$exe" "$package_dir/"
+chmod 0755 "$package_dir/amux$exe" "$package_dir/amuxd$exe" "$package_dir/amuxlet$exe"
+if [[ "$goos" == windows ]]; then
+  cp "$source_dir/Setup.exe" "$package_dir/Setup.exe"
+  chmod 0755 "$package_dir/Setup.exe"
+fi
 
 for notice in "${notice_files[@]}"; do
   destination="$package_dir/licenses/amux/$notice"
@@ -213,6 +226,34 @@ cat > "$manifest" <<EOF
   }
 }
 EOF
+
+if [[ "$goos" == windows ]]; then
+  setup_asset="$dist_dir/${package}_Setup.exe"
+  cp "$package_dir/Setup.exe" "$setup_asset"
+  shasum -a 256 "$setup_asset" > "$setup_asset.sha256"
+  setup_sha="$(awk '{print $1}' "$setup_asset.sha256")"
+  setup_url="${package}_Setup.exe"
+  if [[ -n "$base_url" ]]; then
+    setup_url="${base_url%/}/${package}_Setup.exe"
+  fi
+  # Prefer Setup.exe as the windows install entry in latest.json while still
+  # shipping the full tar.gz for offline extraction next to sibling binaries.
+  cat > "$manifest" <<EOF
+{
+  "version": "$version",
+  "assets": {
+    "${goos}_${goarch}": {
+      "url": "$setup_url",
+      "sha256": "$setup_sha",
+      "package_url": "$asset_url",
+      "package_sha256": "$sha256",
+      "installer": "Setup.exe"
+    }
+  }
+}
+EOF
+  printf 'Setup %s\n' "$setup_asset"
+fi
 
 printf 'Packaged %s\n' "$archive"
 printf 'Checksum %s\n' "$checksum_file"

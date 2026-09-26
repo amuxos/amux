@@ -229,6 +229,13 @@
           }
         },
         {
+          "source": "docs/operations/windows-setup.md",
+          "title": {
+            "en": "Windows Setup",
+            "zh-CN": "Windows Setup"
+          }
+        },
+        {
           "source": "docs/operations/public-releases.md",
           "title": {
             "en": "Publish releases",

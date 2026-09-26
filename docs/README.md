@@ -57,6 +57,7 @@ Start with work in Feishu. If you already have a bot, open Conversations and fol
 - [External MCP hosts](mcp-external-hosts.md)
 - [Source examples](../examples/README.md)
 - [Linux user isolation](operations/linux-dac-isolation.md)
+- [Windows Setup](operations/windows-setup.md)
 - [Publish releases](operations/public-releases.md)
 
 <a id="product-models"></a>

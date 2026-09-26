@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -337,7 +338,19 @@ func resolveSiblingBinaryPath(name, executablePath string) string {
 	if strings.HasPrefix(base, ".amux-backup-") || strings.HasPrefix(base, ".amux-stage-") {
 		dir = filepath.Dir(dir)
 	}
-	return filepath.Join(dir, name)
+	return filepath.Join(dir, exeName(name))
+}
+
+// exeName returns the on-disk binary name for the current OS.
+func exeName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return name
+	}
+	if runtime.GOOS == "windows" && !strings.HasSuffix(strings.ToLower(name), ".exe") {
+		return name + ".exe"
+	}
+	return name
 }
 
 func readRunningPID(path string) (int, bool) {

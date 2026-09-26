@@ -2926,5 +2926,41 @@
   "非负整数": {
     "en": "Non-negative integer",
     "zh-CN": "非负整数"
+  },
+  "Install the Amux Windows Service (Automatic start)": {
+    "en": "Install the Amux Windows Service (Automatic start)",
+    "zh-CN": "安装 Amux Windows 服务（自动启动）"
+  },
+  "Manage the Amux Windows Service (hub + runtime)": {
+    "en": "Manage the Amux Windows Service (hub + runtime)",
+    "zh-CN": "管理 Amux Windows 服务（Hub + Runtime）"
+  },
+  "Show Amux Windows Service status": {
+    "en": "Show Amux Windows Service status",
+    "zh-CN": "显示 Amux Windows 服务状态"
+  },
+  "Start the Amux Windows Service": {
+    "en": "Start the Amux Windows Service",
+    "zh-CN": "启动 Amux Windows 服务"
+  },
+  "Stop and remove the Amux Windows Service": {
+    "en": "Stop and remove the Amux Windows Service",
+    "zh-CN": "停止并移除 Amux Windows 服务"
+  },
+  "Stop the Amux Windows Service": {
+    "en": "Stop the Amux Windows Service",
+    "zh-CN": "停止 Amux Windows 服务"
+  },
+  "amux data directory (default: current AMUX_HOME or %USERPROFILE%\\.amux)": {
+    "en": "amux data directory (default: current AMUX_HOME or %USERPROFILE%\\.amux)",
+    "zh-CN": "amux 数据目录（默认：当前 AMUX_HOME 或 %USERPROFILE%\\.amux）"
+  },
+  "directory containing amux.exe / amuxd.exe / amuxlet.exe (default: directory of this amux)": {
+    "en": "directory containing amux.exe / amuxd.exe / amuxlet.exe (default: directory of this amux)",
+    "zh-CN": "包含 amux.exe / amuxd.exe / amuxlet.exe 的目录（默认：当前 amux 所在目录）"
+  },
+  "help for service": {
+    "en": "help for service",
+    "zh-CN": "service 帮助"
   }
 }

@@ -57,6 +57,7 @@
 - [外部 MCP Host](mcp-external-hosts.zh-CN.md)
 - [源码示例](../examples/README.zh-CN.md)
 - [Linux 用户隔离](operations/linux-dac-isolation.zh-CN.md)
+- [Windows Setup](operations/windows-setup.zh-CN.md)
 - [发布公共版本](operations/public-releases.zh-CN.md)
 
 <a id="product-models"></a>

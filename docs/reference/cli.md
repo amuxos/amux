@@ -116,6 +116,12 @@ After changing public command names, hierarchy, visibility, descriptions, argume
 | `amux system operation list` | List lifecycle operations |
 | `amux system operation show` | Show a lifecycle operation |
 | `amux system restart` | Restart this amux installation |
+| `amux system service` | Manage the Amux Windows Service (hub + runtime) |
+| `amux system service install` | Install the Amux Windows Service (Automatic start) |
+| `amux system service start` | Start the Amux Windows Service |
+| `amux system service status` | Show Amux Windows Service status |
+| `amux system service stop` | Stop the Amux Windows Service |
+| `amux system service uninstall` | Stop and remove the Amux Windows Service |
 | `amux system start` | Start this amux installation |
 | `amux system status` | Show installation status |
 | `amux system stop` | Stop this amux installation |
@@ -2052,6 +2058,7 @@ amux system [flags]
 | `amux system logs` | Show installation log paths |
 | `amux system operation` | Inspect and cancel lifecycle operations |
 | `amux system restart` | Restart this amux installation |
+| `amux system service` | Manage the Amux Windows Service (hub + runtime) |
 | `amux system start` | Start this amux installation |
 | `amux system status` | Show installation status |
 | `amux system stop` | Stop this amux installation |
@@ -2311,6 +2318,114 @@ amux system restart [flags]
 | `--force` | `bool` | `false` | continue even when active local work would be disrupted |
 | `-h, --help` | `bool` | `false` | help for restart |
 | `--plan` | `bool` | `false` | preview the lifecycle operation without changing anything |
+
+## `amux system service`
+
+Manage the Amux Windows Service (hub + runtime)
+
+**Usage**
+
+```text
+amux system service [flags]
+```
+
+**Subcommands**
+
+| Command | Description |
+| --- | --- |
+| `amux system service install` | Install the Amux Windows Service (Automatic start) |
+| `amux system service start` | Start the Amux Windows Service |
+| `amux system service status` | Show Amux Windows Service status |
+| `amux system service stop` | Stop the Amux Windows Service |
+| `amux system service uninstall` | Stop and remove the Amux Windows Service |
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for service |
+
+## `amux system service install`
+
+Install the Amux Windows Service (Automatic start)
+
+**Usage**
+
+```text
+amux system service install [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--amux-home` | `string` | `""` | amux data directory (default: current AMUX_HOME or %USERPROFILE%\.amux) |
+| `--bin-dir` | `string` | `""` | directory containing amux.exe / amuxd.exe / amuxlet.exe (default: directory of this amux) |
+| `-h, --help` | `bool` | `false` | help for install |
+
+## `amux system service start`
+
+Start the Amux Windows Service
+
+**Usage**
+
+```text
+amux system service start [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for start |
+
+## `amux system service status`
+
+Show Amux Windows Service status
+
+**Usage**
+
+```text
+amux system service status [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for status |
+
+## `amux system service stop`
+
+Stop the Amux Windows Service
+
+**Usage**
+
+```text
+amux system service stop [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for stop |
+
+## `amux system service uninstall`
+
+Stop and remove the Amux Windows Service
+
+**Usage**
+
+```text
+amux system service uninstall [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for uninstall |
 
 ## `amux system start`
 

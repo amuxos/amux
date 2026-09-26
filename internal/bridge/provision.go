@@ -103,6 +103,10 @@ type ProvisionOptions struct {
 	// OnStatus, when set, receives human-readable polling status updates
 	// ("等待扫码" / "已扫码，等待确认" / domain switch).
 	OnStatus func(msg string)
+	// OnAuthorizationURL, when set, receives the device-code authorization URL
+	// (and expiry seconds) so installers can open a browser or render a GUI QR
+	// without inventing a localhost OAuth callback.
+	OnAuthorizationURL func(url string, expireIn int)
 	// Domain / LarkDomain override the accounts endpoints (tests only).
 	Domain     string
 	LarkDomain string
@@ -135,6 +139,12 @@ func ProvisionFeishuApp(ctx context.Context, opts ProvisionOptions) (*ProvisionR
 		Addons:     registrationAddonsForProvisioning(opts.SkipAddons),
 		AppID:      strings.TrimSpace(opts.AppID),
 		OnQRCode: func(info *registration.QRCodeInfo) {
+			if info == nil {
+				return
+			}
+			if opts.OnAuthorizationURL != nil {
+				opts.OnAuthorizationURL(info.URL, info.ExpireIn)
+			}
 			fmt.Fprintln(qrOut)
 			fmt.Fprintln(qrOut, "请用飞书 App 扫码选择已有应用或创建智能体应用：")
 			fmt.Fprintln(qrOut)

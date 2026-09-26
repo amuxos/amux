@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	agentpacks "github.com/amuxos/amux/agent-packs"
@@ -817,10 +816,10 @@ func (m *ManagedLibrary) withLock(operation func() error) error {
 		return err
 	}
 	defer lock.Close()
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+	if err := lockExclusive(lock); err != nil {
 		return err
 	}
-	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) //nolint:errcheck
+	defer unlockExclusive(lock) //nolint:errcheck
 	return operation()
 }
 

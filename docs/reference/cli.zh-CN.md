@@ -116,6 +116,12 @@
 | `amux system operation list` | 列出生命周期操作 |
 | `amux system operation show` | 显示生命周期操作 |
 | `amux system restart` | 重启当前 amux 安装 |
+| `amux system service` | 管理 Amux Windows 服务（Hub + Runtime） |
+| `amux system service install` | 安装 Amux Windows 服务（自动启动） |
+| `amux system service start` | 启动 Amux Windows 服务 |
+| `amux system service status` | 显示 Amux Windows 服务状态 |
+| `amux system service stop` | 停止 Amux Windows 服务 |
+| `amux system service uninstall` | 停止并移除 Amux Windows 服务 |
 | `amux system start` | 启动当前 amux 安装 |
 | `amux system status` | 显示安装状态 |
 | `amux system stop` | 停止当前 amux 安装 |
@@ -2052,6 +2058,7 @@ amux system [flags]
 | `amux system logs` | 显示安装日志路径 |
 | `amux system operation` | 检查和取消生命周期操作 |
 | `amux system restart` | 重启当前 amux 安装 |
+| `amux system service` | 管理 Amux Windows 服务（Hub + Runtime） |
 | `amux system start` | 启动当前 amux 安装 |
 | `amux system status` | 显示安装状态 |
 | `amux system stop` | 停止当前 amux 安装 |
@@ -2311,6 +2318,114 @@ amux system restart [flags]
 | `--force` | `bool` | `false` | 即使会中断活动的本地工作，也继续执行 |
 | `-h, --help` | `bool` | `false` | restart 帮助 |
 | `--plan` | `bool` | `false` | 预览生命周期操作，不修改任何内容 |
+
+## `amux system service`
+
+管理 Amux Windows 服务（Hub + Runtime）
+
+**用法**
+
+```text
+amux system service [flags]
+```
+
+**子命令**
+
+| 命令 | 说明 |
+| --- | --- |
+| `amux system service install` | 安装 Amux Windows 服务（自动启动） |
+| `amux system service start` | 启动 Amux Windows 服务 |
+| `amux system service status` | 显示 Amux Windows 服务状态 |
+| `amux system service stop` | 停止 Amux Windows 服务 |
+| `amux system service uninstall` | 停止并移除 Amux Windows 服务 |
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | service 帮助 |
+
+## `amux system service install`
+
+安装 Amux Windows 服务（自动启动）
+
+**用法**
+
+```text
+amux system service install [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `--amux-home` | `string` | `""` | amux 数据目录（默认：当前 AMUX_HOME 或 %USERPROFILE%\.amux） |
+| `--bin-dir` | `string` | `""` | 包含 amux.exe / amuxd.exe / amuxlet.exe 的目录（默认：当前 amux 所在目录） |
+| `-h, --help` | `bool` | `false` | install 帮助 |
+
+## `amux system service start`
+
+启动 Amux Windows 服务
+
+**用法**
+
+```text
+amux system service start [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | start 帮助 |
+
+## `amux system service status`
+
+显示 Amux Windows 服务状态
+
+**用法**
+
+```text
+amux system service status [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | status 帮助 |
+
+## `amux system service stop`
+
+停止 Amux Windows 服务
+
+**用法**
+
+```text
+amux system service stop [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | stop 帮助 |
+
+## `amux system service uninstall`
+
+停止并移除 Amux Windows 服务
+
+**用法**
+
+```text
+amux system service uninstall [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | uninstall 帮助 |
 
 ## `amux system start`
 

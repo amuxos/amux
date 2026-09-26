@@ -35,9 +35,9 @@ func TestListBrokerProcessesHostProc(t *testing.T) {
 	t.Logf("enumerated %d live broker(s) on host", len(brokers))
 }
 
-// TestSignalGroupKillsSetsidProcess verifies the destructive core of the
+// TestKillGroupKillsSetsidProcess verifies the destructive core of the
 // reaper: signalling a Setsid group leader by its (negative) pid kills it.
-func TestSignalGroupKillsSetsidProcess(t *testing.T) {
+func TestKillGroupKillsSetsidProcess(t *testing.T) {
 	cmd := exec.Command("sleep", "300")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
@@ -49,10 +49,10 @@ func TestSignalGroupKillsSetsidProcess(t *testing.T) {
 	if err := syscall.Kill(pid, 0); err != nil {
 		t.Fatalf("sleep %d not running: %v", pid, err)
 	}
-	BrokerProcess{PID: pid}.SignalGroup(syscall.SIGKILL)
+	BrokerProcess{PID: pid}.KillGroup()
 	_ = cmd.Wait() // reap so the pid is fully released
 	if err := syscall.Kill(pid, 0); err == nil {
-		t.Fatalf("process %d still alive after SignalGroup(SIGKILL)", pid)
+		t.Fatalf("process %d still alive after KillGroup()", pid)
 	}
 }
 

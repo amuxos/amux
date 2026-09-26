@@ -20,6 +20,7 @@ import (
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/system"
 	"github.com/amuxos/amux/internal/updatecheck"
+	"github.com/amuxos/amux/internal/winsvc"
 	"github.com/spf13/cobra"
 )
 
@@ -457,7 +458,7 @@ func runInstalledUpdatePostInstall(cmd *cobra.Command, opts *installOptions) err
 	if opts.restartAll {
 		args = append(args, "--restart-all")
 	}
-	binary := filepath.Join(binDir, "amux")
+	binary := filepath.Join(binDir, exeName("amux"))
 	return updatePostInstallRunner(cmd, binary, args)
 }
 
@@ -477,8 +478,13 @@ func runUninstall(binDir string, purge bool) error {
 	if err := uninstallServiceStopper(); err != nil {
 		return fmt.Errorf("stop services before uninstall: %w", err)
 	}
+	if runtime.GOOS == "windows" {
+		if err := winsvc.Uninstall(); err != nil {
+			return fmt.Errorf("remove Windows Service: %w", err)
+		}
+	}
 	for _, name := range installBinaryNames {
-		if err := os.Remove(filepath.Join(binDir, name)); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(filepath.Join(binDir, exeName(name))); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}
@@ -542,10 +548,10 @@ func normalizeUpdateRestartOptions(opts *installOptions) {
 
 func validateInstallSource(sourceDir string) error {
 	for _, name := range installBinaryNames {
-		path := filepath.Join(sourceDir, name)
+		path := filepath.Join(sourceDir, exeName(name))
 		info, err := os.Stat(path)
 		if err != nil {
-			return fmt.Errorf("missing %s in %s: %w", name, sourceDir, err)
+			return fmt.Errorf("missing %s in %s: %w", exeName(name), sourceDir, err)
 		}
 		if info.IsDir() {
 			return fmt.Errorf("%s is a directory", path)
@@ -826,7 +832,7 @@ type installBinarySwap struct {
 
 func validateInstallDestinations(binDir string, force bool) error {
 	for _, name := range installBinaryNames {
-		dst := filepath.Join(binDir, name)
+		dst := filepath.Join(binDir, exeName(name))
 		info, err := os.Lstat(dst)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -858,14 +864,14 @@ func replaceInstallBinaries(sourceDir, binDir string, rename func(string, string
 	defer os.RemoveAll(backupDir)
 
 	for _, name := range installBinaryNames {
-		if err := copyExecutable(filepath.Join(sourceDir, name), filepath.Join(stageDir, name)); err != nil {
-			return fmt.Errorf("stage %s: %w", name, err)
+		if err := copyExecutable(filepath.Join(sourceDir, exeName(name)), filepath.Join(stageDir, exeName(name))); err != nil {
+			return fmt.Errorf("stage %s: %w", exeName(name), err)
 		}
 	}
 
 	swaps := make([]installBinarySwap, 0, len(installBinaryNames))
 	for _, name := range installBinaryNames {
-		destination := filepath.Join(binDir, name)
+		destination := filepath.Join(binDir, exeName(name))
 		info, statErr := os.Lstat(destination)
 		if statErr != nil && !os.IsNotExist(statErr) {
 			return statErr
@@ -875,8 +881,8 @@ func replaceInstallBinaries(sourceDir, binDir string, rename func(string, string
 		}
 		swaps = append(swaps, installBinarySwap{
 			destination: destination,
-			backup:      filepath.Join(backupDir, name),
-			staged:      filepath.Join(stageDir, name),
+			backup:      filepath.Join(backupDir, exeName(name)),
+			staged:      filepath.Join(stageDir, exeName(name)),
 			hadOriginal: statErr == nil,
 		})
 	}

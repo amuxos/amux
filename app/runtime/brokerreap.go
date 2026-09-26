@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/amuxos/amux/internal/mux"
 	"github.com/amuxos/amux/internal/session"
@@ -138,7 +137,7 @@ func (s *server) killStaleBroker(sb staleBroker) bool {
 	if !sb.proc.StillBroker() {
 		return false
 	}
-	sb.proc.SignalGroup(syscall.SIGKILL)
+	sb.proc.KillGroup()
 	fmt.Fprintf(os.Stderr, "runtime: broker reap: killed orphan broker pid=%d session=%s agent=%d reason=%s deleted_exe=%v\n",
 		sb.proc.PID, sb.proc.SessionID, sb.proc.AgentPID, sb.reason, sb.proc.DeletedExe)
 	return true

@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/amuxos/amux/internal/amuxhome"
 	"github.com/pelletier/go-toml/v2"
@@ -317,10 +316,10 @@ func updateConfigFileWithLock(path string, mutate func(map[string]any) error) er
 	if err := lock.Chmod(0600); err != nil {
 		return err
 	}
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+	if err := lockConfigFile(lock); err != nil {
 		return err
 	}
-	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) //nolint:errcheck
+	defer unlockConfigFile(lock) //nolint:errcheck
 
 	cfg, err := readConfigFileForWrite(path)
 	if err != nil {

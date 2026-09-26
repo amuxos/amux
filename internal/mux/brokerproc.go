@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 )
 
 // BrokerProcess describes a live session-broker subprocess (_structured_broker
@@ -238,25 +237,15 @@ func (bp BrokerProcess) IsChildOf(childPID int) bool {
 	return procStatPPID(statPath) == bp.PID
 }
 
-// SignalGroup sends sig to the broker's process group and to its inner agent's
-// process group. Brokers and agents are each Setsid group leaders, so each is
-// signalled by its own (negative) pid; the two groups are independent and must
-// both be signalled. Callers should still confirm the target with StillBroker
-// / IsChildOf first.
-func (bp BrokerProcess) SignalGroup(sig syscall.Signal) {
-	signalProcessGroup(bp.PID, sig)
+// KillGroup terminates the broker's process group and its inner agent's
+// process group. Brokers and agents are each Setsid group leaders on Unix, so
+// each is signalled by its own (negative) pid; the two groups are independent
+// and must both be signalled. On Windows the broker pid is terminated
+// directly. Callers should still confirm the target with StillBroker /
+// IsChildOf first.
+func (bp BrokerProcess) KillGroup() {
+	signalProcessGroup(bp.PID)
 	if bp.IsChildOf(bp.AgentPID) {
-		signalProcessGroup(bp.AgentPID, sig)
-	}
-}
-
-// signalProcessGroup signals a process group led by pid, falling back to the
-// single process when the group signal fails (e.g. the group is already gone).
-func signalProcessGroup(pid int, sig syscall.Signal) {
-	if pid <= 0 {
-		return
-	}
-	if err := syscall.Kill(-pid, sig); err != nil {
-		_ = syscall.Kill(pid, sig)
+		signalProcessGroup(bp.AgentPID)
 	}
 }
