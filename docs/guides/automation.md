@@ -56,10 +56,19 @@ amux task show <task-id>
 amux task logs <task-id>
 ```
 
-MCP creates scheduled subtasks. It does not automatically promise delivery back
-to the original Feishu chat. History stores Task IDs; use `amux.task_get` /
-`amux.task_stream` for results. Proactive notifications need an actual configured
-messaging capability; saving a Schedule alone does not establish one.
+MCP `schedule_create` defaults to scheduled subtasks (`schedule_type=subtask`).
+Subtasks do not automatically promise delivery back to the original Feishu chat.
+History stores Task IDs; use `amux.task_get` / `amux.task_stream` for results.
+Proactive notifications need an actual configured messaging capability; saving a
+Schedule alone does not establish one.
+
+When an Agent needs to wake a Session periodically for monitoring work, use
+`schedule_type=session-prompt` with a `prompt` and a `session` session-ref (same
+forms as CLI `amux schedule create <session-ref>`: `target/name`, Session ID, or
+name). Omit `session` to fall back to the current `AMUX_SESSION_ID`. Resolution
+reuses the CLI session-ref path; delivery reuses `deliverReuseSession` (or
+`new-session-per-run`). The minimum interval remains one minute; do not craft
+prompts that infinitely recreate same-direction Session schedules.
 
 ## Timing, execution type and failure behavior
 
@@ -80,8 +89,8 @@ Have the Agent explain the next firing time with its timezone, not just “09:00
 
 | Type | Use | Boundary |
 | --- | --- | --- |
-| Session prompt | Operator uses CLI `schedule create` to periodically prompt a conversation | Reuse the Session, or launch a new Session per run from its settings; not a copy of its entire history |
-| Scheduled subtask | Bounded work each time, through CLI `create-task` or MCP `schedule_create` | Each fire creates an ephemeral child Task with its own ID |
+| Session prompt | Operator or Agent periodically prompts an existing conversation; CLI `schedule create <session-ref>`, or MCP `schedule_create` with `schedule_type=session-prompt` and `session` session-ref (falls back to `AMUX_SESSION_ID`) | Reuse the Session, or launch a new Session per run from its settings; not a copy of its entire history; due Submit (Source: scheduler) can wake the Agent |
+| Scheduled subtask | Bounded work each time, through CLI `create-task`, or MCP `schedule_create` (default / `schedule_type=subtask`) | Each fire creates an ephemeral child Task with its own ID |
 
 Scheduled subtasks support default policy, `policy-allow` or `deny-all`, not
 `escalate-to-main`. Do not design unattended work around permission responses

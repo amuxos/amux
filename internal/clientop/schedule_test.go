@@ -168,3 +168,41 @@ func TestScheduleUpdateRequiresAField(t *testing.T) {
 		t.Fatal("ScheduleUpdate with no fields = nil, want an error")
 	}
 }
+
+func TestScheduleCreateSessionPromptSendsReuseSessionRequest(t *testing.T) {
+	fake := &scheduleFakeAmuxd{createResp: &pb.CreateScheduleResponse{Id: 11, NextRunAt: 1700000001}}
+	out, err := ScheduleCreateSessionPrompt(context.Background(), fake, ScheduleCreateSessionPromptRequest{
+		Spec: " every 30m ", Name: "ping", TargetID: "t1", TargetName: "local",
+		SessionName: "main", Prompt: " check status ", CreatedBy: "mcp",
+	})
+	if err != nil {
+		t.Fatalf("ScheduleCreateSessionPrompt: %v", err)
+	}
+	if out.ID != 11 || out.NextRunAt != 1700000001 {
+		t.Fatalf("result = %+v", out)
+	}
+	got := fake.createReq
+	if got.ScheduleType != "session-prompt" || got.Spec != "every 30m" || got.TargetId != "t1" || got.TargetName != "local" || got.SessionName != "main" || got.Prompt != "check status" || got.RunMode != "reuse-session" || got.CreatedBy != "mcp" || got.Name != "ping" {
+		t.Fatalf("request = %+v", got)
+	}
+}
+
+func TestScheduleCreateSessionPromptRejectsEmptyPrompt(t *testing.T) {
+	_, err := ScheduleCreateSessionPrompt(context.Background(), &scheduleFakeAmuxd{}, ScheduleCreateSessionPromptRequest{
+		Spec: "every 30m", TargetID: "t1", SessionName: "main",
+	})
+	var fe *FieldError
+	if !errors.As(err, &fe) || fe.Field != FieldPrompt {
+		t.Fatalf("err = %v, want FieldError on prompt", err)
+	}
+}
+
+func TestScheduleCreateSessionPromptRejectsInvalidRunMode(t *testing.T) {
+	_, err := ScheduleCreateSessionPrompt(context.Background(), &scheduleFakeAmuxd{}, ScheduleCreateSessionPromptRequest{
+		Spec: "every 30m", TargetID: "t1", SessionName: "main", Prompt: "hi", RunMode: "bogus",
+	})
+	var fe *FieldError
+	if !errors.As(err, &fe) || fe.Field != FieldRunMode {
+		t.Fatalf("err = %v, want FieldError on run_mode", err)
+	}
+}

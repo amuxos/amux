@@ -1037,8 +1037,8 @@ func TestMCPTaskSchemasDocumentWholeTaskTimeout(t *testing.T) {
 
 func TestMCPScheduleCreateSchemaDocumentsScheduledSubtaskPolicy(t *testing.T) {
 	tool := findMCPTool(t, amuxTools(), "amux.schedule_create")
-	if !strings.Contains(tool.Description, "运行历史") {
-		t.Fatalf("schedule_create description = %q, want run history pull model", tool.Description)
+	if !strings.Contains(tool.Description, "session-prompt") || !strings.Contains(tool.Description, "subtask") {
+		t.Fatalf("schedule_create description = %q, want session-prompt and subtask modes", tool.Description)
 	}
 	if !strings.Contains(tool.Description, "escalate-to-main") || !strings.Contains(tool.Description, "不允许") {
 		t.Fatalf("schedule_create description = %q, want escalate-to-main not allowed guidance", tool.Description)
@@ -1046,8 +1046,10 @@ func TestMCPScheduleCreateSchemaDocumentsScheduledSubtaskPolicy(t *testing.T) {
 
 	var schema struct {
 		Properties map[string]struct {
-			Type       string `json:"type"`
-			Properties map[string]struct {
+			Type        string   `json:"type"`
+			Enum        []string `json:"enum"`
+			Description string   `json:"description"`
+			Properties  map[string]struct {
 				Description string   `json:"description"`
 				Enum        []string `json:"enum"`
 			} `json:"properties"`
@@ -1063,8 +1065,105 @@ func TestMCPScheduleCreateSchemaDocumentsScheduledSubtaskPolicy(t *testing.T) {
 	if got := schema.Properties["task"].Properties["permission_policy"].Enum; !sameStrings(got, []string{"default", "policy-allow", "deny-all"}) {
 		t.Fatalf("permission_policy enum = %v, want default/policy-allow/deny-all", got)
 	}
-	if !containsString(schema.Required, "spec") || !containsString(schema.Required, "task") {
-		t.Fatalf("required = %v, want spec and task", schema.Required)
+	if got := schema.Properties["schedule_type"].Enum; !sameStrings(got, []string{"subtask", "session-prompt"}) {
+		t.Fatalf("schedule_type enum = %v, want subtask/session-prompt", got)
+	}
+	if !strings.Contains(schema.Properties["schedule_type"].Description, "session-prompt") {
+		t.Fatalf("schedule_type description = %q, want session-prompt guidance", schema.Properties["schedule_type"].Description)
+	}
+	sessionProp, ok := schema.Properties["session"]
+	if !ok || sessionProp.Type != "string" {
+		t.Fatalf("session schema = %+v, want string property", sessionProp)
+	}
+	if !strings.Contains(sessionProp.Description, "session-ref") || !strings.Contains(sessionProp.Description, "AMUX_SESSION_ID") {
+		t.Fatalf("session description = %q, want session-ref and AMUX_SESSION_ID fallback", sessionProp.Description)
+	}
+	if !containsString(schema.Required, "spec") || containsString(schema.Required, "task") || containsString(schema.Required, "session") {
+		t.Fatalf("required = %v, want only spec (session optional with AMUX_SESSION_ID fallback)", schema.Required)
+	}
+}
+
+func TestNormalizeMCPScheduleTypeDefaultsToSubtask(t *testing.T) {
+	got, err := normalizeMCPScheduleType("")
+	if err != nil || got != schedule.ScheduleTypeSubtask {
+		t.Fatalf("got=%q err=%v, want subtask", got, err)
+	}
+	got, err = normalizeMCPScheduleType("session-prompt")
+	if err != nil || got != schedule.ScheduleTypeSessionPrompt {
+		t.Fatalf("got=%q err=%v, want session-prompt", got, err)
+	}
+	if _, err := normalizeMCPScheduleType("bogus"); err == nil {
+		t.Fatal("bogus schedule_type accepted")
+	}
+}
+
+func TestMCPScheduleCreateSessionPromptRequiresSessionRef(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_SESSION_ID", "")
+	res, err := (&mcpHandler{}).createSchedule(context.Background(), json.RawMessage(`{
+		"spec": "every 30m",
+		"schedule_type": "session-prompt",
+		"prompt": "status check"
+	}`))
+	if err != nil {
+		t.Fatalf("createSchedule: %v", err)
+	}
+	if !res.IsError || len(res.Content) == 0 {
+		t.Fatalf("result = %+v, want session-ref parameter error", res)
+	}
+	msg := res.Content[0].Text
+	if !strings.Contains(msg, "session") || strings.Contains(msg, "hub is not reachable") {
+		t.Fatalf("result = %+v, want session parameter error before hub dial", res)
+	}
+}
+
+func TestMCPSessionPromptRefPrefersExplicitSession(t *testing.T) {
+	t.Setenv("AMUX_SESSION_ID", "env-session")
+	got, err := mcpSessionPromptRef(mcpCreateScheduleArgs{Session: " local/main "})
+	if err != nil || got != "local/main" {
+		t.Fatalf("got=%q err=%v, want local/main", got, err)
+	}
+}
+
+func TestMCPSessionPromptRefFallsBackToEnv(t *testing.T) {
+	t.Setenv("AMUX_SESSION_ID", "  env-session  ")
+	got, err := mcpSessionPromptRef(mcpCreateScheduleArgs{})
+	if err != nil || got != "env-session" {
+		t.Fatalf("got=%q err=%v, want env-session", got, err)
+	}
+}
+
+func TestMCPScheduleCreateSessionPromptRequiresPrompt(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_SESSION_ID", "")
+	res, err := (&mcpHandler{}).createSchedule(context.Background(), json.RawMessage(`{
+		"spec": "every 30m",
+		"schedule_type": "session-prompt",
+		"session": "local/main"
+	}`))
+	if err != nil {
+		t.Fatalf("createSchedule: %v", err)
+	}
+	if !res.IsError || len(res.Content) == 0 || !strings.Contains(res.Content[0].Text, "prompt") {
+		t.Fatalf("result = %+v, want prompt error before hub dial", res)
+	}
+	if strings.Contains(res.Content[0].Text, "hub is not reachable") {
+		t.Fatalf("result = %+v, dialed hub before prompt validation", res)
+	}
+}
+
+func TestMCPScheduleCreateRejectsUnknownScheduleType(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	res, err := (&mcpHandler{}).createSchedule(context.Background(), json.RawMessage(`{
+		"spec": "every 30m",
+		"schedule_type": "bogus",
+		"prompt": "x"
+	}`))
+	if err != nil {
+		t.Fatalf("createSchedule: %v", err)
+	}
+	if !res.IsError || len(res.Content) == 0 || !strings.Contains(res.Content[0].Text, "schedule_type") {
+		t.Fatalf("result = %+v, want schedule_type error", res)
 	}
 }
 

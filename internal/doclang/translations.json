@@ -2962,5 +2962,25 @@
   "help for service": {
     "en": "help for service",
     "zh-CN": "service 帮助"
+  },
+  "创建 hub 定时规则。默认 schedule_type=subtask（临时子 Task，结果用 task_get/task_stream，不允许 escalate-to-main）；schedule_type=session-prompt 时向目标 Session（显式 session 参数为 session-ref，或回落 AMUX_SESSION_ID）Submit 提示词并唤醒 Agent。": {
+    "en": "Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use task_get/task_stream for results; escalate-to-main is not allowed). With schedule_type=session-prompt, Submit a prompt into the target Session (explicit session session-ref parameter, or AMUX_SESSION_ID fallback) and wake the Agent.",
+    "zh-CN": "创建 hub 定时规则。默认 schedule_type=subtask（临时子 Task，结果用 task_get/task_stream，不允许 escalate-to-main）；schedule_type=session-prompt 时向目标 Session（显式 session 参数为 session-ref，或回落 AMUX_SESSION_ID）Submit 提示词并唤醒 Agent。"
+  },
+  "subtask（默认）创建临时子 Task；session-prompt 到期向目标 Session Submit 提示词并唤醒 Agent": {
+    "en": "subtask (default) creates an ephemeral child Task; session-prompt Submit-s a prompt into the target Session on fire and wakes the Agent",
+    "zh-CN": "subtask（默认）创建临时子 Task；session-prompt 到期向目标 Session Submit 提示词并唤醒 Agent"
+  },
+  "schedule_type=session-prompt 时的目标 session-ref（与 CLI amux schedule create <session-ref> 相同：target/name、Session ID 或名称）；省略时回落到 AMUX_SESSION_ID": {
+    "en": "Target session-ref for schedule_type=session-prompt (same forms as CLI amux schedule create <session-ref>: target/name, Session ID, or name); omit to fall back to AMUX_SESSION_ID",
+    "zh-CN": "schedule_type=session-prompt 时的目标 session-ref（与 CLI amux schedule create <session-ref> 相同：target/name、Session ID 或名称）；省略时回落到 AMUX_SESSION_ID"
+  },
+  "schedule_type=session-prompt 时到期投递到目标 Session 的提示词": {
+    "en": "Prompt delivered into the target Session when schedule_type=session-prompt fires",
+    "zh-CN": "schedule_type=session-prompt 时到期投递到目标 Session 的提示词"
+  },
+  "仅 session-prompt：reuse-session（默认）复用目标 Session；new-session-per-run 每次按模板新开 Session": {
+    "en": "session-prompt only: reuse-session (default) reuses the target Session; new-session-per-run starts a new Session from the template each fire",
+    "zh-CN": "仅 session-prompt：reuse-session（默认）复用目标 Session；new-session-per-run 每次按模板新开 Session"
   }
 }

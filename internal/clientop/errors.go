@@ -22,6 +22,11 @@ const (
 	FieldSpec              Field = "spec"
 	FieldScheduleID        Field = "schedule_id"
 	FieldSessionName       Field = "name"
+	FieldPrompt            Field = "prompt"
+	FieldScheduleType      Field = "schedule_type"
+	FieldRunMode           Field = "run_mode"
+	FieldTargetID          Field = "target_id"
+	FieldScheduledSession  Field = "session_name"
 )
 
 // FieldError is a validation failure attributable to one input.

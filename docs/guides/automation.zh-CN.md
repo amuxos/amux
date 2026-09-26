@@ -46,9 +46,17 @@ amux task show <task-id>
 amux task logs <task-id>
 ```
 
-MCP 创建的是定时子任务。它不会自动建立“把结果推回原飞书聊天”的通知承诺；历史记录
-保存 Task ID，结果通过 `amux.task_get` / `amux.task_stream` 获取。若要主动推送，需要
-另行具备并配置实际的消息发送能力，不能仅凭保存 Schedule 就假定已经实现。
+MCP `schedule_create` 默认创建定时子任务（`schedule_type=subtask`）。子任务不会自动建立
+“把结果推回原飞书聊天”的通知承诺；历史记录保存 Task ID，结果通过 `amux.task_get` /
+`amux.task_stream` 获取。若要主动推送，需要另行具备并配置实际的消息发送能力，不能仅凭
+保存 Schedule 就假定已经实现。
+
+当 Agent 需要定期唤醒某个 Session 处理监控类工作时，使用 `schedule_type=session-prompt`，
+提供 `prompt`，并用 `session` 传入目标 session-ref（形式与 CLI
+`amux schedule create <session-ref>` 相同：`target/name`、Session ID 或名称）；省略
+`session` 时回落到当前 `AMUX_SESSION_ID`。解析复用 CLI session-ref 路径，到期投递复用
+`deliverReuseSession`（或 `new-session-per-run`）。最短间隔仍为 1 分钟；不要用会再次无限
+创建同向 Session 定时规则的提示词形成自调度死循环。
 
 ## 时间规则、执行类型与失败行为
 
@@ -69,8 +77,8 @@ MCP 创建的是定时子任务。它不会自动建立“把结果推回原飞�
 
 | 类型 | 何时使用 | 边界 |
 | --- | --- | --- |
-| Session 定时 | 运维者让已有会话定期收到提示；CLI `schedule create` | 可复用 Session，或使用其设置每次启动新 Session；不是克隆全部历史 |
-| 子任务定时 | 每次做一项有独立结果的工作；CLI `create-task` 或 MCP `schedule_create` | 每次创建临时子 Task，记录独立 Task ID |
+| Session 定时 | 运维者或 Agent 让已有会话定期收到提示；CLI `schedule create <session-ref>`，或 MCP `schedule_create` 且 `schedule_type=session-prompt` 并传 `session` session-ref（可回落 `AMUX_SESSION_ID`） | 可复用 Session，或使用其设置每次启动新 Session；不是克隆全部历史；到期 Submit（Source: scheduler）可唤醒 Agent |
+| 子任务定时 | 每次做一项有独立结果的工作；CLI `create-task`，或 MCP `schedule_create`（默认 / `schedule_type=subtask`） | 每次创建临时子 Task，记录独立 Task ID |
 
 定时子任务可用默认权限策略、`policy-allow` 或 `deny-all`，不支持 `escalate-to-main`。
 不要为无人值守工作配置一个必须等待已结束主对话来处理的权限流程。策略也不能替代

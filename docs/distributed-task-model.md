@@ -99,9 +99,14 @@ without amux memory; it never selects a global fallback.
 ## Schedule and permission boundaries
 
 Hub schedules either deliver a prompt to a Session or submit an ephemeral child
-Task. MCP `schedule_create` uses the child-Task path; its history records Task IDs,
-not the completed result or a promise to send it to the originating Feishu chat.
-`ok:task:<id>` means submission succeeded; final outcome comes from the Task record.
+Task. MCP `schedule_create` defaults to the child-Task path (`schedule_type=subtask`
+or omitted); its history records Task IDs, not the completed result or a promise to
+send it to the originating Feishu chat. `ok:task:<id>` means submission succeeded;
+final outcome comes from the Task record. With `schedule_type=session-prompt`, the
+rule targets an explicit `session` session-ref (or falls back to `AMUX_SESSION_ID`)
+resolved like CLI `amux schedule create <session-ref>`, then Submit-s into that
+Session on fire (`Scheduler.deliverReuseSession`), which can wake the Agent;
+inspect Schedule history statuses such as `ok` or `skipped:offline`.
 Recurring rules advance after each attempted fire, including delivery failure;
 consumed one-shot rules are not retried. Disabling or deleting a Schedule does
 not cancel an already admitted Task. See `internal/schedule/spec.go`,

@@ -35,7 +35,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.profile_get` | 按精确 ref 获取 Agent Profile 完整详情，支持开发版 namespace。 |
 | `amux.profile_list` | 分页列出非开发版 Agent Profile；用 profiles[].ref 提交任务，详情用 profile_get。沿 next_cursor 读取至 has_more=false。 |
 | `amux.result_continue` | 续读分页结果；按序拼接 content_chunk，直到 complete=true。游标仅当前 MCP 进程短期有效。 |
-| `amux.schedule_create` | 创建 hub 定时 Agent Task；运行历史只记录 task_id，结果用 task_get/task_stream；不允许 escalate-to-main。 |
+| `amux.schedule_create` | 创建 hub 定时规则。默认 schedule_type=subtask（临时子 Task，结果用 task_get/task_stream，不允许 escalate-to-main）；schedule_type=session-prompt 时向目标 Session（显式 session 参数为 session-ref，或回落 AMUX_SESSION_ID）Submit 提示词并唤醒 Agent。 |
 | `amux.schedule_delete` | 删除 Schedule；既有运行对应的 Task 结果仍可读取。 |
 | `amux.schedule_get` | 获取 Schedule；include_runs=true 时包含运行历史及 task_id。 |
 | `amux.schedule_list` | 分页列出 Schedule；沿 next_cursor 读取至 has_more=false。 |
@@ -861,7 +861,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.schedule_create`
 
-创建 hub 定时 Agent Task；运行历史只记录 task_id，结果用 task_get/task_stream；不允许 escalate-to-main。
+创建 hub 定时规则。默认 schedule_type=subtask（临时子 Task，结果用 task_get/task_stream，不允许 escalate-to-main）；schedule_type=session-prompt 时向目标 Session（显式 session 参数为 session-ref，或回落 AMUX_SESSION_ID）Submit 提示词并唤醒 Agent。
 
 **输入 JSON Schema**
 
@@ -870,6 +870,30 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
   "properties": {
     "name": {
       "description": "Schedule 的可选显示名称",
+      "type": "string"
+    },
+    "prompt": {
+      "description": "schedule_type=session-prompt 时到期投递到目标 Session 的提示词",
+      "type": "string"
+    },
+    "run_mode": {
+      "description": "仅 session-prompt：reuse-session（默认）复用目标 Session；new-session-per-run 每次按模板新开 Session",
+      "enum": [
+        "reuse-session",
+        "new-session-per-run"
+      ],
+      "type": "string"
+    },
+    "schedule_type": {
+      "description": "subtask（默认）创建临时子 Task；session-prompt 到期向目标 Session Submit 提示词并唤醒 Agent",
+      "enum": [
+        "subtask",
+        "session-prompt"
+      ],
+      "type": "string"
+    },
+    "session": {
+      "description": "schedule_type=session-prompt 时的目标 session-ref（与 CLI amux schedule create \u003csession-ref\u003e 相同：target/name、Session ID 或名称）；省略时回落到 AMUX_SESSION_ID",
       "type": "string"
     },
     "spec": {
@@ -967,8 +991,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     }
   },
   "required": [
-    "spec",
-    "task"
+    "spec"
   ],
   "type": "object"
 }

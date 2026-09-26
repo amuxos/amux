@@ -399,9 +399,13 @@ const mcpProfileListPageSize = 10
 // fleet isolation is active; non-isolated fleets accept valid agent credentials.
 
 type mcpCreateScheduleArgs struct {
-	Name string                     `json:"name"`
-	Spec string                     `json:"spec"`
-	Task clientop.ScheduledTaskSpec `json:"task"`
+	Name         string                     `json:"name"`
+	Spec         string                     `json:"spec"`
+	ScheduleType string                     `json:"schedule_type"`
+	Session      string                     `json:"session"`
+	Prompt       string                     `json:"prompt"`
+	RunMode      string                     `json:"run_mode"`
+	Task         clientop.ScheduledTaskSpec `json:"task"`
 }
 
 // mcpScheduleFieldNames renders clientop validation errors in JSON-path
@@ -419,6 +423,12 @@ var mcpScheduleFieldNames = map[clientop.Field]string{
 	clientop.FieldPermissionPolicy:  "task.permission_policy",
 	clientop.FieldWorkspaceLocalDir: "task.workspace.local_dir",
 	clientop.FieldRepoCacheKey:      "task.workspace.repo.cache_key",
+	clientop.FieldPrompt:            "prompt",
+	clientop.FieldScheduleType:      "schedule_type",
+	clientop.FieldRunMode:           "run_mode",
+	clientop.FieldTargetID:          "target_id",
+	clientop.FieldScheduledSession:  "session_name",
+	clientop.FieldSessionName:       "session",
 }
 
 // mcpScheduleCreateError renders a ScheduleCreateTask failure for the tool
@@ -651,9 +661,13 @@ func amuxTools() []mcp.Tool {
   "properties": {
     "name": {"type": "string", "description": "Schedule 的可选显示名称"},
     "spec": {"type": "string", "description": "时间规则：every <duration>、daily <HH:MM>、at <when> 或 cron <expr>"},
+    "schedule_type": {"type": "string", "enum": ["subtask", "session-prompt"], "description": "subtask（默认）创建临时子 Task；session-prompt 到期向目标 Session Submit 提示词并唤醒 Agent"},
+    "session": {"type": "string", "description": "schedule_type=session-prompt 时的目标 session-ref（与 CLI amux schedule create <session-ref> 相同：target/name、Session ID 或名称）；省略时回落到 AMUX_SESSION_ID"},
+    "prompt": {"type": "string", "description": "schedule_type=session-prompt 时到期投递到目标 Session 的提示词"},
+    "run_mode": {"type": "string", "enum": ["reuse-session", "new-session-per-run"], "description": "仅 session-prompt：reuse-session（默认）复用目标 Session；new-session-per-run 每次按模板新开 Session"},
     "task": ` + string(scheduledTaskSchema) + `
   },
-  "required": ["spec", "task"]
+  "required": ["spec"]
 }`)
 	idSchema := json.RawMessage(`{"type":"object","properties":{"task_id":{"type":"string"}},"required":["task_id"]}`)
 	scheduleIDSchema := json.RawMessage(`{"type":"object","properties":{"schedule_id":{"type":"integer"}},"required":["schedule_id"]}`)
@@ -869,7 +883,7 @@ func amuxTools() []mcp.Tool {
 		{Name: "amux.task_respond_permission", Description: "应答 escalate-to-main Task 上抛的权限请求。", InputSchema: respondSchema},
 		{Name: "amux.task_list", Description: "列出调用方可见的 Agent Task 及状态、session_ref 和可用结果。", InputSchema: empty},
 		{Name: "amux.task_prune", Description: "清理终态 Task 历史；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent。", InputSchema: taskPruneSchema},
-		{Name: "amux.schedule_create", Description: "创建 hub 定时 Agent Task；运行历史只记录 task_id，结果用 task_get/task_stream；不允许 escalate-to-main。", InputSchema: createScheduleSchema},
+		{Name: "amux.schedule_create", Description: "创建 hub 定时规则。默认 schedule_type=subtask（临时子 Task，结果用 task_get/task_stream，不允许 escalate-to-main）；schedule_type=session-prompt 时向目标 Session（显式 session 参数为 session-ref，或回落 AMUX_SESSION_ID）Submit 提示词并唤醒 Agent。", InputSchema: createScheduleSchema},
 		{Name: "amux.schedule_list", Description: "分页列出 Schedule；沿 next_cursor 读取至 has_more=false。", InputSchema: scheduleListSchema},
 		{Name: "amux.schedule_get", Description: "获取 Schedule；include_runs=true 时包含运行历史及 task_id。", InputSchema: getScheduleSchema},
 		{Name: "amux.schedule_delete", Description: "删除 Schedule；既有运行对应的 Task 结果仍可读取。", InputSchema: scheduleIDSchema},

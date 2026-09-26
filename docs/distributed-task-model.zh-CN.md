@@ -77,11 +77,15 @@ amux 记忆，不回退到全局范围。
 ## 定时执行与权限边界
 
 Hub 定时规则可以向 Session 投递提示，也可以提交临时子 Task。MCP `schedule_create`
-使用子 Task 路径，历史记录保存 Task ID，不包含已完成结果，也不承诺把结果发送回原飞书
-聊天。`ok:task:<id>` 只表示提交成功，最终结果以 Task 记录为准。重复规则在每次触发尝试
-后推进，即使投递失败；已消费的一次性规则不重试。停用或删除 Schedule 不会取消已经
-接受的 Task。实现见 `internal/schedule/spec.go`、`internal/schedule/scheduler.go` 和
-`app/cli/mcp_schedule.go`。
+默认（`schedule_type=subtask` 或省略）使用子 Task 路径，历史记录保存 Task ID，不包含已
+完成结果，也不承诺把结果发送回原飞书聊天。`ok:task:<id>` 只表示提交成功，最终结果以
+Task 记录为准。`schedule_type=session-prompt` 时用显式 `session` session-ref 指定目标
+（或回落 `AMUX_SESSION_ID`），解析与 CLI `amux schedule create <session-ref>` 相同，到期
+Submit 到该 Session（`Scheduler.deliverReuseSession`），可唤醒 Agent；运行状态以 Schedule
+历史中的 `ok` / `skipped:offline` 等为准。
+重复规则在每次触发尝试后推进，即使投递失败；已消费的一次性规则不重试。停用或删除
+Schedule 不会取消已经接受的 Task。实现见 `internal/schedule/spec.go`、
+`internal/schedule/scheduler.go` 和 `app/cli/mcp_schedule.go`。
 
 Task 默认权限策略是 `policy-allow`，由解析器在其规则内自动处理请求；`deny-all` 拒绝，
 `escalate-to-main` 上报并等待显式响应。阻塞的 `task_run` 和定时子任务不支持上报。

@@ -35,7 +35,7 @@ Official tools in `tools/list`: **49**.
 | `amux.profile_get` | Get complete Agent Profile details by exact ref, including development namespaces. |
 | `amux.profile_list` | List non-development Agent Profiles with pagination. Submit tasks using profiles[].ref and fetch details with profile_get. Follow next_cursor until has_more=false. |
 | `amux.result_continue` | Continue reading a paginated result. Concatenate content_chunk values in order until complete=true. Cursors are short-lived and valid only in the current MCP process. |
-| `amux.schedule_create` | Create a Hub-scheduled Agent Task. Run history records only task_id; use task_get/task_stream for results. escalate-to-main is not allowed. |
+| `amux.schedule_create` | Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use task_get/task_stream for results; escalate-to-main is not allowed). With schedule_type=session-prompt, Submit a prompt into the target Session (explicit session session-ref parameter, or AMUX_SESSION_ID fallback) and wake the Agent. |
 | `amux.schedule_delete` | Delete a Schedule. Task results from existing runs remain readable. |
 | `amux.schedule_get` | Get a Schedule; include_runs=true includes run history and task_id values. |
 | `amux.schedule_list` | List Schedules with pagination. Follow next_cursor until has_more=false. |
@@ -861,7 +861,7 @@ Continue reading a paginated result. Concatenate content_chunk values in order u
 
 ## `amux.schedule_create`
 
-Create a Hub-scheduled Agent Task. Run history records only task_id; use task_get/task_stream for results. escalate-to-main is not allowed.
+Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use task_get/task_stream for results; escalate-to-main is not allowed). With schedule_type=session-prompt, Submit a prompt into the target Session (explicit session session-ref parameter, or AMUX_SESSION_ID fallback) and wake the Agent.
 
 **Input JSON Schema**
 
@@ -870,6 +870,30 @@ Create a Hub-scheduled Agent Task. Run history records only task_id; use task_ge
   "properties": {
     "name": {
       "description": "Optional Schedule display name",
+      "type": "string"
+    },
+    "prompt": {
+      "description": "Prompt delivered into the target Session when schedule_type=session-prompt fires",
+      "type": "string"
+    },
+    "run_mode": {
+      "description": "session-prompt only: reuse-session (default) reuses the target Session; new-session-per-run starts a new Session from the template each fire",
+      "enum": [
+        "reuse-session",
+        "new-session-per-run"
+      ],
+      "type": "string"
+    },
+    "schedule_type": {
+      "description": "subtask (default) creates an ephemeral child Task; session-prompt Submit-s a prompt into the target Session on fire and wakes the Agent",
+      "enum": [
+        "subtask",
+        "session-prompt"
+      ],
+      "type": "string"
+    },
+    "session": {
+      "description": "Target session-ref for schedule_type=session-prompt (same forms as CLI amux schedule create \u003csession-ref\u003e: target/name, Session ID, or name); omit to fall back to AMUX_SESSION_ID",
       "type": "string"
     },
     "spec": {
@@ -967,8 +991,7 @@ Create a Hub-scheduled Agent Task. Run history records only task_id; use task_ge
     }
   },
   "required": [
-    "spec",
-    "task"
+    "spec"
   ],
   "type": "object"
 }

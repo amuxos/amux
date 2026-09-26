@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -44,21 +45,99 @@ func (h *mcpHandler) createSchedule(ctx context.Context, args json.RawMessage) (
 	if a.Spec == "" {
 		return mcp.ErrorText("spec is required"), nil
 	}
+	scheduleType, err := normalizeMCPScheduleType(a.ScheduleType)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	sessionRef := ""
+	if scheduleType == schedule.ScheduleTypeSessionPrompt {
+		// Validate session-ref / AMUX_SESSION_ID before dialing the hub so missing
+		// inputs fail as parameter errors instead of hub-unreachable timeouts.
+		sessionRef, err = mcpSessionPromptRef(a)
+		if err != nil {
+			return mcp.ErrorText(err.Error()), nil
+		}
+		if strings.TrimSpace(a.Prompt) == "" {
+			return mcp.ErrorText("prompt is required for schedule_type=session-prompt"), nil
+		}
+	}
 	client, closeFn, err := newScheduleClientForMCP()
 	if err != nil {
 		return mcp.ErrorText(err.Error()), nil
 	}
 	defer closeFn()
-	result, err := clientop.ScheduleCreateTask(ctx, client, clientop.ScheduleCreateTaskRequest{Spec: a.Spec, Name: a.Name, CreatedBy: "mcp", Task: a.Task})
+
+	var result clientop.ScheduleCreateResult
+	switch scheduleType {
+	case schedule.ScheduleTypeSessionPrompt:
+		result, err = createMCPSessionPromptSchedule(ctx, client, a, sessionRef)
+	default:
+		result, err = clientop.ScheduleCreateTask(ctx, client, clientop.ScheduleCreateTaskRequest{Spec: a.Spec, Name: a.Name, CreatedBy: "mcp", Task: a.Task})
+	}
 	if err != nil {
 		return mcp.ErrorText(mcpScheduleCreateError(err)), nil
 	}
-	return mcp.Text(toJSON(map[ // mcpScheduleCreateError renders a ScheduleCreateTask failure for the tool
-	// caller. A validation failure is a *clientop.FieldError and must be phrased
-	// in JSON-path vocabulary; anything else passes through as-is.
-	// mcpScheduleValidationMessage keeps the MCP surface's established wording.
-	string]any{"schedule_id": result.ID, "next_run_at": result.NextRunAt})), nil
+	return mcp.Text(toJSON(map[string]any{
+		"schedule_id":   result.ID,
+		"next_run_at":   result.NextRunAt,
+		"schedule_type": scheduleType,
+	})), nil
 }
+
+// normalizeMCPScheduleType keeps the MCP default as subtask so existing callers
+// that omit schedule_type continue to create temporary child Tasks.
+func normalizeMCPScheduleType(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return schedule.ScheduleTypeSubtask, nil
+	}
+	normalized, err := schedule.NormalizeScheduleType(raw)
+	if err != nil {
+		return "", fmt.Errorf("invalid schedule_type %q (expected subtask or session-prompt)", raw)
+	}
+	return normalized, nil
+}
+
+// mcpSessionPromptRef picks the session-ref for schedule_type=session-prompt.
+// An explicit `session` argument wins; otherwise AMUX_SESSION_ID is used so an
+// Agent scheduling against its own Session can omit the field.
+func mcpSessionPromptRef(a mcpCreateScheduleArgs) (string, error) {
+	ref := strings.TrimSpace(a.Session)
+	if ref == "" {
+		ref = strings.TrimSpace(os.Getenv("AMUX_SESSION_ID"))
+	}
+	if ref == "" {
+		return "", fmt.Errorf("session is required for schedule_type=session-prompt (pass session as a session-ref like CLI amux schedule create, or run inside a Session so AMUX_SESSION_ID is set)")
+	}
+	return ref, nil
+}
+
+// createMCPSessionPromptSchedule resolves session-ref with the same path as CLI
+// `amux schedule create <session-ref>` (sessionResolver.ResolveSession), then
+// reuses hub session-prompt delivery (Scheduler.deliverReuseSession /
+// deliverNewSessionPerRun).
+func createMCPSessionPromptSchedule(ctx context.Context, client pb.AmuxdClient, a mcpCreateScheduleArgs, sessionRef string) (clientop.ScheduleCreateResult, error) {
+	r, err := newSessionResolver()
+	if err != nil {
+		return clientop.ScheduleCreateResult{}, err
+	}
+	defer r.Close()
+	resolved, err := r.ResolveSession(ctx, sessionRef)
+	if err != nil {
+		return clientop.ScheduleCreateResult{}, err
+	}
+	return clientop.ScheduleCreateSessionPrompt(ctx, client, clientop.ScheduleCreateSessionPromptRequest{
+		Spec:        a.Spec,
+		Name:        a.Name,
+		TargetID:    resolved.Target.ID,
+		TargetName:  resolved.Target.Name,
+		SessionName: resolved.Session.Name,
+		Prompt:      a.Prompt,
+		RunMode:     a.RunMode,
+		CreatedBy:   "mcp",
+	})
+}
+
 func (h *mcpHandler) listSchedules(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
 	var input struct {
 		Cursor string `json:"cursor"`

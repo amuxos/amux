@@ -51,6 +51,61 @@ func ScheduleCreateTask(ctx context.Context, hub pb.AmuxdClient, req ScheduleCre
 	return ScheduleCreateResult{ID: resp.Id, NextRunAt: resp.NextRunAt}, nil
 }
 
+// ScheduleCreateSessionPromptRequest creates a session-prompt schedule that
+// Submit-s into an existing target session when due (Scheduler.deliverReuseSession
+// or deliverNewSessionPerRun).
+type ScheduleCreateSessionPromptRequest struct {
+	Spec        string `json:"spec"`
+	Name        string `json:"name,omitempty"`
+	TargetID    string `json:"target_id"`
+	TargetName  string `json:"target_name,omitempty"`
+	SessionName string `json:"session_name"`
+	Prompt      string `json:"prompt"`
+	RunMode     string `json:"run_mode,omitempty"`
+	CreatedBy   string `json:"-"`
+}
+
+// ScheduleCreateSessionPrompt persists a session-prompt schedule via the hub.
+// Authorization (SessionPromptAuthorizer / authorizeScheduleSessionTarget) stays
+// on the hub; this helper only validates and forwards the request.
+func ScheduleCreateSessionPrompt(ctx context.Context, hub pb.AmuxdClient, req ScheduleCreateSessionPromptRequest) (ScheduleCreateResult, error) {
+	if strings.TrimSpace(req.Spec) == "" {
+		return ScheduleCreateResult{}, RequiredError(FieldSpec)
+	}
+	if strings.TrimSpace(req.TargetID) == "" {
+		return ScheduleCreateResult{}, RequiredError(FieldTargetID)
+	}
+	if strings.TrimSpace(req.SessionName) == "" {
+		return ScheduleCreateResult{}, RequiredError(FieldScheduledSession)
+	}
+	prompt := strings.TrimSpace(req.Prompt)
+	if prompt == "" {
+		return ScheduleCreateResult{}, RequiredError(FieldPrompt)
+	}
+	runMode, err := schedule.NormalizeRunMode(req.RunMode)
+	if err != nil {
+		return ScheduleCreateResult{}, InvalidError(FieldRunMode, req.RunMode, "reuse-session or new-session-per-run")
+	}
+	resp, err := hub.CreateSchedule(ctx, &pb.CreateScheduleRequest{
+		ScheduleType: schedule.ScheduleTypeSessionPrompt,
+		TargetId:     strings.TrimSpace(req.TargetID),
+		TargetName:   strings.TrimSpace(req.TargetName),
+		SessionName:  strings.TrimSpace(req.SessionName),
+		Spec:         strings.TrimSpace(req.Spec),
+		RunMode:      runMode,
+		Prompt:       prompt,
+		Name:         req.Name,
+		CreatedBy:    req.CreatedBy,
+	})
+	if err != nil {
+		return ScheduleCreateResult{}, err
+	}
+	if resp.Error != "" {
+		return ScheduleCreateResult{}, fmt.Errorf("%s", resp.Error)
+	}
+	return ScheduleCreateResult{ID: resp.Id, NextRunAt: resp.NextRunAt}, nil
+}
+
 func ScheduleDelete(ctx context.Context, hub pb.AmuxdClient, req ScheduleIDRequest) (bool, error) {
 	resp, err := hub.DeleteSchedule(ctx, &pb.DeleteScheduleRequest{Id: req.ID})
 	if err != nil {

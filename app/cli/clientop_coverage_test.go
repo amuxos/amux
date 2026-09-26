@@ -72,6 +72,7 @@ func TestScheduleActionsRegisteredOnBothSurfaces(t *testing.T) {
 		mcp string
 	}{
 		{"create-task", "amux.schedule_create"},
+		{"create", "amux.schedule_create"},
 		{"list", "amux.schedule_list"},
 		{"runs", "amux.schedule_get"},
 		{"remove", "amux.schedule_delete"},

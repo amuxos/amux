@@ -72,33 +72,31 @@ func newScheduleCreateCmd() *cobra.Command {
 			}
 			defer closeClient()
 
-			resp, err := client.CreateSchedule(ctx, &pb.CreateScheduleRequest{
-				TargetId:    resolved.Target.ID,
+			result, err := clientop.ScheduleCreateSessionPrompt(ctx, client, clientop.ScheduleCreateSessionPromptRequest{
+				TargetID:    resolved.Target.ID,
 				TargetName:  resolved.Target.Name,
 				SessionName: resolved.Session.Name,
 				Spec:        args[1],
 				RunMode:     runMode,
 				Prompt:      args[2],
 				Name:        name,
+				CreatedBy:   "cli",
 			})
 			if err != nil {
-				return fmt.Errorf("create schedule: %w", err)
-			}
-			if resp.Error != "" {
-				return fmt.Errorf("create schedule: %s", resp.Error)
+				return fmt.Errorf("create schedule: %s", cliScheduleCreateError(err))
 			}
 			next := "—"
-			if resp.NextRunAt > 0 {
-				next = time.Unix(resp.NextRunAt, 0).Format("2006-01-02 15:04")
+			if result.NextRunAt > 0 {
+				next = time.Unix(result.NextRunAt, 0).Format("2006-01-02 15:04")
 			}
 			if jsonOutputEnabled(cmd) {
 				return printJSON(cmd.OutOrStdout(), map[string]any{
 					"schema":      "amux.schedule.create.v1",
-					"schedule_id": resp.Id,
-					"next_run_at": resp.NextRunAt,
+					"schedule_id": result.ID,
+					"next_run_at": result.NextRunAt,
 				})
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "created schedule #%d (next run: %s)\n", resp.Id, next)
+			fmt.Fprintf(cmd.OutOrStdout(), "created schedule #%d (next run: %s)\n", result.ID, next)
 			return nil
 		},
 	})
