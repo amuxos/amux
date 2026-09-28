@@ -375,7 +375,11 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	case managementActionGroupWatchEdit:
 		draft := managementGroupWatchDraftFromCallback(event.Event.Action, state)
 		updateFocusedCard(renderGroupWatchEditCard(state, draft))
-		if managementGroupWatchDraftField(event.Event.Action) == "group_watch_agent" {
+		// A select change (any group_watch_* field) re-renders the editor so
+		// the model options follow the runtime; only the agent/runtime/model
+		// switches change which models are offered.
+		field := managementGroupWatchDraftField(event.Event.Action)
+		if field == "group_watch_agent" || field == "group_watch_runtime_ref" || field == "group_watch_model_ref" {
 			return cardToast("success", managementCopy("management.available.models.updated")), true, nil
 		}
 		return cardToast("success", managementCopy("management.group.watch.execution.settings.opened")), true, nil

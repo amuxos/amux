@@ -239,3 +239,94 @@ func TestGroupWatchSettingsCardsShowEffectiveGroupPolicy(t *testing.T) {
 		t.Fatalf("group card hides its paused state: %s", card)
 	}
 }
+
+func TestGroupWatchSettingsEditorSelectsRefreshModelsOutsideForm(t *testing.T) {
+	state := managementState{DefaultAgent: "builtin/codex", Profiles: []managementProfileSummary{{Ref: "builtin/codex", Name: "Codex", AgentType: "codex"}}, GroupWatch: config.BridgeFeishuGroupWatchConfig{Enabled: true, ChatIDs: []string{"group_a"}},
+		Runtimes: []agentprofile.RuntimeOption{
+			{Ref: "traex", DisplayName: "TraeX", Models: []agentprofile.RuntimeModelOption{{Ref: "traex-model-a", DisplayName: "TraeX A"}, {Ref: "traex-model-b", DisplayName: "TraeX B"}}},
+			{Ref: "claude", DisplayName: "Claude", Models: []agentprofile.RuntimeModelOption{{Ref: "claude-model-x", DisplayName: "Claude X"}}},
+		}}
+	draft := managementGroupWatchDraft{ChatID: "group_a", ChatName: "A", Version: "0", Enabled: "true", MaxActive: "100", IdleSeconds: "10800", Mode: "custom", AgentRef: "builtin/codex", RuntimeRef: "traex", ModelRef: "traex-model-a", ThinkingProcess: "expanded"}
+	card := renderGroupWatchEditCard(state, draft)
+	var doc any
+	if err := json.Unmarshal([]byte(card), &doc); err != nil {
+		t.Fatal(err)
+	}
+	// Every select must sit outside the form container and carry its callback
+	// behavior: Feishu only delivers selection callbacks for components that
+	// are not embedded in a form, and this is what refreshes the model list
+	// when the runtime changes.
+	var walk func(node any, inForm bool)
+	walk = func(node any, inForm bool) {
+		switch element := node.(type) {
+		case map[string]any:
+			tag, _ := element["tag"].(string)
+			inForm = inForm || tag == "form"
+			name, _ := element["name"].(string)
+			if tag == "select_static" && strings.HasPrefix(name, "group_watch_") {
+				if inForm {
+					t.Errorf("select %s rendered inside the form; selection changes would not fire", name)
+				}
+				if list, ok := element["behaviors"].([]any); !ok || len(list) == 0 {
+					t.Errorf("select %s has no callback behavior", name)
+				}
+			}
+			if tag == "input" && (name == "group_watch_max_active" || name == "group_watch_idle_seconds") && !inForm {
+				t.Errorf("input %s must stay inside the form so typing reaches the save submit", name)
+			}
+			for key, child := range element {
+				if key != "value" && key != "behaviors" {
+					walk(child, inForm)
+				}
+			}
+		case []any:
+			for _, child := range element {
+				walk(child, inForm)
+			}
+		}
+	}
+	walk(doc, false)
+	// Simulate the runtime switch behavior callback: the freshly rendered card
+	// must offer the new runtime's models without any manual refresh.
+	values := map[string]any{}
+	for key, value := range managementGroupWatchDraftValues(draft) {
+		values[key] = value
+	}
+	action := &callback.CallBackAction{Name: "group_watch_runtime_ref", Option: "claude", Value: values, FormValue: map[string]any{}}
+	switched := managementGroupWatchDraftFromCallback(action, state)
+	if switched.RuntimeRef != "claude" {
+		t.Fatalf("runtime switch draft: %+v", switched)
+	}
+	refreshed := renderGroupWatchEditCard(state, switched)
+	var refreshedDoc any
+	if err := json.Unmarshal([]byte(refreshed), &refreshedDoc); err != nil {
+		t.Fatal(err)
+	}
+	options := map[string]bool{}
+	var collect func(node any)
+	collect = func(node any) {
+		switch element := node.(type) {
+		case map[string]any:
+			if element["tag"] == "select_static" && element["name"] == "group_watch_model_ref" {
+				for _, raw := range element["options"].([]any) {
+					option, _ := raw.(map[string]any)
+					value, _ := option["value"].(string)
+					options[value] = true
+				}
+			}
+			for key, child := range element {
+				if key != "value" && key != "behaviors" {
+					collect(child)
+				}
+			}
+		case []any:
+			for _, child := range element {
+				collect(child)
+			}
+		}
+	}
+	collect(refreshedDoc)
+	if !options["claude-model-x"] || options["traex-model-a"] || options["traex-model-b"] {
+		t.Fatalf("model options did not follow the runtime switch: %v", options)
+	}
+}

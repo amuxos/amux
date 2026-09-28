@@ -199,7 +199,13 @@ func renderGroupWatchGroupSummary(state managementState, draft managementGroupWa
 	})
 }
 
-func renderGroupWatchEditorPages(state managementState, draft managementGroupWatchDraft, rows []cardElement) string {
+// renderGroupWatchEditorPages assembles the watch task editor. selectRows
+// render outside the form container so their selection-change behaviors reach
+// the bridge and the model list follows the runtime without requiring the
+// manual refresh button; only the plain inputs and the buttons live inside the
+// form, because typed input values are delivered exclusively through the form
+// submit.
+func renderGroupWatchEditorPages(state managementState, draft managementGroupWatchDraft, rows []cardElement, inputRows []cardElement) string {
 	render := func(rows []cardElement, page, pages int) string {
 		submit := func(action string, label any, targetPage int) cardElement {
 			button := managementFormSubmitButton(action, label)
@@ -218,7 +224,7 @@ func renderGroupWatchEditorPages(state managementState, draft managementGroupWat
 		if page+1 < pages {
 			buttons = append(buttons, submit(managementActionGroupWatchEdit, managementCopy("management.next.page"), page+1))
 		}
-		form := append(append([]cardElement(nil), rows...), managementFormButtonRowElement(buttons...))
+		form := append(append([]cardElement(nil), inputRows...), managementFormButtonRowElement(buttons...))
 		elements := []cardElement{managementHintElement(managementCopy("management.watch.only_this_group"))}
 		if !state.GroupWatch.Enabled {
 			elements = append(elements, managementHintElement(managementCopy("management.watch.global_paused")))
@@ -226,6 +232,7 @@ func renderGroupWatchEditorPages(state managementState, draft managementGroupWat
 		if pages > 1 {
 			elements = append(elements, managementHintElement(managementCopy("management.page.d.d.of.settings.changing.pages.preserves.entered", page+1, pages)))
 		}
+		elements = append(elements, rows...)
 		elements = append(elements, cardElement{Tag: "form", Name: "group_watch_form", Direction: "vertical", VerticalSpacing: "8px", Elements: form})
 		return marshalNativeManagementCard(managementCardView{
 			Title: managementCopy("management.edit.watch.task.settings"), Subtitle: managementConcat(managementValueOrPlaceholder(draft.ChatName, managementCopy("management.unnamed.group")), " · ", draft.ChatID),

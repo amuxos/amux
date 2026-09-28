@@ -20,7 +20,13 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 	modeField := managementSelectStaticElement("group_watch_mode", managementCopy("management.choose.task.configuration"), draft.Mode, []cardOption{{Text: managementStyledText(managementCopy("management.watch.inherit_group"), cardTitle{Tag: "plain_text"}), Value: managementDocumentCommentsModeInherit}, {Text: managementStyledText(managementCopy("management.custom"), cardTitle{Tag: "plain_text"}), Value: managementDocumentCommentsModeCustom}})
 	modeField.Required = false
 	modeField.Behaviors = changeBehavior("group_watch_mode")
-	elements := []cardElement{managementHintElement(managementCopy("management.changes.apply.only.to.new.watch.topics.existing.topics")), managementSettingsFieldRow(managementCopy("management.task.configuration"), modeField)}
+	// Selects must stay outside the form container: Feishu only delivers the
+	// selection callback (action.option) for components that are not embedded
+	// in a form, so a select inside the form never re-renders the card and the
+	// model list would need the manual refresh button. The assistant and
+	// document-comments editors use the same split.
+	selectRows := []cardElement{managementHintElement(managementCopy("management.changes.apply.only.to.new.watch.topics.existing.topics")), managementSettingsFieldRow(managementCopy("management.task.configuration"), modeField)}
+	var inputRows []cardElement
 	if draft.Mode == managementDocumentCommentsModeCustom {
 		profileOptions := managementProfileOptions(state, false)
 		profileField := managementHintElement(managementCopy("management.no.experts.are.available.add.experts.to.the.library"))
@@ -29,11 +35,11 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 			profileField.Required = false
 			profileField.Behaviors = changeBehavior("group_watch_agent")
 		}
-		elements = append(elements, managementSettingsFieldRow(managementCopy("management.expert"), profileField))
+		selectRows = append(selectRows, managementSettingsFieldRow(managementCopy("management.expert"), profileField))
 		runtimeField := managementSelectStaticElement("group_watch_runtime_ref", managementCopy("management.choose.a.runtime"), draft.RuntimeRef, managementRuntimeOptions(state))
 		runtimeField.Required = false
 		runtimeField.Behaviors = changeBehavior("group_watch_runtime_ref")
-		elements = append(elements, managementSettingsFieldRow(managementCopy("management.runtime.new.watch.topics.only"), runtimeField))
+		selectRows = append(selectRows, managementSettingsFieldRow(managementCopy("management.runtime.new.watch.topics.only"), runtimeField))
 		if draft.RuntimeRef != "" {
 			initialModelRef := draft.ModelRef
 			if initialModelRef == "" {
@@ -42,8 +48,8 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 			modelField := managementSelectStaticElement("group_watch_model_ref", managementCopy("management.choose.a.model.supported.by.this.runtime"), initialModelRef, managementRuntimeModelOptions(managementSelectedModelState(state, draft.ModelRef, draft.ReasoningEffort), draft.RuntimeRef))
 			modelField.Required = false
 			modelField.Behaviors = changeBehavior("group_watch_model_ref")
-			elements = append(elements, managementSettingsFieldRow(managementCopy("management.model.new.watch.topics.only"), modelField))
-			elements = append(elements, modelServiceElements(state, draft.RuntimeRef, managementGroupWatchDraftValues(draft), managementActionGroupWatchEdit)...)
+			selectRows = append(selectRows, managementSettingsFieldRow(managementCopy("management.model.new.watch.topics.only"), modelField))
+			selectRows = append(selectRows, modelServiceElements(state, draft.RuntimeRef, managementGroupWatchDraftValues(draft), managementActionGroupWatchEdit)...)
 			initialReasoningEffort := draft.ReasoningEffort
 			if initialReasoningEffort == "" {
 				initialReasoningEffort = managementRuntimeDefaultReasoningOption
@@ -51,7 +57,7 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 			reasoningField := managementSelectStaticElement("group_watch_reasoning_effort", managementCopy("management.choose.reasoning.effort"), initialReasoningEffort, managementRuntimeReasoningOptions(managementSelectedModelState(state, draft.ModelRef, draft.ReasoningEffort), draft.RuntimeRef, draft.ModelRef))
 			reasoningField.Required = false
 			reasoningField.Behaviors = changeBehavior("group_watch_reasoning_effort")
-			elements = append(elements, managementSettingsFieldRow(managementCopy("management.reasoning.effort.new.watch.topics.only"), reasoningField))
+			selectRows = append(selectRows, managementSettingsFieldRow(managementCopy("management.reasoning.effort.new.watch.topics.only"), reasoningField))
 		}
 	}
 	thinkingProcessField := managementSelectStaticElement("group_watch_thinking_process", managementCopy("management.choose.how.activity.is.displayed"), draft.ThinkingProcess, []cardOption{
@@ -61,21 +67,23 @@ func renderGroupWatchEditCard(state managementState, draft managementGroupWatchD
 	})
 	thinkingProcessField.Required = false
 	thinkingProcessField.Behaviors = changeBehavior("group_watch_thinking_process")
-	elements = append(elements, managementSettingsFieldRow(managementCopy("management.activity.display"), thinkingProcessField))
+	selectRows = append(selectRows, managementSettingsFieldRow(managementCopy("management.activity.display"), thinkingProcessField))
 	statusField := managementSelectStaticElement("group_watch_enabled", managementCopy("management.watch.choose_status"), draft.Enabled, []cardOption{
 		{Text: managementPlainText(managementCopy("management.on")), Value: "true"},
 		{Text: managementPlainText(managementCopy("management.off")), Value: "false"},
 	})
 	statusField.Required = false
 	statusField.Behaviors = changeBehavior("group_watch_enabled")
-	elements = append([]cardElement{managementSettingsFieldRow(managementCopy("management.current.status"), statusField)}, elements...)
+	selectRows = append([]cardElement{managementSettingsFieldRow(managementCopy("management.current.status"), statusField)}, selectRows...)
+	// Plain inputs stay inside the form: their typed values only reach the
+	// bridge through the form submit button.
 	for _, field := range []struct{ key, value, label string }{
 		{"group_watch_max_active", draft.MaxActive, "management.watch.limit_label"},
 		{"group_watch_idle_seconds", draft.IdleSeconds, "management.watch.idle_label"},
 	} {
-		elements = append(elements, managementSettingsFieldRow(managementCopy(field.label), cardElement{Tag: "input", Name: field.key, DefaultValue: field.value, Width: "fill", Placeholder: managementPlainTextPtr(managementCopy("management.nonnegative.integer"))}))
+		inputRows = append(inputRows, managementSettingsFieldRow(managementCopy(field.label), cardElement{Tag: "input", Name: field.key, DefaultValue: field.value, Width: "fill", Placeholder: managementPlainTextPtr(managementCopy("management.nonnegative.integer"))}))
 	}
-	return renderGroupWatchEditorPages(state, draft, elements)
+	return renderGroupWatchEditorPages(state, draft, selectRows, inputRows)
 }
 
 func renderGroupWatchManagementCardWithNames(state managementState, names map[string]string) string {
