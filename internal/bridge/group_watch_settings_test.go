@@ -243,10 +243,10 @@ func TestGroupWatchSettingsCardsShowEffectiveGroupPolicy(t *testing.T) {
 func TestGroupWatchSettingsEditorSelectsRefreshModelsOutsideForm(t *testing.T) {
 	state := managementState{DefaultAgent: "builtin/codex", Profiles: []managementProfileSummary{{Ref: "builtin/codex", Name: "Codex", AgentType: "codex"}}, GroupWatch: config.BridgeFeishuGroupWatchConfig{Enabled: true, ChatIDs: []string{"group_a"}},
 		Runtimes: []agentprofile.RuntimeOption{
-			{Ref: "traex", DisplayName: "TraeX", Models: []agentprofile.RuntimeModelOption{{Ref: "traex-model-a", DisplayName: "TraeX A"}, {Ref: "traex-model-b", DisplayName: "TraeX B"}}},
+			{Ref: "codex", DisplayName: "Codex", Models: []agentprofile.RuntimeModelOption{{Ref: "codex-model-a", DisplayName: "Codex A"}, {Ref: "codex-model-b", DisplayName: "Codex B"}}},
 			{Ref: "claude", DisplayName: "Claude", Models: []agentprofile.RuntimeModelOption{{Ref: "claude-model-x", DisplayName: "Claude X"}}},
 		}}
-	draft := managementGroupWatchDraft{ChatID: "group_a", ChatName: "A", Version: "0", Enabled: "true", MaxActive: "100", IdleSeconds: "10800", Mode: "custom", AgentRef: "builtin/codex", RuntimeRef: "traex", ModelRef: "traex-model-a", ThinkingProcess: "expanded"}
+	draft := managementGroupWatchDraft{ChatID: "group_a", ChatName: "A", Version: "0", Enabled: "true", MaxActive: "100", IdleSeconds: "10800", Mode: "custom", AgentRef: "builtin/codex", RuntimeRef: "codex", ModelRef: "codex-model-a", ThinkingProcess: "expanded"}
 	card := renderGroupWatchEditCard(state, draft)
 	var doc any
 	if err := json.Unmarshal([]byte(card), &doc); err != nil {
@@ -326,7 +326,7 @@ func TestGroupWatchSettingsEditorSelectsRefreshModelsOutsideForm(t *testing.T) {
 		}
 	}
 	collect(refreshedDoc)
-	if !options["claude-model-x"] || options["traex-model-a"] || options["traex-model-b"] {
+	if !options["claude-model-x"] || options["codex-model-a"] || options["codex-model-b"] {
 		t.Fatalf("model options did not follow the runtime switch: %v", options)
 	}
 }

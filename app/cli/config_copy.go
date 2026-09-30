@@ -9,20 +9,20 @@ import (
 )
 
 //go:embed locales/en.json
-var configEnglish []byte
+var commandEnglish []byte
 
 //go:embed locales/zh-CN.json
-var configChinese []byte
+var commandChinese []byte
 
-var configCatalog = func() *i18n.Catalog {
-	c, err := i18n.New(configEnglish, configChinese)
+var commandCatalog = func() *i18n.Catalog {
+	c, err := i18n.New(commandEnglish, commandChinese)
 	if err != nil {
 		panic(err)
 	}
 	return c
 }()
 
-func configCommandLocale(cmd *cobra.Command) i18n.Locale {
+func commandLocale(cmd *cobra.Command) i18n.Locale {
 	if jsonOutputEnabled(cmd) {
 		return i18n.English
 	}

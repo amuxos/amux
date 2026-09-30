@@ -33,16 +33,16 @@ func TestConfigCommandLocalePrecedence(t *testing.T) {
 		t.Setenv(key, "")
 	}
 	t.Setenv("LANG", "zh_CN.UTF-8")
-	if got := configCommandLocale(cmd); got != i18n.Chinese {
+	if got := commandLocale(cmd); got != i18n.Chinese {
 		t.Fatal(got)
 	}
 	t.Setenv("AMUX_LANGUAGE", "en")
-	if got := configCommandLocale(cmd); got != i18n.English {
+	if got := commandLocale(cmd); got != i18n.English {
 		t.Fatal(got)
 	}
 	t.Setenv("AMUX_LANGUAGE", "fr")
 	t.Setenv("LANG", "C")
-	if got := configCommandLocale(cmd); got != i18n.English {
+	if got := commandLocale(cmd); got != i18n.English {
 		t.Fatal(got)
 	}
 }

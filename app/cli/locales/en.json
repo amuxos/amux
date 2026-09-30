@@ -1,5 +1,17 @@
 {
-  "config.sender_types": {"other": "%s only supports user and app"},
-  "config.integer_range": {"other": "%s must be an integer from %d to %d"},
-  "config.boolean": {"other": "%s must be true or false"}
+  "config.sender_types": {
+    "other": "%s only supports user and app"
+  },
+  "config.integer_range": {
+    "other": "%s must be an integer from %d to %d"
+  },
+  "config.boolean": {
+    "other": "%s must be true or false"
+  },
+  "agent.profiles_warning": {
+    "other": "Some expert libraries are unavailable; showing the remaining profiles: %s"
+  },
+  "agent.description_help": {
+    "other": "brief description of the expert purpose"
+  }
 }

@@ -1218,3 +1218,38 @@ func mustTaskSpecJson(t *testing.T, spec task.Spec) []byte {
 	}
 	return b
 }
+
+func TestHubDefaultProfileDiscoveryIsolatesBrokenAndDevelopmentPacks(t *testing.T) {
+	t.Setenv("AMUX_HOME", t.TempDir())
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "dist"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "dist", "agent-pack.manifest.json"), []byte(`{"schema_version":"v1.1","pack_namespace":"team","profiles":{"reviewer":{"type":"codex"}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	registry := agentprofile.PackRegistry{Packs: map[string]agentprofile.Pack{
+		"team":      {Namespace: "team", SourceKind: agentprofile.PackSourceGit, MaterializedPath: root},
+		"candidate": {Namespace: "candidate", SourceKind: agentprofile.PackSourceGit, MaterializedPath: root, Evaluation: true},
+		"broken":    {Namespace: "broken", SourceKind: agentprofile.PackSourceGit, MaterializedPath: t.TempDir()},
+	}}
+	if err := agentprofile.SavePackRegistry(agentprofile.DefaultPackRegistryPath(), registry); err != nil {
+		t.Fatal(err)
+	}
+	result, err := (&hubServer{}).ListAgentProfiles(context.Background(), &pb.ListAgentProfilesRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, p := range result.Profiles {
+		if p.Profile.GetRef() == "team/reviewer" {
+			found = true
+		}
+		if p.Profile.GetRef() == "candidate/reviewer" {
+			t.Fatal("evaluation profile entered default discovery")
+		}
+	}
+	if !found || !strings.Contains(result.ProfilesError, "broken") {
+		t.Fatalf("result=%+v", result)
+	}
+}

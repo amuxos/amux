@@ -221,20 +221,16 @@ func loadBuiltinProfiles() (map[string]Profile, error) {
 	}
 	profiles := make(map[string]Profile, len(loaded))
 	for _, profile := range loaded {
-		metadata, ok := builtinCompatibility[profile.Name]
-		if !ok {
-			return nil, fmt.Errorf("builtin profile %q has no compatibility metadata", profile.Name)
+		metadata := builtinCompatibility[profile.Name]
+		if profile.Description == "" {
+			profile.Description = metadata.description
 		}
-		profile.Description = metadata.description
 		if metadata.agents != "" {
 			profile.Agents = metadata.agents
 		}
 		profile.SkillDirs = cloneStrings(metadata.skillDirs)
 		profile.Placement.Requires.Features = cloneStrings(metadata.features)
 		profiles[profile.Name] = profile
-	}
-	if len(profiles) != len(builtinCompatibility) {
-		return nil, fmt.Errorf("builtin compatibility metadata contains %d profiles, manifest contains %d", len(builtinCompatibility), len(profiles))
 	}
 	return profiles, nil
 }

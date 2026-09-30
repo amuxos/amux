@@ -28,6 +28,19 @@ instruction files fail pack validation. Paths must remain inside the pack.
 
 ## Profiles
 
+Profile descriptions belong to the manifest, including built-in profiles.
+Distributions may supply optional legacy metadata as a fallback for an omitted
+description; a profile does not require a second registration in Go.
+
+Default discovery includes built-in, local and installed profiles. Development,
+temporary and evaluation packs are excluded using registry metadata; the legacy
+`-dev` namespace suffix remains recognized. `agent list --all` includes these
+packs and `--dev` lists only them. Explicit profile refs remain resolvable.
+An unavailable pack produces a diagnostic without hiding healthy packs.
+Only formal Git packs can supply same-named skill overrides for built-in
+profiles; local, development, temporary and evaluation packs cannot override
+them. Non-built-in profiles retain their own skill sources.
+
 | Field | Meaning |
 | --- | --- |
 | `type` | Required base agent: `codex`, `claude` or `pi`. |

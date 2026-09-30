@@ -93,22 +93,11 @@ func (s *hubServer) GetAgentProfile(_ context.Context, req *pb.GetAgentProfileRe
 }
 
 func availableHubAgentProfiles() ([]agentprofile.Profile, error) {
-	profiles := agentprofile.Builtins()
 	registry, err := agentprofile.LoadPackRegistry(agentprofile.DefaultPackRegistryPath())
 	if err != nil {
-		return profiles, err
+		return agentprofile.Builtins(), err
 	}
-	// Builtin profiles advertise skills a synced Git pack may override
-	// (external > embedded); attach so MCP/hub discovery reports the live
-	// version (for example, a CLI supplied by an Agent Pack).
-	for i := range profiles {
-		profiles[i] = agentprofile.AttachExternalSkillOverrides(profiles[i], registry)
-	}
-	packProfiles, err := agentprofile.ListPackProfiles(registry)
-	if err != nil {
-		return profiles, err
-	}
-	return append(profiles, packProfiles...), nil
+	return agentprofile.DiscoverProfiles(registry, false)
 }
 
 func agentProfileInfoToPB(profile agentprofile.Profile) *pb.AgentProfileInfo {

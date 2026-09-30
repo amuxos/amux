@@ -16,7 +16,7 @@ check_gate_begin "$PWD" public "$force"
 # Avoid developer workspace overrides and installation state during validation.
 export GOWORK=off
 export GOTOOLCHAIN=local
-export GOPROXY=https://proxy.golang.org
+export GOPROXY="${AMUX_CHECK_GOPROXY:-https://proxy.golang.org}"
 export GOSUMDB=sum.golang.org
 export GOPRIVATE= GONOPROXY= GONOSUMDB=
 test_root="$check_gate_tmp"

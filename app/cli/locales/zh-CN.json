@@ -1,5 +1,17 @@
 {
-  "config.sender_types": {"other": "%s 仅支持 user 和 app"},
-  "config.integer_range": {"other": "%s 必须为 %d 到 %d 之间的整数"},
-  "config.boolean": {"other": "%s 必须为 true 或 false"}
+  "config.sender_types": {
+    "other": "%s 仅支持 user 和 app"
+  },
+  "config.integer_range": {
+    "other": "%s 必须为 %d 到 %d 之间的整数"
+  },
+  "config.boolean": {
+    "other": "%s 必须为 true 或 false"
+  },
+  "agent.profiles_warning": {
+    "other": "部分专家库不可用，已显示其余专家：%s"
+  },
+  "agent.description_help": {
+    "other": "专家用途的简短说明"
+  }
 }

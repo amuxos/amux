@@ -66,6 +66,7 @@ func newAgentForkCmd() *cobra.Command {
 }
 
 func newAgentLocalCreateCmd() *cobra.Command {
+	var description string
 	var instructions string
 	var instructionsFile string
 	var agentType string
@@ -85,6 +86,7 @@ func newAgentLocalCreateCmd() *cobra.Command {
 			defer cancel()
 			result, err := newManagedLocalActions().Create(ctx, agentprofile.ManagedProfileSpec{
 				Name:           args[0],
+				Description:    description,
 				Type:           agentType,
 				Model:          model,
 				PermissionMode: permission,
@@ -98,6 +100,7 @@ func newAgentLocalCreateCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&description, "description", "", commandCatalog.Format(commandLocale(cmd), "agent.description_help"))
 	cmd.Flags().StringVar(&instructions, "instructions", "", "inline expert instructions")
 	cmd.Flags().StringVar(&instructionsFile, "instructions-file", "", "read expert instructions from a file")
 	cmd.Flags().StringVar(&agentType, "type", agentprofile.ManagedLocalDefaultAgent, "agent type ("+strings.Join(adapter.Names(), ", ")+")")

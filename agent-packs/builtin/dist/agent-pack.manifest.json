@@ -5,16 +5,19 @@
     "claude": {
       "namespace": "common",
       "type": "claude",
+      "description": "Claude Code on local runtime",
       "permission": {"permission_mode": "bypass"}
     },
     "codex": {
       "namespace": "common",
       "type": "codex",
+      "description": "Codex on local runtime",
       "permission": {"permission_mode": "bypass"}
     },
     "pi": {
       "namespace": "common",
       "type": "pi",
+      "description": "Pi on local runtime",
       "permission": {"permission_mode": "bypass"}
     }
   },

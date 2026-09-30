@@ -24,6 +24,8 @@ type PiProviderConfig struct {
 	ModelCompat map[string]bool
 }
 
+// BuiltinMetadata supplies optional compatibility hints. Manifest descriptions
+// take precedence; registering a profile never requires a metadata entry.
 type BuiltinMetadata struct {
 	Description string
 	Agents      string
@@ -121,8 +123,8 @@ func RegisterCustomization(next Customization) (err error) {
 	if customizationRegistered || customizationFrozen {
 		return fmt.Errorf("profile customization registration is closed")
 	}
-	if next.Builtin == nil || len(next.BuiltinMetadata) == 0 || next.DefaultProfile == "" || next.ManagedLocalDefaultAgent == "" {
-		return fmt.Errorf("profile customization requires a builtin pack, metadata and defaults")
+	if next.Builtin == nil || next.DefaultProfile == "" || next.ManagedLocalDefaultAgent == "" {
+		return fmt.Errorf("profile customization requires a builtin pack and defaults")
 	}
 	packs, err := loadCatalogPacks(next.Catalog)
 	if err != nil {

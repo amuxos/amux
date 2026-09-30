@@ -56,6 +56,9 @@ make clean
 GOMAXPROCS=4 GOFLAGS=-p=2 GOCACHE=/private/tmp/amux-go-cache scripts/check.sh
 ```
 
+默认 Go module 代理不可达时，可以通过 `AMUX_CHECK_GOPROXY` 为门禁显式指定可访问的
+公共模块镜像；只改变依赖下载地址，校验和验证及所有检查仍然启用。
+
 edit loop 优先使用聚焦测试或 `make check-fast`；冻结最终 diff 后再跑完整门禁。
 纯文档改动可只运行 `git diff --check`。失败必须先修复，失败状态不得提交或推送。
 相同且与本次改动无关的偶发失败连续出现两次时保留证据并报告，不重复碰运气。
