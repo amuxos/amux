@@ -78,6 +78,7 @@ func (r ExecManagedContractRunner) run(ctx context.Context, args ...string) erro
 }
 
 type ManagedProfileSpec struct {
+	Description    string
 	Name           string
 	Type           string
 	Model          string
@@ -855,6 +856,7 @@ func validateManagedProfileSpec(spec *ManagedProfileSpec) error {
 	if _, err := adapter.Get(spec.Type); err != nil {
 		return err
 	}
+	spec.Description = strings.TrimSpace(spec.Description)
 	spec.Model = strings.TrimSpace(spec.Model)
 	spec.PermissionMode = strings.TrimSpace(spec.PermissionMode)
 	if spec.PermissionMode == "" {
@@ -879,12 +881,17 @@ func validateManagedProfileName(name string) error {
 }
 
 func writeManagedProfile(repoRoot string, spec ManagedProfileSpec) error {
+	description := strings.TrimSpace(spec.Description)
+	if description == "" {
+		description = spec.Name
+	}
 	profilePath := managedProfilePath(repoRoot, spec.Name)
 	if err := os.MkdirAll(filepath.Dir(profilePath), 0700); err != nil {
 		return err
 	}
 	lines := []string{
 		"type = " + managedTOMLString(spec.Type),
+		"description = " + managedTOMLString(description),
 	}
 	if spec.Model != "" {
 		lines = append(lines, "model = "+managedTOMLString(spec.Model))

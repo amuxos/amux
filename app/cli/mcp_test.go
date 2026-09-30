@@ -42,9 +42,7 @@ func useLocalAgentProfileClient(t *testing.T) {
 				profiles := agentprofile.Builtins()
 				registry, err := agentprofile.LoadPackRegistry(defaultAgentPackRegistryPath())
 				if err == nil {
-					var packProfiles []agentprofile.Profile
-					packProfiles, err = agentprofile.ListPackProfiles(registry)
-					profiles = append(profiles, packProfiles...)
+					profiles, err = agentprofile.DiscoverProfiles(registry, false)
 				}
 				out := &pb.ListAgentProfilesResponse{}
 				for _, profile := range profiles {
@@ -89,19 +87,6 @@ func TestProfileMCPViewExposesModelSelectionContract(t *testing.T) {
 	got, ok := view["supported_models"].([]string)
 	if !ok || len(got) != 2 || got[0] != "gpt-5.4" || got[1] != "gpt-5.5" {
 		t.Fatalf("supported_models = %#v", view["supported_models"])
-	}
-}
-
-func TestMCPListAgentProfilesHidesDevNamespaces(t *testing.T) {
-	profiles := []discoveredAgentProfile{
-		{Profile: agentprofile.Profile{Namespace: "builtin", Name: "codex", Source: agentprofile.SourceBuiltin}},
-		{Profile: agentprofile.Profile{Namespace: "team", Name: "coder", Source: agentprofile.SourcePack}},
-		{Profile: agentprofile.Profile{Namespace: "team-dev", Name: "coder", Source: agentprofile.SourcePack}},
-		{Profile: agentprofile.Profile{Namespace: "unpaired-dev", Name: "reviewer", Source: agentprofile.SourcePack}},
-	}
-	got := filterDiscoveredAgentProfilesForMCPList(profiles)
-	if len(got) != 2 || got[0].Profile.Ref() != "builtin/codex" || got[1].Profile.Ref() != "team/coder" {
-		t.Fatalf("filtered profiles = %+v, want builtin/codex and team/coder", got)
 	}
 }
 

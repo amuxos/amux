@@ -124,7 +124,6 @@ func (h *mcpHandler) listAgentProfilesPage(ctx context.Context, args json.RawMes
 	if err != nil {
 		return mcp.ErrorText(err.Error()), nil
 	}
-	profiles = filterDiscoveredAgentProfilesForMCPList(profiles)
 	profiles = filterDiscoveredAgentProfilesByNamespace(profiles, input.Namespace)
 	if offset > len(profiles) {
 		return mcp.ErrorText("cursor is past the end of the profile list; call profile_list again without cursor"), nil
@@ -281,17 +280,6 @@ func profileMCPViewListSummary(profile agentprofile.Profile, skills []agentprofi
 		view["skills"] = compact
 	}
 	return view
-}
-func filterDiscoveredAgentProfilesForMCPList(profiles []discoveredAgentProfile) []discoveredAgentProfile {
-	filtered := make([]discoveredAgentProfile, 0, len(profiles))
-	for _, discovered := range profiles {
-		profile := discovered.Profile
-		if profile.Source == agentprofile.SourcePack && strings.HasSuffix(profile.Namespace, "-dev") {
-			continue
-		}
-		filtered = append(filtered, discovered)
-	}
-	return filtered
 }
 func profileMCPView(profile agentprofile.Profile) map[string]any {
 	return profileMCPViewWithSkills(profile, profile.ResolveSkills())

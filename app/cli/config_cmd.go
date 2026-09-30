@@ -113,7 +113,7 @@ func newConfigCmd() *cobra.Command {
 			RunE: func(cmd *cobra.Command, args []string) error {
 				return config.UpdateConfigFile(defaultConfigPath(), func(raw map[string]any) error {
 					cfg := cliConfigFile(raw)
-					if err := setConfigValueLocale(cfg, args[0], args[1], configCommandLocale(cmd)); err != nil {
+					if err := setConfigValueLocale(cfg, args[0], args[1], commandLocale(cmd)); err != nil {
 						return err
 					}
 					return validateCLIGroupWatchInteractionCompatibility(cfg, args[0])
@@ -307,7 +307,7 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		parsed, err := strconv.ParseBool(raw)
 		if err != nil {
 			if groupWatchConfigField(key) == "dedup.enabled" {
-				return commandValidationError(fmt.Errorf("%s", configCatalog.Format(locale, "config.boolean", key)))
+				return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.boolean", key)))
 			}
 			return commandValidationError(fmt.Errorf("%s must be true or false", key))
 		}
@@ -349,7 +349,7 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 			for i, senderType := range values {
 				values[i] = strings.ToLower(strings.TrimSpace(senderType))
 				if values[i] != "user" && values[i] != "app" {
-					return commandValidationError(fmt.Errorf("%s", configCatalog.Format(locale, "config.sender_types", key)))
+					return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.sender_types", key)))
 				}
 			}
 		}
@@ -360,7 +360,7 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		for i, senderType := range values {
 			values[i] = strings.ToLower(strings.TrimSpace(senderType))
 			if values[i] != "user" && values[i] != "app" {
-				return commandValidationError(fmt.Errorf("%s", configCatalog.Format(locale, "config.sender_types", key)))
+				return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.sender_types", key)))
 			}
 		}
 		value = values
@@ -389,7 +389,7 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 	if groupWatchConfigField(key) == "dedup.window_seconds" {
 		parsed, err := strconv.Atoi(raw)
 		if err != nil || parsed < 60 || parsed > config.MaxFeishuGroupWatchDedupWindowSeconds {
-			return commandValidationError(fmt.Errorf("%s", configCatalog.Format(locale, "config.integer_range", key, 60, config.MaxFeishuGroupWatchDedupWindowSeconds)))
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.integer_range", key, 60, config.MaxFeishuGroupWatchDedupWindowSeconds)))
 		}
 		value = int64(parsed)
 	}

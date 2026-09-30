@@ -31,6 +31,15 @@ Manifest 必须包含 `schema_version`、非空 `pack_namespace` 和非空 `prof
 
 ## Profile
 
+内置专家和外部专家的描述均由 manifest 提供。发行版可以提供可选的兼容元数据，
+仅在 manifest 缺少描述时回退使用；新增专家无需在 Go 中再次注册。
+
+默认发现返回内置、本地及正式安装的专家。根据 registry 元数据排除开发、临时和
+评估 Pack，同时兼容旧的 `-dev` 命名约定。`agent list --all` 包含这些 Pack，
+`--dev` 只列出这些 Pack；显式 Profile 引用仍可解析。单个 Pack 不可用时返回诊断，
+其他正常 Pack 仍然显示。只有正式 Git Pack 可以覆盖内置专家的同名 Skill；本地、
+开发、临时和评估 Pack 不参与覆盖。非内置专家继续使用自身的 Skill 来源。
+
 | 字段 | 含义 |
 | --- | --- |
 | `type` | 必填基础 Agent：`codex`、`claude` 或 `pi`。 |

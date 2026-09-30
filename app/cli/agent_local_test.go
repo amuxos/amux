@@ -67,11 +67,11 @@ func TestAgentLocalCreateUsesInlineInstructions(t *testing.T) {
 	cmd := newAgentCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"local", "create", "reviewer", "--instructions", "Review changes", "--type", "claude", "--model", "opus", "--permission", "plan"})
+	cmd.SetArgs([]string{"local", "create", "reviewer", "--instructions", "Review changes", "--description", "Review code changes", "--type", "claude", "--model", "opus", "--permission", "plan"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("agent local create: %v", err)
 	}
-	if fake.createdSpec.Name != "reviewer" || fake.createdSpec.Type != "claude" || fake.createdSpec.Model != "opus" || fake.createdSpec.PermissionMode != "plan" || fake.createdSpec.Instructions != "Review changes" {
+	if fake.createdSpec.Description != "Review code changes" || fake.createdSpec.Name != "reviewer" || fake.createdSpec.Type != "claude" || fake.createdSpec.Model != "opus" || fake.createdSpec.PermissionMode != "plan" || fake.createdSpec.Instructions != "Review changes" {
 		t.Fatalf("created spec = %+v", fake.createdSpec)
 	}
 	if !strings.Contains(out.String(), "Created local expert local/reviewer") || !strings.Contains(out.String(), "abc123") {

@@ -68,6 +68,41 @@ func TestAttachExternalSkillOverridesNoPack(t *testing.T) {
 	}
 }
 
+func TestBuiltinSkillOverridesExcludeUnpublishedAndLocalPacks(t *testing.T) {
+	for _, candidate := range []Pack{
+		{Namespace: "a-preview", DevelopmentOf: "team"},
+		{Namespace: "a-scratch", Temporary: true},
+		{Namespace: "a-evaluation", Evaluation: true},
+		{Namespace: "a-legacy-dev"},
+		{Namespace: ManagedLocalPackNamespace, ManagedBy: ManagedPackOwnerAmux},
+	} {
+		t.Run(candidate.Namespace, func(t *testing.T) {
+			unpublished := writeExternalSkillPack(t, candidate.Namespace, "custom", "external-tool", "UNPUBLISHED")
+			candidate.SourceKind, candidate.MaterializedPath = unpublished.SourceKind, unpublished.MaterializedPath
+			formal := writeExternalSkillPack(t, "z-team", "custom", "external-tool", "PUBLISHED")
+			registry := PackRegistry{Packs: map[string]Pack{candidate.Namespace: candidate, formal.Namespace: formal}}
+			profile := AttachExternalSkillOverrides(externalSkillBuiltinFixture(t), registry)
+			root := t.TempDir()
+			if _, err := RenderProfileWorkspace(profile, root); err != nil {
+				t.Fatal(err)
+			}
+			body, err := os.ReadFile(filepath.Join(root, ".agents", "skills", "external-tool", "SKILL.md"))
+			if err != nil || string(body) != "PUBLISHED" {
+				t.Fatalf("rendered skill = %q, err=%v", body, err)
+			}
+		})
+	}
+}
+
+func TestExternalProfileKeepsOwnSkillSource(t *testing.T) {
+	pack := writeExternalSkillPack(t, "team", "custom", "external-tool", "EXTERNAL")
+	profile := Profile{Namespace: "another", Name: "reviewer", Source: SourcePack, Skills: []string{"external-tool"}}
+	attached := AttachExternalSkillOverrides(profile, PackRegistry{Packs: map[string]Pack{"team": pack}})
+	if len(attached.ExternalSkillDirs) != 0 {
+		t.Fatalf("non-builtin override = %v", attached.ExternalSkillDirs)
+	}
+}
+
 // TestProjectBuiltinSkillWithoutExternalUsesPlaceholder verifies the builtin
 // placeholder model: without an external pack the projection carries only the
 // placeholder SKILL.md (+ source.toml excluded), i.e. not the full skill tree.

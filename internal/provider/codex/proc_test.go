@@ -9,6 +9,7 @@ import (
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/session"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -597,6 +598,15 @@ func writeFakeCodex(t *testing.T, script string) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("shell fake codex is unix-only")
+	}
+	// Resolve the fixture interpreter before the provider applies its launch
+	// environment, which may intentionally omit PATH.
+	if strings.HasPrefix(script, "#!/usr/bin/env python3\n") {
+		python, err := exec.LookPath("python3")
+		if err != nil {
+			t.Fatalf("find fixture Python: %v", err)
+		}
+		script = "#!" + python + "\n" + strings.TrimPrefix(script, "#!/usr/bin/env python3\n")
 	}
 	path := filepath.Join(t.TempDir(), "fake-codex")
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {

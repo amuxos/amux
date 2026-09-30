@@ -565,7 +565,7 @@ func TestAgentPackDevNamespaceProfilesResolveOnlyWhenExplicit(t *testing.T) {
 	}
 }
 
-func TestAgentListShowsSuffixOnlyDevNamespaceByDefault(t *testing.T) {
+func TestAgentListHidesSuffixOnlyDevNamespaceByDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	formalRepo := initTestProfilePackRepo(t)
@@ -580,8 +580,8 @@ func TestAgentListShowsSuffixOnlyDevNamespaceByDefault(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("agent list: %v", err)
 	}
-	if !strings.Contains(out.String(), "tools-dev/coder") {
-		t.Fatalf("agent list output = %q, want unpaired dev namespace visible", out.String())
+	if strings.Contains(out.String(), "tools-dev/coder") {
+		t.Fatalf("agent list output = %q, want unpaired dev namespace hidden", out.String())
 	}
 
 	out.Reset()

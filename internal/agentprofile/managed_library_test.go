@@ -57,6 +57,7 @@ func (r *fakeManagedContractRunner) Check(_ context.Context, repoRoot string) er
 		}
 		entry := map[string]any{
 			"namespace":    "common",
+			"description":  managedTestTOMLString(source, "description"),
 			"type":         managedTestTOMLString(source, "type"),
 			"providers":    []string{},
 			"instructions": instructionPaths,
@@ -171,6 +172,7 @@ func TestManagedLibraryCreateRegistersStandardGitPack(t *testing.T) {
 
 	result, err := library.Create(context.Background(), ManagedProfileSpec{
 		Name:           "reviewer",
+		Description:    "Review concrete changes",
 		Type:           "codex",
 		Model:          "gpt-5.4",
 		PermissionMode: "default",
@@ -204,7 +206,7 @@ func TestManagedLibraryCreateRegistersStandardGitPack(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("ResolvePackProfile: ok=%v err=%v", ok, err)
 	}
-	if profile.Type != "codex" || profile.Model != "gpt-5.4" || !strings.Contains(profile.AgentsContent, "Review concrete changes") {
+	if profile.Description != "Review concrete changes" || profile.Type != "codex" || profile.Model != "gpt-5.4" || !strings.Contains(profile.AgentsContent, "Review concrete changes") {
 		t.Fatalf("resolved profile = %+v", profile)
 	}
 }

@@ -139,3 +139,10 @@ Application implementations live in importable `app/cli`, `app/hub` and
 separate distribution module may register extensions before calling the same
 application entrypoints. It depends on this module and owns its configuration,
 release sources and additional command behavior.
+
+`agent list` and Hub profile discovery share the registry's development-pack
+classification (development metadata, temporary/evaluation flags, or the legacy
+`-dev` suffix). `--all` includes these profiles; `--dev` selects only them.
+Healthy profiles remain available when another pack fails to load; CLI JSON and
+Hub responses report `profiles_error`, and human-readable CLI output warns on
+stderr. `agent local create --description` records a purpose summary in the Pack.

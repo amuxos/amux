@@ -183,7 +183,7 @@ func (m *PackCatalogManager) snapshot(registry PackRegistry) PackCatalogSnapshot
 	formalByGitURL := make(map[string][]Pack)
 	displaySources := make([]PackDisplaySource, 0, len(registry.Packs)+len(m.catalog))
 	for _, pack := range ListPacks(registry) {
-		if isDevelopmentPackNamespace(pack.Namespace) || isManagedLocalPack(pack) {
+		if pack.IsDevelopment() || isManagedLocalPack(pack) {
 			continue
 		}
 		gitURL := NormalizePackGitURL(pack.GitURL)
@@ -205,7 +205,7 @@ func (m *PackCatalogManager) snapshot(registry PackRegistry) PackCatalogSnapshot
 	displayNames := DisambiguatePackDisplayNames(displaySources)
 
 	for _, pack := range ListPacks(registry) {
-		if isDevelopmentPackNamespace(pack.Namespace) {
+		if pack.IsDevelopment() {
 			continue
 		}
 		if isManagedLocalPack(pack) {
@@ -229,8 +229,11 @@ func (m *PackCatalogManager) snapshot(registry PackRegistry) PackCatalogSnapshot
 		}
 		sort.Strings(duplicateNamespaces)
 		profileCount := 0
+		lastError := strings.TrimSpace(pack.LastError)
 		if profiles, err := listPackProfiles(pack); err == nil {
 			profileCount = len(profiles)
+		} else if lastError == "" {
+			lastError = err.Error()
 		}
 		_, inMarket := m.catalogByGitURL[gitURL]
 		snapshot.Loaded = append(snapshot.Loaded, LoadedPackState{
@@ -240,7 +243,7 @@ func (m *PackCatalogManager) snapshot(registry PackRegistry) PackCatalogSnapshot
 			Ref:                 strings.TrimSpace(pack.Ref),
 			CurrentRevision:     strings.TrimSpace(pack.CurrentRevision),
 			LastSyncedAt:        strings.TrimSpace(pack.LastSyncedAt),
-			LastError:           strings.TrimSpace(pack.LastError),
+			LastError:           lastError,
 			ProfileCount:        profileCount,
 			AutoSync:            pack.AutoSync,
 			InMarket:            inMarket,
@@ -279,10 +282,6 @@ func builtinExpertStates() []BuiltinExpertState {
 		})
 	}
 	return out
-}
-
-func isDevelopmentPackNamespace(namespace string) bool {
-	return strings.HasSuffix(strings.TrimSpace(namespace), "-dev")
 }
 
 func isManagedLocalPack(pack Pack) bool {
@@ -385,7 +384,7 @@ func (m *PackCatalogManager) EnableAutoSyncForInstalledCatalogPacks() error {
 		}
 		changed := false
 		for namespace, pack := range registry.Packs {
-			if isDevelopmentPackNamespace(namespace) {
+			if pack.IsDevelopment() {
 				continue
 			}
 			if _, present := m.catalogByGitURL[NormalizePackGitURL(pack.GitURL)]; !present {
@@ -437,7 +436,7 @@ func (m *PackCatalogManager) sync(
 	namespace = strings.TrimSpace(namespace)
 	check := func(registry PackRegistry, _ Pack) error {
 		existing, installed := registry.Packs[namespace]
-		if !installed || isDevelopmentPackNamespace(namespace) {
+		if !installed || existing.IsDevelopment() {
 			return fmt.Errorf("agent pack namespace %q is not a manageable loaded pack", namespace)
 		}
 		if len(formalPacksByGitURL(registry, existing.GitURL)) != 1 {
@@ -529,7 +528,7 @@ func (m *PackCatalogManager) removeIfUnreferenced(
 			return err
 		}
 		existing, installed := registry.Packs[namespace]
-		if !installed || isDevelopmentPackNamespace(namespace) {
+		if !installed || existing.IsDevelopment() {
 			return fmt.Errorf("agent pack namespace %q is not a manageable loaded pack", namespace)
 		}
 		if len(formalPacksByGitURL(registry, existing.GitURL)) != 1 {
@@ -590,7 +589,7 @@ func loadedPackGeneration(pack Pack) string {
 func formalPacksByGitURL(registry PackRegistry, gitURL string) []Pack {
 	var matches []Pack
 	for _, pack := range registry.Packs {
-		if isDevelopmentPackNamespace(pack.Namespace) || !SamePackGitURL(pack.GitURL, gitURL) {
+		if pack.IsDevelopment() || !SamePackGitURL(pack.GitURL, gitURL) {
 			continue
 		}
 		matches = append(matches, pack)

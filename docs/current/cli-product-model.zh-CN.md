@@ -103,3 +103,9 @@ MCP 工具不接受作用域或 Principal 覆盖参数：Hub 认证调用方并�
 应用实现位于可导入的 `app/cli`、`app/hub` 和 `app/runtime` 包。
 `cmd` 入口选择公共默认值。独立发行版 module 可以注册扩展后调用相同应用入口；
 它依赖本 module，并拥有自己的配置、发行源与附加命令行为。
+
+`agent list` 和 Hub 的专家发现共用 registry 中的开发库判断：开发来源元数据、
+临时/评估标记或旧的 `-dev` 后缀。`--all` 包含这些专家，`--dev` 仅显示这些专家。
+单个 Pack 加载失败不影响其他正常专家；CLI JSON 与 Hub 响应通过 `profiles_error`
+返回诊断，CLI 人类可读输出在 stderr 提示。`agent local create --description`
+将用途摘要保存到 Pack。

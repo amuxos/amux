@@ -2982,5 +2982,9 @@
   "仅 session-prompt：reuse-session（默认）复用目标 Session；new-session-per-run 每次按模板新开 Session": {
     "en": "session-prompt only: reuse-session (default) reuses the target Session; new-session-per-run starts a new Session from the template each fire",
     "zh-CN": "仅 session-prompt：reuse-session（默认）复用目标 Session；new-session-per-run 每次按模板新开 Session"
+  },
+  "brief description of the expert purpose": {
+    "en": "brief description of the expert purpose",
+    "zh-CN": "专家用途的简短说明"
   }
 }

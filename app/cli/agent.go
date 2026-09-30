@@ -70,20 +70,29 @@ func newAgentListCommand(use string) *cobra.Command {
 			if listAll && listDevOnly {
 				return fmt.Errorf("--all and --dev cannot be used together")
 			}
-			profiles, err := availableAgentProfiles()
-			if err != nil {
-				return err
-			}
 			registry, err := agentprofile.LoadPackRegistry(defaultAgentPackRegistryPath())
 			if err != nil {
 				return err
 			}
-			profiles = filterAgentProfilesForList(profiles, registry, listAll, listDevOnly)
+			profiles, profilesErr := agentprofile.DiscoverProfiles(registry, listAll || listDevOnly)
+			if listDevOnly {
+				development := profiles[:0]
+				for _, profile := range profiles {
+					if registry.Packs[profile.Namespace].IsDevelopment() {
+						development = append(development, profile)
+					}
+				}
+				profiles = development
+			}
 			if jsonOutputEnabled(cmd) {
-				return printJSON(cmd.OutOrStdout(), map[string]any{
-					"schema":   "amux.agent.list.v1",
-					"profiles": profileCLIViews(profiles),
-				})
+				view := map[string]any{"schema": "amux.agent.list.v1", "profiles": profileCLIViews(profiles)}
+				if profilesErr != nil {
+					view["profiles_error"] = profilesErr.Error()
+				}
+				return printJSON(cmd.OutOrStdout(), view)
+			}
+			if profilesErr != nil {
+				fmt.Fprintln(cmd.ErrOrStderr(), commandCatalog.Format(commandLocale(cmd), "agent.profiles_warning", profilesErr))
 			}
 			printAgentProfileList(cmd.OutOrStdout(), profiles)
 			return nil
@@ -788,22 +797,11 @@ func resolveAgentProfile(ref string) (agentprofile.Profile, error) {
 }
 
 func availableAgentProfiles() ([]agentprofile.Profile, error) {
-	profiles := agentprofile.Builtins()
 	registry, err := agentprofile.LoadPackRegistry(defaultAgentPackRegistryPath())
 	if err != nil {
-		return nil, err
+		return agentprofile.Builtins(), err
 	}
-	// Builtin profiles advertise skills that a synced Git pack may override
-	// (external > embedded); attach so skill descriptions reflect the live pack.
-	for i := range profiles {
-		profiles[i] = agentprofile.AttachExternalSkillOverrides(profiles[i], registry)
-	}
-	packProfiles, err := agentprofile.ListPackProfiles(registry)
-	if err != nil {
-		return nil, err
-	}
-	profiles = append(profiles, packProfiles...)
-	return profiles, nil
+	return agentprofile.DiscoverProfiles(registry, false)
 }
 
 func defaultAgentPackRegistryPath() string {
@@ -818,38 +816,6 @@ func printAgentProfileList(out io.Writer, profiles []agentprofile.Profile) {
 	for _, profile := range profiles {
 		fmt.Fprintf(out, "%-15s %-7s %-8s %s\n", profile.Ref(), profile.Type, profile.Source, profile.Description)
 	}
-}
-
-func filterAgentProfilesForList(profiles []agentprofile.Profile, registry agentprofile.PackRegistry, includeDev, devOnly bool) []agentprofile.Profile {
-	explicitDevNamespaces := map[string]bool{}
-	for namespace, pack := range registry.Packs {
-		if strings.TrimSpace(pack.DevelopmentOf) != "" {
-			explicitDevNamespaces[namespace] = true
-		}
-	}
-	filtered := make([]agentprofile.Profile, 0, len(profiles))
-	for _, profile := range profiles {
-		switch {
-		case devOnly:
-			if hasDevNamespaceSuffix(profile) {
-				filtered = append(filtered, profile)
-			}
-		case includeDev || !isExplicitDevPackProfile(profile, explicitDevNamespaces):
-			filtered = append(filtered, profile)
-		}
-	}
-	return filtered
-}
-
-func isExplicitDevPackProfile(profile agentprofile.Profile, explicitDevNamespaces map[string]bool) bool {
-	if !hasDevNamespaceSuffix(profile) {
-		return false
-	}
-	return explicitDevNamespaces[profile.Namespace]
-}
-
-func hasDevNamespaceSuffix(profile agentprofile.Profile) bool {
-	return profile.Source == agentprofile.SourcePack && strings.HasSuffix(profile.Namespace, "-dev")
 }
 
 func printAgentProfile(out io.Writer, profile agentprofile.Profile) {
@@ -1317,10 +1283,7 @@ func completeAgentProfileRefs(_ *cobra.Command, args []string, toComplete string
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 	refs := make([]string, 0)
-	profiles, err := availableAgentProfiles()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+	profiles, _ := availableAgentProfiles()
 	for _, profile := range profiles {
 		refs = append(refs, profile.Ref()+"\t"+profile.Description)
 	}

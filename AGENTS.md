@@ -72,6 +72,10 @@ committing, pushing, or tagging code, script, configuration, or protocol changes
 GOMAXPROCS=4 GOFLAGS=-p=2 GOCACHE=/private/tmp/amux-go-cache scripts/check.sh
 ```
 
+If the default Go module proxy is unreachable, set `AMUX_CHECK_GOPROXY` to an
+accessible public module mirror for the gate. This changes dependency fetching
+only; checksum verification and all checks remain enabled.
+
 During editing, prefer focused tests or `make check-fast`; run the full gate after
 the final diff is frozen. Documentation-only changes may use `git diff --check`.
 Fix failures before committing or pushing. After the same unrelated intermittent
