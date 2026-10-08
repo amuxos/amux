@@ -1395,7 +1395,18 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 ```json
 {
   "properties": {
+    "args": {
+      "description": "原生执行参数，包含权限设置",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "cwd": {
+      "type": "string"
+    },
+    "model": {
+      "description": "执行模型引用；省略时使用所选 Runtime 默认模型",
       "type": "string"
     },
     "name": {
@@ -1413,6 +1424,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "run_as": {
+      "type": "string"
+    },
+    "runtime": {
+      "description": "执行 Runtime 适配器；v2 专家必填",
       "type": "string"
     },
     "target": {

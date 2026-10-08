@@ -26,13 +26,16 @@ func SessionList(ctx context.Context, hub pb.AmuxdClient) (*pb.ListTargetsRespon
 
 // SessionRunRequest creates a session.
 type SessionRunRequest struct {
-	Profile string `json:"profile" desc:"Agent Profile 引用（例如 builtin/codex）或旧版 Agent Type"`
-	Name    string `json:"name" desc:"Session 名称（必填）"`
-	Target  string `json:"target,omitempty" desc:"目标 runtime ID；留空时仅在唯一连接 target 时自动选择"`
-	Cwd     string `json:"cwd,omitempty"`
-	Repo    string `json:"repo,omitempty"`
-	RepoRef string `json:"ref,omitempty"`
-	RunAs   string `json:"run_as,omitempty"`
+	Runtime   string   `json:"runtime,omitempty"`
+	Model     string   `json:"model,omitempty"`
+	AgentArgs []string `json:"args,omitempty"`
+	Profile   string   `json:"profile" desc:"Agent Profile 引用（例如 builtin/codex）或旧版 Agent Type"`
+	Name      string   `json:"name" desc:"Session 名称（必填）"`
+	Target    string   `json:"target,omitempty" desc:"目标 runtime ID；留空时仅在唯一连接 target 时自动选择"`
+	Cwd       string   `json:"cwd,omitempty"`
+	Repo      string   `json:"repo,omitempty"`
+	RepoRef   string   `json:"ref,omitempty"`
+	RunAs     string   `json:"run_as,omitempty"`
 
 	// The command surface resolves Profile into this immutable launch snapshot
 	// before calling SessionRun. Keeping registry access out of clientop lets

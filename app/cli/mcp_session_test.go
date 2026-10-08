@@ -257,10 +257,33 @@ func TestMCPSessionRunSchemaRequiresProfileAndName(t *testing.T) {
 	if !sameStrings(schema.Required, []string{"profile", "name"}) {
 		t.Fatalf("session_run required = %v, want [profile name]", schema.Required)
 	}
-	for _, field := range []string{"profile", "name", "target", "cwd", "repo", "ref", "run_as"} {
+	for _, field := range []string{"profile", "name", "target", "cwd", "repo", "ref", "run_as", "runtime", "model", "args"} {
 		if _, ok := schema.Properties[field]; !ok {
 			t.Errorf("session_run schema missing %s property", field)
 		}
+	}
+}
+
+func TestMCPSessionRunResolvesPortableProfile(t *testing.T) {
+	client := &mcpSessionRunClient{
+		getResp: &pb.GetAgentProfileResponse{Profile: &pb.AgentProfileInfo{Profile: &pb.AgentProfileSpec{Namespace: "team", Name: "reviewer", Ref: "team/reviewer", AgentsContent: "Review changes", Envs: []string{"REVIEW_TOKEN"}}}},
+		runResp: &pb.RunResponse{Session: &pb.Session{Id: "portable", Name: "child"}},
+	}
+	useMCPSessionRunClient(t, client)
+	res, err := (&mcpHandler{}).sessionRun(context.Background(), json.RawMessage(`{"profile":"team/reviewer","name":"child","runtime":"claude","model":"review-model","args":["--permission-mode","plan"]}`))
+	if err != nil || res.IsError {
+		t.Fatalf("result=%+v error=%v", res, err)
+	}
+	if client.runReq == nil || client.runReq.AgentType != "claude" || client.runReq.ProfileSpec.RuntimeRef != "claude" || client.runReq.ProfileSpec.Model != "review-model" {
+		t.Fatalf("request=%+v", client.runReq)
+	}
+	if !strings.Contains(strings.Join(client.runReq.ExtraArgs, " "), "--permission-mode plan") {
+		t.Fatal("permission arguments lost")
+	}
+	client.runReq = nil
+	res, err = (&mcpHandler{}).sessionRun(context.Background(), json.RawMessage(`{"profile":"team/reviewer","name":"child"}`))
+	if err != nil || !res.IsError || client.runReq != nil {
+		t.Fatalf("missing runtime reached execution: result=%+v error=%v", res, err)
 	}
 }
 

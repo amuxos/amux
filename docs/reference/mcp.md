@@ -1395,7 +1395,18 @@ Create a Session using an Agent Profile; profile and name are required. Call dir
 ```json
 {
   "properties": {
+    "args": {
+      "description": "Native execution arguments, including permission settings",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "cwd": {
+      "type": "string"
+    },
+    "model": {
+      "description": "Execution model ref; omitted uses the selected runtime default",
       "type": "string"
     },
     "name": {
@@ -1413,6 +1424,10 @@ Create a Session using an Agent Profile; profile and name are required. Call dir
       "type": "string"
     },
     "run_as": {
+      "type": "string"
+    },
+    "runtime": {
+      "description": "Execution runtime adapter; required for v2 profiles",
       "type": "string"
     },
     "target": {

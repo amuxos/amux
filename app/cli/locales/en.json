@@ -13,5 +13,17 @@
   },
   "agent.description_help": {
     "other": "brief description of the expert purpose"
+  },
+  "profile.selection_guidance": {
+    "other": "Choose an expert by description and skills, then select runtime and model for execution. Profiles with runtime_required need an explicit runtime. Legacy profiles retain their defaults. Use profile_get for full content details."
+  },
+  "mcp.session.runtime": {
+    "other": "Execution runtime adapter; required for v2 profiles"
+  },
+  "mcp.session.model": {
+    "other": "Execution model ref; omitted uses the selected runtime default"
+  },
+  "mcp.session.args": {
+    "other": "Native execution arguments, including permission settings"
   }
 }

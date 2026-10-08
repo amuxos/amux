@@ -814,7 +814,11 @@ func printAgentProfileList(out io.Writer, profiles []agentprofile.Profile) {
 	})
 	fmt.Fprintln(out, "REF             TYPE    SOURCE   DESCRIPTION")
 	for _, profile := range profiles {
-		fmt.Fprintf(out, "%-15s %-7s %-8s %s\n", profile.Ref(), profile.Type, profile.Source, profile.Description)
+		agentType := profile.Type
+		if agentType == "" {
+			agentType = "-"
+		}
+		fmt.Fprintf(out, "%-15s %-7s %-8s %s\n", profile.Ref(), agentType, profile.Source, profile.Description)
 	}
 }
 
@@ -823,7 +827,9 @@ func printAgentProfile(out io.Writer, profile agentprofile.Profile) {
 	if profile.PinnedRef() != profile.Ref() {
 		fmt.Fprintf(out, "pinned_ref: %s\n", profile.PinnedRef())
 	}
-	fmt.Fprintf(out, "type: %s\n", profile.Type)
+	if profile.Type != "" {
+		fmt.Fprintf(out, "type: %s\n", profile.Type)
+	}
 	if profile.Model != "" {
 		fmt.Fprintf(out, "model: %s\n", profile.Model)
 	}

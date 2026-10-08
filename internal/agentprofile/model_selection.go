@@ -42,6 +42,9 @@ func ProjectProfileLaunchChecked(profile Profile, explicitArgs []string, explici
 	if strings.TrimSpace(opts.Runtime) != "" {
 		return projectProfileRuntimeLaunchChecked(profile, explicitArgs, explicitEnv, opts)
 	}
+	if strings.TrimSpace(profile.Type) == "" {
+		return LaunchProjection{}, profileError("runtime_required", profile.Ref())
+	}
 	requested := strings.TrimSpace(opts.Model)
 	if model, ok := AgentArgsModel(profile.Type, explicitArgs); ok {
 		requested = model

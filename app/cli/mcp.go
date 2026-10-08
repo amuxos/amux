@@ -14,6 +14,7 @@ import (
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/clientop"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 	"github.com/amuxos/amux/internal/mcp"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/google/uuid"
@@ -839,7 +840,12 @@ func amuxTools() []mcp.Tool {
 }`)
 	// Session tool schemas derive from the argument/request structs so a field
 	// added there cannot be silently missing from the tool surface.
-	sessionRunSchemaBytes, err := json.Marshal(clientop.JSONSchema(clientop.SessionRunRequest{}))
+	sessionRunInput := clientop.JSONSchema(clientop.SessionRunRequest{})
+	for field, key := range map[string]string{"runtime": "mcp.session.runtime", "model": "mcp.session.model", "args": "mcp.session.args"} {
+		text := commandCatalog.Text(key)
+		sessionRunInput["properties"].(map[string]any)[field].(map[string]any)["description"] = text.For(i18n.English) + "\n" + text.For(i18n.Chinese)
+	}
+	sessionRunSchemaBytes, err := json.Marshal(sessionRunInput)
 	if err != nil {
 		panic("build session run schema: " + err.Error())
 	}

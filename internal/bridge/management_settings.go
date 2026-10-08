@@ -1873,6 +1873,9 @@ func managementEffectiveModelLabel(state managementState, agentRef, ref string) 
 	if ref = strings.TrimSpace(ref); ref != "" {
 		return managementRuntimeModelLabel(ref)
 	}
+	if profile, ok := managementProfileByRef(state, agentRef); ok && !profile.CurrentOnly && profile.AgentType == "" {
+		return managementCopy("management.choose.a.runtime")
+	}
 	defaultModel := managementDefaultModelDisplayFor(state, agentRef)
 	if defaultModel.Unavailable {
 		return managementCopy("management.expert.unavailable.cannot.determine.the.default.model")
@@ -1887,6 +1890,9 @@ func managementEffectiveModelLabel(state managementState, agentRef, ref string) 
 }
 
 func managementProfileDefaultModelOptionLabel(state managementState, agentRef string) any {
+	if profile, ok := managementProfileByRef(state, agentRef); ok && !profile.CurrentOnly && profile.AgentType == "" {
+		return managementCopy("management.choose.a.runtime")
+	}
 	defaultModel := managementDefaultModelDisplayFor(state, agentRef)
 	if defaultModel.Unavailable {
 		return managementCopy("management.expert.unavailable.cannot.determine.the.default.model")

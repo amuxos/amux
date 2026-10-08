@@ -414,16 +414,16 @@ func (s *server) refreshProfileAndRelaunch(ctx context.Context, sess *session.Se
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "refresh Agent Profile %q: %v", profileRef, err)
 	}
-	if strings.TrimSpace(profile.Type) != strings.TrimSpace(snap.AgentType) {
-		return nil, status.Errorf(codes.FailedPrecondition, "refresh Agent Profile %q changes agent type from %s to %s; cross-type refresh is unsupported", profileRef, snap.AgentType, profile.Type)
-	}
-	a, err := adapter.Get(profile.Type)
-	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "%v", err)
-	}
-	launch, err := agentprofile.ProjectProfileLaunchChecked(profile, nil, nil, refreshProfileLaunchOptions(snap, profile))
+	launch, err := projectRefreshedProfileLaunch(snap, profile)
 	if err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(launch.AgentType) != strings.TrimSpace(snap.AgentType) {
+		return nil, status.Errorf(codes.FailedPrecondition, "refresh Agent Profile %q changes agent type from %s to %s; cross-type refresh is unsupported", profileRef, snap.AgentType, launch.AgentType)
+	}
+	a, err := adapter.Get(launch.AgentType)
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "%v", err)
 	}
 	launch.Env = append([]string(nil), snap.Env...)
 	refreshReq := refreshedRunRequest(snap, launch)
@@ -489,6 +489,40 @@ func (s *server) refreshProfileAndRelaunch(ctx context.Context, sess *session.Se
 		return nil, err
 	}
 	return &pb.RunResponse{Session: toProtoSession(sess)}, nil
+}
+
+// Portable content refresh preserves the frozen execution, including native
+// permission arguments and provider bindings. It must not re-resolve a changed
+// runtime catalog or acquire defaults from the new content revision.
+func projectRefreshedProfileLaunch(snap session.Snapshot, profile agentprofile.Profile) (agentprofile.LaunchProjection, error) {
+	if profile.Type != "" {
+		return agentprofile.ProjectProfileLaunchChecked(profile, nil, nil, refreshProfileLaunchOptions(snap, profile))
+	}
+	var previous struct {
+		ProfileSpec *pb.AgentProfileSpec `json:"profile_spec"`
+	}
+	decodeLaunchSpec(snap.LaunchSpec, &previous)
+	frozen, err := agentprofile.FromPBProfileSpec(previous.ProfileSpec)
+	if err != nil {
+		return agentprofile.LaunchProjection{}, err
+	}
+	profile.Type = frozen.Type
+	profile.Model = frozen.Model
+	profile.ConfiguredModel = frozen.ConfiguredModel
+	profile.Provider = frozen.Provider
+	profile.DefaultArgs = frozen.DefaultArgs
+	profile.SupportedModels = frozen.SupportedModels
+	profile.ExecutionRuntimeRef = frozen.ExecutionRuntimeRef
+	profile.ReasoningEffort = frozen.ReasoningEffort
+	profile.PermissionPolicy = frozen.PermissionPolicy
+	profile.Placement.Requires.AgentTypes = []string{frozen.Type}
+	return agentprofile.LaunchProjection{
+		AgentType: frozen.Type, AgentProfile: profile.PinnedRef(),
+		ProfileSpec: agentprofile.ToPBProfileSpec(profile),
+		ExtraArgs:   append([]string(nil), snap.ExtraArgs...),
+		Env:         append([]string(nil), snap.Env...), Model: snap.EffectiveModel,
+		Runtime: frozen.ExecutionRuntimeRef, ReasoningEffort: frozen.ReasoningEffort,
+	}, nil
 }
 
 // refreshProfileLaunchOptions keeps execution selections that are independent

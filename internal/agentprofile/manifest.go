@@ -59,7 +59,7 @@ type packManifestNamespace struct {
 	Profiles []string `json:"profiles"`
 }
 
-// LoadPackManifest reads an expert-agents agent-pack manifest file. The v1.1
+// LoadPackManifest reads an agent-pack manifest file. The versioned
 // contract is intentionally explicit so amux never falls back to source TOML
 // when a manifest is present.
 func LoadPackManifest(path string) (packManifest, error) {
@@ -75,8 +75,25 @@ func parsePackManifest(path string, data []byte) (packManifest, error) {
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return manifest, fmt.Errorf("parse agent pack manifest %s: %w", path, err)
 	}
-	if strings.TrimSpace(manifest.SchemaVersion) != supportedPackManifestSchemaVersion {
-		return manifest, fmt.Errorf("unsupported agent pack manifest schema_version %q in %s; supported: %s", strings.TrimSpace(manifest.SchemaVersion), path, supportedPackManifestSchemaVersion)
+	manifest.SchemaVersion = strings.TrimSpace(manifest.SchemaVersion)
+	if strings.TrimSpace(manifest.SchemaVersion) != supportedPackManifestSchemaVersion && strings.TrimSpace(manifest.SchemaVersion) != "v2" {
+		return manifest, profileError("schema_unsupported", strings.TrimSpace(manifest.SchemaVersion), path)
+	}
+	if manifest.SchemaVersion == "v2" {
+		var raw struct {
+			Profiles map[string]map[string]json.RawMessage `json:"profiles"`
+		}
+		if err := json.Unmarshal(data, &raw); err != nil {
+			return manifest, err
+		}
+		for name, entry := range raw.Profiles {
+			for key := range entry {
+				switch strings.ToLower(key) {
+				case "type", "model", "providers", "supported_models", "permission":
+					return manifest, profileError("execution_field_forbidden", name, key)
+				}
+			}
+		}
 	}
 	if strings.TrimSpace(manifest.PackNamespace) == "" {
 		return manifest, fmt.Errorf("agent pack manifest %s pack_namespace is required", path)
@@ -186,11 +203,13 @@ func manifestProfileToProfileFromSource(source manifestProfileSource, manifest p
 		return Profile{}, fmt.Errorf("agent pack manifest %s contains an empty profile key", source.profilePath)
 	}
 	agentType := strings.TrimSpace(entry.Type)
-	if agentType == "" {
-		return Profile{}, fmt.Errorf("profile %s type is required", name)
-	}
-	if _, err := adapter.Get(agentType); err != nil {
-		return Profile{}, fmt.Errorf("profile %s: %w", name, err)
+	if manifest.SchemaVersion != "v2" {
+		if agentType == "" {
+			return Profile{}, fmt.Errorf("profile %s type is required", name)
+		}
+		if _, err := adapter.Get(agentType); err != nil {
+			return Profile{}, fmt.Errorf("profile %s: %w", name, err)
+		}
 	}
 	model := strings.TrimSpace(entry.Model)
 	providers := cleanStrings(entry.Providers)
@@ -250,8 +269,10 @@ func manifestProfileToProfileFromSource(source manifestProfileSource, manifest p
 	if err != nil {
 		return Profile{}, fmt.Errorf("profile %s: %w", name, err)
 	}
-	if err := validateProvider(agentType, provider); err != nil {
-		return Profile{}, fmt.Errorf("profile %s: %w", name, err)
+	if agentType != "" {
+		if err := validateProvider(agentType, provider); err != nil {
+			return Profile{}, fmt.Errorf("profile %s: %w", name, err)
+		}
 	}
 	defaultArgs, err := permissionModeArgs(agentType, entry.Permission)
 	if err != nil {
@@ -268,7 +289,10 @@ func manifestProfileToProfileFromSource(source manifestProfileSource, manifest p
 	if entry.Extends != nil {
 		extends = strings.TrimSpace(*entry.Extends)
 	}
-	requires := []string{agentType}
+	var requires []string
+	if agentType != "" {
+		requires = []string{agentType}
+	}
 	return Profile{
 		Namespace:           source.namespace,
 		Name:                name,

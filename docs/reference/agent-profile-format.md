@@ -3,7 +3,7 @@
 [English](agent-profile-format.md) | [简体中文](agent-profile-format.zh-CN.md)
 
 An Agent Pack is a Git repository with a `dist/agent-pack.manifest.json` manifest
-and the instruction and skill files it references. amux consumes manifest `v1.1`;
+and the instruction and skill files it references. amux consumes manifests `v1.1` and `v2`;
 it does not read source profile TOML files as a fallback. A pack may use its own
 authoring tools to produce the manifest. The optional managed authoring runtime
 has no default download source.
@@ -27,6 +27,18 @@ paths are relative to the pack root and are combined in listed order. Missing
 instruction files fail pack validation. Paths must remain inside the pack.
 
 ## Profiles
+
+In `v2`, profiles contain reusable content and environment requirements. The
+fields `type`, `model`, `providers`, `supported_models`, and `permission` are
+forbidden, including empty values. Directory layout, namespaces, inheritance,
+asset lists, and top-level provider definitions keep their existing meaning.
+Execution selects the runtime and model, and supplies native permission arguments.
+An explicit runtime or caller runtime setting is required; there is no implicit
+engine fallback. The resolved execution settings remain in session snapshots.
+Existing v1.1 libraries and their defaults remain supported; migration is explicit.
+The managed local authoring workflow continues to produce v1.1 libraries.
+
+The execution fields in the table below apply only to v1.1.
 
 Profile descriptions belong to the manifest, including built-in profiles.
 Distributions may supply optional legacy metadata as a fallback for an omitted
