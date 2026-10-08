@@ -146,3 +146,10 @@ classification (development metadata, temporary/evaluation flags, or the legacy
 Healthy profiles remain available when another pack fails to load; CLI JSON and
 Hub responses report `profiles_error`, and human-readable CLI output warns on
 stderr. `agent local create --description` records a purpose summary in the Pack.
+
+## Offline Profile rendering
+
+`amux agent render` accepts `--runtime` and `--model` separately from the expert
+reference. A v2 Profile requires an explicit runtime before any output is written.
+Rendering projects content for that engine without launching it; execution
+permissions remain native launch arguments supplied by the caller.

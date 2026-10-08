@@ -33,6 +33,9 @@ Agent Instance 持续存在并接受后续工作。取消和中断始终与正�
 Instance 中断通过 child 的 owner TaskRun 进入取消流程：runner 记录取消意图，将该
 次运行结束为 `cancelled`，并保留可恢复实例。不得依赖直接中断 child 后 Provider
 产出终态事件。MCP 通过生成的工具 Schema 暴露 Profile、Task 和 Persistent Instance。
+任务提交、持久实例创建与定时任务定义的 MCP 输入通过 `extra_args` 提供原生引擎参数，
+与 `permission_policy` 分开。定时任务按原顺序保存并传递参数，不修改参数值；
+MCP 回读展示已保存的 Runtime、模型与原生参数。
 
 Credential Profile 标识启动凭据。Profile 声明所需环境变量，只为有效 Principal
 物化这些变量。凭据不得持久化到 Session 快照、结果 payload 或公共事件文本。
@@ -47,7 +50,7 @@ Adapter 的思考强度校验继续生效。要选择 Profile Provider，必须�
 支持和工作区访问。强容器/VM 隔离及跨机器高可用仍是目标规格，不是分布式 API
 隐含提供的能力。
 
-Profile 消费使用 manifest v1.1，遵循 Profile 物化到 Task/Adapter 契约的单向依赖。
+Profile 消费支持 manifest v1.1 和 v2，遵循 Profile 物化到 Task/Adapter 契约的单向依赖。
 可选的本地专家编辑需要显式配置兼容的 authoring runtime；不可用时拒绝执行该能力，
 原生内置 Profile 仍可运行。
 

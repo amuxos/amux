@@ -42,6 +42,7 @@ type WorkspaceSpec struct {
 // (execution_identity, resolved_profile, parent_task_id) which the hub rejects
 // from clients, and blocking, which a schedule never uses.
 type ScheduledTaskSpec struct {
+	ExtraArgs            []string      `json:"extra_args,omitempty"`
 	Agent                string        `json:"agent" desc:"Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref，例如 builtin/codex 或 team/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口"`
 	Runtime              string        `json:"runtime,omitempty"`
 	Model                string        `json:"model,omitempty" desc:"每次定时运行面向用户的模型覆盖；留空时使用 Profile 或 Agent 默认模型"`
@@ -111,6 +112,7 @@ func (s ScheduledTaskSpec) ToTaskSpec() task.Spec {
 		panic("clientop: ToTaskSpec called on an unvalidated spec: " + err.Error())
 	}
 	out := task.Spec{
+		ExtraArgs:         append([]string(nil), s.ExtraArgs...),
 		Agent:             strings.TrimSpace(s.Agent),
 		Runtime:           strings.TrimSpace(s.Runtime),
 		Model:             strings.TrimSpace(s.Model),

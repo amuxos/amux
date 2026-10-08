@@ -34,5 +34,17 @@
   },
   "mcp.instance.model": {
     "other": "执行模型引用，固定到持久实例；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  },
+  "mcp.task.extra_args": {
+    "other": "原生执行参数，包含权限设置；与 Task 权限策略分开"
+  },
+  "agent.render.runtime": {
+    "other": "渲染使用的 Runtime 适配器；v2 专家必填"
+  },
+  "agent.render.model": {
+    "other": "为所选 Runtime 渲染的模型"
+  },
+  "task.arg": {
+    "other": "原生 Agent 参数（可重复）"
   }
 }

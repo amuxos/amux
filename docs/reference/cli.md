@@ -598,7 +598,9 @@ amux agent render <profile> [flags]
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | help for render |
+| `--model` | `string` | `""` | Model to render for the selected runtime |
 | `--out` | `string` | `""` | output workspace directory |
+| `--runtime` | `string` | `""` | Runtime adapter for rendering; required for v2 profiles |
 
 ## `amux agent show`
 
@@ -1552,6 +1554,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `--agent` | `string` | `""` | agent profile ref or legacy agent type to run |
+| `--arg` | `stringArray` | `[]` | native agent argument (repeatable) |
 | `--credential-profile` | `string` | `""` | credential profile name (control-plane resolved) |
 | `-h, --help` | `bool` | `false` | help for create-task |
 | `--isolation` | `string` | `""` | isolation: process \| private-home (default process) |
@@ -1674,6 +1677,7 @@ amux schedule update 8 --name nightly-report
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `--agent` | `string` | `""` | agent profile ref or legacy agent type to run |
+| `--arg` | `stringArray` | `[]` | native agent argument (repeatable) |
 | `--credential-profile` | `string` | `""` | credential profile name (control-plane resolved) |
 | `-h, --help` | `bool` | `false` | help for update |
 | `--isolation` | `string` | `""` | isolation: process \| private-home (default process) |

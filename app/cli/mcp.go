@@ -638,6 +638,7 @@ func amuxTools() []mcp.Tool {
     "agent": {"type": "string", "description": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref；也可传入先经 amux.profile_get 验证的精确开发版 Profile 引用，例如 builtin/codex、team/push_sre 或 team-task-dev/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口"},
     "runtime": {"type": "string", "description": %s},
     "model": {"type": "string", "description": %s},
+    "extra_args": {"type": "array", "items": {"type": "string"}, "description": %s},
     "task": {"type": "string", "description": "交给 Agent Task 的提示词"},
     "mode": {"type": "string", "enum": ["ephemeral", "persistent"], "description": "ephemeral（默认）只运行一次并销毁；persistent 让 Agent Instance 跨 Task 保持存活，以支持多轮交互"},
     "agent_instance_id": {"type": "string", "description": "持久 Agent Instance 句柄（mode=persistent）；复用 instance_spawn 返回的值调用 instance_followup、instance_send 或 instance_interrupt"},
@@ -655,9 +656,9 @@ func amuxTools() []mcp.Tool {
     "result_granularity": {"type": "string", "enum": ["summary", "full", "structured-summary"], "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，最大 64KB，截断时指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"}
   },
   "required": ["agent", "task"]
-}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.task.model")))
+}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.task.model"), quotedSchemaText("mcp.task.extra_args")))
 	scheduledTaskInput := clientop.JSONSchema(clientop.ScheduledTaskSpec{})
-	for field, key := range map[string]string{"runtime": "mcp.task.runtime", "model": "mcp.task.model"} {
+	for field, key := range map[string]string{"runtime": "mcp.task.runtime", "model": "mcp.task.model", "extra_args": "mcp.task.extra_args"} {
 		text := commandCatalog.Text(key)
 		scheduledTaskInput["properties"].(map[string]any)[field].(map[string]any)["description"] = text.For(i18n.English) + "\n" + text.For(i18n.Chinese)
 	}
@@ -724,6 +725,7 @@ func amuxTools() []mcp.Tool {
     "agent": {"type": "string", "description": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref"},
     "runtime": {"type": "string", "description": %s},
     "model": {"type": "string", "description": %s},
+    "extra_args": {"type": "array", "items": {"type": "string"}, "description": %s},
     "task": {"type": "string", "description": "交给 Agent 的初始 Task 提示词"},
     "run_as": {"type": "string", "description": "可选 Principal alias 意图；省略时使用 parent Execution Principal 创建实例"},
     "isolation": {"type": "string", "enum": ["process", "private-home"]},
@@ -736,7 +738,7 @@ func amuxTools() []mcp.Tool {
     "result_granularity": {"type": "string", "enum": ["summary", "full", "structured-summary"], "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，超限时截断并指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"}
   },
   "required": ["agent", "task"]
-}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.instance.model")))
+}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.instance.model"), quotedSchemaText("mcp.task.extra_args")))
 	followupTaskSchema := json.RawMessage(`{
   "type": "object",
   "properties": {

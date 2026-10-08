@@ -385,6 +385,13 @@ Create a persistent Agent Instance without blocking and return a stable agent_in
     "credential_profile": {
       "type": "string"
     },
+    "extra_args": {
+      "description": "Native execution arguments, including permissions; separate from Task permission policy",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "isolation": {
       "enum": [
         "process",
@@ -914,6 +921,13 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
           "description": "Control-plane credential profile name",
           "type": "string"
         },
+        "extra_args": {
+          "description": "Native execution arguments, including permissions; separate from Task permission policy",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "isolation": {
           "description": "Sandbox isolation mode; Phase 1 is best-effort trusted mode",
           "enum": [
@@ -1120,6 +1134,13 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
         "credential_profile": {
           "description": "Control-plane credential profile name",
           "type": "string"
+        },
+        "extra_args": {
+          "description": "Native execution arguments, including permissions; separate from Task permission policy",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "isolation": {
           "description": "Sandbox isolation mode; Phase 1 is best-effort trusted mode",
@@ -1724,6 +1745,13 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
       "description": "Control-plane credential profile name",
       "type": "string"
     },
+    "extra_args": {
+      "description": "Native execution arguments, including permissions; separate from Task permission policy",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "isolation": {
       "description": "Sandbox isolation mode; Phase 1 is best-effort trusted mode",
       "enum": [
@@ -1866,6 +1894,13 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
     "credential_profile": {
       "description": "Control-plane credential profile name",
       "type": "string"
+    },
+    "extra_args": {
+      "description": "Native execution arguments, including permissions; separate from Task permission policy",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "isolation": {
       "description": "Sandbox isolation mode; Phase 1 is best-effort trusted mode",

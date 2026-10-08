@@ -1,5 +1,20 @@
 {
-  "schema_unsupported": {"other": "不支持专家库 manifest 版本 %q（文件 %s）；支持 v1.1、v2"},
-  "execution_field_forbidden": {"other": "专家 %s：v2 禁止字段 %q；请在启动时提供执行设置"},
-  "runtime_required": {"other": "专家 %s 需要选择执行引擎；请通过 --runtime 或调用方的 runtime 设置指定"}
+  "schema_unsupported": {
+    "other": "不支持专家库 manifest 版本 %q（文件 %s）；支持 v1.1、v2"
+  },
+  "execution_field_forbidden": {
+    "other": "专家 %s：v2 禁止字段 %q；请在启动时提供执行设置"
+  },
+  "runtime_required": {
+    "other": "专家 %s 需要选择执行引擎；请通过 --runtime 或调用方的 runtime 设置指定"
+  },
+  "execution_runtime_required": {
+    "other": "必须指定 Runtime"
+  },
+  "runtime_unknown": {
+    "other": "未知 Runtime %q"
+  },
+  "runtime_model_unsupported": {
+    "other": "模型 %q 不受 Runtime %s 支持"
+  }
 }
