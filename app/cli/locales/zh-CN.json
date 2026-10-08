@@ -13,5 +13,26 @@
   },
   "agent.description_help": {
     "other": "专家用途的简短说明"
+  },
+  "profile.selection_guidance": {
+    "other": "根据描述和技能选择专家，再为本次执行选择 runtime 和 model。标记 runtime_required 的专家需要显式选择 runtime；旧版专家保留原有默认设置。完整内容见 profile_get。"
+  },
+  "mcp.session.runtime": {
+    "other": "执行 Runtime 适配器；v2 专家必填"
+  },
+  "mcp.session.model": {
+    "other": "执行模型引用；省略时使用所选 Runtime 默认模型"
+  },
+  "mcp.session.args": {
+    "other": "原生执行参数，包含权限设置"
+  },
+  "mcp.task.runtime": {
+    "other": "执行 Runtime 适配器；v2 专家必填"
+  },
+  "mcp.task.model": {
+    "other": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  },
+  "mcp.instance.model": {
+    "other": "执行模型引用，固定到持久实例；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
   }
 }

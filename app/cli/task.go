@@ -57,6 +57,7 @@ func newTaskSubmitCmd() *cobra.Command {
 	var (
 		agent            string
 		profile          string
+		runtimeRef       string
 		model            string
 		isolation        string
 		permission       string
@@ -81,6 +82,7 @@ func newTaskSubmitCmd() *cobra.Command {
 			}
 			spec := task.Spec{
 				Agent:             selectedAgent,
+				Runtime:           runtimeRef,
 				Model:             model,
 				Task:              joinArgs(args),
 				Isolation:         task.IsolationMode(isolation),
@@ -150,7 +152,8 @@ func newTaskSubmitCmd() *cobra.Command {
 	})
 	cmd.Flags().StringVar(&agent, "agent", agentprofile.DefaultProfileRef, "agent profile ref or legacy agent type to run")
 	cmd.Flags().StringVar(&profile, "profile", "", "agent profile ref to resolve before scheduling (overrides --agent)")
-	cmd.Flags().StringVar(&model, "model", "", "model ref supported by the selected agent profile")
+	cmd.Flags().StringVar(&runtimeRef, "runtime", "", commandCatalog.Format(commandLocale(cmd), "mcp.task.runtime"))
+	cmd.Flags().StringVar(&model, "model", "", commandCatalog.Format(commandLocale(cmd), "mcp.task.model"))
 	cmd.Flags().StringVar(&isolation, "isolation", "", "isolation: process | private-home (default process)")
 	cmd.Flags().StringVar(&permission, "permission", "", "permission policy: policy-allow | escalate-to-main | deny-all (default policy-allow)")
 	cmd.Flags().StringVar(&workspace, "workspace", "", "workspace policy: temp-dir | git-worktree (default temp-dir)")

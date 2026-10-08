@@ -11,6 +11,7 @@ import (
 
 	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/agentprofile"
+	"github.com/amuxos/amux/internal/i18n"
 	"github.com/amuxos/amux/internal/mcp"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
@@ -133,7 +134,7 @@ func (h *mcpHandler) listAgentProfilesPage(ctx context.Context, args json.RawMes
 		pageEnd = len(profiles)
 	}
 	pageProfiles := profiles[offset:pageEnd]
-	info := map[string]any{"schema_version": "mcp.list_agent_profiles.v6", "profiles": discoveredAgentProfileMCPViews(pageProfiles), "capability_sets": profileMCPCapabilitySets(pageProfiles), "profiles_scope": "hub_control_plane", "detail_tool": "amux.profile_get", "page_count": len(pageProfiles), "total_count": len(profiles), "has_more": pageEnd < len(profiles), "isolation": []string{"process", "private-home"}, "permission_policy": []string{"policy-allow", "escalate-to-main", "deny-all"}, "workspace_policy": []string{"temp-dir", "git-worktree"}, "submission_contract": map[string]any{"agent_field": "task_submit.agent / task_run.agent", "preferred_value": "profiles[].ref", "pinned_value": "profiles[].pinned_ref", "legacy_fallback": "raw Agent Type strings are accepted for backward compatibility but are not returned as discovery choices", "resolution_scope": "amux control plane resolves profile refs before scheduling", "profile_ref_usage": "Pass profiles[].ref unless you intentionally need a pinned pack revision; pass profiles[].pinned_ref to lock the exact revision shown here."}, "selection_guidance": "Choose a profile by matching description, supported_models, skill names and capability_sets[profiles[].agent_type]; pass profiles[].ref as task_submit.agent/task_run.agent and optionally one supported_models value as model. Use profile_get for skill descriptions and full profile detail.", "note": "process/private-home are task isolation request modes; identified Linux executions may additionally use the linux-dac backend. container/vm isolation is not yet available."}
+	info := map[string]any{"schema_version": "mcp.list_agent_profiles.v6", "profiles": discoveredAgentProfileMCPViews(pageProfiles), "capability_sets": profileMCPCapabilitySets(pageProfiles), "profiles_scope": "hub_control_plane", "detail_tool": "amux.profile_get", "page_count": len(pageProfiles), "total_count": len(profiles), "has_more": pageEnd < len(profiles), "isolation": []string{"process", "private-home"}, "permission_policy": []string{"policy-allow", "escalate-to-main", "deny-all"}, "workspace_policy": []string{"temp-dir", "git-worktree"}, "submission_contract": map[string]any{"agent_field": "task_submit.agent / task_run.agent", "preferred_value": "profiles[].ref", "pinned_value": "profiles[].pinned_ref", "legacy_fallback": "raw Agent Type strings are accepted for backward compatibility but are not returned as discovery choices", "resolution_scope": "amux control plane resolves profile refs before scheduling", "profile_ref_usage": "Pass profiles[].ref unless you intentionally need a pinned pack revision; pass profiles[].pinned_ref to lock the exact revision shown here."}, "selection_guidance": profileSelectionGuidance(), "note": "process/private-home are task isolation request modes; identified Linux executions may additionally use the linux-dac backend. container/vm isolation is not yet available."}
 	if namespace := strings.TrimSpace(input.Namespace); namespace != "" {
 		info["namespace"] = namespace
 	}
@@ -173,6 +174,9 @@ func filterDiscoveredAgentProfilesByNamespace(profiles []discoveredAgentProfile,
 func profileMCPCapabilitySets(profiles []discoveredAgentProfile) map[string]map[string]any {
 	sets := make(map[string]map[string]any)
 	for _, discovered := range profiles {
+		if discovered.Profile.Type == "" {
+			continue
+		}
 		if _, exists := sets[discovered.Profile.Type]; !exists {
 			sets[discovered.Profile.Type] = adapterCapabilitiesView(discovered.Profile.Type)
 		}
@@ -228,7 +232,7 @@ func discoveredAgentProfileFromPB(info *pb.AgentProfileInfo) (discoveredAgentPro
 	if info == nil || info.GetProfile() == nil {
 		return discoveredAgentProfile{}, fmt.Errorf("hub returned an empty agent profile")
 	}
-	profile, err := agentprofile.FromPBProfileSpec(info.GetProfile())
+	profile, err := agentprofile.FromPBProfileDefinition(info.GetProfile())
 	if err != nil {
 		return discoveredAgentProfile{}, fmt.Errorf("decode hub agent profile: %w", err)
 	}
@@ -260,6 +264,10 @@ func profileMCPViewListSummary(profile agentprofile.Profile, skills []agentprofi
 	// descriptions), and full detail remains available on demand via profile_get.
 	SkillInfo) map[string]any {
 	view := map[string]any{"ref": profile.Ref(), "agent_type": profile.Type, "source": string(profile.Source), "writable": profile.Writable, "description": profile.Description, "profile_capabilities": profileSpecificCapabilitiesView(profile)}
+	if profile.Type == "" {
+		delete(view, "agent_type")
+		view["runtime_required"] = true
+	}
 	if pinned := profile.PinnedRef(); pinned != profile.Ref() {
 		view["pinned_ref"] = pinned
 	}
@@ -286,6 +294,10 @@ func profileMCPView(profile agentprofile.Profile) map[string]any {
 }
 func profileMCPViewWithSkills(profile agentprofile.Profile, skills []agentprofile.SkillInfo) map[string]any {
 	view := map[string]any{"ref": profile.Ref(), "agent_type": profile.Type, "source": string(profile.Source), "writable": profile.Writable, "description": profile.Description, "capabilities": profileCapabilitiesView(profile), "submission": map[string]any{"agent": profile.Ref(), "pinned_agent": profile.PinnedRef()}, "placement": map[string]any{"preferred_targets": profile.Placement.PreferredTargets, "requires": map[string]any{"agent_types": profile.Placement.Requires.AgentTypes, "runtime_tools": profile.Placement.Requires.RuntimeTools, "features": profile.Placement.Requires.Features, "credentials": profile.Placement.Requires.Credentials}}}
+	if profile.Type == "" {
+		delete(view, "agent_type")
+		view["runtime_required"] = true
+	}
 	if pinned := profile.PinnedRef(); pinned != profile.Ref() {
 		view["pinned_ref"] = pinned
 	}
@@ -326,6 +338,9 @@ func profileMCPViewWithSkills(profile agentprofile.Profile, skills []agentprofil
 }
 func profileCapabilitiesView(profile agentprofile.Profile) map[string]any {
 	caps := profileSpecificCapabilitiesView(profile)
+	if profile.Type == "" {
+		return caps
+	}
 	for key, value := range adapterCapabilitiesView(profile.Type) {
 		caps[key] = value
 	}
@@ -350,4 +365,9 @@ func adapterCapabilitiesView(agentType string) map[string]any {
 		caps["adapter_error"] = err.Error()
 	}
 	return caps
+}
+
+func profileSelectionGuidance() string {
+	text := commandCatalog.Text("profile.selection_guidance")
+	return text.For(i18n.English) + "\n" + text.For(i18n.Chinese)
 }

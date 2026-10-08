@@ -14,6 +14,7 @@ import (
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/clientop"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 	"github.com/amuxos/amux/internal/mcp"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/google/uuid"
@@ -626,11 +627,17 @@ type attachEventStream interface {
 // session_restart); launch warnings pass through when present.
 
 func amuxTools() []mcp.Tool {
-	specSchema := json.RawMessage(`{
+	quotedSchemaText := func(key string) string {
+		text := commandCatalog.Text(key)
+		quoted, _ := json.Marshal(text.For(i18n.English) + "\n" + text.For(i18n.Chinese))
+		return string(quoted)
+	}
+	specSchema := json.RawMessage(fmt.Sprintf(`{
   "type": "object",
   "properties": {
     "agent": {"type": "string", "description": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref；也可传入先经 amux.profile_get 验证的精确开发版 Profile 引用，例如 builtin/codex、team/push_sre 或 team-task-dev/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口"},
-    "model": {"type": "string", "description": "可选模型引用，必须来自所选 Profile 的 supported_models"},
+    "runtime": {"type": "string", "description": %s},
+    "model": {"type": "string", "description": %s},
     "task": {"type": "string", "description": "交给 Agent Task 的提示词"},
     "mode": {"type": "string", "enum": ["ephemeral", "persistent"], "description": "ephemeral（默认）只运行一次并销毁；persistent 让 Agent Instance 跨 Task 保持存活，以支持多轮交互"},
     "agent_instance_id": {"type": "string", "description": "持久 Agent Instance 句柄（mode=persistent）；复用 instance_spawn 返回的值调用 instance_followup、instance_send 或 instance_interrupt"},
@@ -648,8 +655,13 @@ func amuxTools() []mcp.Tool {
     "result_granularity": {"type": "string", "enum": ["summary", "full", "structured-summary"], "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，最大 64KB，截断时指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"}
   },
   "required": ["agent", "task"]
-}`)
-	scheduledTaskSchemaBytes, err := json.Marshal(clientop.JSONSchema(clientop.ScheduledTaskSpec{}))
+}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.task.model")))
+	scheduledTaskInput := clientop.JSONSchema(clientop.ScheduledTaskSpec{})
+	for field, key := range map[string]string{"runtime": "mcp.task.runtime", "model": "mcp.task.model"} {
+		text := commandCatalog.Text(key)
+		scheduledTaskInput["properties"].(map[string]any)[field].(map[string]any)["description"] = text.For(i18n.English) + "\n" + text.For(i18n.Chinese)
+	}
+	scheduledTaskSchemaBytes, err := json.Marshal(scheduledTaskInput)
 	if err != nil {
 		// A schema that cannot be built means the tool surface would advertise
 		// nothing; failing loudly at startup beats serving a broken tool.
@@ -706,11 +718,12 @@ func amuxTools() []mcp.Tool {
 	taskPruneSchema := json.RawMessage(`{"type":"object","properties":{"dry_run":{"type":"boolean"},"older_than_seconds":{"type":"integer","minimum":0},"statuses":{"type":"array","items":{"type":"string"}}}}`)
 	// Agent-level (Phase 3) tool schemas. instance_spawn / instance_followup reuse the
 	// spec shape (mode=persistent); the others address an instance by id.
-	spawnAgentSchema := json.RawMessage(`{
+	spawnAgentSchema := json.RawMessage(fmt.Sprintf(`{
   "type": "object",
   "properties": {
     "agent": {"type": "string", "description": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref"},
-    "model": {"type": "string", "description": "可选模型引用，必须来自所选 Profile 的 supported_models；该值会固定到持久 Agent Instance"},
+    "runtime": {"type": "string", "description": %s},
+    "model": {"type": "string", "description": %s},
     "task": {"type": "string", "description": "交给 Agent 的初始 Task 提示词"},
     "run_as": {"type": "string", "description": "可选 Principal alias 意图；省略时使用 parent Execution Principal 创建实例"},
     "isolation": {"type": "string", "enum": ["process", "private-home"]},
@@ -723,7 +736,7 @@ func amuxTools() []mcp.Tool {
     "result_granularity": {"type": "string", "enum": ["summary", "full", "structured-summary"], "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，超限时截断并指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"}
   },
   "required": ["agent", "task"]
-}`)
+}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.instance.model")))
 	followupTaskSchema := json.RawMessage(`{
   "type": "object",
   "properties": {
@@ -839,7 +852,12 @@ func amuxTools() []mcp.Tool {
 }`)
 	// Session tool schemas derive from the argument/request structs so a field
 	// added there cannot be silently missing from the tool surface.
-	sessionRunSchemaBytes, err := json.Marshal(clientop.JSONSchema(clientop.SessionRunRequest{}))
+	sessionRunInput := clientop.JSONSchema(clientop.SessionRunRequest{})
+	for field, key := range map[string]string{"runtime": "mcp.session.runtime", "model": "mcp.session.model", "args": "mcp.session.args"} {
+		text := commandCatalog.Text(key)
+		sessionRunInput["properties"].(map[string]any)[field].(map[string]any)["description"] = text.For(i18n.English) + "\n" + text.For(i18n.Chinese)
+	}
+	sessionRunSchemaBytes, err := json.Marshal(sessionRunInput)
 	if err != nil {
 		panic("build session run schema: " + err.Error())
 	}

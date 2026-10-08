@@ -5,7 +5,7 @@
 [English](agent-profile-format.md) | [简体中文](agent-profile-format.zh-CN.md)
 
 Agent Pack 是一个 Git 仓库，包含 `dist/agent-pack.manifest.json` manifest 及其引用的
-指令和 Skill 文件。amux 消费 manifest `v1.1`，不会回退读取源码 Profile TOML。
+指令和 Skill 文件。amux 消费 manifest `v1.1` 和 `v2`，不会回退读取源码 Profile TOML。
 Pack 可以使用自己的 authoring 工具生成 manifest；可选的 managed authoring runtime
 没有默认下载源。
 
@@ -30,6 +30,15 @@ Manifest 必须包含 `schema_version`、非空 `pack_namespace` 和非空 `prof
 <a id="profiles"></a>
 
 ## Profile
+
+`v2` Profile 只声明可复用内容和环境要求，禁止 `type`、`model`、`providers`、
+`supported_models`、`permission`，包括空值。目录、命名空间、继承、资产列表和
+顶层 Provider 定义沿用原语义。执行端选择 Runtime、模型并提供原生权限参数。
+必须显式指定 Runtime 或提供调用方的 Runtime 设置，不隐式选择固定引擎。
+解析后的执行设置仍保存在会话快照中。v1.1 库及其默认行为继续兼容，迁移需显式进行。
+本地 managed authoring 流程继续生成 v1.1 库。
+
+下表中的执行字段仅适用于 v1.1。
 
 内置专家和外部专家的描述均由 manifest 提供。发行版可以提供可选的兼容元数据，
 仅在 manifest 缺少描述时回退使用；新增专家无需在 Go 中再次注册。

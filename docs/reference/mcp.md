@@ -393,7 +393,7 @@ Create a persistent Agent Instance without blocking and return a stable agent_in
       "type": "string"
     },
     "model": {
-      "description": "Optional model ref from the selected Profile's supported_models; pinned to the persistent Agent Instance",
+      "description": "Execution model ref, frozen on the instance; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
       "type": "string"
     },
     "permission_policy": {
@@ -415,6 +415,10 @@ Create a persistent Agent Instance without blocking and return a stable agent_in
     },
     "run_as": {
       "description": "Optional Principal alias intent; omission creates the Instance using the parent Execution Principal",
+      "type": "string"
+    },
+    "runtime": {
+      "description": "Execution runtime adapter; required for v2 profiles",
       "type": "string"
     },
     "task": {
@@ -919,7 +923,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
           "type": "string"
         },
         "model": {
-          "description": "User-facing model override for each scheduled run; empty uses the Profile or Agent default",
+          "description": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
           "type": "string"
         },
         "permission_policy": {
@@ -933,6 +937,10 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
         },
         "run_as": {
           "description": "Optional enrolled Principal alias; resolved and frozen when the Schedule is saved",
+          "type": "string"
+        },
+        "runtime": {
+          "description": "Execution runtime adapter; required for v2 profiles",
           "type": "string"
         },
         "task": {
@@ -1122,7 +1130,7 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
           "type": "string"
         },
         "model": {
-          "description": "User-facing model override for each scheduled run; empty uses the Profile or Agent default",
+          "description": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
           "type": "string"
         },
         "permission_policy": {
@@ -1136,6 +1144,10 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
         },
         "run_as": {
           "description": "Optional enrolled Principal alias; resolved and frozen when the Schedule is saved",
+          "type": "string"
+        },
+        "runtime": {
+          "description": "Execution runtime adapter; required for v2 profiles",
           "type": "string"
         },
         "task": {
@@ -1395,7 +1407,18 @@ Create a Session using an Agent Profile; profile and name are required. Call dir
 ```json
 {
   "properties": {
+    "args": {
+      "description": "Native execution arguments, including permission settings",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "cwd": {
+      "type": "string"
+    },
+    "model": {
+      "description": "Execution model ref; omitted uses the selected runtime default",
       "type": "string"
     },
     "name": {
@@ -1413,6 +1436,10 @@ Create a Session using an Agent Profile; profile and name are required. Call dir
       "type": "string"
     },
     "run_as": {
+      "type": "string"
+    },
+    "runtime": {
+      "description": "Execution runtime adapter; required for v2 profiles",
       "type": "string"
     },
     "target": {
@@ -1714,7 +1741,7 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
       "type": "string"
     },
     "model": {
-      "description": "Optional model ref from the selected Profile's supported_models",
+      "description": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
       "type": "string"
     },
     "permission_policy": {
@@ -1736,6 +1763,10 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
     },
     "run_as": {
       "description": "Optional Principal alias intent, resolved and authorized by amuxd; omission makes the child inherit the parent's Execution Principal",
+      "type": "string"
+    },
+    "runtime": {
+      "description": "Execution runtime adapter; required for v2 profiles",
       "type": "string"
     },
     "task": {
@@ -1853,7 +1884,7 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
       "type": "string"
     },
     "model": {
-      "description": "Optional model ref from the selected Profile's supported_models",
+      "description": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
       "type": "string"
     },
     "permission_policy": {
@@ -1875,6 +1906,10 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
     },
     "run_as": {
       "description": "Optional Principal alias intent, resolved and authorized by amuxd; omission makes the child inherit the parent's Execution Principal",
+      "type": "string"
+    },
+    "runtime": {
+      "description": "Execution runtime adapter; required for v2 profiles",
       "type": "string"
     },
     "task": {

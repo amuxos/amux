@@ -78,6 +78,19 @@ func toPBProvider(provider *Provider) *pb.AgentProfileProvider {
 }
 
 func FromPBProfileSpec(spec *pb.AgentProfileSpec) (Profile, error) {
+	profile, err := FromPBProfileDefinition(spec)
+	if err != nil {
+		return Profile{}, err
+	}
+	if profile.Type == "" {
+		return Profile{}, fmt.Errorf("profile spec type is required")
+	}
+	return profile, nil
+}
+
+// FromPBProfileDefinition decodes catalog content, which may not select an engine.
+// Execution and materialization must use FromPBProfileSpec instead.
+func FromPBProfileDefinition(spec *pb.AgentProfileSpec) (Profile, error) {
 	if spec == nil {
 		return Profile{}, fmt.Errorf("profile spec is required")
 	}
@@ -132,9 +145,6 @@ func FromPBProfileSpec(spec *pb.AgentProfileSpec) (Profile, error) {
 				Credentials:  cloneStrings(spec.Placement.Requires.Credentials),
 			}
 		}
-	}
-	if profile.Type == "" {
-		return Profile{}, fmt.Errorf("profile spec type is required")
 	}
 	if profile.ConfiguredModel == "" {
 		profile.ConfiguredModel = strings.TrimSpace(spec.ModelRef)

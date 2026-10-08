@@ -5,9 +5,20 @@
 ## Product identities
 
 Feishu is the primary conversational product entry. Its assistant is represented
-by a Bot Profile; the selected expert is an Agent Profile. A Profile is a reusable
-launch definition, an Agent type is an engine implementation, and a Runtime target
+by a Bot Profile; the selected expert is an Agent Profile. A Profile supplies reusable
+expert content, an Agent type is an engine implementation, and a Runtime target
 is an execution location. None is the identity of a running conversation.
+
+Manifest v2 profiles require a caller-selected runtime and cannot declare engine,
+model, provider, model allowlist or permission settings. Native execution arguments
+and the runtime/model choice belong to the caller; omitting permissions keeps the
+native engine's defaults. v1.1 retains its legacy launch defaults. Both versions
+freeze resolved execution settings in session snapshots. Refreshing v2 content
+preserves those settings, including the provider binding and permission arguments.
+The MCP `session_run`, `task_run`, `task_submit`, and `instance_spawn` inputs
+expose runtime and model selection separately from the expert reference.
+CLI task submission and scheduled tasks also accept `--runtime`; scheduled
+task definitions preserve that choice for each trigger.
 
 A Session holds the conversation and can contain multiple Turns. A persistent
 Agent Instance holds cross-task identity and durable execution references; each

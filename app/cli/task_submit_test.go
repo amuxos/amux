@@ -189,6 +189,9 @@ func TestSubmitAcceptsAndDropsLegacyTrustedModeAck(t *testing.T) {
 // defaults.
 func TestSubmitDoesNotPrefillPolicyFlags(t *testing.T) {
 	spec := runSubmit(t, "do something", "--agent", "claude")
+	if spec.Runtime != "" {
+		t.Errorf("runtime pre-filled to %q; want legacy defaults", spec.Runtime)
+	}
 	if spec.Isolation != "" {
 		t.Errorf("isolation pre-filled to %q; want empty so defaults apply", spec.Isolation)
 	}
@@ -197,6 +200,17 @@ func TestSubmitDoesNotPrefillPolicyFlags(t *testing.T) {
 	}
 	if spec.Workspace.Policy != "" {
 		t.Errorf("workspace pre-filled to %q; want empty so defaults apply", spec.Workspace.Policy)
+	}
+}
+
+func TestSubmitPortableRuntimeSelection(t *testing.T) {
+	spec := runSubmit(t, "verify the expert", "--agent", "team/reviewer",
+		"--runtime", "claude", "--model", "review-model", "--permission", "deny-all")
+	if spec.Agent != "team/reviewer" || spec.Runtime != "claude" || spec.Model != "review-model" {
+		t.Fatalf("execution selection was not sent to the hub: %#v", spec)
+	}
+	if spec.PermissionPolicy != task.PolicyDenyAll {
+		t.Fatalf("permission choice changed: %s", spec.PermissionPolicy)
 	}
 }
 

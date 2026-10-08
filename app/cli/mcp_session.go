@@ -45,7 +45,7 @@ func (h *mcpHandler) sessionRun(ctx context.Context, args json.RawMessage) (mcp.
 		return mcp.ErrorText(err.Error()), nil
 	}
 	defer closeFn()
-	launch, err := projectRunLaunch(req.Profile, nil, nil, "", func(ref string) (agentprofile.Profile, error) {
+	launch, err := projectRunLaunchWithRuntime(req.Profile, req.AgentArgs, nil, req.Runtime, req.Model, func(ref string) (agentprofile.Profile, error) {
 		return resolveHubRunProfile(ctx, client, ref)
 	})
 	if err != nil {
@@ -83,7 +83,7 @@ func resolveHubRunProfile(ctx context.Context, client pb.AmuxdClient, ref string
 	if resp == nil || resp.Profile == nil || resp.Profile.Profile == nil {
 		return agentprofile.Profile{}, fmt.Errorf("get agent profile %q: hub returned an empty profile", ref)
 	}
-	profile, err := agentprofile.FromPBProfileSpec(resp.Profile.Profile)
+	profile, err := agentprofile.FromPBProfileDefinition(resp.Profile.Profile)
 	if err != nil {
 		return agentprofile.Profile{}, fmt.Errorf("get agent profile %q: invalid hub profile: %w", ref, err)
 	}

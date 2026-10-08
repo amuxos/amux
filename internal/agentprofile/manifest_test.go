@@ -69,9 +69,9 @@ func TestManifestInstructionsLoadInArrayOrder(t *testing.T) {
 func TestManifestLoaderRejectsInvalidContract(t *testing.T) {
 	t.Run("unsupported schema version", func(t *testing.T) {
 		root := t.TempDir()
-		writeManifest(t, root, `{"schema_version":"v2","pack_namespace":"example-team","profiles":{},"providers":{},"namespaces":{}}`)
+		writeManifest(t, root, `{"schema_version":"v99","pack_namespace":"example-team","profiles":{},"providers":{},"namespaces":{}}`)
 		_, err := LoadPackManifest(filepath.Join(root, "dist", "agent-pack.manifest.json"))
-		if err == nil || !strings.Contains(err.Error(), `unsupported agent pack manifest schema_version "v2"`) {
+		if err == nil || !strings.Contains(err.Error(), `unsupported agent pack manifest schema_version "v99"`) {
 			t.Fatalf("error = %v, want unsupported schema_version", err)
 		}
 	})
