@@ -6,6 +6,8 @@ import (
 	"github.com/amuxos/amux/internal/task"
 )
 
+type BuiltinLaunchPreset = agentprofile.BuiltinLaunchPreset
+
 type Profile = agentprofile.Profile
 type ProfileProvider = agentprofile.Provider
 type ProfileCustomization = agentprofile.Customization
@@ -39,6 +41,9 @@ var (
 	WriteProfileFile                 = agentprofile.WriteProfileFile
 	ProfileMCPEnvironment            = agentprofile.MCPEnvironment
 	ProfileMCPCommand                = agentprofile.MCPCommand
+	ProfileFromExecutionSnapshot     = agentprofile.FromPBProfileSpec
+	ProjectProfileLaunchWithDefaults = agentprofile.ProjectProfileLaunchWithDefaults
+	BuiltinLaunchDefaults            = agentprofile.BuiltinLaunchDefaults
 	ProjectProfileLaunch             = agentprofile.ProjectProfileLaunch
 	ProjectLegacyProfileLaunch       = agentprofile.ProjectLegacyLaunch
 	ProjectProfileModelSwitch        = agentprofile.ProjectModelSwitch

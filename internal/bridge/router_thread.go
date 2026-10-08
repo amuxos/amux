@@ -203,7 +203,7 @@ func resolveBridgeAgentLaunchWithSelection(ref string, explicitArgs []string, ru
 	}
 	ref = resolvedRef
 	if profile, err := agentprofile.ResolveProfile(agentprofile.DefaultPackRegistryPath(), ref); err == nil {
-		return agentprofile.ProjectProfileLaunchChecked(profile, explicitArgs, nil, agentprofile.LaunchOptions{
+		return agentprofile.ProjectProfileLaunchWithDefaults(profile, explicitArgs, nil, agentprofile.LaunchOptions{
 			Runtime: strings.TrimSpace(runtimeRef), Model: strings.TrimSpace(modelRef),
 			ReasoningEffort: strings.TrimSpace(reasoningEffort),
 		})

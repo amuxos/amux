@@ -34,3 +34,23 @@ func TestPortableRefreshPreservesFrozenExecution(t *testing.T) {
 		t.Fatal("new content requirements lost")
 	}
 }
+
+func TestBuiltinV1SnapshotRefreshesV2ContentWithoutNewDefaults(t *testing.T) {
+	// An old builtin/claude session explicitly used Codex with restricted args.
+	// Migrating the source must not apply today's Claude shortcut or bypass mode.
+	frozen := agentprofile.Profile{Namespace: "builtin", Name: "claude", Source: agentprofile.SourceBuiltin, Type: "codex", Model: "old-model", DefaultArgs: []string{"-c", `sandbox_mode="read-only"`}}
+	saved, err := json.Marshal(map[string]any{"profile_spec": agentprofile.ToPBProfileSpec(frozen)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := session.Snapshot{AgentType: "codex", LaunchSpec: string(saved), EffectiveModel: "old-model", ExtraArgs: []string{"--model", "old-model", "-c", `sandbox_mode="read-only"`}}
+	content, _ := agentprofile.ResolveBuiltin("builtin/claude")
+	content.AgentsContent = "New builtin content"
+	launch, err := projectRefreshedProfileLaunch(snap, content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if launch.AgentType != "codex" || launch.Model != "old-model" || !reflect.DeepEqual(launch.ExtraArgs, snap.ExtraArgs) || launch.ProfileSpec.AgentsContent != content.AgentsContent {
+		t.Fatalf("old execution changed: %+v", launch)
+	}
+}

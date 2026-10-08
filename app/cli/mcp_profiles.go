@@ -266,7 +266,8 @@ func profileMCPViewListSummary(profile agentprofile.Profile, skills []agentprofi
 	view := map[string]any{"ref": profile.Ref(), "agent_type": profile.Type, "source": string(profile.Source), "writable": profile.Writable, "description": profile.Description, "profile_capabilities": profileSpecificCapabilitiesView(profile)}
 	if profile.Type == "" {
 		delete(view, "agent_type")
-		view["runtime_required"] = true
+		_, hasCallerDefaults := agentprofile.BuiltinLaunchDefaults(profile)
+		view["runtime_required"] = !hasCallerDefaults
 	}
 	if pinned := profile.PinnedRef(); pinned != profile.Ref() {
 		view["pinned_ref"] = pinned
@@ -296,7 +297,8 @@ func profileMCPViewWithSkills(profile agentprofile.Profile, skills []agentprofil
 	view := map[string]any{"ref": profile.Ref(), "agent_type": profile.Type, "source": string(profile.Source), "writable": profile.Writable, "description": profile.Description, "capabilities": profileCapabilitiesView(profile), "submission": map[string]any{"agent": profile.Ref(), "pinned_agent": profile.PinnedRef()}, "placement": map[string]any{"preferred_targets": profile.Placement.PreferredTargets, "requires": map[string]any{"agent_types": profile.Placement.Requires.AgentTypes, "runtime_tools": profile.Placement.Requires.RuntimeTools, "features": profile.Placement.Requires.Features, "credentials": profile.Placement.Requires.Credentials}}}
 	if profile.Type == "" {
 		delete(view, "agent_type")
-		view["runtime_required"] = true
+		_, hasCallerDefaults := agentprofile.BuiltinLaunchDefaults(profile)
+		view["runtime_required"] = !hasCallerDefaults
 	}
 	if pinned := profile.PinnedRef(); pinned != profile.Ref() {
 		view["pinned_ref"] = pinned

@@ -38,6 +38,8 @@ engine fallback. The resolved execution settings remain in session snapshots.
 Existing v1.1 libraries and their defaults remain supported; migration is explicit.
 The managed local authoring workflow continues to produce v1.1 libraries.
 
+Builtin profiles also use v2. Named shortcut defaults live in amux caller configuration, separate from the manifest. Discovery omits Profile execution fields; `runtime_required` is false for builtin shortcuts that have caller defaults.
+
 The execution fields in the table below apply only to v1.1.
 
 Profile descriptions belong to the manifest, including built-in profiles.

@@ -25,7 +25,7 @@ func ResolveTaskSpec(spec *task.Spec, registryPath string) error {
 			return err
 		}
 	}
-	projection, err := ProjectProfileLaunchChecked(profile, spec.ExtraArgs, nil, LaunchOptions{Runtime: spec.Runtime, Model: spec.Model})
+	projection, err := ProjectProfileLaunchWithDefaults(profile, spec.ExtraArgs, nil, LaunchOptions{Runtime: spec.Runtime, Model: spec.Model})
 	if err != nil {
 		return err
 	}

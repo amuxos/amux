@@ -86,7 +86,7 @@ func newFeishuSetupCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("resolve --default-agent %q: %w", defaultAgent, err)
 				}
-				if _, err := agentprofile.ProjectProfileLaunchChecked(profileSpec, nil, nil, agentprofile.LaunchOptions{Runtime: defaultRuntime, Model: defaultModel}); err != nil {
+				if _, err := agentprofile.ProjectProfileLaunchWithDefaults(profileSpec, nil, nil, agentprofile.LaunchOptions{Runtime: defaultRuntime, Model: defaultModel}); err != nil {
 					return fmt.Errorf("validate Feishu default launch: %w", err)
 				}
 			}
@@ -382,7 +382,7 @@ func configureFeishuSetupLaunchDefaults(ctx context.Context, profile, appID, def
 		if err != nil {
 			return fmt.Errorf("resolve default agent %q: %w", defaultAgent, err)
 		}
-		if _, err := agentprofile.ProjectProfileLaunchChecked(resolved, nil, nil, agentprofile.LaunchOptions{Runtime: defaultRuntime, Model: defaultModel}); err != nil {
+		if _, err := agentprofile.ProjectProfileLaunchWithDefaults(resolved, nil, nil, agentprofile.LaunchOptions{Runtime: defaultRuntime, Model: defaultModel}); err != nil {
 			return err
 		}
 		bridgeID := bridge.BridgeIdFromAppId(appID)

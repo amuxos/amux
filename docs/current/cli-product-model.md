@@ -31,6 +31,12 @@ A target identifies a runtime location. A session is an ongoing conversation
 with one agent; a task is a bounded execution with a result. Profile references
 select an agent and launch policy. Supported builtin profiles are `builtin/codex`,
 `builtin/claude` and `builtin/pi`; the default is `builtin/codex`.
+Built-in Pack manifests use v2. The CLI supplies the named built-in launch preset
+when using a built-in shortcut; explicit runtime/model/native permission choices
+override it. External v2 experts continue to require `--runtime`. The default
+expert remains `builtin/codex`; its execution defaults are caller policy, not
+Profile fields.
+
 With an explicit runtime, a model name is passed to the native agent even when it
 is absent from runtime suggestions. Without a runtime override, a profile's
 explicit `supported_models` remains its model allowlist.
@@ -150,6 +156,6 @@ stderr. `agent local create --description` records a purpose summary in the Pack
 ## Offline Profile rendering
 
 `amux agent render` accepts `--runtime` and `--model` separately from the expert
-reference. A v2 Profile requires an explicit runtime before any output is written.
+reference. An external v2 Profile requires an explicit runtime before any output is written. Builtin shortcuts can use amux caller defaults.
 Rendering projects content for that engine without launching it; execution
 permissions remain native launch arguments supplied by the caller.

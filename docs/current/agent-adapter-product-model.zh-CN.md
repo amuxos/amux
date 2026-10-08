@@ -25,6 +25,11 @@ Session 持有对话并包含多轮 Turn；持久 Agent Instance 持有跨任务
 详见 [Session 模型](session-product-model.zh-CN.md)和 [Task 模型](../distributed-task-model.zh-CN.md)。
 面向用户的术语说明见[助手、专家与 Agent](../concepts/agents.zh-CN.md)。
 
+内置 Profile 同样采用 manifest v2，不包含执行字段。amux 调用方独立维护内置快捷入口的
+启动预设，使已有快捷启动继续选择配置的 Runtime、模型和权限；调用方显式设置优先。
+外部 v2 专家没有隐式预设，仍要求选择 Runtime。专家发现和内容读取不把预设写回
+Profile；仅在启动快照中冻结最终执行设置。
+
 ## 引擎与 Provider 行为
 
 Codex、Claude 和 Pi 是公共集成。Adapter 描述可执行文件发现、启动配置、协议能力

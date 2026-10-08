@@ -88,6 +88,7 @@ func TestRuntimeSelectionReprojectsProfilePermissionMode(t *testing.T) {
 	if !ok {
 		t.Fatal("builtin/codex missing")
 	}
+	profile.Type = "codex" // Legacy execution snapshot being reprojected.
 	profile.DefaultArgs, _ = permissionModeArgs("codex", packProfilePermission{PermissionMode: "plan"})
 	launch, err := ProjectProfileLaunchChecked(profile, nil, nil, LaunchOptions{Runtime: "claude"})
 	if err != nil {
@@ -134,7 +135,7 @@ func TestRuntimeDefaultSelectionClearsLegacyModelAndReasoningArgs(t *testing.T) 
 	if !ok {
 		t.Fatal("builtin/claude missing")
 	}
-	launch, err := ProjectProfileLaunchChecked(profile,
+	launch, err := ProjectProfileLaunchWithDefaults(profile,
 		[]string{"--model=opus", "--effort", "high", "--verbose"}, nil,
 		LaunchOptions{Runtime: "claude"})
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/fstest"
 )
@@ -65,5 +66,23 @@ func TestBuiltinProfilesRegisterFromManifestAlone(t *testing.T) {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("%s registration: %v\n%s", mode, err, output)
 		}
+	}
+}
+
+func TestInvalidBuiltinPresetPreservesCallerDefaults(t *testing.T) {
+	before := builtinLaunchPresets
+	err := RegisterCustomization(Customization{
+		Builtin: builtinProfileFS, DefaultProfile: "codex", ManagedLocalDefaultAgent: "codex",
+		Catalog:              []byte(`{"schema_version":"v1","packs":[]}`),
+		BuiltinLaunchPresets: map[string]BuiltinLaunchPreset{"missing": {Runtime: "codex"}},
+	})
+	if err == nil {
+		t.Fatal("preset without content accepted")
+	}
+	if !strings.Contains(err.Error(), "no matching profile") || !strings.Contains(err.Error(), "没有对应") {
+		t.Fatalf("missing bilingual diagnostic: %v", err)
+	}
+	if !reflect.DeepEqual(before, builtinLaunchPresets) || customizationRegistered {
+		t.Fatal("failed registration changed caller defaults")
 	}
 }

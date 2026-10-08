@@ -15,10 +15,10 @@
     "other": "brief description of the expert purpose"
   },
   "profile.selection_guidance": {
-    "other": "Choose an expert by description and skills, then select runtime and model for execution. Profiles with runtime_required need an explicit runtime. Legacy profiles retain their defaults. Use profile_get for full content details."
+    "other": "Choose an expert by description and skills, then select runtime and model for execution. Profiles with runtime_required need an explicit runtime. Builtin shortcuts use amux caller defaults; legacy profiles retain their defaults. Use profile_get for full content details."
   },
   "mcp.session.runtime": {
-    "other": "Execution runtime adapter; required for v2 profiles"
+    "other": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults"
   },
   "mcp.session.model": {
     "other": "Execution model ref; omitted uses the selected runtime default"
@@ -27,19 +27,19 @@
     "other": "Native execution arguments, including permission settings"
   },
   "mcp.task.runtime": {
-    "other": "Execution runtime adapter; required for v2 profiles"
+    "other": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults"
   },
   "mcp.task.model": {
-    "other": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply"
+    "other": "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply"
   },
   "mcp.instance.model": {
-    "other": "Execution model ref, frozen on the instance; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply"
+    "other": "Execution model ref, frozen on the instance; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply"
   },
   "mcp.task.extra_args": {
     "other": "Native execution arguments, including permissions; separate from Task permission policy"
   },
   "agent.render.runtime": {
-    "other": "Runtime adapter for rendering; required for v2 profiles"
+    "other": "Runtime adapter for rendering; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults"
   },
   "agent.render.model": {
     "other": "Model to render for the selected runtime"

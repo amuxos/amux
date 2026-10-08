@@ -16,5 +16,8 @@
   },
   "runtime_model_unsupported": {
     "other": "model %q is not supported by runtime %s"
+  },
+  "builtin_preset_profile_missing": {
+    "other": "builtin launch preset %q has no matching profile"
   }
 }
