@@ -225,3 +225,8 @@ not provide a compatibility gateway.
 Adapters whose configuration layout supports workspace skills (including Codex)
 advertise that support through `ConfigLayout`; MCP exposes it as the
 `supports_skills` capability.
+
+Runtime model/provider connection bindings are registered by the amux distribution,
+independently of builtin Pack content. Runtime catalog selection does not read provider
+definitions from the builtin manifest. Legacy v1.1 Pack profile provider resolution
+continues to use that Pack's own manifest; existing execution snapshots retain their bindings.

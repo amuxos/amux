@@ -19,5 +19,11 @@
   },
   "builtin_preset_profile_missing": {
     "other": "builtin launch preset %q has no matching profile"
+  },
+  "runtime_provider_ref_invalid": {
+    "other": "runtime provider reference %q must use binding/model form"
+  },
+  "runtime_provider_missing": {
+    "other": "runtime provider %q has no connection configuration"
   }
 }

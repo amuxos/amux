@@ -19,5 +19,11 @@
   },
   "builtin_preset_profile_missing": {
     "other": "内置启动预设 %q 没有对应的 Profile"
+  },
+  "runtime_provider_ref_invalid": {
+    "other": "执行引擎的 Provider 引用 %q 必须使用 binding/model 格式"
+  },
+  "runtime_provider_missing": {
+    "other": "执行引擎的 Provider %q 缺少连接配置"
   }
 }
