@@ -40,7 +40,10 @@ task or instance. Instance interruption enters cancellation through the child
 owner TaskRun: the runner records cancellation intent, finishes that run as
 `cancelled`, and preserves the resumable instance. It must not depend on a direct
 child interrupt producing a provider terminal event. MCP tools expose profiles, tasks and persistent instances using
-the generated tool schemas.
+the generated tool schemas. Task submission, instance creation and scheduled
+Task definitions accept `extra_args` for native engine settings, independently
+of `permission_policy`. Schedules preserve the ordered argument array verbatim
+and expose the saved runtime, model and native arguments on MCP readback.
 
 Credential profiles identify launch credentials. A profile declares which
 environment variables it needs; only those variables are materialized for the
@@ -60,7 +63,7 @@ admission validates platform support and workspace access before launch. Strong
 container/VM isolation and cross-machine high availability remain target
 specifications, not capabilities implied by the distributed API.
 
-Profile consumption uses manifest v1.1 and follows the one-way dependency from
+Profile consumption supports manifests v1.1 and v2 and follows the one-way dependency from
 profile materialization to task/adapter contracts. Optional local expert authoring
 requires an explicitly configured compatible authoring runtime and fails closed
 when unavailable; native builtin profiles continue to run.

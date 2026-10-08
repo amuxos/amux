@@ -259,6 +259,12 @@ string]any {
 }
 func taskSpecMCPView(spec task.Spec) map[string]any {
 	view := map[string]any{"agent": spec.Agent, "task": spec.Task}
+	if spec.Runtime != "" {
+		view["runtime"] = spec.Runtime
+	}
+	if spec.Model != "" {
+		view["model"] = spec.Model
+	}
 	if spec.Mode != "" {
 		view["mode"] = spec.Mode
 	}

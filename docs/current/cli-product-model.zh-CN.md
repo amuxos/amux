@@ -109,3 +109,9 @@ MCP 工具不接受作用域或 Principal 覆盖参数：Hub 认证调用方并�
 单个 Pack 加载失败不影响其他正常专家；CLI JSON 与 Hub 响应通过 `profiles_error`
 返回诊断，CLI 人类可读输出在 stderr 提示。`agent local create --description`
 将用途摘要保存到 Pack。
+
+## 离线专家渲染
+
+`amux agent render` 通过 `--runtime` 和 `--model` 独立于专家引用选择执行配置。
+v2 专家必须显式指定 Runtime，否则在写入任何输出前报错。渲染只为所选引擎投影内容，
+不会启动引擎；执行权限仍由调用方通过原生启动参数提供。

@@ -180,7 +180,7 @@ func newAgentDoctorCmd() *cobra.Command {
 }
 
 func newAgentRenderCmd() *cobra.Command {
-	var outDir string
+	var outDir, runtimeRef, model string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:               "render <profile>",
 		Short:             "Render a profile workspace projection",
@@ -190,6 +190,20 @@ func newAgentRenderCmd() *cobra.Command {
 			profile, err := resolveAgentProfile(args[0])
 			if err != nil {
 				return err
+			}
+			if runtimeRef != "" || model != "" || profile.Type == "" {
+				launch, err := agentprofile.ProjectProfileLaunchChecked(profile, nil, nil, agentprofile.LaunchOptions{Runtime: runtimeRef, Model: model})
+				if err != nil {
+					return err
+				}
+				selected, err := agentprofile.FromPBProfileSpec(launch.ProfileSpec)
+				if err != nil {
+					return err
+				}
+				// Projection reads local assets; these locations are not wire state.
+				selected.PackPath, selected.ProfilePath = profile.PackPath, profile.ProfilePath
+				selected.ExternalSkillDirs = profile.ExternalSkillDirs
+				profile = selected
 			}
 			root := strings.TrimSpace(outDir)
 			if root == "" {
@@ -215,6 +229,10 @@ func newAgentRenderCmd() *cobra.Command {
 			return nil
 		},
 	})
+	c.Flags().StringVar(&runtimeRef, "runtime", "", commandCatalog.Format(commandLocale(c), "agent.render.runtime"))
+	c.Flags().StringVar(&model, "model", "", commandCatalog.Format(commandLocale(c), "agent.render.model"))
+	_ = c.RegisterFlagCompletionFunc("runtime", completeRuntimeRefs)
+	_ = c.RegisterFlagCompletionFunc("model", completeRuntimeModels("runtime"))
 	c.Flags().StringVar(&outDir, "out", "", "output workspace directory")
 	_ = c.RegisterFlagCompletionFunc("out", completeDirectories)
 	return c

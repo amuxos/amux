@@ -385,6 +385,13 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     "credential_profile": {
       "type": "string"
     },
+    "extra_args": {
+      "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "isolation": {
       "enum": [
         "process",
@@ -914,6 +921,13 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "description": "控制面 credential profile 名称",
           "type": "string"
         },
+        "extra_args": {
+          "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "isolation": {
           "description": "Sandbox 隔离模式；Phase 1 为 best-effort trusted mode",
           "enum": [
@@ -1120,6 +1134,13 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
         "credential_profile": {
           "description": "控制面 credential profile 名称",
           "type": "string"
+        },
+        "extra_args": {
+          "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "isolation": {
           "description": "Sandbox 隔离模式；Phase 1 为 best-effort trusted mode",
@@ -1724,6 +1745,13 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "description": "控制面 credential profile 名称",
       "type": "string"
     },
+    "extra_args": {
+      "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "isolation": {
       "description": "Sandbox 隔离模式；Phase 1 为 best-effort trusted mode",
       "enum": [
@@ -1866,6 +1894,13 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     "credential_profile": {
       "description": "控制面 credential profile 名称",
       "type": "string"
+    },
+    "extra_args": {
+      "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "isolation": {
       "description": "Sandbox 隔离模式；Phase 1 为 best-effort trusted mode",

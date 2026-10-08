@@ -200,7 +200,7 @@ func findRuntimeModelByRef(models []RuntimeModelOption, ref string) (RuntimeMode
 func ResolveRuntimeOption(ref string) (RuntimeOption, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
-		return RuntimeOption{}, fmt.Errorf("runtime is required")
+		return RuntimeOption{}, profileError("execution_runtime_required")
 	}
 	catalog, err := RuntimeCatalog()
 	if err != nil {
@@ -211,7 +211,7 @@ func ResolveRuntimeOption(ref string) (RuntimeOption, error) {
 			return cloneRuntimeOption(option), nil
 		}
 	}
-	return RuntimeOption{}, fmt.Errorf("unknown runtime %q", ref)
+	return RuntimeOption{}, profileError("runtime_unknown", ref)
 }
 
 func ResolveRuntimeModel(runtime RuntimeOption, requested string) (RuntimeModelOption, error) {
@@ -244,7 +244,7 @@ func ResolveRuntimeModel(runtime RuntimeOption, requested string) (RuntimeModelO
 			}
 		}
 	}
-	return RuntimeModelOption{}, fmt.Errorf("model %q is not supported by runtime %s", requested, runtime.Ref)
+	return RuntimeModelOption{}, profileError("runtime_model_unsupported", requested, runtime.Ref)
 }
 
 func ValidateRuntimeReasoningEffort(runtime RuntimeOption, model RuntimeModelOption, effort string) error {

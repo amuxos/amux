@@ -15,7 +15,9 @@ Manifest v2 专家要求调用方选择 Runtime，不能声明引擎、模型、
 v1.1 保留旧启动默认。两个版本都会把解析后的执行设置冻结到会话快照；刷新 v2 专家内容
 保留这些设置，包括 Provider 绑定及权限参数。
 MCP 的 `session_run`、`task_run`、`task_submit` 和 `instance_spawn` 输入将 Runtime、
-模型选择与专家引用分开提供。
+模型选择与专家引用分开提供。任务提交与持久实例创建通过 `extra_args` 暴露原生执行
+参数；定时任务定义保留这些参数供每次触发使用。这些参数用于配置原生引擎，
+与 Task 权限策略分开。
 CLI 任务提交和定时任务也接受 `--runtime`；定时任务定义保留该选择，供每次触发使用。
 
 Session 持有对话并包含多轮 Turn；持久 Agent Instance 持有跨任务身份和持久执行引用，

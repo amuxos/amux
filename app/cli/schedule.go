@@ -108,6 +108,7 @@ func newScheduleCreateCmd() *cobra.Command {
 }
 
 type scheduleTaskFlags struct {
+	extraArgs            []string
 	name                 string
 	agent                string
 	runtime              string
@@ -145,6 +146,7 @@ var cliScheduleFieldNames = map[clientop.Field]string{
 
 func (f scheduleTaskFlags) clientopSpec() clientop.ScheduledTaskSpec {
 	spec := clientop.ScheduledTaskSpec{
+		ExtraArgs:         append([]string(nil), f.extraArgs...),
 		Agent:             f.agent,
 		Runtime:           f.runtime,
 		Model:             f.model,
@@ -242,6 +244,7 @@ func newScheduleCreateTaskCmd() *cobra.Command {
 // and `update`, so the two commands cannot drift on what a scheduled task can
 // carry. `name`/`spec` are command-specific and stay with each command.
 func registerScheduleTaskFlags(c *cobra.Command, flags *scheduleTaskFlags) {
+	c.Flags().StringArrayVar(&flags.extraArgs, "arg", nil, commandCatalog.Format(commandLocale(c), "task.arg"))
 	c.Flags().StringVar(&flags.agent, "agent", "", "agent profile ref or legacy agent type to run")
 	c.Flags().StringVar(&flags.runtime, "runtime", "", commandCatalog.Format(commandLocale(c), "mcp.task.runtime"))
 	c.Flags().StringVar(&flags.model, "model", "", commandCatalog.Format(commandLocale(c), "mcp.task.model"))
@@ -303,7 +306,7 @@ func newScheduleUpdateCmd() *cobra.Command {
 			if cmd.Flags().Changed("spec") {
 				req.Spec = &spec
 			}
-			if cmd.Flags().Changed("agent") || cmd.Flags().Changed("task") || cmd.Flags().Changed("runtime") {
+			if cmd.Flags().Changed("agent") || cmd.Flags().Changed("task") || cmd.Flags().Changed("runtime") || cmd.Flags().Changed("model") || cmd.Flags().Changed("arg") {
 				taskSpec := flags.clientopSpec()
 				req.Task = &taskSpec
 			}

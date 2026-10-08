@@ -1,5 +1,20 @@
 {
-  "schema_unsupported": {"other": "unsupported agent pack manifest schema_version %q in %s; supported: v1.1, v2"},
-  "execution_field_forbidden": {"other": "profile %s: field %q is forbidden in v2; provide execution settings when launching"},
-  "runtime_required": {"other": "profile %s requires an execution runtime; select one with --runtime or the caller's runtime setting"}
+  "schema_unsupported": {
+    "other": "unsupported agent pack manifest schema_version %q in %s; supported: v1.1, v2"
+  },
+  "execution_field_forbidden": {
+    "other": "profile %s: field %q is forbidden in v2; provide execution settings when launching"
+  },
+  "runtime_required": {
+    "other": "profile %s requires an execution runtime; select one with --runtime or the caller's runtime setting"
+  },
+  "execution_runtime_required": {
+    "other": "runtime is required"
+  },
+  "runtime_unknown": {
+    "other": "unknown runtime %q"
+  },
+  "runtime_model_unsupported": {
+    "other": "model %q is not supported by runtime %s"
+  }
 }

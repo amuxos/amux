@@ -598,7 +598,9 @@ amux agent render <profile> [flags]
 | 选项 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | render 帮助 |
+| `--model` | `string` | `""` | 为所选 Runtime 渲染的模型 |
 | `--out` | `string` | `""` | 输出工作区目录 |
+| `--runtime` | `string` | `""` | 渲染使用的 Runtime 适配器；v2 专家必填 |
 
 ## `amux agent show`
 
@@ -1552,6 +1554,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | 选项 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `--agent` | `string` | `""` | 要运行的 Agent Profile 引用或旧版 Agent 类型 |
+| `--arg` | `stringArray` | `[]` | 原生 Agent 参数（可重复） |
 | `--credential-profile` | `string` | `""` | 凭据 Profile 名称（由控制面解析） |
 | `-h, --help` | `bool` | `false` | create-task 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |
@@ -1674,6 +1677,7 @@ amux schedule update 8 --name nightly-report
 | 选项 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `--agent` | `string` | `""` | 要运行的 Agent Profile 引用或旧版 Agent 类型 |
+| `--arg` | `stringArray` | `[]` | 原生 Agent 参数（可重复） |
 | `--credential-profile` | `string` | `""` | 凭据 Profile 名称（由控制面解析） |
 | `-h, --help` | `bool` | `false` | update 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |

@@ -17,6 +17,9 @@ freeze resolved execution settings in session snapshots. Refreshing v2 content
 preserves those settings, including the provider binding and permission arguments.
 The MCP `session_run`, `task_run`, `task_submit`, and `instance_spawn` inputs
 expose runtime and model selection separately from the expert reference.
+Task submission and instance creation expose native execution arguments as
+`extra_args`; scheduled Task definitions preserve them for every trigger. These
+arguments configure the native engine and are separate from Task permission policy.
 CLI task submission and scheduled tasks also accept `--runtime`; scheduled
 task definitions preserve that choice for each trigger.
 

@@ -34,5 +34,17 @@
   },
   "mcp.instance.model": {
     "other": "Execution model ref, frozen on the instance; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply"
+  },
+  "mcp.task.extra_args": {
+    "other": "Native execution arguments, including permissions; separate from Task permission policy"
+  },
+  "agent.render.runtime": {
+    "other": "Runtime adapter for rendering; required for v2 profiles"
+  },
+  "agent.render.model": {
+    "other": "Model to render for the selected runtime"
+  },
+  "task.arg": {
+    "other": "native agent argument (repeatable)"
   }
 }

@@ -11,6 +11,7 @@ import (
 )
 
 var scheduleFlagMappings = map[string]string{
+	"extra_args":               "arg",
 	"timeout_seconds":          "timeout",
 	"workspace.policy":         "workspace-policy",
 	"workspace.local_dir":      "local-dir",

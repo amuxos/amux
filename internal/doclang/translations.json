@@ -3022,5 +3022,53 @@
   "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束": {
     "en": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
     "zh-CN": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  },
+  "Native execution arguments, including permissions; separate from Task permission policy": {
+    "en": "Native execution arguments, including permissions; separate from Task permission policy",
+    "zh-CN": "原生执行参数，包含权限设置；与 Task 权限策略分开"
+  },
+  "原生执行参数，包含权限设置；与 Task 权限策略分开": {
+    "en": "Native execution arguments, including permissions; separate from Task permission policy",
+    "zh-CN": "原生执行参数，包含权限设置；与 Task 权限策略分开"
+  },
+  "Native execution arguments, including permissions; separate from Task permission policy\n原生执行参数，包含权限设置；与 Task 权限策略分开": {
+    "en": "Native execution arguments, including permissions; separate from Task permission policy",
+    "zh-CN": "原生执行参数，包含权限设置；与 Task 权限策略分开"
+  },
+  "Runtime adapter for rendering; required for v2 profiles": {
+    "en": "Runtime adapter for rendering; required for v2 profiles",
+    "zh-CN": "渲染使用的 Runtime 适配器；v2 专家必填"
+  },
+  "渲染使用的 Runtime 适配器；v2 专家必填": {
+    "en": "Runtime adapter for rendering; required for v2 profiles",
+    "zh-CN": "渲染使用的 Runtime 适配器；v2 专家必填"
+  },
+  "Runtime adapter for rendering; required for v2 profiles\n渲染使用的 Runtime 适配器；v2 专家必填": {
+    "en": "Runtime adapter for rendering; required for v2 profiles",
+    "zh-CN": "渲染使用的 Runtime 适配器；v2 专家必填"
+  },
+  "Model to render for the selected runtime": {
+    "en": "Model to render for the selected runtime",
+    "zh-CN": "为所选 Runtime 渲染的模型"
+  },
+  "为所选 Runtime 渲染的模型": {
+    "en": "Model to render for the selected runtime",
+    "zh-CN": "为所选 Runtime 渲染的模型"
+  },
+  "Model to render for the selected runtime\n为所选 Runtime 渲染的模型": {
+    "en": "Model to render for the selected runtime",
+    "zh-CN": "为所选 Runtime 渲染的模型"
+  },
+  "native agent argument (repeatable)": {
+    "en": "native agent argument (repeatable)",
+    "zh-CN": "原生 Agent 参数（可重复）"
+  },
+  "原生 Agent 参数（可重复）": {
+    "en": "native agent argument (repeatable)",
+    "zh-CN": "原生 Agent 参数（可重复）"
+  },
+  "native agent argument (repeatable)\n原生 Agent 参数（可重复）": {
+    "en": "native agent argument (repeatable)",
+    "zh-CN": "原生 Agent 参数（可重复）"
   }
 }
