@@ -571,6 +571,12 @@ func managementModelOptions(state managementState, agentRef string) []cardOption
 		if profile.Ref != agentRef {
 			continue
 		}
+		if profile.CallerDefaults {
+			runtimeOptions := managementRuntimeModelOptions(state, profile.AgentType)
+			// Keep the shortcut's default model label; only explicit choices
+			// come from the runtime catalog and execution-scoped discovery.
+			return append(options, runtimeOptions[1:]...)
+		}
 		for _, modelRef := range profile.SupportedModels {
 			options = append(options, cardOption{Text: managementStyledText(modelRef, cardTitle{Tag: "plain_text"}), Value: modelRef})
 		}

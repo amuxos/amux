@@ -959,14 +959,15 @@ func managementProfileSummaryFromProfile(profile agentprofile.Profile, libraryNa
 		name = profile.Ref()
 	}
 	agentType, model := profile.Type, profileDisplayModel(profile)
-	if preset, ok := agentprofile.BuiltinLaunchDefaults(profile); ok {
+	preset, callerDefaults := agentprofile.BuiltinLaunchDefaults(profile)
+	if callerDefaults {
 		agentType, model = preset.Runtime, preset.Model
 	}
 	supportedModels := profile.SupportedModels
 	if supportedModels != nil {
 		supportedModels = append([]string{}, supportedModels...)
 	}
-	return managementProfileSummary{Ref: profile.Ref(), Name: name, LibraryName: strings.TrimSpace(managementDefaultText(libraryName)), LibraryLabel: libraryName, Description: strings.TrimSpace(profile.Description), AgentType: strings.TrimSpace(agentType), Model: model, SupportedModels: supportedModels, Development: strings.HasSuffix(profile.Namespace, "-dev")}
+	return managementProfileSummary{Ref: profile.Ref(), Name: name, LibraryName: strings.TrimSpace(managementDefaultText(libraryName)), LibraryLabel: libraryName, Description: strings.TrimSpace(profile.Description), AgentType: strings.TrimSpace(agentType), Model: model, SupportedModels: supportedModels, CallerDefaults: callerDefaults, Development: strings.HasSuffix(profile.Namespace, "-dev")}
 }
 
 func managementSelectableProfiles(catalog []managementProfileSummary, currentRefs ...string) []managementProfileSummary {
@@ -2042,6 +2043,7 @@ type managementProfileSummary struct {
 	AgentType       string
 	Model           string
 	SupportedModels []string
+	CallerDefaults  bool
 	Development     bool
 	CurrentOnly     bool
 }

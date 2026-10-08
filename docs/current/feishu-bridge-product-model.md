@@ -280,6 +280,12 @@ workspace settings; saves are atomic and version checked. Existing installations
 retain Bot-wide behavior until a group saves its own settings. Group access mode
 remains separate from thread/singleton interaction and execution isolation.
 
+When the group editor uses a builtin expert's caller-selected runtime, model
+choices come from that runtime catalog, including discovered native and model-service
+choices. Its default option retains the caller preset model. Explicit runtime
+selection uses the selected runtime catalog; legacy Profile model restrictions remain
+in force when using a legacy Profile's own runtime.
+
 New topic sessions consume the saved group execution tuple. An explicit reasoning effort
 is validated and materialized even when Runtime uses the Profile default; the Profile
 model/provider selection and its model policy remain in force. Explicit `/run`
