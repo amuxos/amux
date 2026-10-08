@@ -552,10 +552,11 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 	}
 	profileOptions := append([]cardOption{{Text: managementStyledText(managementConcat(managementCopy("management.follow.assistant.default.expert"), state.DefaultAgent), cardTitle{Tag: "plain_text"}), Value: managementGroupInheritProfile}}, managementProfileOptions(state, true)...)
 	runtimeOptions := append([]cardOption{{Text: managementStyledText(managementCopy("management.use.the.selected.expert.s.native.runtime"), cardTitle{Tag: "plain_text"}), Value: managementGroupNativeRuntime}}, managementRuntimeOptions(state)...)
-	modelOptions := managementModelOptions(state, selectedAgent)
+	modelState := managementSelectedModelState(state, modelRef, draft["group_reasoning"])
+	modelOptions := managementModelOptions(modelState, selectedAgent)
 	effectiveRuntime := runtimeRef
 	if runtimeRef != "" {
-		modelOptions = managementRuntimeModelOptions(state, runtimeRef)
+		modelOptions = managementRuntimeModelOptions(modelState, runtimeRef)
 	} else if profile, ok := managementProfileByRef(state, selectedAgent); ok {
 		effectiveRuntime = profile.AgentType
 	}

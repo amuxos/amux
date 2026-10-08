@@ -11,6 +11,7 @@ import (
 
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
@@ -678,5 +679,85 @@ func TestGroupSettingsEditCardProductionEntryStaysWithinLimit(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGroupSettingsBuiltinCallerRuntimeModels(t *testing.T) {
+	profile, ok := agentprofile.ResolveBuiltin("builtin/pi")
+	if !ok {
+		t.Fatal("missing builtin/pi")
+	}
+	state := managementState{
+		DefaultAgent: profile.Ref(),
+		Profiles:     []managementProfileSummary{managementProfileSummaryFromProfile(profile, "Builtin")},
+		Runtimes: []agentprofile.RuntimeOption{
+			{Ref: "pi", Models: []agentprofile.RuntimeModelOption{{Ref: "pi-model", DisplayName: "Pi model"}}},
+			{Ref: "codex", Models: []agentprofile.RuntimeModelOption{{Ref: "codex-model"}}},
+		},
+	}
+	for _, tc := range []struct{ name, agent, runtime, want, absent string }{
+		{"builtin default", "builtin/pi", managementGroupNativeRuntime, "pi-model", "codex-model"},
+		{"inherited expert", managementGroupInheritProfile, managementGroupNativeRuntime, "pi-model", "codex-model"},
+		{"explicit runtime", "builtin/pi", "codex", "codex-model", "pi-model"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			draft := managementGroupSettingsDraft{"group_agent": tc.agent, "group_runtime": tc.runtime}
+			rows := managementGroupSettingsEditFields(state, draft, groupSettingsBudgetScope())
+			found := false
+			for _, row := range rows {
+				field, ok := managementRowSelect(&row)
+				if !ok || field.Name != "group_model" {
+					continue
+				}
+				for _, option := range field.Options {
+					if option.Value == tc.want {
+						found = true
+					}
+					if option.Value == tc.absent {
+						t.Fatalf("wrong runtime model %q", tc.absent)
+					}
+				}
+			}
+			if !found {
+				t.Fatalf("model selector missing %q", tc.want)
+			}
+			card := renderGroupSettingsEditCardAtPage(state, draft, groupSettingsBudgetScope(), 0)
+			for _, locale := range []i18n.Locale{"", i18n.English, i18n.Chinese} {
+				selected := selectManagementCardLocale(card, locale)
+				if !strings.Contains(selected, tc.want) || strings.Contains(selected, "management.") {
+					t.Fatalf("%s card lost model or exposed a translation key", locale)
+				}
+			}
+		})
+	}
+}
+
+func TestGroupSettingsLegacyProfileModelRestrictions(t *testing.T) {
+	for _, supported := range [][]string{nil, {}, {"allowed-model"}} {
+		state := managementState{
+			Profiles: []managementProfileSummary{{Ref: "legacy/expert", AgentType: "pi", SupportedModels: supported}},
+			Runtimes: []agentprofile.RuntimeOption{{Ref: "pi", Models: []agentprofile.RuntimeModelOption{{Ref: "runtime-only"}}}},
+		}
+		options := managementModelOptions(state, "legacy/expert")
+		if len(options) != 1+len(supported) {
+			t.Fatalf("legacy restrictions changed: %+v", options)
+		}
+		for i, ref := range supported {
+			if options[i+1].Value != ref {
+				t.Fatalf("missing legacy model %s", ref)
+			}
+		}
+	}
+}
+
+func TestGroupSettingsCallerPresetDefaultModelLabel(t *testing.T) {
+	state := managementState{
+		Profiles: []managementProfileSummary{{Ref: "builtin/pi", AgentType: "pi", Model: "preset-model", CallerDefaults: true}},
+		Runtimes: []agentprofile.RuntimeOption{{Ref: "pi", Models: []agentprofile.RuntimeModelOption{{Ref: "other-model"}}}},
+	}
+	options := managementModelOptions(state, "builtin/pi")
+	if len(options) != 2 || options[0].Value != managementProfileDefaultModelOption ||
+		!strings.Contains(managementDefaultText(options[0].Text.Content), "preset-model") || options[1].Value != "other-model" {
+		t.Fatalf("caller preset default or runtime choice lost: %+v", options)
 	}
 }
