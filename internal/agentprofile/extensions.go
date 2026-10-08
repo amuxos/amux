@@ -79,12 +79,14 @@ type RuntimeModelVariant struct {
 // Customization is installed once, before starting the application. Shared
 // profile parsing, selection, snapshots and projection ordering stay in core.
 type Customization struct {
-	Builtin                          fs.FS
-	BuiltinMetadata                  map[string]BuiltinMetadata
-	BuiltinLaunchPresets             map[string]BuiltinLaunchPreset
-	DefaultProfile                   string
-	ManagedLocalDefaultAgent         string
-	Catalog                          []byte
+	Builtin                  fs.FS
+	BuiltinMetadata          map[string]BuiltinMetadata
+	BuiltinLaunchPresets     map[string]BuiltinLaunchPreset
+	DefaultProfile           string
+	ManagedLocalDefaultAgent string
+	Catalog                  []byte
+	// RuntimeProviders supplies distribution-owned model bindings independently of Pack content.
+	RuntimeProviders                 map[string]*Provider
 	RuntimeCatalog                   []RuntimeCatalogSource
 	AllowUnlistedNativeRuntimeModels bool
 	RuntimeModelUsesBinaryThinking   func(string) bool
@@ -184,6 +186,20 @@ func RegisterCustomization(next Customization) (err error) {
 			variants:          cloneRuntimeModelVariants(source.Variants),
 		})
 	}
+	providers := make(map[string]*Provider, len(next.RuntimeProviders))
+	for ref, provider := range next.RuntimeProviders {
+		if _, qualified, err := parseProviderModelRef(ref); err != nil || !qualified {
+			return profileError("runtime_provider_ref_invalid", ref)
+		}
+		if provider == nil {
+			return profileError("runtime_provider_missing", ref)
+		}
+		providers[ref] = cloneProvider(provider)
+	}
+	if _, err := buildRuntimeCatalog(sources, providers); err != nil {
+		return err
+	}
+	runtimeProviders = providers
 	builtinProfiles, catalogPacks, runtimeCatalogSources = profiles, packs, sources
 	builtinLaunchPresets = presets
 	allowUnlistedNativeRuntimeModels = next.AllowUnlistedNativeRuntimeModels

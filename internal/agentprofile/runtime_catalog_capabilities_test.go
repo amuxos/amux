@@ -40,7 +40,7 @@ func catalogModel(t *testing.T, options []RuntimeOption, runtimeRef, modelRef st
 }
 
 func TestDeclaredCapabilitiesReplaceNameHeuristics(t *testing.T) {
-	options, err := buildRuntimeCatalog([]runtimeCatalogSource{declaredSource()}, packManifest{})
+	options, err := buildRuntimeCatalog([]runtimeCatalogSource{declaredSource()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestUndeclaredModelsKeepProtocolDefaults(t *testing.T) {
 	// "codex" is the registered Codex-compatible runtime in the public module,
 	// so an undeclared model there keeps the shared codex defaults.
 	source := runtimeCatalogSource{ref: "codex", displayName: "Codex", models: []string{"gpt-5.4"}}
-	options, err := buildRuntimeCatalog([]runtimeCatalogSource{source}, packManifest{})
+	options, err := buildRuntimeCatalog([]runtimeCatalogSource{source}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestUndeclaredModelsKeepProtocolDefaults(t *testing.T) {
 }
 
 func TestVariantInheritsBaseModelCapabilities(t *testing.T) {
-	options, err := buildRuntimeCatalog([]runtimeCatalogSource{declaredSource()}, packManifest{})
+	options, err := buildRuntimeCatalog([]runtimeCatalogSource{declaredSource()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

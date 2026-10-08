@@ -167,3 +167,7 @@ Agent/平台组合；原生 Codex、Pi 的 OpenAI-compatible 规则由公共核�
 
 配置布局支持工作区 Skill 的 Adapter（包括 Codex）通过 `ConfigLayout` 声明该支持；
 MCP 的 `supports_skills` 能力信息据此返回。
+
+Runtime 的模型与 Provider 连接配置由 amux 发行版注册，独立于 builtin Pack 内容。
+Runtime 模型目录不再读取 builtin manifest 的 Provider 定义。旧 v1.1 Pack 的 Profile
+仍从自身 manifest 解析 Provider；已有执行快照保留原来的连接配置。

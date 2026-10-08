@@ -2,7 +2,6 @@ package agentprofile
 
 import (
 	"fmt"
-	"io/fs"
 	"sort"
 	"strings"
 )
@@ -51,16 +50,10 @@ type runtimeCatalogSource struct {
 var standardReasoningEfforts = []string{"none", "low", "medium", "high", "xhigh"}
 var extendedReasoningEfforts = []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"}
 
+var runtimeProviders = map[string]*Provider{}
+
 func RuntimeCatalog() ([]RuntimeOption, error) {
-	data, err := fs.ReadFile(builtinProfileFS, packManifestRelPath)
-	if err != nil {
-		return nil, err
-	}
-	manifest, err := parsePackManifest(builtinProfilePath, data)
-	if err != nil {
-		return nil, err
-	}
-	return buildRuntimeCatalog(runtimeCatalogSources, manifest)
+	return buildRuntimeCatalog(runtimeCatalogSources, runtimeProviders)
 }
 
 // validateRuntimeCatalogSources rejects declarations that cannot be projected
@@ -101,8 +94,8 @@ func validateRuntimeCatalogSources(sources []RuntimeCatalogSource) error {
 }
 
 // buildRuntimeCatalog composes the runtime options from the registered sources
-// and the pack manifest's provider bindings.
-func buildRuntimeCatalog(sources []runtimeCatalogSource, manifest packManifest) ([]RuntimeOption, error) {
+// and distribution-owned provider bindings, independently of Pack content.
+func buildRuntimeCatalog(sources []runtimeCatalogSource, providers map[string]*Provider) ([]RuntimeOption, error) {
 	out := make([]RuntimeOption, 0, len(sources))
 	for _, source := range sources {
 		option := RuntimeOption{
@@ -120,8 +113,14 @@ func buildRuntimeCatalog(sources []runtimeCatalogSource, manifest packManifest) 
 				DisplayName: strings.TrimSpace(source.modelDisplayNames[ref]),
 				Ref:         ref, Kind: ModelKindNative, AgentModel: ref,
 			}
-			if providerDef, ok := manifest.Providers[ref]; ok {
-				provider := providerDef.toProvider()
+			if providerDef, ok := providers[ref]; ok {
+				if providerDef == nil {
+					return nil, profileError("runtime_provider_missing", ref)
+				}
+				provider := cloneProvider(providerDef)
+				if provider.CredentialProfile == "" {
+					provider.CredentialProfile = provider.Platform
+				}
 				providerRef, _, err := parseProviderModelRef(ref)
 				if err != nil {
 					return nil, fmt.Errorf("runtime %s model %s: %w", source.ref, ref, err)

@@ -15,7 +15,6 @@
       "description": "Pi on local runtime"
     }
   },
-  "providers": {},
   "namespaces": {
     "common": {
       "profiles": [
