@@ -24,6 +24,7 @@ Session、Task 和 Schedule 使用 Hub 控制面。每个 Runtime 在本机执�
 Target 标识 Runtime 的位置。Session 是与一个智能体持续进行的对话；Task 是有结果的
 有界执行。Profile 引用选择 Agent 和启动策略。支持的内置 Profile 为 `builtin/codex`、
 `builtin/claude` 和 `builtin/pi`，默认是 `builtin/codex`。
+内置 Profile 使用 v2，只保存内容。amux 调用方为命名快捷入口提供 Runtime、模型和权限默认值；显式执行选择优先，解析后的执行设置冻结到启动快照。外部 v2 Profile 仍需调用方提供 Runtime。
 显式指定 Runtime 时，即使模型名不在 Runtime 建议列表中，也原样传给原生 Agent。
 没有 Runtime 覆盖时，Profile 显式声明的 `supported_models` 仍是模型允许列表。
 
@@ -113,5 +114,5 @@ MCP 工具不接受作用域或 Principal 覆盖参数：Hub 认证调用方并�
 ## 离线专家渲染
 
 `amux agent render` 通过 `--runtime` 和 `--model` 独立于专家引用选择执行配置。
-v2 专家必须显式指定 Runtime，否则在写入任何输出前报错。渲染只为所选引擎投影内容，
+外部 v2 专家必须显式指定 Runtime，否则在写入任何输出前报错；内置快捷入口可使用 amux 的调用方默认值。渲染只为所选引擎投影内容，
 不会启动引擎；执行权限仍由调用方通过原生启动参数提供。

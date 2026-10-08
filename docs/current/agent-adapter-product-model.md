@@ -30,6 +30,14 @@ create amux instances. See the [Session model](session-product-model.md) and
 [Task model](../distributed-task-model.md). Public user terminology is explained
 in [Assistants, experts and Agents](../concepts/agents.md).
 
+Built-in Profiles also use manifest v2 and contain no execution fields. The amux
+caller retains named built-in launch presets independently of Pack content, so
+existing shortcut launches still select their configured runtime, model and
+permission mode. Explicit caller settings take precedence. External v2 experts
+have no implicit preset; they still require a runtime. Profile discovery and
+content projection never restore execution fields from the preset, and resolved
+execution is frozen only in the launch snapshot.
+
 ## Engines and provider behavior
 
 Codex, Claude and Pi are public integrations. Adapters describe executable

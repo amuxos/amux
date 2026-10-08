@@ -400,7 +400,7 @@ Create a persistent Agent Instance without blocking and return a stable agent_in
       "type": "string"
     },
     "model": {
-      "description": "Execution model ref, frozen on the instance; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
+      "description": "Execution model ref, frozen on the instance; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply",
       "type": "string"
     },
     "permission_policy": {
@@ -425,7 +425,7 @@ Create a persistent Agent Instance without blocking and return a stable agent_in
       "type": "string"
     },
     "runtime": {
-      "description": "Execution runtime adapter; required for v2 profiles",
+      "description": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
       "type": "string"
     },
     "task": {
@@ -937,7 +937,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
           "type": "string"
         },
         "model": {
-          "description": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
+          "description": "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply",
           "type": "string"
         },
         "permission_policy": {
@@ -954,7 +954,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
           "type": "string"
         },
         "runtime": {
-          "description": "Execution runtime adapter; required for v2 profiles",
+          "description": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
           "type": "string"
         },
         "task": {
@@ -1151,7 +1151,7 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
           "type": "string"
         },
         "model": {
-          "description": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
+          "description": "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply",
           "type": "string"
         },
         "permission_policy": {
@@ -1168,7 +1168,7 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
           "type": "string"
         },
         "runtime": {
-          "description": "Execution runtime adapter; required for v2 profiles",
+          "description": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
           "type": "string"
         },
         "task": {
@@ -1460,7 +1460,7 @@ Create a Session using an Agent Profile; profile and name are required. Call dir
       "type": "string"
     },
     "runtime": {
-      "description": "Execution runtime adapter; required for v2 profiles",
+      "description": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
       "type": "string"
     },
     "target": {
@@ -1769,7 +1769,7 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
       "type": "string"
     },
     "model": {
-      "description": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
+      "description": "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply",
       "type": "string"
     },
     "permission_policy": {
@@ -1794,7 +1794,7 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
       "type": "string"
     },
     "runtime": {
-      "description": "Execution runtime adapter; required for v2 profiles",
+      "description": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
       "type": "string"
     },
     "task": {
@@ -1919,7 +1919,7 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
       "type": "string"
     },
     "model": {
-      "description": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
+      "description": "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply",
       "type": "string"
     },
     "permission_policy": {
@@ -1944,7 +1944,7 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
       "type": "string"
     },
     "runtime": {
-      "description": "Execution runtime adapter; required for v2 profiles",
+      "description": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
       "type": "string"
     },
     "task": {

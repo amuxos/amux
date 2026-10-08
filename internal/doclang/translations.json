@@ -2987,9 +2987,9 @@
     "en": "brief description of the expert purpose",
     "zh-CN": "专家用途的简短说明"
   },
-  "Execution runtime adapter; required for v2 profiles\n执行 Runtime 适配器；v2 专家必填": {
-    "en": "Execution runtime adapter; required for v2 profiles",
-    "zh-CN": "执行 Runtime 适配器；v2 专家必填"
+  "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults\n执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略": {
+    "en": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
+    "zh-CN": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略"
   },
   "Execution model ref; omitted uses the selected runtime default\n执行模型引用；省略时使用所选 Runtime 默认模型": {
     "en": "Execution model ref; omitted uses the selected runtime default",
@@ -2999,29 +2999,29 @@
     "en": "Native execution arguments, including permission settings",
     "zh-CN": "原生执行参数，包含权限设置"
   },
-  "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply\n执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束": {
-    "en": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
-    "zh-CN": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply\n执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束": {
+    "en": "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply",
+    "zh-CN": "执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束"
   },
-  "Execution model ref, frozen on the instance; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply\n执行模型引用，固定到持久实例；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束": {
-    "en": "Execution model ref, frozen on the instance; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
-    "zh-CN": "执行模型引用，固定到持久实例；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  "Execution model ref, frozen on the instance; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply\n执行模型引用，固定到持久实例；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束": {
+    "en": "Execution model ref, frozen on the instance; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply",
+    "zh-CN": "执行模型引用，固定到持久实例；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束"
   },
-  "Execution runtime adapter; required for v2 profiles": {
-    "en": "Execution runtime adapter; required for v2 profiles",
-    "zh-CN": "执行 Runtime 适配器；v2 专家必填"
+  "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults": {
+    "en": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
+    "zh-CN": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略"
   },
-  "执行 Runtime 适配器；v2 专家必填": {
-    "en": "Execution runtime adapter; required for v2 profiles",
-    "zh-CN": "执行 Runtime 适配器；v2 专家必填"
+  "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略": {
+    "en": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
+    "zh-CN": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略"
   },
-  "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply": {
-    "en": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
-    "zh-CN": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply": {
+    "en": "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply",
+    "zh-CN": "执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束"
   },
-  "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束": {
-    "en": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
-    "zh-CN": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  "执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束": {
+    "en": "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply",
+    "zh-CN": "执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束"
   },
   "Native execution arguments, including permissions; separate from Task permission policy": {
     "en": "Native execution arguments, including permissions; separate from Task permission policy",
@@ -3035,17 +3035,17 @@
     "en": "Native execution arguments, including permissions; separate from Task permission policy",
     "zh-CN": "原生执行参数，包含权限设置；与 Task 权限策略分开"
   },
-  "Runtime adapter for rendering; required for v2 profiles": {
-    "en": "Runtime adapter for rendering; required for v2 profiles",
-    "zh-CN": "渲染使用的 Runtime 适配器；v2 专家必填"
+  "Runtime adapter for rendering; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults": {
+    "en": "Runtime adapter for rendering; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
+    "zh-CN": "渲染使用的 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略"
   },
-  "渲染使用的 Runtime 适配器；v2 专家必填": {
-    "en": "Runtime adapter for rendering; required for v2 profiles",
-    "zh-CN": "渲染使用的 Runtime 适配器；v2 专家必填"
+  "渲染使用的 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略": {
+    "en": "Runtime adapter for rendering; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
+    "zh-CN": "渲染使用的 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略"
   },
-  "Runtime adapter for rendering; required for v2 profiles\n渲染使用的 Runtime 适配器；v2 专家必填": {
-    "en": "Runtime adapter for rendering; required for v2 profiles",
-    "zh-CN": "渲染使用的 Runtime 适配器；v2 专家必填"
+  "Runtime adapter for rendering; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults\n渲染使用的 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略": {
+    "en": "Runtime adapter for rendering; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults",
+    "zh-CN": "渲染使用的 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略"
   },
   "Model to render for the selected runtime": {
     "en": "Model to render for the selected runtime",

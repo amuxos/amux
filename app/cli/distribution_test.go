@@ -35,7 +35,7 @@ func TestPublicCLIAndMCPCatalogsContainOnlyNativeProfiles(t *testing.T) {
 		t.Fatalf("public profiles = %+v", result.Profiles)
 	}
 	for _, profile := range result.Profiles {
-		if expected, ok := want[profile.Ref]; !ok || profile.AgentType != expected {
+		if _, ok := want[profile.Ref]; !ok || profile.AgentType != "" {
 			t.Fatalf("unexpected public profile: %+v", profile)
 		}
 		delete(want, profile.Ref)
@@ -46,12 +46,12 @@ func TestPublicCLIAndMCPCatalogsContainOnlyNativeProfiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	view := decodeMCPListAgentProfiles(t, res.Content[0].Text)
-	if len(view.Profiles) != 3 || len(view.CapabilitySets) != 3 {
+	if len(view.Profiles) != 3 || len(view.CapabilitySets) != 0 {
 		t.Fatalf("MCP public catalog = %+v", view)
 	}
 	for _, agent := range []string{"codex", "claude", "pi"} {
 		profile := findMCPProfile(t, view.Profiles, "builtin/"+agent)
-		if profile.AgentType != agent || view.CapabilitySets[agent]["base_agent"] != agent {
+		if profile.AgentType != "" {
 			t.Fatalf("MCP public profile %s = %+v", agent, profile)
 		}
 	}

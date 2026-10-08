@@ -145,7 +145,7 @@ func projectRunLaunchWithRuntime(
 ) (agentprofile.LaunchProjection, error) {
 	profile, err := resolve(agentRef)
 	if err == nil {
-		return agentprofile.ProjectProfileLaunchChecked(
+		return agentprofile.ProjectProfileLaunchWithDefaults(
 			profile,
 			explicitArgs,
 			explicitEnv,

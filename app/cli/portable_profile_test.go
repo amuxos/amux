@@ -66,3 +66,17 @@ func TestPortableProfileDiscoveryShowsContentWithoutAdapterError(t *testing.T) {
 		}
 	}
 }
+
+func TestBuiltinDiscoveryKeepsCallerDefaultsOutOfContent(t *testing.T) {
+	profile, _ := agentprofile.ResolveBuiltin("builtin/claude")
+	for _, view := range []map[string]any{profileMCPView(profile), profileMCPViewListSummary(profile, nil)} {
+		if view["runtime_required"] != false {
+			t.Fatal("builtin shortcut unexpectedly requires --runtime")
+		}
+		for _, key := range []string{"agent_type", "default_model_ref", "supported_models"} {
+			if _, ok := view[key]; ok {
+				t.Fatalf("execution field %s leaked into content", key)
+			}
+		}
+	}
+}

@@ -1,26 +1,28 @@
 {
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "builtin",
   "profiles": {
     "claude": {
       "namespace": "common",
-      "type": "claude",
-      "description": "Claude Code on local runtime",
-      "permission": {"permission_mode": "bypass"}
+      "description": "Claude Code on local runtime"
     },
     "codex": {
       "namespace": "common",
-      "type": "codex",
-      "description": "Codex on local runtime",
-      "permission": {"permission_mode": "bypass"}
+      "description": "Codex on local runtime"
     },
     "pi": {
       "namespace": "common",
-      "type": "pi",
-      "description": "Pi on local runtime",
-      "permission": {"permission_mode": "bypass"}
+      "description": "Pi on local runtime"
     }
   },
   "providers": {},
-  "namespaces": {"common": {"profiles": ["claude", "codex", "pi"]}}
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "claude",
+        "codex",
+        "pi"
+      ]
+    }
+  }
 }

@@ -16,5 +16,8 @@
   },
   "runtime_model_unsupported": {
     "other": "模型 %q 不受 Runtime %s 支持"
+  },
+  "builtin_preset_profile_missing": {
+    "other": "内置启动预设 %q 没有对应的 Profile"
   }
 }

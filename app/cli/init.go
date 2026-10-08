@@ -25,6 +25,14 @@ type initOptions struct {
 }
 
 var runSetupAgentSmoke = func(ctx context.Context, out io.Writer, profile agentprofile.Profile, timeoutSeconds int) error {
+	launch, err := agentprofile.ProjectProfileLaunchWithDefaults(profile, nil, nil, agentprofile.LaunchOptions{})
+	if err != nil {
+		return err
+	}
+	profile, err = agentprofile.FromPBProfileSpec(launch.ProfileSpec)
+	if err != nil {
+		return err
+	}
 	if err := runAgentProfileDoctor(ctx, out, profile); err != nil {
 		return err
 	}

@@ -115,7 +115,7 @@ func TestAgentListSupportsRootJSONFlag(t *testing.T) {
 	if got.Schema != "amux.agent.list.v1" || len(got.Profiles) == 0 {
 		t.Fatalf("agent JSON = %#v", got)
 	}
-	if got.Profiles[0].Ref == "" || got.Profiles[0].AgentType == "" {
+	if got.Profiles[0].Ref == "" || got.Profiles[0].AgentType != "" {
 		t.Fatalf("first profile = %#v", got.Profiles[0])
 	}
 }
@@ -163,7 +163,7 @@ func TestAgentShowBuiltinProfile(t *testing.T) {
 	}
 
 	text := out.String()
-	for _, want := range []string{"ref: builtin/claude", "type: claude", "source: builtin", "agent_types: claude"} {
+	for _, want := range []string{"ref: builtin/claude", "source: builtin", "description: Claude Code"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("agent show output missing %q:\n%s", want, text)
 		}

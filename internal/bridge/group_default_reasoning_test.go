@@ -36,7 +36,7 @@ func TestGroupTopicDefaultRuntimeValidatesAndLaunchesReasoningEffort(t *testing.
 		t.Fatalf("runs=%d notices=%v", len(runs), *notices)
 	}
 	run := runs[0]
-	if run.AgentProfile != "builtin/codex" || run.AgentType != "codex" || run.ProfileSpec.GetRuntimeRef() != "" || run.ProfileSpec.GetModel() != "group-native-model" || run.ProfileSpec.GetReasoningEffort() != "high" {
+	if run.AgentProfile != "builtin/codex" || run.AgentType != "codex" || run.ProfileSpec.GetRuntimeRef() != "codex" || run.ProfileSpec.GetModel() != "group-native-model" || run.ProfileSpec.GetReasoningEffort() != "high" {
 		t.Fatalf("wrong default-runtime group launch: %+v", run)
 	}
 	args := strings.Join(run.ExtraArgs, " ")

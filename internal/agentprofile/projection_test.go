@@ -77,7 +77,14 @@ func TestRenderProfileWorkspaceSkipsCodexProjectionFileWithoutContent(t *testing
 	if !ok {
 		t.Fatal("missing builtin/codex")
 	}
-	profile.Model = "gpt-5-codex"
+	launch, err := ProjectProfileLaunchWithDefaults(profile, nil, nil, LaunchOptions{Model: "gpt-5-codex"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err = FromPBProfileSpec(launch.ProfileSpec)
+	if err != nil {
+		t.Fatal(err)
+	}
 	root := t.TempDir()
 
 	result, err := RenderProfileWorkspace(profile, root)

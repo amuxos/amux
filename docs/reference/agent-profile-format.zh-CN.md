@@ -38,6 +38,8 @@ Manifest 必须包含 `schema_version`、非空 `pack_namespace` 和非空 `prof
 解析后的执行设置仍保存在会话快照中。v1.1 库及其默认行为继续兼容，迁移需显式进行。
 本地 managed authoring 流程继续生成 v1.1 库。
 
+内置 Profile 也使用 v2。命名快捷入口的默认值由 amux 调用方配置提供，独立于 manifest。发现结果不包含 Profile 执行字段；有调用方默认值的 builtin 快捷入口返回 `runtime_required: false`。
+
 下表中的执行字段仅适用于 v1.1。
 
 内置专家和外部专家的描述均由 manifest 提供。发行版可以提供可选的兼容元数据，

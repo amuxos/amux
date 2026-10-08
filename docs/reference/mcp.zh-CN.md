@@ -400,7 +400,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "model": {
-      "description": "执行模型引用，固定到持久实例；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
+      "description": "执行模型引用，固定到持久实例；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束",
       "type": "string"
     },
     "permission_policy": {
@@ -425,7 +425,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "runtime": {
-      "description": "执行 Runtime 适配器；v2 专家必填",
+      "description": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略",
       "type": "string"
     },
     "task": {
@@ -937,7 +937,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "model": {
-          "description": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
+          "description": "执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束",
           "type": "string"
         },
         "permission_policy": {
@@ -954,7 +954,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "runtime": {
-          "description": "执行 Runtime 适配器；v2 专家必填",
+          "description": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略",
           "type": "string"
         },
         "task": {
@@ -1151,7 +1151,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "model": {
-          "description": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
+          "description": "执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束",
           "type": "string"
         },
         "permission_policy": {
@@ -1168,7 +1168,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "runtime": {
-          "description": "执行 Runtime 适配器；v2 专家必填",
+          "description": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略",
           "type": "string"
         },
         "task": {
@@ -1460,7 +1460,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "runtime": {
-      "description": "执行 Runtime 适配器；v2 专家必填",
+      "description": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略",
       "type": "string"
     },
     "target": {
@@ -1769,7 +1769,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "model": {
-      "description": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
+      "description": "执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束",
       "type": "string"
     },
     "permission_policy": {
@@ -1794,7 +1794,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "runtime": {
-      "description": "执行 Runtime 适配器；v2 专家必填",
+      "description": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略",
       "type": "string"
     },
     "task": {
@@ -1919,7 +1919,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "model": {
-      "description": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
+      "description": "执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束",
       "type": "string"
     },
     "permission_policy": {
@@ -1944,7 +1944,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "runtime": {
-      "description": "执行 Runtime 适配器；v2 专家必填",
+      "description": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略",
       "type": "string"
     },
     "task": {

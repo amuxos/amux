@@ -81,6 +81,7 @@ type RuntimeModelVariant struct {
 type Customization struct {
 	Builtin                          fs.FS
 	BuiltinMetadata                  map[string]BuiltinMetadata
+	BuiltinLaunchPresets             map[string]BuiltinLaunchPreset
 	DefaultProfile                   string
 	ManagedLocalDefaultAgent         string
 	Catalog                          []byte
@@ -159,6 +160,19 @@ func RegisterCustomization(next Customization) (err error) {
 	if _, ok := profiles[next.DefaultProfile]; !ok {
 		return fmt.Errorf("default builtin profile %q is missing", next.DefaultProfile)
 	}
+	presets := make(map[string]BuiltinLaunchPreset, len(next.BuiltinLaunchPresets))
+	for name, preset := range next.BuiltinLaunchPresets {
+		if _, ok := profiles[name]; !ok {
+			return profileError("builtin_preset_profile_missing", name)
+		}
+		if _, err := adapter.Get(preset.Runtime); err != nil {
+			return err
+		}
+		if _, err := permissionModeArgs(preset.Runtime, packProfilePermission{PermissionMode: preset.PermissionMode}); err != nil {
+			return err
+		}
+		presets[name] = preset
+	}
 	sources := make([]runtimeCatalogSource, 0, len(next.RuntimeCatalog))
 	for _, source := range next.RuntimeCatalog {
 		sources = append(sources, runtimeCatalogSource{
@@ -171,6 +185,7 @@ func RegisterCustomization(next Customization) (err error) {
 		})
 	}
 	builtinProfiles, catalogPacks, runtimeCatalogSources = profiles, packs, sources
+	builtinLaunchPresets = presets
 	allowUnlistedNativeRuntimeModels = next.AllowUnlistedNativeRuntimeModels
 	DefaultProfileRef = BuiltinNamespace + "/" + next.DefaultProfile
 	ManagedLocalDefaultAgent = next.ManagedLocalDefaultAgent

@@ -149,7 +149,7 @@ func newAgentDoctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			projection, err := agentprofile.ProjectProfileLaunchChecked(profile, nil, nil, agentprofile.LaunchOptions{
+			projection, err := agentprofile.ProjectProfileLaunchWithDefaults(profile, nil, nil, agentprofile.LaunchOptions{
 				Runtime: runtimeRef,
 				Model:   model,
 			})
@@ -192,7 +192,7 @@ func newAgentRenderCmd() *cobra.Command {
 				return err
 			}
 			if runtimeRef != "" || model != "" || profile.Type == "" {
-				launch, err := agentprofile.ProjectProfileLaunchChecked(profile, nil, nil, agentprofile.LaunchOptions{Runtime: runtimeRef, Model: model})
+				launch, err := agentprofile.ProjectProfileLaunchWithDefaults(profile, nil, nil, agentprofile.LaunchOptions{Runtime: runtimeRef, Model: model})
 				if err != nil {
 					return err
 				}
