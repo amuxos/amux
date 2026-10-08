@@ -25,5 +25,14 @@
   },
   "mcp.session.args": {
     "other": "原生执行参数，包含权限设置"
+  },
+  "mcp.task.runtime": {
+    "other": "执行 Runtime 适配器；v2 专家必填"
+  },
+  "mcp.task.model": {
+    "other": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  },
+  "mcp.instance.model": {
+    "other": "执行模型引用，固定到持久实例；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
   }
 }

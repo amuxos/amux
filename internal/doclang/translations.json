@@ -2998,5 +2998,29 @@
   "Native execution arguments, including permission settings\n原生执行参数，包含权限设置": {
     "en": "Native execution arguments, including permission settings",
     "zh-CN": "原生执行参数，包含权限设置"
+  },
+  "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply\n执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束": {
+    "en": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
+    "zh-CN": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  },
+  "Execution model ref, frozen on the instance; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply\n执行模型引用，固定到持久实例；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束": {
+    "en": "Execution model ref, frozen on the instance; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
+    "zh-CN": "执行模型引用，固定到持久实例；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  },
+  "Execution runtime adapter; required for v2 profiles": {
+    "en": "Execution runtime adapter; required for v2 profiles",
+    "zh-CN": "执行 Runtime 适配器；v2 专家必填"
+  },
+  "执行 Runtime 适配器；v2 专家必填": {
+    "en": "Execution runtime adapter; required for v2 profiles",
+    "zh-CN": "执行 Runtime 适配器；v2 专家必填"
+  },
+  "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply": {
+    "en": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
+    "zh-CN": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
+  },
+  "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束": {
+    "en": "Execution model ref; v2 profiles use the runtime default when omitted, while legacy profile constraints still apply",
+    "zh-CN": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束"
   }
 }

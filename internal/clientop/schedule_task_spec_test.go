@@ -78,6 +78,8 @@ func TestScheduledTaskSpecNormalizesDefaultPermissionPolicyToEmpty(t *testing.T)
 func TestScheduledTaskSpecToTaskSpecTrimsAndBuildsRepo(t *testing.T) {
 	spec := ScheduledTaskSpec{
 		Agent:             "  team/coder  ",
+		Runtime:           "  claude  ",
+		Model:             "  review-model  ",
 		Task:              "  run tests  ",
 		RunAs:             "  ops-bot  ",
 		Isolation:         string(task.IsolationProcess),
@@ -97,6 +99,9 @@ func TestScheduledTaskSpecToTaskSpecTrimsAndBuildsRepo(t *testing.T) {
 	got := spec.ToTaskSpec()
 	if got.Agent != "team/coder" || got.Task != "run tests" {
 		t.Fatalf("agent/task = %q/%q, want trimmed", got.Agent, got.Task)
+	}
+	if got.Runtime != "claude" || got.Model != "review-model" {
+		t.Fatalf("scheduled execution choice was not preserved: runtime=%q model=%q", got.Runtime, got.Model)
 	}
 	if got.RunAs != "ops-bot" {
 		t.Fatalf("RunAs = %q, want trimmed \"ops-bot\"", got.RunAs)

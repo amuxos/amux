@@ -1,12 +1,47 @@
 package cli
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/amuxos/amux/internal/agentprofile"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
+
+func TestPortableTaskToolSchemasExposeRuntimeSelection(t *testing.T) {
+	for _, name := range []string{"amux.task_run", "amux.task_submit", "amux.instance_spawn"} {
+		t.Run(name, func(t *testing.T) {
+			tool := findMCPTool(t, amuxTools(), name)
+			var schema struct {
+				Properties map[string]struct {
+					Type        string `json:"type"`
+					Description string `json:"description"`
+				} `json:"properties"`
+				Required []string `json:"required"`
+			}
+			if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
+				t.Fatal(err)
+			}
+			for _, field := range []string{"runtime", "model"} {
+				property, ok := schema.Properties[field]
+				if !ok || property.Type != "string" {
+					t.Fatalf("%s cannot select execution %s: %s", name, field, tool.InputSchema)
+				}
+				for _, language := range []string{"v2", "专家"} {
+					if !strings.Contains(property.Description, language) {
+						t.Fatalf("%s guidance does not cover portable profiles in both languages: %q", field, property.Description)
+					}
+				}
+			}
+			for _, field := range schema.Required {
+				if field == "runtime" || field == "model" {
+					t.Fatalf("legacy profile callers must retain their defaults: %s required", field)
+				}
+			}
+		})
+	}
+}
 
 func TestPortableProfileDiscoveryShowsContentWithoutAdapterError(t *testing.T) {
 	profile := agentprofile.Profile{Namespace: "team", Name: "reviewer", Description: "Review changes"}

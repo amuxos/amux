@@ -14,6 +14,9 @@ Manifest v2 专家要求调用方选择 Runtime，不能声明引擎、模型、
 权限设置。原生执行参数及 Runtime/模型选择属于调用方；省略权限设置时使用原生引擎默认值。
 v1.1 保留旧启动默认。两个版本都会把解析后的执行设置冻结到会话快照；刷新 v2 专家内容
 保留这些设置，包括 Provider 绑定及权限参数。
+MCP 的 `session_run`、`task_run`、`task_submit` 和 `instance_spawn` 输入将 Runtime、
+模型选择与专家引用分开提供。
+CLI 任务提交和定时任务也接受 `--runtime`；定时任务定义保留该选择，供每次触发使用。
 
 Session 持有对话并包含多轮 Turn；持久 Agent Instance 持有跨任务身份和持久执行引用，
 每次交办都是独立 TaskRun。原生 Agent 的子 Agent 不自动创建 amux 实例。

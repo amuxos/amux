@@ -393,7 +393,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "model": {
-      "description": "可选模型引用，必须来自所选 Profile 的 supported_models；该值会固定到持久 Agent Instance",
+      "description": "执行模型引用，固定到持久实例；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
       "type": "string"
     },
     "permission_policy": {
@@ -415,6 +415,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     },
     "run_as": {
       "description": "可选 Principal alias 意图；省略时使用 parent Execution Principal 创建实例",
+      "type": "string"
+    },
+    "runtime": {
+      "description": "执行 Runtime 适配器；v2 专家必填",
       "type": "string"
     },
     "task": {
@@ -919,7 +923,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "model": {
-          "description": "每次定时运行面向用户的模型覆盖；留空时使用 Profile 或 Agent 默认模型",
+          "description": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
           "type": "string"
         },
         "permission_policy": {
@@ -933,6 +937,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
         },
         "run_as": {
           "description": "可选的已登记 Principal alias；保存 Schedule 时解析并固化",
+          "type": "string"
+        },
+        "runtime": {
+          "description": "执行 Runtime 适配器；v2 专家必填",
           "type": "string"
         },
         "task": {
@@ -1122,7 +1130,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "model": {
-          "description": "每次定时运行面向用户的模型覆盖；留空时使用 Profile 或 Agent 默认模型",
+          "description": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
           "type": "string"
         },
         "permission_policy": {
@@ -1136,6 +1144,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
         },
         "run_as": {
           "description": "可选的已登记 Principal alias；保存 Schedule 时解析并固化",
+          "type": "string"
+        },
+        "runtime": {
+          "description": "执行 Runtime 适配器；v2 专家必填",
           "type": "string"
         },
         "task": {
@@ -1729,7 +1741,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "model": {
-      "description": "可选模型引用，必须来自所选 Profile 的 supported_models",
+      "description": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
       "type": "string"
     },
     "permission_policy": {
@@ -1751,6 +1763,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     },
     "run_as": {
       "description": "可选 Principal alias 意图；由 amuxd 解析并授权，未指定时 child 继承 parent 的 Execution Principal",
+      "type": "string"
+    },
+    "runtime": {
+      "description": "执行 Runtime 适配器；v2 专家必填",
       "type": "string"
     },
     "task": {
@@ -1868,7 +1884,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "model": {
-      "description": "可选模型引用，必须来自所选 Profile 的 supported_models",
+      "description": "执行模型引用；v2 专家省略时使用 Runtime 默认模型，旧版专家仍遵守其原有约束",
       "type": "string"
     },
     "permission_policy": {
@@ -1890,6 +1906,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     },
     "run_as": {
       "description": "可选 Principal alias 意图；由 amuxd 解析并授权，未指定时 child 继承 parent 的 Execution Principal",
+      "type": "string"
+    },
+    "runtime": {
+      "description": "执行 Runtime 适配器；v2 专家必填",
       "type": "string"
     },
     "task": {

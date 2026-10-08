@@ -15,6 +15,10 @@ and the runtime/model choice belong to the caller; omitting permissions keeps th
 native engine's defaults. v1.1 retains its legacy launch defaults. Both versions
 freeze resolved execution settings in session snapshots. Refreshing v2 content
 preserves those settings, including the provider binding and permission arguments.
+The MCP `session_run`, `task_run`, `task_submit`, and `instance_spawn` inputs
+expose runtime and model selection separately from the expert reference.
+CLI task submission and scheduled tasks also accept `--runtime`; scheduled
+task definitions preserve that choice for each trigger.
 
 A Session holds the conversation and can contain multiple Turns. A persistent
 Agent Instance holds cross-task identity and durable execution references; each

@@ -110,6 +110,7 @@ func newScheduleCreateCmd() *cobra.Command {
 type scheduleTaskFlags struct {
 	name                 string
 	agent                string
+	runtime              string
 	model                string
 	taskPrompt           string
 	isolation            string
@@ -145,6 +146,7 @@ var cliScheduleFieldNames = map[clientop.Field]string{
 func (f scheduleTaskFlags) clientopSpec() clientop.ScheduledTaskSpec {
 	spec := clientop.ScheduledTaskSpec{
 		Agent:             f.agent,
+		Runtime:           f.runtime,
 		Model:             f.model,
 		Task:              f.taskPrompt,
 		RunAs:             f.runAs,
@@ -241,7 +243,8 @@ func newScheduleCreateTaskCmd() *cobra.Command {
 // carry. `name`/`spec` are command-specific and stay with each command.
 func registerScheduleTaskFlags(c *cobra.Command, flags *scheduleTaskFlags) {
 	c.Flags().StringVar(&flags.agent, "agent", "", "agent profile ref or legacy agent type to run")
-	c.Flags().StringVar(&flags.model, "model", "", "model ref supported by the selected agent profile")
+	c.Flags().StringVar(&flags.runtime, "runtime", "", commandCatalog.Format(commandLocale(c), "mcp.task.runtime"))
+	c.Flags().StringVar(&flags.model, "model", "", commandCatalog.Format(commandLocale(c), "mcp.task.model"))
 	c.Flags().StringVar(&flags.taskPrompt, "task", "", "task prompt to run on each schedule fire")
 	c.Flags().StringVar(&flags.isolation, "isolation", "", "isolation: process | private-home (default process)")
 	c.Flags().StringVar(&flags.credentialProfile, "credential-profile", "", "credential profile name (control-plane resolved)")
@@ -300,7 +303,7 @@ func newScheduleUpdateCmd() *cobra.Command {
 			if cmd.Flags().Changed("spec") {
 				req.Spec = &spec
 			}
-			if cmd.Flags().Changed("agent") || cmd.Flags().Changed("task") {
+			if cmd.Flags().Changed("agent") || cmd.Flags().Changed("task") || cmd.Flags().Changed("runtime") {
 				taskSpec := flags.clientopSpec()
 				req.Task = &taskSpec
 			}
