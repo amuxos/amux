@@ -3,10 +3,59 @@ package agentprofile
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
+
+func TestManagedForkUsesRegisteredBuiltinAssets(t *testing.T) {
+	if os.Getenv("AMUX_TEST_FORK_CUSTOMIZATION") == "" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestManagedForkUsesRegisteredBuiltinAssets$")
+		cmd.Env = append(os.Environ(), "AMUX_TEST_FORK_CUSTOMIZATION=1")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("registered builtin fork: %v\n%s", err, output)
+		}
+		return
+	}
+	const skill = "---\nname: distribution-skill\ndescription: Review changes\n---\n\nReview the complete change.\n"
+	const provenance = "source_kind = \"custom\"\nasset_type = \"skill\"\n[origin]\nkind = \"local\"\n"
+	pack := fstest.MapFS{
+		"dist/agent-pack.manifest.json":                {Data: []byte(`{"schema_version":"v2","pack_namespace":"builtin","profiles":{"reviewer":{"description":"Review changes","instructions":["instructions/common/reviewer/AGENTS.md"],"skills":["distribution-skill"]}}}`)},
+		"instructions/common/reviewer/AGENTS.md":       {Data: []byte("Review changes carefully.\n")},
+		"skills/custom/distribution-skill/SKILL.md":    {Data: []byte(skill)},
+		"skills/custom/distribution-skill/source.toml": {Data: []byte(provenance)},
+	}
+	if err := RegisterCustomization(Customization{
+		Builtin: pack, DefaultProfile: "reviewer", Catalog: []byte(`{"schema_version":"v1","packs":[]}`),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var runner ManagedContractRunner = &fakeManagedContractRunner{}
+	if binary := os.Getenv("AMUX_TEST_CONTRACT_BIN"); binary != "" {
+		runner = ExecManagedContractRunner{Command: binary}
+	}
+	root := t.TempDir()
+	library := NewManagedLibrary(filepath.Join(root, "local"), filepath.Join(root, "registry.json"), runner)
+	if _, err := library.ForkBuiltin(context.Background(), "builtin/reviewer", "forked"); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := library.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]string{
+		"skills/custom/distribution-skill/SKILL.md":    skill,
+		"skills/custom/distribution-skill/source.toml": provenance,
+		"instructions/common/forked/AGENTS.md":         "Review changes carefully.\n",
+	} {
+		data, err := os.ReadFile(filepath.Join(snapshot.MaterializedPath, filepath.FromSlash(path)))
+		if err != nil || string(data) != want {
+			t.Fatalf("forked asset %s = %q, %v; want %q", path, data, err, want)
+		}
+	}
+}
 
 func TestManagedSourceRejectsOldVersionWithoutRewriting(t *testing.T) {
 	root := t.TempDir()

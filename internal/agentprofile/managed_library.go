@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	agentpacks "github.com/amuxos/amux/agent-packs"
 	"github.com/amuxos/amux/internal/amuxhome"
 	"github.com/pelletier/go-toml/v2"
 )
@@ -912,7 +911,7 @@ func writeBuiltinFork(repoRoot string, profile Profile, targetName string) error
 		"envs":        cloneStrings(profile.Envs),
 		"env_refs":    cloneStrings(profile.EnvRefs),
 	}
-	if err := copyBuiltinForkAssets(agentpacks.Builtin(), source, repoRoot); err != nil {
+	if err := copyBuiltinForkAssets(builtinProfileFS, source, repoRoot); err != nil {
 		return err
 	}
 	if strings.TrimSpace(profile.Description) == "" {
