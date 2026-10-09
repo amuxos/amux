@@ -15,7 +15,7 @@
     "other": "专家用途的简短说明"
   },
   "profile.selection_guidance": {
-    "other": "根据描述和技能选择专家，再为本次执行选择 runtime 和 model。标记 runtime_required 的专家需要显式选择 runtime；builtin 快捷入口使用 amux 调用方默认值，旧版专家保留原有默认设置。完整内容见 profile_get。"
+    "other": "根据描述和技能选择专家。runtime_required 适用于直接启动会话；Task 和定时任务可以使用发行版默认执行配置。显式指定的 runtime 和 model 优先。完整内容见 profile_get。"
   },
   "mcp.session.runtime": {
     "other": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略"
@@ -27,13 +27,13 @@
     "other": "原生执行参数，包含权限设置"
   },
   "mcp.task.runtime": {
-    "other": "执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略"
+    "other": "执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置"
   },
   "mcp.task.model": {
-    "other": "执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束"
+    "other": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型"
   },
   "mcp.instance.model": {
-    "other": "执行模型引用，固定到持久实例；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束"
+    "other": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型"
   },
   "mcp.task.extra_args": {
     "other": "原生执行参数，包含权限设置；与 Task 权限策略分开"

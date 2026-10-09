@@ -37,7 +37,9 @@ even when empty. Provider source files are not part of a v2 Pack.
 
 Execution chooses the runtime, model, and native permission arguments separately.
 A caller runtime setting or explicit `--runtime` is required. Built-in shortcuts
-may have caller defaults; those defaults are outside the Pack. Model/provider
+may have caller defaults; Tasks (including scheduled Tasks) also fall back to the
+distribution's default builtin launch preset when runtime is omitted. These
+defaults are outside the Pack. Model/provider
 connections belong to Runtime registration. Credentials remain outside the Pack.
 Resolved execution settings are frozen in Session/Task snapshots; refreshing
 content does not replace those settings.

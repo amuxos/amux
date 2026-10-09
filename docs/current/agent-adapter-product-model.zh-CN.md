@@ -27,7 +27,10 @@ Session 持有对话并包含多轮 Turn；持久 Agent Instance 持有跨任务
 
 内置 Profile 同样采用 manifest v2，不包含执行字段。amux 调用方独立维护内置快捷入口的
 启动预设，使已有快捷启动继续选择配置的 Runtime、模型和权限；调用方显式设置优先。
-外部 v2 专家没有隐式预设，仍要求选择 Runtime。专家发现和内容读取不把预设写回
+外部 v2 专家的 Pack 不拥有执行预设。直接启动会话仍要求调用方提供 Runtime；Task
+提交（包括定时 Task 与持久实例创建）省略 Runtime 时，采用发行版默认 builtin 的
+启动预设。此回退只提供 Runtime/模型选择，不借用默认专家的内容或权限。
+专家发现和内容读取不把预设写回
 Profile；仅在启动快照中冻结最终执行设置。
 
 ## 引擎与 Provider 行为

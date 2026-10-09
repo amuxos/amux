@@ -30,7 +30,8 @@ Profile 禁止包含 `type`、`model`、`providers`、`supported_models`、`perm
 包括空值和 null。顶层 `providers` 也禁止出现，包括空对象。v2 Pack 不包含 Provider 源文件。
 
 执行时单独选择 Runtime、模型和原生权限参数。必须由调用方设置 Runtime 或显式传入
-`--runtime`。内置快捷入口可以有调用方默认值，这些默认值位于 Pack 外部。
+`--runtime`。内置快捷入口可以有调用方默认值；Task（含定时 Task）省略 Runtime 时，
+还会采用发行版默认 builtin 的启动预设。这些默认值位于 Pack 外部。
 模型与 Provider 连接配置属于 Runtime 注册；凭据保存在 Pack 外部。
 执行设置解析后冻结到 Session/Task 快照，刷新内容不替换执行设置。
 

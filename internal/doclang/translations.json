@@ -3070,5 +3070,53 @@
   "native agent argument (repeatable)\n原生 Agent 参数（可重复）": {
     "en": "native agent argument (repeatable)",
     "zh-CN": "原生 Agent 参数（可重复）"
+  },
+  "Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts": {
+    "en": "Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts",
+    "zh-CN": "执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置"
+  },
+  "执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置": {
+    "en": "Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts",
+    "zh-CN": "执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置"
+  },
+  "Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts\n执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置": {
+    "en": "Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts",
+    "zh-CN": "执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置"
+  },
+  "Execution model ref; omitted uses the inherited launch preset model or the selected engine default": {
+    "en": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  },
+  "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型": {
+    "en": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  },
+  "Execution model ref; omitted uses the inherited launch preset model or the selected engine default\n执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型": {
+    "en": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  },
+  "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default": {
+    "en": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  },
+  "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型": {
+    "en": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  },
+  "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default\n执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型": {
+    "en": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  },
+  "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details.": {
+    "en": "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details.",
+    "zh-CN": "根据描述和技能选择专家。runtime_required 适用于直接启动会话；Task 和定时任务可以使用发行版默认执行配置。显式指定的 runtime 和 model 优先。完整内容见 profile_get。"
+  },
+  "根据描述和技能选择专家。runtime_required 适用于直接启动会话；Task 和定时任务可以使用发行版默认执行配置。显式指定的 runtime 和 model 优先。完整内容见 profile_get。": {
+    "en": "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details.",
+    "zh-CN": "根据描述和技能选择专家。runtime_required 适用于直接启动会话；Task 和定时任务可以使用发行版默认执行配置。显式指定的 runtime 和 model 优先。完整内容见 profile_get。"
+  },
+  "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details.\n根据描述和技能选择专家。runtime_required 适用于直接启动会话；Task 和定时任务可以使用发行版默认执行配置。显式指定的 runtime 和 model 优先。完整内容见 profile_get。": {
+    "en": "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details.",
+    "zh-CN": "根据描述和技能选择专家。runtime_required 适用于直接启动会话；Task 和定时任务可以使用发行版默认执行配置。显式指定的 runtime 和 model 优先。完整内容见 profile_get。"
   }
 }

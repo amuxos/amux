@@ -1559,7 +1559,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `-h, --help` | `bool` | `false` | create-task 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |
 | `--local-dir` | `string` | `""` | 覆盖目标机器上的工作目录 |
-| `--model` | `string` | `""` | 执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束 |
+| `--model` | `string` | `""` | 执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型 |
 | `--name` | `string` | `""` | Schedule 的可选标签 |
 | `--permission-policy` | `string` | `""` | 权限策略：default、policy-allow 或 deny-all |
 | `--repo-cache-key` | `string` | `""` | 工作区仓库缓存键 |
@@ -1568,7 +1568,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `--repo-remote` | `string` | `""` | 工作区仓库远端 URL 或稳定 ID |
 | `--repo-subdir` | `string` | `""` | 工作区仓库子目录 |
 | `--run-as` | `string` | `""` | 以已注册的 Principal 别名运行（保存 Schedule 时解析并冻结） |
-| `--runtime` | `string` | `""` | 执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略 |
+| `--runtime` | `string` | `""` | 执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置 |
 | `--task` | `string` | `""` | 每次 Schedule 触发时执行的任务 Prompt |
 | `--timeout` | `int` | `0` | 任务超时秒数（0 = Runtime 默认值） |
 | `--trusted-mode-ack` | `bool` | `true` | 旧版空操作：弱隔离下默认注入长期密钥（v0.38） |
@@ -1682,7 +1682,7 @@ amux schedule update 8 --name nightly-report
 | `-h, --help` | `bool` | `false` | update 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |
 | `--local-dir` | `string` | `""` | 覆盖目标机器上的工作目录 |
-| `--model` | `string` | `""` | 执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束 |
+| `--model` | `string` | `""` | 执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型 |
 | `--name` | `string` | `""` | Schedule 的新标签 |
 | `--permission-policy` | `string` | `""` | 权限策略：default、policy-allow 或 deny-all |
 | `--repo-cache-key` | `string` | `""` | 工作区仓库缓存键 |
@@ -1691,7 +1691,7 @@ amux schedule update 8 --name nightly-report
 | `--repo-remote` | `string` | `""` | 工作区仓库远端 URL 或稳定 ID |
 | `--repo-subdir` | `string` | `""` | 工作区仓库子目录 |
 | `--run-as` | `string` | `""` | 以已注册的 Principal 别名运行（保存 Schedule 时解析并冻结） |
-| `--runtime` | `string` | `""` | 执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略 |
+| `--runtime` | `string` | `""` | 执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置 |
 | `--spec` | `string` | `""` | 新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；重新计算下次运行时间 |
 | `--task` | `string` | `""` | 每次 Schedule 触发时执行的任务 Prompt |
 | `--timeout` | `int` | `0` | 任务超时秒数（0 = Runtime 默认值） |
@@ -2695,12 +2695,12 @@ amux task submit <task prompt> [flags]
 | `--credential-profile` | `string` | `""` | 凭据 Profile 名称（由控制面解析） |
 | `-h, --help` | `bool` | `false` | submit 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |
-| `--model` | `string` | `""` | 执行模型引用；外部 v2 专家省略时使用所选 Runtime 的默认模型；builtin 快捷入口使用 amux 调用方默认值，旧版专家仍遵守其原有约束 |
+| `--model` | `string` | `""` | 执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型 |
 | `--permission` | `string` | `""` | 权限策略：policy-allow \| escalate-to-main \| deny-all（默认 policy-allow） |
 | `--profile` | `string` | `""` | 调度前解析的 Agent Profile 引用（覆盖 --agent） |
 | `--repo-dir` | `string` | `""` | git-worktree 工作区的仓库缓存目录 |
 | `--run-as` | `string` | `""` | 以已注册的 Principal 别名运行（由 amuxd 解析） |
-| `--runtime` | `string` | `""` | 执行 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略 |
+| `--runtime` | `string` | `""` | 执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置 |
 | `--timeout` | `int` | `0` | 任务超时秒数（0 = Runtime 默认值） |
 | `--trusted-mode-ack` | `bool` | `true` | 旧版空操作：弱隔离下默认注入长期密钥（v0.38） |
 | `--wait` | `bool` | `false` | 阻塞至任务结束并打印结果 |

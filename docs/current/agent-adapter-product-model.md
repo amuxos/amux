@@ -34,7 +34,11 @@ Built-in Profiles also use manifest v2 and contain no execution fields. The amux
 caller retains named built-in launch presets independently of Pack content, so
 existing shortcut launches still select their configured runtime, model and
 permission mode. Explicit caller settings take precedence. External v2 experts
-have no implicit preset; they still require a runtime. Profile discovery and
+have no Pack-owned execution preset. Direct session launches require a caller
+runtime; Task submission (including scheduled Tasks and instance creation) uses
+the distribution's default builtin launch preset when runtime is omitted. This
+fallback supplies runtime/model selection without borrowing the default expert's
+content or permissions. Profile discovery and
 content projection never restore execution fields from the preset, and resolved
 execution is frozen only in the launch snapshot.
 
