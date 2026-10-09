@@ -857,9 +857,6 @@ func (s *server) Restart(ctx context.Context, req *pb.RestartRequest) (*pb.RunRe
 	if err := ownerGuard(sess); err != nil {
 		return nil, err
 	}
-	if sess.AgentType == "" {
-		return nil, status.Errorf(codes.FailedPrecondition, "session %q has no agent_type recorded; cannot restart", req.Name)
-	}
 	s.adoptAgentActorToken(sess, req.AgentActorToken, req.AgentActorTokenExpiresAt)
 	if req.Replacement != nil {
 		return s.reconfigureExecutionAndRelaunch(ctx, sess, req.Replacement, req.PreserveHistory)

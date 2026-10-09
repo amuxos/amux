@@ -603,8 +603,10 @@ func (s *server) relaunchSessionLockedWithEnvContextAndQueue(ctx context.Context
 	if action == "resuming" && snap.State != session.StateSleeping {
 		return nil, status.Errorf(codes.FailedPrecondition, "session %q is %s; only sleeping sessions can resume", snap.Name, snap.State)
 	}
-	if snap.AgentType == "" {
-		return nil, status.Errorf(codes.FailedPrecondition, "session %q has no agent_type recorded; cannot %s", snap.Name, action)
+	original := snap
+	snap, fallbackReq, err := s.recoverRestartDefaults(snap)
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "%v", err)
 	}
 	a, err := adapter.Get(snap.AgentType)
 	if err != nil {
@@ -613,10 +615,40 @@ func (s *server) relaunchSessionLockedWithEnvContextAndQueue(ctx context.Context
 	if actorToken == "" {
 		actorToken, actorTokenExpiresAt = readSessionActorToken(s.amuxDir, snap.ID)
 	}
+	if recordedRestartEngine(original) == "" {
+		if snap.HandoffContext == "" {
+			snap.HandoffContext, err = s.mgr.ConversationHandoff(sess)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "%v", err)
+			}
+		}
+		snap.AgentSessionID = ""
+	}
+	materializationCwd := ""
+	if fallbackReq != nil {
+		materializationCwd = snap.Cwd
+		if snap.ExecutionIdentity.IsolationBackend == principal.BackendLinuxDAC {
+			materializationCwd, err = os.MkdirTemp(s.amuxDir, "isolation-restart-*")
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "%v", err)
+			}
+			defer os.RemoveAll(materializationCwd)
+		}
+	}
 	_ = sess.Kill()
 	principalPaths, err := s.prepareRelaunchIsolation(ctx, sess, snap)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "prepare %s launch: %v", action, err)
+	}
+	if fallbackReq != nil {
+		if err := materializeProfileWorkspace(fallbackReq, materializationCwd, "", s.amuxDir); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
+	}
+	if snap.AgentType != original.AgentType || snap.AgentProfile != original.AgentProfile || snap.LaunchSpec != original.LaunchSpec {
+		if err := s.mgr.RestoreLaunchSnapshot(sess, snap); err != nil {
+			return nil, status.Errorf(codes.Internal, "%v", err)
+		}
 	}
 	wasSleeping := snap.State == session.StateSleeping
 	if queueLocked {
@@ -666,7 +698,7 @@ func (s *server) relaunchSessionLockedWithEnvContextAndQueue(ctx context.Context
 		currentLaunchID := sess.Snapshot().LaunchID
 		relaunchEnv, recordEnv, runExtraArgs, err = materializeLinuxDACSessionLaunch(func(sources []isolation.BundleSource) error {
 			return s.isolationRuntime.MaterializeExecution(ctx, snap.ExecutionIdentity, currentLaunchID, principalPaths.Workspace, sources)
-		}, "", profileSessionDir(s.amuxDir, snap.ID), snap.LaunchID, principalPaths, isolatedHomeProjectionFor(snap.AgentType, s.reportLaunchWarning(sess)), relaunchEnv, recordEnv, runExtraArgs)
+		}, materializationCwd, profileSessionDir(s.amuxDir, snap.ID), snap.LaunchID, principalPaths, isolatedHomeProjectionFor(snap.AgentType, s.reportLaunchWarning(sess)), relaunchEnv, recordEnv, runExtraArgs)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "materialize %s isolation bundle: %v", action, err)
 		}
