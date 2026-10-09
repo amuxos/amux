@@ -29,7 +29,7 @@ Execution availability is checked again when a Session launches.
 
 A target identifies a runtime location. A session is an ongoing conversation
 with one agent; a task is a bounded execution with a result. Profile references
-select an agent and launch policy. Supported builtin profiles are `builtin/codex`,
+select reusable expert content. Supported builtin profiles are `builtin/codex`,
 `builtin/claude` and `builtin/pi`; the default is `builtin/codex`.
 Built-in Pack manifests use v2. The CLI supplies the named built-in launch preset
 when using a built-in shortcut; explicit runtime/model/native permission choices
@@ -38,15 +38,13 @@ expert remains `builtin/codex`; its execution defaults are caller policy, not
 Profile fields.
 
 With an explicit runtime, a model name is passed to the native agent even when it
-is absent from runtime suggestions. Without a runtime override, a profile's
-explicit `supported_models` remains its model allowlist.
+is absent from runtime suggestions. Packs do not define model allowlists.
 
 `session set-model` and MCP `amux.session_set_model` retain an explicitly selected
 runtime from the session's launch snapshot. They resolve the target model using
 that runtime's model policy, preserving the frozen Profile identity and reasoning
 effort without reapplying the source Profile's model allowlist. Unsupported
-reasoning effort fails before changing the running session. Without a saved
-runtime override, model switching continues to use the Profile's model policy.
+reasoning effort fails before changing the running session.
 
 Every session uses the same line-oriented terminal UI. Submitted text enters the
 session queue; `session queue` lists pending inputs, and `session queue cancel`
@@ -152,6 +150,9 @@ classification (development metadata, temporary/evaluation flags, or the legacy
 Healthy profiles remain available when another pack fails to load; CLI JSON and
 Hub responses report `profiles_error`, and human-readable CLI output warns on
 stderr. `agent local create --description` records a purpose summary in the Pack.
+Local creation and authoring produce content-only v2 Packs. Creation does not accept
+`--type`, `--model`, or `--permission`; choose execution settings when launching.
+Older Pack schemas are rejected without rewriting user files.
 
 ## Offline Profile rendering
 

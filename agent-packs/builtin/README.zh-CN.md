@@ -5,7 +5,7 @@
 [English](README.md) | [简体中文](README.zh-CN.md)
 
 `dist/agent-pack.manifest.json` 是本 Pack 直接维护的运行时 manifest。
-它与外部 Git Pack 使用相同的 v1.1 消费契约，构建 amux 不需要独立的 authoring 工具。
+它与外部 Git Pack 使用相同的 v2 消费契约，构建 amux 不需要独立的 authoring 工具。
 这些 Profile 使用用户原生 Agent 的认证和默认模型，不包含托管模型服务或凭据。
 Provider 权限模式与现有内置 Profile 一致。
 

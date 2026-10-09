@@ -22,17 +22,16 @@ Session、Task 和 Schedule 使用 Hub 控制面。每个 Runtime 在本机执�
 `--profile` 选择 Bot 作用域，必须匹配 JSON 中的范围；Session 启动时再次校验执行可用性。
 
 Target 标识 Runtime 的位置。Session 是与一个智能体持续进行的对话；Task 是有结果的
-有界执行。Profile 引用选择 Agent 和启动策略。支持的内置 Profile 为 `builtin/codex`、
+有界执行。Profile 引用选择专家内容。支持的内置 Profile 为 `builtin/codex`、
 `builtin/claude` 和 `builtin/pi`，默认是 `builtin/codex`。
 内置 Profile 使用 v2，只保存内容。amux 调用方为命名快捷入口提供 Runtime、模型和权限默认值；显式执行选择优先，解析后的执行设置冻结到启动快照。外部 v2 Profile 仍需调用方提供 Runtime。
 显式指定 Runtime 时，即使模型名不在 Runtime 建议列表中，也原样传给原生 Agent。
-没有 Runtime 覆盖时，Profile 显式声明的 `supported_models` 仍是模型允许列表。
+Pack 不声明模型允许列表。
 
 `session set-model` 和 MCP `amux.session_set_model` 保留 Session 启动快照中显式
 选择的 Runtime，按该 Runtime 的模型策略解析目标模型，同时保留冻结的 Profile 身份
 与思考强度，不重新套用源 Profile 的模型允许列表。目标模型不支持已选思考强度时，
-在修改运行中 Session 前报错。没有保存 Runtime 覆盖时，模型切换继续遵循 Profile
-的模型策略。
+在修改运行中 Session 前报错。
 
 所有 Session 使用相同的行式终端 UI。提交的文本进入 Session 队列；
 `session queue` 查看待处理输入，`session queue cancel` 和 `session queue clear`
@@ -116,3 +115,6 @@ MCP 工具不接受作用域或 Principal 覆盖参数：Hub 认证调用方并�
 `amux agent render` 通过 `--runtime` 和 `--model` 独立于专家引用选择执行配置。
 外部 v2 专家必须显式指定 Runtime，否则在写入任何输出前报错；内置快捷入口可使用 amux 的调用方默认值。渲染只为所选引擎投影内容，
 不会启动引擎；执行权限仍由调用方通过原生启动参数提供。
+
+本地专家创建和编辑只产出内容型 v2 Pack。创建入口不接受 `--type`、`--model`、
+`--permission`；运行设置在启动时选择。旧版 Pack 会报版本不支持，不改写用户文件。

@@ -12,8 +12,8 @@ is an execution location. None is the identity of a running conversation.
 Manifest v2 profiles require a caller-selected runtime and cannot declare engine,
 model, provider, model allowlist or permission settings. Native execution arguments
 and the runtime/model choice belong to the caller; omitting permissions keeps the
-native engine's defaults. v1.1 retains its legacy launch defaults. Both versions
-freeze resolved execution settings in session snapshots. Refreshing v2 content
+native engine's defaults. Only manifest v2 is accepted, including managed local
+authoring. Execution settings are frozen in session snapshots. Refreshing v2 content
 preserves those settings, including the provider binding and permission arguments.
 The MCP `session_run`, `task_run`, `task_submit`, and `instance_spawn` inputs
 expose runtime and model selection separately from the expert reference.
@@ -228,5 +228,4 @@ advertise that support through `ConfigLayout`; MCP exposes it as the
 
 Runtime model/provider connection bindings are registered by the amux distribution,
 independently of builtin Pack content. Runtime catalog selection does not read provider
-definitions from the builtin manifest. Legacy v1.1 Pack profile provider resolution
-continues to use that Pack's own manifest; existing execution snapshots retain their bindings.
+definitions from the builtin manifest. Packs cannot define providers. Existing execution snapshots retain their runtime bindings.

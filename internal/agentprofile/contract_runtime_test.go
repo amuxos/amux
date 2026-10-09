@@ -48,7 +48,7 @@ func TestManagedContractSCMURLOverride(t *testing.T) {
 
 func TestManagedContractRuntimeInstallerInstallsLatestCompatiblePatch(t *testing.T) {
 	t.Setenv("AGENT_PACK_CONTRACT_SCM_URL", "https://contract.example/runtime.tar.gz")
-	const latestVersion = "0.5.7"
+	const latestVersion = "0.8.7"
 	root := filepath.Join(t.TempDir(), "agent-pack-contract")
 	release := testManagedContractRelease(t, "testos", "testarch", latestVersion, []byte("go-binary"), "")
 	installer := managedContractRuntimeInstaller{
@@ -162,7 +162,7 @@ func TestManagedContractRuntimeInstallerUpgradesToNewCompatibleLatest(t *testing
 	t.Setenv("AGENT_PACK_CONTRACT_SCM_URL", "https://contract.example/runtime.tar.gz")
 	root := filepath.Join(t.TempDir(), "runtime")
 	currentVersion := ManagedContractMinimumVersion
-	release := testManagedContractRelease(t, "testos", "testarch", currentVersion, []byte("go-binary-0.5.0"), "")
+	release := testManagedContractRelease(t, "testos", "testarch", currentVersion, []byte("go-binary-0.8.0"), "")
 	installer := managedContractRuntimeInstaller{
 		goos:   "testos",
 		goarch: "testarch",
@@ -182,8 +182,8 @@ func TestManagedContractRuntimeInstallerUpgradesToNewCompatibleLatest(t *testing
 		t.Fatalf("initial runtime version = %q", installed.Version)
 	}
 
-	currentVersion = "0.5.1"
-	release = testManagedContractRelease(t, "testos", "testarch", currentVersion, []byte("go-binary-0.5.1"), "")
+	currentVersion = "0.8.1"
+	release = testManagedContractRelease(t, "testos", "testarch", currentVersion, []byte("go-binary-0.8.1"), "")
 	upgraded, err := installer.ensure(context.Background(), root)
 	if err != nil {
 		t.Fatalf("upgrade to compatible latest: %v", err)

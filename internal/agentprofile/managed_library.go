@@ -15,8 +15,6 @@ import (
 	"strings"
 	"time"
 
-	agentpacks "github.com/amuxos/amux/agent-packs"
-	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/amuxhome"
 	"github.com/pelletier/go-toml/v2"
 )
@@ -34,7 +32,6 @@ var managedRevisionPattern = regexp.MustCompile(`^[0-9a-f]{40,64}$`)
 // ManagedContractRunner is the seam between amux-managed authoring and the
 // platform-neutral Agent Pack Contract implementation.
 type ManagedContractRunner interface {
-	Init(ctx context.Context, target string) error
 	Check(ctx context.Context, repoRoot string) error
 }
 
@@ -45,8 +42,19 @@ type ExecManagedContractRunner struct {
 	Command string
 }
 
-func (r ExecManagedContractRunner) Init(ctx context.Context, target string) error {
-	return r.run(ctx, "init", target)
+// initializeManagedPack writes the v2 source contract directly. Authoring never
+// depends on an external tool's default init template.
+func initializeManagedPack(target string) error {
+	if err := os.MkdirAll(target, 0700); err != nil {
+		return err
+	}
+	data := `schema_version = "v2"
+name = "local"
+namespace = "local"
+description = "local"
+owners = []
+`
+	return os.WriteFile(filepath.Join(target, "agent-pack.toml"), []byte(data), 0600)
 }
 
 func (r ExecManagedContractRunner) Check(ctx context.Context, repoRoot string) error {
@@ -78,12 +86,9 @@ func (r ExecManagedContractRunner) run(ctx context.Context, args ...string) erro
 }
 
 type ManagedProfileSpec struct {
-	Description    string
-	Name           string
-	Type           string
-	Model          string
-	PermissionMode string
-	Instructions   string
+	Description  string
+	Name         string
+	Instructions string
 }
 
 type ManagedLibraryMutation struct {
@@ -191,7 +196,7 @@ func (m *ManagedLibrary) Ensure(ctx context.Context) error {
 		}
 		defer os.RemoveAll(operationRoot)
 		repoRoot := filepath.Join(operationRoot, ManagedLocalPackNamespace)
-		if err := m.contract.Init(ctx, repoRoot); err != nil {
+		if err := initializeManagedPack(repoRoot); err != nil {
 			return err
 		}
 		if _, err := gitCommand(ctx, repoRoot, "init"); err != nil {
@@ -501,13 +506,13 @@ func (m *ManagedLibrary) initialize(ctx context.Context, spec ManagedProfileSpec
 	}
 	defer os.RemoveAll(operationRoot)
 	repoRoot := filepath.Join(operationRoot, ManagedLocalPackNamespace)
-	if err := m.contract.Init(ctx, repoRoot); err != nil {
+	if err := initializeManagedPack(repoRoot); err != nil {
 		return ManagedLibraryMutation{}, err
 	}
 	if err := writeManagedProfile(repoRoot, spec); err != nil {
 		return ManagedLibraryMutation{}, err
 	}
-	if err := m.contract.Check(ctx, repoRoot); err != nil {
+	if err := m.check(ctx, repoRoot); err != nil {
 		return ManagedLibraryMutation{}, err
 	}
 	if _, err := gitCommand(ctx, repoRoot, "init"); err != nil {
@@ -579,7 +584,7 @@ func (m *ManagedLibrary) mutateExisting(ctx context.Context, expectedRevision, p
 	if err := mutate(worktree); err != nil {
 		return ManagedLibraryMutation{}, err
 	}
-	if err := m.contract.Check(ctx, worktree); err != nil {
+	if err := m.check(ctx, worktree); err != nil {
 		return ManagedLibraryMutation{}, err
 	}
 	if _, err := gitCommand(ctx, worktree, "add", "--all"); err != nil {
@@ -849,24 +854,7 @@ func validateManagedProfileSpec(spec *ManagedProfileSpec) error {
 	if err := validateManagedProfileName(spec.Name); err != nil {
 		return err
 	}
-	spec.Type = strings.TrimSpace(spec.Type)
-	if spec.Type == "" {
-		spec.Type = ManagedLocalDefaultAgent
-	}
-	if _, err := adapter.Get(spec.Type); err != nil {
-		return err
-	}
 	spec.Description = strings.TrimSpace(spec.Description)
-	spec.Model = strings.TrimSpace(spec.Model)
-	spec.PermissionMode = strings.TrimSpace(spec.PermissionMode)
-	if spec.PermissionMode == "" {
-		spec.PermissionMode = "default"
-	}
-	switch spec.PermissionMode {
-	case "default", "plan", "bypass":
-	default:
-		return fmt.Errorf("permission mode must be one of default, plan, bypass")
-	}
 	if strings.TrimSpace(spec.Instructions) == "" {
 		return fmt.Errorf("instructions must not be empty")
 	}
@@ -890,19 +878,12 @@ func writeManagedProfile(repoRoot string, spec ManagedProfileSpec) error {
 		return err
 	}
 	lines := []string{
-		"type = " + managedTOMLString(spec.Type),
 		"description = " + managedTOMLString(description),
-	}
-	if spec.Model != "" {
-		lines = append(lines, "model = "+managedTOMLString(spec.Model))
 	}
 	lines = append(lines,
 		"instructions = ["+managedTOMLString(filepath.ToSlash(filepath.Join("instructions", "common", spec.Name, "AGENTS.md")))+"]",
 		"skills = []",
 		"subagents = []",
-		"",
-		"[permission]",
-		"permission_mode = "+managedTOMLString(spec.PermissionMode),
 		"",
 	)
 	if err := os.WriteFile(profilePath, []byte(strings.Join(lines, "\n")), 0600); err != nil {
@@ -923,16 +904,18 @@ func writeManagedInstructions(repoRoot, name, instructions string) error {
 }
 
 func writeBuiltinFork(repoRoot string, profile Profile, targetName string) error {
-	source, err := effectiveBuiltinProfileSource(profile.Name, map[string]bool{})
-	if err != nil {
+	source := map[string]any{
+		"description": profile.Description,
+		"skills":      cloneStrings(profile.Skills),
+		"subagents":   cloneStrings(profile.Subagents),
+		"envs":        cloneStrings(profile.Envs),
+		"env_refs":    cloneStrings(profile.EnvRefs),
+	}
+	if err := copyBuiltinForkAssets(builtinProfileFS, source, repoRoot); err != nil {
 		return err
 	}
-	if err := copyBuiltinForkAssets(agentpacks.Builtin(), source, repoRoot); err != nil {
-		return err
-	}
-	delete(source, "extends")
-	if strings.TrimSpace(profile.Description) != "" {
-		source["description"] = profile.Description
+	if strings.TrimSpace(profile.Description) == "" {
+		source["description"] = targetName
 	}
 	if strings.TrimSpace(profile.AgentsContent) != "" {
 		instructionRef := filepath.ToSlash(filepath.Join("instructions", "common", targetName, "AGENTS.md"))
@@ -954,39 +937,6 @@ func writeBuiltinFork(repoRoot string, profile Profile, targetName string) error
 	return os.WriteFile(path, data, 0600)
 }
 
-func effectiveBuiltinProfileSource(name string, visiting map[string]bool) (map[string]any, error) {
-	name = strings.TrimSpace(name)
-	if visiting[name] {
-		return nil, fmt.Errorf("builtin profile inheritance cycle at %q", name)
-	}
-	visiting[name] = true
-	defer delete(visiting, name)
-	path := filepath.ToSlash(filepath.Join("profiles", "common", name+".toml"))
-	data, err := fs.ReadFile(agentpacks.Builtin(), path)
-	if err != nil {
-		return nil, fmt.Errorf("read builtin profile source %s: %w", path, err)
-	}
-	current := map[string]any{}
-	if err := toml.Unmarshal(data, &current); err != nil {
-		return nil, fmt.Errorf("parse builtin profile source %s: %w", path, err)
-	}
-	baseName, _ := current["extends"].(string)
-	effective := map[string]any{}
-	if strings.TrimSpace(baseName) != "" {
-		base, err := effectiveBuiltinProfileSource(baseName, visiting)
-		if err != nil {
-			return nil, err
-		}
-		for key, value := range base {
-			effective[key] = value
-		}
-	}
-	for key, value := range current {
-		effective[key] = value
-	}
-	return effective, nil
-}
-
 func copyBuiltinForkAssets(sourceFS fs.FS, profileSource map[string]any, destinationRoot string) error {
 	for _, name := range managedStringSlice(profileSource["skills"]) {
 		copied := false
@@ -1006,31 +956,6 @@ func copyBuiltinForkAssets(sourceFS fs.FS, profileSource map[string]any, destina
 		}
 		if !copied {
 			return fmt.Errorf("builtin skill %q is missing from the embedded source pack", name)
-		}
-	}
-	providerRefs := append(managedStringSlice(profileSource["providers"]), managedStringSlice(profileSource["supported_models"])...)
-	if model, ok := profileSource["model"].(string); ok {
-		providerRefs = append(providerRefs, model)
-	}
-	seen := make(map[string]struct{}, len(providerRefs))
-	for _, ref := range providerRefs {
-		binding, model, qualified := strings.Cut(strings.TrimSpace(ref), "/")
-		if !qualified || strings.TrimSpace(binding) == "" || strings.TrimSpace(model) == "" {
-			continue
-		}
-		sourcePath := filepath.ToSlash(filepath.Join("providers", binding, model+".toml"))
-		if _, duplicate := seen[sourcePath]; duplicate {
-			continue
-		}
-		seen[sourcePath] = struct{}{}
-		if _, err := fs.Stat(sourceFS, sourcePath); err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				continue
-			}
-			return err
-		}
-		if err := copyEmbeddedPathIfAbsent(sourceFS, sourcePath, destinationRoot); err != nil {
-			return err
 		}
 	}
 	return nil
@@ -1111,4 +1036,32 @@ func configureManagedGitIdentity(ctx context.Context, repoRoot string) error {
 	}
 	_, err := gitCommand(ctx, repoRoot, "config", "user.email", "amux@local")
 	return err
+}
+
+// check validates both sides of the compiler boundary before preview or publish.
+func (m *ManagedLibrary) check(ctx context.Context, root string) error {
+	if err := validateManagedPackSource(root); err != nil {
+		return err
+	}
+	if err := m.contract.Check(ctx, root); err != nil {
+		return err
+	}
+	return ValidatePackManifest(Pack{Namespace: ManagedLocalPackNamespace, MaterializedPath: root})
+}
+
+func validateManagedPackSource(root string) error {
+	data, err := os.ReadFile(filepath.Join(root, "agent-pack.toml"))
+	if err != nil {
+		return err
+	}
+	var source struct {
+		SchemaVersion string `toml:"schema_version"`
+	}
+	if err := toml.Unmarshal(data, &source); err != nil {
+		return err
+	}
+	if source.SchemaVersion != supportedPackManifestSchemaVersion {
+		return profileError("source_schema_unsupported", source.SchemaVersion)
+	}
+	return nil
 }

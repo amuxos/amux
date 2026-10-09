@@ -63,7 +63,7 @@ admission validates platform support and workspace access before launch. Strong
 container/VM isolation and cross-machine high availability remain target
 specifications, not capabilities implied by the distributed API.
 
-Profile consumption supports manifests v1.1 and v2 and follows the one-way dependency from
+Profile consumption supports manifest v2 only and follows the one-way dependency from
 profile materialization to task/adapter contracts. Optional local expert authoring
 requires an explicitly configured compatible authoring runtime and fails closed
 when unavailable; native builtin profiles continue to run.

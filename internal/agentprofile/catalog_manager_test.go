@@ -456,7 +456,7 @@ func TestPackCatalogSnapshotSeparatesManagedLocalExpertsFromLoadedPacks(t *testi
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
-	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "Review changes."})
+	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "Review changes."})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestPackCatalogSnapshotSeparatesManagedLocalExpertsFromLoadedPacks(t *testi
 		t.Fatalf("LocalExperts = %+v", snapshot.LocalExperts)
 	}
 	local := snapshot.LocalExperts[0]
-	if local.Ref != "local/reviewer" || local.AgentType != "codex" || local.Revision != created.Revision || !local.Writable {
+	if local.Ref != "local/reviewer" || local.AgentType != "" || local.Revision != created.Revision || !local.Writable {
 		t.Fatalf("local expert state = %+v", local)
 	}
 }

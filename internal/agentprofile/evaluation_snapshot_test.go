@@ -13,22 +13,28 @@ func TestResolveTaskSpecSnapshotsLocalSkillFiles(t *testing.T) {
 	writePackContent(t, packRoot, "instructions/reviewer/AGENTS.md", "review carefully\n")
 	writePackContent(t, packRoot, "skills/custom/demo/SKILL.md", "local skill\n")
 	writeManifest(t, packRoot, `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "local",
   "profiles": {
     "reviewer": {
       "namespace": "local",
-      "type": "codex",
-      "model": "gpt-5",
-      "providers": [],
-      "instructions": ["instructions/reviewer/AGENTS.md"],
-      "skills": ["demo"],
+      "instructions": [
+        "instructions/reviewer/AGENTS.md"
+      ],
+      "skills": [
+        "demo"
+      ],
       "subagents": [],
       "extends": null
     }
   },
-  "providers": {},
-  "namespaces": {"local": {"profiles": ["reviewer"]}}
+  "namespaces": {
+    "local": {
+      "profiles": [
+        "reviewer"
+      ]
+    }
+  }
 }`)
 	registryPath := filepath.Join(t.TempDir(), "registry.json")
 	if err := SavePackRegistry(registryPath, PackRegistry{Packs: map[string]Pack{
@@ -40,7 +46,7 @@ func TestResolveTaskSpecSnapshotsLocalSkillFiles(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("SavePackRegistry: %v", err)
 	}
-	spec := task.Spec{Agent: "local/reviewer", Task: "review"}
+	spec := task.Spec{Runtime: "codex", Agent: "local/reviewer", Task: "review"}
 	if err := ResolveTaskSpec(&spec, registryPath); err != nil {
 		t.Fatalf("ResolveTaskSpec: %v", err)
 	}

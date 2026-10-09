@@ -21,20 +21,6 @@ type fakeManagedContractRunner struct {
 	checkHook       func() error
 }
 
-func (r *fakeManagedContractRunner) Init(_ context.Context, target string) error {
-	if err := os.MkdirAll(filepath.Join(target, "dist"), 0700); err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(target, "agent-pack.toml"), []byte(strings.Join([]string{
-		`schema_version = "v1.1"`,
-		`name = "local"`,
-		`namespace = "local"`,
-		`description = "Local experts managed by amux."`,
-		`owners = []`,
-		"",
-	}, "\n")), 0600)
-}
-
 func (r *fakeManagedContractRunner) Check(_ context.Context, repoRoot string) error {
 	if r.failCheck {
 		return errors.New("contract rejected source")
@@ -55,33 +41,29 @@ func (r *fakeManagedContractRunner) Check(_ context.Context, repoRoot string) er
 		if r.invalidManifest {
 			instructionPaths = []string{"instructions/missing/AGENTS.md"}
 		}
+		for _, field := range []string{"type", "model", "providers", "supported_models", "permission_mode"} {
+			if managedTestTOMLString(source, field) != "" {
+				return fmt.Errorf("unexpected execution field %s", field)
+			}
+		}
 		entry := map[string]any{
-			"namespace":    "common",
-			"description":  managedTestTOMLString(source, "description"),
-			"type":         managedTestTOMLString(source, "type"),
-			"providers":    []string{},
+			"namespace":   "common",
+			"description": managedTestTOMLString(source, "description"),
+
 			"instructions": instructionPaths,
 			"skills":       []string{},
 			"subagents":    []string{},
 			"extends":      nil,
-			"permission": map[string]any{
-				"permission_mode": managedTestTOMLString(source, "permission_mode"),
-				"allowed_tools":   []string{},
-				"ask_tools":       []string{},
-			},
-		}
-		if model := managedTestTOMLString(source, "model"); model != "" {
-			entry["model"] = model
 		}
 		profiles[name] = entry
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	manifest := map[string]any{
-		"schema_version": "v1.1",
+		"schema_version": "v2",
 		"pack_namespace": "local",
 		"profiles":       profiles,
-		"providers":      map[string]any{},
+
 		"namespaces": map[string]any{
 			"common": map[string]any{"profiles": names},
 		},
@@ -154,7 +136,7 @@ func TestDefaultManagedLibraryDegradedAuthoringStateBlocksWritesButAllowsSnapsho
 
 	library := NewDefaultManagedLibrary()
 	_, err := library.Create(context.Background(), ManagedProfileSpec{
-		Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "review",
+		Name: "reviewer", Instructions: "review",
 	})
 	if err == nil || !strings.Contains(err.Error(), "local expert authoring is degraded") || !strings.Contains(err.Error(), "amux update") {
 		t.Fatalf("Create error = %v, want degraded authoring repair guidance", err)
@@ -171,12 +153,9 @@ func TestManagedLibraryCreateRegistersStandardGitPack(t *testing.T) {
 	library := NewManagedLibrary(libraryRoot, registryPath, &fakeManagedContractRunner{})
 
 	result, err := library.Create(context.Background(), ManagedProfileSpec{
-		Name:           "reviewer",
-		Description:    "Review concrete changes",
-		Type:           "codex",
-		Model:          "gpt-5.4",
-		PermissionMode: "default",
-		Instructions:   "# Reviewer\n\nReview concrete changes.\n",
+		Name:         "reviewer",
+		Description:  "Review concrete changes",
+		Instructions: "# Reviewer\n\nReview concrete changes.\n",
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -206,7 +185,7 @@ func TestManagedLibraryCreateRegistersStandardGitPack(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("ResolvePackProfile: ok=%v err=%v", ok, err)
 	}
-	if profile.Description != "Review concrete changes" || profile.Type != "codex" || profile.Model != "gpt-5.4" || !strings.Contains(profile.AgentsContent, "Review concrete changes") {
+	if profile.Description != "Review concrete changes" || profile.Type != "" || profile.Model != "" || !strings.Contains(profile.AgentsContent, "Review concrete changes") {
 		t.Fatalf("resolved profile = %+v", profile)
 	}
 }
@@ -218,10 +197,8 @@ func TestManagedLibraryRepairsLegacySameOriginRegistrationWithoutMetadata(t *tes
 	library := NewManagedLibrary(libraryRoot, registryPath, &fakeManagedContractRunner{})
 
 	created, err := library.Create(context.Background(), ManagedProfileSpec{
-		Name:           "reviewer",
-		Type:           "codex",
-		PermissionMode: "default",
-		Instructions:   "Review concrete changes.",
+		Name:         "reviewer",
+		Instructions: "Review concrete changes.",
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -261,10 +238,8 @@ func TestManagedLibraryDoesNotTakeOverSameOriginOwnedByAnotherManager(t *testing
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(libraryRoot, registryPath, &fakeManagedContractRunner{})
 	if _, err := library.Create(context.Background(), ManagedProfileSpec{
-		Name:           "reviewer",
-		Type:           "codex",
-		PermissionMode: "default",
-		Instructions:   "Review concrete changes.",
+		Name:         "reviewer",
+		Instructions: "Review concrete changes.",
 	}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -298,11 +273,11 @@ func TestManagedLibraryCreateAddsAnotherProfileAtLatestRevision(t *testing.T) {
 		filepath.Join(root, "agent-packs", "registry.json"),
 		&fakeManagedContractRunner{},
 	)
-	first, err := library.Create(context.Background(), ManagedProfileSpec{Name: "one", Type: "codex", PermissionMode: "default", Instructions: "one"})
+	first, err := library.Create(context.Background(), ManagedProfileSpec{Name: "one", Instructions: "one"})
 	if err != nil {
 		t.Fatalf("create one: %v", err)
 	}
-	second, err := library.Create(context.Background(), ManagedProfileSpec{Name: "two", Type: "claude", PermissionMode: "plan", Instructions: "two"})
+	second, err := library.Create(context.Background(), ManagedProfileSpec{Name: "two", Instructions: "two"})
 	if err != nil {
 		t.Fatalf("create two: %v", err)
 	}
@@ -327,7 +302,7 @@ func TestManagedLibraryUpdateInstructionsRequiresCurrentRevision(t *testing.T) {
 		runner,
 	)
 	created, err := library.Create(context.Background(), ManagedProfileSpec{
-		Name: "reviewer", Type: "codex", Model: "gpt-5.4", PermissionMode: "plan", Instructions: "old",
+		Name: "reviewer", Instructions: "old",
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -347,10 +322,10 @@ func TestManagedLibraryUpdateInstructionsRequiresCurrentRevision(t *testing.T) {
 	if err != nil || !ok || !strings.Contains(profile.AgentsContent, "new instructions") {
 		t.Fatalf("updated profile: ok=%v err=%v profile=%+v", ok, err, profile)
 	}
-	if profile.Type != "codex" || profile.Model != "gpt-5.4" {
-		t.Fatalf("updated profile type/model = %s/%s, want existing codex/gpt-5.4", profile.Type, profile.Model)
+	if profile.Type != "" || profile.Model != "" {
+		t.Fatalf("updated profile type/model = %s/%s, want content-only profile", profile.Type, profile.Model)
 	}
-	if got, want := profile.DefaultArgs, []string{"-c", `approval_policy="on-request"`, "-c", `sandbox_mode="read-only"`}; !equalStrings(got, want) {
+	if got, want := profile.DefaultArgs, []string(nil); !equalStrings(got, want) {
 		t.Fatalf("updated profile permission args = %#v, want %#v", got, want)
 	}
 }
@@ -360,7 +335,7 @@ func TestManagedLibraryAuthoringPreviewDoesNotPublishAndPublishReplaysPatch(t *t
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
 	created, err := library.Create(context.Background(), ManagedProfileSpec{
-		Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "old instructions",
+		Name: "reviewer", Instructions: "old instructions",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -688,7 +663,7 @@ func TestManagedLibraryExpertReadsPublishedInstructions(t *testing.T) {
 		filepath.Join(root, "agent-packs", "registry.json"),
 		&fakeManagedContractRunner{},
 	)
-	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "old"})
+	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "old"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -720,7 +695,7 @@ func TestManagedLibraryNoopUpdateKeepsProfileRef(t *testing.T) {
 		filepath.Join(root, "agent-packs", "registry.json"),
 		&fakeManagedContractRunner{},
 	)
-	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "same\n"})
+	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "same\n"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -741,7 +716,7 @@ func TestManagedLibraryReregistersAfterPackRemoval(t *testing.T) {
 		registryPath,
 		&fakeManagedContractRunner{},
 	)
-	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "one", Type: "codex", PermissionMode: "default", Instructions: "one"})
+	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "one", Instructions: "one"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -770,7 +745,7 @@ func TestManagedLocalPackRejectsGenericAddRemoveAndRollback(t *testing.T) {
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
-	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "review"})
+	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "review"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -796,7 +771,7 @@ func TestManagedLibraryContractFailureKeepsPublishedRevision(t *testing.T) {
 		filepath.Join(root, "agent-packs", "registry.json"),
 		runner,
 	)
-	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "old"})
+	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "old"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -822,7 +797,7 @@ func TestManagedLibraryPublishFailureRollsBackAllPublishedState(t *testing.T) {
 		registryPath,
 		runner,
 	)
-	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "old"})
+	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "old"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -862,7 +837,7 @@ func TestManagedLibraryDoesNotDeleteUnknownIncompleteRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	library := NewManagedLibrary(libraryRoot, filepath.Join(root, "agent-packs", "registry.json"), &fakeManagedContractRunner{})
-	if _, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "review"}); err == nil || !strings.Contains(err.Error(), "is not empty") {
+	if _, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "review"}); err == nil || !strings.Contains(err.Error(), "is not empty") {
 		t.Fatalf("Create error = %v", err)
 	}
 	if data, err := os.ReadFile(sentinel); err != nil || string(data) != "unknown state" {
@@ -879,7 +854,7 @@ func TestManagedLibraryPublishRevalidatesRegistryIdentity(t *testing.T) {
 		registryPath,
 		runner,
 	)
-	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "old"})
+	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "old"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -942,7 +917,7 @@ func TestManagedLibraryEnsurePreparesEmptyGitWithoutRegisteringPack(t *testing.T
 func TestManagedLibraryHistoryAndRestoreCreateAuditableRevision(t *testing.T) {
 	root := t.TempDir()
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), filepath.Join(root, "agent-packs", "registry.json"), &fakeManagedContractRunner{})
-	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "old"})
+	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "old"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -975,7 +950,7 @@ func TestManagedLibraryUpdatePreservesLegacyMaterializedRevision(t *testing.T) {
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
 	created, err := library.Create(context.Background(), ManagedProfileSpec{
-		Name: "reviewer", Type: "codex", PermissionMode: "default", Instructions: "old",
+		Name: "reviewer", Instructions: "old",
 	})
 	if err != nil {
 		t.Fatal(err)

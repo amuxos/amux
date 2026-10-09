@@ -35,10 +35,10 @@ func TestPortableRefreshPreservesFrozenExecution(t *testing.T) {
 	}
 }
 
-func TestBuiltinV1SnapshotRefreshesV2ContentWithoutNewDefaults(t *testing.T) {
-	// An old builtin/claude session explicitly used Codex with restricted args.
-	// Migrating the source must not apply today's Claude shortcut or bypass mode.
-	frozen := agentprofile.Profile{Namespace: "builtin", Name: "claude", Source: agentprofile.SourceBuiltin, Type: "codex", Model: "old-model", DefaultArgs: []string{"-c", `sandbox_mode="read-only"`}}
+func TestBuiltinSnapshotRefreshesContentWithoutNewDefaults(t *testing.T) {
+	// A builtin/claude session explicitly uses Codex with restricted args.
+	// Refreshing content must not apply the Claude shortcut or bypass mode.
+	frozen := agentprofile.Profile{Namespace: "builtin", Name: "claude", Source: agentprofile.SourceBuiltin, ExecutionRuntimeRef: "codex", Type: "codex", Model: "old-model", DefaultArgs: []string{"-c", `sandbox_mode="read-only"`}}
 	saved, err := json.Marshal(map[string]any{"profile_spec": agentprofile.ToPBProfileSpec(frozen)})
 	if err != nil {
 		t.Fatal(err)

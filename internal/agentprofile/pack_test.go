@@ -252,13 +252,26 @@ func TestAddGitPackValidatesManifestAfterCheckout(t *testing.T) {
 		t.Fatalf("remove legacy profiles: %v", err)
 	}
 	writeManifest(t, upstream, `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "example-team",
   "profiles": {
-    "broken": {"namespace":"common","type":"codex","model":"MiniMax-M2.7","providers":[],"instructions":["instructions/missing.md"],"skills":[],"subagents":[],"extends":null}
+    "broken": {
+      "namespace": "common",
+      "instructions": [
+        "instructions/missing.md"
+      ],
+      "skills": [],
+      "subagents": [],
+      "extends": null
+    }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["broken"]}}
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "broken"
+      ]
+    }
+  }
 }`)
 	runPackGit(t, upstream, "add", ".")
 	runPackGit(t, upstream, "commit", "-m", "add broken manifest")
@@ -280,7 +293,7 @@ func TestAddGitPackValidatesManifestAfterCheckout(t *testing.T) {
 	}
 }
 
-func TestAddGitPackRequiresManifestV11(t *testing.T) {
+func TestAddGitPackRequiresManifest(t *testing.T) {
 	root := t.TempDir()
 	upstream := filepath.Join(root, "legacy-upstream")
 	if err := os.MkdirAll(filepath.Join(upstream, "profiles"), 0700); err != nil {
@@ -417,13 +430,26 @@ func TestSyncPackManifestFailureRollsBackMaterializedCheckout(t *testing.T) {
 		t.Fatalf("remove profiles: %v", err)
 	}
 	writeManifest(t, upstream, `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "example-team",
   "profiles": {
-    "broken": {"namespace":"common","type":"codex","model":"MiniMax-M2.7","providers":[],"instructions":["instructions/missing.md"],"skills":[],"subagents":[],"extends":null}
+    "broken": {
+      "namespace": "common",
+      "instructions": [
+        "instructions/missing.md"
+      ],
+      "skills": [],
+      "subagents": [],
+      "extends": null
+    }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["broken"]}}
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "broken"
+      ]
+    }
+  }
 }`)
 	runPackGit(t, upstream, "add", ".")
 	runPackGit(t, upstream, "commit", "-m", "add broken manifest")
@@ -674,13 +700,26 @@ func initPackGitRepo(t *testing.T, repo, value string) string {
 	t.Helper()
 	writePackContent(t, repo, "instructions/coder/AGENTS.md", value+"\n")
 	writeManifest(t, repo, `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "example-team",
   "profiles": {
-    "coder": {"namespace":"common","type":"codex","model":"gpt-5-codex","providers":[],"instructions":["instructions/coder/AGENTS.md"],"skills":[],"subagents":[],"extends":null}
+    "coder": {
+      "namespace": "common",
+      "instructions": [
+        "instructions/coder/AGENTS.md"
+      ],
+      "skills": [],
+      "subagents": [],
+      "extends": null
+    }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["coder"]}}
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "coder"
+      ]
+    }
+  }
 }`)
 	runPackGit(t, repo, "init")
 	runPackGit(t, repo, "config", "user.name", "amux test")

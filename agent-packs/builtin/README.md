@@ -3,7 +3,7 @@
 [English](README.md) | [简体中文](README.zh-CN.md)
 
 `dist/agent-pack.manifest.json` is the authored runtime manifest for this pack.
-It uses the same v1.1 consumer contract as external Git packs, without requiring
+It uses the same v2 consumer contract as external Git packs, without requiring
 a separate authoring tool to build amux. Its profiles use the user's native agent
 authentication and model defaults; no hosted model service or credential is
 bundled. Provider permission modes match the existing builtin profiles.

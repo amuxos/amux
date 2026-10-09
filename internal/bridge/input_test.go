@@ -4114,6 +4114,7 @@ func TestBotDefaultAssistantUsesUniqueProfileShortName(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	installBridgeTestProfilePack(t)
 	b, hub := newBridgeForInputTest(t)
+	setCurrentBotRuntime(t, b, "codex")
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
 	b.threadNotice = func(context.Context, string, string) error { return nil }
@@ -5950,26 +5951,28 @@ agents = "AGENTS.md"
 		t.Fatalf("mkdir manifest dir: %v", err)
 	}
 	if err := os.WriteFile(manifestPath, []byte(`{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "team",
   "profiles": {
     "coder": {
       "namespace": "common",
-      "type": "codex",
-      "model": "gpt-5-codex",
       "description": "Team coding profile",
-      "providers": [],
-      "instructions": ["AGENTS.md"],
+      "instructions": [
+        "AGENTS.md"
+      ],
       "skills": [],
       "subagents": [],
-      "extends": null,
-      "permission": {"permission_mode": "plan"}
+      "extends": null
     }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["coder"]}}
-}
-`), 0600); err != nil {
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "coder"
+      ]
+    }
+  }
+}`), 0600); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
 	registry := agentprofile.PackRegistry{Packs: map[string]agentprofile.Pack{

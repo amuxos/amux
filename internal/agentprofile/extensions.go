@@ -79,12 +79,11 @@ type RuntimeModelVariant struct {
 // Customization is installed once, before starting the application. Shared
 // profile parsing, selection, snapshots and projection ordering stay in core.
 type Customization struct {
-	Builtin                  fs.FS
-	BuiltinMetadata          map[string]BuiltinMetadata
-	BuiltinLaunchPresets     map[string]BuiltinLaunchPreset
-	DefaultProfile           string
-	ManagedLocalDefaultAgent string
-	Catalog                  []byte
+	Builtin              fs.FS
+	BuiltinMetadata      map[string]BuiltinMetadata
+	BuiltinLaunchPresets map[string]BuiltinLaunchPreset
+	DefaultProfile       string
+	Catalog              []byte
 	// RuntimeProviders supplies distribution-owned model bindings independently of Pack content.
 	RuntimeProviders                 map[string]*Provider
 	RuntimeCatalog                   []RuntimeCatalogSource
@@ -126,7 +125,7 @@ func RegisterCustomization(next Customization) (err error) {
 	if customizationRegistered || customizationFrozen {
 		return fmt.Errorf("profile customization registration is closed")
 	}
-	if next.Builtin == nil || next.DefaultProfile == "" || next.ManagedLocalDefaultAgent == "" {
+	if next.Builtin == nil || next.DefaultProfile == "" {
 		return fmt.Errorf("profile customization requires a builtin pack and defaults")
 	}
 	packs, err := loadCatalogPacks(next.Catalog)
@@ -170,7 +169,7 @@ func RegisterCustomization(next Customization) (err error) {
 		if _, err := adapter.Get(preset.Runtime); err != nil {
 			return err
 		}
-		if _, err := permissionModeArgs(preset.Runtime, packProfilePermission{PermissionMode: preset.PermissionMode}); err != nil {
+		if _, err := permissionModeArgs(preset.Runtime, preset.PermissionMode); err != nil {
 			return err
 		}
 		presets[name] = preset
@@ -204,7 +203,6 @@ func RegisterCustomization(next Customization) (err error) {
 	builtinLaunchPresets = presets
 	allowUnlistedNativeRuntimeModels = next.AllowUnlistedNativeRuntimeModels
 	DefaultProfileRef = BuiltinNamespace + "/" + next.DefaultProfile
-	ManagedLocalDefaultAgent = next.ManagedLocalDefaultAgent
 	customizationRegistered = true
 	return nil
 }

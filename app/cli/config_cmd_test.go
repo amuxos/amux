@@ -606,25 +606,6 @@ func TestConfigDocumentCommentsModelRequiresAgentOverride(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
-	manifestPath := filepath.Join(repo, "dist", "agent-pack.manifest.json")
-	data, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var manifest map[string]any
-	if err := json.Unmarshal(data, &manifest); err != nil {
-		t.Fatal(err)
-	}
-	manifest["profiles"].(map[string]any)["coder"].(map[string]any)["supported_models"] = []string{"gpt-5-codex"}
-	data, err = json.Marshal(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(manifestPath, data, 0600); err != nil {
-		t.Fatal(err)
-	}
-	runGit(t, repo, "add", ".")
-	runGit(t, repo, "commit", "-m", "declare model policy")
 	runAgentPackCmd(t, "add", "team", repo)
 	modelKey := "bridge.feishu.profiles.coder.document_comments.model_ref"
 	agentKey := "bridge.feishu.profiles.coder.document_comments.agent_profile_ref"
@@ -652,8 +633,8 @@ func TestConfigDocumentCommentsModelRequiresAgentOverride(t *testing.T) {
 
 	cmd = newConfigCmd()
 	cmd.SetArgs([]string{"set", modelKey, "not-supported"})
-	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "not supported") {
-		t.Fatalf("set unsupported model error = %v, want supported_models validation", err)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("content-only profile must not restrict caller model: %v", err)
 	}
 
 	cmd = newConfigCmd()

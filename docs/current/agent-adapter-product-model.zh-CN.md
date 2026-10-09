@@ -12,7 +12,7 @@ Profile 提供可复用专家内容，Agent 类型是执行引擎实现，Runtim
 
 Manifest v2 专家要求调用方选择 Runtime，不能声明引擎、模型、Provider、模型白名单或
 权限设置。原生执行参数及 Runtime/模型选择属于调用方；省略权限设置时使用原生引擎默认值。
-v1.1 保留旧启动默认。两个版本都会把解析后的执行设置冻结到会话快照；刷新 v2 专家内容
+仅接受 v2 manifest，本地专家编辑也使用 v2。解析后的执行设置冻结到会话快照；刷新专家内容
 保留这些设置，包括 Provider 绑定及权限参数。
 MCP 的 `session_run`、`task_run`、`task_submit` 和 `instance_spawn` 输入将 Runtime、
 模型选择与专家引用分开提供。任务提交与持久实例创建通过 `extra_args` 暴露原生执行
@@ -169,5 +169,4 @@ Agent/平台组合；原生 Codex、Pi 的 OpenAI-compatible 规则由公共核�
 MCP 的 `supports_skills` 能力信息据此返回。
 
 Runtime 的模型与 Provider 连接配置由 amux 发行版注册，独立于 builtin Pack 内容。
-Runtime 模型目录不再读取 builtin manifest 的 Provider 定义。旧 v1.1 Pack 的 Profile
-仍从自身 manifest 解析 Provider；已有执行快照保留原来的连接配置。
+Runtime 模型目录不读取 Pack 的 Provider 定义，Pack 不得定义 Provider；已有执行快照保留运行时连接配置。

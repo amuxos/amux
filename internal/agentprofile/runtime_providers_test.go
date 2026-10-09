@@ -23,7 +23,7 @@ func TestRuntimeProviderRegistrationOwnsBindings(t *testing.T) {
 	}
 	provider := testRuntimeProvider()
 	bindings := map[string]*Provider{"custom/model": provider}
-	err := RegisterCustomization(Customization{Builtin: builtinProfileFS, DefaultProfile: "codex", ManagedLocalDefaultAgent: "codex", Catalog: []byte(`{"schema_version":"v1","packs":[]}`), RuntimeProviders: bindings, RuntimeCatalog: []RuntimeCatalogSource{{Ref: "codex", Models: []string{"custom/model"}}}})
+	err := RegisterCustomization(Customization{Builtin: builtinProfileFS, DefaultProfile: "codex", Catalog: []byte(`{"schema_version":"v1","packs":[]}`), RuntimeProviders: bindings, RuntimeCatalog: []RuntimeCatalogSource{{Ref: "codex", Models: []string{"custom/model"}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestInvalidRuntimeProviderRegistrationIsAtomic(t *testing.T) {
 		{"invalid connection", "custom/model", &Provider{Platform: "openai-compat", APIKeyEnv: "MODEL_API_KEY"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := RegisterCustomization(Customization{Builtin: builtinProfileFS, DefaultProfile: "codex", ManagedLocalDefaultAgent: "codex", Catalog: []byte(`{"schema_version":"v1","packs":[]}`), RuntimeProviders: map[string]*Provider{tc.ref: tc.provider}, RuntimeCatalog: []RuntimeCatalogSource{{Ref: "codex", Models: []string{tc.ref}}}})
+			err := RegisterCustomization(Customization{Builtin: builtinProfileFS, DefaultProfile: "codex", Catalog: []byte(`{"schema_version":"v1","packs":[]}`), RuntimeProviders: map[string]*Provider{tc.ref: tc.provider}, RuntimeCatalog: []RuntimeCatalogSource{{Ref: "codex", Models: []string{tc.ref}}}})
 			if err == nil {
 				t.Fatal("invalid runtime provider accepted")
 			}

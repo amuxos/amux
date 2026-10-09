@@ -7,52 +7,27 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/amuxos/amux/internal/adapter"
 )
 
 const packManifestRelPath = "dist/agent-pack.manifest.json"
-const supportedPackManifestSchemaVersion = "v1.1"
+const supportedPackManifestSchemaVersion = "v2"
 
 type packManifest struct {
 	SchemaVersion string                           `json:"schema_version"`
 	PackNamespace string                           `json:"pack_namespace"`
 	Profiles      map[string]packManifestProfile   `json:"profiles"`
-	Providers     map[string]packManifestProvider  `json:"providers"`
 	Namespaces    map[string]packManifestNamespace `json:"namespaces"`
 }
 
 type packManifestProfile struct {
-	Namespace       string                `json:"namespace"`
-	Type            string                `json:"type"`
-	Model           string                `json:"model"`
-	SupportedModels []string              `json:"supported_models"`
-	Description     string                `json:"description"`
-	Providers       []string              `json:"providers"`
-	Instructions    []string              `json:"instructions"`
-	Skills          []string              `json:"skills"`
-	Subagents       []string              `json:"subagents"`
-	Envs            []string              `json:"envs"`
-	EnvRefs         []string              `json:"env_refs"`
-	Extends         *string               `json:"extends"`
-	Permission      packProfilePermission `json:"permission"`
-}
-
-type packManifestProvider struct {
-	Platform        string            `json:"platform"`
-	WireAPI         string            `json:"wire_api,omitempty"`
-	BaseURL         string            `json:"base_url"`
-	UpstreamModel   string            `json:"upstream_model"`
-	APIKeyEnv       string            `json:"api_key_env"`
-	APIKeyLiteral   string            `json:"api_key_literal,omitempty"`
-	ContextWindow   int               `json:"context_window"`
-	ReadTimeout     string            `json:"read_timeout"`
-	MaxTokens       int               `json:"max_tokens"`
-	Description     string            `json:"description"`
-	PromptHint      string            `json:"prompt_hint"`
-	ByAzure         *bool             `json:"by_azure"`
-	DisableFailover *bool             `json:"disable_failover"`
-	Thinking        map[string]string `json:"thinking"`
+	Namespace    string   `json:"namespace"`
+	Description  string   `json:"description"`
+	Instructions []string `json:"instructions"`
+	Skills       []string `json:"skills"`
+	Subagents    []string `json:"subagents"`
+	Envs         []string `json:"envs"`
+	EnvRefs      []string `json:"env_refs"`
+	Extends      *string  `json:"extends"`
 }
 
 type packManifestNamespace struct {
@@ -76,22 +51,29 @@ func parsePackManifest(path string, data []byte) (packManifest, error) {
 		return manifest, fmt.Errorf("parse agent pack manifest %s: %w", path, err)
 	}
 	manifest.SchemaVersion = strings.TrimSpace(manifest.SchemaVersion)
-	if strings.TrimSpace(manifest.SchemaVersion) != supportedPackManifestSchemaVersion && strings.TrimSpace(manifest.SchemaVersion) != "v2" {
+	if strings.TrimSpace(manifest.SchemaVersion) != supportedPackManifestSchemaVersion {
 		return manifest, profileError("schema_unsupported", strings.TrimSpace(manifest.SchemaVersion), path)
 	}
-	if manifest.SchemaVersion == "v2" {
-		var raw struct {
-			Profiles map[string]map[string]json.RawMessage `json:"profiles"`
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return manifest, err
+	}
+	for key := range raw {
+		if strings.EqualFold(key, "providers") {
+			return manifest, profileError("pack_providers_forbidden")
 		}
-		if err := json.Unmarshal(data, &raw); err != nil {
-			return manifest, err
-		}
-		for name, entry := range raw.Profiles {
-			for key := range entry {
-				switch strings.ToLower(key) {
-				case "type", "model", "providers", "supported_models", "permission":
-					return manifest, profileError("execution_field_forbidden", name, key)
-				}
+	}
+	var entries struct {
+		Profiles map[string]map[string]json.RawMessage `json:"profiles"`
+	}
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return manifest, err
+	}
+	for name, entry := range entries.Profiles {
+		for key := range entry {
+			switch strings.ToLower(key) {
+			case "type", "model", "providers", "supported_models", "permission":
+				return manifest, profileError("execution_field_forbidden", name, key)
 			}
 		}
 	}
@@ -100,9 +82,6 @@ func parsePackManifest(path string, data []byte) (packManifest, error) {
 	}
 	if len(manifest.Profiles) == 0 {
 		return manifest, fmt.Errorf("agent pack manifest %s profiles must contain at least one profile", path)
-	}
-	if manifest.Providers == nil {
-		manifest.Providers = map[string]packManifestProvider{}
 	}
 	if manifest.Namespaces == nil {
 		manifest.Namespaces = map[string]packManifestNamespace{}
@@ -202,82 +181,7 @@ func manifestProfileToProfileFromSource(source manifestProfileSource, manifest p
 	if name == "" {
 		return Profile{}, fmt.Errorf("agent pack manifest %s contains an empty profile key", source.profilePath)
 	}
-	agentType := strings.TrimSpace(entry.Type)
-	if manifest.SchemaVersion != "v2" {
-		if agentType == "" {
-			return Profile{}, fmt.Errorf("profile %s type is required", name)
-		}
-		if _, err := adapter.Get(agentType); err != nil {
-			return Profile{}, fmt.Errorf("profile %s: %w", name, err)
-		}
-	}
-	model := strings.TrimSpace(entry.Model)
-	providers := cleanStrings(entry.Providers)
-	for _, ref := range providers {
-		if _, err := requireProviderModelRef(ref); err != nil {
-			return Profile{}, fmt.Errorf("profile %s: %w", name, err)
-		}
-	}
-	modelPolicyEnforced := entry.SupportedModels != nil
-	supportedModels := []string(nil)
-	modelOptions := map[string]ModelOption(nil)
-	if modelPolicyEnforced {
-		supportedModels = cleanStrings(entry.SupportedModels)
-		if model != "" && !stringSliceContains(supportedModels, model) {
-			return Profile{}, fmt.Errorf("profile %s default model %q is not in supported_models", name, model)
-		}
-		_, qualified, err := parseProviderModelRef(model)
-		if err != nil {
-			return Profile{}, fmt.Errorf("profile %s: %w", name, err)
-		}
-		if qualified && !stringSliceContains(providers, model) {
-			return Profile{}, fmt.Errorf("profile %s provider-backed default model %q must also be listed in providers for v1.1 compatibility", name, model)
-		}
-		modelOptions, err = manifestModelOptions(manifest, supportedModels)
-		if err != nil {
-			return Profile{}, fmt.Errorf("profile %s: %w", name, err)
-		}
-		for ref, option := range modelOptions {
-			if err := validateProvider(agentType, option.Provider); err != nil {
-				return Profile{}, fmt.Errorf("profile %s model %q: %w", name, ref, err)
-			}
-		}
-	}
-	// model is optional for adapter-default usage: a profile may run on the
-	// agent's login/default model. It is only required for provider-backed models, since
-	// it is the selection key into manifest.providers.
-	if model == "" && len(providers) > 0 {
-		return Profile{}, fmt.Errorf("profile %s model is required when providers are declared", name)
-	}
-	// instructions is optional: a profile may carry no agent-facing
-	// instruction file (e.g. a coder profile that relies entirely on
-	// provider-builtin behavior or skills). Empty instructions yields an empty
-	// AgentsContent, matching builtin-profile behavior and the documented
-	// "agents optional" authoring rule.
 	instructions := cleanStrings(entry.Instructions)
-	for _, providerName := range providers {
-		if _, ok := manifest.Providers[providerName]; !ok {
-			return Profile{}, fmt.Errorf("profile %s references unknown provider %q", name, providerName)
-		}
-	}
-	provider, err := manifestProviderForProfile(manifest, entry)
-	if modelPolicyEnforced && model != "" {
-		if option, ok := modelOptions[model]; ok {
-			provider = cloneProvider(option.Provider)
-		}
-	}
-	if err != nil {
-		return Profile{}, fmt.Errorf("profile %s: %w", name, err)
-	}
-	if agentType != "" {
-		if err := validateProvider(agentType, provider); err != nil {
-			return Profile{}, fmt.Errorf("profile %s: %w", name, err)
-		}
-	}
-	defaultArgs, err := permissionModeArgs(agentType, entry.Permission)
-	if err != nil {
-		return Profile{}, fmt.Errorf("profile %s: %w", name, err)
-	}
 	if source.loadContents == nil {
 		return Profile{}, fmt.Errorf("agent pack manifest %s has no content loader", source.profilePath)
 	}
@@ -289,51 +193,26 @@ func manifestProfileToProfileFromSource(source manifestProfileSource, manifest p
 	if entry.Extends != nil {
 		extends = strings.TrimSpace(*entry.Extends)
 	}
-	var requires []string
-	if agentType != "" {
-		requires = []string{agentType}
-	}
 	return Profile{
-		Namespace:           source.namespace,
-		Name:                name,
-		Revision:            source.revision,
-		Type:                agentType,
-		Model:               model,
-		ConfiguredModel:     model,
-		Extends:             extends,
-		Description:         strings.TrimSpace(entry.Description),
-		Agents:              strings.Join(instructions, ", "),
-		AgentsContent:       agentsContent,
-		Skills:              cleanStrings(entry.Skills),
-		Subagents:           cleanStrings(entry.Subagents),
-		Envs:                cleanStrings(entry.Envs),
-		EnvRefs:             cleanStrings(entry.EnvRefs),
-		DefaultArgs:         defaultArgs,
-		Source:              source.source,
-		Writable:            source.source == SourceLocal,
-		PackPath:            source.packPath,
-		ProfilePath:         source.profilePath,
-		Provider:            provider,
-		SupportedModels:     supportedModels,
-		ModelOptions:        modelOptions,
-		ModelPolicyEnforced: modelPolicyEnforced,
+		Namespace:     source.namespace,
+		Name:          name,
+		Revision:      source.revision,
+		Extends:       extends,
+		Description:   strings.TrimSpace(entry.Description),
+		Agents:        strings.Join(instructions, ", "),
+		AgentsContent: agentsContent,
+		Skills:        cleanStrings(entry.Skills),
+		Subagents:     cleanStrings(entry.Subagents),
+		Envs:          cleanStrings(entry.Envs),
+		EnvRefs:       cleanStrings(entry.EnvRefs),
+		Source:        source.source,
+		Writable:      source.source == SourceLocal,
+		PackPath:      source.packPath,
+		ProfilePath:   source.profilePath,
 		Placement: Placement{
 			PreferredTargets: cloneStrings(source.preferredTargets),
-			Requires:         Requirements{AgentTypes: requires},
 		},
 	}, nil
-}
-
-func manifestProviderForProfile(manifest packManifest, profile packManifestProfile) (*Provider, error) {
-	model := strings.TrimSpace(profile.Model)
-	if model == "" || !stringSliceContains(cleanStrings(profile.Providers), model) {
-		return nil, nil
-	}
-	provider, ok := manifest.Providers[model]
-	if !ok {
-		return nil, fmt.Errorf("provider-backed model %q is not defined in manifest.providers", model)
-	}
-	return provider.toProvider(), nil
 }
 
 func stringSliceContains(values []string, needle string) bool {
@@ -343,51 +222,6 @@ func stringSliceContains(values []string, needle string) bool {
 		}
 	}
 	return false
-}
-
-func (p packManifestProvider) toProvider() *Provider {
-	return &Provider{
-		CredentialProfile: strings.TrimSpace(p.Platform),
-		Platform:          strings.TrimSpace(p.Platform),
-		WireAPI:           strings.TrimSpace(p.WireAPI),
-		APIKeyEnv:         strings.TrimSpace(p.APIKeyEnv),
-		APIKeyLiteral:     strings.TrimSpace(p.APIKeyLiteral),
-		BaseURL:           strings.TrimSpace(p.BaseURL),
-		UpstreamModel:     strings.TrimSpace(p.UpstreamModel),
-		ContextWindow:     p.ContextWindow,
-		ReadTimeout:       strings.TrimSpace(p.ReadTimeout),
-		MaxTokens:         p.MaxTokens,
-		Description:       strings.TrimSpace(p.Description),
-		PromptHint:        strings.TrimSpace(p.PromptHint),
-		ByAzure:           cloneBoolPtr(p.ByAzure),
-		DisableFailover:   cloneBoolPtr(p.DisableFailover),
-		Thinking:          cloneStringMap(p.Thinking),
-	}
-}
-
-func manifestModelOptions(manifest packManifest, refs []string) (map[string]ModelOption, error) {
-	options := make(map[string]ModelOption, len(refs))
-	for _, ref := range refs {
-		option := ModelOption{Ref: ref, Kind: ModelKindNative, AgentModel: ref}
-		providerBinding, qualified, err := parseProviderModelRef(ref)
-		if err != nil {
-			return nil, err
-		}
-		if qualified {
-			providerDef, exists := manifest.Providers[ref]
-			if !exists {
-				return nil, fmt.Errorf("provider-backed model %q is not defined in manifest.providers", ref)
-			}
-			provider := providerDef.toProvider()
-			provider.Ref = providerBinding
-			option.Kind = ModelKindProvider
-			option.AgentModel = provider.UpstreamModel
-			option.ProviderRef = providerBinding
-			option.Provider = provider
-		}
-		options[ref] = option
-	}
-	return options, nil
 }
 
 func parseProviderModelRef(ref string) (providerBinding string, qualified bool, err error) {

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/amuxos/amux/internal/adapter"
@@ -14,8 +13,6 @@ import (
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/store"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // A set-model caller (CLI/MCP) does not resolve the profile registry; the
@@ -86,33 +83,20 @@ func TestReconfigureExecutionBackfillsProfileFromSnapshot(t *testing.T) {
 func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
-		sourceType    string
 		packState     string
-		legacy        bool
 		dynamicEffort bool
 		provider      bool
 	}{
-		{name: "restricted profile", sourceType: "codex"},
-		{name: "updated pack", sourceType: "codex", packState: "updated"},
-		{name: "unavailable pack", sourceType: "codex", packState: "unavailable"},
-		{name: "different profile agent", sourceType: "claude"},
-		{name: "provider to native restart", sourceType: "codex", provider: true},
-		{name: "legacy allowlist", sourceType: "codex", legacy: true},
-		{name: "dynamic native effort", sourceType: "codex", dynamicEffort: true},
+		{name: "content-only profile"},
+		{name: "updated pack", packState: "updated"},
+		{name: "unavailable pack", packState: "unavailable"},
+		{name: "provider to native restart", provider: true},
+		{name: "dynamic native effort", dynamicEffort: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			packRoot := filepath.Join(dir, "pack")
-			writeRefreshProfilePack(t, packRoot, tc.sourceType, "gpt-5.4")
-			manifestPath := filepath.Join(packRoot, "dist", "agent-pack.manifest.json")
-			manifest, err := os.ReadFile(manifestPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			manifest = []byte(strings.Replace(string(manifest), `"providers":[]`, `"supported_models":["gpt-5.4"],"providers":[]`, 1))
-			if err := os.WriteFile(manifestPath, manifest, 0600); err != nil {
-				t.Fatal(err)
-			}
+			writeRefreshProfilePack(t, packRoot)
 			registryPath := filepath.Join(dir, "agent-packs", "registry.json")
 			registry := agentprofile.PackRegistry{Packs: map[string]agentprofile.Pack{
 				"team": {Namespace: "team", SourceKind: agentprofile.PackSourceGit, MaterializedPath: packRoot, CurrentRevision: "oldrev"},
@@ -125,9 +109,6 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 				t.Fatal(err)
 			}
 			opts := agentprofile.LaunchOptions{Runtime: "codex", Model: "gpt-5.4", ReasoningEffort: "high"}
-			if tc.legacy {
-				opts.Runtime = ""
-			}
 			launch, err := agentprofile.ProjectProfileLaunchChecked(profile, nil, nil, opts)
 			if err != nil {
 				t.Fatal(err)
@@ -171,7 +152,7 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 			}
 			switch tc.packState {
 			case "updated":
-				writeRefreshProfilePack(t, packRoot, tc.sourceType, "gpt-5.5")
+				writeRefreshProfilePack(t, packRoot)
 				if err := os.WriteFile(filepath.Join(packRoot, "instructions", "coder", "AGENTS.md"), []byte("# Changed expert\n"), 0600); err != nil {
 					t.Fatal(err)
 				}
@@ -204,15 +185,6 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err = srv.reconfigureExecutionAndRelaunch(context.Background(), sess, replacement, true)
-			if tc.legacy {
-				if status.Code(err) != codes.InvalidArgument {
-					t.Fatalf("error = %v, want InvalidArgument", err)
-				}
-				if proc.closed || len(proc.reconfigurations) != 0 || sess.Snapshot().LaunchSpec != before.LaunchSpec {
-					t.Fatal("rejected switch changed the running session")
-				}
-				return
-			}
 			if err != nil {
 				t.Fatal(err)
 			}

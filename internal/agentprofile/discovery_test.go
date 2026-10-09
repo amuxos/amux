@@ -8,7 +8,7 @@ import (
 
 func TestDiscoveryKeepsHealthyPacksAndExplicitDevelopmentRefs(t *testing.T) {
 	root := t.TempDir()
-	writeManifest(t, root, `{"schema_version":"v1.1","pack_namespace":"team","profiles":{"reviewer":{"type":"codex","description":"Review changes"}}}`)
+	writeManifest(t, root, `{"schema_version":"v2","pack_namespace":"team","profiles":{"reviewer":{"description":"Review changes"}}}`)
 	registry := PackRegistry{Packs: map[string]Pack{}}
 	for _, pack := range []Pack{
 		{Namespace: "team"},

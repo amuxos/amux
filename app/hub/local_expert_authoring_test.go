@@ -43,7 +43,7 @@ func writeAuthoringContractFixture(target string) error {
 	if err := os.MkdirAll(filepath.Join(target, "dist"), 0700); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(target, "agent-pack.toml"), []byte("schema_version = \"v1.1\"\nname = \"local\"\nnamespace = \"local\"\n"), 0600)
+	return os.WriteFile(filepath.Join(target, "agent-pack.toml"), []byte("schema_version = \"v2\"\nname = \"local\"\nnamespace = \"local\"\n"), 0600)
 }
 
 func renderAuthoringContractFixture(target string) error {
@@ -60,14 +60,14 @@ func renderAuthoringContractFixture(target string) error {
 		name := strings.TrimSuffix(entry.Name(), ".toml")
 		names = append(names, name)
 		profiles[name] = map[string]any{
-			"namespace": "common", "type": "codex", "providers": []string{},
+			"namespace":    "common",
 			"instructions": []string{"instructions/common/" + name + "/AGENTS.md"},
-			"skills":       []string{}, "subagents": []string{}, "permission": map[string]any{"permission_mode": "default"},
+			"skills":       []string{}, "subagents": []string{},
 		}
 	}
 	manifest := map[string]any{
-		"schema_version": "v1.1", "pack_namespace": "local", "profiles": profiles,
-		"providers": map[string]any{}, "namespaces": map[string]any{"common": map[string]any{"profiles": names}},
+		"schema_version": "v2", "pack_namespace": "local", "profiles": profiles,
+		"namespaces": map[string]any{"common": map[string]any{"profiles": names}},
 	}
 	data, err := json.Marshal(manifest)
 	if err != nil {

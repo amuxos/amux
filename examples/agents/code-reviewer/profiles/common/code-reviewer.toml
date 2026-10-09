@@ -1,0 +1,3 @@
+description = "Code review subagent focused on correctness and maintainability"
+skills = ["diff-review"]
+instructions = ["instructions/common/code-reviewer/AGENTS.md"]

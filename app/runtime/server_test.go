@@ -919,7 +919,7 @@ func TestRunPersistsAndReturnsEffectiveModel(t *testing.T) {
 	}
 }
 
-func TestRestartRefreshProfileRejectsLegacyAndTypeChangeBeforeStoppingProcess(t *testing.T) {
+func TestRestartRefreshProfileRejectsMissingExecutionSnapshotBeforeStoppingProcess(t *testing.T) {
 	t.Run("legacy", func(t *testing.T) {
 		db, err := store.Open(filepath.Join(t.TempDir(), "runtime.db"))
 		if err != nil {
@@ -943,10 +943,10 @@ func TestRestartRefreshProfileRejectsLegacyAndTypeChangeBeforeStoppingProcess(t 
 		}
 	})
 
-	t.Run("type change", func(t *testing.T) {
+	t.Run("pack without saved execution", func(t *testing.T) {
 		amuxDir := t.TempDir()
 		packRoot := filepath.Join(amuxDir, "agent-packs", "team", "repo")
-		writeRefreshProfilePack(t, packRoot, "codex", "new-model")
+		writeRefreshProfilePack(t, packRoot)
 		if err := agentprofile.SavePackRegistry(filepath.Join(amuxDir, "agent-packs", "registry.json"), agentprofile.PackRegistry{Packs: map[string]agentprofile.Pack{
 			"team": {Namespace: "team", SourceKind: agentprofile.PackSourceGit, MaterializedPath: packRoot, CurrentRevision: "newrev"},
 		}}); err != nil {
@@ -972,23 +972,15 @@ func TestRestartRefreshProfileRejectsLegacyAndTypeChangeBeforeStoppingProcess(t 
 		}
 		srv := &server{mgr: mgr, amuxDir: amuxDir}
 		_, err = srv.Restart(context.Background(), &pb.RestartRequest{Name: "work", RefreshProfile: true})
-		if status.Code(err) != codes.FailedPrecondition || proc.closed {
-			t.Fatalf("error=%v closed=%v, want FailedPrecondition with live old proc", err, proc.closed)
+		if err == nil || proc.closed {
+			t.Fatalf("error=%v closed=%v, want error with live old proc", err, proc.closed)
 		}
 	})
 }
 
-func writeRefreshProfilePack(t *testing.T, root, agentType, model string) {
+func writeRefreshProfilePack(t *testing.T, root string) {
 	t.Helper()
-	manifest := fmt.Sprintf(`{
-  "schema_version": "v1.1",
-  "pack_namespace": "team",
-  "profiles": {
-    "coder": {"namespace":"common","type":%q,"model":%q,"providers":[],"instructions":["instructions/coder/AGENTS.md"],"skills":[],"subagents":[],"extends":null}
-  },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["coder"]}}
-}`, agentType, model)
+	manifest := `{"schema_version":"v2","pack_namespace":"team","profiles":{"coder":{"instructions":["instructions/coder/AGENTS.md"]}}}`
 	path := filepath.Join(root, "dist", "agent-pack.manifest.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatalf("mkdir pack: %v", err)

@@ -166,7 +166,7 @@ Schedule 按 cron 风格规则触发提示词或子任务。可选的飞书 Brid
 用 `AMUX_RELEASE_URL` 或 `--release-url` 覆盖清单/归档来源；直接指向归档包的
 自定义地址不校验 checksum。
 
-Profile Pack 使用 manifest v1.1，支持外部 Git Pack，默认没有 Pack 市场。
+Profile Pack 使用 manifest v2，支持外部 Git Pack，默认没有 Pack 市场。
 可选专家编辑需单独配置兼容的 authoring runtime，源码构建不会隐式下载。
 捆绑 Skill 和桌面应用不在本仓库范围内。
 

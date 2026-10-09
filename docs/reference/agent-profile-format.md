@@ -2,118 +2,75 @@
 
 [English](agent-profile-format.md) | [简体中文](agent-profile-format.zh-CN.md)
 
-An Agent Pack is a Git repository with a `dist/agent-pack.manifest.json` manifest
-and the instruction and skill files it references. amux consumes manifests `v1.1` and `v2`;
-it does not read source profile TOML files as a fallback. A pack may use its own
-authoring tools to produce the manifest. The optional managed authoring runtime
-has no default download source.
+An Agent Pack is a Git repository containing a `dist/agent-pack.manifest.json`
+manifest and its instruction and skill files. amux accepts **v2 only**. Other
+schema versions are rejected without modifying the Pack. Runtime consumers do not
+fall back to source TOML files.
 
-The [example pack](../../examples/public-pack/dist/agent-pack.manifest.json)
-contains a Codex reviewer with native and explicit provider model choices.
-Its provider URL is illustrative and must be replaced with a real Responses API
-endpoint before selecting that provider. The native default needs no provider.
+## Identity and files
 
-## Identity and Files
+Registering a Pack as `team` makes its `reviewer` profile `team/reviewer`.
+`team/reviewer@<revision>` pins a materialized revision. The Profile's `namespace`
+and manifest's `namespaces` index organize entries without changing their refs.
+All entries in `profiles` are consumed, including entries absent from that index.
+`builtin` is reserved.
 
-If the pack is registered as `team`, its `reviewer` profile is `team/reviewer`.
-`team/reviewer@<revision>` pins the materialized revision. The profile's
-`namespace` and the manifest's `namespaces` index organize entries; they do not
-add a path segment to the reference. All entries in `profiles` are consumed,
-including entries absent from the namespace index. `builtin` is reserved.
+The manifest requires `schema_version: "v2"`, a nonempty `pack_namespace`, and a
+nonempty `profiles` map. `namespaces` is optional. Instruction paths are relative
+to the Pack root and are combined in listed order. Missing instruction files and
+paths escaping the Pack fail validation.
 
-The manifest requires `schema_version`, a nonempty `pack_namespace`, and a
-nonempty `profiles` map. `providers` and `namespaces` may be omitted. Instruction
-paths are relative to the pack root and are combined in listed order. Missing
-instruction files fail pack validation. Paths must remain inside the pack.
-
-## Profiles
-
-In `v2`, profiles contain reusable content and environment requirements. The
-fields `type`, `model`, `providers`, `supported_models`, and `permission` are
-forbidden, including empty values. Directory layout, namespaces, inheritance,
-asset lists, and top-level provider definitions keep their existing meaning.
-Execution selects the runtime and model, and supplies native permission arguments.
-An explicit runtime or caller runtime setting is required; there is no implicit
-engine fallback. The resolved execution settings remain in session snapshots.
-Existing v1.1 libraries and their defaults remain supported; migration is explicit.
-The managed local authoring workflow continues to produce v1.1 libraries.
-
-Builtin profiles also use v2. Named shortcut defaults live in amux caller configuration, separate from the manifest. Discovery omits Profile execution fields; `runtime_required` is false for builtin shortcuts that have caller defaults.
-
-The execution fields in the table below apply only to v1.1.
-
-Profile descriptions belong to the manifest, including built-in profiles.
-Distributions may supply optional legacy metadata as a fallback for an omitted
-description; a profile does not require a second registration in Go.
-
-Default discovery includes built-in, local and installed profiles. Development,
-temporary and evaluation packs are excluded using registry metadata; the legacy
-`-dev` namespace suffix remains recognized. `agent list --all` includes these
-packs and `--dev` lists only them. Explicit profile refs remain resolvable.
-An unavailable pack produces a diagnostic without hiding healthy packs.
-Only formal Git packs can supply same-named skill overrides for built-in
-profiles; local, development, temporary and evaluation packs cannot override
-them. Non-built-in profiles retain their own skill sources.
+## Content-only profiles
 
 | Field | Meaning |
 | --- | --- |
-| `type` | Required base agent: `codex`, `claude` or `pi`. |
-| `description` | Human-readable profile description. |
-| `model` | Default model name or qualified provider model; empty uses the agent default when no providers are declared. Required when `providers` is nonempty. |
-| `supported_models` | Optional exact model allowlist for profile selection. Omitted leaves native selection unrestricted; an explicit empty list permits only the agent default. A nonempty default must be included. |
-| `providers` | Qualified references such as `service/example-model`, each defined in the top-level `providers` map. |
+| `description` | Human-readable purpose, including built-in profiles. |
 | `instructions` | Ordered paths to instruction files. |
-| `skills` | Names of skills shipped by the pack. Skill contents must be available on the runtime to project them. |
+| `skills` | Names of skills shipped by the Pack. |
 | `envs` | Environment variable names requested from the credential store. |
 | `env_refs` | Explicit references such as `credential:github:GITHUB_TOKEN`. |
-| `permission` | Optional `permission_mode`, `allowed_tools` and `ask_tools`. |
-| `namespace`, `extends`, `subagents` | Organization and authoring metadata. Publish resolved content in the manifest; the consumer does not resolve source-file inheritance. |
+| `namespace`, `extends`, `subagents` | Organization and authoring metadata. Publish resolved content; the consumer does not resolve source inheritance. |
 
-`permission_mode` is `default`, `plan` or `bypass`. Codex maps these to its approval
-and sandbox settings; Claude maps them to native permission modes. Pi has no
-equivalent native permission-mode argument. Task permission policy is a separate
-control-plane rule, described in the [task model](../distributed-task-model.md).
+Profiles cannot contain `type`, `model`, `providers`, `supported_models`, or
+`permission`, including empty or null values. Top-level `providers` is forbidden,
+even when empty. Provider source files are not part of a v2 Pack.
 
-## Models and Providers
+Execution chooses the runtime, model, and native permission arguments separately.
+A caller runtime setting or explicit `--runtime` is required. Built-in shortcuts
+may have caller defaults; those defaults are outside the Pack. Model/provider
+connections belong to Runtime registration. Credentials remain outside the Pack.
+Resolved execution settings are frozen in Session/Task snapshots; refreshing
+content does not replace those settings.
 
-Without an explicit runtime override, the profile's model policy applies. In an
-explicit `supported_models` list, each qualified `binding/model` choice must have
-a matching top-level provider definition. A provider-backed default must also be
-listed in the profile's `providers` array for manifest v1.1 compatibility. If
-`supported_models` is omitted, only the default model listed in `providers` binds
-to a provider; other requested models remain native. A top-level provider alone
-does not bind an unrestricted native model selection.
+## Local authoring
 
-With an explicit runtime override, runtime suggestions are not an allowlist.
-An operator-supplied native model name is passed unchanged to the selected agent,
-including names absent from suggestions. No provider, endpoint or credential is
-inferred from that name. Reasoning effort must still be supported by the adapter.
-To use this pack's provider binding, select the profile model without a runtime
-override.
+amux creates the v2 source scaffold itself. Agent Pack Contract **0.8.0 or later**
+compiles and checks it; its `init` defaults are not used. Installation obtains the
+tool from the distribution's release source or `AGENT_PACK_CONTRACT_SCM_URL`.
+An older release is rejected. `AMUX_AGENT_PACK_CONTRACT_BIN` can select an already
+installed compatible compiler.
 
-| Agent | Provider platform | Wire API |
-| --- | --- | --- |
-| Codex | `openai-compat` | `responses` |
-| Pi | `openai-compat` | `chat-completions` |
-| Claude | Native agent configuration | Pack provider bindings are unsupported. |
+`agent local create` accepts content and description, without `--type`, `--model`,
+or `--permission`. Create, fork, preview, evaluate, publish, and update all use
+v2 sources and manifests. Existing older libraries must be converted explicitly
+before use; amux does not silently rewrite user files.
 
-A public provider requires `base_url`, `upstream_model` and a bare `api_key_env`
-variable name. Additional platforms and their defaults belong to distribution
-extensions. Omitted `wire_api` selects the agent's native default. Optional fields
-include `context_window`, `max_tokens`,
-`read_timeout`, `description`, `prompt_hint` and a string-valued `thinking` map;
-their projection depends on the adapter. Configure credentials outside the pack.
-The example deliberately contains no API key value. A Responses-to-Chat
-compatibility gateway is unavailable.
+## Discovery and projection
 
-## Workspace Projection
+Default discovery includes built-in, local, and installed profiles. Development,
+temporary, and evaluation Packs are excluded using registry metadata; the legacy
+`-dev` namespace suffix remains recognized. `agent list --all` includes these
+Packs and `--dev` lists only them. Explicit refs remain resolvable. An unavailable
+Pack produces a diagnostic without hiding healthy Packs.
 
-Codex instructions use `AGENTS.md`, with skills under `.agents/skills`. Claude uses
-`AGENTS.md` plus a `CLAUDE.md` import, with skills under `.claude/skills`. Pi uses
-its adapter-specific settings and extension projection. Skill source metadata
-stays in the pack. A task receives a frozen profile snapshot; installing or
-updating a pack does not silently replace the identity of an existing task.
+Only formal Git Packs can supply same-named skill overrides for built-ins. Local,
+development, temporary, and evaluation Packs cannot override them. Other Profiles
+retain their own skill sources.
 
-Use the [CLI reference](cli.md) for pack registration, inspection, validation and
-rendering commands. The [example validation test](../../internal/agentprofile/public_pack_example_test.go)
-checks the shipped manifest and its native/provider selections.
+Codex instructions use `AGENTS.md`, with skills under `.agents/skills`. Claude
+uses `AGENTS.md` plus a `CLAUDE.md` import and `.claude/skills`. Pi uses its own
+adapter projection. A task receives a frozen execution snapshot; updating a Pack
+does not silently change a running task's identity.
+
+See the [CLI reference](cli.md), [example Pack](../../examples/public-pack/README.md),
+and [example validation tests](../../internal/agentprofile/public_pack_example_test.go).

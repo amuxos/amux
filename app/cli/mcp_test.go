@@ -127,8 +127,8 @@ func TestMCPListAgentProfilesIncludesPackProfiles(t *testing.T) {
 	if coder.PinnedRef != "team/coder@"+rev {
 		t.Fatalf("pinned_ref = %q, want team/coder@%s", coder.PinnedRef, rev)
 	}
-	if coder.AgentType != "codex" || coder.Description != "Team coding profile" {
-		t.Fatalf("team/coder = %+v, want codex Team coding profile", coder)
+	if coder.AgentType != "" || coder.Description != "Team coding profile" {
+		t.Fatalf("team/coder = %+v, want content-only Team coding profile", coder)
 	}
 	skill, ok := findMCPSkill(coder.Skills, "amux-dev")
 	if !ok {
@@ -151,7 +151,7 @@ func TestMCPListAgentProfilesUsesHubWhenAMUXHomeIsUnreadable(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("AMUX_HOME", blockedHome)
-	profile := agentprofile.Profile{Namespace: "team", Name: "coder", Type: "codex", Source: agentprofile.SourcePack}
+	profile := agentprofile.Profile{Namespace: "team", Name: "coder", Source: agentprofile.SourcePack}
 	previous := newAgentProfileClient
 	newAgentProfileClient = func() (pb.AmuxdClient, func() error, error) {
 		return &fakeAgentProfileClient{
@@ -169,8 +169,8 @@ func TestMCPListAgentProfilesUsesHubWhenAMUXHomeIsUnreadable(t *testing.T) {
 	}
 	view := decodeMCPListAgentProfiles(t, res.Content[0].Text)
 	coder := findMCPProfile(t, view.Profiles, "team/coder")
-	if coder.AgentType != "codex" {
-		t.Fatalf("team/coder agent_type = %q, want codex", coder.AgentType)
+	if coder.AgentType != "" {
+		t.Fatalf("team/coder agent_type = %q, want unresolved content", coder.AgentType)
 	}
 }
 

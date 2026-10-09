@@ -1,20 +1,25 @@
 {
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "code-reviewer",
   "profiles": {
     "code-reviewer": {
-      "type": "claude",
+      "namespace": "common",
       "description": "Code review subagent focused on correctness and maintainability",
       "instructions": [
-        "instructions/code-reviewer.md",
-        "AGENTS.md"
+        "instructions/common/code-reviewer/AGENTS.md"
       ],
       "skills": [
         "diff-review"
       ],
-      "permission": {
-        "permission_mode": "plan"
-      }
+      "subagents": [],
+      "extends": null
+    }
+  },
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "code-reviewer"
+      ]
     }
   }
 }

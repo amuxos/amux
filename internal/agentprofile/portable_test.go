@@ -17,7 +17,7 @@ func portableTestProfile(t *testing.T) Profile {
 	root := t.TempDir()
 	writePackContent(t, root, "instructions/common/reviewer/AGENTS.md", "Review changed code.\n")
 	writePackContent(t, root, "skills/custom/review/SKILL.md", "---\nname: review\ndescription: Review checklist\n---\nVerify behavior.\n")
-	writeManifest(t, root, `{"schema_version":"v2","pack_namespace":"example","profiles":{"reviewer":{"namespace":"common","description":"Reviewer","instructions":["instructions/common/reviewer/AGENTS.md"],"skills":["review"],"subagents":[],"envs":["REVIEW_TOKEN"],"extends":null}},"providers":{},"namespaces":{"common":{"profiles":["reviewer"]}}}`)
+	writeManifest(t, root, `{"schema_version":"v2","pack_namespace":"example","profiles":{"reviewer":{"namespace":"common","description":"Reviewer","instructions":["instructions/common/reviewer/AGENTS.md"],"skills":["review"],"subagents":[],"envs":["REVIEW_TOKEN"],"extends":null}},"namespaces":{"common":{"profiles":["reviewer"]}}}`)
 	profiles, err := listPackProfiles(Pack{Namespace: "team", MaterializedPath: root})
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestPortableProfileCatalogAndExecutionBoundaries(t *testing.T) {
 	}
 	for _, engine := range []string{"codex", "claude"} {
 		t.Run(engine, func(t *testing.T) {
-			args, err := permissionModeArgs(engine, packProfilePermission{PermissionMode: "plan"})
+			args, err := permissionModeArgs(engine, "plan")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -137,5 +137,30 @@ func TestPortableTaskResolvesBeforeSchedulingAndRetryKeepsSnapshot(t *testing.T)
 	missingRuntime := task.Spec{Agent: profile.Ref()}
 	if err := ResolveTaskSpec(&missingRuntime, registryPath); err == nil {
 		t.Fatal("task silently chose an engine")
+	}
+}
+
+func TestManifestAcceptsOnlyV2AndNoPackProviders(t *testing.T) {
+	for _, version := range []string{"v1.1", "v1", "", "v3"} {
+		data, _ := json.Marshal(map[string]any{"schema_version": version, "pack_namespace": "team", "profiles": map[string]any{"reviewer": map[string]any{}}})
+		if _, err := parsePackManifest("manifest.json", data); err == nil || !strings.Contains(err.Error(), "supported: v2") {
+			t.Fatalf("version %q: %v", version, err)
+		}
+	}
+	for _, key := range []string{"providers", "Providers"} {
+		for _, value := range []any{nil, map[string]any{}, map[string]any{"service/model": map[string]any{"base_url": "https://example.test"}}} {
+			data, _ := json.Marshal(map[string]any{"schema_version": "v2", "pack_namespace": "team", "profiles": map[string]any{"reviewer": map[string]any{}}, key: value})
+			if _, err := parsePackManifest("manifest.json", data); err == nil {
+				t.Fatalf("accepted %s=%v", key, value)
+			}
+		}
+	}
+	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese, "unknown"} {
+		for key, args := range map[string][]any{"schema_unsupported": {"old", "manifest.json"}, "pack_providers_forbidden": nil, "source_schema_unsupported": {"old"}, "runtime_permission_invalid": {"invalid"}} {
+			message := profileCatalog.Format(locale, key, args...)
+			if message == key || strings.Contains(message, "%!") {
+				t.Fatalf("%s/%s: %s", locale, key, message)
+			}
+		}
 	}
 }

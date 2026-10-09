@@ -1,110 +1,61 @@
-<a id="agent-profile-packs"></a>
-
 # Agent Profile Pack
 
 [English](agent-profile-format.md) | [简体中文](agent-profile-format.zh-CN.md)
 
-Agent Pack 是一个 Git 仓库，包含 `dist/agent-pack.manifest.json` manifest 及其引用的
-指令和 Skill 文件。amux 消费 manifest `v1.1` 和 `v2`，不会回退读取源码 Profile TOML。
-Pack 可以使用自己的 authoring 工具生成 manifest；可选的 managed authoring runtime
-没有默认下载源。
+Agent Pack 是包含 `dist/agent-pack.manifest.json` manifest 及指令、Skill 文件的
+Git 仓库。amux **仅接受 v2**。其他版本会报错，不修改 Pack；运行时不会回退读取源码 TOML。
 
-[示例 Pack](../../examples/public-pack/dist/agent-pack.manifest.json) 包含一个 Codex
-审查 Profile，提供原生模型与显式 Provider 模型选项。其 Provider URL 仅供示例，
-选择该 Provider 前必须替换为真实的 Responses API 端点。原生默认模型不需要 Provider。
+## 身份和文件
 
-<a id="identity-and-files"></a>
+以 `team` 注册 Pack 后，其 `reviewer` 专家引用为 `team/reviewer`。
+`team/reviewer@<revision>` 固定物化版本。Profile 的 `namespace` 与 manifest 的
+`namespaces` 索引只用于组织内容，不改变引用。消费者读取全部 `profiles`，包括没有
+列入索引的条目。`builtin` 是保留命名空间。
 
-## 身份与文件
+manifest 必须包含 `schema_version: "v2"`、非空 `pack_namespace` 和非空 `profiles`。
+`namespaces` 可省略。指令路径相对于 Pack 根目录，按顺序拼接；缺失文件或越界路径校验失败。
 
-Pack 注册为 `team` 时，其 `reviewer` Profile 的引用为 `team/reviewer`。
-`team/reviewer@<revision>` 固定物化版本。Profile 的 `namespace` 和 manifest 的
-`namespaces` 索引用于组织条目，不会给引用增加一段路径。
-`profiles` 中的所有条目都会被消费，包括不在 namespace 索引中的条目。
-`builtin` 为保留命名空间。
-
-Manifest 必须包含 `schema_version`、非空 `pack_namespace` 和非空 `profiles` map。
-`providers` 和 `namespaces` 可以省略。指令路径相对于 Pack 根目录，按列表顺序合并。
-缺失指令文件会使 Pack 校验失败；所有路径必须位于 Pack 内。
-
-<a id="profiles"></a>
-
-## Profile
-
-`v2` Profile 只声明可复用内容和环境要求，禁止 `type`、`model`、`providers`、
-`supported_models`、`permission`，包括空值。目录、命名空间、继承、资产列表和
-顶层 Provider 定义沿用原语义。执行端选择 Runtime、模型并提供原生权限参数。
-必须显式指定 Runtime 或提供调用方的 Runtime 设置，不隐式选择固定引擎。
-解析后的执行设置仍保存在会话快照中。v1.1 库及其默认行为继续兼容，迁移需显式进行。
-本地 managed authoring 流程继续生成 v1.1 库。
-
-内置 Profile 也使用 v2。命名快捷入口的默认值由 amux 调用方配置提供，独立于 manifest。发现结果不包含 Profile 执行字段；有调用方默认值的 builtin 快捷入口返回 `runtime_required: false`。
-
-下表中的执行字段仅适用于 v1.1。
-
-内置专家和外部专家的描述均由 manifest 提供。发行版可以提供可选的兼容元数据，
-仅在 manifest 缺少描述时回退使用；新增专家无需在 Go 中再次注册。
-
-默认发现返回内置、本地及正式安装的专家。根据 registry 元数据排除开发、临时和
-评估 Pack，同时兼容旧的 `-dev` 命名约定。`agent list --all` 包含这些 Pack，
-`--dev` 只列出这些 Pack；显式 Profile 引用仍可解析。单个 Pack 不可用时返回诊断，
-其他正常 Pack 仍然显示。只有正式 Git Pack 可以覆盖内置专家的同名 Skill；本地、
-开发、临时和评估 Pack 不参与覆盖。非内置专家继续使用自身的 Skill 来源。
+## 内容型专家
 
 | 字段 | 含义 |
 | --- | --- |
-| `type` | 必填基础 Agent：`codex`、`claude` 或 `pi`。 |
-| `description` | 面向读者的 Profile 描述。 |
-| `model` | 默认原生模型名或限定的 Provider 模型；未声明 Provider 时，空值使用 Agent 默认模型。`providers` 非空时必填。 |
-| `supported_models` | 可选的精确模型允许列表。省略时不限制原生选择；显式空列表只允许 Agent 默认模型。非空默认模型必须包含在列表中。 |
-| `providers` | 如 `service/example-model` 的限定引用，每项须在顶层 `providers` map 中定义。 |
-| `instructions` | 有序的指令文件路径。 |
-| `skills` | Pack 提供的 Skill 名称。投影前，Runtime 上必须有相应 Skill 内容。 |
-| `envs` | 从凭据存储请求的环境变量名。 |
-| `env_refs` | 显式引用，例如 `credential:github:GITHUB_TOKEN`。 |
-| `permission` | 可选的 `permission_mode`、`allowed_tools` 和 `ask_tools`。 |
-| `namespace`、`extends`、`subagents` | 组织与 authoring 元数据。Manifest 应发布已解析的内容；消费者不解析源文件继承。 |
+| `description` | 专家用途说明，内置专家也从这里读取。 |
+| `instructions` | 有序指令文件路径。 |
+| `skills` | Pack 提供的 Skill 名称。 |
+| `envs` | 向凭据存储请求的环境变量名称。 |
+| `env_refs` | 如 `credential:github:GITHUB_TOKEN` 的显式引用。 |
+| `namespace`、`extends`、`subagents` | 组织与编写元数据。发布展开后的内容；消费者不解析源码继承。 |
 
-`permission_mode` 可为 `default`、`plan` 或 `bypass`。Codex 将其映射为审批与沙箱
-设置，Claude 映射为原生权限模式。Pi 没有等价的原生权限模式参数。
-Task 权限策略是独立的控制面规则，见 [Task 模型](../distributed-task-model.zh-CN.md)。
+Profile 禁止包含 `type`、`model`、`providers`、`supported_models`、`permission`，
+包括空值和 null。顶层 `providers` 也禁止出现，包括空对象。v2 Pack 不包含 Provider 源文件。
 
-<a id="models-and-providers"></a>
+执行时单独选择 Runtime、模型和原生权限参数。必须由调用方设置 Runtime 或显式传入
+`--runtime`。内置快捷入口可以有调用方默认值，这些默认值位于 Pack 外部。
+模型与 Provider 连接配置属于 Runtime 注册；凭据保存在 Pack 外部。
+执行设置解析后冻结到 Session/Task 快照，刷新内容不替换执行设置。
 
-## 模型与 Provider
+## 本地编辑
 
-没有显式 Runtime 覆盖时，遵循 Profile 模型策略。显式 `supported_models` 列表中的
-每个限定 `binding/model` 选项都必须对应顶层 Provider 定义。为兼容 manifest v1.1，
-Provider 默认模型还必须出现在 Profile 的 `providers` 数组中。
-省略 `supported_models` 时，仅 `providers` 中列出的默认模型绑定 Provider；
-其它请求的模型仍视为原生模型。单独存在的顶层 Provider 不会绑定未受限制的原生模型选择。
+amux 自己创建 v2 源码骨架，由 **Agent Pack Contract 0.8.0 及以上**编译校验，
+不调用工具的默认 `init` 模板。安装过程从发行版发布源或 `AGENT_PACK_CONTRACT_SCM_URL`
+获取工具，拒绝旧版发行包。可用 `AMUX_AGENT_PACK_CONTRACT_BIN` 指定已安装的兼容编译器。
 
-显式覆盖 Runtime 时，Runtime 建议不是允许列表。Operator 提供的原生模型名原样传给
-所选 Agent，包括建议中没有的名称。不从名称推断 Provider、端点或凭据。
-思考强度仍需受 Adapter 支持。要使用 Pack 的 Provider 绑定，应选择 Profile 模型并
-省略 Runtime 覆盖。
+`agent local create` 接受内容和用途说明，不接受 `--type`、`--model`、`--permission`。
+创建、复制、预览、评估、发布和更新全部使用 v2 源码和 manifest。已有旧版库必须显式
+转换后再使用，amux 不自动改写用户文件。
 
-| Agent | Provider 平台 | Wire API |
-| --- | --- | --- |
-| Codex | `openai-compat` | `responses` |
-| Pi | `openai-compat` | `chat-completions` |
-| Claude | 原生 Agent 配置 | 不支持 Pack Provider 绑定。 |
+## 发现和投影
 
-公共 Provider 必须提供 `base_url`、`upstream_model` 和不带前缀的 `api_key_env`
-变量名。附加平台及其默认值属于发行版扩展。省略 `wire_api` 时选择 Agent 的原生默认值。
-可选字段包括 `context_window`、`max_tokens`、`read_timeout`、`description`、
-`prompt_hint` 和字符串值的 `thinking` map；具体投影依 Adapter 而定。
-凭据在 Pack 外配置。示例特意不包含 API key 值。不提供 Responses-to-Chat 兼容网关。
+默认发现范围包含内置、本地及已安装专家。开发、临时和评估 Pack 按注册元数据排除，
+仍识别旧的 `-dev` 命名空间后缀。`agent list --all` 包含这些 Pack，`--dev` 只列出它们。
+显式引用仍可解析。某个 Pack 不可用时单独报告诊断，不隐藏健康 Pack。
 
-<a id="workspace-projection"></a>
+仅正式 Git Pack 可以向内置专家提供同名 Skill 覆盖；本地、开发、临时和评估 Pack
+不能覆盖。其他专家继续使用自身 Skill 来源。
 
-## 工作区投影
+Codex 使用 `AGENTS.md` 和 `.agents/skills`；Claude 使用 `AGENTS.md`、导入它的
+`CLAUDE.md` 和 `.claude/skills`；Pi 使用所属 Adapter 的投影。任务接收冻结的执行快照，
+更新 Pack 不会静默改变运行中任务的身份。
 
-Codex 使用 `AGENTS.md` 指令和 `.agents/skills` 下的 Skill。
-Claude 使用 `AGENTS.md` 加 `CLAUDE.md` 引用，Skill 位于 `.claude/skills`。
-Pi 使用其 Adapter 特定的设置与扩展投影。Skill 来源元数据保留在 Pack 中。
-Task 获取冻结的 Profile 快照；安装或更新 Pack 不会悄悄替换既有 Task 的身份。
-
-Pack 注册、检查、验证与渲染命令见 [CLI 参考](cli.zh-CN.md)。
-[示例验证测试](../../internal/agentprofile/public_pack_example_test.go) 校验随仓库提供的
-manifest 及其原生/Provider 选择。
+参见 [CLI 参考](cli.zh-CN.md)、[Pack 示例](../../examples/public-pack/README.zh-CN.md)
+及[示例校验测试](../../internal/agentprofile/public_pack_example_test.go)。

@@ -1,0 +1,5 @@
+source_kind = "custom"
+asset_type = "skill"
+
+[origin]
+kind = "local"
