@@ -288,3 +288,126 @@ test('applyExtraArgs setting --permission-mode bypassPermissions also sets the d
   assert.equal(options.permissionMode, 'bypassPermissions');
   assert.equal(options.allowDangerouslySkipPermissions, true);
 });
+
+// The real SDK ends an interrupted turn with the same error_during_execution
+// result it uses for genuine failures. Each scripted turn can hold until
+// interrupt() is called, then emit its result.
+const executionError = {
+  subtype: 'error_during_execution',
+  is_error: true,
+  errors: ['[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=null'],
+};
+
+function scriptedQuery(turns: Array<{ waitForInterrupt: boolean; result: Record<string, unknown> }>): QueryFn {
+  return ({ prompt }) => {
+    let release: (() => void) | undefined;
+    async function* gen() {
+      let i = 0;
+      for await (const _user of prompt as AsyncIterable<SdkUserMessage>) {
+        void _user;
+        const turn = turns[i++];
+        yield { type: 'system', subtype: 'init', session_id: 'sess_1' } as any;
+        if (turn.waitForInterrupt) await new Promise<void>((resolve) => { release = resolve; });
+        yield { type: 'result', ...turn.result } as any;
+      }
+    }
+    return Object.assign(gen(), { interrupt: async () => { release?.(); } });
+  };
+}
+
+function eventsOf(msgs: any[]): any[] {
+  return msgs.filter((m) => m.method === 'event').map((m) => m.params.event);
+}
+
+test('an interrupted turn is reported as interrupted, not as a provider error', async () => {
+  const output = new PassThrough();
+  const msgs = collect(output);
+  const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), output), scriptedQuery([
+    { waitForInterrupt: true, result: executionError },
+  ]));
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'long task' });
+  await tick();
+  await bridge.interrupt();
+  await tick();
+
+  const events = eventsOf(msgs);
+  assert.equal(events.filter((e) => e.type === 'error').length, 0, 'no error event for an interruption');
+  const done = events.filter((e) => e.type === 'turn_done');
+  assert.equal(done.length, 1);
+  assert.equal(done[0].state.state, 'interrupted');
+  assert.equal(done[0].error, undefined);
+});
+
+test('error_during_execution without an interrupt is still a provider error', async () => {
+  const output = new PassThrough();
+  const msgs = collect(output);
+  const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), output), scriptedQuery([
+    { waitForInterrupt: false, result: executionError },
+  ]));
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'go' });
+  await tick();
+
+  const events = eventsOf(msgs);
+  assert.equal(events.find((e) => e.type === 'error')?.error.code, 'result_error');
+  assert.equal(events.find((e) => e.type === 'turn_done').state.state, 'failed');
+});
+
+test('an interrupt with no turn in flight does not mask a later failure', async () => {
+  const output = new PassThrough();
+  const msgs = collect(output);
+  const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), output), scriptedQuery([
+    { waitForInterrupt: false, result: executionError },
+  ]));
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.interrupt();
+  await bridge.startTurn({ text: 'go' });
+  await tick();
+
+  const events = eventsOf(msgs);
+  assert.equal(events.find((e) => e.type === 'turn_done').state.state, 'failed');
+  assert.equal(events.filter((e) => e.type === 'error').length, 1);
+});
+
+test('an interrupt only covers the turn it interrupted', async () => {
+  const output = new PassThrough();
+  const msgs = collect(output);
+  const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), output), scriptedQuery([
+    { waitForInterrupt: true, result: executionError },
+    { waitForInterrupt: false, result: executionError },
+  ]));
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'first' });
+  await tick();
+  await bridge.interrupt();
+  await tick();
+  await bridge.startTurn({ text: 'second' });
+  await tick();
+
+  const states = eventsOf(msgs).filter((e) => e.type === 'turn_done').map((e) => e.state.state);
+  assert.deepEqual(states, ['interrupted', 'failed']);
+});
+
+test('a failed interrupt call is not treated as an interruption of the turn', async () => {
+  const output = new PassThrough();
+  const msgs = collect(output);
+  const fakeQuery: QueryFn = ({ prompt }) => {
+    async function* gen() {
+      for await (const _user of prompt as AsyncIterable<SdkUserMessage>) {
+        void _user;
+        await new Promise((r) => setTimeout(r, 30));
+        yield { type: 'result', ...executionError } as any;
+      }
+    }
+    return Object.assign(gen(), { interrupt: async () => { throw new Error('control channel closed'); } });
+  };
+  const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), output), fakeQuery);
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'go' });
+  await bridge.interrupt();
+  await new Promise((r) => setTimeout(r, 60));
+
+  const states = eventsOf(msgs).filter((e) => e.type === 'turn_done').map((e) => e.state.state);
+  assert.deepEqual(states, ['failed']);
+});

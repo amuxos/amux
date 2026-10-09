@@ -179,6 +179,11 @@ export class ClaudeBridge {
   private suggestions = new Map<string, unknown>();
   private permSeq = 0;
   private queryFn?: QueryFn;
+  // The SDK ends an interrupted turn with an `error_during_execution` result
+  // that looks identical to a real failure. Track our own interrupt requests so
+  // that result can be reported as an interruption instead of a provider error.
+  private pendingTurns = 0;
+  private interruptRequested = false;
 
   // queryFn is injectable for tests; in production it is lazily imported from
   // the Claude Agent SDK so the protocol layer can be unit-tested without it.
@@ -242,14 +247,19 @@ export class ClaudeBridge {
   }
 
   async startTurn(params: TurnStartParams): Promise<object> {
+    this.pendingTurns++;
     this.input.push(params.text ?? '');
     return { ok: true };
   }
 
   async interrupt(): Promise<object> {
+    // An interrupt with no turn in flight must not mark the next, unrelated
+    // turn's failure as an interruption.
+    if (this.pendingTurns > 0) this.interruptRequested = true;
     try {
       await this.q?.interrupt?.();
     } catch (err) {
+      this.interruptRequested = false;
       this.emitError(err);
     }
     return { ok: true };
@@ -353,6 +363,13 @@ export class ClaudeBridge {
         this.onToolResults(msg.message);
         break;
       case 'result': {
+        const interrupted = this.interruptRequested && msg.subtype === 'error_during_execution';
+        this.interruptRequested = false;
+        this.pendingTurns = Math.max(0, this.pendingTurns - 1);
+        if (interrupted) {
+          this.emitEvent('turn_done', { state: { state: 'interrupted', stop_reason: 'interrupted' } });
+          break;
+        }
         if (msg.is_error === true || (msg.subtype && msg.subtype !== 'success')) {
           const message = (typeof msg.result === 'string' && msg.result)
             || (Array.isArray(msg.errors) && msg.errors.map(String).join('\n'))
