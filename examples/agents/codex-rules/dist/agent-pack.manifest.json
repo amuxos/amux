@@ -1,17 +1,23 @@
 {
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "codex-rules",
   "profiles": {
     "codex-rules": {
-      "type": "codex",
+      "namespace": "common",
       "description": "Codex profile with project rules injected as AGENTS.md",
       "instructions": [
-        "AGENTS.md"
+        "instructions/common/codex-rules/AGENTS.md"
       ],
       "skills": [],
-      "permission": {
-        "permission_mode": "plan"
-      }
+      "subagents": [],
+      "extends": null
+    }
+  },
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "codex-rules"
+      ]
     }
   }
 }

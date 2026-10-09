@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	ManagedContractMinimumVersion = "0.5.0"
+	ManagedContractMinimumVersion = "0.8.0"
 	// ManagedContractRuntimeVersion remains as a source-compatible alias while
 	// callers migrate to resolved runtime versions.
 	ManagedContractRuntimeVersion = ManagedContractMinimumVersion

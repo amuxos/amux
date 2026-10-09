@@ -50,7 +50,7 @@ Adapter 的思考强度校验继续生效。要选择 Profile Provider，必须�
 支持和工作区访问。强容器/VM 隔离及跨机器高可用仍是目标规格，不是分布式 API
 隐含提供的能力。
 
-Profile 消费支持 manifest v1.1 和 v2，遵循 Profile 物化到 Task/Adapter 契约的单向依赖。
+Profile 消费支持 manifest v2，遵循 Profile 物化到 Task/Adapter 契约的单向依赖。
 可选的本地专家编辑需要显式配置兼容的 authoring runtime；不可用时拒绝执行该能力，
 原生内置 Profile 仍可运行。
 

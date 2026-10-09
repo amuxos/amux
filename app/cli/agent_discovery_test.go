@@ -19,7 +19,7 @@ func seedProfileDiscoveryRegistry(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "dist"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "dist", "agent-pack.manifest.json"), []byte(`{"schema_version":"v1.1","pack_namespace":"team","profiles":{"reviewer":{"type":"codex","description":"Review changes"}}}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "dist", "agent-pack.manifest.json"), []byte(`{"schema_version":"v2","pack_namespace":"team","profiles":{"reviewer":{"description":"Review changes"}}}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 	registry := agentprofile.PackRegistry{Packs: map[string]agentprofile.Pack{

@@ -1,33 +1,23 @@
 {
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "example",
   "profiles": {
     "reviewer": {
       "namespace": "engineering",
-      "type": "codex",
       "description": "Review code changes",
-      "model": "gpt-5.4",
-      "supported_models": ["gpt-5.4", "service/example-model"],
-      "providers": ["service/example-model"],
-      "instructions": ["instructions/reviewer.md"],
+      "instructions": [
+        "instructions/reviewer.md"
+      ],
       "skills": [],
       "envs": [],
-      "env_refs": [],
-      "permission": {"permission_mode": "plan"}
-    }
-  },
-  "providers": {
-    "service/example-model": {
-      "platform": "openai-compat",
-      "wire_api": "responses",
-      "base_url": "https://provider.example/v1",
-      "api_key_env": "EXAMPLE_API_KEY",
-      "upstream_model": "example-model",
-      "context_window": 200000,
-      "max_tokens": 8000
+      "env_refs": []
     }
   },
   "namespaces": {
-    "engineering": {"profiles": ["reviewer"]}
+    "engineering": {
+      "profiles": [
+        "reviewer"
+      ]
+    }
   }
 }

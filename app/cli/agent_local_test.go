@@ -67,11 +67,11 @@ func TestAgentLocalCreateUsesInlineInstructions(t *testing.T) {
 	cmd := newAgentCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"local", "create", "reviewer", "--instructions", "Review changes", "--description", "Review code changes", "--type", "claude", "--model", "opus", "--permission", "plan"})
+	cmd.SetArgs([]string{"local", "create", "reviewer", "--instructions", "Review changes", "--description", "Review code changes"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("agent local create: %v", err)
 	}
-	if fake.createdSpec.Description != "Review code changes" || fake.createdSpec.Name != "reviewer" || fake.createdSpec.Type != "claude" || fake.createdSpec.Model != "opus" || fake.createdSpec.PermissionMode != "plan" || fake.createdSpec.Instructions != "Review changes" {
+	if fake.createdSpec.Description != "Review code changes" || fake.createdSpec.Name != "reviewer" || fake.createdSpec.Instructions != "Review changes" {
 		t.Fatalf("created spec = %+v", fake.createdSpec)
 	}
 	if !strings.Contains(out.String(), "Created local expert local/reviewer") || !strings.Contains(out.String(), "abc123") {
@@ -207,5 +207,15 @@ func TestAgentLocalHistoryAndRestore(t *testing.T) {
 	}
 	if fake.restoredTarget != "abc123" || fake.restoredCurrent != "current123" {
 		t.Fatalf("restore = target:%q current:%q", fake.restoredTarget, fake.restoredCurrent)
+	}
+}
+
+func TestAgentLocalCreateRejectsExecutionFlags(t *testing.T) {
+	for _, flag := range []string{"--type", "--model", "--permission"} {
+		cmd := newAgentCmd()
+		cmd.SetArgs([]string{"local", "create", "reviewer", "--instructions", "Review", flag, "value"})
+		if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "unknown flag") {
+			t.Fatalf("%s: %v", flag, err)
+		}
 	}
 }

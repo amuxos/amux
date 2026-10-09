@@ -495,9 +495,6 @@ func (s *server) refreshProfileAndRelaunch(ctx context.Context, sess *session.Se
 // permission arguments and provider bindings. It must not re-resolve a changed
 // runtime catalog or acquire defaults from the new content revision.
 func projectRefreshedProfileLaunch(snap session.Snapshot, profile agentprofile.Profile) (agentprofile.LaunchProjection, error) {
-	if profile.Type != "" {
-		return agentprofile.ProjectProfileLaunchChecked(profile, nil, nil, refreshProfileLaunchOptions(snap, profile))
-	}
 	var previous struct {
 		ProfileSpec *pb.AgentProfileSpec `json:"profile_spec"`
 	}
@@ -525,61 +522,6 @@ func projectRefreshedProfileLaunch(snap session.Snapshot, profile agentprofile.P
 	}, nil
 }
 
-// refreshProfileLaunchOptions keeps execution selections that are independent
-// of the profile revision. Legacy profile defaults still refresh to the new
-// revision, while an explicitly selected runtime or provider model remains on
-// that execution path. The upstream-name fallback repairs snapshots written by
-// older refresh code that accidentally discarded the provider ref.
-func refreshProfileLaunchOptions(snap session.Snapshot, profile agentprofile.Profile) agentprofile.LaunchOptions {
-	var previous struct {
-		ProfileSpec *pb.AgentProfileSpec `json:"profile_spec"`
-	}
-	if !decodeLaunchSpec(snap.LaunchSpec, &previous) || previous.ProfileSpec == nil {
-		return agentprofile.LaunchOptions{}
-	}
-	spec := previous.ProfileSpec
-	model := strings.TrimSpace(spec.ModelRef)
-	if model == "" {
-		model = strings.TrimSpace(spec.Model)
-	}
-	if runtimeRef := strings.TrimSpace(spec.RuntimeRef); runtimeRef != "" {
-		return agentprofile.LaunchOptions{
-			Runtime:         runtimeRef,
-			Model:           model,
-			ReasoningEffort: strings.TrimSpace(spec.ReasoningEffort),
-		}
-	}
-	if spec.Provider != nil && model != "" {
-		return agentprofile.LaunchOptions{Model: model}
-	}
-	if model == "" {
-		model = strings.TrimSpace(snap.EffectiveModel)
-	}
-	if model == "" || stringSliceContains(profile.SupportedModels, model) {
-		return agentprofile.LaunchOptions{}
-	}
-	matched := ""
-	for ref, option := range profile.ModelOptions {
-		if option.Kind != agentprofile.ModelKindProvider || option.Provider == nil ||
-			strings.TrimSpace(option.AgentModel) != model {
-			continue
-		}
-		if matched != "" {
-			return agentprofile.LaunchOptions{}
-		}
-		matched = ref
-	}
-	return agentprofile.LaunchOptions{Model: matched}
-}
-
-func stringSliceContains(values []string, want string) bool {
-	for _, value := range values {
-		if strings.TrimSpace(value) == want {
-			return true
-		}
-	}
-	return false
-}
 func refreshProfileRef(snap session.Snapshot) string {
 	var decoded struct {
 		ProfileSpec *struct {

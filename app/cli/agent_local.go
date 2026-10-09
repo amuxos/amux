@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/spf13/cobra"
 )
@@ -69,9 +68,6 @@ func newAgentLocalCreateCmd() *cobra.Command {
 	var description string
 	var instructions string
 	var instructionsFile string
-	var agentType string
-	var model string
-	var permission string
 	cmd := &cobra.Command{
 		Use:               "create <name>",
 		Short:             "Create an expert in the amux-local library",
@@ -85,12 +81,9 @@ func newAgentLocalCreateCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 90*time.Second)
 			defer cancel()
 			result, err := newManagedLocalActions().Create(ctx, agentprofile.ManagedProfileSpec{
-				Name:           args[0],
-				Description:    description,
-				Type:           agentType,
-				Model:          model,
-				PermissionMode: permission,
-				Instructions:   content,
+				Name:         args[0],
+				Description:  description,
+				Instructions: content,
 			})
 			if err != nil {
 				return err
@@ -103,13 +96,7 @@ func newAgentLocalCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", commandCatalog.Format(commandLocale(cmd), "agent.description_help"))
 	cmd.Flags().StringVar(&instructions, "instructions", "", "inline expert instructions")
 	cmd.Flags().StringVar(&instructionsFile, "instructions-file", "", "read expert instructions from a file")
-	cmd.Flags().StringVar(&agentType, "type", agentprofile.ManagedLocalDefaultAgent, "agent type ("+strings.Join(adapter.Names(), ", ")+")")
-	cmd.Flags().StringVar(&model, "model", "", "agent-native model; empty uses the agent login default")
-	cmd.Flags().StringVar(&permission, "permission", "default", "provider permission mode (default, plan, bypass)")
 	_ = cmd.RegisterFlagCompletionFunc("instructions-file", completeFiles)
-	_ = cmd.RegisterFlagCompletionFunc("type", completeAgentTypes)
-	_ = cmd.RegisterFlagCompletionFunc("model", completeNoFiles)
-	_ = cmd.RegisterFlagCompletionFunc("permission", completeNoFiles)
 	return cmd
 }
 

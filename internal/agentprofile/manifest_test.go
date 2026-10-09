@@ -11,14 +11,35 @@ func TestListPackProfilesFromManifestConsumesAllProfilesNotNamespaceIndexOnly(t 
 	root := t.TempDir()
 	writePackContent(t, root, "instructions/a.md", "A\n")
 	writeManifest(t, root, `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "example-team",
   "profiles": {
-    "listed": {"namespace":"common","type":"codex","model":"MiniMax-M2.7","providers":[],"instructions":["instructions/a.md"],"skills":[],"subagents":[],"extends":null},
-    "not-in-namespace-index": {"namespace":"common","type":"codex","model":"MiniMax-M2.7","providers":[],"instructions":["instructions/a.md"],"skills":[],"subagents":[],"extends":null}
+    "listed": {
+      "namespace": "common",
+      "instructions": [
+        "instructions/a.md"
+      ],
+      "skills": [],
+      "subagents": [],
+      "extends": null
+    },
+    "not-in-namespace-index": {
+      "namespace": "common",
+      "instructions": [
+        "instructions/a.md"
+      ],
+      "skills": [],
+      "subagents": [],
+      "extends": null
+    }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["listed"]}}
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "listed"
+      ]
+    }
+  }
 }`)
 
 	profiles, err := listPackProfiles(Pack{Namespace: "team", MaterializedPath: root})
@@ -39,13 +60,27 @@ func TestManifestInstructionsLoadInArrayOrder(t *testing.T) {
 	writePackContent(t, root, "instructions/one.md", "one\n")
 	writePackContent(t, root, "instructions/two.md", "two\n")
 	writeManifest(t, root, `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "example-team",
   "profiles": {
-    "multi": {"namespace":"common","type":"codex","model":"gpt-5.4","providers":[],"instructions":["instructions/one.md","instructions/two.md"],"skills":[],"subagents":[],"extends":null}
+    "multi": {
+      "namespace": "common",
+      "instructions": [
+        "instructions/one.md",
+        "instructions/two.md"
+      ],
+      "skills": [],
+      "subagents": [],
+      "extends": null
+    }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["multi"]}}
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "multi"
+      ]
+    }
+  }
 }`)
 	registry := PackRegistry{Packs: map[string]Pack{
 		"team": {Namespace: "team", MaterializedPath: root},
@@ -76,34 +111,27 @@ func TestManifestLoaderRejectsInvalidContract(t *testing.T) {
 		}
 	})
 
-	t.Run("missing referenced provider", func(t *testing.T) {
-		root := t.TempDir()
-		writePackContent(t, root, "instructions/a.md", "A\n")
-		writeManifest(t, root, `{
-  "schema_version": "v1.1",
-  "pack_namespace": "example-team",
-  "profiles": {
-    "bad": {"namespace":"common","type":"codex","model":"MiniMax-M2.7","providers":["missing/model"],"instructions":["instructions/a.md"],"skills":[],"subagents":[],"extends":null}
-  },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["bad"]}}
-}`)
-		_, _, err := loadPackProfile(Pack{Namespace: "team", MaterializedPath: root}, "bad")
-		if err == nil || !strings.Contains(err.Error(), `profile bad references unknown provider "missing/model"`) {
-			t.Fatalf("error = %v, want missing provider", err)
-		}
-	})
-
 	t.Run("empty instructions allowed", func(t *testing.T) {
 		root := t.TempDir()
 		writeManifest(t, root, `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "example-team",
   "profiles": {
-    "coder": {"namespace":"common","type":"codex","model":"MiniMax-M2.7","providers":[],"instructions":[],"skills":[],"subagents":[],"extends":null}
+    "coder": {
+      "namespace": "common",
+      "instructions": [],
+      "skills": [],
+      "subagents": [],
+      "extends": null
+    }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["coder"]}}
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "coder"
+      ]
+    }
+  }
 }`)
 		profile, ok, err := loadPackProfile(Pack{Namespace: "team", MaterializedPath: root}, "coder")
 		if err != nil {
@@ -120,16 +148,27 @@ func TestManifestLoaderRejectsInvalidContract(t *testing.T) {
 		}
 	})
 
-	t.Run("empty model allowed without providers", func(t *testing.T) {
+	t.Run("content has no execution settings", func(t *testing.T) {
 		root := t.TempDir()
 		writeManifest(t, root, `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "example-team",
   "profiles": {
-    "codex": {"namespace":"common","type":"codex","model":"","providers":[],"instructions":[],"skills":[],"subagents":[],"extends":null}
+    "codex": {
+      "namespace": "common",
+      "instructions": [],
+      "skills": [],
+      "subagents": [],
+      "extends": null
+    }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["codex"]}}
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "codex"
+      ]
+    }
+  }
 }`)
 		profile, ok, err := loadPackProfile(Pack{Namespace: "team", MaterializedPath: root}, "codex")
 		if err != nil {
@@ -146,37 +185,32 @@ func TestManifestLoaderRejectsInvalidContract(t *testing.T) {
 		}
 	})
 
-	t.Run("empty model rejected when providers declared", func(t *testing.T) {
-		root := t.TempDir()
-		writeManifest(t, root, `{
-  "schema_version": "v1.1",
-  "pack_namespace": "example-team",
-  "profiles": {
-    "bad": {"namespace":"common","type":"codex","model":"","providers":["glm-prod/glm"],"instructions":[],"skills":[],"subagents":[],"extends":null}
-  },
-  "providers": {
-    "glm-prod/glm": {"platform":"openai-compat","base_url":"https://x/v1","upstream_model":"glm-4","api_key_env":"GLM_API_KEY"}
-  },
-  "namespaces": {"common": {"profiles": ["bad"]}}
-}`)
-		_, _, err := loadPackProfile(Pack{Namespace: "team", MaterializedPath: root}, "bad")
-		if err == nil || !strings.Contains(err.Error(), "profile bad model is required when providers are declared") {
-			t.Fatalf("error = %v, want model-required-with-providers", err)
-		}
-	})
 }
 
 func TestResolveProfileSuggestsHyphenatedManifestProfileName(t *testing.T) {
 	root := t.TempDir()
 	writePackContent(t, root, "instructions/push-sre/AGENTS.md", "# Push SRE\n")
 	writeManifest(t, root, `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "example-team",
   "profiles": {
-    "push-sre": {"namespace":"push","type":"codex","model":"MiniMax-M2.7","providers":[],"instructions":["instructions/push-sre/AGENTS.md"],"skills":[],"subagents":[],"extends":null}
+    "push-sre": {
+      "namespace": "push",
+      "instructions": [
+        "instructions/push-sre/AGENTS.md"
+      ],
+      "skills": [],
+      "subagents": [],
+      "extends": null
+    }
   },
-  "providers": {},
-  "namespaces": {"push": {"profiles": ["push-sre"]}}
+  "namespaces": {
+    "push": {
+      "profiles": [
+        "push-sre"
+      ]
+    }
+  }
 }`)
 	registryPath := filepath.Join(t.TempDir(), "registry.json")
 	if err := SavePackRegistry(registryPath, PackRegistry{Packs: map[string]Pack{

@@ -1,6 +1,6 @@
 {
   "schema_unsupported": {
-    "other": "unsupported agent pack manifest schema_version %q in %s; supported: v1.1, v2"
+    "other": "unsupported agent pack manifest schema_version %q in %s; supported: v2"
   },
   "execution_field_forbidden": {
     "other": "profile %s: field %q is forbidden in v2; provide execution settings when launching"
@@ -25,5 +25,14 @@
   },
   "runtime_provider_missing": {
     "other": "runtime provider %q has no connection configuration"
+  },
+  "pack_providers_forbidden": {
+    "other": "agent pack field \"providers\" is forbidden in v2; configure providers in the runtime"
+  },
+  "source_schema_unsupported": {
+    "other": "unsupported agent pack source schema_version %q; supported: v2; convert the source explicitly before editing"
+  },
+  "runtime_permission_invalid": {
+    "other": "runtime permission mode must be default, plan, or bypass (got %q)"
   }
 }

@@ -85,7 +85,7 @@ func TestBuildRunRequestAcceptsPackProfileRef(t *testing.T) {
 	rev := gitRev(t, repo)
 	runAgentPackCmd(t, "add", "team", repo, "--ref", "stable")
 
-	req, err := buildRunRequest([]string{"team/coder"}, -1, "work", nil, "", "", "", "")
+	req, err := buildRunRequestWithRuntime([]string{"team/coder"}, -1, "work", nil, "", "", "", "codex", "gpt-5-codex")
 	if err != nil {
 		t.Fatalf("buildRunRequest: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestBuildRunRequestAcceptsPackProfileRef(t *testing.T) {
 	if req.ProfileSpec.Model != "gpt-5-codex" {
 		t.Fatalf("profile_spec model = %q, want gpt-5-codex", req.ProfileSpec.Model)
 	}
-	if got, want := req.ExtraArgs, []string{"--model", "gpt-5-codex", "-c", `approval_policy="on-request"`, "-c", `sandbox_mode="read-only"`}; !equalRunStrings(got, want) {
+	if got, want := req.ExtraArgs, []string{"--model", "gpt-5-codex"}; !equalRunStrings(got, want) {
 		t.Fatalf("extra args = %#v, want %#v", got, want)
 	}
 	if len(req.Env) != 0 {
@@ -115,18 +115,18 @@ func TestBuildRunRequestAcceptsPackProfileRef(t *testing.T) {
 	}
 }
 
-func TestBuildRunRequestLetsExplicitModelOverrideProfileModel(t *testing.T) {
+func TestBuildRunRequestUsesCallerModelWithPackContent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	repo := initTestProfilePackRepo(t)
 	runGit(t, repo, "checkout", "-b", "stable")
 	runAgentPackCmd(t, "add", "team", repo, "--ref", "stable")
 
-	req, err := buildRunRequest([]string{"team/coder", "--model", "custom-model"}, 1, "work", nil, "", "", "", "")
+	req, err := buildRunRequestWithRuntime([]string{"team/coder"}, -1, "work", nil, "", "", "", "codex", "custom-model")
 	if err != nil {
 		t.Fatalf("buildRunRequest: %v", err)
 	}
-	if got, want := req.ExtraArgs, []string{"-c", `approval_policy="on-request"`, "-c", `sandbox_mode="read-only"`, "--model", "custom-model"}; !equalRunStrings(got, want) {
+	if got, want := req.ExtraArgs, []string{"--model", "custom-model"}; !equalRunStrings(got, want) {
 		t.Fatalf("extra args = %#v, want explicit model only: %#v", got, want)
 	}
 	if req.ProfileSpec == nil || req.ProfileSpec.Model != "custom-model" {

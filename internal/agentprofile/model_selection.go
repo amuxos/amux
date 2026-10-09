@@ -75,7 +75,7 @@ func ProjectProfileLaunchChecked(profile Profile, explicitArgs []string, explici
 }
 
 // profileModelCapability resolves the reasoning capability of the Profile's
-// effective model. Providers carry their default in the pack binding; other
+// effective model. Providers carry their default in the runtime binding; other
 // models report what their runtime catalog declares.
 func profileModelCapability(profile Profile) RuntimeModelOption {
 	if profile.Provider != nil {
@@ -94,7 +94,7 @@ func profileModelCapability(profile Profile) RuntimeModelOption {
 // wins, and a model that declares no default keeps the runtime's own behavior.
 //
 // A provider-backed model is normally skipped: its effort travels inside the
-// provider binding (the pack's [thinking] block, applied by the distribution
+// provider binding (the runtime thinking settings, applied by the distribution
 // provider projections), so emitting a launch flag here would duplicate it.
 // pi is the exception — its provider projection consumes the binding only as a
 // reasoning on/off switch and drops the level itself, so the level has to
@@ -342,12 +342,12 @@ func projectProfilePermissionArgs(profile Profile, runtimeAgentType string) ([]s
 		return nil, nil
 	}
 	for _, mode := range []string{"default", "plan", "bypass"} {
-		sourceArgs, err := permissionModeArgs(profile.Type, packProfilePermission{PermissionMode: mode})
+		sourceArgs, err := permissionModeArgs(profile.Type, mode)
 		if err != nil {
 			return nil, err
 		}
 		if stringSlicesEqual(profile.DefaultArgs, sourceArgs) {
-			return permissionModeArgs(runtimeAgentType, packProfilePermission{PermissionMode: mode})
+			return permissionModeArgs(runtimeAgentType, mode)
 		}
 	}
 	if strings.TrimSpace(profile.Type) == strings.TrimSpace(runtimeAgentType) {

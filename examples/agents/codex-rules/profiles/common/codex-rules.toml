@@ -1,0 +1,3 @@
+description = "Codex profile with project rules injected as AGENTS.md"
+skills = []
+instructions = ["instructions/common/codex-rules/AGENTS.md"]

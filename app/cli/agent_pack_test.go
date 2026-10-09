@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -903,88 +904,58 @@ runtime_tools = ["git"]
 	return repo
 }
 
-func writeTestProfilePackManifest(t *testing.T, repo, coderDescription string, includeProvider bool) {
+func writeTestProfilePackManifest(t *testing.T, repo, coderDescription string, includeExtra bool) {
 	t.Helper()
-	profiles := `"coder": {
-      "namespace": "common",
-      "type": "codex",
-      "model": "gpt-5-codex",
-      "description": "` + coderDescription + `",
-      "providers": [],
-      "instructions": ["AGENTS.md"],
-      "skills": ["amux-dev"],
-      "subagents": [],
-      "extends": null,
-      "permission": {"permission_mode": "plan"}
-    }`
-	providers := `{}`
-	namespaceProfiles := `"coder"`
-	if includeProvider {
-		profiles += `,
-    "example": {
-      "namespace": "common",
-      "type": "pi",
-      "model": "example-service/example-model",
-      "providers": ["example-service/example-model"],
-      "instructions": ["AGENTS.md"],
-      "skills": [],
-      "subagents": [],
-      "extends": null,
-      "permission": {"permission_mode": "bypass"}
-    }`
-		providers = `{
-    "example-service/example-model": {
-      "platform": "openai-compat",
-      "base_url": "https://provider.example/v1",
-      "upstream_model": "example-model",
-      "api_key_env": "EXAMPLE_API_KEY"
-    }
-  }`
-		namespaceProfiles += `, "example"`
+	profiles := map[string]any{"coder": map[string]any{
+		"namespace": "common", "description": coderDescription, "instructions": []string{"AGENTS.md"},
+		"skills": []string{"amux-dev"}, "subagents": []string{},
+	}}
+	if includeExtra {
+		profiles["example"] = map[string]any{"instructions": []string{"AGENTS.md"}}
 	}
-	body := `{
-  "schema_version": "v1.1",
-  "pack_namespace": "team",
-  "profiles": {
-    ` + profiles + `
-  },
-  "providers": ` + providers + `,
-  "namespaces": {"common": {"profiles": [` + namespaceProfiles + `]}}
-}
-`
+	data, err := json.Marshal(map[string]any{"schema_version": "v2", "pack_namespace": "team", "profiles": profiles})
+	if err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(repo, "dist", "agent-pack.manifest.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		t.Fatalf("mkdir manifest dir: %v", err)
+		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(body), 0600); err != nil {
-		t.Fatalf("write manifest: %v", err)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
 	}
 }
 
 func writeTestProfilePackManifestWithEnvRefs(t *testing.T, repo string) {
 	t.Helper()
 	body := `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "team",
   "profiles": {
     "coder": {
       "namespace": "common",
-      "type": "codex",
-      "model": "gpt-5-codex",
       "description": "Team coding profile",
-      "providers": [],
-      "instructions": ["AGENTS.md"],
-      "skills": ["amux-dev"],
+      "instructions": [
+        "AGENTS.md"
+      ],
+      "skills": [
+        "amux-dev"
+      ],
       "subagents": [],
-      "env_refs": ["credential:github:GITHUB_TOKEN"],
-      "extends": null,
-      "permission": {"permission_mode": "plan"}
+      "env_refs": [
+        "credential:github:GITHUB_TOKEN"
+      ],
+      "extends": null
     }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["coder"]}}
-}
-`
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "coder"
+      ]
+    }
+  }
+}`
 	path := filepath.Join(repo, "dist", "agent-pack.manifest.json")
 	if err := os.WriteFile(path, []byte(body), 0600); err != nil {
 		t.Fatalf("write manifest: %v", err)
@@ -994,27 +965,33 @@ func writeTestProfilePackManifestWithEnvRefs(t *testing.T, repo string) {
 func writeTestProfilePackManifestWithEnvs(t *testing.T, repo string) {
 	t.Helper()
 	body := `{
-  "schema_version": "v1.1",
+  "schema_version": "v2",
   "pack_namespace": "team",
   "profiles": {
     "coder": {
       "namespace": "common",
-      "type": "codex",
-      "model": "gpt-5-codex",
       "description": "Team coding profile",
-      "providers": [],
-      "instructions": ["AGENTS.md"],
-      "skills": ["credential-hints"],
+      "instructions": [
+        "AGENTS.md"
+      ],
+      "skills": [
+        "credential-hints"
+      ],
       "subagents": [],
-      "envs": ["DEMOTION_TOKEN"],
-      "extends": null,
-      "permission": {"permission_mode": "plan"}
+      "envs": [
+        "DEMOTION_TOKEN"
+      ],
+      "extends": null
     }
   },
-  "providers": {},
-  "namespaces": {"common": {"profiles": ["coder"]}}
-}
-`
+  "namespaces": {
+    "common": {
+      "profiles": [
+        "coder"
+      ]
+    }
+  }
+}`
 	path := filepath.Join(repo, "dist", "agent-pack.manifest.json")
 	if err := os.WriteFile(path, []byte(body), 0600); err != nil {
 		t.Fatalf("write manifest: %v", err)

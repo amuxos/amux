@@ -96,28 +96,6 @@ func TestScheduledTaskArgumentsSurviveCLIAndWireConversion(t *testing.T) {
 func TestAgentRenderPortableProfileRequiresRuntimeAndRetainsAssets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	repo := initTestProfilePackRepo(t)
-	manifest := filepath.Join(repo, "dist", "agent-pack.manifest.json")
-	data, err := os.ReadFile(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		t.Fatal(err)
-	}
-	m["schema_version"] = "v2"
-	for _, raw := range m["profiles"].(map[string]any) {
-		p := raw.(map[string]any)
-		for _, field := range []string{"type", "model", "providers", "supported_models", "permission"} {
-			delete(p, field)
-		}
-	}
-	data, _ = json.Marshal(m)
-	if err := os.WriteFile(manifest, data, 0600); err != nil {
-		t.Fatal(err)
-	}
-	runGit(t, repo, "add", ".")
-	runGit(t, repo, "commit", "-m", "make profile portable")
 	runAgentPackCmd(t, "add", "team", repo)
 	output := filepath.Join(t.TempDir(), "rendered")
 	cmd := newAgentCmd()

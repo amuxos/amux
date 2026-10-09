@@ -237,7 +237,7 @@ func (m *ManagedLibrary) applyAuthoring(ctx context.Context, request ManagedAuth
 		if err := validateManagedAuthoringTarget(worktree, targetName); err != nil {
 			return err
 		}
-		if err := m.contract.Check(ctx, worktree); err != nil {
+		if err := m.check(ctx, worktree); err != nil {
 			return err
 		}
 		if err := validateManagedAuthoringTree(worktree); err != nil {
@@ -417,6 +417,9 @@ func (m *ManagedLibrary) withAuthoringWorktree(ctx context.Context, request Mana
 }
 
 func prepareManagedAuthoringBase(worktree string, request ManagedAuthoringRequest, targetName string) error {
+	if err := validateManagedPackSource(worktree); err != nil {
+		return err
+	}
 	profilePath := managedProfilePath(worktree, targetName)
 	_, statErr := os.Stat(profilePath)
 	switch request.Operation {
@@ -435,7 +438,7 @@ func prepareManagedAuthoringBase(worktree string, request ManagedAuthoringReques
 	}
 	if request.Operation == ManagedAuthoringCreate {
 		return writeManagedProfile(worktree, ManagedProfileSpec{
-			Name: targetName, Type: ManagedLocalDefaultAgent, PermissionMode: "default",
+			Name:         targetName,
 			Instructions: "# " + targetName + "\n\nYou are the local expert " + targetName + ".\n",
 		})
 	}
@@ -473,20 +476,6 @@ func readManagedAuthoringFiles(worktree, targetName string) ([]ManagedAuthoringF
 				}
 				break
 			}
-		}
-	}
-	providerRefs := append(managedAuthoringRefs(source["providers"]), managedAuthoringRefs(source["supported_models"])...)
-	if model, ok := source["model"].(string); ok {
-		providerRefs = append(providerRefs, model)
-	}
-	for _, ref := range providerRefs {
-		binding, model, ok := strings.Cut(ref, "/")
-		if !ok {
-			continue
-		}
-		providerPath := filepath.ToSlash(filepath.Join("providers", binding, model+".toml"))
-		if _, err := os.Stat(filepath.Join(worktree, filepath.FromSlash(providerPath))); err == nil {
-			paths[providerPath] = struct{}{}
 		}
 	}
 	ordered := make([]string, 0, len(paths))

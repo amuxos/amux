@@ -11,12 +11,6 @@ import (
 
 var providerEnvNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-type packProfilePermission struct {
-	PermissionMode string   `json:"permission_mode"`
-	AllowedTools   []string `json:"allowed_tools"`
-	AskTools       []string `json:"ask_tools"`
-}
-
 func ResolvePackProfile(registry PackRegistry, ref string) (Profile, bool, error) {
 	namespace, name, revision, ok := splitProfileRef(ref)
 	if !ok {
@@ -127,15 +121,15 @@ func packProfileNameExists(pack Pack, name string) (bool, error) {
 	return exists, nil
 }
 
-func permissionModeArgs(agentType string, permission packProfilePermission) ([]string, error) {
-	mode := strings.TrimSpace(permission.PermissionMode)
+func permissionModeArgs(agentType, mode string) ([]string, error) {
+	mode = strings.TrimSpace(mode)
 	if mode == "" {
 		return nil, nil
 	}
 	switch mode {
 	case "default", "plan", "bypass":
 	default:
-		return nil, fmt.Errorf("[permission].permission_mode must be one of default, plan, bypass (got %q)", mode)
+		return nil, profileError("runtime_permission_invalid", mode)
 	}
 	switch profileConfigProtocol(agentType) {
 	case "codex":

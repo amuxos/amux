@@ -146,7 +146,7 @@ func TestAgentListAndShowIncludePackProfiles(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("agent show team/coder: %v", err)
 	}
-	for _, want := range []string{"ref: team/coder", "pinned_ref: team/coder@" + rev, "type: codex", "model: gpt-5-codex", "source: pack", "agents: AGENTS.md", "skills: amux-dev", `default_args: -c, approval_policy="on-request", -c, sandbox_mode="read-only"`} {
+	for _, want := range []string{"ref: team/coder", "pinned_ref: team/coder@" + rev, "source: pack", "agents: AGENTS.md", "skills: amux-dev"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("agent show output missing %q:\n%s", want, out.String())
 		}
@@ -164,50 +164,6 @@ func TestAgentShowBuiltinProfile(t *testing.T) {
 
 	text := out.String()
 	for _, want := range []string{"ref: builtin/claude", "source: builtin", "description: Claude Code"} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("agent show output missing %q:\n%s", want, text)
-		}
-	}
-}
-
-func TestAgentShowProviderProfileIncludesCredentialSetupHint(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	repo := initTestProfilePackRepo(t)
-	if err := os.WriteFile(filepath.Join(repo, "profiles", "example.toml"), []byte(`name = "example"
-type = "pi"
-model = "example-service/example-model"
-agents = "AGENTS.md"
-
-[provider]
-platform = "openai-compat"
-base_url = "https://provider.example/v1"
-upstream_model = "example-model"
-api_key_env = "EXAMPLE_API_KEY"
-`), 0600); err != nil {
-		t.Fatalf("write example profile: %v", err)
-	}
-	writeTestProfilePackManifest(t, repo, "Team coding profile", true)
-	runGit(t, repo, "add", ".")
-	runGit(t, repo, "commit", "-m", "add example profile")
-	runGit(t, repo, "checkout", "-b", "stable")
-	runAgentPackCmd(t, "add", "team", repo, "--ref", "stable")
-
-	cmd := newAgentCmd()
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"show", "team/example"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("agent show team/example: %v", err)
-	}
-
-	text := out.String()
-	for _, want := range []string{
-		"provider_platform: openai-compat",
-		"provider_api_key_env: EXAMPLE_API_KEY",
-		"credential: missing",
-		"credential_setup: amux agent credential set openai-compat EXAMPLE_API_KEY",
-	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("agent show output missing %q:\n%s", want, text)
 		}
@@ -390,7 +346,7 @@ func TestAgentDoctorCredentialEnvRefsIncludeSetupHint(t *testing.T) {
 	cmd := newAgentCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"doctor", "team/coder"})
+	cmd.SetArgs([]string{"doctor", "team/coder", "--runtime", "codex"})
 	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "credential profile github") {
 		t.Fatalf("agent doctor team/coder error = %v, want missing credential failure", err)
 	}
@@ -426,7 +382,7 @@ func TestAgentDoctorProfileEnvsResolveGlobalCredentialSource(t *testing.T) {
 	cmd := newAgentCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"doctor", "team/coder"})
+	cmd.SetArgs([]string{"doctor", "team/coder", "--runtime", "codex"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("agent doctor team/coder: %v", err)
 	}
@@ -463,7 +419,7 @@ func TestAgentDoctorProfileEnvsReportsAmbiguousGlobalCredentialSource(t *testing
 	cmd := newAgentCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"doctor", "team/coder"})
+	cmd.SetArgs([]string{"doctor", "team/coder", "--runtime", "codex"})
 	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "required credential env DEMOTION_TOKEN is ambiguous") {
 		t.Fatalf("agent doctor team/coder error = %v, want ambiguous credential failure", err)
 	}
@@ -517,49 +473,6 @@ func TestAgentProviderCredentialStateUsesEffectiveCredentialProfile(t *testing.T
 	}
 }
 
-func TestAgentDoctorProviderProfileIncludesCredentialSetupHint(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	prependFakeAgentExecutable(t, "pi", "exit 0")
-	repo := initTestProfilePackRepo(t)
-	if err := os.WriteFile(filepath.Join(repo, "profiles", "example.toml"), []byte(`name = "example"
-type = "pi"
-model = "example-service/example-model"
-agents = "AGENTS.md"
-
-[provider]
-platform = "openai-compat"
-base_url = "https://provider.example/v1"
-upstream_model = "example-model"
-api_key_env = "EXAMPLE_API_KEY"
-`), 0600); err != nil {
-		t.Fatalf("write example profile: %v", err)
-	}
-	writeTestProfilePackManifest(t, repo, "Team coding profile", true)
-	runGit(t, repo, "add", ".")
-	runGit(t, repo, "commit", "-m", "add example profile")
-	runGit(t, repo, "checkout", "-b", "stable")
-	runAgentPackCmd(t, "add", "team", repo, "--ref", "stable")
-
-	cmd := newAgentCmd()
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"doctor", "team/example"})
-	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "provider credential profile openai-compat is missing") {
-		t.Fatalf("agent doctor team/example error = %v, want missing provider credential failure", err)
-	}
-
-	text := out.String()
-	for _, want := range []string{
-		"[FAIL] credential: missing profile openai-compat",
-		"[INFO] credential setup: amux agent credential set openai-compat EXAMPLE_API_KEY",
-	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("agent doctor output missing %q:\n%s", want, text)
-		}
-	}
-}
-
 func TestAgentDoctorRejectsUnknownProfile(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -582,7 +495,7 @@ func TestAgentDoctorAcceptsPackProfile(t *testing.T) {
 	cmd := newAgentCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"doctor", "team/coder"})
+	cmd.SetArgs([]string{"doctor", "team/coder", "--runtime", "codex"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("agent doctor team/coder: %v", err)
 	}
@@ -641,7 +554,7 @@ func TestAgentRenderPackProfileWritesProjectionWorkspace(t *testing.T) {
 	cmd := newAgentCmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"render", "team/coder", "--out", root})
+	cmd.SetArgs([]string{"render", "team/coder", "--runtime", "codex", "--out", root})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("agent render team/coder: %v", err)
 	}

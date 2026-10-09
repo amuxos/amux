@@ -1,20 +1,17 @@
-# manifest v1.1 Pack 示例
+# manifest v2 Pack 示例
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-本目录包含 `dist/agent-pack.manifest.json` 和 `instructions/reviewer.md`，展示代码审查
-Profile 的指令、模型与 Provider 绑定。运行时读取 manifest，Profile TOML 不参与运行时解析。
+本 Pack 包含代码审查指令和 v2 manifest，不声明引擎、模型、Provider 或权限设置。
+这些设置在执行时选择。
 
-`https://provider.example/v1`、模型名和 `EXAMPLE_API_KEY` 都是示例值，不能直接调用模型。
-使用前把 manifest 改为你的实际 Provider；或者移除示例 Provider 绑定并使用原生 Agent 配置。
-凭据通过 [Credential Profile](../03-credential-profiles/README.zh-CN.md) 管理，不写进 Pack。
-
-将本目录内容放在一个独立 Git 仓库的根目录并提交，然后注册：
+将本目录内容复制到独立 Git 仓库，提交后注册：
 
 ```sh
 amux agent pack add example /absolute/path/to/example-pack-repo
 amux agent show example/reviewer --json
+amux session run example/reviewer --runtime codex
 ```
 
-`pack add` 的地址是 Pack 自身的 Git 仓库，不能把当前父仓当作这个 Pack 的根目录。
-源码格式见 [Agent Profile Pack](../../docs/reference/agent-profile-format.zh-CN.md)。
+`pack add` 指向 Pack 自己的 Git 仓库，不能使用父仓库根目录。
+在 Runtime 配置所选引擎的凭据。参见 [Pack 格式](../../docs/reference/agent-profile-format.zh-CN.md)。

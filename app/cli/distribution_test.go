@@ -72,7 +72,7 @@ func TestPublicCLIDefaultsAndRuntimeModelSelection(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if fake.createdSpec.Type != "codex" || fake.createdSpec.Instructions != "Review changes.\n" {
+	if fake.createdSpec.Instructions != "Review changes.\n" {
 		t.Fatalf("default local expert = %+v", fake.createdSpec)
 	}
 	req, err := buildRunRequestWithRuntime([]string{"builtin/claude"}, -1, "work", nil, "", "", "", "codex", "custom-native-model")

@@ -13,10 +13,9 @@ func TestCustomizationFailurePreservesPublicProfiles(t *testing.T) {
 	beforeProfiles, beforeCatalog := Builtins(), CatalogPacks()
 	beforeFS, beforeDefault := builtinProfileFS, DefaultProfileRef
 	err := RegisterCustomization(Customization{
-		Builtin:         fstest.MapFS{"dist/agent-pack.manifest.json": {Data: []byte(`{"schema_version":"v1.1","pack_namespace":"builtin","profiles":{"invalid":{"type":"unregistered-adapter"}}}`)}},
+		Builtin:         fstest.MapFS{"dist/agent-pack.manifest.json": {Data: []byte(`{"schema_version":"v2","pack_namespace":"builtin","profiles":{"invalid":{"type":"codex"}}}`)}},
 		BuiltinMetadata: map[string]BuiltinMetadata{"invalid": {Description: "Invalid"}},
-		DefaultProfile:  "invalid", ManagedLocalDefaultAgent: "codex",
-		Catalog: []byte(`{"schema_version":"v1","packs":[]}`),
+		DefaultProfile:  "invalid", Catalog: []byte(`{"schema_version":"v1","packs":[]}`),
 	})
 	if err == nil {
 		t.Fatal("invalid extension builtin pack was accepted")
@@ -44,10 +43,9 @@ func TestBuiltinProfilesRegisterFromManifestAlone(t *testing.T) {
 			legacyDescription = "Legacy fallback"
 		}
 		err := RegisterCustomization(Customization{
-			Builtin:         fstest.MapFS{"dist/agent-pack.manifest.json": {Data: []byte(`{"schema_version":"v1.1","pack_namespace":"builtin","profiles":{"reviewer":{"type":"codex","description":"Review code changes"},"legacy":{"type":"codex"},"unregistered":{"type":"claude","description":"Manifest-only profile"}}}`)}},
+			Builtin:         fstest.MapFS{"dist/agent-pack.manifest.json": {Data: []byte(`{"schema_version":"v2","pack_namespace":"builtin","profiles":{"reviewer":{"description":"Review code changes"},"legacy":{},"unregistered":{"description":"Manifest-only profile"}}}`)}},
 			BuiltinMetadata: metadata,
-			DefaultProfile:  "unregistered", ManagedLocalDefaultAgent: "codex",
-			Catalog: []byte(`{"schema_version":"v1","packs":[]}`),
+			DefaultProfile:  "unregistered", Catalog: []byte(`{"schema_version":"v1","packs":[]}`),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -72,8 +70,7 @@ func TestBuiltinProfilesRegisterFromManifestAlone(t *testing.T) {
 func TestInvalidBuiltinPresetPreservesCallerDefaults(t *testing.T) {
 	before := builtinLaunchPresets
 	err := RegisterCustomization(Customization{
-		Builtin: builtinProfileFS, DefaultProfile: "codex", ManagedLocalDefaultAgent: "codex",
-		Catalog:              []byte(`{"schema_version":"v1","packs":[]}`),
+		Builtin: builtinProfileFS, DefaultProfile: "codex", Catalog: []byte(`{"schema_version":"v1","packs":[]}`),
 		BuiltinLaunchPresets: map[string]BuiltinLaunchPreset{"missing": {Runtime: "codex"}},
 	})
 	if err == nil {

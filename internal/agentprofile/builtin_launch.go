@@ -56,7 +56,7 @@ func ProjectProfileLaunchWithDefaults(profile Profile, args, env []string, opts 
 	// portable. The projector freezes these defaults for retries/model switches.
 	selected := cloneProfile(profile)
 	selected.Type = runtime.AgentType
-	selected.DefaultArgs, err = permissionModeArgs(runtime.AgentType, packProfilePermission{PermissionMode: preset.PermissionMode})
+	selected.DefaultArgs, err = permissionModeArgs(runtime.AgentType, preset.PermissionMode)
 	if err != nil {
 		return LaunchProjection{}, err
 	}

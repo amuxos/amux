@@ -176,7 +176,7 @@ binaries and the bundled Claude SDK. Override the manifest/archive source with
 `AMUX_RELEASE_URL` or `--release-url`; custom URLs pointing directly at an
 archive skip checksum verification.
 
-Profile Packs use manifest v1.1 and support external Git Packs; there is no default
+Profile Packs use manifest v2 and support external Git Packs; there is no default
 marketplace. Optional expert authoring needs a separately configured compatible
 runtime, never downloaded implicitly by source builds. Bundled skills and the
 desktop application are not part of this repository.
