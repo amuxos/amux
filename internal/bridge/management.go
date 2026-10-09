@@ -899,7 +899,7 @@ func (b *Bridge) managementState() managementState {
 		state.GroupWatch.AgentProfileRef,
 	)
 	if runtimes, err := agentprofile.RuntimeCatalog(); err == nil {
-		state.Runtimes = runtimes
+		state.Runtimes = appendConfiguredClaudeModels(runtimes)
 	}
 	if b != nil && b.hub != nil {
 		targets := b.hub.ListTargets()

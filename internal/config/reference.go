@@ -106,6 +106,7 @@ var configOptions = distributionConfigOptions([]ConfigOption{
 	{Section: "飞书 Workspace 默认值", Key: "bridge.feishu.workspace_defaults.model", Type: "string", Default: "空", Description: "新 workspace 的默认模型覆盖。", Managed: true},
 	{Section: "飞书 Workspace 默认值", Key: "bridge.feishu.workspace_defaults.args", Type: "string array", Default: "[]", Description: "新 workspace 的默认 Agent 参数。", Managed: true},
 	{Section: "飞书 Workspace 默认值", Key: "bridge.feishu.workspace_defaults.idle_timeout_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "新 workspace Session 的休眠阈值。", Managed: true},
+	{Section: "飞书 Workspace 默认值", Key: "bridge.feishu.claude_models", Type: "string array", Default: "[]", Description: "飞书模型选择器为 Claude 运行引擎额外列出的模型名，按声明顺序追加在内置 opus、sonnet、haiku 之后，便于选择最新模型。修改后重启生效。", Managed: true},
 
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.workspace_defaults.agent", Type: "string", Default: "继承安装级", Description: "Profile 级 workspace 默认专家。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.workspace_defaults.target", Type: "string", Default: "继承安装级", Description: "Profile 级 workspace 默认 target。", Managed: true},

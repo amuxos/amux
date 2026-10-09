@@ -769,7 +769,7 @@ func managementRuntimeCatalog(state managementState) []agentprofile.RuntimeOptio
 		return state.Runtimes
 	}
 	runtimes, _ := agentprofile.RuntimeCatalog()
-	return runtimes
+	return appendConfiguredClaudeModels(runtimes)
 }
 
 func managementValidRuntimeModel(state managementState, runtimeRef, modelRef string) bool {

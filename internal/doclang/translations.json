@@ -3118,5 +3118,9 @@
   "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details.\n根据描述和技能选择专家。runtime_required 适用于直接启动会话；Task 和定时任务可以使用发行版默认执行配置。显式指定的 runtime 和 model 优先。完整内容见 profile_get。": {
     "en": "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details.",
     "zh-CN": "根据描述和技能选择专家。runtime_required 适用于直接启动会话；Task 和定时任务可以使用发行版默认执行配置。显式指定的 runtime 和 model 优先。完整内容见 profile_get。"
+  },
+  "飞书模型选择器为 Claude 运行引擎额外列出的模型名，按声明顺序追加在内置 opus、sonnet、haiku 之后，便于选择最新模型。修改后重启生效。": {
+    "en": "Extra Claude model names the Feishu model picker lists for the Claude runtime, appended after the built-in opus, sonnet, and haiku in declaration order so the latest models are selectable. Takes effect after restart.",
+    "zh-CN": "飞书模型选择器为 Claude 运行引擎额外列出的模型名，按声明顺序追加在内置 opus、sonnet、haiku 之后，便于选择最新模型。修改后重启生效。"
   }
 }

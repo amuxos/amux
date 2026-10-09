@@ -127,6 +127,7 @@ amux system config unset <key>
 | `bridge.feishu.workspace_defaults.model` | string | Empty | — | Yes | Default model override for new workspaces. |
 | `bridge.feishu.workspace_defaults.args` | string array | [] | — | Yes | Default Agent arguments for new workspaces. |
 | `bridge.feishu.workspace_defaults.idle_timeout_seconds` | integer seconds | 0 | 0 or >=60 | Yes | Sleep threshold for new workspace Sessions. |
+| `bridge.feishu.claude_models` | string array | [] | — | Yes | Extra Claude model names the Feishu model picker lists for the Claude runtime, appended after the built-in opus, sonnet, and haiku in declaration order so the latest models are selectable. Takes effect after restart. |
 
 ## Feishu Bot Profiles
 

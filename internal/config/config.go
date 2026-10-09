@@ -872,6 +872,13 @@ func GetBridgeFeishuWorkspaceDefaultsForProfile(profile string) BridgeFeishuWork
 	return defaults
 }
 
+// GetBridgeFeishuClaudeModels returns operator-declared Claude model refs that
+// the Feishu model picker offers in addition to the built-in opus/sonnet/haiku.
+// Entries are trimmed and de-duplicated, preserving declaration order.
+func GetBridgeFeishuClaudeModels() []string {
+	return cleanUniqueStrings(viper.GetStringSlice("bridge.feishu.claude_models"), false, nil)
+}
+
 func GetBridgeFeishuInteractionMode(profile string) (string, error) {
 	profile = strings.TrimSpace(profile)
 	if profile == "" {
