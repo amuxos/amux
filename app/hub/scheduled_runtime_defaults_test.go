@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/amuxos/amux/internal/agentprofile"
@@ -12,6 +13,8 @@ import (
 	"github.com/amuxos/amux/internal/schedule"
 	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func installScheduledPortableProfile(t *testing.T) {
@@ -93,5 +96,49 @@ func TestScheduledPortableTaskAcceptsOmittedExecutionChoices(t *testing.T) {
 	}
 	if spec.Runtime != "claude" || spec.Model != "review-model" || spec.Agent != "team/reporter" {
 		t.Fatalf("explicit update was replaced by defaults: %+v", spec)
+	}
+}
+
+func TestPortablePersistentFollowupPreservesSelectedRuntime(t *testing.T) {
+	installScheduledPortableProfile(t)
+	store := newTestAgentInstanceStore(t)
+	var routed []task.Spec
+	sched := &fakeScheduler{acquireFn: func(req registry.ScheduleRequest) (*registry.Placement, error) {
+		if req.AgentType != "claude" {
+			t.Fatalf("placement agent = %q, want original claude", req.AgentType)
+		}
+		return &registry.Placement{TargetID: "t1", ReservationId: "rsv1"}, nil
+	}}
+	hub := &fakeRouterHub{targets: targets("t1"), routeFn: func(_, _ string, payload interface{}) (*pb.TunnelMsg, error) {
+		var spec task.Spec
+		if err := json.Unmarshal(payload.(*pb.SubmitSubtaskRequest).SpecJson, &spec); err != nil {
+			t.Fatal(err)
+		}
+		routed = append(routed, spec)
+		return respJSON(t, &pb.SubmitSubtaskResponse{TaskJson: []byte(`{"id":"task-persistent","status":"pending"}`)}), nil
+	}}
+	router := newTaskRouter(hub, sched, newTaskIndex(), store)
+	initial := task.Spec{Agent: "team/reporter", Runtime: "claude", Model: "review-model", Task: "Start report",
+		Mode: task.ModePersistent, AgentInstanceID: "reporter-instance"}
+	if _, err := router.SubmitSubtask(context.Background(), &pb.SubmitSubtaskRequest{SpecJson: mustTaskSpecJson(t, initial)}); err != nil {
+		t.Fatal(err)
+	}
+	followup := task.Spec{Task: "Continue report", Mode: task.ModePersistent, AgentInstanceID: initial.AgentInstanceID}
+	if _, err := router.SubmitSubtask(context.Background(), &pb.SubmitSubtaskRequest{SpecJson: mustTaskSpecJson(t, followup)}); err != nil {
+		t.Fatalf("followup without execution choices: %v", err)
+	}
+	if len(routed) != 2 {
+		t.Fatalf("routed %d tasks, want creation and followup", len(routed))
+	}
+	for _, spec := range routed {
+		if spec.ResolvedProfile == nil || spec.ResolvedProfile.RuntimeRef != "claude" || spec.ResolvedProfile.ModelRef != "review-model" || spec.ResolvedProfile.Namespace != "team" {
+			t.Fatalf("lost original execution identity: %+v", spec.ResolvedProfile)
+		}
+	}
+	// Explicit changes must still be rejected rather than silently overwritten.
+	followup.Runtime = "codex"
+	_, err := router.SubmitSubtask(context.Background(), &pb.SubmitSubtaskRequest{SpecJson: mustTaskSpecJson(t, followup)})
+	if status.Code(err) != codes.InvalidArgument || !strings.Contains(err.Error(), "fixed to agent type") {
+		t.Fatalf("explicit runtime change = %v, want identity conflict", err)
 	}
 }

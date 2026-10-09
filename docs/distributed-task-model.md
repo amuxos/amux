@@ -23,6 +23,10 @@ explicit inputs and authorized resources, not the parent's full chat history
 by default. Parent/child identity records preserve provenance without merging
 contexts. See the [Session model](current/session-product-model.md).
 
+Follow-up work with omitted launch identity restores the instance's saved profile,
+engine and model before resolving defaults. It does not select a new distribution
+default; explicit identity changes remain subject to the instance's no-switch contract.
+
 ## Scheduling and execution
 
 The hub authenticates requests, freezes execution identity, selects an eligible

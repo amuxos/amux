@@ -47,7 +47,8 @@ execution is frozen only in the launch snapshot.
 Codex, Claude and Pi are public integrations. Adapters describe executable
 discovery, launch configuration, protocol capabilities and workspace configuration
 layout. Native agent authentication and model settings are used by default.
-External model providers may be configured explicitly through a profile pack.
+External model providers are configured by amux runtime/model bindings supplied
+by distribution extensions; v2 Profile Packs cannot declare provider settings.
 The public provider platform is `openai-compat`, with an explicit `base_url`:
 Codex uses Responses and Pi uses Chat Completions. Additional provider platforms,
 default endpoints and Pi compatibility settings belong to registered distribution
