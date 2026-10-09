@@ -65,6 +65,14 @@ thread context is bounded and attached to the accepted submission. Agent progres
 tool activity, results and permission prompts are rendered from structured events.
 The bridge does not infer provider semantics from display text.
 
+A scheduled prompt submitted to a bound Session enters its normal input queue
+and starts an Agent Turn when dispatched. The canonical `scheduler` input source
+is preserved and permits the same progress, permission, error and final-result
+presentation as other accepted input sources. Echoing the prompt is only one
+part of that presentation. Provider startup output without an accepted input
+remains suppressed. A schedule's `ok` status confirms successful submission;
+the Turn's terminal event and result establish its execution outcome.
+
 Each bound session launch has one live output stream. Concurrent binding,
 input routing and session-added notifications reuse that stream, including its
 readiness, turn state and card handles. A duplicate startup notification must

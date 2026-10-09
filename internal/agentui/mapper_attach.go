@@ -37,6 +37,8 @@ func normalizeSource(source string) Source {
 		return SourceDesktop
 	case "lark", "feishu":
 		return SourceFeishu
+	case "scheduler":
+		return SourceScheduler
 	case "system":
 		return SourceSystem
 	case "tool":

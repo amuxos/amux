@@ -53,6 +53,11 @@ Agent 记忆使用安装级 `memory.enabled` 配置，无需 Agent Profile。
 已接受的提交上。智能体进度、工具活动、结果与权限提示均从结构化事件渲染。
 Bridge 不从展示文本推断 Provider 语义。
 
+提交到已绑定 Session 的定时 prompt 进入正常输入队列，并在调度执行时启动 Agent Turn。
+规范事件保留 `scheduler` 输入来源，允许它与其他已接受输入一样展示进度、权限提示、
+错误和最终结果。prompt 回显只是展示流程的一部分。没有已接受输入的 Provider 启动
+输出仍被屏蔽。Schedule 的 `ok` 表示提交成功；实际执行结果以 Turn 终态事件和结果为准。
+
 每个绑定的 Session launch 只有一条活动输出流。并发绑定、输入路由和 Session-added
 通知复用该流及其 readiness、turn 状态和卡片句柄。重复启动通知不能冻结已有进度卡，
 也不能把同一 turn 的结果放到新卡片。Session 或 launch 身份变化、binding 迁移以及

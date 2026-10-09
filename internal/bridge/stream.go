@@ -154,7 +154,7 @@ func feishuStreamTurnKey(turn agentui.TurnEvent) string {
 
 func isInputStartedTurnSource(source agentui.Source) bool {
 	switch source {
-	case agentui.SourceFeishu, agentui.SourceCLI, agentui.SourceDesktop:
+	case agentui.SourceFeishu, agentui.SourceCLI, agentui.SourceDesktop, agentui.SourceScheduler:
 		return true
 	default:
 		return false

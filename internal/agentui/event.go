@@ -32,14 +32,15 @@ const (
 type Source string
 
 const (
-	SourceAgent   Source = "agent"
-	SourceCLI     Source = "cli"
-	SourceDesktop Source = "desktop"
-	SourceFeishu  Source = "feishu"
-	SourceSystem  Source = "system"
-	SourceTool    Source = "tool"
-	SourceResult  Source = "result"
-	SourceUnknown Source = "unknown"
+	SourceAgent     Source = "agent"
+	SourceCLI       Source = "cli"
+	SourceDesktop   Source = "desktop"
+	SourceFeishu    Source = "feishu"
+	SourceScheduler Source = "scheduler"
+	SourceSystem    Source = "system"
+	SourceTool      Source = "tool"
+	SourceResult    Source = "result"
+	SourceUnknown   Source = "unknown"
 )
 
 type Event struct {

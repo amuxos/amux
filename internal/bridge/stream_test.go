@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/agentui"
 	"github.com/amuxos/amux/internal/config"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
@@ -82,6 +83,72 @@ func TestFeishuStreamVisibilityRequiresInputStartedTurn(t *testing.T) {
 	gate.Observe(agentui.Action{Kind: agentui.ActionTurnFinished, Turn: feishuTurn.Turn})
 	if gate.Allow(agentui.Action{Kind: agentui.ActionReplyAppend, Turn: feishuTurn.Turn, Text: "late text"}) {
 		t.Fatal("late reply after turn finished was visible; want suppressed")
+	}
+}
+
+func TestFeishuStreamVisibilityPresentsScheduledTurn(t *testing.T) {
+	gate := newFeishuStreamVisibilityGate()
+	presenter := agentui.NewPresenter()
+	turn := &agentstream.TurnRef{ID: "scheduled-turn", Seq: 1}
+	bodies := []agentstream.Body{
+		agentstream.TurnStarted{InputSummary: "check the latest runs"},
+		agentstream.AssistantDelta{Text: "checking"},
+		agentstream.ToolChanged{Phase: agentstream.ToolPhaseStarted, Tool: agentstream.Tool{ID: "tool-1", Name: "check"}},
+		agentstream.PermissionRequested{Request: agentstream.PermissionRequest{ID: "permission-1"}},
+		agentstream.ResultObserved{Text: "check complete"},
+		agentstream.TurnFinished{Terminal: agentstream.Terminal{Outcome: agentstream.OutcomeSuccess, Code: "completed"}},
+	}
+	seen := make(map[agentui.ActionKind]bool)
+	for i, body := range bodies {
+		origin := agentstream.Origin{Actor: agentstream.ActorAgent, Channel: "agent"}
+		if i == 0 {
+			origin = agentstream.Origin{Actor: agentstream.ActorUser, Channel: "scheduler"}
+		}
+		raw, err := agentstream.MarshalEvent(agentstream.Event{
+			SessionID: "session-1",
+			Cursor:    agentstream.Cursor{Epoch: "epoch-1", Seq: uint64(i + 1)},
+			Turn:      turn,
+			At:        time.Now().UTC(),
+			Origin:    origin,
+			Body:      body,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, event := range agentui.FromAttachEvent(&pb.AttachEvent{CanonicalJson: raw}) {
+			for _, action := range presenter.Consume(event) {
+				if action.Kind == agentui.ActionTurnStarted {
+					if action.Source != agentui.Source("scheduler") {
+						t.Fatalf("scheduled input source = %q, want scheduler", action.Source)
+					}
+					gate.Observe(action)
+				}
+				if !gate.Allow(action) {
+					t.Fatalf("scheduled turn action %q suppressed (source %q)", action.Kind, action.Source)
+				}
+				seen[action.Kind] = true
+				if action.Kind == agentui.ActionTurnFinished {
+					gate.Observe(action)
+				}
+			}
+		}
+	}
+	for _, kind := range []agentui.ActionKind{
+		agentui.ActionTurnStarted, agentui.ActionInputEcho, agentui.ActionReplyAppend,
+		agentui.ActionActivityChanged, agentui.ActionPermissionRequest,
+		agentui.ActionReplyReconcileFinalMessage, agentui.ActionTurnFinished,
+	} {
+		if !seen[kind] {
+			t.Errorf("scheduled turn did not produce %q", kind)
+		}
+	}
+	if gate.Allow(agentui.Action{Kind: agentui.ActionReplyAppend, Turn: agentui.TurnEvent{ID: turn.ID, Seq: 1}, Text: "late reply"}) {
+		t.Fatal("scheduled turn authorization remained after completion")
+	}
+	startup := agentui.Action{Kind: agentui.ActionTurnStarted, Source: agentui.SourceSystem, Turn: agentui.TurnEvent{ID: "startup", Seq: 2}}
+	gate.Observe(startup)
+	if gate.Allow(agentui.Action{Kind: agentui.ActionReplyAppend, Turn: startup.Turn, Text: "startup greeting"}) {
+		t.Fatal("scheduled turn authorization leaked into provider startup output")
 	}
 }
 
