@@ -3,12 +3,14 @@ package hub
 import (
 	"context"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/principal"
 	"google.golang.org/grpc"
@@ -57,6 +59,32 @@ func TestHubLogMessagesUseHubTerminology(t *testing.T) {
 		if strings.Contains(strings.ToLower(text), "amuxd") || strings.Contains(strings.ToLower(text), "orchestrator") {
 			t.Fatalf("message should not expose old terminology: %q", text)
 		}
+	}
+}
+
+func TestHubBridgeMissingCredentialsMessageNamesEmptyFields(t *testing.T) {
+	t.Setenv("AMUX_HOME", filepath.Join(t.TempDir(), "amux-home"))
+	if got := hubBridgeMissingCredentialsMessage("default", &bridge.Secrets{AppId: "cli_x", AppSecret: "secret"}); got != "" {
+		t.Fatalf("complete credentials message = %q, want empty", got)
+	}
+	wantPath := filepath.Join(os.Getenv("AMUX_HOME"), "secrets", "feishu", "default.json")
+	for _, tc := range []struct {
+		name    string
+		secrets *bridge.Secrets
+		want    string
+	}{
+		{name: "both", secrets: &bridge.Secrets{OpenId: "ou_owner"}, want: "empty app_id, app_secret"},
+		{name: "app_secret", secrets: &bridge.Secrets{AppId: "cli_x"}, want: "empty app_secret"},
+		{name: "nil", secrets: nil, want: "empty app_id, app_secret"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := hubBridgeMissingCredentialsMessage("default", tc.secrets)
+			for _, part := range []string{"hub:", "profile default", "skipped", tc.want, wantPath} {
+				if !strings.Contains(got, part) {
+					t.Fatalf("message %q does not contain %q", got, part)
+				}
+			}
+		})
 	}
 }
 

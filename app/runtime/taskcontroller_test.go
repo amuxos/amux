@@ -35,6 +35,7 @@ func TestCreateChildAddsEffectivePATHToLaunchAndSnapshot(t *testing.T) {
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("PATH", "/usr/local/bin:/usr/bin:/bin")
 	var launchEnv []string
 	srv := &server{
@@ -491,6 +492,7 @@ func TestCreateChildLaunchEnvNamesAResolvablePATH(t *testing.T) {
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	daemonBin := filepath.Join(t.TempDir(), "bin")
 	t.Setenv("PATH", daemonBin+string(os.PathListSeparator)+"/usr/bin"+string(os.PathListSeparator)+"/bin")
 

@@ -17,6 +17,7 @@ import (
 func TestAgentPackDevelopmentLeaseRegisterAndCleanup(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("AMUX_SESSION_ID", "session-owner")
 	repo := initTestPackRepo(t, "v1")
 	runGit(t, repo, "remote", "add", "origin", repo)
@@ -125,6 +126,7 @@ func TestAgentPackDevelopmentLeaseResolveReturnsFormalPackContext(t *testing.T) 
 func TestAgentPackAddListVersionsAndSyncGitRepo(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "v1")
 	runGit(t, repo, "checkout", "-b", "stable")
 	rev1 := gitRev(t, repo)
@@ -191,6 +193,7 @@ func TestAgentPackAddListVersionsAndSyncGitRepo(t *testing.T) {
 func TestAgentPackAddDoesNotAutoRegisterDevPackWhenDevBranchExists(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "official-v1")
 	baseBranch := gitBranch(t, repo)
 	runGit(t, repo, "checkout", "-b", "amux-dev")
@@ -231,6 +234,7 @@ func TestAgentPackAddDoesNotAutoRegisterDevPackWhenDevBranchExists(t *testing.T)
 func TestAgentPackLegacyPairingFlagsAreRemoved(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "official-v1")
 	for _, args := range [][]string{
 		{"pack", "add", "team", repo, "--no-dev"},
@@ -249,6 +253,7 @@ func TestAgentPackLegacyPairingFlagsAreRemoved(t *testing.T) {
 func TestAgentPackAddAutoSyncFlagsAndListStatus(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "official-v1")
 
 	runAgentPackCmd(t, "add", "expert-agents", repo, "--no-auto-sync", "--sync-interval", "10s")
@@ -304,6 +309,7 @@ func TestPrintAgentPacksCompactsLastError(t *testing.T) {
 func TestAgentPackAutoSyncServiceShape(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	svc := agentPackAutoSyncService()
 	if svc.Name != "agent-pack-autosync" {
@@ -326,6 +332,7 @@ func TestAgentPackAutoSyncServiceShape(t *testing.T) {
 func TestRunAgentPackAutoSyncOnceSyncsDueAutoSyncPacksOnly(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "team-v1")
 	manualRepo := initTestPackRepo(t, "manual-v1")
 	runAgentPackCmd(t, "add", "team", repo)
@@ -361,6 +368,7 @@ func TestRunAgentPackAutoSyncOnceSyncsDueAutoSyncPacksOnly(t *testing.T) {
 func TestRunAgentPackAutoSyncOnceBoundsEachPackSync(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	registryPath := defaultAgentPackRegistryPath()
 	if err := agentprofile.SavePackRegistry(registryPath, agentprofile.PackRegistry{
 		Packs: map[string]agentprofile.Pack{
@@ -412,6 +420,7 @@ func TestRunAgentPackAutoSyncOnceBoundsEachPackSync(t *testing.T) {
 func TestAgentPackAddSameRepoDevNamespaceRequiresExplicitParent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "official-v1")
 	baseBranch := gitBranch(t, repo)
 	runGit(t, repo, "checkout", "-b", "my-debug-branch")
@@ -445,6 +454,7 @@ func TestAgentPackAddSameRepoDevNamespaceRequiresExplicitParent(t *testing.T) {
 func TestAgentPackAddTemporaryDevelopmentPack(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	baseBranch := gitBranch(t, repo)
 	taskBranch := "amux-skill/task-a"
@@ -498,6 +508,7 @@ func TestAgentPackAddTemporaryDevelopmentPack(t *testing.T) {
 func TestAgentPackDevNamespaceProfilesResolveOnlyWhenExplicit(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	baseBranch := gitBranch(t, repo)
 	runGit(t, repo, "checkout", "-b", "preview")
@@ -569,6 +580,7 @@ func TestAgentPackDevNamespaceProfilesResolveOnlyWhenExplicit(t *testing.T) {
 func TestAgentListHidesSuffixOnlyDevNamespaceByDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	formalRepo := initTestProfilePackRepo(t)
 	repo := initTestProfilePackRepo(t)
 	runAgentPackCmd(t, "add", "tools", formalRepo)
@@ -600,6 +612,7 @@ func TestAgentListHidesSuffixOnlyDevNamespaceByDefault(t *testing.T) {
 func TestAgentPackSyncFormalAndExplicitDevelopmentPacksIndependently(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "official-v1")
 	baseBranch := gitBranch(t, repo)
 	runGit(t, repo, "checkout", "-b", "preview")
@@ -648,6 +661,7 @@ func TestAgentPackSyncFormalAndExplicitDevelopmentPacksIndependently(t *testing.
 func TestAgentPackSyncNeverAutoRegistersDevPack(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "official-v1")
 	baseBranch := gitBranch(t, repo)
 	runGit(t, repo, "checkout", "-b", "amux-dev")
@@ -675,6 +689,7 @@ func TestAgentPackSyncNeverAutoRegistersDevPack(t *testing.T) {
 func TestAgentPackSyncStartsAutoSyncForRegisteredPacks(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "v1")
 	if _, err := agentprofile.AddGitPackWithOptions(context.Background(), defaultAgentPackRegistryPath(), "team", repo, agentprofile.AddGitPackOptions{
 		AutoSync:     true,
@@ -711,6 +726,7 @@ func TestAgentPackSyncStartsAutoSyncForRegisteredPacks(t *testing.T) {
 func TestAgentPackWatchPerformsForegroundSyncCycle(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "v1")
 	runAgentPackCmd(t, "add", "team", repo)
 
@@ -754,6 +770,7 @@ func TestAgentPackWatchPerformsForegroundSyncCycle(t *testing.T) {
 func TestAgentPackRollbackChecksOutRecordedRevision(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "v1")
 	runGit(t, repo, "checkout", "-b", "stable")
 	rev1 := gitRev(t, repo)
@@ -785,6 +802,7 @@ func TestAgentPackRollbackChecksOutRecordedRevision(t *testing.T) {
 func TestAgentPackRemoveDeletesRegistryEntryAndMaterializedFiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "v1")
 	runGit(t, repo, "checkout", "-b", "stable")
 	runAgentPackCmd(t, "add", "team", repo, "--ref", "stable")
@@ -821,6 +839,7 @@ func TestAgentPackRemoveDeletesRegistryEntryAndMaterializedFiles(t *testing.T) {
 func TestAgentPackRemoveKeepFilesOnlyUnregistersPack(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestPackRepo(t, "v1")
 	runGit(t, repo, "checkout", "-b", "stable")
 	runAgentPackCmd(t, "add", "team", repo, "--ref", "stable")

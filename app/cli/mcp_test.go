@@ -92,6 +92,7 @@ func TestProfileMCPViewExposesModelSelectionContract(t *testing.T) {
 
 func TestMCPGetAgentProfileReturnsFullDetail(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	useLocalAgentProfileClient(t)
 	res, err := (&mcpHandler{}).getAgentProfile(context.Background(), json.RawMessage(`{"ref":"builtin/codex"}`))
 	if err != nil {
@@ -112,6 +113,7 @@ func TestMCPGetAgentProfileReturnsFullDetail(t *testing.T) {
 func TestMCPListAgentProfilesIncludesPackProfiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	runGit(t, repo, "checkout", "-b", "stable")
 	rev := gitRev(t, repo)
@@ -1084,6 +1086,7 @@ func TestNormalizeMCPScheduleTypeDefaultsToSubtask(t *testing.T) {
 
 func TestMCPScheduleCreateSessionPromptRequiresSessionRef(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("AMUX_SESSION_ID", "")
 	res, err := (&mcpHandler{}).createSchedule(context.Background(), json.RawMessage(`{
 		"spec": "every 30m",
@@ -1120,6 +1123,7 @@ func TestMCPSessionPromptRefFallsBackToEnv(t *testing.T) {
 
 func TestMCPScheduleCreateSessionPromptRequiresPrompt(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("AMUX_SESSION_ID", "")
 	res, err := (&mcpHandler{}).createSchedule(context.Background(), json.RawMessage(`{
 		"spec": "every 30m",
@@ -1139,6 +1143,7 @@ func TestMCPScheduleCreateSessionPromptRequiresPrompt(t *testing.T) {
 
 func TestMCPScheduleCreateRejectsUnknownScheduleType(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	res, err := (&mcpHandler{}).createSchedule(context.Background(), json.RawMessage(`{
 		"spec": "every 30m",
 		"schedule_type": "bogus",
@@ -1154,6 +1159,7 @@ func TestMCPScheduleCreateRejectsUnknownScheduleType(t *testing.T) {
 
 func TestMCPSetScheduleEnabledRequiresEnabled(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	res, err := (&mcpHandler{}).setScheduleEnabled(context.Background(), json.RawMessage(`{"schedule_id":1}`))
 	if err != nil {
 		t.Fatalf("setScheduleEnabled: %v", err)
@@ -1344,6 +1350,7 @@ func TestMCPScheduleViewIncludesSessionPromptFields(t *testing.T) {
 func TestMCPCommandRejectsWhenDisabled(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	writeUserConfig(t, home, `[mcp]
 enabled = false
 `)

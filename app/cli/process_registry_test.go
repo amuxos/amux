@@ -13,6 +13,7 @@ import (
 func TestRegisterTrackedProcessListsAndCleansUp(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	oldVersion := version
 	version = "v-test"
 	t.Cleanup(func() { version = oldVersion })
@@ -42,6 +43,7 @@ func TestRegisterTrackedProcessListsAndCleansUp(t *testing.T) {
 func TestListTrackedProcessesRemovesStaleEntries(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := os.MkdirAll(trackedProcessDir(), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +66,7 @@ func TestListTrackedProcessesRemovesStaleEntries(t *testing.T) {
 func TestListTrackedProcessesRemovesPIDReuseEntries(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := os.MkdirAll(trackedProcessDir(), 0700); err != nil {
 		t.Fatal(err)
 	}

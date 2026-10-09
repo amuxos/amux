@@ -38,6 +38,7 @@ func TestHubUnavailableErrorIsActionable(t *testing.T) {
 
 func TestTaskAndScheduleClientsUseCanonicalHubRecoveryError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	addr := freeStatusTCPAddr(t)
 	t.Setenv("AMUX_HUB_ADDR", addr)
 	viper.Reset()

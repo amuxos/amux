@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/agentprofile"
+	"github.com/amuxos/amux/internal/amuxhome/amuxhometest"
 	"github.com/amuxos/amux/internal/system"
 )
 
@@ -53,7 +54,9 @@ func TestMain(m *testing.M) {
 		return agentprofile.ManagedContractRuntime{Version: agentprofile.ManagedContractRuntimeVersion, Root: agentprofile.DefaultManagedContractRuntimeRoot(), Executable: agentprofile.DefaultManagedContractExecutablePath()}, nil
 	}
 	prepareManagedLocalLibrary = func(context.Context) error { return nil }
-	code := m.Run()
+	// Keep tests away from the caller's real amux home even when the test
+	// binary inherits AMUX_HOME from an amux-managed Agent Session.
+	code := amuxhometest.Run(m)
 	if sharedCLIE2EBinaries.dir != "" {
 		_ = os.RemoveAll(sharedCLIE2EBinaries.dir)
 	}

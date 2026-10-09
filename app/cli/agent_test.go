@@ -92,6 +92,7 @@ func TestAgentCanonicalCommandSurface(t *testing.T) {
 
 func TestAgentListSupportsRootJSONFlag(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	root := newRootCmd()
 	var out bytes.Buffer
 	root.SetOut(&out)
@@ -123,6 +124,7 @@ func TestAgentListSupportsRootJSONFlag(t *testing.T) {
 func TestAgentListAndShowIncludePackProfiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	runGit(t, repo, "checkout", "-b", "stable")
 	rev := gitRev(t, repo)
@@ -173,6 +175,7 @@ func TestAgentShowBuiltinProfile(t *testing.T) {
 func TestAgentShowCredentialEnvRefsIncludeSetupHint(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	writeTestProfilePackManifestWithEnvRefs(t, repo)
 	runGit(t, repo, "add", ".")
@@ -204,6 +207,7 @@ func TestAgentShowCredentialEnvRefsIncludeSetupHint(t *testing.T) {
 func TestAgentShowProfileEnvsResolveGlobalCredentialSource(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := writeCredentialProfile("shared-demotion", cliCredentialFile{
 		Kind: "long-lived",
 		Env:  map[string]string{"DEMOTION_TOKEN": "secret-value"},
@@ -242,6 +246,7 @@ func TestAgentShowProfileEnvsResolveGlobalCredentialSource(t *testing.T) {
 func TestAgentShowProfileEnvsOmitsMissingSetupWithoutProvider(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	writeTestProfilePackManifestWithEnvs(t, repo)
 	runGit(t, repo, "add", ".")
@@ -330,6 +335,7 @@ func TestAgentDoctorSmokeUsesSelectedRuntimeAndModel(t *testing.T) {
 func TestAgentDoctorCredentialEnvRefsIncludeSetupHint(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	originalPath := os.Getenv("PATH")
 	binDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
@@ -365,6 +371,7 @@ func TestAgentDoctorCredentialEnvRefsIncludeSetupHint(t *testing.T) {
 func TestAgentDoctorProfileEnvsResolveGlobalCredentialSource(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	prependFakeAgentExecutable(t, "codex", "exit 0")
 	if err := writeCredentialProfile("shared-demotion", cliCredentialFile{
 		Kind: "long-lived",
@@ -400,6 +407,7 @@ func TestAgentDoctorProfileEnvsResolveGlobalCredentialSource(t *testing.T) {
 func TestAgentDoctorProfileEnvsReportsAmbiguousGlobalCredentialSource(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	prependFakeAgentExecutable(t, "codex", "exit 0")
 	for _, profile := range []string{"demotion-a", "demotion-b"} {
 		if err := writeCredentialProfile(profile, cliCredentialFile{
@@ -436,6 +444,7 @@ func TestAgentDoctorProfileEnvsReportsAmbiguousGlobalCredentialSource(t *testing
 func TestCredentialEnvStateRejectsUnsafeProfileName(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	amuxDir := filepath.Join(home, ".amux")
 	if err := os.MkdirAll(amuxDir, 0700); err != nil {
 		t.Fatalf("mkdir amux dir: %v", err)
@@ -456,6 +465,7 @@ func TestCredentialEnvStateRejectsUnsafeProfileName(t *testing.T) {
 func TestAgentProviderCredentialStateUsesEffectiveCredentialProfile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	if err := writeCredentialProfile("shared-example", cliCredentialFile{
 		Kind: "long-lived",
 		Env:  map[string]string{"EXAMPLE_API_KEY": "secret-value"},
@@ -475,6 +485,7 @@ func TestAgentProviderCredentialStateUsesEffectiveCredentialProfile(t *testing.T
 
 func TestAgentDoctorRejectsUnknownProfile(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 
 	cmd := newAgentCmd()
 	cmd.SetArgs([]string{"doctor", "team/missing"})
@@ -487,6 +498,7 @@ func TestAgentDoctorRejectsUnknownProfile(t *testing.T) {
 func TestAgentDoctorAcceptsPackProfile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	prependFakeAgentExecutable(t, "codex", "exit 0")
 	repo := initTestProfilePackRepo(t)
 	runGit(t, repo, "checkout", "-b", "stable")
@@ -519,6 +531,7 @@ func prependFakeAgentExecutable(t *testing.T, name, body string) string {
 
 func TestAgentRenderWritesProjectionWorkspace(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	root := t.TempDir()
 	cmd := newAgentCmd()
 	var out bytes.Buffer
@@ -546,6 +559,7 @@ func TestAgentRenderWritesProjectionWorkspace(t *testing.T) {
 func TestAgentRenderPackProfileWritesProjectionWorkspace(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	runGit(t, repo, "checkout", "-b", "stable")
 	runAgentPackCmd(t, "add", "team", repo, "--ref", "stable")
@@ -582,6 +596,7 @@ func TestAgentRenderPackProfileWritesProjectionWorkspace(t *testing.T) {
 func TestAgentCredentialPreservesLocalCredentialBehavior(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	cmd := newAgentCmd()
 	cmd.SetIn(strings.NewReader("secret-value\n"))
 	cmd.SetArgs([]string{"credential", "set", "provider", "PROVIDER_AK"})

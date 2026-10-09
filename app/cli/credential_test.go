@@ -152,6 +152,7 @@ func TestCredentialSetupOffersLegacyValueInInteractiveTerminal(t *testing.T) {
 func TestCredentialSetShowAndList(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	set := newCredentialCommand(agentCredentialCommandPath)
 	set.SetIn(strings.NewReader("ak-secret\n"))
@@ -216,6 +217,7 @@ func TestCredentialSetShowAndList(t *testing.T) {
 func TestCredentialSetPromptsForInteractiveSecret(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	oldInputFD := credentialInputFD
 	oldIsTerminal := credentialIsTerminal
 	oldReadPassword := credentialReadPassword
@@ -266,6 +268,7 @@ func TestCredentialSetPromptsForInteractiveSecret(t *testing.T) {
 func TestCredentialSetReportsLegacyHostScope(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	var out, errOut bytes.Buffer
 	cmd := newCredentialCommand(agentCredentialCommandPath)
@@ -332,6 +335,7 @@ func TestCredentialSetHelpUsesInvocationPath(t *testing.T) {
 func TestCredentialSetRejectsUnsafeNames(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	for _, args := range [][]string{
 		{"set", "../provider", "PROVIDER_AK"},

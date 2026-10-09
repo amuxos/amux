@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/amuxos/amux/internal/amuxhome/amuxhometest"
 )
 
 // Run the public installer against command doubles, with no native agents,
@@ -146,6 +148,9 @@ func (f *publicInstallFixture) run(input string, args ...string) (string, [][]st
 		"PUBLIC_INSTALL_TEST_DIR=" + f.dir,
 		"PUBLIC_INSTALL_BINARY_SOURCE=" + f.source, "TMPDIR=" + f.dir,
 		"PUBLIC_INSTALL_REAL_AMUX_HOME=" + f.amuxHome,
+		// The helper process re-execs this test binary; keep the fixture's
+		// AMUX_HOME instead of TestMain's isolated one.
+		amuxhometest.PreserveEnvVar + "=1",
 	}
 	if f.downloadBase != "" {
 		cmd.Env = append(cmd.Env, "AMUX_RELEASE_BASE_URL="+f.downloadBase)

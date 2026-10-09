@@ -177,6 +177,10 @@ gRPC 使用标准 protobuf codec，不恢复旧 JSON codec、手写 transport/pb
 `AMUX_DEBUG_ACP_CHUNKS=1` 记录 Runtime 上的 ACP raw chunks；`AMUX_DEBUG_JSONRPC=1`
 记录 structured provider 的丢弃帧。设置在 `amuxlet` 上，由 broker 子进程继承。
 手工 E2E 使用临时 HOME、独立 Hub 端口并清理测试 daemons/brokers，避免污染真实安装。
+Go 测试同样不得触碰真实 amux home。`amuxhome` 先解析 `AMUX_HOME` 再解析
+`HOME`，而 Agent Session 会继承 `AMUX_HOME`，所以只重定向 `HOME` 不够。测试可能
+触达 `amuxhome` 的包在 `TestMain` 中调用 `amuxhometest.Main`；重定向 `HOME` 的测试
+也要显式设置 `AMUX_HOME`（设为空即使用 `HOME/.amux`）。
 
 ## 文档发布
 

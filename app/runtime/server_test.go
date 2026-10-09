@@ -1937,6 +1937,7 @@ func TestRelaunchMigratesMissingPATH(t *testing.T) {
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("PATH", "/usr/bin:/bin")
 	var capturedEnv []string
 	srv := &server{
@@ -1985,6 +1986,7 @@ func TestRelaunchMigratesPATHMissingStandardUserBins(t *testing.T) {
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	var capturedEnv []string
 	srv := &server{
 		mgr: mgr,
@@ -2010,6 +2012,7 @@ func TestRelaunchMigratesPATHMissingStandardUserBins(t *testing.T) {
 func TestRelaunchMigratesLastEffectivePATH(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	env := []string{
 		"PATH=/profile/bin",
 		"CUSTOM=1",

@@ -51,6 +51,7 @@ func TestIsolatedNativeCleanupDoesNotTouchServiceTrust(t *testing.T) {
 			s, _, _ := memoryTestServer(t)
 			home := t.TempDir()
 			t.Setenv("HOME", home)
+			t.Setenv("AMUX_HOME", "")
 			t.Setenv("CLAUDE_CONFIG_DIR", "")
 			t.Setenv("PI_CODING_AGENT_DIR", filepath.Join(home, ".pi", "agent"))
 			cwd := t.TempDir()

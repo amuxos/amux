@@ -1934,6 +1934,7 @@ func TestConfigureWorkspaceDoesNotCaptureOwnerOpenId(t *testing.T) {
 func TestBridgeInputTestHelperDoesNotWriteSecretsToCallerHome(t *testing.T) {
 	callerHome := t.TempDir()
 	t.Setenv("HOME", callerHome)
+	t.Setenv("AMUX_HOME", "")
 	b, _ := newBridgeForInputTest(t)
 	b.secrets = &Secrets{AppId: "cli_test", AppSecret: "secret"}
 
@@ -1958,6 +1959,7 @@ func TestBridgeInputTestHelperDoesNotWriteSecretsToCallerHome(t *testing.T) {
 
 func TestGroupWorkspaceInitConfiguresWorkspaceForOwner(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, _ := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open"}
 	var notices []string
@@ -1982,6 +1984,7 @@ func TestGroupWorkspaceInitConfiguresWorkspaceForOwner(t *testing.T) {
 
 func TestGroupMainChatRunCreatesSessionWithMessageRoot(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal", BotName: "amux 开发助手", BotOpenId: "ou_bot"}
 	hub.targets = []*pb.Target{{Id: "runtime-1", Name: "local"}}
@@ -2166,6 +2169,7 @@ func TestBotToBotStripsAmuxDelegationTransportEnvelopeBeforeSubmit(t *testing.T)
 
 func TestBotToBotStripsAmuxDelegationEnvelopeForFreshSessionWithoutFlatteningTask(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "docman", BotOpenId: "ou-docman"}
 	b.botToBot = config.BridgeFeishuBotToBotConfig{Enabled: true, MaxTurnsPerThread: 2}
@@ -2457,6 +2461,7 @@ func TestCardKitEventBotMentionIDsRejectsAmbiguousOrHumanMentions(t *testing.T) 
 
 func TestBotToBotSessionStartFailureMentionsCallerAndClearsClaim(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "docman", BotOpenId: "ou-docman"}
 	b.botToBot = config.BridgeFeishuBotToBotConfig{Enabled: true, MaxTurnsPerThread: 2}
@@ -2571,6 +2576,7 @@ func TestBotToBotRoutesCardKitAnswerWithExplicitMentionInSharedThread(t *testing
 
 func TestBotToBotTopLevelGroupMentionCreatesThreadBoundSession(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "amux", BotOpenId: "ou-amux"}
 	b.botToBot = config.BridgeFeishuBotToBotConfig{
@@ -2692,6 +2698,7 @@ func TestDeliverPendingBotHandoffFailureStillClearsClaim(t *testing.T) {
 
 func TestGroupMainChatBindUsesMessageAsSessionRoot(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal", BotName: "amux 开发助手", BotOpenId: "ou_bot"}
 	hub.targets = []*pb.Target{{Id: "runtime-1", Name: "local", Sessions: []*pb.Session{{
@@ -3389,6 +3396,7 @@ func TestRemovedPrivateResourceCommandsFallBackToHelp(t *testing.T) {
 
 func TestGroupMainChatSessionControlCommandsAreIgnored(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	for _, text := range []string{"/status", "/stop", "/queue", "/schedule"} {
 		t.Run(text, func(t *testing.T) {
 			b, hub := newBridgeForInputTest(t)
@@ -3417,6 +3425,7 @@ func TestGroupMainChatSessionControlCommandsAreIgnored(t *testing.T) {
 
 func TestGroupMainChatHelpRepliesInTriggerThread(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal"}
 	var notices []string
@@ -3455,6 +3464,7 @@ func TestGroupMainChatHelpRepliesInTriggerThread(t *testing.T) {
 func TestGroupMainChatAmuxShowsCurrentGroupSettings(t *testing.T) {
 	enableGroupSettingsExperiment(t)
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal"}
 	if err := b.db.SetWorkspaceMode(b.currentBridgeId(), "oc-normal", WorkspaceModeShared); err != nil {
@@ -3514,6 +3524,7 @@ mode = "singleton"
 
 func TestGroupMainChatNaturalHelpAliasUsesUnifiedCard(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "planner"}
 	var notices []string
@@ -3551,6 +3562,7 @@ func TestGroupMainChatNaturalHelpAliasUsesUnifiedCard(t *testing.T) {
 
 func TestGroupMainChatAdvancedHelpAliasIsRemoved(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "planner"}
 	b.chatNotice = failChatNotice(t)
@@ -3569,6 +3581,7 @@ func TestGroupMainChatAdvancedHelpAliasIsRemoved(t *testing.T) {
 
 func TestGroupMainChatRemovedSetupRepliesInTriggerThread(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal"}
 	var notices []string
@@ -3593,6 +3606,7 @@ func TestGroupMainChatRemovedSetupRepliesInTriggerThread(t *testing.T) {
 
 func TestGroupMainChatPlainTextMentioningAmuxIsIgnored(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal"}
 	var notices []string
@@ -3616,6 +3630,7 @@ func TestGroupMainChatPlainTextMentioningAmuxIsIgnored(t *testing.T) {
 
 func TestWorkspaceDefaultCommandsPersistAndReport(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -3692,6 +3707,7 @@ func TestWorkspaceDefaultCommandsPersistAndReport(t *testing.T) {
 
 func TestGroupMainChatNaturalModeCommandsSetWorkspaceMode(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "planner"}
 	var notices []string
@@ -3733,6 +3749,7 @@ func TestGroupMainChatNaturalModeCommandsSetWorkspaceMode(t *testing.T) {
 func TestGroupMainChatNaturalDefaultAssistantSavesGroupSettings(t *testing.T) {
 	enableGroupSettingsExperiment(t)
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "planner"}
 	var notices []string
@@ -3828,6 +3845,7 @@ func TestWorkspaceIdleTimeoutReportsPersistenceError(t *testing.T) {
 
 func TestP2PNaturalDefaultAssistantAppliesToNewWorkspace(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4025,6 +4043,7 @@ func TestPrivateWorkspaceRejectsNonOwner(t *testing.T) {
 
 func TestGroupMainChatMentionCreatesThreadBoundSession(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal", BotName: "amux 开发助手", BotOpenId: "ou_bot"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4111,9 +4130,10 @@ func TestGroupMainChatMentionCreatesThreadBoundSession(t *testing.T) {
 }
 
 func TestBotDefaultAssistantUsesUniqueProfileShortName(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	installBridgeTestProfilePack(t)
 	b, hub := newBridgeForInputTest(t)
+	// Install after the helper isolates HOME and AMUX_HOME so the Bridge
+	// resolves the pack from this test's AMUX_HOME.
+	installBridgeTestProfilePack(t)
 	setCurrentBotRuntime(t, b, "codex")
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4152,6 +4172,7 @@ func TestBotDefaultAssistantUsesUniqueProfileShortName(t *testing.T) {
 
 func TestGroupMainChatMentionAutoInitializesWorkspaceForOwner(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4182,6 +4203,7 @@ func TestGroupMainChatMentionAutoInitializesWorkspaceForOwner(t *testing.T) {
 
 func TestGroupMainChatMentionWithoutOwnerPromptsOwnerConfirmation(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4208,6 +4230,7 @@ func TestGroupMainChatMentionWithoutOwnerPromptsOwnerConfirmation(t *testing.T) 
 
 func TestGroupMainChatEmptyStructuredMentionShowsEntryHelpAfterAutoInit(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", BotName: "amux0", BotOpenId: "ou_bot"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4233,6 +4256,7 @@ func TestGroupMainChatEmptyStructuredMentionShowsEntryHelpAfterAutoInit(t *testi
 
 func TestGroupMainChatEmptyStructuredMentionShowsEntryHelpInWorkspace(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-normal", BotName: "amux0", BotOpenId: "ou_bot"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4261,6 +4285,7 @@ func TestGroupMainChatEmptyStructuredMentionShowsEntryHelpInWorkspace(t *testing
 
 func TestTopicGroupWorkspaceInitRequiresInitializedOwner(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, _ := newBridgeForInputTest(t)
 	b.secrets = &Secrets{}
 	var notices []string
@@ -4288,6 +4313,7 @@ func TestTopicGroupWorkspaceInitRequiresInitializedOwner(t *testing.T) {
 
 func TestTopicGroupWorkspaceInitConfiguresWorkspaceForOwner(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, _ := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open"}
 	var notices []string
@@ -4330,6 +4356,7 @@ func TestTopicGroupWorkspaceInitConfiguresWorkspaceForOwner(t *testing.T) {
 
 func TestMultipleWorkspaceInitKeepsEarlierWorkspaceActive(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, _ := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open"}
 	var notices []string
@@ -4372,6 +4399,7 @@ func TestExtractTextFromPostContent(t *testing.T) {
 
 func TestGroupThreadPostWorkspaceInitConfiguresWorkspaceForOwner(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, _ := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open"}
 	var notices []string
@@ -4398,6 +4426,7 @@ func TestTopicRootNonManagementMessageStaysSilent(t *testing.T) {
 	for _, text := range []string{"准备修复登录问题", "停一下"} {
 		t.Run(text, func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
+			t.Setenv("AMUX_HOME", "")
 			b, _ := newBridgeForInputTest(t)
 			b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic"}
 			var notices []string
@@ -4420,6 +4449,7 @@ func TestTopicRootNonManagementMessageStaysSilent(t *testing.T) {
 
 func TestTopicRootNonManagementMessageRecordsThreadContext(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, _ := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic"}
 	b.threadNotice = func(context.Context, string, string) error { return nil }
@@ -4453,6 +4483,7 @@ func TestTopicRootNonManagementMessageRecordsThreadContext(t *testing.T) {
 
 func TestFreshThreadMentionFetchesTopicRootForFirstPromptWhenSharedHistoryDisabled(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4497,6 +4528,7 @@ func TestFreshThreadMentionFetchesTopicRootForFirstPromptWhenSharedHistoryDisabl
 
 func TestFreshThreadMentionSkipsTopicRootWhenDisabled(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4525,6 +4557,7 @@ func TestFreshThreadMentionSkipsTopicRootWhenDisabled(t *testing.T) {
 
 func TestFreshThreadEmptyMentionDoesNotUseTopicRootWhenDisabled(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4550,6 +4583,7 @@ func TestFreshThreadEmptyMentionDoesNotUseTopicRootWhenDisabled(t *testing.T) {
 
 func TestRootMessageMentionUsesCurrentRequestOnlyOnce(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4577,6 +4611,7 @@ func TestRootMessageMentionUsesCurrentRequestOnlyOnce(t *testing.T) {
 
 func TestFreshThreadMentionFetchesTopicRootBeforeBuildingSharedHistory(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4632,6 +4667,7 @@ func TestTopicRootFallsBackToDedicatedWrapperWhenSharedTemplateOmitsIt(t *testin
 
 func TestFreshThreadMentionFallsBackToRequestWhenTopicRootUnavailable(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4658,6 +4694,7 @@ func TestFreshThreadMentionFallsBackToRequestWhenTopicRootUnavailable(t *testing
 
 func TestFreshThreadMentionRejectsTopicRootFromAnotherChat(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4686,6 +4723,7 @@ func TestFreshThreadMentionRejectsTopicRootFromAnotherChat(t *testing.T) {
 
 func TestTopicRootPromptIsOnlyInjectedOnFirstSessionTurn(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4742,6 +4780,7 @@ func TestTopicRootPromptIsOnlyInjectedOnFirstSessionTurn(t *testing.T) {
 
 func TestTopicRootPromptRetriesUntilSubmitSucceeds(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4823,6 +4862,7 @@ func TestTopicRootPromptRetriesUntilSubmitSucceeds(t *testing.T) {
 
 func TestUndeliveredTopicRootSubmitHoldsRouteLock(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	b.coalesceDelay = 10 * time.Millisecond
@@ -4881,6 +4921,7 @@ func TestFreshThreadEmptyMentionUsesTopicRootAsFirstInput(t *testing.T) {
 	for _, mode := range []string{WorkspaceModeShared, WorkspaceModeOwnerOnly} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
+			t.Setenv("AMUX_HOME", "")
 			b, hub := newBridgeForInputTest(t)
 			b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 			hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4920,6 +4961,7 @@ func TestFreshThreadEmptyMentionUsesTopicRootAsFirstInput(t *testing.T) {
 
 func TestFreshThreadMentionCreatesSessionAndSubmitsFirstInput(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "amux 开发助手", BotOpenId: "ou_bot"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
@@ -4981,6 +5023,7 @@ func TestFreshThreadMentionCreatesSessionAndSubmitsFirstInput(t *testing.T) {
 
 func TestFreshThreadRunProviderCredentialFailureShowsSetupHint(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	const principalID = "47068569-50e1-409b-b86a-7a75ddc0561a"
 	b.SetExecutionIdentityResolver(func(string, string, string, bool) (LaunchIdentity, error) {
@@ -5053,6 +5096,7 @@ func TestProviderCredentialSetupFromErrorUsesCanonicalCommand(t *testing.T) {
 
 func TestTopicReplyRunUsesMessageWorkspaceScope(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-alpha"}
 	if _, err := b.db.GetWorkspace(b.currentBridgeId(), "oc-alpha"); err != nil {
@@ -5090,6 +5134,7 @@ func TestTopicReplyRunUsesMessageWorkspaceScope(t *testing.T) {
 
 func TestTopicRootRunCreatesSessionWithMessageRoot(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "amux 开发助手", BotOpenId: "ou_bot"}
 	hub.targets = []*pb.Target{{Id: "runtime-1", Name: "local"}}
@@ -5130,6 +5175,7 @@ func TestTopicRootRunCreatesSessionWithMessageRoot(t *testing.T) {
 
 func TestTopicRootBindUsesMessageAsSessionRoot(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "amux 开发助手", BotOpenId: "ou_bot"}
 	if _, err := b.db.GetWorkspace(b.currentBridgeId(), "oc-topic"); err != nil {
@@ -5167,6 +5213,7 @@ func TestTopicRootBindUsesMessageAsSessionRoot(t *testing.T) {
 
 func TestTopicRootSessionControlCommandsAreIgnored(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	for _, text := range []string{"/status", "/stop", "/queue", "/schedule"} {
 		t.Run(text, func(t *testing.T) {
 			b, hub := newBridgeForInputTest(t)
@@ -5195,6 +5242,7 @@ func TestTopicRootSessionControlCommandsAreIgnored(t *testing.T) {
 
 func TestTopicReplyBindOtherSessionStopsCurrentSession(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic"}
 	hub.targets = []*pb.Target{{Id: "runtime-1", Name: "local", Sessions: []*pb.Session{
@@ -5253,6 +5301,7 @@ func TestTopicReplyBindOtherSessionStopsCurrentSession(t *testing.T) {
 
 func TestOldWorkspaceTopicGroupRootHelpAutoInitializesAndReplies(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, _ := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-active"}
 	var notices []string
@@ -5277,6 +5326,7 @@ func TestOldWorkspaceTopicGroupRootHelpAutoInitializesAndReplies(t *testing.T) {
 
 func TestFreshTopicAmuxLetsOwnerOnlyMemberReadCurrentGroupStatus(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-active"}
 	var notices []string
@@ -5321,6 +5371,7 @@ func TestFreshTopicAmuxLetsOwnerOnlyMemberReadCurrentGroupStatus(t *testing.T) {
 func TestGroupAmuxFromOwnerSendsNamedCurrentGroupManagementCardToDM(t *testing.T) {
 	enableGroupSettingsExperiment(t)
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", AppSecret: "test-app-secret"}
 	b.chatNameLookup = func(_ context.Context, chatID string) (string, error) {
@@ -5903,6 +5954,7 @@ func TestHandleMessageIgnoresStaleFeishuEvent(t *testing.T) {
 func newBridgeForInputTest(t *testing.T) (*Bridge, *bridgeTestHub) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -6125,6 +6177,7 @@ func setWorkspaceLimits(t *testing.T, db *bridgeDB, chatID string, total, perUse
 // the only place the person who asked will look.
 func TestFreshThreadRunWarningReachesThread(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}

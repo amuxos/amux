@@ -1034,6 +1034,7 @@ func TestLegacySystemExecutorSetupUsesFrozenSpec(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
+			t.Setenv("AMUX_HOME", "")
 			var calls []string
 			hooks := fakeLegacySystemMutationHooks(&calls, defaultLocalHubAddr)
 			execute := legacySystemExecutor(io.Discard, hooks)

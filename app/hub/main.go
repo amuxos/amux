@@ -396,7 +396,10 @@ func tryStartBridges(
 			}
 			continue
 		}
-		if secrets.AppId == "" || secrets.AppSecret == "" {
+		if msg := hubBridgeMissingCredentialsMessage(profile, secrets); msg != "" {
+			// A profile file without credentials cannot start a Bridge. Say so
+			// instead of silently running without the bot.
+			fmt.Fprintln(os.Stderr, msg)
 			continue
 		}
 
@@ -643,6 +646,27 @@ func hubShuttingDownMessage() string {
 
 func hubBridgeStartingMessage(profile, appID string) string {
 	return "hub: lark bridge starting (profile=" + profile + ", app_id=" + appID + ")"
+}
+
+// hubBridgeMissingCredentialsMessage returns the warning logged when a Feishu
+// profile is skipped because app_id or app_secret is empty, or "" when the
+// profile has both.
+func hubBridgeMissingCredentialsMessage(profile string, secrets *bridge.Secrets) string {
+	var missing []string
+	if secrets == nil || secrets.AppId == "" {
+		missing = append(missing, "app_id")
+	}
+	if secrets == nil || secrets.AppSecret == "" {
+		missing = append(missing, "app_secret")
+	}
+	if len(missing) == 0 {
+		return ""
+	}
+	location := ""
+	if path, err := bridge.ProfileSecretsPath(profile); err == nil {
+		location = " in " + path
+	}
+	return "hub: lark bridge profile " + profile + " skipped: empty " + strings.Join(missing, ", ") + location
 }
 
 // shutdownGracePeriod bounds how long SIGTERM waits for in-flight RPCs and

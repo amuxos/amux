@@ -211,6 +211,7 @@ func TestRendererCanDisableSharedThreadPrompt(t *testing.T) {
 func TestNewRendererFromOptionsLoadsTemplateFile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	path := filepath.Join(home, ".amux", "prompts", "feishu.md")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)

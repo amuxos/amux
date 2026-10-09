@@ -24,6 +24,7 @@ func TestIsolationGlobalEnvCommandsRegistered(t *testing.T) {
 func TestIsolationGlobalEnvSetListUnset(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	path := filepath.Join(home, ".amux", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
@@ -99,6 +100,7 @@ func TestIsolationGlobalEnvSetListUnset(t *testing.T) {
 
 func TestIsolationGlobalEnvSetPromptsForInteractiveSecret(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	oldInputFD := credentialInputFD
 	oldIsTerminal := credentialIsTerminal
 	oldReadPassword := credentialReadPassword
@@ -145,6 +147,7 @@ func TestIsolationGlobalEnvSetRejectsValueArgumentBeforeReadingInput(t *testing.
 func TestIsolationGlobalEnvInvalidConfigDoesNotLeakValue(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	path := filepath.Join(home, ".amux", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
@@ -167,6 +170,7 @@ func TestIsolationGlobalEnvInvalidConfigDoesNotLeakValue(t *testing.T) {
 func TestSystemConfigGetRejectsIsolationGlobalEnv(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	path := filepath.Join(home, ".amux", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)

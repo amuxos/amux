@@ -414,6 +414,7 @@ func TestMCPHandleSessionToolsValidateBeforeDial(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("AMUX_HUB_ADDR", "unix:///nonexistent-amux-session-tools-test.sock")
 	h := &mcpHandler{}
 	for _, tc := range []struct {

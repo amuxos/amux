@@ -396,6 +396,7 @@ func TestUpdateOverwritesInstalledBinaries(t *testing.T) {
 	sourceV1 := writeFakeInstallSource(t, "v1")
 	sourceV2 := writeFakeInstallSource(t, "v2")
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 
 	initialUpdate := newUpdateCmd()
 	initialUpdate.SetArgs([]string{"--source", sourceV1})
@@ -631,6 +632,7 @@ func TestUpdateRestartHandoffsPostInstallToInstalledAmux(t *testing.T) {
 func TestUpdateDownloadsSCMLatestWhenSourceOmitted(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	latestArchive := writeFakeSCMLatestPackage(t, "v9.9.9", runtime.GOOS, runtime.GOARCH, "scm")
 	t.Setenv("AMUX_SCM_LATEST_URL", "file://"+latestArchive)
 	oldVersion := version
@@ -695,6 +697,7 @@ func TestUpdateShellWritesPathBlockOnce(t *testing.T) {
 	home := t.TempDir()
 	source := writeFakeInstallSource(t, "v1")
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("SHELL", "/bin/zsh")
 
 	for i := 0; i < 2; i++ {
@@ -728,6 +731,7 @@ func TestUpdateShellWritesCommonInteractiveProfilesWhenShellIsAmbiguous(t *testi
 	home := t.TempDir()
 	source := writeFakeInstallSource(t, "v1")
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("SHELL", "/bin/sh")
 
 	cmd := newUpdateCmd()
@@ -750,6 +754,7 @@ func TestUpdateShellWritesCommonInteractiveProfilesWhenShellIsAmbiguous(t *testi
 func TestUpdateShellSkipsExistingPathLine(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	zshrc := filepath.Join(home, ".zshrc")
 	existing := `export PATH="$HOME/.amux/bin:$PATH"` + "\n"
 	if err := os.WriteFile(zshrc, []byte(existing), 0644); err != nil {
@@ -774,6 +779,7 @@ func TestUpdateShellUsesExplicitShellProfile(t *testing.T) {
 	home := t.TempDir()
 	source := writeFakeInstallSource(t, "v1")
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("SHELL", "/bin/sh")
 
 	cmd := newUpdateCmd()

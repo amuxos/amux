@@ -220,6 +220,11 @@ Source directory changes do not move these user data paths.
 the Runtime process; brokers inherit its environment. Debug output may include
 protocol content. Manual E2E tests use a temporary HOME, a separate Hub port,
 and cleaned-up daemons/brokers so they do not alter a real installation.
+Go tests must not touch a real amux home either. `amuxhome` resolves
+`AMUX_HOME` before `HOME`, and an Agent Session inherits `AMUX_HOME`, so
+redirecting `HOME` alone is not enough. A package whose tests can reach
+`amuxhome` calls `amuxhometest.Main` from `TestMain`, and a test that redirects
+`HOME` also sets `AMUX_HOME` explicitly (empty for `HOME/.amux`).
 
 ## Documentation publishing
 

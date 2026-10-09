@@ -80,6 +80,7 @@ func TestBuildRunRequestAcceptsBuiltinProfileRef(t *testing.T) {
 func TestBuildRunRequestAcceptsPackProfileRef(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	runGit(t, repo, "checkout", "-b", "stable")
 	rev := gitRev(t, repo)
@@ -118,6 +119,7 @@ func TestBuildRunRequestAcceptsPackProfileRef(t *testing.T) {
 func TestBuildRunRequestUsesCallerModelWithPackContent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	runGit(t, repo, "checkout", "-b", "stable")
 	runAgentPackCmd(t, "add", "team", repo, "--ref", "stable")
@@ -167,6 +169,7 @@ func TestTargetWorkspaceScopePrefersTargetName(t *testing.T) {
 func TestEffectiveRunTargetUsesConfiguredDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 	path := filepath.Join(home, ".amux", "config.toml")
@@ -188,6 +191,7 @@ func TestEffectiveRunTargetUsesConfiguredDefault(t *testing.T) {
 func TestHubAddrDefaultsToLocalHub(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 
@@ -202,6 +206,7 @@ func TestHubAddrDefaultsToLocalHub(t *testing.T) {
 func TestHubAddrUsesEnvironmentBeforeDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
 	t.Setenv("AMUX_HUB_ADDR", "hub.example.com:7100")
 	t.Setenv("AMUX_HUB_TOKEN", "secret")
 	viper.Reset()

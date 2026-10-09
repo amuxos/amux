@@ -95,6 +95,7 @@ func TestScheduledTaskArgumentsSurviveCLIAndWireConversion(t *testing.T) {
 
 func TestAgentRenderPortableProfileRequiresRuntimeAndRetainsAssets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	repo := initTestProfilePackRepo(t)
 	runAgentPackCmd(t, "add", "team", repo)
 	output := filepath.Join(t.TempDir(), "rendered")

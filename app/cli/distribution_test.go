@@ -14,6 +14,7 @@ const cliE2EBuildTags = ""
 
 func TestPublicCLIAndMCPCatalogsContainOnlyNativeProfiles(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	root := newRootCmd()
 	var out bytes.Buffer
 	root.SetOut(&out)
@@ -86,6 +87,7 @@ func TestPublicCLIDefaultsAndRuntimeModelSelection(t *testing.T) {
 
 func TestPublicCapabilityConfigUsesNativeProfileModelPolicy(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
 	for _, capability := range []string{"group_watch", "document_comments"} {
 		prefix := "bridge.feishu.profiles.coder." + capability + "."
 		for _, args := range [][]string{

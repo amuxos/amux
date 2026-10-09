@@ -14,16 +14,6 @@ import (
 	"github.com/amuxos/amux/internal/store"
 )
 
-// TestMain intercepts the test binary when it is re-exec'd as a fake broker
-// (argv[1] is a broker subcommand) and blocks forever, so the reaper sees a
-// real live process in /proc. Normal test runs fall through to m.Run().
-func TestMain(m *testing.M) {
-	if len(os.Args) > 1 && (os.Args[1] == "_structured_broker" || os.Args[1] == "_acp_broker") {
-		select {} // fake broker: idle forever
-	}
-	os.Exit(m.Run())
-}
-
 // spawnFakeBroker re-execs the test binary as a fake `_structured_broker`
 // process (Setsid, blocking) whose --socket points at sock. The process only
 // needs to *look* like a broker in /proc; it never binds the socket or starts
