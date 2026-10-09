@@ -27,14 +27,17 @@ Session 持有对话并包含多轮 Turn；持久 Agent Instance 持有跨任务
 
 内置 Profile 同样采用 manifest v2，不包含执行字段。amux 调用方独立维护内置快捷入口的
 启动预设，使已有快捷启动继续选择配置的 Runtime、模型和权限；调用方显式设置优先。
-外部 v2 专家没有隐式预设，仍要求选择 Runtime。专家发现和内容读取不把预设写回
+外部 v2 专家的 Pack 不拥有执行预设。直接启动会话仍要求调用方提供 Runtime；Task
+提交（包括定时 Task 与持久实例创建）省略 Runtime 时，采用发行版默认 builtin 的
+启动预设。此回退只提供 Runtime/模型选择，不借用默认专家的内容或权限。
+专家发现和内容读取不把预设写回
 Profile；仅在启动快照中冻结最终执行设置。
 
 ## 引擎与 Provider 行为
 
 Codex、Claude 和 Pi 是公共集成。Adapter 描述可执行文件发现、启动配置、协议能力
-和工作区配置布局。默认使用原生 Agent 的认证与模型设置；也可以通过 Profile Pack
-显式配置外部模型 Provider。
+和工作区配置布局。默认使用原生 Agent 的认证与模型设置；外部模型 Provider 由发行版
+扩展提供的 amux Runtime/模型绑定配置，v2 Profile Pack 不能声明 Provider 设置。
 公共 Provider 平台是 `openai-compat`，必须显式提供 `base_url`：Codex 使用 Responses，
 Pi 使用 Chat Completions。附加 Provider 平台、默认端点和 Pi 兼容设置属于注册的发行版
 扩展；公共 Pi 渲染器消费这些配置。Runtime 模型建议不是允许列表。

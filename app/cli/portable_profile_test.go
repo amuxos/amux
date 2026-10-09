@@ -28,7 +28,7 @@ func TestPortableTaskToolSchemasExposeRuntimeSelection(t *testing.T) {
 				if !ok || property.Type != "string" {
 					t.Fatalf("%s cannot select execution %s: %s", name, field, tool.InputSchema)
 				}
-				for _, language := range []string{"v2", "专家"} {
+				for _, language := range []string{"omitted uses", "省略时使用"} {
 					if !strings.Contains(property.Description, language) {
 						t.Fatalf("%s guidance does not cover portable profiles in both languages: %q", field, property.Description)
 					}
@@ -36,7 +36,7 @@ func TestPortableTaskToolSchemasExposeRuntimeSelection(t *testing.T) {
 			}
 			for _, field := range schema.Required {
 				if field == "runtime" || field == "model" {
-					t.Fatalf("legacy profile callers must retain their defaults: %s required", field)
+					t.Fatalf("Task callers must be able to use execution defaults: %s required", field)
 				}
 			}
 		})

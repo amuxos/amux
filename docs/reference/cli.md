@@ -1559,7 +1559,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `-h, --help` | `bool` | `false` | help for create-task |
 | `--isolation` | `string` | `""` | isolation: process \| private-home (default process) |
 | `--local-dir` | `string` | `""` | target-local working directory override |
-| `--model` | `string` | `""` | Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply |
+| `--model` | `string` | `""` | Execution model ref; omitted uses the inherited launch preset model or the selected engine default |
 | `--name` | `string` | `""` | optional label for the schedule |
 | `--permission-policy` | `string` | `""` | permission policy: default, policy-allow, or deny-all |
 | `--repo-cache-key` | `string` | `""` | workspace repo cache key |
@@ -1568,7 +1568,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `--repo-remote` | `string` | `""` | workspace repo remote URL or stable id |
 | `--repo-subdir` | `string` | `""` | workspace repo subdirectory |
 | `--run-as` | `string` | `""` | run as an enrolled principal alias (resolved and frozen when the schedule is saved) |
-| `--runtime` | `string` | `""` | Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults |
+| `--runtime` | `string` | `""` | Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts |
 | `--task` | `string` | `""` | task prompt to run on each schedule fire |
 | `--timeout` | `int` | `0` | task timeout in seconds (0 = runtime default) |
 | `--trusted-mode-ack` | `bool` | `true` | legacy no-op: long-lived secrets inject under weak isolation by default (v0.38) |
@@ -1682,7 +1682,7 @@ amux schedule update 8 --name nightly-report
 | `-h, --help` | `bool` | `false` | help for update |
 | `--isolation` | `string` | `""` | isolation: process \| private-home (default process) |
 | `--local-dir` | `string` | `""` | target-local working directory override |
-| `--model` | `string` | `""` | Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply |
+| `--model` | `string` | `""` | Execution model ref; omitted uses the inherited launch preset model or the selected engine default |
 | `--name` | `string` | `""` | new label for the schedule |
 | `--permission-policy` | `string` | `""` | permission policy: default, policy-allow, or deny-all |
 | `--repo-cache-key` | `string` | `""` | workspace repo cache key |
@@ -1691,7 +1691,7 @@ amux schedule update 8 --name nightly-report
 | `--repo-remote` | `string` | `""` | workspace repo remote URL or stable id |
 | `--repo-subdir` | `string` | `""` | workspace repo subdirectory |
 | `--run-as` | `string` | `""` | run as an enrolled principal alias (resolved and frozen when the schedule is saved) |
-| `--runtime` | `string` | `""` | Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults |
+| `--runtime` | `string` | `""` | Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts |
 | `--spec` | `string` | `""` | new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run |
 | `--task` | `string` | `""` | task prompt to run on each schedule fire |
 | `--timeout` | `int` | `0` | task timeout in seconds (0 = runtime default) |
@@ -2695,12 +2695,12 @@ amux task submit <task prompt> [flags]
 | `--credential-profile` | `string` | `""` | credential profile name (control-plane resolved) |
 | `-h, --help` | `bool` | `false` | help for submit |
 | `--isolation` | `string` | `""` | isolation: process \| private-home (default process) |
-| `--model` | `string` | `""` | Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply |
+| `--model` | `string` | `""` | Execution model ref; omitted uses the inherited launch preset model or the selected engine default |
 | `--permission` | `string` | `""` | permission policy: policy-allow \| escalate-to-main \| deny-all (default policy-allow) |
 | `--profile` | `string` | `""` | agent profile ref to resolve before scheduling (overrides --agent) |
 | `--repo-dir` | `string` | `""` | repo cache dir for git-worktree workspace |
 | `--run-as` | `string` | `""` | run as an enrolled principal alias (resolved by amuxd) |
-| `--runtime` | `string` | `""` | Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults |
+| `--runtime` | `string` | `""` | Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts |
 | `--timeout` | `int` | `0` | task timeout in seconds (0 = runtime default) |
 | `--trusted-mode-ack` | `bool` | `true` | legacy no-op: long-lived secrets inject under weak isolation by default (v0.38) |
 | `--wait` | `bool` | `false` | block until the task finishes and print the result |

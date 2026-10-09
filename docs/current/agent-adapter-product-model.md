@@ -34,7 +34,11 @@ Built-in Profiles also use manifest v2 and contain no execution fields. The amux
 caller retains named built-in launch presets independently of Pack content, so
 existing shortcut launches still select their configured runtime, model and
 permission mode. Explicit caller settings take precedence. External v2 experts
-have no implicit preset; they still require a runtime. Profile discovery and
+have no Pack-owned execution preset. Direct session launches require a caller
+runtime; Task submission (including scheduled Tasks and instance creation) uses
+the distribution's default builtin launch preset when runtime is omitted. This
+fallback supplies runtime/model selection without borrowing the default expert's
+content or permissions. Profile discovery and
 content projection never restore execution fields from the preset, and resolved
 execution is frozen only in the launch snapshot.
 
@@ -43,7 +47,8 @@ execution is frozen only in the launch snapshot.
 Codex, Claude and Pi are public integrations. Adapters describe executable
 discovery, launch configuration, protocol capabilities and workspace configuration
 layout. Native agent authentication and model settings are used by default.
-External model providers may be configured explicitly through a profile pack.
+External model providers are configured by amux runtime/model bindings supplied
+by distribution extensions; v2 Profile Packs cannot declare provider settings.
 The public provider platform is `openai-compat`, with an explicit `base_url`:
 Codex uses Responses and Pi uses Chat Completions. Additional provider platforms,
 default endpoints and Pi compatibility settings belong to registered distribution

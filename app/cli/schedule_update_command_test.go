@@ -8,7 +8,7 @@ import (
 )
 
 func TestScheduleTaskFlagsCarryPortableExecutionSelection(t *testing.T) {
-	for _, language := range []string{"en", "zh-CN"} {
+	for _, language := range []string{"en", "zh-CN", "zz"} {
 		t.Run(language, func(t *testing.T) {
 			t.Setenv("AMUX_LANGUAGE", language)
 			var flags scheduleTaskFlags
@@ -24,10 +24,10 @@ func TestScheduleTaskFlagsCarryPortableExecutionSelection(t *testing.T) {
 			}
 			for _, flag := range []string{"runtime", "model"} {
 				usage := cmd.Flags().Lookup(flag).Usage
-				if language == "zh-CN" && !strings.Contains(usage, "专家") {
+				if language == "zh-CN" && !strings.Contains(usage, "省略时使用") {
 					t.Fatalf("untranslated --%s help: %s", flag, usage)
 				}
-				if language == "en" && !strings.Contains(usage, "Execution") {
+				if language != "zh-CN" && !strings.Contains(usage, "omitted uses") {
 					t.Fatalf("untranslated --%s help: %s", flag, usage)
 				}
 			}

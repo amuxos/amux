@@ -15,7 +15,7 @@
     "other": "brief description of the expert purpose"
   },
   "profile.selection_guidance": {
-    "other": "Choose an expert by description and skills, then select runtime and model for execution. Profiles with runtime_required need an explicit runtime. Builtin shortcuts use amux caller defaults; legacy profiles retain their defaults. Use profile_get for full content details."
+    "other": "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details."
   },
   "mcp.session.runtime": {
     "other": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults"
@@ -27,13 +27,13 @@
     "other": "Native execution arguments, including permission settings"
   },
   "mcp.task.runtime": {
-    "other": "Execution runtime adapter; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults"
+    "other": "Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts"
   },
   "mcp.task.model": {
-    "other": "Execution model ref; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply"
+    "other": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default"
   },
   "mcp.instance.model": {
-    "other": "Execution model ref, frozen on the instance; external v2 profiles use the selected runtime default when omitted; builtin shortcuts use amux caller defaults, and legacy profile constraints still apply"
+    "other": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default"
   },
   "mcp.task.extra_args": {
     "other": "Native execution arguments, including permissions; separate from Task permission policy"

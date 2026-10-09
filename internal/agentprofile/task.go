@@ -25,7 +25,22 @@ func ResolveTaskSpec(spec *task.Spec, registryPath string) error {
 			return err
 		}
 	}
-	projection, err := ProjectProfileLaunchWithDefaults(profile, spec.ExtraArgs, nil, LaunchOptions{Runtime: spec.Runtime, Model: spec.Model})
+	opts := LaunchOptions{Runtime: spec.Runtime, Model: spec.Model}
+	preset, hasPreset := BuiltinLaunchDefaults(profile)
+	if !hasPreset && profile.Type == "" && strings.TrimSpace(opts.Runtime) == "" {
+		// Task defaults belong to the distribution, not to portable Pack content.
+		// Borrow only execution selection, never another expert's permissions.
+		if defaultProfile, ok := ResolveBuiltin(DefaultProfileRef); ok {
+			preset, hasPreset = BuiltinLaunchDefaults(defaultProfile)
+			preset.PermissionMode = ""
+		}
+	}
+	var projection LaunchProjection
+	if hasPreset {
+		projection, err = projectProfileLaunchWithPreset(profile, spec.ExtraArgs, nil, opts, preset)
+	} else {
+		projection, err = ProjectProfileLaunchChecked(profile, spec.ExtraArgs, nil, opts)
+	}
 	if err != nil {
 		return err
 	}

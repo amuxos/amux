@@ -23,6 +23,10 @@ explicit inputs and authorized resources, not the parent's full chat history
 by default. Parent/child identity records preserve provenance without merging
 contexts. See the [Session model](current/session-product-model.md).
 
+Follow-up work with omitted launch identity restores the instance's saved profile,
+engine and model before resolving defaults. It does not select a new distribution
+default; explicit identity changes remain subject to the instance's no-switch contract.
+
 ## Scheduling and execution
 
 The hub authenticates requests, freezes execution identity, selects an eligible
@@ -51,12 +55,15 @@ effective principal. Credentials must not be persisted into session snapshots,
 result payloads or public event text. Explicit execution overrides are validated
 against profile policy and runtime capabilities.
 
-Without an explicit runtime override, model selection follows the profile's
-`supported_models` policy and declared provider bindings. With an explicit runtime
-override, runtime model suggestions are not an allowlist: an unlisted native
-model name passes unchanged to the selected public agent. The name does not infer
-a provider, endpoint or credential. Adapter reasoning-effort validation still
-applies. Profile provider selection requires omitting the runtime override.
+Task execution choices belong to amux, not v2 Profile content. An explicit runtime
+and model take precedence. Without a runtime, a builtin shortcut uses its own
+launch preset; other profiles use the distribution's default builtin launch
+preset. An omitted model uses that preset's model when its runtime is inherited,
+or the selected engine's native default when no model is configured. These
+defaults do not replace expert content, permission policy or native arguments.
+Runtime model suggestions are not an allowlist in the public distribution: an
+unlisted native model name passes unchanged to the selected agent. The name does
+not infer a provider, endpoint or credential. Adapter validation still applies.
 
 Isolation is a launch policy and enforcement choice, not a UI label. Runtime
 admission validates platform support and workspace access before launch. Strong
@@ -100,6 +107,12 @@ tools. Failed capability discovery emits a warning and leaves that conversation
 without amux memory; it never selects a global fallback.
 
 ## Schedule and permission boundaries
+
+Creating or updating a scheduled Task validates omitted execution choices using
+the same defaults as Task submission. Definitions retain the caller's Profile
+reference, runtime, model and native arguments; content and omitted defaults are
+resolved at each trigger, including for existing schedules. Once a Task is
+admitted, its resolved execution snapshot is frozen for retries.
 
 Hub schedules either deliver a prompt to a Session or submit an ephemeral child
 Task. MCP `schedule_create` defaults to the child-Task path (`schedule_type=subtask`

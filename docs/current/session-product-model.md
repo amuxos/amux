@@ -14,6 +14,17 @@ resumable provider history. An Agent Profile is its launch definition, not its
 identity. The native provider's conversation ID is a resume handle, not the amux
 Session ID. A restart can change the process without changing the Session.
 
+Restart and automatic wake retain recorded execution settings. Missing profile or
+engine identity is first recovered from the saved launch snapshot. If no profile
+identity remains, recovery uses `builtin/default` when registered, otherwise the
+distribution's default builtin profile. A missing engine uses the distribution's
+default launch runtime. These fallbacks do not inherit shortcut permission bypass.
+Saved model, reasoning, permission settings and workspace remain authoritative.
+A deleted source Pack does not invalidate an existing execution snapshot; an
+unavailable recorded engine is an error, never an automatic engine switch.
+If no engine identity survives, native provider history cannot safely be resumed;
+recovery starts a fresh provider conversation with the amux history handoff.
+
 A Turn is one dispatched submission accepted by the Session queue. Several Feishu
 messages may be coalesced into one submission; one message can also trigger a
 control action or add context without starting a Turn. The canonical Timeline

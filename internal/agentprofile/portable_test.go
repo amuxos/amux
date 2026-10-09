@@ -135,8 +135,11 @@ func TestPortableTaskResolvesBeforeSchedulingAndRetryKeepsSnapshot(t *testing.T)
 		t.Fatal("retry replaced frozen execution")
 	}
 	missingRuntime := task.Spec{Agent: profile.Ref()}
-	if err := ResolveTaskSpec(&missingRuntime, registryPath); err == nil {
-		t.Fatal("task silently chose an engine")
+	if err := ResolveTaskSpec(&missingRuntime, registryPath); err != nil {
+		t.Fatal(err)
+	}
+	if missingRuntime.Agent != "codex" || missingRuntime.ResolvedProfile.RuntimeRef != "codex" || missingRuntime.ResolvedProfile.Name != profile.Name {
+		t.Fatalf("task did not use the default engine with the selected content: %+v", missingRuntime)
 	}
 }
 

@@ -1112,8 +1112,8 @@ func TestRouterSubmitPersistentHydratesOmittedIdentityFromInstanceStore(t *testi
 	if _, err := r.SubmitSubtask(context.Background(), &pb.SubmitSubtaskRequest{SpecJson: specJSON}); err != nil {
 		t.Fatalf("SubmitSubtask: %v", err)
 	}
-	if resolvedInput.Agent != "builtin/claude" || resolvedInput.Model != "example-model" {
-		t.Fatalf("resolver input = %+v, want stored profile/model", resolvedInput)
+	if resolvedInput.Agent != "builtin/claude" || resolvedInput.Runtime != "claude" || resolvedInput.Model != "example-model" {
+		t.Fatalf("resolver input = %+v, want stored profile/runtime/model", resolvedInput)
 	}
 }
 

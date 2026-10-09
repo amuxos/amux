@@ -34,6 +34,10 @@ func ProjectProfileLaunchWithDefaults(profile Profile, args, env []string, opts 
 	if !ok {
 		return ProjectProfileLaunchChecked(profile, args, env, opts)
 	}
+	return projectProfileLaunchWithPreset(profile, args, env, opts, preset)
+}
+
+func projectProfileLaunchWithPreset(profile Profile, args, env []string, opts LaunchOptions, preset BuiltinLaunchPreset) (LaunchProjection, error) {
 	inferredRuntime := strings.TrimSpace(opts.Runtime) == ""
 	if inferredRuntime {
 		opts.Runtime = preset.Runtime

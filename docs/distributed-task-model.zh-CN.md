@@ -20,6 +20,9 @@ TaskRun；界面出现“任务”一词本身不代表 Task 历史中有一条�
 获取父会话全部聊天历史。父子身份记录保留来源，但不合并上下文。详见
 [Session 模型](current/session-product-model.zh-CN.md)。
 
+续跑省略启动身份时，先恢复实例已保存的 Profile、引擎和模型，再解析默认值，
+不会重新选择发行版默认引擎；显式身份变更仍受实例不可切换执行身份的约束。
+
 ## 调度与执行
 
 Hub 认证请求、冻结执行身份、选择合适的 Runtime，并在派发前预留容量。
@@ -41,10 +44,12 @@ Credential Profile 标识启动凭据。Profile 声明所需环境变量，只�
 物化这些变量。凭据不得持久化到 Session 快照、结果 payload 或公共事件文本。
 显式执行覆盖必须按 Profile 策略和 Runtime 能力验证。
 
-未显式覆盖 Runtime 时，模型选择遵循 Profile 的 `supported_models` 策略和已声明的
-Provider 绑定。显式覆盖 Runtime 时，Runtime 模型建议不是允许列表：不在列表中的
-原生模型名仍原样传给所选公共 Agent，不据此推断 Provider、端点或凭据。
-Adapter 的思考强度校验继续生效。要选择 Profile Provider，必须省略 Runtime 覆盖。
+Task 的执行选择由 amux 管理，不属于 v2 Profile 内容。显式 Runtime、模型优先；
+未指定 Runtime 时，builtin 快捷入口采用自己的启动预设，其余专家采用发行版默认
+builtin 的启动预设。继承 Runtime 时，未指定的模型采用预设模型；没有配置模型时
+使用所选引擎的原生默认值。这些默认值不替换专家内容、权限策略或原生参数。
+公共发行版的 Runtime 模型建议不是允许列表：未列出的原生模型名仍原样传给所选
+Agent，不据此推断 Provider、端点或凭据。Adapter 校验继续生效。
 
 隔离是启动策略和强制执行方式，不是 UI 标签。Runtime admission 在启动前验证平台
 支持和工作区访问。强容器/VM 隔离及跨机器高可用仍是目标规格，不是分布式 API
@@ -78,6 +83,10 @@ parent Session，并解析活动 ParentTurnID。其它发起者不推断 parent�
 amux 记忆，不回退到全局范围。
 
 ## 定时执行与权限边界
+
+创建或更新定时 Task 时，使用与 Task 提交相同的默认值校验省略的执行选择。定义保留
+调用方的 Profile 引用、Runtime、模型和原生参数；每次触发时重新解析内容与省略的
+默认值，历史任务也采用同一路径。Task 接纳后冻结执行快照，重试继续使用该快照。
 
 Hub 定时规则可以向 Session 投递提示，也可以提交临时子 Task。MCP `schedule_create`
 默认（`schedule_type=subtask` 或省略）使用子 Task 路径，历史记录保存 Task ID，不包含已

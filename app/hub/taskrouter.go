@@ -488,6 +488,9 @@ func (r *taskRouter) hydratePersistentFollowupIdentity(spec *task.Spec) error {
 	if spec.Agent == "" {
 		spec.Agent = strings.TrimSpace(in.AgentType)
 	}
+	if strings.TrimSpace(spec.Runtime) == "" {
+		spec.Runtime = strings.TrimSpace(in.AgentType)
+	}
 	if strings.TrimSpace(spec.Model) == "" {
 		spec.Model = strings.TrimSpace(in.ModelRef)
 	}

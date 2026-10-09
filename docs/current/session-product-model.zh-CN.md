@@ -12,6 +12,13 @@ Session 是 Runtime 持有的受管理对话，通过 target 和 Session 身份�
 工作区、执行身份和可恢复的 Provider 历史。Agent Profile 是启动定义，不是 Session 身份。
 原生 Provider 的对话 ID 是恢复句柄，不是 amux Session ID。重启可以更换进程而保留 Session。
 
+重启和自动唤醒沿用已保存的执行设置。专家或引擎身份缺失时，先从启动快照恢复；
+没有专家身份时，采用已注册的 `builtin/default`，否则采用发行版默认内置专家。
+没有引擎身份时，采用发行版默认启动引擎。这些兜底不继承快捷入口的跳过权限确认设置。
+已保存的模型、思考强度、权限设置和工作区继续生效。专家源包被删除不使已有执行快照失效；
+已记录的引擎不可用时仍报错，不自动切换引擎。若引擎身份完全丢失，不能安全地复用原生
+Provider 历史，恢复时使用 amux 历史交接创建新的 Provider 对话。
+
 Turn 是 Session 队列接收后派发的一次输入。多条飞书消息可能合并为一次提交；一条消息
 也可能只是触发控制操作或增加上下文，不启动 Turn。规范 Timeline 持有 TurnID、TurnSeq，
 每轮恰有一个 TurnFinished。出现结果文本本身不是完成信号。一个 Session 可以包含多轮 Turn。
