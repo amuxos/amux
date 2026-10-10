@@ -591,22 +591,33 @@ func (b *Bridge) Start(ctx context.Context) error {
 	}
 	disp := b.newEventDispatcher()
 
-	ws := larkws.NewClient(b.secrets.AppId, b.secrets.AppSecret,
-		larkws.WithEventHandler(disp),
-		larkws.WithAutoReconnect(true),
-		larkws.WithLogLevel(larkcore.LogLevelDebug),
-		larkws.WithOnReady(func() {
-			log.Info().Msg("bridge: connected to Lark")
-			b.startFeishuPermissionAudit(ctx)
-			b.startNativeSlashCommandSync(ctx)
-			b.startPendingManagementRecovery(ctx)
-		}),
-		larkws.WithOnReconnected(func() {
-			log.Info().Msg("bridge: reconnected to Lark")
-			b.startPendingManagementRecovery(ctx)
-		}),
-	)
-	return ws.Start(ctx)
+	appID, appSecret := b.secrets.AppId, b.secrets.AppSecret
+	supervisor := newLarkWSSupervisor(larkWSWatchdogConfigFromEnv(larkWSEnvLookup), func(hooks larkWSHooks) larkWSClient {
+		return larkws.NewClient(appID, appSecret,
+			larkws.WithEventHandler(disp),
+			larkws.WithAutoReconnect(true),
+			larkws.WithLogLevel(larkcore.LogLevelDebug),
+			larkws.WithLogger(hooks.Logger),
+			larkws.WithOnReady(hooks.OnReady),
+			larkws.WithOnReconnected(hooks.OnReconnected),
+			larkws.WithOnReconnecting(hooks.OnReconnecting),
+			larkws.WithOnDisconnected(hooks.OnDisconnected),
+		)
+	})
+	supervisor.profile = b.ProfileName()
+	supervisor.onConnected = func() {
+		log.Info().Msg("bridge: connected to Lark")
+		b.startFeishuPermissionAudit(ctx)
+		b.startNativeSlashCommandSync(ctx)
+		b.startPendingManagementRecovery(ctx)
+	}
+	// Both SDK-internal reconnects and watchdog-driven client restarts land
+	// here, so pending management recovery reruns after either.
+	supervisor.onReconnected = func() {
+		log.Info().Msg("bridge: reconnected to Lark")
+		b.startPendingManagementRecovery(ctx)
+	}
+	return supervisor.Run(ctx)
 }
 
 // OnSessionAdded is called by the hub session event handler when a new session
