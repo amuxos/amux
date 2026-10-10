@@ -868,9 +868,14 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							providerFailureNoticePending = false
 							continue
 						}
-						if text := bridgeErrorNotice(
+						providerCode := ""
+						if action.Error != nil {
+							providerCode = action.Error.Code
+						}
+						if text := bridgeErrorNoticeWithCode(
 							sessionName,
 							action.Text,
+							providerCode,
 							strings.TrimSpace(streamChat.AgentProfile) != "",
 						); text != "" {
 							sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -1121,11 +1126,23 @@ func shouldUseAssistantResultFallback(turn agentui.TurnEvent) bool {
 // forwards it verbatim because it may contain local paths, secrets, or internal
 // refs.
 func bridgeErrorNotice(sessionName, providerError string, profileBacked bool) string {
+	return bridgeErrorNoticeWithCode(sessionName, providerError, "", profileBacked)
+}
+
+// bridgeErrorNoticeWithCode is bridgeErrorNotice with the provider's structured
+// error code, when one is available. Raw provider text is never forwarded
+// verbatim: recognized categories get a fixed prompt (usage limits may carry a
+// bounded reset time) and the generic fallback carries only a truncated,
+// redacted one-line summary.
+func bridgeErrorNoticeWithCode(sessionName, providerError, providerCode string, profileBacked bool) string {
 	if notice := distributionProviderErrorNotice(providerError); notice != "" {
 		return notice
 	}
 	if providerEmptyResponse(providerError) {
 		return "模型本轮未返回内容，请重新发送上一条消息；若连续出现，请切换模型后再试。"
+	}
+	if providerUsageLimited(providerError, providerCode) {
+		return providerUsageLimitNotice(providerError)
 	}
 	if providerRepeatedToolLoop(providerError) {
 		return "⚠️ 模型反复调用同一工具未正常结束，本轮已自动终止。实际工作可能已完成，请检查结果后直接继续对话；若连续出现请切换模型。"
@@ -1149,9 +1166,9 @@ func bridgeErrorNotice(sessionName, providerError string, profileBacked bool) st
 		)
 	}
 	if sessionName == "" {
-		return "⚠️ Agent 执行出错，请稍后重试或新建话题。"
+		return withProviderErrorSummary("⚠️ Agent 执行出错，请稍后重试或新建话题。", providerError)
 	}
-	return fmt.Sprintf("⚠️ Agent 执行出错，请稍后重试或 `amux session restart %s`。", sessionName)
+	return withProviderErrorSummary(fmt.Sprintf("⚠️ Agent 执行出错，请稍后重试或 `amux session restart %s`。", sessionName), providerError)
 }
 
 func providerEmptyResponse(text string) bool {

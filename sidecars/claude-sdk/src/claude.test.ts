@@ -411,3 +411,76 @@ test('a failed interrupt call is not treated as an interruption of the turn', as
   const states = eventsOf(msgs).filter((e) => e.type === 'turn_done').map((e) => e.state.state);
   assert.deepEqual(states, ['failed']);
 });
+
+// When the account hits a usage limit the SDK yields a synthetic assistant
+// message tagged error: 'rate_limit', then a failed result carrying the same text.
+function messagesQuery(turns: any[][]): QueryFn {
+  return ({ prompt }) => {
+    async function* gen() {
+      let i = 0;
+      for await (const _user of prompt as AsyncIterable<SdkUserMessage>) {
+        void _user;
+        yield { type: 'system', subtype: 'init', session_id: 'sess_1' } as any;
+        for (const m of turns[i++] ?? []) yield m as any;
+      }
+    }
+    return Object.assign(gen(), { interrupt: async () => {} });
+  };
+}
+
+const limitText = "You've hit your session limit · resets 1:50am (Asia/Shanghai)";
+const limitAssistant = {
+  type: 'assistant',
+  parent_tool_use_id: null,
+  error: 'rate_limit',
+  message: { role: 'assistant', content: [{ type: 'text', text: limitText }] },
+};
+const limitResult = { type: 'result', subtype: 'success', is_error: true, result: limitText };
+
+test('a usage-limit result is reported with the rate_limit code', async () => {
+  const output = new PassThrough();
+  const msgs = collect(output);
+  const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), output), messagesQuery([[limitAssistant, limitResult]]));
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'go' });
+  await tick();
+
+  const events = eventsOf(msgs);
+  const error = events.find((e) => e.type === 'error')?.error;
+  assert.deepEqual(error, { message: limitText, code: 'rate_limit' });
+  const done = events.filter((e) => e.type === 'turn_done');
+  assert.equal(done.length, 1);
+  assert.equal(done[0].state.state, 'failed');
+  assert.equal(done[0].error.code, 'rate_limit');
+  assert.equal(events.filter((e) => e.type === 'assistant_text_delta').length, 0, 'synthetic text is not streamed');
+});
+
+test('the rate_limit tag does not leak into a later turn', async () => {
+  const output = new PassThrough();
+  const msgs = collect(output);
+  const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), output), messagesQuery([
+    [limitAssistant, limitResult],
+    [{ type: 'result', ...executionError }],
+  ]));
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'one' });
+  await tick();
+  await bridge.startTurn({ text: 'two' });
+  await tick();
+
+  const codes = eventsOf(msgs).filter((e) => e.type === 'error').map((e) => e.error.code);
+  assert.deepEqual(codes, ['rate_limit', 'result_error']);
+});
+
+test('a non-rate-limit assistant error keeps the result_error code', async () => {
+  const output = new PassThrough();
+  const msgs = collect(output);
+  const bridge = new ClaudeBridge(new RpcPeer(new PassThrough(), output), messagesQuery([
+    [{ ...limitAssistant, error: 'server_error' }, { ...limitResult, result: 'API Error: 500' }],
+  ]));
+  await bridge.startSession({ cwd: '/tmp' });
+  await bridge.startTurn({ text: 'go' });
+  await tick();
+
+  assert.equal(eventsOf(msgs).find((e) => e.type === 'error')?.error.code, 'result_error');
+});

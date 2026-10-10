@@ -83,7 +83,7 @@ func FromAgentEvent(event agentstream.Event) []Event {
 		out.Text = body.Message
 		if body.Severity == agentstream.SeverityError {
 			out.Kind = KindError
-			out.Error = &ErrorEvent{Message: body.Message}
+			out.Error = &ErrorEvent{Message: body.Message, Code: body.Code}
 		}
 	case agentstream.TurnFinished:
 		out.Kind = KindTurnDone
@@ -105,7 +105,7 @@ func FromAgentEvent(event agentstream.Event) []Event {
 		out.Text = body.Message
 		if body.Severity == agentstream.SeverityError {
 			out.Kind = KindError
-			out.Error = &ErrorEvent{Message: body.Message}
+			out.Error = &ErrorEvent{Message: body.Message, Code: body.Code}
 		}
 	case agentstream.CommandsReplaced, agentstream.ExtensionObserved:
 		out.Kind = KindUnknown

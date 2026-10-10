@@ -184,6 +184,9 @@ export class ClaudeBridge {
   // that result can be reported as an interruption instead of a provider error.
   private pendingTurns = 0;
   private interruptRequested = false;
+  // Error tag of the latest synthetic assistant message in the current turn
+  // (SDKAssistantMessage.error, e.g. 'rate_limit'); cleared on each result.
+  private lastAssistantError: string | undefined;
 
   // queryFn is injectable for tests; in production it is lazily imported from
   // the Claude Agent SDK so the protocol layer can be unit-tested without it.
@@ -356,6 +359,7 @@ export class ClaudeBridge {
         break;
       case 'assistant':
         if (isSubagentMessage) break;
+        if (typeof msg.error === 'string' && msg.error) this.lastAssistantError = msg.error;
         this.onAssistant(msg.message);
         break;
       case 'user':
@@ -365,6 +369,8 @@ export class ClaudeBridge {
       case 'result': {
         const interrupted = this.interruptRequested && msg.subtype === 'error_during_execution';
         this.interruptRequested = false;
+        const assistantError = this.lastAssistantError;
+        this.lastAssistantError = undefined;
         this.pendingTurns = Math.max(0, this.pendingTurns - 1);
         if (interrupted) {
           this.emitEvent('turn_done', { state: { state: 'interrupted', stop_reason: 'interrupted' } });
@@ -374,7 +380,11 @@ export class ClaudeBridge {
           const message = (typeof msg.result === 'string' && msg.result)
             || (Array.isArray(msg.errors) && msg.errors.map(String).join('\n'))
             || String(msg.subtype ?? 'Claude request failed');
-          const error = { message, code: 'result_error' };
+          // A synthetic assistant message tagged 'rate_limit' (e.g. "You've hit
+          // your session limit") precedes the failed result; keep that
+          // classification so amux can explain the limit instead of a generic error.
+          const code = assistantError === 'rate_limit' ? 'rate_limit' : 'result_error';
+          const error = { message, code };
           this.emitEvent('error', { error });
           this.emitEvent('turn_done', { state: { state: 'failed', stop_reason: 'error' }, error });
           break;

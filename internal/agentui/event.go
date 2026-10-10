@@ -124,4 +124,7 @@ type TurnEvent struct {
 
 type ErrorEvent struct {
 	Message string
+	// Code is the provider's structured error code when known (for example
+	// "rate_limit"); empty otherwise.
+	Code string
 }
