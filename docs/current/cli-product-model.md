@@ -26,7 +26,6 @@ and operate on its local Bridge database; they do not follow a remote Hub addres
 The selected `--profile` determines the Bot scope and must match the JSON scope.
 Execution availability is checked again when a Session launches.
 
-
 A target identifies a runtime location. A session is an ongoing conversation
 with one agent; a task is a bounded execution with a result. Profile references
 select reusable expert content. Supported builtin profiles are `builtin/codex`,
@@ -153,6 +152,14 @@ stderr. `agent local create --description` records a purpose summary in the Pack
 Local creation and authoring produce content-only v2 Packs. Creation does not accept
 `--type`, `--model`, or `--permission`; choose execution settings when launching.
 Older Pack schemas are rejected without rewriting user files.
+
+The hidden operator command `agent local convert-v2 --expected-revision <full revision>`
+explicitly converts a managed v1.1 Local Pack to v2. It removes execution fields
+and Provider sources, recompiles and validates content, then publishes a new
+commit through the library lock and revision CAS. Old commits and materialized
+snapshots remain unchanged. Empty unpublished libraries convert only their source
+scaffold; already-v2 sources are a no-op. Installation and ordinary authoring do
+not invoke conversion. The operator supplies runtime execution settings separately.
 
 ## Offline Profile rendering
 

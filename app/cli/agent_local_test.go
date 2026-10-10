@@ -10,17 +10,23 @@ import (
 )
 
 type fakeManagedLocalActions struct {
-	createdSpec     agentprofile.ManagedProfileSpec
-	updatedName     string
-	updatedText     string
-	updatedRevision string
-	snapshot        agentprofile.ManagedLibrarySnapshot
-	snapshotCalls   int
-	forkSource      string
-	forkTarget      string
-	history         []agentprofile.ManagedLibraryVersion
-	restoredTarget  string
-	restoredCurrent string
+	createdSpec      agentprofile.ManagedProfileSpec
+	updatedName      string
+	updatedText      string
+	updatedRevision  string
+	snapshot         agentprofile.ManagedLibrarySnapshot
+	snapshotCalls    int
+	forkSource       string
+	forkTarget       string
+	history          []agentprofile.ManagedLibraryVersion
+	restoredTarget   string
+	restoredCurrent  string
+	convertedCurrent string
+}
+
+func (f *fakeManagedLocalActions) ConvertV2(_ context.Context, current string) (agentprofile.ManagedLibraryMutation, error) {
+	f.convertedCurrent = current
+	return agentprofile.ManagedLibraryMutation{ProfileRef: "local", Revision: "converted123"}, nil
 }
 
 func (f *fakeManagedLocalActions) Create(_ context.Context, spec agentprofile.ManagedProfileSpec) (agentprofile.ManagedLibraryMutation, error) {
@@ -59,6 +65,44 @@ func useFakeManagedLocalActions(t *testing.T, fake *fakeManagedLocalActions) {
 	previous := newManagedLocalActions
 	newManagedLocalActions = func() managedLocalActions { return fake }
 	t.Cleanup(func() { newManagedLocalActions = previous })
+}
+
+func TestAgentLocalConvertV2Languages(t *testing.T) {
+	for _, tc := range []struct{ language, want string }{
+		{"en", "Local library source is v2"},
+		{"zh-CN", "本地专家库源格式已为 v2"},
+		{"fr", "Local library source is v2"},
+	} {
+		t.Run(tc.language, func(t *testing.T) {
+			t.Setenv("AMUX_LANGUAGE", tc.language)
+			t.Setenv("LANG", "C")
+			t.Setenv("LC_ALL", "")
+			t.Setenv("LC_MESSAGES", "")
+			fake := &fakeManagedLocalActions{}
+			useFakeManagedLocalActions(t, fake)
+			cmd := newAgentCmd()
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			revision := strings.Repeat("a", 40)
+			cmd.SetArgs([]string{"local", "convert-v2", "--expected-revision", revision})
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if fake.convertedCurrent != revision || !strings.Contains(out.String(), tc.want) || !strings.Contains(out.String(), "converted123") {
+				t.Fatalf("conversion revision=%s output=%q", fake.convertedCurrent, out.String())
+			}
+		})
+	}
+}
+
+func TestAgentLocalConvertV2MissingRevision(t *testing.T) {
+	t.Setenv("AMUX_HOME", t.TempDir())
+	cmd := newAgentCmd()
+	cmd.SetArgs([]string{"local", "convert-v2"})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "a full expected revision is required") || !strings.Contains(err.Error(), "转换前必须提供完整预期 revision") {
+		t.Fatalf("missing-revision error = %v", err)
+	}
 }
 
 func TestAgentLocalCreateUsesInlineInstructions(t *testing.T) {

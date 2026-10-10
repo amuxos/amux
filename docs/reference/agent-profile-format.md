@@ -57,6 +57,19 @@ or `--permission`. Create, fork, preview, evaluate, publish, and update all use
 v2 sources and manifests. Existing older libraries must be converted explicitly
 before use; amux does not silently rewrite user files.
 
+Operators can explicitly convert a managed v1.1 Local Pack with
+`amux agent local convert-v2 --expected-revision <full revision from agent local status>`.
+Prepare the runtime, model, Provider connections and permissions before converting:
+the command removes `type`, `model`, `providers`, `supported_models`, `permission`
+and the Provider source directory; it does not migrate execution configuration.
+Content values, list omission/empty-array semantics, IDs and assets are preserved.
+TOML is re-encoded, so comments and formatting remain only in Git history.
+A compatible installed Contract compiler must validate populated libraries before
+a new commit and registry revision are published. Failures keep the formal branch
+and registry unchanged. Empty unpublished libraries remain unregistered. Repeating
+the command on v2 keeps the same revision. Historical snapshots remain available
+as their original bytes; conversion does not make old v1.1 revisions valid v2 Packs.
+
 ## Discovery and projection
 
 Default discovery includes built-in, local, and installed profiles. Development,

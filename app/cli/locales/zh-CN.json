@@ -46,5 +46,14 @@
   },
   "task.arg": {
     "other": "原生 Agent 参数（可重复）"
+  },
+  "agent.local_convert_help": {
+    "other": "显式将本地专家库源码转换为 v2，并移除执行设置"
+  },
+  "agent.local_convert_revision_help": {
+    "other": "要求使用 agent local status 返回的完整专家库 revision"
+  },
+  "agent.local_converted": {
+    "other": "本地专家库源格式已为 v2\nrevision: %s\n启动时请显式选择 Runtime、模型和权限。"
   }
 }

@@ -46,5 +46,14 @@
   },
   "task.arg": {
     "other": "native agent argument (repeatable)"
+  },
+  "agent.local_convert_help": {
+    "other": "Explicitly convert the local library source to v2, removing execution settings"
+  },
+  "agent.local_convert_revision_help": {
+    "other": "require this full library revision from agent local status"
+  },
+  "agent.local_converted": {
+    "other": "Local library source is v2\nrevision: %s\nChoose the runtime, model and permissions when launching."
   }
 }

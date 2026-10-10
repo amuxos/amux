@@ -118,3 +118,10 @@ MCP 工具不接受作用域或 Principal 覆盖参数：Hub 认证调用方并�
 
 本地专家创建和编辑只产出内容型 v2 Pack。创建入口不接受 `--type`、`--model`、
 `--permission`；运行设置在启动时选择。旧版 Pack 会报版本不支持，不改写用户文件。
+
+隐藏的运维命令 `agent local convert-v2 --expected-revision <完整 revision>`
+显式将托管的 v1.1 Local Pack 转换为 v2。它移除执行字段和 Provider 源文件，
+重新编译并校验内容，再通过专家库锁和 revision CAS 发布新提交。
+旧提交和已物化的历史快照保持不变。未发布的空专家库只转换源码框架，
+不会注册空 Pack；已为 v2 的源码保持同一 revision。安装和常规编辑不调用转换。
+运维人员需在启动时独立提供 Runtime、模型和权限等执行设置。

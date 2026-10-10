@@ -34,5 +34,23 @@
   },
   "runtime_permission_invalid": {
     "other": "运行时权限模式必须为 default、plan 或 bypass（收到 %q）"
+  },
+  "conversion_revision_required": {
+    "other": "转换前必须提供完整预期 revision；请先运行 `amux agent local status`，再执行 `amux agent local convert-v2 --expected-revision <revision>`"
+  },
+  "conversion_uninitialized": {
+    "other": "本地专家库尚未初始化"
+  },
+  "conversion_revision_conflict": {
+    "other": "本地专家库 revision 冲突：预期 %s，当前 %s；请重新运行 `amux agent local status`"
+  },
+  "conversion_schema_unsupported": {
+    "other": "无法转换专家库源格式 schema_version %v；支持的输入版本为 v1.1 或 v2"
+  },
+  "conversion_empty_registered": {
+    "other": "已注册的本地专家库没有源 Profile；请先修复源码再转换"
+  },
+  "conversion_symlink": {
+    "other": "源码转换要求普通文件和目录：%s"
   }
 }

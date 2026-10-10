@@ -18,6 +18,7 @@ type managedLocalActions interface {
 	Snapshot(context.Context) (agentprofile.ManagedLibrarySnapshot, error)
 	History(context.Context, int) ([]agentprofile.ManagedLibraryVersion, error)
 	Restore(context.Context, string, string) (agentprofile.ManagedLibraryMutation, error)
+	ConvertV2(context.Context, string) (agentprofile.ManagedLibraryMutation, error)
 }
 
 var newManagedLocalActions = func() managedLocalActions {
@@ -36,7 +37,31 @@ func newAgentLocalCmd() *cobra.Command {
 		newAgentLocalStatusCmd(),
 		newAgentLocalHistoryCmd(),
 		newAgentLocalRestoreCmd(),
+		newAgentLocalConvertV2Cmd(),
 	)
+	return cmd
+}
+
+func newAgentLocalConvertV2Cmd() *cobra.Command {
+	var expectedRevision string
+	cmd := &cobra.Command{
+		Use:               "convert-v2",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: completeNoFiles,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, cancel := context.WithTimeout(cmd.Context(), 90*time.Second)
+			defer cancel()
+			result, err := newManagedLocalActions().ConvertV2(ctx, expectedRevision)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), commandCatalog.Format(commandLocale(cmd), "agent.local_converted", result.Revision))
+			return nil
+		},
+	}
+	cmd.Short = commandCatalog.Format(commandLocale(cmd), "agent.local_convert_help")
+	cmd.Flags().StringVar(&expectedRevision, "expected-revision", "", commandCatalog.Format(commandLocale(cmd), "agent.local_convert_revision_help"))
+	_ = cmd.RegisterFlagCompletionFunc("expected-revision", completeNoFiles)
 	return cmd
 }
 

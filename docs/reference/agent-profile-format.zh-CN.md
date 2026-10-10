@@ -45,6 +45,16 @@ amux 自己创建 v2 源码骨架，由 **Agent Pack Contract 0.8.0 及以上**�
 创建、复制、预览、评估、发布和更新全部使用 v2 源码和 manifest。已有旧版库必须显式
 转换后再使用，amux 不自动改写用户文件。
 
+维护者可通过
+`amux agent local convert-v2 --expected-revision <agent local status 返回的完整 revision>`
+显式转换托管的 v1.1 Local Pack。转换前先准备 Runtime、模型、Provider 连接和权限：
+命令会移除 `type`、`model`、`providers`、`supported_models`、`permission` 和 Provider
+源码目录，不迁移执行配置。内容值、列表省略与空数组的语义、ID 和资产保持不变。
+TOML 会重新编码，注释与排版仅保留在 Git 历史中。有专家的库必须先通过已安装的兼容
+Contract 编译器校验，再发布新 commit 和 registry revision。失败保留正式分支和 registry；
+未发布的空库保持未注册状态。对 v2 重复执行不改变 revision。历史快照保留原始字节；
+转换不会让旧 v1.1 revision 成为有效的 v2 Pack。
+
 ## 发现和投影
 
 默认发现范围包含内置、本地及已安装专家。开发、临时和评估 Pack 按注册元数据排除，

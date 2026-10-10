@@ -34,5 +34,23 @@
   },
   "runtime_permission_invalid": {
     "other": "runtime permission mode must be default, plan, or bypass (got %q)"
+  },
+  "conversion_revision_required": {
+    "other": "a full expected revision is required; use `amux agent local status` before `amux agent local convert-v2 --expected-revision <revision>`"
+  },
+  "conversion_uninitialized": {
+    "other": "the local expert library is not initialized"
+  },
+  "conversion_revision_conflict": {
+    "other": "local expert library revision conflict: expected %s, current %s; refresh with `amux agent local status`"
+  },
+  "conversion_schema_unsupported": {
+    "other": "cannot convert agent pack source schema_version %v; supported input: v1.1 or v2"
+  },
+  "conversion_empty_registered": {
+    "other": "the registered local Pack has no source profiles; repair its source before conversion"
+  },
+  "conversion_symlink": {
+    "other": "source conversion requires regular files and directories: %s"
   }
 }

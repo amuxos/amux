@@ -556,6 +556,10 @@ func (m *ManagedLibrary) initialize(ctx context.Context, spec ManagedProfileSpec
 }
 
 func (m *ManagedLibrary) mutateExisting(ctx context.Context, expectedRevision, profileName string, mutate func(string) error, message string) (ManagedLibraryMutation, error) {
+	return m.mutateExistingSource(ctx, expectedRevision, profileName, mutate, message, false)
+}
+
+func (m *ManagedLibrary) mutateExistingSource(ctx context.Context, expectedRevision, profileName string, mutate func(string) error, message string, unpublished bool) (ManagedLibraryMutation, error) {
 	if m.contract == nil {
 		return ManagedLibraryMutation{}, fmt.Errorf("managed Agent Pack contract runner is unavailable")
 	}
@@ -584,8 +588,14 @@ func (m *ManagedLibrary) mutateExisting(ctx context.Context, expectedRevision, p
 	if err := mutate(worktree); err != nil {
 		return ManagedLibraryMutation{}, err
 	}
-	if err := m.check(ctx, worktree); err != nil {
-		return ManagedLibraryMutation{}, err
+	if unpublished {
+		if err := validateManagedPackSource(worktree); err != nil {
+			return ManagedLibraryMutation{}, err
+		}
+	} else {
+		if err := m.check(ctx, worktree); err != nil {
+			return ManagedLibraryMutation{}, err
+		}
 	}
 	if _, err := gitCommand(ctx, worktree, "add", "--all"); err != nil {
 		return ManagedLibraryMutation{}, err
@@ -605,6 +615,25 @@ func (m *ManagedLibrary) mutateExisting(ctx context.Context, expectedRevision, p
 		return ManagedLibraryMutation{}, err
 	}
 	next = strings.TrimSpace(next)
+	if unpublished {
+		// Generic registration does not take the managed-library lock. Keep
+		// the empty-library precondition true through the branch CAS too.
+		err := WithPackRegistryLockContext(ctx, m.registryPath, func() error {
+			registry, err := LoadPackRegistry(m.registryPath)
+			if err != nil {
+				return err
+			}
+			if _, registered := registry.Packs[ManagedLocalPackNamespace]; registered {
+				return profileError("conversion_empty_registered")
+			}
+			_, err = gitCommand(ctx, "", "--git-dir", m.originPath(), "update-ref", "refs/heads/"+managedLocalPackBranch, next, current)
+			return err
+		})
+		if err != nil {
+			return ManagedLibraryMutation{}, err
+		}
+		return managedMutation(profileName, next), nil
+	}
 	pack, err := m.publishCandidate(ctx, current, next)
 	if err != nil {
 		return ManagedLibraryMutation{}, err
@@ -653,7 +682,9 @@ func (m *ManagedLibrary) publishMaterializedRevision(ctx context.Context, expect
 			return Pack{}, err
 		}
 		if pack, registered := registry.Packs[ManagedLocalPackNamespace]; registered && strings.TrimSpace(pack.CurrentRevision) == expectedRevision {
-			if _, err := m.materializeRevision(ctx, expectedRevision); err != nil {
+			// Historical snapshots can predate the current schema. Preserve
+			// their bytes without revalidating or activating them as v2.
+			if _, err := m.materializeRevisionChecked(ctx, expectedRevision, false); err != nil {
 				return Pack{}, fmt.Errorf("preserve previous managed local revision %s: %w", shortPackRevision(expectedRevision), err)
 			}
 		}
@@ -704,6 +735,10 @@ func (m *ManagedLibrary) publishMaterializedRevision(ctx context.Context, expect
 }
 
 func (m *ManagedLibrary) materializeRevision(ctx context.Context, revision string) (string, error) {
+	return m.materializeRevisionChecked(ctx, revision, true)
+}
+
+func (m *ManagedLibrary) materializeRevisionChecked(ctx context.Context, revision string, validate bool) (string, error) {
 	revision = strings.TrimSpace(revision)
 	if !managedRevisionPattern.MatchString(revision) {
 		return "", fmt.Errorf("invalid managed local expert revision %q", revision)
@@ -718,8 +753,10 @@ func (m *ManagedLibrary) materializeRevision(ctx context.Context, revision strin
 			return "", fmt.Errorf("managed local revision path %s contains %s", target, strings.TrimSpace(head))
 		}
 		pack := m.packForMaterializedRevision(target, revision)
-		if err := ValidatePackManifest(pack); err != nil {
-			return "", fmt.Errorf("validate existing managed local revision %s: %w", shortPackRevision(revision), err)
+		if validate {
+			if err := ValidatePackManifest(pack); err != nil {
+				return "", fmt.Errorf("validate existing managed local revision %s: %w", shortPackRevision(revision), err)
+			}
 		}
 		return target, nil
 	} else if err != nil && !os.IsNotExist(err) {
@@ -741,8 +778,10 @@ func (m *ManagedLibrary) materializeRevision(ctx context.Context, revision strin
 	if _, err := gitCommand(ctx, stageRepo, "checkout", "--detach", revision); err != nil {
 		return "", err
 	}
-	if err := ValidatePackManifest(m.packForMaterializedRevision(stageRepo, revision)); err != nil {
-		return "", err
+	if validate {
+		if err := ValidatePackManifest(m.packForMaterializedRevision(stageRepo, revision)); err != nil {
+			return "", err
+		}
 	}
 	targetRoot := filepath.Dir(target)
 	if err := os.MkdirAll(filepath.Dir(targetRoot), 0700); err != nil {
@@ -782,6 +821,10 @@ func (m *ManagedLibrary) normalizeRegisteredPack(pack Pack) (Pack, bool, error) 
 }
 
 func (m *ManagedLibrary) validateIdentity() error {
+	return m.validateIdentityWithRepair(true)
+}
+
+func (m *ManagedLibrary) validateIdentityWithRepair(repair bool) error {
 	return WithPackRegistryLock(m.registryPath, func() error {
 		registry, err := LoadPackRegistry(m.registryPath)
 		if err != nil {
@@ -798,7 +841,7 @@ func (m *ManagedLibrary) validateIdentity() error {
 		if !m.originExists() {
 			return fmt.Errorf("managed local expert origin is missing at %s", m.originPath())
 		}
-		if !changed {
+		if !changed || !repair {
 			return nil
 		}
 		registry.Packs[ManagedLocalPackNamespace] = pack
