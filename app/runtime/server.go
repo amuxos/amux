@@ -550,6 +550,11 @@ func (s *server) startSessionContext(ctx context.Context, a adapter.Adapter, ses
 	if memoryErr != nil {
 		return memoryErr
 	}
+	var capabilityErr error
+	extraArgs, extraEnv, capabilityErr = s.configureSessionCapability(ctx, sess, extraArgs, extraEnv)
+	if capabilityErr != nil {
+		return capabilityErr
+	}
 	extraArgs = nativeWorkspaceTrustArgs(snap, extraArgs)
 	if s.startSessionContextHook != nil {
 		return s.startSessionContextHook(ctx, a, sess, extraArgs, extraEnv)

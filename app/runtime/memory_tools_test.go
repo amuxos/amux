@@ -72,7 +72,7 @@ func TestMemoryToolsMaterializeExecutableAndMinimalConfig(t *testing.T) {
 
 func TestMemoryTaskCLIUsesInstallationEvenWithRestrictedPATH(t *testing.T) {
 	s, _, _ := memoryTestServer(t)
-	args, env, err := s.prepareMemoryTools(context.Background(), session.Snapshot{ID: "task", AgentType: "pi"}, nil, []string{"PATH=/unavailable", memoryprotocol.BindingEnv + "=global", "AMUX_ACTOR_TOKEN=task-actor"}, true)
+	args, env, err := s.prepareAmuxTools(context.Background(), session.Snapshot{ID: "task", AgentType: "pi"}, nil, []string{"PATH=/unavailable", memoryprotocol.BindingEnv + "=global", "AMUX_ACTOR_TOKEN=task-actor"}, true)
 	if err != nil {
 		t.Fatal(err)
 	}

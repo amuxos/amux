@@ -22,7 +22,7 @@ func isolatedNativeIdentity() principal.ExecutionIdentity {
 
 func TestPiIsolatedLaunchUsesNativeTrustOverride(t *testing.T) {
 	for _, args := range [][]string{nil, {"--no-approve"}, {"-na"}, {"--approve"}} {
-		s, launchedArgs, _ := memoryTestServer(t)
+		s, _, _ := memoryTestServer(t)
 		sess, err := s.mgr.Create("pi-isolated", "pi", t.TempDir())
 		if err != nil {
 			t.Fatal(err)
@@ -30,11 +30,8 @@ func TestPiIsolatedLaunchUsesNativeTrustOverride(t *testing.T) {
 		if err := s.mgr.SetExecutionIdentity(sess, isolatedNativeIdentity(), "launch"); err != nil {
 			t.Fatal(err)
 		}
-		a, _ := adapter.Get("pi")
-		if err := s.startSession(a, sess, args, nil); err != nil {
-			t.Fatal(err)
-		}
-		got := (*launchedArgs)[0]
+		// Trust argument policy does not require a running Linux DAC helper.
+		got := nativeWorkspaceTrustArgs(sess.Snapshot(), args)
 		want := args
 		if len(want) == 0 {
 			want = []string{"--approve"}

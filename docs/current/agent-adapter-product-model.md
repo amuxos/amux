@@ -42,6 +42,38 @@ content or permissions. Profile discovery and
 content projection never restore execution fields from the preset, and resolved
 execution is frozen only in the launch snapshot.
 
+## Runtime session and schedule capability
+
+Every Runtime-launched Agent receives the `amux-session-schedule` Skill independently
+of its Profile. The Runtime stages this resource outside the user workspace and
+configures its short entrypoint when the native conversation is created or resumed.
+Codex-compatible app-server providers merge it into `developerInstructions`;
+hosts with an append-system-prompt surface merge it into that launch option.
+App-server clear creates a new thread with the same Runtime entrypoint. Native
+compaction retains the conversation's configured instructions. Ordinary turns
+carry the original user input without a Runtime prefix or repeated instruction
+messages. Profile and user instructions continue to load normally. Existing
+brokers acquire this behavior after their next process restart.
+
+Other hosts discover a small `amux-runtime-session-schedule` entry through their
+adapter-declared native Skill catalog. That entry reads only the launch's
+`AMUX_SESSION_SCHEDULE_CONTEXT` environment value to locate the shared guide and
+its current transport and role. The Runtime publishes it at launch in its reserved
+Skill directory; it does not edit workspace rules. Extensions must declare a
+native system-prompt or Skill discovery surface to support this capability.
+
+The context reports the launch's actual transport: configured Amux MCP for MCP
+hosts, scoped CLI for Pi and isolated file-based extension hosts, or unavailable when automatic MCP injection is disabled
+and no Amux server is configured. The Skill describes independent Sessions and
+three schedule modes: `session-prompt` with `reuse-session` or
+`new-session-per-run`, and bounded `subtask` execution. Availability is not an
+authorization grant: Hub ownership checks and the current actor still apply.
+Task-owned child Sessions receive a restricted role notice rather than automatic
+session/schedule control tools. Linux DAC stages resources and control executables
+through the selected principal's materializer, without copying the service user's
+home. File-based extension hosts use CLI under DAC to preserve their existing
+model, permission and MCP configuration rather than overwrite a shared file.
+
 ## Engines and provider behavior
 
 Codex, Claude and Pi are public integrations. Adapters describe executable

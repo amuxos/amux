@@ -33,6 +33,30 @@ Session 持有对话并包含多轮 Turn；持久 Agent Instance 持有跨任务
 专家发现和内容读取不把预设写回
 Profile；仅在启动快照中冻结最终执行设置。
 
+## Runtime 会话与定时能力
+
+所有由 Runtime 启动的 Agent 都获得 `amux-session-schedule` Skill，不依赖 Profile。
+Runtime 将共享资源放在用户工作区之外，在原生会话创建或恢复时配置简短入口。
+兼容 Codex app-server 的 Provider 将其合并到 `developerInstructions`；支持追加
+system prompt 的 host 将其合并到启动选项。app-server 清空后新建 thread 时重新配置
+入口，原生压缩保留会话配置的指令。普通 turn 保留原始用户输入，不追加 Runtime 前缀
+或重复指令消息。Profile 与用户指令照常加载。已有 broker 在下次进程重启后获得该行为。
+
+其他 host 通过 Adapter 声明的原生 Skill 目录发现简短的
+`amux-runtime-session-schedule` 入口。该入口只读取启动环境中的
+`AMUX_SESSION_SCHEDULE_CONTEXT`，获得共享指南路径及当前通道、角色。Runtime 在
+启动时发布这个保留名称的 Skill 目录，不修改工作区规则。扩展需声明原生 system prompt
+或 Skill 发现入口，才能支持该能力。
+
+上下文按实际启动条件说明通道：MCP host 使用已配置的 Amux MCP，Pi 和隔离环境中基于
+文件配置的扩展 host 使用作用域受控的
+CLI；关闭自动注入且未配置 Amux server 时说明不可用。Skill 说明独立 Session 及三种
+定时模式：`session-prompt` 的 `reuse-session`、`new-session-per-run`，以及有界
+`subtask`。能力可见不代表扩大授权，Hub 归属校验和当前 actor 继续生效。Task 所有的
+子 Session 收到受限角色说明，不会自动获得会话/定时控制工具。Linux DAC 通过所选
+principal 的 materializer 投影资源和控制可执行文件，不复制服务用户的 HOME。
+基于文件配置的扩展 host 在 DAC 下使用 CLI，避免覆盖共用文件中的模型、权限和 MCP 配置。
+
 ## 引擎与 Provider 行为
 
 Codex、Claude 和 Pi 是公共集成。Adapter 描述可执行文件发现、启动配置、协议能力

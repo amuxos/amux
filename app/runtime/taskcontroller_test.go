@@ -366,8 +366,11 @@ func TestCreateChildPersistentResumePreservesLaunchArgsSnapshot(t *testing.T) {
 		t.Fatalf("launches = %d, want 2", len(launches))
 	}
 	want := []string{"--model", "auto-selected"}
-	if !slices.Equal(launches[1], want) {
-		t.Fatalf("resume args = %v, want persisted snapshot %v", launches[1], want)
+	if got := c1.(*childSession).sess.Snapshot().ExtraArgs; !slices.Equal(got, want) {
+		t.Fatalf("persisted snapshot = %v, want %v", got, want)
+	}
+	if got := launches[1]; len(got) != 4 || !slices.Equal(got[:2], want) || got[2] != "--append-system-prompt" || !strings.Contains(got[3], "Task-owned child") {
+		t.Fatalf("resume args = %v, want persisted model and native restricted guidance", got)
 	}
 }
 

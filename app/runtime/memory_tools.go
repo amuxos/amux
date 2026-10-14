@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/isolation"
 	"github.com/amuxos/amux/internal/memoryprotocol"
@@ -18,10 +19,10 @@ import (
 	"github.com/amuxos/amux/internal/session"
 )
 
-// prepareMemoryTools keeps the CLI and MCP client reachable without granting an
+// prepareAmuxTools keeps the CLI and MCP client reachable without granting an
 // isolated principal access to the service account's installation/config/home.
 // The existing target-UID materializer owns all writes inside the principal.
-func (s *server) prepareMemoryTools(ctx context.Context, snap session.Snapshot, args, env []string, cli bool) ([]string, []string, error) {
+func (s *server) prepareAmuxTools(ctx context.Context, snap session.Snapshot, args, env []string, cli bool) ([]string, []string, error) {
 	command, err := memoryExecutable(s.amuxDir, env)
 	if err != nil {
 		return nil, nil, err
@@ -53,7 +54,8 @@ func (s *server) prepareMemoryTools(ctx context.Context, snap session.Snapshot, 
 				return nil, nil, err
 			}
 		}
-		if err := s.isolationRuntime.MaterializeExecution(ctx, snap.ExecutionIdentity, snap.LaunchID, snap.Cwd, []isolation.BundleSource{{Source: stage, Prefix: "agent-config"}}); err != nil {
+		sources := []isolation.BundleSource{{Source: stage, Prefix: "agent-config"}}
+		if err := s.isolationRuntime.MaterializeExecution(ctx, snap.ExecutionIdentity, snap.LaunchID, snap.Cwd, sources); err != nil {
 			return nil, nil, fmt.Errorf("materialize isolated memory tools: %w", err)
 		}
 		command = projectedCommand
@@ -77,7 +79,7 @@ func (s *server) prepareMemoryTools(ctx context.Context, snap session.Snapshot, 
 		args = stripAmuxMCPArgs(snap.AgentType, args)
 		if snap.AgentType == "claude" {
 			args = append(args, "--mcp-config", configPath)
-		} else if snap.AgentType == "codex" {
+		} else if adapter.IsCodexCompatible(snap.AgentType) {
 			args = append(args, "-c", "mcp_servers.amux.command="+strconv.Quote(command), "-c", `mcp_servers.amux.args=["mcp"]`, "-c", "mcp_servers.amux.tool_timeout_sec=7200")
 			// Explicit values survive Codex's curated MCP subprocess env.
 			for _, key := range memoryToolEnvKeys {

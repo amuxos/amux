@@ -65,7 +65,7 @@ func (s *server) configureSessionMemory(ctx context.Context, sess *session.Sessi
 	}
 	cli := !memoryMCPConfigured(snap.AgentType, args)
 	var err error
-	args, env, err = s.prepareMemoryTools(ctx, snap, args, env, cli)
+	args, env, err = s.prepareAmuxTools(ctx, snap, args, env, cli)
 	if err != nil {
 		return nil, nil, err
 	}
