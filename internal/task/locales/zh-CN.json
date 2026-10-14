@@ -1,0 +1,5 @@
+{
+  "permission_response_failed": {
+    "other": "权限审批 %s 回复失败：%s"
+  }
+}

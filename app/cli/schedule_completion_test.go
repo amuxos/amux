@@ -345,7 +345,7 @@ func TestScheduleCreateTaskPermissionPolicyFlagDefaultsToInherited(t *testing.T)
 	if flag.DefValue != "" {
 		t.Fatalf("permission-policy default = %q, want empty for inherited task/profile defaults", flag.DefValue)
 	}
-	if got := flag.Usage; !strings.Contains(got, "default, policy-allow, or deny-all") {
+	if got := flag.Usage; !strings.Contains(got, "default") || !strings.Contains(got, "policy-allow") || !strings.Contains(got, "deny-all") || !strings.Contains(got, "native") {
 		t.Fatalf("permission-policy usage = %q, want default/policy-allow/deny-all help", got)
 	}
 }

@@ -35,6 +35,18 @@
   "runtime_permission_invalid": {
     "other": "运行时权限模式必须为 default、plan 或 bypass（收到 %q）"
   },
+  "task_permission_invalid": {
+    "other": "Task permission_policy %q 无效"
+  },
+  "task_permission_unsupported": {
+    "other": "执行引擎 %s 无法实现 Task permission_policy %q"
+  },
+  "task_permission_resume": {
+    "other": "Instance 的 permission_policy 已固定为 %q，本次请求 %q；请新建 Instance"
+  },
+  "task_permission_resume_unknown": {
+    "other": "已有实例未固化 Task 权限策略；请新建实例。"
+  },
   "conversion_revision_required": {
     "other": "转换前必须提供完整预期 revision；请先运行 `amux agent local status`，再执行 `amux agent local convert-v2 --expected-revision <revision>`"
   },

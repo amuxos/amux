@@ -37,7 +37,7 @@ Instance 中断通过 child 的 owner TaskRun 进入取消流程：runner 记录
 次运行结束为 `cancelled`，并保留可恢复实例。不得依赖直接中断 child 后 Provider
 产出终态事件。MCP 通过生成的工具 Schema 暴露 Profile、Task 和 Persistent Instance。
 任务提交、持久实例创建与定时任务定义的 MCP 输入通过 `extra_args` 提供原生引擎参数，
-与 `permission_policy` 分开。定时任务按原顺序保存并传递参数，不修改参数值；
+`permission_policy` 统一控制 Task 的原生启动权限和审批回复。原生权限参数按该策略归一化，其他参数保留顺序；
 MCP 回读展示已保存的 Runtime、模型与原生参数。
 
 Credential Profile 标识启动凭据。Profile 声明所需环境变量，只为有效 Principal
@@ -99,7 +99,18 @@ Submit 到该 Session（`Scheduler.deliverReuseSession`），可唤醒 Agent；�
 Schedule 不会取消已经接受的 Task。实现见 `internal/schedule/spec.go`、
 `internal/schedule/scheduler.go` 和 `app/cli/mcp_schedule.go`。
 
-Task 默认权限策略是 `policy-allow`，由解析器在其规则内自动处理请求；`deny-all` 拒绝，
-`escalate-to-main` 上报并等待显式响应。阻塞的 `task_run` 和定时子任务不支持上报。
-权限响应与工作区、操作系统隔离及凭据授权分开。实例等待操作超时也不等于对应 Task
-被取消或超时，最终结果仍需查询该 Task。
+Task 默认权限策略是 `policy-allow`。Codex 兼容引擎在 process 和 Linux DAC 下，均为
+`policy-allow` 和 `escalate-to-main` 使用 `danger-full-access`；前者使用
+`approval_policy=never`，后者使用 `approval_policy=on-request`。这两种策略关闭原生沙箱；
+process 执行受服务账号的操作系统权限约束，Linux DAC 保留外层 Principal 边界。
+Claude 和支持审批的发行版 Adapter
+在无 Linux DAC 时保留原生审批钩子，由 Runner 在其规则内自动处理；Linux DAC 下可使用
+原生 bypass。`deny-all` 使用原生只读或拒绝模式并拒绝审批；`escalate-to-main` 保留原生
+审批入口，上报并等待显式响应。无法实现受限策略的引擎在启动前报错，Pi 仅支持
+`policy-allow`。原生模式不将 process/private-home 升级为强隔离。
+
+最终参数和策略固化到子会话执行快照。Instance 后续任务沿用已保存策略；修改策略需要
+新建 Instance。没有固化 Task/原生统一权限策略的旧子会话快照不复用，需要新建实例。
+审批回复失败立即使 Task 失败，不等待整个截止时间。阻塞的 `task_run` 和定时子任务
+不支持上报。权限解析与工作区、操作系统隔离及凭据授权分开。实例等待操作超时也不等于
+对应 Task 被取消或超时，最终结果仍需查询该 Task。

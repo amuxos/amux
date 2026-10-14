@@ -155,7 +155,7 @@ func newTaskSubmitCmd() *cobra.Command {
 	cmd.Flags().StringVar(&runtimeRef, "runtime", "", commandCatalog.Format(commandLocale(cmd), "mcp.task.runtime"))
 	cmd.Flags().StringVar(&model, "model", "", commandCatalog.Format(commandLocale(cmd), "mcp.task.model"))
 	cmd.Flags().StringVar(&isolation, "isolation", "", "isolation: process | private-home (default process)")
-	cmd.Flags().StringVar(&permission, "permission", "", "permission policy: policy-allow | escalate-to-main | deny-all (default policy-allow)")
+	cmd.Flags().StringVar(&permission, "permission", "", commandCatalog.Format(commandLocale(cmd), "mcp.task.permission_policy"))
 	cmd.Flags().StringVar(&workspace, "workspace", "", "workspace policy: temp-dir | git-worktree (default temp-dir)")
 	cmd.Flags().StringVar(&repoDir, "repo-dir", "", "repo cache dir for git-worktree workspace")
 	cmd.Flags().StringVar(&commit, "commit", "", "git commit/ref to base a git-worktree on (default HEAD)")

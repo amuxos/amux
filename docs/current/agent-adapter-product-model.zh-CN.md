@@ -11,13 +11,15 @@ Profile 提供可复用专家内容，Agent 类型是执行引擎实现，Runtim
 它们都不是某段运行中对话的身份。
 
 Manifest v2 专家要求调用方选择 Runtime，不能声明引擎、模型、Provider、模型白名单或
-权限设置。原生执行参数及 Runtime/模型选择属于调用方；省略权限设置时使用原生引擎默认值。
+权限设置。原生执行参数及 Runtime/模型选择属于调用方；直接 Session 省略权限设置时使用原生引擎
+默认值，Task 子会话则由 `permission_policy`（默认 `policy-allow`）决定。
 仅接受 v2 manifest，本地专家编辑也使用 v2。解析后的执行设置冻结到会话快照；刷新专家内容
 保留这些设置，包括 Provider 绑定及权限参数。
 MCP 的 `session_run`、`task_run`、`task_submit` 和 `instance_spawn` 输入将 Runtime、
 模型选择与专家引用分开提供。任务提交与持久实例创建通过 `extra_args` 暴露原生执行
-参数；定时任务定义保留这些参数供每次触发使用。这些参数用于配置原生引擎，
-与 Task 权限策略分开。
+参数；定时任务定义保留这些参数供每次触发使用。这些参数用于配置原生引擎。Task 子会话的
+`permission_policy` 同时选择原生权限，并独立于所选专家归一化权限参数。Runtime 根据实际
+隔离后端决定最终原生沙箱，并固化到执行快照供恢复使用。
 CLI 任务提交和定时任务也接受 `--runtime`；定时任务定义保留该选择，供每次触发使用。
 
 Session 持有对话并包含多轮 Turn；持久 Agent Instance 持有跨任务身份和持久执行引用，

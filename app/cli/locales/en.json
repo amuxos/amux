@@ -36,7 +36,7 @@
     "other": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default"
   },
   "mcp.task.extra_args": {
-    "other": "Native execution arguments, including permissions; separate from Task permission policy"
+    "other": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order"
   },
   "agent.render.runtime": {
     "other": "Runtime adapter for rendering; required for external v2 profiles, optional for builtin shortcuts with amux caller defaults"
@@ -46,6 +46,12 @@
   },
   "task.arg": {
     "other": "native agent argument (repeatable)"
+  },
+  "mcp.task.permission_policy": {
+    "other": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy"
+  },
+  "mcp.schedule.permission_policy": {
+    "other": "Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags"
   },
   "agent.local_convert_help": {
     "other": "Explicitly convert the local library source to v2, removing execution settings"

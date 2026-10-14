@@ -34,7 +34,14 @@ The default workspace is a temporary directory. For a repository, use
 `--workspace git-worktree` and `--repo-dir /absolute/path/to/repository`; optionally
 set the starting revision with `--commit <ref>`. `--timeout` is in seconds.
 `--permission` accepts `policy-allow`, `escalate-to-main`, or `deny-all`. This policy
-controls permission requests; it does not replace workspace, credential, or OS isolation.
+selects native launch permissions and approval replies. It overrides native permission
+flags in `extra_args`; other arguments retain their order. `policy-allow` is
+noninteractive for Codex-compatible engines and bypasses the inner sandbox only
+with enforced Linux DAC isolation. `deny-all` selects native read-only/deny mode;
+engines without that capability reject it before launch (Pi supports only
+`policy-allow`). Workspace, credential and OS isolation remain separate boundaries.
+Persistent instances retain their policy; changing it or using an old child
+snapshot without the unified policy requires a new instance.
 
 After a permission escalation event, respond explicitly using its permission ID:
 

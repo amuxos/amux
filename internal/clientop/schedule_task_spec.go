@@ -50,7 +50,7 @@ type ScheduledTaskSpec struct {
 	RunAs                string        `json:"run_as,omitempty" desc:"可选的已登记 Principal alias；保存 Schedule 时解析并固化"`
 	Isolation            string        `json:"isolation,omitempty" enum:"process,private-home" desc:"Sandbox 隔离模式；Phase 1 为 best-effort trusted mode"`
 	CredentialProfile    string        `json:"credential_profile,omitempty" desc:"控制面 credential profile 名称"`
-	PermissionPolicy     string        `json:"permission_policy,omitempty" enum:"default,policy-allow,deny-all" desc:"留空或 default 时使用 Profile 或 Task 默认策略；允许 policy-allow 和 deny-all；定时 Agent Task 不允许 escalate-to-main"`
+	PermissionPolicy     string        `json:"permission_policy,omitempty" enum:"default,policy-allow,deny-all" desc:"Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数"`
 	Workspace            WorkspaceSpec `json:"workspace,omitempty"`
 	TimeoutSeconds       int           `json:"timeout_seconds,omitempty" desc:"整个 Task 从接受开始计算的截止时间（秒）；0 或省略时使用 runtime 默认值（30 分钟）"`
 	LegacyTrustedModeAck bool          `json:"trusted_mode_ack,omitempty" desc:"旧版兼容空操作（v0.38）：弱隔离下默认允许注入长期 secret；该字段仅为向后兼容保留"`

@@ -169,6 +169,7 @@ func instanceSummaryToProto(sm instanceSummary, ctrl *taskController) *pb.AgentI
 	inst := &pb.AgentInstance{
 		Id:                sm.InstanceID,
 		Status:            instanceStatusFromSessionState(sm.State),
+		PermissionPolicy:  sm.PermissionPolicy,
 		ChildSessionId:    sm.ChildSessionID,
 		ChildSessionName:  sm.ChildSessionName,
 		ChildSessionState: sm.State,

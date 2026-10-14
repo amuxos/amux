@@ -11473,8 +11473,10 @@ type AgentInstance struct {
 	AgentProfile       string             `protobuf:"bytes,22,opt,name=agent_profile,json=agentProfile,proto3" json:"agent_profile,omitempty"`
 	ModelRef           string             `protobuf:"bytes,23,opt,name=model_ref,json=modelRef,proto3" json:"model_ref,omitempty"`
 	ExecutionIdentity  *ExecutionIdentity `protobuf:"bytes,24,opt,name=execution_identity,json=executionIdentity,proto3" json:"execution_identity,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Frozen Task/native permission policy. Empty for unmigrated legacy instances.
+	PermissionPolicy string `protobuf:"bytes,25,opt,name=permission_policy,json=permissionPolicy,proto3" json:"permission_policy,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *AgentInstance) Reset() {
@@ -11673,6 +11675,13 @@ func (x *AgentInstance) GetExecutionIdentity() *ExecutionIdentity {
 		return x.ExecutionIdentity
 	}
 	return nil
+}
+
+func (x *AgentInstance) GetPermissionPolicy() string {
+	if x != nil {
+		return x.PermissionPolicy
+	}
+	return ""
 }
 
 type Principal struct {
@@ -15891,7 +15900,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\bfrom_seq\x18\x02 \x01(\x04R\afromSeq\"-\n" +
 	"\fSubtaskEvent\x12\x1d\n" +
 	"\n" +
-	"event_json\x18\x01 \x01(\fR\teventJson\"\xfd\x06\n" +
+	"event_json\x18\x01 \x01(\fR\teventJson\"\xaa\a\n" +
 	"\rAgentInstance\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
@@ -15922,7 +15931,8 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x13credential_profiles\x18\x15 \x03(\tR\x12credentialProfiles\x12#\n" +
 	"\ragent_profile\x18\x16 \x01(\tR\fagentProfile\x12\x1b\n" +
 	"\tmodel_ref\x18\x17 \x01(\tR\bmodelRef\x12I\n" +
-	"\x12execution_identity\x18\x18 \x01(\v2\x1a.amux.v1.ExecutionIdentityR\x11executionIdentity\"\xea\x02\n" +
+	"\x12execution_identity\x18\x18 \x01(\v2\x1a.amux.v1.ExecutionIdentityR\x11executionIdentity\x12+\n" +
+	"\x11permission_policy\x18\x19 \x01(\tR\x10permissionPolicy\"\xea\x02\n" +
 	"\tPrincipal\x12!\n" +
 	"\fprincipal_id\x18\x01 \x01(\tR\vprincipalId\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12!\n" +

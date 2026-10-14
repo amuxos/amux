@@ -3122,5 +3122,41 @@
   "飞书模型选择器为 Claude 运行引擎额外列出的模型名，按声明顺序追加在内置 opus、sonnet、haiku 之后，便于选择最新模型。修改后重启生效。": {
     "en": "Extra Claude model names the Feishu model picker lists for the Claude runtime, appended after the built-in opus, sonnet, and haiku in declaration order so the latest models are selectable. Takes effect after restart.",
     "zh-CN": "飞书模型选择器为 Claude 运行引擎额外列出的模型名，按声明顺序追加在内置 opus、sonnet、haiku 之后，便于选择最新模型。修改后重启生效。"
+  },
+  "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order": {
+    "en": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order",
+    "zh-CN": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序"
+  },
+  "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序": {
+    "en": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order",
+    "zh-CN": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序"
+  },
+  "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order\n原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序": {
+    "en": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order",
+    "zh-CN": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序"
+  },
+  "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy": {
+    "en": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy",
+    "zh-CN": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略"
+  },
+  "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略": {
+    "en": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy",
+    "zh-CN": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略"
+  },
+  "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy\nTask 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略": {
+    "en": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy",
+    "zh-CN": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略"
+  },
+  "Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags": {
+    "en": "Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags",
+    "zh-CN": "Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数"
+  },
+  "Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数": {
+    "en": "Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags",
+    "zh-CN": "Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数"
+  },
+  "Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags\nTask 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数": {
+    "en": "Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags",
+    "zh-CN": "Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数"
   }
 }

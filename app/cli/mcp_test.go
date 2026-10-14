@@ -823,6 +823,9 @@ func TestMCPListAgentsRoutesToClient(t *testing.T) {
 	if !ok || len(insts) != 1 {
 		t.Fatalf("instances = %+v, want one entry", out["instances"])
 	}
+	if insts[0].(map[string]any)["permission_policy"] != "deny-all" {
+		t.Fatalf("instance lost permission policy: %+v", insts[0])
+	}
 }
 
 func TestMCPInterruptAgentRoutesToClient(t *testing.T) {

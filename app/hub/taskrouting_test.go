@@ -1228,8 +1228,10 @@ func TestRouterRejectsPersistentFollowupWhenIdentityCannotBeLoaded(t *testing.T)
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
+	scheduled := false
 	r := newTaskRouter(&fakeRouterHub{}, &fakeScheduler{
 		acquireFn: func(registry.ScheduleRequest) (*registry.Placement, error) {
+			scheduled = true
 			return nil, fmt.Errorf("scheduler must not run when persistent identity cannot be loaded")
 		},
 	}, newTaskIndex(), store)
@@ -1244,7 +1246,7 @@ func TestRouterRejectsPersistentFollowupWhenIdentityCannotBeLoaded(t *testing.T)
 		Mode: task.ModePersistent, AgentInstanceID: "inst-store-error",
 	})
 	_, err := r.SubmitSubtask(context.Background(), &pb.SubmitSubtaskRequest{SpecJson: specJSON})
-	if status.Code(err) != codes.Internal || !strings.Contains(err.Error(), "claim persistent agent identity") {
+	if scheduled || status.Code(err) != codes.Internal || !strings.Contains(err.Error(), "database is closed") {
 		t.Fatalf("SubmitSubtask error = %v, want identity-store failure before scheduling", err)
 	}
 }

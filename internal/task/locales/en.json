@@ -1,0 +1,5 @@
+{
+  "permission_response_failed": {
+    "other": "permission response failed for %s: %s"
+  }
+}

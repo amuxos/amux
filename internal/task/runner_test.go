@@ -24,14 +24,15 @@ type fakeChild struct {
 	id, name string
 	cwd      string
 
-	env            []string
-	recordEnv      []string
-	extraArgs      []string
-	agentProfile   string
-	profileSpec    *pb.AgentProfileSpec
-	effectiveModel string
-	instanceID     string
-	actorToken     string
+	env              []string
+	recordEnv        []string
+	extraArgs        []string
+	agentProfile     string
+	profileSpec      *pb.AgentProfileSpec
+	effectiveModel   string
+	permissionPolicy PermissionPolicy
+	instanceID       string
+	actorToken       string
 
 	mu             sync.Mutex
 	subs           []chan agentstream.Event
@@ -45,25 +46,27 @@ type fakeChild struct {
 	turnSeq        int
 	currentTurnID  string
 
-	onSubmit  func(c *fakeChild, text string)
-	onRespond func(c *fakeChild, permID, optID string)
+	onSubmit   func(c *fakeChild, text string)
+	onRespond  func(c *fakeChild, permID, optID string)
+	respondErr error
 }
 
 type respRecord struct{ permID, optID string }
 
 func newFakeChild(spec ChildSpec) *fakeChild {
 	return &fakeChild{
-		id:             "child-" + spec.TaskID,
-		name:           "sess-" + spec.TaskID,
-		cwd:            spec.Cwd,
-		env:            append([]string(nil), spec.Env...),
-		recordEnv:      append([]string(nil), spec.RecordEnv...),
-		extraArgs:      spec.ExtraArgs,
-		agentProfile:   spec.AgentProfile,
-		profileSpec:    spec.ProfileSpec,
-		effectiveModel: spec.EffectiveModel,
-		instanceID:     spec.InstanceID,
-		actorToken:     spec.AgentActorToken,
+		id:               "child-" + spec.TaskID,
+		name:             "sess-" + spec.TaskID,
+		cwd:              spec.Cwd,
+		env:              append([]string(nil), spec.Env...),
+		recordEnv:        append([]string(nil), spec.RecordEnv...),
+		extraArgs:        spec.ExtraArgs,
+		agentProfile:     spec.AgentProfile,
+		profileSpec:      spec.ProfileSpec,
+		effectiveModel:   spec.EffectiveModel,
+		permissionPolicy: spec.PermissionPolicy,
+		instanceID:       spec.InstanceID,
+		actorToken:       spec.AgentActorToken,
 	}
 }
 
@@ -144,11 +147,12 @@ func (c *fakeChild) RespondPermission(permID, optID string) error {
 	c.mu.Lock()
 	c.responded = append(c.responded, respRecord{permID, optID})
 	cb := c.onRespond
+	err := c.respondErr
 	c.mu.Unlock()
-	if cb != nil {
+	if cb != nil && err == nil {
 		go cb(c, permID, optID)
 	}
-	return nil
+	return err
 }
 func (c *fakeChild) RespondPermissionMulti(permID string, optIDs []string) error {
 	c.mu.Lock()

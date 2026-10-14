@@ -289,11 +289,13 @@ func (c *taskController) ListInstanceSummaries() []instanceSummary {
 		if snap.AgentInstanceID == "" {
 			continue
 		}
+		policy, _ := frozenTaskPermissionPolicy(snap)
 		out = append(out, instanceSummary{
 			InstanceID:        snap.AgentInstanceID,
 			ChildSessionID:    snap.ID,
 			ChildSessionName:  snap.Name,
 			State:             string(snap.State),
+			PermissionPolicy:  policy,
 			ExecutionIdentity: snap.ExecutionIdentity,
 		})
 	}
@@ -305,5 +307,6 @@ type instanceSummary struct {
 	ChildSessionID    string
 	ChildSessionName  string
 	State             string
+	PermissionPolicy  string
 	ExecutionIdentity principal.ExecutionIdentity
 }

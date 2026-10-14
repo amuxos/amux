@@ -31,6 +31,12 @@ Pi 的通用文件布局与扩展渲染由核心维护。发行版通过 Profile
 `ValidateAdditionalProvider` 和 `PiProviderConfig` 注册额外平台的校验、连接地址、API 与模型
 兼容配置；默认 `openai-compat` 路径仍由公共核心处理。CLI customization 的
 `CredentialSetExamples` 可以追加发行版凭据示例，示例使用传入的命令路径。
+Task 权限决策属于 `permission_policy`。额外引擎通过 `PermissionModeArgs` 提供原生
+权限参数，并通过 `StripTaskPermissionArgs` 在策略投影前删除本发行版的旧权限参数。
+仅用于配置文件的参数保留在执行 Profile 快照中供物化使用，由 `LaunchProcessArgs`
+从进程 argv 中过滤。无法物化权限配置的受限 raw 启动在执行前拒绝。这些 Hook 不会
+向 manifest v2 内容添加权限设置。
+
 `SetupCommands` hook 可返回新建的 Cobra 命令，在 `amux setup` 下提供可选本地组件
 安装入口。注册不能执行安装；仅用户显式执行命令时才允许下载或安装组件。
 

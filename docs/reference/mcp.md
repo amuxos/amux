@@ -386,7 +386,7 @@ Create a persistent Agent Instance without blocking and return a stable agent_in
       "type": "string"
     },
     "extra_args": {
-      "description": "Native execution arguments, including permissions; separate from Task permission policy",
+      "description": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order",
       "items": {
         "type": "string"
       },
@@ -404,6 +404,7 @@ Create a persistent Agent Instance without blocking and return a stable agent_in
       "type": "string"
     },
     "permission_policy": {
+      "description": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy",
       "enum": [
         "policy-allow",
         "escalate-to-main",
@@ -922,7 +923,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
           "type": "string"
         },
         "extra_args": {
-          "description": "Native execution arguments, including permissions; separate from Task permission policy",
+          "description": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order",
           "items": {
             "type": "string"
           },
@@ -941,7 +942,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
           "type": "string"
         },
         "permission_policy": {
-          "description": "Empty or default uses the Profile or Task default policy. policy-allow and deny-all are allowed; scheduled Agent Tasks do not allow escalate-to-main",
+          "description": "Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags",
           "enum": [
             "default",
             "policy-allow",
@@ -1136,7 +1137,7 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
           "type": "string"
         },
         "extra_args": {
-          "description": "Native execution arguments, including permissions; separate from Task permission policy",
+          "description": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order",
           "items": {
             "type": "string"
           },
@@ -1155,7 +1156,7 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
           "type": "string"
         },
         "permission_policy": {
-          "description": "Empty or default uses the Profile or Task default policy. policy-allow and deny-all are allowed; scheduled Agent Tasks do not allow escalate-to-main",
+          "description": "Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags",
           "enum": [
             "default",
             "policy-allow",
@@ -1746,7 +1747,7 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
       "type": "string"
     },
     "extra_args": {
-      "description": "Native execution arguments, including permissions; separate from Task permission policy",
+      "description": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order",
       "items": {
         "type": "string"
       },
@@ -1773,6 +1774,7 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
       "type": "string"
     },
     "permission_policy": {
+      "description": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy",
       "enum": [
         "policy-allow",
         "escalate-to-main",
@@ -1896,7 +1898,7 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
       "type": "string"
     },
     "extra_args": {
-      "description": "Native execution arguments, including permissions; separate from Task permission policy",
+      "description": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order",
       "items": {
         "type": "string"
       },
@@ -1923,6 +1925,7 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
       "type": "string"
     },
     "permission_policy": {
+      "description": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy",
       "enum": [
         "policy-allow",
         "escalate-to-main",

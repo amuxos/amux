@@ -29,7 +29,11 @@ amux task cancel <task-id>
 默认 workspace 为临时目录；任务需要代码库时使用 `--workspace git-worktree`
 与 `--repo-dir /absolute/path/to/repository`，可用 `--commit <ref>` 指定起点。
 `--timeout` 以秒计；`--permission` 可选择 `policy-allow`、`escalate-to-main` 或 `deny-all`。
-后者策略只控制权限请求，不能替代 workspace、凭据或操作系统隔离。
+该策略统一选择原生启动权限与审批回复，覆盖 `extra_args` 内的原生权限参数，其他参数
+保留顺序。Codex 兼容引擎的 `policy-allow` 使用非交互模式，仅在实际启用 Linux DAC 时
+关闭内层沙箱。`deny-all` 选择原生只读/拒绝模式；缺少对应能力的引擎在启动前拒绝该策略
+（Pi 仅支持 `policy-allow`）。Workspace、凭据和操作系统隔离仍是独立边界。持久实例沿用
+已保存策略；修改策略，或使用未固化统一权限策略的旧子会话快照时，需要新建实例。
 
 收到权限升级事件后，按事件中的 permission ID 明确响应：
 

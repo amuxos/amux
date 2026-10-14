@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -61,6 +62,12 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	if err != nil {
 		return nil, fmt.Errorf("agent %q: %w", spec.AgentType, err)
 	}
+	permissionSpec := task.Spec{Agent: spec.AgentType, PermissionPolicy: spec.PermissionPolicy, ExtraArgs: spec.ExtraArgs, ResolvedProfile: spec.ProfileSpec}
+	if err := agentprofile.ApplyTaskPermissionPolicy(&permissionSpec, false); err != nil {
+		return nil, err
+	}
+	spec.ExtraArgs = permissionSpec.ExtraArgs
+	spec.PermissionPolicy = permissionSpec.PermissionPolicy
 	name := childSessionName(spec.TaskID, spec.InstanceID)
 	// Task children must use the same effective launch PATH as ordinary
 	// sessions. Sandbox env only contains isolation overrides (HOME/TMPDIR), so
@@ -73,6 +80,9 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	if spec.InstanceID != "" {
 		if sess, ok := c.srv.mgr.FindOwnedByName(name); ok {
 			snap := sess.Snapshot()
+			if err := validateTaskPermissionResume(snap, spec.PermissionPolicy); err != nil {
+				return nil, err
+			}
 			if !sameMemoryPrincipal(snap.ExecutionIdentity, spec.ExecutionIdentity) {
 				return nil, fmt.Errorf("persistent instance execution principal changed; create a new instance")
 			}
@@ -149,6 +159,11 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 			return nil, fmt.Errorf("materialize child isolation bundle: %w", err)
 		}
 	}
+	permissionSpec.ExtraArgs = spec.ExtraArgs
+	if err := agentprofile.ApplyTaskPermissionPolicy(&permissionSpec, executionIdentity.IsolationBackend == principal.BackendLinuxDAC); err != nil {
+		return nil, err
+	}
+	spec.ExtraArgs = permissionSpec.ExtraArgs
 	// Applied after isolation materialization rewrites the launch env, so the
 	// credential survives the rewrite, and kept out of recordEnv: the hub mints
 	// a fresh one per task, so nothing may persist it. No token-file path is
@@ -183,6 +198,20 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 		Name:         name,
 		Cwd:          spec.Cwd,
 	})
+	var launchFields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(launchSpec), &launchFields); err != nil {
+		return nil, err
+	}
+	policy := spec.PermissionPolicy
+	if policy == "" {
+		policy = task.PolicyAllow
+	}
+	launchFields["task_permission_policy"], _ = json.Marshal(policy)
+	encodedLaunch, err := json.Marshal(launchFields)
+	if err != nil {
+		return nil, err
+	}
+	launchSpec = string(encodedLaunch)
 	if err := c.srv.mgr.RecordLaunchParams(sess, extraArgs, recordEnv, "", "", spec.AgentProfile, effectiveModel, launchSpec); err != nil {
 		return nil, fmt.Errorf("record child params: %w", err)
 	}
@@ -324,4 +353,33 @@ func (c *childSession) removeRun(snap session.Snapshot) error {
 		return nil
 	}
 	return c.isolationRuntime.RemoveRun(context.Background(), snap.ExecutionIdentity, snap.LaunchID)
+}
+
+func validateTaskPermissionResume(snap session.Snapshot, requested task.PermissionPolicy) error {
+	policy, err := frozenTaskPermissionPolicy(snap)
+	if err != nil {
+		return err
+	}
+	if policy == "" {
+		return agentprofile.TaskPermissionLegacyResumeError()
+	}
+	if requested == "" {
+		requested = task.PolicyAllow
+	}
+	if policy != string(requested) {
+		return agentprofile.TaskPermissionResumeError(policy, string(requested))
+	}
+	return nil
+}
+
+func frozenTaskPermissionPolicy(snap session.Snapshot) (string, error) {
+	var saved struct {
+		PermissionPolicy string `json:"task_permission_policy"`
+	}
+	if snap.LaunchSpec != "" {
+		if err := json.Unmarshal([]byte(snap.LaunchSpec), &saved); err != nil {
+			return "", err
+		}
+	}
+	return saved.PermissionPolicy, nil
 }

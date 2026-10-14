@@ -60,3 +60,9 @@ var (
 )
 
 func DefaultProfileRef() string { return agentprofile.DefaultProfileRef }
+
+// ProjectTaskPermissionArgs applies a Task policy to an engine's launch arguments.
+// outerConfined must describe an enforced OS boundary, not a requested mode.
+func ProjectTaskPermissionArgs(agentType, policy string, args []string, outerConfined bool) ([]string, error) {
+	return agentprofile.TaskPermissionArgs(agentType, task.PermissionPolicy(policy), args, outerConfined)
+}

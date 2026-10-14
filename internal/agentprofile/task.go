@@ -8,14 +8,20 @@ import (
 )
 
 func ResolveTaskSpec(spec *task.Spec, registryPath string) error {
-	if spec == nil || strings.TrimSpace(spec.Agent) == "" || spec.ResolvedProfile != nil {
+	if spec == nil || strings.TrimSpace(spec.Agent) == "" {
 		return nil
+	}
+	if spec.ResolvedProfile != nil {
+		return ApplyTaskPermissionPolicy(spec, false)
 	}
 	profile, err := ResolveProfile(registryPath, spec.Agent)
 	if err != nil {
 		if IsProfileNotFound(err) {
 			_, adapterErr := adapter.Get(strings.TrimSpace(spec.Agent))
-			return adapterErr
+			if adapterErr != nil {
+				return adapterErr
+			}
+			return ApplyTaskPermissionPolicy(spec, false)
 		}
 		return err
 	}
@@ -37,6 +43,8 @@ func ResolveTaskSpec(spec *task.Spec, registryPath string) error {
 	}
 	var projection LaunchProjection
 	if hasPreset {
+		// Task permissions belong to permission_policy, including builtin Tasks.
+		preset.PermissionMode = ""
 		projection, err = projectProfileLaunchWithPreset(profile, spec.ExtraArgs, nil, opts, preset)
 	} else {
 		projection, err = ProjectProfileLaunchChecked(profile, spec.ExtraArgs, nil, opts)
@@ -50,5 +58,5 @@ func ResolveTaskSpec(spec *task.Spec, registryPath string) error {
 	if spec.PermissionPolicy == "" && strings.TrimSpace(profile.PermissionPolicy) != "" {
 		spec.PermissionPolicy = task.PermissionPolicy(strings.TrimSpace(profile.PermissionPolicy))
 	}
-	return nil
+	return ApplyTaskPermissionPolicy(spec, false)
 }

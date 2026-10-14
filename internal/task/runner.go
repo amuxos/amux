@@ -54,13 +54,14 @@ const (
 // controller persists it with OwnerTaskId so owner enforcement can reject direct
 // mutating RPCs from anyone but this runner.
 type ChildSpec struct {
-	TaskID         string
-	AgentType      string
-	AgentProfile   string
-	ProfileSpec    *pb.AgentProfileSpec
-	EffectiveModel string
-	Cwd            string
-	Env            []string
+	TaskID           string
+	AgentType        string
+	AgentProfile     string
+	ProfileSpec      *pb.AgentProfileSpec
+	EffectiveModel   string
+	PermissionPolicy PermissionPolicy
+	Cwd              string
+	Env              []string
 	// RecordEnv is the non-secret subset of Env that may be persisted as launch
 	// params for restart/resume bookkeeping. Credential material belongs only in
 	// Env and must never be written to the session store.
@@ -686,6 +687,7 @@ func (r *Runner) execute(at *activeTask, run *TaskRun, spec Spec, actor actorCre
 		AgentProfile:             run.AgentProfile,
 		ProfileSpec:              spec.ResolvedProfile,
 		EffectiveModel:           resolvedProfileModel(spec.ResolvedProfile),
+		PermissionPolicy:         run.PermissionPolicy,
 		Cwd:                      prep.workspaceDir,
 		Env:                      prep.env,
 		RecordEnv:                prep.recordEnv,
@@ -1000,7 +1002,9 @@ func (r *Runner) consume(at *activeTask, run *TaskRun, spec Spec, child ChildSes
 			flush()
 		case resp := <-at.permResp:
 			flush()
-			r.applyEscalatedResponse(at, child, resp, &diags)
+			if err := r.applyEscalatedResponse(at, child, resp, &diags); err != nil {
+				return TerminalOutcome{Category: OutcomeError, RawError: redactStr(red, err.Error())}, buf.String(), finalMsg, diags, usage, termOutcome
+			}
 			r.setStatus(at, run, StatusRunning)
 		case ev, ok := <-sub:
 			if !ok {
@@ -1045,7 +1049,9 @@ func (r *Runner) consume(at *activeTask, run *TaskRun, spec Spec, child ChildSes
 			}
 			if permission, ok := ev.Body.(agentstream.PermissionRequested); ok {
 				flush() // keep the permission event ordered after prior output
-				r.onPermission(at, run, child, wl, permission.Request, red, &diags)
+				if err := r.onPermission(at, run, child, wl, permission.Request, red, &diags); err != nil {
+					return TerminalOutcome{Category: OutcomeError, RawError: redactStr(red, err.Error())}, buf.String(), finalMsg, diags, usage, termOutcome
+				}
 				continue
 			}
 			// A turn boundary that arrives while an escalated permission is still
@@ -1100,7 +1106,7 @@ func (r *Runner) ingest(ev agentstream.Event, buf *bytes.Buffer, out *outBuf, us
 // enters waiting_permission and publishes a redacted copy for the main agent to
 // answer (the answer arrives on at.permResp). Phase 1 supports one in-flight
 // escalation: a second permission while one is pending is denied.
-func (r *Runner) onPermission(at *activeTask, run *TaskRun, child ChildSession, wl Whitelist, permission agentstream.PermissionRequest, red *Redactor, diags *[]Diagnostic) {
+func (r *Runner) onPermission(at *activeTask, run *TaskRun, child ChildSession, wl Whitelist, permission agentstream.PermissionRequest, red *Redactor, diags *[]Diagnostic) error {
 	req := PermissionFromAgentEvent(permission)
 
 	// Defensive: a child should not raise a new permission while one is still
@@ -1108,10 +1114,12 @@ func (r *Runner) onPermission(at *activeTask, run *TaskRun, child ChildSession, 
 	// rather than strand the pending request.
 	if at.pendingPerm != nil {
 		if optID := req.ResolveOptionId(false); optID != "" {
-			_ = child.RespondPermission(req.PermissionId, optID)
+			if err := child.RespondPermission(req.PermissionId, optID); err != nil {
+				return taskPermissionResponseError(req.PermissionId, err)
+			}
 		}
 		*diags = append(*diags, Diagnostic{Severity: SeverityWarning, Message: "concurrent permission denied (Phase 1 allows one escalation at a time)"})
-		return
+		return nil
 	}
 
 	d := r.resolver.Resolve(run.PermissionPolicy, wl, req)
@@ -1123,7 +1131,7 @@ func (r *Runner) onPermission(at *activeTask, run *TaskRun, child ChildSession, 
 		at.mu.Unlock()
 		r.setStatus(at, run, StatusWaitingPermission)
 		r.publish(at, TaskEvent{Kind: TaskEventPermission, Status: StatusWaitingPermission, Permission: redactPermission(req, red)})
-		return
+		return nil
 	}
 
 	if d.RecordOnly {
@@ -1138,8 +1146,9 @@ func (r *Runner) onPermission(at *activeTask, run *TaskRun, child ChildSession, 
 		})
 	}
 	if err := child.RespondPermission(req.PermissionId, optID); err != nil {
-		*diags = append(*diags, Diagnostic{Severity: SeverityWarning, Message: "permission response failed: " + err.Error()})
+		return taskPermissionResponseError(req.PermissionId, err)
 	}
+	return nil
 }
 
 // redactPermission returns a copy of req safe to publish to the main agent: the
@@ -1169,24 +1178,24 @@ func redactStr(red *Redactor, s string) string {
 
 // applyEscalatedResponse answers a previously-escalated permission with the main
 // agent's decision.
-func (r *Runner) applyEscalatedResponse(at *activeTask, child ChildSession, resp PermissionResponse, diags *[]Diagnostic) {
+func (r *Runner) applyEscalatedResponse(at *activeTask, child ChildSession, resp PermissionResponse, diags *[]Diagnostic) error {
 	pending := at.pendingPerm
 	at.pendingPerm = nil
 	at.mu.Lock()
 	at.pendingPermID = ""
 	at.mu.Unlock()
 	if pending == nil {
-		return
+		return nil
 	}
 	if resp.PermissionId != "" && resp.PermissionId != pending.PermissionId {
-		return
+		return nil
 	}
 	optID := resp.OptionId
 	if optID == "" {
 		optID = pending.ResolveOptionId(resp.Allow)
 	}
 	if err := child.RespondPermission(pending.PermissionId, optID); err != nil {
-		*diags = append(*diags, Diagnostic{Severity: SeverityWarning, Message: "escalated permission response failed: " + err.Error()})
+		return taskPermissionResponseError(pending.PermissionId, err)
 	}
 	if !resp.Allow {
 		msg := "escalated permission denied by main"
@@ -1195,6 +1204,7 @@ func (r *Runner) applyEscalatedResponse(at *activeTask, child ChildSession, resp
 		}
 		*diags = append(*diags, Diagnostic{Severity: SeverityWarning, Message: msg})
 	}
+	return nil
 }
 
 func (r *Runner) whitelist(run *TaskRun, prep prepared) Whitelist {

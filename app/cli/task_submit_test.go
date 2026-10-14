@@ -111,7 +111,7 @@ func (s *blockingTaskStream) Recv() (*pb.SubtaskEvent, error) {
 func (c *captureTaskClient) ListAgentInstances(_ context.Context, req *pb.ListAgentInstancesRequest, _ ...grpc.CallOption) (*pb.ListAgentInstancesResponse, error) {
 	cp := *req
 	c.listInstancesReq = &cp
-	return &pb.ListAgentInstancesResponse{Instances: []*pb.AgentInstance{{Id: "agent-x", Status: "idle"}}}, nil
+	return &pb.ListAgentInstancesResponse{Instances: []*pb.AgentInstance{{Id: "agent-x", Status: "idle", PermissionPolicy: "deny-all"}}}, nil
 }
 
 func (c *captureTaskClient) GetAgentInstance(context.Context, *pb.GetAgentInstanceRequest, ...grpc.CallOption) (*pb.GetAgentInstanceResponse, error) {

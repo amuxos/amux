@@ -11,15 +11,19 @@ is an execution location. None is the identity of a running conversation.
 
 Manifest v2 profiles require a caller-selected runtime and cannot declare engine,
 model, provider, model allowlist or permission settings. Native execution arguments
-and the runtime/model choice belong to the caller; omitting permissions keeps the
-native engine's defaults. Only manifest v2 is accepted, including managed local
+and the runtime/model choice belong to the caller. Direct Sessions keep native
+defaults when permissions are omitted; Task children derive them from
+`permission_policy` (default `policy-allow`). Only manifest v2 is accepted, including managed local
 authoring. Execution settings are frozen in session snapshots. Refreshing v2 content
 preserves those settings, including the provider binding and permission arguments.
 The MCP `session_run`, `task_run`, `task_submit`, and `instance_spawn` inputs
 expose runtime and model selection separately from the expert reference.
 Task submission and instance creation expose native execution arguments as
 `extra_args`; scheduled Task definitions preserve them for every trigger. These
-arguments configure the native engine and are separate from Task permission policy.
+arguments configure the native engine. For Task children, `permission_policy`
+also selects native permissions and normalizes permission flags independently
+of the selected expert. Runtime chooses the final native confinement from the
+actual isolation backend and freezes it for resume.
 CLI task submission and scheduled tasks also accept `--runtime`; scheduled
 task definitions preserve that choice for each trigger.
 

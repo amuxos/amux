@@ -33,6 +33,11 @@ func TestPortableExecutionSchemasExposeNativeArguments(t *testing.T) {
 			if !strings.Contains(description, "permission") || !strings.Contains(description, "权限") {
 				t.Fatalf("missing bilingual permission guidance: %s", description)
 			}
+			policy := props["permission_policy"].(map[string]any)
+			guidance, _ := policy["description"].(string)
+			if !strings.Contains(guidance, "native") || !strings.Contains(guidance, "原生") || !strings.Contains(guidance, "policy-allow") {
+				t.Fatalf("missing unified permission guidance: %s", guidance)
+			}
 		})
 	}
 }

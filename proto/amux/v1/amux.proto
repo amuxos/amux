@@ -1339,6 +1339,8 @@ message AgentInstance {
   string agent_profile = 22;
   string model_ref = 23;
   ExecutionIdentity execution_identity = 24;
+  // Frozen Task/native permission policy. Empty for unmigrated legacy instances.
+  string permission_policy = 25;
 }
 
 message Principal {

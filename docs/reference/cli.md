@@ -1561,7 +1561,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `--local-dir` | `string` | `""` | target-local working directory override |
 | `--model` | `string` | `""` | Execution model ref; omitted uses the inherited launch preset model or the selected engine default |
 | `--name` | `string` | `""` | optional label for the schedule |
-| `--permission-policy` | `string` | `""` | permission policy: default, policy-allow, or deny-all |
+| `--permission-policy` | `string` | `""` | Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags |
 | `--repo-cache-key` | `string` | `""` | workspace repo cache key |
 | `--repo-commit` | `string` | `""` | workspace repo commit/ref |
 | `--repo-kind` | `string` | `""` | workspace repo kind (for example: git) |
@@ -1684,7 +1684,7 @@ amux schedule update 8 --name nightly-report
 | `--local-dir` | `string` | `""` | target-local working directory override |
 | `--model` | `string` | `""` | Execution model ref; omitted uses the inherited launch preset model or the selected engine default |
 | `--name` | `string` | `""` | new label for the schedule |
-| `--permission-policy` | `string` | `""` | permission policy: default, policy-allow, or deny-all |
+| `--permission-policy` | `string` | `""` | Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags |
 | `--repo-cache-key` | `string` | `""` | workspace repo cache key |
 | `--repo-commit` | `string` | `""` | workspace repo commit/ref |
 | `--repo-kind` | `string` | `""` | workspace repo kind (for example: git) |
@@ -2696,7 +2696,7 @@ amux task submit <task prompt> [flags]
 | `-h, --help` | `bool` | `false` | help for submit |
 | `--isolation` | `string` | `""` | isolation: process \| private-home (default process) |
 | `--model` | `string` | `""` | Execution model ref; omitted uses the inherited launch preset model or the selected engine default |
-| `--permission` | `string` | `""` | permission policy: policy-allow \| escalate-to-main \| deny-all (default policy-allow) |
+| `--permission` | `string` | `""` | Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy |
 | `--profile` | `string` | `""` | agent profile ref to resolve before scheduling (overrides --agent) |
 | `--repo-dir` | `string` | `""` | repo cache dir for git-worktree workspace |
 | `--run-as` | `string` | `""` | run as an enrolled principal alias (resolved by amuxd) |

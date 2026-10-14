@@ -94,6 +94,9 @@ type Customization struct {
 	// Shared field and wire rules run first; native combinations never call it.
 	ValidateAdditionalProvider func(string, *Provider) error
 	PermissionModeArgs         func(string, string) ([]string, error)
+	// StripTaskPermissionArgs removes distribution-owned native permission flags
+	// before the Task policy generates authoritative arguments/config settings.
+	StripTaskPermissionArgs    func(string, []string) []string
 	PiProviderConfig           func(Profile) (PiProviderConfig, error)
 	AppendDefaultProviderArgs  func(Profile, string, []string, []string) []string
 	AppendUpstreamProviderArgs func(Profile, string, []string) []string

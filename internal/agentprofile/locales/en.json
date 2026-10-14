@@ -35,6 +35,18 @@
   "runtime_permission_invalid": {
     "other": "runtime permission mode must be default, plan, or bypass (got %q)"
   },
+  "task_permission_invalid": {
+    "other": "invalid Task permission_policy %q"
+  },
+  "task_permission_unsupported": {
+    "other": "runtime %s cannot enforce Task permission_policy %q"
+  },
+  "task_permission_resume": {
+    "other": "instance permission_policy is fixed to %q; requested %q; create a new instance"
+  },
+  "task_permission_resume_unknown": {
+    "other": "The saved instance has no frozen Task permission policy; create a new instance."
+  },
   "conversion_revision_required": {
     "other": "a full expected revision is required; use `amux agent local status` before `amux agent local convert-v2 --expected-revision <revision>`"
   },

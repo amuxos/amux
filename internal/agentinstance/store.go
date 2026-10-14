@@ -38,6 +38,7 @@ type Instance struct {
 	AgentType          string
 	AgentProfile       string
 	ModelRef           string
+	PermissionPolicy   string
 	OwnerSessionID     string // parent main session
 	TargetID           string // sticky target
 	TargetName         string
@@ -58,9 +59,10 @@ type Instance struct {
 }
 
 type InstanceIdentity struct {
-	AgentType    string
-	AgentProfile string
-	ModelRef     string
+	AgentType        string
+	AgentProfile     string
+	ModelRef         string
+	PermissionPolicy string
 }
 
 type IdentityClaim struct {
@@ -130,6 +132,7 @@ func (s *Store) migrate() error {
 			agent_type         TEXT NOT NULL DEFAULT '',
 			agent_profile      TEXT NOT NULL DEFAULT '',
 			model_ref          TEXT NOT NULL DEFAULT '',
+			permission_policy  TEXT NOT NULL DEFAULT '',
 			owner_session_id   TEXT NOT NULL DEFAULT '',
 			target_id          TEXT NOT NULL DEFAULT '',
 			target_name        TEXT NOT NULL DEFAULT '',
@@ -153,6 +156,9 @@ func (s *Store) migrate() error {
 		return fmt.Errorf("agentinstance migrate: %w", err)
 	}
 	if err := s.addColumnIfMissing(`ALTER TABLE agent_instances ADD COLUMN agent_profile TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	if err := s.addColumnIfMissing(`ALTER TABLE agent_instances ADD COLUMN permission_policy TEXT NOT NULL DEFAULT ''`); err != nil {
 		return err
 	}
 	if err := s.addColumnIfMissing(`ALTER TABLE agent_instances ADD COLUMN model_ref TEXT NOT NULL DEFAULT ''`); err != nil {
@@ -233,13 +239,14 @@ func (s *Store) Put(in Instance) (Instance, error) {
 			(id, name, agent_type, agent_profile, model_ref, owner_session_id, target_id, target_name,
 			 credential_profile, credential_profiles, isolation_mode, home_ref, workspace_ref,
 			 provider_session_id, execution_identity_json, launch_id, isolation_backend,
-			 path, status, created_at, updated_at, last_used_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 path, status, created_at, updated_at, last_used_at, permission_policy)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			agent_type = excluded.agent_type,
 			agent_profile = excluded.agent_profile,
 			model_ref = excluded.model_ref,
+			permission_policy = CASE WHEN agent_instances.permission_policy = '' THEN excluded.permission_policy ELSE agent_instances.permission_policy END,
 			owner_session_id = excluded.owner_session_id,
 			target_id = excluded.target_id,
 			target_name = excluded.target_name,
@@ -261,7 +268,7 @@ func (s *Store) Put(in Instance) (Instance, error) {
 	`, in.ID, in.Name, in.AgentType, in.AgentProfile, in.ModelRef, in.OwnerSessionID, in.TargetID, in.TargetName,
 		in.CredentialProfile, credentialProfilesJSON, in.IsolationMode, in.HomeRef, in.WorkspaceRef,
 		in.ProviderSessionID, string(identityJSON), in.LaunchID, in.IsolationBackend,
-		in.Path, status, now, now, lastUsed)
+		in.Path, status, now, now, lastUsed, in.PermissionPolicy)
 	if err != nil {
 		return Instance{}, fmt.Errorf("agentinstance put: %w", err)
 	}
@@ -271,7 +278,7 @@ func (s *Store) Put(in Instance) (Instance, error) {
 const selectColumns = `id, name, agent_type, agent_profile, model_ref, owner_session_id, target_id, target_name,
 	credential_profile, credential_profiles, isolation_mode, home_ref, workspace_ref,
 	provider_session_id, execution_identity_json, launch_id, isolation_backend,
-	path, status, created_at, updated_at, last_used_at`
+	path, status, created_at, updated_at, last_used_at, permission_policy`
 
 // Get returns an instance by id, or sql.ErrNoRows if absent.
 func (s *Store) Get(id string) (Instance, error) {
@@ -284,13 +291,14 @@ func (s *Store) ClaimIdentity(id string, requested InstanceIdentity) (IdentityCl
 	requested.AgentType = strings.TrimSpace(requested.AgentType)
 	requested.AgentProfile = strings.TrimSpace(requested.AgentProfile)
 	requested.ModelRef = strings.TrimSpace(requested.ModelRef)
+	requested.PermissionPolicy = strings.TrimSpace(requested.PermissionPolicy)
 	for range 8 {
 		existing, err := s.Get(id)
 		if err != nil {
 			return IdentityClaim{}, err
 		}
 		previous := InstanceIdentity{
-			AgentType: existing.AgentType, AgentProfile: existing.AgentProfile, ModelRef: existing.ModelRef,
+			AgentType: existing.AgentType, AgentProfile: existing.AgentProfile, ModelRef: existing.ModelRef, PermissionPolicy: existing.PermissionPolicy,
 		}
 		claimed := previous
 		for _, field := range []struct {
@@ -301,6 +309,7 @@ func (s *Store) ClaimIdentity(id string, requested InstanceIdentity) (IdentityCl
 		}{
 			{name: "agent type", existing: previous.AgentType, requested: requested.AgentType, set: func(v string) { claimed.AgentType = v }},
 			{name: "profile", existing: previous.AgentProfile, requested: requested.AgentProfile, set: func(v string) { claimed.AgentProfile = v }},
+			{name: "permission policy", existing: previous.PermissionPolicy, requested: requested.PermissionPolicy, set: func(v string) { claimed.PermissionPolicy = v }},
 			{name: "model", existing: previous.ModelRef, requested: requested.ModelRef, set: func(v string) { claimed.ModelRef = v }},
 		} {
 			current := strings.TrimSpace(field.existing)
@@ -316,10 +325,10 @@ func (s *Store) ClaimIdentity(id string, requested InstanceIdentity) (IdentityCl
 			return claim, nil
 		}
 		res, err := s.db.Exec(`UPDATE agent_instances
-			SET agent_type = ?, agent_profile = ?, model_ref = ?, updated_at = ?
-			WHERE id = ? AND agent_type = ? AND agent_profile = ? AND model_ref = ?`,
-			claimed.AgentType, claimed.AgentProfile, claimed.ModelRef, nowUnix(), id,
-			previous.AgentType, previous.AgentProfile, previous.ModelRef)
+			SET agent_type = ?, agent_profile = ?, model_ref = ?, permission_policy = ?, updated_at = ?
+			WHERE id = ? AND agent_type = ? AND agent_profile = ? AND model_ref = ? AND permission_policy = ?`,
+			claimed.AgentType, claimed.AgentProfile, claimed.ModelRef, claimed.PermissionPolicy, nowUnix(), id,
+			previous.AgentType, previous.AgentProfile, previous.ModelRef, previous.PermissionPolicy)
 		if err != nil {
 			return IdentityClaim{}, fmt.Errorf("agentinstance claim identity: %w", err)
 		}
@@ -339,10 +348,10 @@ func (s *Store) RollbackIdentityClaim(claim IdentityClaim) error {
 		return nil
 	}
 	_, err := s.db.Exec(`UPDATE agent_instances
-		SET agent_type = ?, agent_profile = ?, model_ref = ?, updated_at = ?
-		WHERE id = ? AND agent_type = ? AND agent_profile = ? AND model_ref = ?`,
-		claim.Previous.AgentType, claim.Previous.AgentProfile, claim.Previous.ModelRef, nowUnix(), claim.ID,
-		claim.Claimed.AgentType, claim.Claimed.AgentProfile, claim.Claimed.ModelRef)
+		SET agent_type = ?, agent_profile = ?, model_ref = ?, permission_policy = ?, updated_at = ?
+		WHERE id = ? AND agent_type = ? AND agent_profile = ? AND model_ref = ? AND permission_policy = ?`,
+		claim.Previous.AgentType, claim.Previous.AgentProfile, claim.Previous.ModelRef, claim.Previous.PermissionPolicy, nowUnix(), claim.ID,
+		claim.Claimed.AgentType, claim.Claimed.AgentProfile, claim.Claimed.ModelRef, claim.Claimed.PermissionPolicy)
 	if err != nil {
 		return fmt.Errorf("agentinstance rollback identity claim: %w", err)
 	}
@@ -484,7 +493,7 @@ func scanInstance(sc scanner) (Instance, error) {
 		&in.TargetName, &in.CredentialProfile, &credentialProfilesJSON, &in.IsolationMode, &in.HomeRef,
 		&in.WorkspaceRef, &in.ProviderSessionID, &identityJSON, &in.LaunchID, &in.IsolationBackend,
 		&in.Path, &in.Status,
-		&in.CreatedAt, &in.UpdatedAt, &in.LastUsedAt); err != nil {
+		&in.CreatedAt, &in.UpdatedAt, &in.LastUsedAt, &in.PermissionPolicy); err != nil {
 		return Instance{}, err
 	}
 	if credentialProfilesJSON != "" {

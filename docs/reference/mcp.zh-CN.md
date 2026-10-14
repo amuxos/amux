@@ -386,7 +386,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "extra_args": {
-      "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+      "description": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序",
       "items": {
         "type": "string"
       },
@@ -404,6 +404,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "permission_policy": {
+      "description": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略",
       "enum": [
         "policy-allow",
         "escalate-to-main",
@@ -922,7 +923,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "extra_args": {
-          "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+          "description": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序",
           "items": {
             "type": "string"
           },
@@ -941,7 +942,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "permission_policy": {
-          "description": "留空或 default 时使用 Profile 或 Task 默认策略；允许 policy-allow 和 deny-all；定时 Agent Task 不允许 escalate-to-main",
+          "description": "Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数",
           "enum": [
             "default",
             "policy-allow",
@@ -1136,7 +1137,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "extra_args": {
-          "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+          "description": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序",
           "items": {
             "type": "string"
           },
@@ -1155,7 +1156,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "permission_policy": {
-          "description": "留空或 default 时使用 Profile 或 Task 默认策略；允许 policy-allow 和 deny-all；定时 Agent Task 不允许 escalate-to-main",
+          "description": "Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数",
           "enum": [
             "default",
             "policy-allow",
@@ -1746,7 +1747,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "extra_args": {
-      "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+      "description": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序",
       "items": {
         "type": "string"
       },
@@ -1773,6 +1774,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "permission_policy": {
+      "description": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略",
       "enum": [
         "policy-allow",
         "escalate-to-main",
@@ -1896,7 +1898,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "extra_args": {
-      "description": "原生执行参数，包含权限设置；与 Task 权限策略分开",
+      "description": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序",
       "items": {
         "type": "string"
       },
@@ -1923,6 +1925,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "permission_policy": {
+      "description": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略",
       "enum": [
         "policy-allow",
         "escalate-to-main",

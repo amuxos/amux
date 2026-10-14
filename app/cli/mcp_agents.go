@@ -163,6 +163,9 @@ pb.AgentInstance) map[string]any {
 			continue
 		}
 		view := map[string]any{"agent_instance_id": inst.Id, "name": inst.Name, "agent_type": inst.AgentType, "target_id": inst.TargetId, "status": inst.Status, "provider_session_id": inst.ProviderSessionId}
+		if inst.PermissionPolicy != "" {
+			view["permission_policy"] = inst.PermissionPolicy
+		}
 		if inst.OwnerSessionId != "" {
 			view["owner_session_id"] = inst.OwnerSessionId
 		}

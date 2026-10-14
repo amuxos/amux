@@ -42,6 +42,14 @@ validation, connection URLs, APIs, and model compatibility settings for addition
 platforms. The core still handles the default `openai-compat` path. CLI
 customization's `CredentialSetExamples` can append distribution-specific credential
 examples using the supplied command path.
+Task permission decisions belong to `permission_policy`. Additional engines can
+supply native permission arguments through `PermissionModeArgs` and remove their
+legacy permission flags through `StripTaskPermissionArgs` before policy projection.
+Config-only arguments stay in the execution Profile snapshot for materialization;
+`LaunchProcessArgs` filters them from process argv. Restricted raw launches that
+cannot materialize their permission configuration are rejected before execution.
+These hooks do not add permission settings to manifest v2 content.
+
 The `SetupCommands` hook may return fresh Cobra commands for optional local
 component setup under `amux setup`. Registration must not perform installation;
 only explicit command execution may download or install the component.

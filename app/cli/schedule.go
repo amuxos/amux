@@ -251,7 +251,7 @@ func registerScheduleTaskFlags(c *cobra.Command, flags *scheduleTaskFlags) {
 	c.Flags().StringVar(&flags.taskPrompt, "task", "", "task prompt to run on each schedule fire")
 	c.Flags().StringVar(&flags.isolation, "isolation", "", "isolation: process | private-home (default process)")
 	c.Flags().StringVar(&flags.credentialProfile, "credential-profile", "", "credential profile name (control-plane resolved)")
-	c.Flags().StringVar(&flags.permissionPolicy, "permission-policy", "", "permission policy: default, policy-allow, or deny-all")
+	c.Flags().StringVar(&flags.permissionPolicy, "permission-policy", "", commandCatalog.Format(commandLocale(c), "mcp.schedule.permission_policy"))
 	c.Flags().StringVar(&flags.workspacePolicy, "workspace-policy", string(task.WorkspaceTempDir), "workspace policy: temp-dir | git-worktree")
 	c.Flags().StringVar(&flags.localDir, "local-dir", "", "target-local working directory override")
 	c.Flags().StringVar(&flags.repoKind, "repo-kind", "", "workspace repo kind (for example: git)")

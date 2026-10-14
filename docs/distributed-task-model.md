@@ -45,9 +45,11 @@ owner TaskRun: the runner records cancellation intent, finishes that run as
 `cancelled`, and preserves the resumable instance. It must not depend on a direct
 child interrupt producing a provider terminal event. MCP tools expose profiles, tasks and persistent instances using
 the generated tool schemas. Task submission, instance creation and scheduled
-Task definitions accept `extra_args` for native engine settings, independently
-of `permission_policy`. Schedules preserve the ordered argument array verbatim
-and expose the saved runtime, model and native arguments on MCP readback.
+Task definitions accept `extra_args` for native engine settings. `permission_policy`
+is the single Task permission setting: it controls both native launch permissions
+and the runner's replies. Native permission flags in `extra_args` are normalized
+to this policy; other arguments retain their order. Schedules expose the saved
+runtime, model, policy and arguments on MCP readback.
 
 Credential profiles identify launch credentials. A profile declares which
 environment variables it needs; only those variables are materialized for the
@@ -128,9 +130,25 @@ consumed one-shot rules are not retried. Disabling or deleting a Schedule does
 not cancel an already admitted Task. See `internal/schedule/spec.go`,
 `internal/schedule/scheduler.go` and `app/cli/mcp_schedule.go`.
 
-The default Task permission policy is `policy-allow`: the resolver automatically
-handles requests within its rules. `deny-all` rejects requests;
-`escalate-to-main` exposes them for an explicit response. Escalation is unavailable
+The default Task permission policy is `policy-allow`. Codex-compatible engines
+use `danger-full-access` for both `policy-allow` and `escalate-to-main` in process
+and Linux DAC execution. `policy-allow` selects `approval_policy=never`;
+`escalate-to-main` selects `approval_policy=on-request`. These policies disable
+the native sandbox; process execution uses the service account's OS permissions,
+while Linux DAC retains the outer Principal boundary.
+Claude and permission-aware distribution adapters retain native approval hooks
+without Linux DAC, and the runner automatically answers within its baseline.
+With Linux DAC they may use native bypass. `deny-all` selects native read-only
+or deny mode and rejects approval requests. `escalate-to-main` preserves the
+native approval path and exposes requests for an explicit response. Engines
+without the required permission capability reject restrictive policies before
+launch; Pi supports `policy-allow` only. Native modes are adapter controls, not
+a claim of strong isolation for process/private-home execution. The final
+native arguments and policy are frozen in the child execution snapshot. An
+instance retains its policy across follow-ups; a policy change requires a new
+instance. Legacy child snapshots without a frozen Task/native policy are not
+reused; create a new instance. A failed approval reply fails the Task instead of
+awaiting its deadline. Escalation is unavailable
 for blocking `task_run` and scheduled subtasks. Permission resolution is separate
 from workspace/OS isolation and credential authorization. An instance wait timeout
 also does not cancel or time out its Task; inspect that Task for the final result.

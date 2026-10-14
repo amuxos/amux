@@ -114,15 +114,19 @@ func (r *taskRouter) lockInstanceSubmit(instanceID string) func() {
 
 func (r *taskRouter) claimPersistentInstanceIdentity(spec task.Spec) (func(), error) {
 	claim, err := r.instances.ClaimIdentity(spec.AgentInstanceID, agentinstance.InstanceIdentity{
-		AgentType:    spec.Agent,
-		AgentProfile: resolvedProfileRefForInstance(spec.ResolvedProfile),
-		ModelRef:     resolvedModelRefForInstance(spec),
+		AgentType:        spec.Agent,
+		AgentProfile:     resolvedProfileRefForInstance(spec.ResolvedProfile),
+		ModelRef:         resolvedModelRefForInstance(spec),
+		PermissionPolicy: effectiveTaskPermissionPolicy(spec),
 	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	var conflict *agentinstance.IdentityConflictError
 	if errors.As(err, &conflict) {
+		if conflict.Field == "permission policy" {
+			return nil, status.Error(codes.InvalidArgument, agentprofile.TaskPermissionResumeError(conflict.Existing, conflict.Requested).Error())
+		}
 		return nil, status.Errorf(codes.InvalidArgument,
 			"persistent agent %s is fixed to %s %q; follow-up requested %q",
 			spec.AgentInstanceID, conflict.Field, conflict.Existing, conflict.Requested)
@@ -474,15 +478,24 @@ func (r *taskRouter) activeParentTurn(ctx context.Context, parent parentSessionC
 // agent_instance_id + task. Explicit identity fields remain authoritative and
 // are validated by ClaimIdentity below, preserving the no-switch contract.
 func (r *taskRouter) hydratePersistentFollowupIdentity(spec *task.Spec) error {
-	if spec == nil || spec.Mode != task.ModePersistent || strings.TrimSpace(spec.AgentInstanceID) == "" || strings.TrimSpace(spec.Agent) != "" || r.instances == nil {
+	if spec == nil || spec.Mode != task.ModePersistent || strings.TrimSpace(spec.AgentInstanceID) == "" || r.instances == nil {
 		return nil
 	}
 	in, err := r.instances.Get(spec.AgentInstanceID)
 	if errors.Is(err, sql.ErrNoRows) {
+		if strings.TrimSpace(spec.Agent) != "" {
+			return nil // A new instance with an explicit launch identity.
+		}
 		return status.Errorf(codes.NotFound, "agent instance %q not found", spec.AgentInstanceID)
 	}
 	if err != nil {
 		return status.Errorf(codes.Internal, "load persistent agent identity %s: %v", spec.AgentInstanceID, err)
+	}
+	if spec.PermissionPolicy == "" {
+		spec.PermissionPolicy = task.PermissionPolicy(in.PermissionPolicy)
+	}
+	if strings.TrimSpace(spec.Agent) != "" {
+		return nil
 	}
 	spec.Agent = strings.TrimSpace(in.AgentProfile)
 	if spec.Agent == "" {
@@ -530,6 +543,7 @@ func (r *taskRouter) recordPersistentInstance(spec task.Spec, targetID string) {
 		AgentType:          spec.Agent,
 		AgentProfile:       resolvedProfileRefForInstance(spec.ResolvedProfile),
 		ModelRef:           resolvedModelRefForInstance(spec),
+		PermissionPolicy:   effectiveTaskPermissionPolicy(spec),
 		OwnerSessionID:     spec.ParentSessionID,
 		TargetID:           targetID,
 		CredentialProfile:  credential.LegacyProfile,
@@ -888,6 +902,7 @@ func instanceRecordToProto(in agentinstance.Instance) *pb.AgentInstance {
 		CredentialProfiles: append([]string(nil), in.CredentialProfiles...),
 		AgentProfile:       in.AgentProfile,
 		ModelRef:           in.ModelRef,
+		PermissionPolicy:   in.PermissionPolicy,
 		IsolationMode:      in.IsolationMode,
 		HomeRef:            in.HomeRef,
 		WorkspaceRef:       in.WorkspaceRef,
@@ -1520,4 +1535,14 @@ func taskRefFromJSON(b []byte) (id, parentSessionID string) {
 	}
 	_ = json.Unmarshal(b, &t)
 	return t.ID, t.ParentSessionID
+}
+
+func effectiveTaskPermissionPolicy(spec task.Spec) string {
+	if spec.PermissionPolicy != "" {
+		return string(spec.PermissionPolicy)
+	}
+	if spec.ResolvedProfile != nil && spec.ResolvedProfile.PermissionPolicy != "" {
+		return spec.ResolvedProfile.PermissionPolicy
+	}
+	return string(task.PolicyAllow)
 }

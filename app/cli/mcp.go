@@ -645,7 +645,7 @@ func amuxTools() []mcp.Tool {
     "run_as": {"type": "string", "description": "可选 Principal alias 意图；由 amuxd 解析并授权，未指定时 child 继承 parent 的 Execution Principal"},
     "isolation": {"type": "string", "enum": ["process", "private-home"], "description": "Sandbox 隔离模式；Phase 1 为 best-effort trusted mode"},
     "credential_profile": {"type": "string", "description": "控制面 credential profile 名称"},
-    "permission_policy": {"type": "string", "enum": ["policy-allow", "escalate-to-main", "deny-all"]},
+    "permission_policy": {"type": "string", "enum": ["policy-allow", "escalate-to-main", "deny-all"], "description": %s},
     "workspace": {"type": "object", "properties": {
       "policy": {"type": "string", "enum": ["temp-dir", "git-worktree"]},
       "local_dir": {"type": "string", "description": "目标 runtime 本地的 repo cache 目录；policy=git-worktree 时必须提供 local_dir 或 repo.cache_key"},
@@ -656,9 +656,9 @@ func amuxTools() []mcp.Tool {
     "result_granularity": {"type": "string", "enum": ["summary", "full", "structured-summary"], "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，最大 64KB，截断时指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"}
   },
   "required": ["agent", "task"]
-}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.task.model"), quotedSchemaText("mcp.task.extra_args")))
+}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.task.model"), quotedSchemaText("mcp.task.extra_args"), quotedSchemaText("mcp.task.permission_policy")))
 	scheduledTaskInput := clientop.JSONSchema(clientop.ScheduledTaskSpec{})
-	for field, key := range map[string]string{"runtime": "mcp.task.runtime", "model": "mcp.task.model", "extra_args": "mcp.task.extra_args"} {
+	for field, key := range map[string]string{"runtime": "mcp.task.runtime", "model": "mcp.task.model", "extra_args": "mcp.task.extra_args", "permission_policy": "mcp.schedule.permission_policy"} {
 		text := commandCatalog.Text(key)
 		scheduledTaskInput["properties"].(map[string]any)[field].(map[string]any)["description"] = text.For(i18n.English) + "\n" + text.For(i18n.Chinese)
 	}
@@ -730,7 +730,7 @@ func amuxTools() []mcp.Tool {
     "run_as": {"type": "string", "description": "可选 Principal alias 意图；省略时使用 parent Execution Principal 创建实例"},
     "isolation": {"type": "string", "enum": ["process", "private-home"]},
     "credential_profile": {"type": "string"},
-    "permission_policy": {"type": "string", "enum": ["policy-allow", "escalate-to-main", "deny-all"]},
+    "permission_policy": {"type": "string", "enum": ["policy-allow", "escalate-to-main", "deny-all"], "description": %s},
     "workspace": {"type": "object", "properties": {"policy": {"type": "string", "enum": ["temp-dir", "git-worktree"]}, "local_dir": {"type": "string"}, "repo": {"type": "object", "properties": {"kind": {"type": "string"}, "cache_key": {"type": "string"}, "commit": {"type": "string"}}}}},
 	"timeout_seconds": {"type": "integer", "minimum": 0, "description": "整个 Task 从接受开始计算的截止时间（秒）；0 或省略时使用 runtime 默认值（30 分钟）"},
     "trusted_mode_ack": {"type": "boolean"},
@@ -738,7 +738,7 @@ func amuxTools() []mcp.Tool {
     "result_granularity": {"type": "string", "enum": ["summary", "full", "structured-summary"], "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，超限时截断并指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"}
   },
   "required": ["agent", "task"]
-}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.instance.model"), quotedSchemaText("mcp.task.extra_args")))
+}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.instance.model"), quotedSchemaText("mcp.task.extra_args"), quotedSchemaText("mcp.task.permission_policy")))
 	followupTaskSchema := json.RawMessage(`{
   "type": "object",
   "properties": {

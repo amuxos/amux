@@ -36,7 +36,7 @@
     "other": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型"
   },
   "mcp.task.extra_args": {
-    "other": "原生执行参数，包含权限设置；与 Task 权限策略分开"
+    "other": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序"
   },
   "agent.render.runtime": {
     "other": "渲染使用的 Runtime 适配器；外部 v2 专家必填，具有 amux 调用方默认值的 builtin 快捷入口可省略"
@@ -46,6 +46,12 @@
   },
   "task.arg": {
     "other": "原生 Agent 参数（可重复）"
+  },
+  "mcp.task.permission_policy": {
+    "other": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略"
+  },
+  "mcp.schedule.permission_policy": {
+    "other": "Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数"
   },
   "agent.local_convert_help": {
     "other": "显式将本地专家库源码转换为 v2，并移除执行设置"
