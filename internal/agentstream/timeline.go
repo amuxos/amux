@@ -31,6 +31,7 @@ type Timeline struct {
 	subscribers map[*Subscription]struct{}
 	metadata    *SessionMetadataChanged
 	commands    *CommandsReplaced
+	goal        *GoalChanged
 }
 
 type turnState struct {
@@ -160,6 +161,9 @@ func (t *Timeline) restore(events []Event, configuredEpoch string) error {
 		case CommandsReplaced:
 			copy := body.cloneBody().(CommandsReplaced)
 			t.commands = &copy
+		case GoalChanged:
+			copy := body.cloneBody().(GoalChanged)
+			t.goal = &copy
 		default:
 			if event.Turn != nil && (active == nil || *event.Turn != active.ref) {
 				return fmt.Errorf("%w: event outside active turn at position %d", ErrCorruptJournal, i)
@@ -374,6 +378,9 @@ func (t *Timeline) Publish(ctx context.Context, body SessionPayload, origin Orig
 	case CommandsReplaced:
 		copy := value.cloneBody().(CommandsReplaced)
 		t.commands = &copy
+	case GoalChanged:
+		copy := value.cloneBody().(GoalChanged)
+		t.goal = &copy
 	}
 	return event, nil
 }
@@ -457,6 +464,10 @@ func (t *Timeline) validateCursorLocked(cursor Cursor) error {
 
 func (t *Timeline) headLocked() Head {
 	head := Head{Cursor: Cursor{Epoch: t.epoch, Seq: t.eventSeq}}
+	if t.active != nil {
+		started := cloneEvent(t.active.started)
+		head.ActiveTurnStart = &started
+	}
 	if t.metadata != nil {
 		copy := *t.metadata
 		head.Metadata = &copy
@@ -464,6 +475,10 @@ func (t *Timeline) headLocked() Head {
 	if t.commands != nil {
 		copy := t.commands.cloneBody().(CommandsReplaced)
 		head.Commands = &copy
+	}
+	if t.goal != nil {
+		copy := t.goal.cloneBody().(GoalChanged)
+		head.Goal = &copy
 	}
 	return head
 }

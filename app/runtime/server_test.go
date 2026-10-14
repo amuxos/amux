@@ -2800,6 +2800,51 @@ func TestAttachTailIncludesLatestAvailableCommandsOnly(t *testing.T) {
 	}
 }
 
+func TestAttachTailIncludesActiveTurnSnapshotWithoutReplayingOutput(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "runtime.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mgr := session.NewManager(db)
+	sess, err := mgr.Create("s1", "codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	turn, err := sess.AgentTimeline().StartTurn(context.Background(), agentstream.StartRequest{
+		InputSummary: "private task", Origin: agentstream.Origin{Actor: agentstream.ActorSystem, Channel: "goal", NativeType: "goal_continuation"},
+	}, func(context.Context, *agentstream.Turn) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := turn.Emit(context.Background(), agentstream.AssistantDelta{Text: "old output"}, agentstream.Origin{Channel: "agent"}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	stream := &attachTestStream{ctx: ctx, cancel: cancel, cancelAfter: 1}
+	if err := (&server{mgr: mgr}).Attach(&pb.AttachRequest{Name: "s1", TimelineMode: pb.AttachRequest_TAIL}, stream); err != nil {
+		t.Fatal(err)
+	}
+	if len(stream.events) != 1 || !stream.events[0].CaughtUp || len(stream.events[0].CanonicalJson) != 0 {
+		t.Fatalf("TAIL replayed old events: %+v", stream.events)
+	}
+	started, err := agentstream.UnmarshalEvent(stream.events[0].ActiveTurnStartJson)
+	if err != nil || started.Turn == nil || *started.Turn != turn.Ref() || started.SessionID != sess.ID || started.Origin.NativeType != "goal_continuation" {
+		t.Fatalf("wrong active turn snapshot: %+v error=%v", started, err)
+	}
+	if _, err := turn.Finish(context.Background(), agentstream.Terminal{Outcome: agentstream.OutcomeSuccess}, agentstream.Origin{}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel = context.WithCancel(context.Background())
+	ended := &attachTestStream{ctx: ctx, cancel: cancel, cancelAfter: 1}
+	if err := (&server{mgr: mgr}).Attach(&pb.AttachRequest{Name: "s1", TimelineMode: pb.AttachRequest_TAIL}, ended); err != nil {
+		t.Fatal(err)
+	}
+	if len(ended.events[0].ActiveTurnStartJson) != 0 {
+		t.Fatal("completed turn was presented as active")
+	}
+}
+
 func TestAttachMarksInputSourceEvents(t *testing.T) {
 	db, err := store.Open(filepath.Join(t.TempDir(), "runtime.db"))
 	if err != nil {

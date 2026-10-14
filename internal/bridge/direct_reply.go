@@ -21,6 +21,9 @@ func botSessionReplyTarget(bs *BotSession) *directReplyTarget {
 }
 
 func (b *Bridge) directReplyTargetForBinding(chat *LarkChat) (*directReplyTarget, bool, error) {
+	if chat != nil && chat.goalReplyTarget != nil {
+		return chat.goalReplyTarget, true, nil
+	}
 	if bs, ok, err := b.botSessionForBinding(chat); ok || err != nil {
 		return botSessionReplyTarget(bs), ok, err
 	}

@@ -1213,7 +1213,11 @@ func (s *server) Interrupt(_ context.Context, req *pb.InterruptRequest) (*pb.Int
 	if !caps.Interrupt {
 		return nil, status.Errorf(codes.FailedPrecondition, "interrupt unsupported for agent %s", snap.AgentType)
 	}
-	if err := sess.Interrupt(); err != nil {
+	interrupt := sess.Interrupt
+	if req.PreserveGoal {
+		interrupt = sess.InterruptForInput
+	}
+	if err := interrupt(); err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "interrupt: %v", err)
 	}
 	return &pb.InterruptResponse{Ok: true}, nil
@@ -1412,6 +1416,7 @@ func toProtoSession(s *session.Session) *pb.Session {
 		EffectiveModel:        snap.EffectiveModel,
 		InputModalities:       append([]string(nil), snap.InputModalities...),
 		InputCapabilitySource: snap.InputCapabilitySource,
+		GoalSupported:         s.GoalSupported(),
 		AgentType:             snap.AgentType,
 		CwdSwitch:             string(caps.CwdSwitch),
 		State:                 string(snap.State),

@@ -358,32 +358,32 @@ func renderPermissionRequestCard(targetID, sessionName, permissionID string, pay
 		if label == "" {
 			label = optionID
 		}
-		bs, _ := json.Marshal(map[string]string{
+		callbackValue := map[string]string{
 			"permission_id": permissionID,
 			"option_id":     optionID,
 			"target_id":     targetID,
 			"session_name":  sessionName,
-		})
+		}
 		actions = append(actions, cardAction{
-			Tag:   "button",
-			Text:  &cardTitle{Tag: "plain_text", Content: label},
-			Type:  permissionButtonType(opt),
-			Value: bs,
-			Name:  optionID,
+			Tag:       "button",
+			Text:      &cardTitle{Tag: "plain_text", Content: label},
+			Type:      permissionButtonType(opt),
+			Behaviors: []cardBehavior{{Type: "callback", Value: callbackValue}},
+			Name:      optionID,
 		})
 	}
 	if len(actions) == 0 {
-		bs, _ := json.Marshal(map[string]string{
+		callbackValue := map[string]string{
 			"permission_id": permissionID,
 			"option_id":     "allow",
 			"target_id":     targetID,
 			"session_name":  sessionName,
-		})
-		actions = append(actions, cardAction{Tag: "button", Text: &cardTitle{Tag: "plain_text", Content: "Allow"}, Type: "primary", Value: bs, Name: "allow"})
+		}
+		actions = append(actions, cardAction{Tag: "button", Text: &cardTitle{Tag: "plain_text", Content: "Allow"}, Type: "primary", Behaviors: []cardBehavior{{Type: "callback", Value: callbackValue}}, Name: "allow"})
 	}
 	elements := []cardElement{
 		{Tag: "markdown", Content: content},
-		{Tag: "action", Actions: actions},
+		managementFormButtonRowElement(actions...),
 	}
 	doc := newCardDoc(elements)
 	doc.Header = &cardHeader{Title: cardTitle{Tag: "plain_text", Content: headerTitle}, Template: "orange"}
@@ -409,7 +409,7 @@ func marshalPermissionCard(doc cardDoc) string {
 	}
 	var controls []cardElement
 	for _, element := range doc.Body.Elements {
-		if element.Tag == "action" || element.Tag == "form" {
+		if element.Tag == "column_set" || element.Tag == "form" {
 			controls = append(controls, element)
 		}
 	}
@@ -437,8 +437,8 @@ func dropLastPermissionChoice(doc *cardDoc) bool {
 	}
 	for i := len(doc.Body.Elements) - 1; i >= 0; i-- {
 		element := &doc.Body.Elements[i]
-		if element.Tag == "action" && len(element.Actions) > 1 {
-			element.Actions = element.Actions[:len(element.Actions)-1]
+		if element.Tag == "column_set" && len(element.Columns) > 1 {
+			element.Columns = element.Columns[:len(element.Columns)-1]
 			return true
 		}
 		if element.Tag != "form" {

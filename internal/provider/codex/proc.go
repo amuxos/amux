@@ -36,6 +36,11 @@ type turnStartAttempt struct {
 }
 
 type Proc struct {
+	notificationMu           sync.Mutex
+	notificationQueue        []func()
+	notificationsInitialized bool
+	notificationsReady       bool
+
 	handle isolation.ProcessHandle
 	client *providerjsonrpc.Client
 	stdin  io.WriteCloser
@@ -48,7 +53,12 @@ type Proc struct {
 	inputModalities       []string
 	inputCapabilitySource string
 
-	eventSinks session.EventSinks
+	eventSinks    session.EventSinks
+	goalControlMu sync.Mutex
+	goalSupported bool                     // guarded by threadMu
+	goalWireSeq   uint64                   // guarded by threadMu
+	goal          *agentstream.GoalState   // guarded by threadMu
+	goalAdmitter  session.GoalTurnAdmitter // guarded by threadMu
 
 	skillsMu           sync.Mutex
 	skillPaths         map[string]string
@@ -617,12 +627,16 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	p.excludedSkillRoots = normalizeSkillRoots(opts.Cwd, opts.ExcludedSkillRoots)
 	p.skillPaths = make(map[string]string)
 	p.client = providerjsonrpc.NewClient(stdout, stdin)
+	p.notificationsInitialized = true
 
 	out := make(chan []byte, 256)
 	p.registerHandlers(out)
 
 	go func() {
 		_ = p.client.Run()
+		p.notificationMu.Lock()
+		p.notificationQueue = nil
+		p.notificationMu.Unlock()
 		// If the provider process / stream died mid-turn, surface it as a
 		// visible terminal failure instead of letting the broker loop end
 		// silently (which left the turn active with no output and no error).
@@ -674,6 +688,13 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	p.threadMu.Unlock()
 	p.discoverInputCapabilities(ctx, effectiveModel)
 	p.emitSessionMetadata(threadID, effectiveModel)
+	p.discoverGoals(ctx)
+	p.threadMu.Lock()
+	deferNativeGoal := p.goalSupported && p.goal != nil
+	p.threadMu.Unlock()
+	if !deferNativeGoal {
+		p.enableGoalTurns()
+	}
 	if p.discoverSkills {
 		p.scheduleSkillRefresh(false)
 	}
@@ -1105,6 +1126,17 @@ func (p *Proc) clearThread() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), turnStartTimeout)
 	defer cancel()
+	if p.GoalSupported() {
+		goal, err := p.Goal(ctx, session.GoalRequest{Action: "get"})
+		if err != nil {
+			return err
+		}
+		if goal != nil {
+			if _, err := p.Goal(ctx, session.GoalRequest{Action: "clear"}); err != nil {
+				return err
+			}
+		}
+	}
 	params := map[string]any{}
 	if strings.TrimSpace(p.cwd) != "" {
 		params["cwd"] = p.cwd
@@ -1149,6 +1181,9 @@ func (p *Proc) clearThread() error {
 	p.turnUsage = nil
 	p.usageMu.Unlock()
 	p.emitSessionMetadata(threadID, effectiveModel)
+	if p.GoalSupported() {
+		p.observeGoal(nil)
+	}
 	if p.discoverSkills {
 		p.scheduleSkillRefresh(false)
 	}

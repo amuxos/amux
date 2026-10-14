@@ -769,6 +769,9 @@ func (b *bridgeDB) migrate() error {
 	if err := b.migrateGroupSettings(); err != nil {
 		return err
 	}
+	if err := b.migrateGoals(); err != nil {
+		return err
+	}
 	return b.migrateDistributionDefaults()
 }
 
@@ -809,6 +812,9 @@ type LarkChat struct {
 
 	topicRootPromptPending bool
 	localExpertAuthoring   bool
+	goalReplyTarget        *directReplyTarget
+	goalGeneration         string
+	goalSessionID          string
 }
 
 type AgentThreadOutput struct {

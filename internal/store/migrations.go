@@ -128,6 +128,7 @@ ALTER TABLE sessions ADD COLUMN last_sleep_reason TEXT NOT NULL DEFAULT '';
 	// database follow the same idempotent path.
 	{17, `SELECT 1`},
 	{18, sessionTimelineEventsTableSQL},
+	{19, sessionGoalGrantsSQL},
 }
 
 func (db *DB) migrate() error {
@@ -216,6 +217,9 @@ var taskAdditiveColumns = []additiveColumn{
 func (db *DB) ensureCurrentSchema() error {
 	if _, err := db.Exec(baseTablesSQL); err != nil {
 		return fmt.Errorf("ensure base tables: %w", err)
+	}
+	if _, err := db.Exec(sessionGoalGrantsSQL); err != nil {
+		return fmt.Errorf("ensure session goal grants: %w", err)
 	}
 	for _, col := range sessionAdditiveColumns {
 		ok, err := db.columnExists("sessions", col.name)

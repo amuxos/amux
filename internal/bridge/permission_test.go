@@ -53,6 +53,32 @@ func TestPermissionSummaryShowsOperationAndImpactScope(t *testing.T) {
 	}
 }
 
+func TestPermissionApprovalCardUsesV2CallbackButtons(t *testing.T) {
+	card := renderPermissionRequestCard("target", "session", "0", permissionPayload{
+		Options: []permissionOption{{OptionId: "accept", Name: "Accept"}, {OptionId: "decline", Name: "Decline"}},
+	})
+	var doc cardDoc
+	if err := json.Unmarshal([]byte(card), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.Schema != "2.0" || strings.Contains(card, `"tag":"action"`) {
+		t.Fatalf("invalid Card 2.0 approval layout: %s", card)
+	}
+	if len(doc.Body.Elements) != 2 || doc.Body.Elements[1].Tag != "column_set" || len(doc.Body.Elements[1].Columns) != 2 {
+		t.Fatalf("missing approval controls: %s", card)
+	}
+	for i, optionID := range []string{"accept", "decline"} {
+		button := doc.Body.Elements[1].Columns[i].Elements[0]
+		if button.Tag != "button" || len(button.Behaviors) != 1 || button.Behaviors[0].Type != "callback" {
+			t.Fatalf("approval button has no callback: %+v", button)
+		}
+		value := button.Behaviors[0].Value
+		if value["permission_id"] != "0" || value["option_id"] != optionID || value["target_id"] != "target" || value["session_name"] != "session" {
+			t.Fatalf("approval button changed request identity: %+v", value)
+		}
+	}
+}
+
 func TestPermissionPayloadFromSemanticEvent(t *testing.T) {
 	payload := permissionPayloadFromEvent(&agentui.PermissionEvent{
 		RequestID: "perm-1",
@@ -140,7 +166,7 @@ func TestPermissionAndActivityCardsStayUnderFeishuLimit(t *testing.T) {
 	if len(permissionCard) > maxFeishuCardBytes {
 		t.Fatalf("permission card bytes = %d, limit %d", len(permissionCard), maxFeishuCardBytes)
 	}
-	if !strings.Contains(permissionCard, `"tag":"action"`) {
+	if !strings.Contains(permissionCard, `"tag":"column_set"`) {
 		t.Fatalf("permission card lost actions: %s", permissionCard)
 	}
 
@@ -172,7 +198,7 @@ func TestPermissionCardBudgetHandlesLongWireOptionIDs(t *testing.T) {
 	if len(card) > maxFeishuCardBytes {
 		t.Fatalf("permission card bytes = %d, limit %d", len(card), maxFeishuCardBytes)
 	}
-	if !strings.Contains(card, `"tag":"action"`) || !strings.Contains(card, "Option 0") {
+	if !strings.Contains(card, `"tag":"column_set"`) || !strings.Contains(card, "Option 0") {
 		t.Fatalf("budgeted permission card lost all usable controls: %s", card)
 	}
 }

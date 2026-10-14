@@ -35,8 +35,14 @@ const (
 	structuredFrameUpgrade        byte = 0x08
 	structuredFrameTurnDispatch   byte = 0x09
 	structuredFrameTurnRebind     byte = 0x0A
+	structuredFrameGoal           byte = 0x0B
+	structuredFrameGoalAdmission  byte = 0x0C
+	structuredFrameGoalReady      byte = 0x0D
 	structuredFrameCapabilities   byte = 0x14
 	structuredFrameEmission       byte = 0x15
+	structuredFrameGoalOffer      byte = 0x16
+	structuredFrameGoalResult     byte = 0x17
+	structuredFrameGoalRejected   byte = 0x18
 	structuredFrameAck            byte = 0x20
 )
 
@@ -46,6 +52,9 @@ type structuredBroker struct {
 	effectiveModel        string
 	inputModalities       []string
 	inputCapabilitySource string
+	goalSupported         bool
+	goalSnapshot          *agentstream.GoalChanged
+	goalOffer             *brokerGoalOffer
 	brokerTurns
 
 	conns []*structuredBrokerConn
@@ -269,6 +278,13 @@ func RunStructuredBroker(socketPath, pidFile string, opts StructuredLaunchOption
 		return fmt.Errorf("write pidfile: %w", err)
 	}
 	b := &structuredBroker{proc: proc}
+	if goals, ok := proc.(session.GoalController); ok {
+		_, native := proc.(session.NativeGoalTurnProvider)
+		b.goalSupported = native && goals.GoalSupported()
+	}
+	if native, ok := proc.(session.NativeGoalTurnProvider); ok {
+		native.SetGoalTurnAdmitter(b.admitGoalTurn)
+	}
 	if caps, ok := proc.(session.InputCapabilityProvider); ok {
 		b.inputModalities, b.inputCapabilitySource = caps.InputCapabilities()
 	}
@@ -394,6 +410,8 @@ func (b *structuredBroker) addConn(c net.Conn) *structuredBrokerConn {
 	effectiveModel := b.effectiveModel
 	modalities := append([]string(nil), b.inputModalities...)
 	capabilitySource := b.inputCapabilitySource
+	goalSupported := b.goalSupported
+	goalSnapshot := b.goalSnapshot
 	b.mu.Unlock()
 	bc.mu.Lock()
 	payload, _ := json.Marshal(structuredCapabilitiesFrame{
@@ -401,6 +419,7 @@ func (b *structuredBroker) addConn(c net.Conn) *structuredBrokerConn {
 		Source:                 capabilitySource,
 		TurnCorrelationVersion: brokerTurnProtocolV3,
 		TurnReplayVersion:      brokerTurnReplayV1,
+		GoalSupported:          goalSupported,
 	})
 	_ = writeBrokerFrame(bc.conn, structuredFrameCapabilities, payload)
 	if agentSessionID != "" || effectiveModel != "" {
@@ -408,6 +427,10 @@ func (b *structuredBroker) addConn(c net.Conn) *structuredBrokerConn {
 			Origin:  agentstream.Origin{Actor: agentstream.ActorAgent, Channel: "agent", NativeType: "session_metadata"},
 			Session: agentstream.SessionMetadataChanged{AgentSessionID: agentSessionID, EffectiveModel: effectiveModel},
 		})
+		_ = writeBrokerFrame(bc.conn, structuredFrameEmission, payload)
+	}
+	if goalSnapshot != nil {
+		payload, _ := marshalBrokerEmissionFrame("", 0, agentstream.ProducerEmission{Session: *goalSnapshot})
 		_ = writeBrokerFrame(bc.conn, structuredFrameEmission, payload)
 	}
 	bc.mu.Unlock()
@@ -440,6 +463,17 @@ func (b *structuredBroker) closeConns() {
 }
 
 func (b *structuredBroker) broadcastEvent(ev agentstream.ProducerEmission) {
+	if goal, ok := ev.Session.(agentstream.GoalChanged); ok {
+		b.mu.Lock()
+		copy := goal
+		copy.Goal = goal.Goal.Clone()
+		_, native := b.proc.(session.NativeGoalTurnProvider)
+		b.goalSupported = native && goal.Supported
+		copy.Supported = b.goalSupported
+		b.goalSnapshot = &copy
+		ev.Session = copy
+		b.mu.Unlock()
+	}
 	if metadata, ok := ev.Session.(agentstream.SessionMetadataChanged); ok {
 		b.setSessionMetadata(metadata.AgentSessionID, metadata.EffectiveModel)
 	}
@@ -505,6 +539,19 @@ func (b *structuredBroker) handleConn(conn *structuredBrokerConn) {
 			return
 		}
 		switch kind {
+		case structuredFrameGoal:
+			b.handleGoalControl(conn, payload)
+		case structuredFrameGoalAdmission:
+			b.handleGoalAdmission(conn, payload)
+		case structuredFrameGoalReady:
+			b.mu.Lock()
+			upgraded := conn.protocolV3
+			b.mu.Unlock()
+			if upgraded {
+				if ready, ok := b.proc.(session.GoalTurnReadyProvider); ok {
+					ready.EnableGoalTurns()
+				}
+			}
 		case structuredFrameUpgrade:
 			var upgrade brokerUpgradeFrame
 			errText := ""
@@ -585,6 +632,12 @@ func ShutdownStructuredBroker(socketPath string) error {
 func (b *structuredBroker) removeConn(conn *structuredBrokerConn) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if offer := b.goalOffer; offer != nil && offer.owner == conn {
+		select {
+		case offer.done <- brokerGoalAdmission{NativeTurnID: offer.request.NativeTurnID, Error: "runtime goal owner disconnected"}:
+		default:
+		}
+	}
 	b.turnAdmission.disconnect(conn)
 	for i, c := range b.conns {
 		if c == conn {

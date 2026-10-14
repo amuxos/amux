@@ -27,6 +27,9 @@ func renderManagementHelpCard(state managementState) string {
 		managementHelpBlockElement(managementTextElement(managementGroupCollaborationHintText(), "normal", "default", nil)),
 	}
 	elements = append(elements, managementCommandHelpElements(command.ScopePrivate)...)
+	if state.GoalSupported {
+		elements = append(elements, managementSectionTitleElement(sessionMessage("goal.title")), managementHintElement(sessionMessage("goal.usage")))
+	}
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.help"), Subtitle: managementCopy("management.send.a.task.directly.to.begin"), Summary: managementCopy("management.amux.help"), Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: elements})
 }
 
@@ -47,8 +50,15 @@ func renderSessionEntryHelpCard() string {
 }
 
 func renderBoundTopicHelpCard() string {
+	return renderBoundTopicHelpCardWithGoal(false)
+}
+
+func renderBoundTopicHelpCardWithGoal(supported bool) string {
 	elements := []cardElement{managementHelpBlockElement(managementTextElement(managementCopy("management.keep.sending.messages.to.collaborate.with.the.assistant"), "normal", "default", nil))}
 	elements = append(elements, managementCommandHelpElements(command.ScopeActiveTopic)...)
+	if supported {
+		elements = append(elements, managementSectionTitleElement(sessionMessage("goal.title")), managementHintElement(sessionMessage("goal.usage")))
+	}
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.topic.help"), Subtitle: managementCopy("management.keep.sending.messages.to.collaborate"), Summary: managementCopy("management.amux.topic.help"), Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: elements})
 }
 

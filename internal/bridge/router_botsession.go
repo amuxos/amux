@@ -104,6 +104,9 @@ func (b *Bridge) routeBotSessionInput(ctx context.Context, in botSessionInput) (
 }
 
 func (b *Bridge) handleBotSessionCommand(ctx context.Context, bs *BotSession, in botSessionInput, text string) (bool, error) {
+	if _, recognized, _ := command.ParseGoal(text); recognized {
+		return true, b.handleGoalCommand(ctx, b.botSessionChat(bs, in), in.MessageID, in.OpenID, text)
+	}
 	cmd := threadCommand(text)
 	notify := func(text string) (bool, error) {
 		return true, b.notifyBotSession(ctx, in.ReplyKind, in.ChatID, in.OpenID, text)

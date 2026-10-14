@@ -275,7 +275,7 @@ func normalizeSessionPayload(body SessionPayload) (Body, error) {
 		return nil, err
 	}
 	switch value := cloned.(type) {
-	case SessionMetadataChanged, CommandsReplaced:
+	case SessionMetadataChanged, CommandsReplaced, GoalChanged:
 		return value, nil
 	case SessionDiagnostic:
 		if !validSeverity(value.Severity) {

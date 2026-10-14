@@ -89,14 +89,14 @@ func (p *Presenter) Consume(ev Event) []Action {
 	case KindInputSubmitted:
 		if sameTurn(p.turn, ev.Turn) && p.status == "running" {
 			p.adoptTurn(ev.Turn)
-			if ev.Source != SourceFeishu {
+			if ev.Source != SourceFeishu && ev.Source != SourceGoal {
 				return []Action{{Kind: ActionInputEcho, Turn: p.turn, Text: ev.Text}}
 			}
 			return nil
 		}
 		p.startTurn(ev.Turn)
 		actions := []Action{{Kind: ActionTurnStarted, Turn: p.turn, Source: ev.Source, Text: ev.Text}}
-		if ev.Source != SourceFeishu {
+		if ev.Source != SourceFeishu && ev.Source != SourceGoal {
 			actions = append(actions, Action{Kind: ActionInputEcho, Turn: p.turn, Text: ev.Text})
 		}
 		return actions

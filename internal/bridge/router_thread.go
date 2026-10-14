@@ -452,6 +452,16 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 		}
 	}
 	routedText := b.stripCurrentBotMention(text, mention)
+	goalCommand, isGoal, goalParseErr := command.ParseGoal(routedText)
+	if isGoal && goalParseErr != nil {
+		return b.notifyThread(ctx, rootMsgID, sessionMessage("goal.usage").For(b.managementLocale(openID)))
+	}
+	if isGoal && goalCommand.Action == "create" && (hasFeishuMaterials(ctx) || feishuQuotedMessageFromContext(ctx).messageID != "") {
+		return b.notifyThread(ctx, rootMsgID, sessionMessage("goal.text_only").For(b.managementLocale(openID)))
+	}
+	if isGoal && goalCommand.Action != "create" {
+		return b.notifyThread(ctx, rootMsgID, sessionMessage("goal.no_binding").For(b.managementLocale(openID)))
+	}
 	quoteRef := feishuQuotedMessageFromContext(ctx)
 	hasQuotedMessage := quoteRef.messageID != "" && !mention.AmuxDelegation
 	rootText := ""
@@ -472,7 +482,7 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 	if strings.HasPrefix(routedText, "/") {
 		return b.notifyThreadHelpCard(ctx, rootMsgID, renderSessionEntryHelpCard())
 	}
-	if cmd := freshThreadCommand(routedText); cmd != command.CommandNone {
+	if cmd := freshThreadCommand(routedText); cmd != command.CommandNone && !isGoal {
 		return b.notifyThreadHelpCard(ctx, rootMsgID, renderSessionEntryHelpCard())
 	}
 	ws, err := b.currentWorkspace(chatID)
@@ -672,6 +682,9 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 		return err
 	}
 	chat.localExpertAuthoring = opts.source != routeInputSourceGroupWatch && b.isBotOwner(openID)
+	if isGoal {
+		return b.handleGoalCommand(ctx, chat, msgID, openID, routedText)
+	}
 	b.recordUserRequestContext(ctx, chat, msgID, openID, routedText)
 	input := routedText
 	var contextPackage *threadcontext.ContextPackage

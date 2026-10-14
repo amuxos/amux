@@ -16,10 +16,12 @@ import (
 // dispatch, replay and live delivery; mu protects lifecycle state and is never
 // held during socket writes. Neither lock owns canonical Session turn policy.
 type brokerTurns struct {
-	mu            sync.Mutex
-	broadcastMu   sync.Mutex
-	turnAdmission brokerTurnAdmission[*brokerConn]
-	turnReplay    brokerTurnReplay
+	mu              sync.Mutex
+	broadcastMu     sync.Mutex
+	turnAdmission   brokerTurnAdmission[*brokerConn]
+	turnReplay      brokerTurnReplay
+	goalOffering    bool
+	cancelGoalOffer func() // Called with mu held; never performs socket I/O.
 }
 
 type brokerConn struct {
@@ -48,6 +50,16 @@ func (b *brokerTurns) dispatchCorrelatedTurn(conn *brokerConn, payload []byte, d
 		b.mu.Unlock()
 		b.broadcastMu.Unlock()
 		return "turn dispatch requires protocol v3"
+	}
+	if b.goalOffering && b.turnAdmission.turnToken == "" {
+		if b.cancelGoalOffer == nil {
+			b.mu.Unlock()
+			b.broadcastMu.Unlock()
+			return "native goal continuation admission is pending"
+		}
+		// Session has already accepted this user turn. Cancel the pending
+		// native offer before reserving its slot instead of losing the input.
+		b.cancelGoalOffer()
 	}
 	if reason := b.turnAdmission.reserveCorrelated(conn, req.TurnToken); reason != "" {
 		b.mu.Unlock()

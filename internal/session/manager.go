@@ -828,6 +828,17 @@ func (m *Manager) LoadFromDB() error {
 	var toRestart []*Session
 	for _, r := range rows {
 		s := fromRow(r)
+		grantJSON, err := m.db.SessionGoalGrant(s.ID)
+		if err != nil {
+			m.mu.Unlock()
+			return fmt.Errorf("restore session goal grant: %w", err)
+		}
+		if grantJSON != "" {
+			if err := json.Unmarshal([]byte(grantJSON), &s.goalGrant); err != nil {
+				m.mu.Unlock()
+				return fmt.Errorf("decode session goal grant: %w", err)
+			}
+		}
 		timeline, err := agentstream.Open(context.Background(), agentstream.Config{
 			SessionID: s.ID,
 			Epoch:     s.TimelineEpoch,
@@ -901,6 +912,13 @@ func (m *Manager) attachPersistenceHooks(s *Session) {
 	}
 	s.persistHandoff = func(value string) error {
 		return m.db.UpdateSessionHandoffContext(s.ID, value)
+	}
+	s.persistGoalGrant = func(grant *GoalGrant) error {
+		encoded, err := encodeGoalGrant(grant)
+		if err != nil {
+			return err
+		}
+		return m.db.SaveSessionGoalGrant(s.ID, encoded)
 	}
 }
 

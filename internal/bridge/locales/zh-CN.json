@@ -2500,5 +2500,107 @@
   },
   "management.watch.group_saved": {
     "other": "已保存本群值守设置"
+  },
+  "session.goal.title": {
+    "other": "持续目标"
+  },
+  "session.goal.scope": {
+    "other": "作用会话"
+  },
+  "session.goal.shared": {
+    "other": "此目标属于机器人跨聊天共享的会话。"
+  },
+  "session.goal.empty": {
+    "other": "当前没有目标。发送 goal <目标> 创建并启动。"
+  },
+  "session.goal.objective": {
+    "other": "目标"
+  },
+  "session.goal.status": {
+    "other": "状态"
+  },
+  "session.goal.tokens": {
+    "other": "已用 token"
+  },
+  "session.goal.budget": {
+    "other": "token 预算"
+  },
+  "session.goal.time": {
+    "other": "累计运行用时"
+  },
+  "session.goal.seconds": {
+    "other": "%d 秒"
+  },
+  "session.goal.no_budget": {
+    "other": "未设置"
+  },
+  "session.goal.status.active": {
+    "other": "执行中"
+  },
+  "session.goal.status.paused": {
+    "other": "已暂停"
+  },
+  "session.goal.status.blocked": {
+    "other": "遇到阻碍"
+  },
+  "session.goal.status.usageLimited": {
+    "other": "用量受限"
+  },
+  "session.goal.status.budgetLimited": {
+    "other": "预算已用尽"
+  },
+  "session.goal.status.complete": {
+    "other": "已完成"
+  },
+  "session.goal.button.pause": {
+    "other": "暂停"
+  },
+  "session.goal.button.resume": {
+    "other": "恢复"
+  },
+  "session.goal.button.clear": {
+    "other": "清除目标"
+  },
+  "session.goal.updated": {
+    "other": "目标已更新。"
+  },
+  "session.goal.usage": {
+    "other": "goal <目标> · goal · goal pause|resume|clear · goal set <目标> · goal budget <tokens>"
+  },
+  "session.goal.no_binding": {
+    "other": "当前未绑定会话。发送 goal <目标> 创建会话并启动目标。"
+  },
+  "session.goal.unsupported": {
+    "other": "当前 runtime 不支持原生 goal。"
+  },
+  "session.goal.denied": {
+    "other": "你没有权限控制此会话的目标。"
+  },
+  "session.goal.stale": {
+    "other": "目标或会话已变化，请发送 goal 查看最新状态。"
+  },
+  "session.goal.exists": {
+    "other": "已有未完成目标。请使用 goal set <目标> 显式替换。"
+  },
+  "session.goal.failed": {
+    "other": "目标操作失败：%s"
+  },
+  "session.goal.error.goal_exists": {
+    "other": "已有未完成目标。请使用 goal set <目标> 显式替换。"
+  },
+  "session.goal.error.goal_missing": {
+    "other": "当前没有目标。"
+  },
+  "session.goal.error.goal_complete": {
+    "other": "此目标已完成，请创建新目标继续工作。"
+  },
+  "session.goal.error.goal_objective_invalid": {
+    "other": "目标必须包含 1 至 4000 个字符。"
+  },
+  "session.goal.error.goal_budget_invalid": {
+    "other": "token 预算必须是正整数。"
+  },
+  "session.goal.text_only": {
+    "other": "请用纯文本描述目标，附件和引用材料请在创建目标后另发消息补充。"
   }
 }

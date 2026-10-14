@@ -53,6 +53,9 @@ func (s *Session) RebindRecoveredTurn() error {
 		finishErr := s.finishRecoveredTurn(active, "runtime_rebind_failed", err.Error())
 		return errors.Join(err, finishErr)
 	}
+	if ready, ok := proc.(GoalTurnReadyProvider); ok {
+		ready.EnableGoalTurns()
+	}
 	return nil
 }
 
@@ -216,6 +219,16 @@ func (s *Session) recordProducerEmission(emission agentstream.ProducerEmission) 
 	if err != nil {
 		s.handleTimelineError(err)
 		return false
+	}
+	if changed, ok := emission.Session.(agentstream.GoalChanged); ok && changed.Goal == nil && emission.Origin.NativeType == "thread/goal/cleared" {
+		if err := s.setGoalGrant(nil); err != nil {
+			s.handleTimelineError(err)
+		}
+	}
+	if changed, ok := emission.Session.(agentstream.GoalChanged); ok && emission.Origin.NativeType == "thread/goal/updated" {
+		if err := s.observeGoalCompletion(changed.Goal); err != nil {
+			s.handleTimelineError(err)
+		}
 	}
 	return s.observeCanonicalEvent(accepted)
 }

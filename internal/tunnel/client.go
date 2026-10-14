@@ -598,6 +598,18 @@ func (c *Client) handleRequest(ctx context.Context, sendFn func(*pb.TunnelMsg) e
 			return
 		}
 		sendResp(resp, "")
+	case "Goal":
+		var r pb.GoalRequest
+		if err := unmarshalTunnelPayload(req.Payload, &r); err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		resp, err := c.localSrv.Goal(reqCtx, &r)
+		if err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		sendResp(resp, "")
 
 	case "GetLocalExpertAuthoringTurn":
 		var r pb.LocalExpertAuthoringTurnRequest

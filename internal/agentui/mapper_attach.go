@@ -39,6 +39,8 @@ func normalizeSource(source string) Source {
 		return SourceFeishu
 	case "scheduler":
 		return SourceScheduler
+	case "goal":
+		return SourceGoal
 	case "system":
 		return SourceSystem
 	case "tool":

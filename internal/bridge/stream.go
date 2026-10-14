@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/amuxos/amux/internal/adapter"
+	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/agentui"
 	"github.com/amuxos/amux/internal/config"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
@@ -456,6 +457,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 		turn := &toolActivityTurn{}
 		presenter := agentui.NewPresenter()
 		visibilityGate := newFeishuStreamVisibilityGate()
+		ordinaryChat := *streamChat
+		var lastGoalStatus string
+		var lastGoalPatch time.Time
 		logSuppressedVisibleAction := func(action agentui.Action) {
 			if !visibilityGate.MarkSuppressed(action) {
 				return
@@ -617,9 +621,22 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			return streamsReplyCards
 		}
 
-		handleAttachEvent := func(ev *pb.AttachEvent) {
+		var handleAttachEvent func(*pb.AttachEvent)
+		handleAttachEvent = func(ev *pb.AttachEvent) {
 			if ev == nil {
 				return
+			}
+			// TAIL excludes the already accepted start event. Restore goal
+			// presentation from the atomic read snapshot, never from goal state
+			// alone. The normal start path validates its persisted destination.
+			if len(ev.ActiveTurnStartJson) > 0 {
+				started, err := agentstream.UnmarshalEvent(ev.ActiveTurnStartJson)
+				if err == nil && started.Turn != nil && started.Turn.ID != "" && started.Body.Kind() == agentstream.KindTurnStarted && started.Origin.Channel == "goal" {
+					action := agentui.Action{Kind: agentui.ActionTurnStarted, Turn: agentui.TurnEvent{ID: started.Turn.ID, Seq: int64(started.Turn.Seq)}}
+					if !visibilityGate.Allow(action) {
+						handleAttachEvent(&pb.AttachEvent{CanonicalJson: ev.ActiveTurnStartJson})
+					}
+				}
 			}
 			if model := strings.TrimSpace(ev.EffectiveModel); model != "" && strings.TrimSpace(streamChat.EffectiveModel) == "" {
 				streamChat.EffectiveModel = model
@@ -633,6 +650,35 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			}
 			if ev.EventType == "available_commands" {
 				b.observeAvailableCommands(targetID, sessionName, ev.StructuredJson)
+				return
+			}
+			var canonical agentstream.Event
+			if len(ev.CanonicalJson) > 0 {
+				canonical, _ = agentstream.UnmarshalEvent(ev.CanonicalJson)
+			}
+			var changed *agentstream.GoalChanged
+			if value, ok := canonical.Body.(agentstream.GoalChanged); ok && !ev.Historical {
+				changed = &value
+			}
+			if ev.EventType == "goal_changed" {
+				var value agentstream.GoalChanged
+				if json.Unmarshal(ev.StructuredJson, &value) == nil {
+					changed = &value
+				}
+			}
+			if changed != nil {
+				status := ""
+				if changed.Goal != nil {
+					status = changed.Goal.Status
+				}
+				if status != lastGoalStatus || time.Since(lastGoalPatch) >= 2*time.Second {
+					patchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+					if err := b.refreshGoalCard(patchCtx, streamChat, changed.Goal); err != nil {
+						log.Warn().Err(err).Msg("bridge: refresh goal card")
+					}
+					cancel()
+					lastGoalStatus, lastGoalPatch = status, time.Now()
+				}
 				return
 			}
 			for _, uiEvent := range agentui.FromAttachEvent(ev) {
@@ -652,6 +698,26 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 					}
 					switch action.Kind {
 					case agentui.ActionTurnStarted:
+						if action.Source == agentui.SourceGoal {
+							goalChat, err := b.goalChatForTurn(streamChat, canonical)
+							if err != nil || goalChat == nil {
+								logSuppressedVisibleAction(action)
+								continue
+							}
+							agg.Flush()
+							replyStream.Flush()
+							replyStream.Reset()
+							activitySender.Reset()
+							*streamChat = *goalChat
+							visibilityGate.authorizeTurn(action.Turn)
+						} else if streamChat.goalReplyTarget != nil {
+							agg.Flush()
+							replyStream.Flush()
+							replyStream.Reset()
+							activitySender.Reset()
+							ordinaryChat.EffectiveModel = streamChat.EffectiveModel
+							*streamChat = ordinaryChat
+						}
 						// submitToSession marks the topic turn active before the
 						// runtime RPC. This topic-scoped authorization survives an
 						// OnSessionAdded stream replacement. The normal lark input
@@ -852,7 +918,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							continue
 						}
 						sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-						err := b.handlePermissionEvent(sendCtx, rootMsgID, targetID, sessionName, openID, action.Permission)
+						err := b.handlePermissionEvent(sendCtx, streamChat, action.Permission)
 						cancel()
 						if err != nil {
 							log.Warn().Err(err).Str("session", sessionName).Str("permission_id", action.Permission.RequestID).Msg("bridge: send permission request card error")

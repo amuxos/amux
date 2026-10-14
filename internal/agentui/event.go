@@ -31,6 +31,8 @@ const (
 
 type Source string
 
+const SourceGoal Source = "goal"
+
 const (
 	SourceAgent     Source = "agent"
 	SourceCLI       Source = "cli"

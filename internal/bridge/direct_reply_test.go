@@ -76,7 +76,7 @@ func TestGroupSingletonOutputStaysInGroupAcrossRetirement(t *testing.T) {
 			return err
 		}},
 		{"permission", func() error {
-			_, _, err := b.sendPermissionRequestCard(ctx, chat.RootMsgID, chat.TargetID, chat.SessionName, "permission", permissionPayload{})
+			_, _, err := b.sendPermissionRequestCard(ctx, chat, "permission", permissionPayload{})
 			return err
 		}},
 		{"artifact", func() error { return b.sendArtifactToBinding(ctx, chat, "file", "file-key", "artifact-uuid") }},

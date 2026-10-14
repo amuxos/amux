@@ -34,6 +34,7 @@ const (
 	Amuxlet_Interrupt_FullMethodName                   = "/amux.v1.Amuxlet/Interrupt"
 	Amuxlet_Attach_FullMethodName                      = "/amux.v1.Amuxlet/Attach"
 	Amuxlet_Submit_FullMethodName                      = "/amux.v1.Amuxlet/Submit"
+	Amuxlet_Goal_FullMethodName                        = "/amux.v1.Amuxlet/Goal"
 	Amuxlet_QueueList_FullMethodName                   = "/amux.v1.Amuxlet/QueueList"
 	Amuxlet_QueueClear_FullMethodName                  = "/amux.v1.Amuxlet/QueueClear"
 	Amuxlet_QueueCancel_FullMethodName                 = "/amux.v1.Amuxlet/QueueCancel"
@@ -63,6 +64,7 @@ type AmuxletClient interface {
 	Interrupt(ctx context.Context, in *InterruptRequest, opts ...grpc.CallOption) (*InterruptResponse, error)
 	Attach(ctx context.Context, in *AttachRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AttachEvent], error)
 	Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error)
+	Goal(ctx context.Context, in *GoalRequest, opts ...grpc.CallOption) (*GoalResponse, error)
 	QueueList(ctx context.Context, in *QueueListRequest, opts ...grpc.CallOption) (*QueueListResponse, error)
 	QueueClear(ctx context.Context, in *QueueClearRequest, opts ...grpc.CallOption) (*QueueClearResponse, error)
 	QueueCancel(ctx context.Context, in *QueueCancelRequest, opts ...grpc.CallOption) (*QueueCancelResponse, error)
@@ -240,6 +242,16 @@ func (c *amuxletClient) Submit(ctx context.Context, in *SubmitRequest, opts ...g
 	return out, nil
 }
 
+func (c *amuxletClient) Goal(ctx context.Context, in *GoalRequest, opts ...grpc.CallOption) (*GoalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GoalResponse)
+	err := c.cc.Invoke(ctx, Amuxlet_Goal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *amuxletClient) QueueList(ctx context.Context, in *QueueListRequest, opts ...grpc.CallOption) (*QueueListResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueueListResponse)
@@ -321,6 +333,7 @@ type AmuxletServer interface {
 	Interrupt(context.Context, *InterruptRequest) (*InterruptResponse, error)
 	Attach(*AttachRequest, grpc.ServerStreamingServer[AttachEvent]) error
 	Submit(context.Context, *SubmitRequest) (*SubmitResponse, error)
+	Goal(context.Context, *GoalRequest) (*GoalResponse, error)
 	QueueList(context.Context, *QueueListRequest) (*QueueListResponse, error)
 	QueueClear(context.Context, *QueueClearRequest) (*QueueClearResponse, error)
 	QueueCancel(context.Context, *QueueCancelRequest) (*QueueCancelResponse, error)
@@ -382,6 +395,9 @@ func (UnimplementedAmuxletServer) Attach(*AttachRequest, grpc.ServerStreamingSer
 }
 func (UnimplementedAmuxletServer) Submit(context.Context, *SubmitRequest) (*SubmitResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Submit not implemented")
+}
+func (UnimplementedAmuxletServer) Goal(context.Context, *GoalRequest) (*GoalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Goal not implemented")
 }
 func (UnimplementedAmuxletServer) QueueList(context.Context, *QueueListRequest) (*QueueListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method QueueList not implemented")
@@ -684,6 +700,24 @@ func _Amuxlet_Submit_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Amuxlet_Goal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GoalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxletServer).Goal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxlet_Goal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxletServer).Goal(ctx, req.(*GoalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Amuxlet_QueueList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueueListRequest)
 	if err := dec(in); err != nil {
@@ -856,6 +890,10 @@ var Amuxlet_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Amuxlet_Submit_Handler,
 		},
 		{
+			MethodName: "Goal",
+			Handler:    _Amuxlet_Goal_Handler,
+		},
+		{
 			MethodName: "QueueList",
 			Handler:    _Amuxlet_QueueList_Handler,
 		},
@@ -911,6 +949,7 @@ const (
 	Amuxd_Interrupt_FullMethodName                    = "/amux.v1.Amuxd/Interrupt"
 	Amuxd_Attach_FullMethodName                       = "/amux.v1.Amuxd/Attach"
 	Amuxd_Submit_FullMethodName                       = "/amux.v1.Amuxd/Submit"
+	Amuxd_Goal_FullMethodName                         = "/amux.v1.Amuxd/Goal"
 	Amuxd_QueueList_FullMethodName                    = "/amux.v1.Amuxd/QueueList"
 	Amuxd_QueueClear_FullMethodName                   = "/amux.v1.Amuxd/QueueClear"
 	Amuxd_QueueCancel_FullMethodName                  = "/amux.v1.Amuxd/QueueCancel"
@@ -973,6 +1012,7 @@ type AmuxdClient interface {
 	Interrupt(ctx context.Context, in *AmuxdInterruptRequest, opts ...grpc.CallOption) (*InterruptResponse, error)
 	Attach(ctx context.Context, in *AmuxdAttachRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AttachEvent], error)
 	Submit(ctx context.Context, in *AmuxdSubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error)
+	Goal(ctx context.Context, in *AmuxdGoalRequest, opts ...grpc.CallOption) (*GoalResponse, error)
 	QueueList(ctx context.Context, in *AmuxdQueueListRequest, opts ...grpc.CallOption) (*QueueListResponse, error)
 	QueueClear(ctx context.Context, in *AmuxdQueueClearRequest, opts ...grpc.CallOption) (*QueueClearResponse, error)
 	QueueCancel(ctx context.Context, in *AmuxdQueueCancelRequest, opts ...grpc.CallOption) (*QueueCancelResponse, error)
@@ -1233,6 +1273,16 @@ func (c *amuxdClient) Submit(ctx context.Context, in *AmuxdSubmitRequest, opts .
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SubmitResponse)
 	err := c.cc.Invoke(ctx, Amuxd_Submit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *amuxdClient) Goal(ctx context.Context, in *AmuxdGoalRequest, opts ...grpc.CallOption) (*GoalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GoalResponse)
+	err := c.cc.Invoke(ctx, Amuxd_Goal_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1617,6 +1667,7 @@ type AmuxdServer interface {
 	Interrupt(context.Context, *AmuxdInterruptRequest) (*InterruptResponse, error)
 	Attach(*AmuxdAttachRequest, grpc.ServerStreamingServer[AttachEvent]) error
 	Submit(context.Context, *AmuxdSubmitRequest) (*SubmitResponse, error)
+	Goal(context.Context, *AmuxdGoalRequest) (*GoalResponse, error)
 	QueueList(context.Context, *AmuxdQueueListRequest) (*QueueListResponse, error)
 	QueueClear(context.Context, *AmuxdQueueClearRequest) (*QueueClearResponse, error)
 	QueueCancel(context.Context, *AmuxdQueueCancelRequest) (*QueueCancelResponse, error)
@@ -1723,6 +1774,9 @@ func (UnimplementedAmuxdServer) Attach(*AmuxdAttachRequest, grpc.ServerStreaming
 }
 func (UnimplementedAmuxdServer) Submit(context.Context, *AmuxdSubmitRequest) (*SubmitResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Submit not implemented")
+}
+func (UnimplementedAmuxdServer) Goal(context.Context, *AmuxdGoalRequest) (*GoalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Goal not implemented")
 }
 func (UnimplementedAmuxdServer) QueueList(context.Context, *AmuxdQueueListRequest) (*QueueListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method QueueList not implemented")
@@ -2191,6 +2245,24 @@ func _Amuxd_Submit_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AmuxdServer).Submit(ctx, req.(*AmuxdSubmitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Amuxd_Goal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AmuxdGoalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).Goal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_Goal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).Goal(ctx, req.(*AmuxdGoalRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2892,6 +2964,10 @@ var Amuxd_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Submit",
 			Handler:    _Amuxd_Submit_Handler,
+		},
+		{
+			MethodName: "Goal",
+			Handler:    _Amuxd_Goal_Handler,
 		},
 		{
 			MethodName: "QueueList",

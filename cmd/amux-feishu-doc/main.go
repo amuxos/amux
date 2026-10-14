@@ -54,6 +54,9 @@ func render(locale i18n.Locale, catalog *i18n.Catalog) ([]byte, error) {
 		}
 		out.WriteString("\n")
 	}
+	fmt.Fprintf(&out, "## %s\n\n%s\n\n`%s`\n\n", choose("Native goals (runtime capability)", "原生目标（runtime 能力）"), choose(
+		"Only supporting runtimes expose goal actions. Use the bare word `goal`; `/goal` is not an alias. Topic mode controls the bound Session; bot singleton mode controls the shared Session. Querying elsewhere does not move automatic output. Creation and replacement accept text objectives; send attachments as follow-up messages.",
+		"只有支持原生目标的 runtime 才展示目标操作。入口为裸词 `goal`，`/goal` 不是同义入口。话题模式控制已绑定的 Session，bot singleton 模式控制共享 Session；在其他位置查询不会移动自动输出。创建和替换接受纯文本目标，附件应另发跟进消息。"), catalog.Format(locale, "session.goal.usage"))
 	return []byte(strings.TrimRight(out.String(), "\n") + "\n"), nil
 }
 

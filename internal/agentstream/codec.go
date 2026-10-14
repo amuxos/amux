@@ -168,6 +168,8 @@ func unmarshalBody(kind Kind, raw json.RawMessage) (Body, error) {
 		target = &SessionMetadataChanged{}
 	case KindCommandsReplaced:
 		target = &CommandsReplaced{}
+	case KindGoalChanged:
+		target = &GoalChanged{}
 	case KindSessionDiagnostic:
 		target = &SessionDiagnostic{}
 	case KindExtensionObserved:
@@ -206,6 +208,8 @@ func unmarshalBody(kind Kind, raw json.RawMessage) (Body, error) {
 	case *SessionMetadataChanged:
 		return *value, nil
 	case *CommandsReplaced:
+		return *value, nil
+	case *GoalChanged:
 		return *value, nil
 	case *SessionDiagnostic:
 		return *value, nil

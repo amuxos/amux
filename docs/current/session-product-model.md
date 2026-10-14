@@ -107,3 +107,60 @@ and [memory](agent-memory-product-model.md) for principal-derived scope.
 - [Topic decisions](../../internal/bridge/inputrouter/router.go), [routing](../../internal/bridge/router.go), [bot singleton](../../internal/bridge/router_botsession.go), [group singleton](../../internal/bridge/router_group_session.go).
 - [Control dispatch](../../internal/bridge/router_control.go), [command policies](../../internal/bridge/command/catalog.go).
 - [TaskRun fields](../../internal/task/types.go), [persistent instance store](../../internal/agentinstance/store.go).
+
+## Native goals
+
+Source implementation; live Feishu end-to-end acceptance is pending.
+
+Only a leading bare `goal` is a formal command; `/goal` is not an alias. The
+commands are `goal <objective>` (create/start), `goal` (query), `goal pause`,
+`goal resume`, `goal clear`, `goal set <objective>` (explicit replacement), and
+`goal budget <positive tokens>`. An unfinished goal rejects implicit replacement.
+No budget is invented. Native state, token usage and runtime seconds remain
+authoritative. Resume preserves native accounting; changing an objective follows
+the provider's accounting semantics. Clearing a goal preserves the conversation.
+
+Capability is discovered on the live provider. Codex-compatible app servers are
+probed with `thread/goal/get`; unsupported methods, disabled features and invalid
+responses fail closed. Other registered structured providers opt in through
+`GoalController` and `NativeGoalTurnProvider`, exported by `pkg/extensions`.
+Claude SDK and Pi currently have no native goal adapter and expose no goal help
+or actions. Agent names alone never establish support. No native `/goal` slash
+menu is registered.
+
+In topic mode, controls resolve the bound Session. Only creation can launch and
+bind an unbound topic through normal admission. In bot singleton mode, the goal
+belongs to the shared bot Session across chats. Output stays pinned to the
+creation destination; querying elsewhere does not relocate it. Replacing the
+goal establishes a new destination and invalidates earlier card buttons.
+Creation/replacement accepts a text objective; send attachments and explicit
+quoted material as separate ordinary follow-ups. Existing native conversation
+history remains available; goal controls do not hydrate Feishu topic history.
+Existing mention, ownership and group-access rules still apply.
+
+Each native continuation needs an enabled durable grant matching its native
+conversation and objective, and a single runtime owner. It receives a fresh
+canonical Turn and ordinary terminal, transport replay and watchdog handling,
+without local-expert authoring privileges. Pending user inputs take priority.
+Only matching persisted destinations authorize Feishu goal output; unrelated
+native turns retain quarantine. Startup notifications wait for owner handover.
+Pause revokes admission before native cancellation; clear also removes grants
+and destinations. Ordinary input preemption preserves the grant and can resume
+an otherwise paused goal after the input queue drains. Explicit interrupts and
+`goal pause` revoke it. Native blocked, usage-limited, budget-limited and complete
+states do not auto-resume. A disconnected owner cannot admit new continuations;
+if quarantine pauses the native goal, use `goal resume` after reconnecting.
+
+Goal observations are sticky session-scoped canonical events and are restored
+at Attach catch-up. State cards include native usage, budget and time, with
+English and Simplified Chinese copy. Mutating card callbacks recheck permissions,
+current Session identity, destination generation and native goal identity;
+stale cards cannot control a replacement Session or goal.
+
+Goal permission requests use the same frozen binding as the turn's replies. An
+accepted ordinary submission cancels a pending goal admission offer atomically;
+ordinary input in progress rejects goal offers without waiting for that input
+to finish. TAIL Attach includes the active canonical turn's start snapshot from
+the atomic read head. Bridge restores only a goal turn matching its persisted
+destination and current binding, authorizing subsequent replies and permission
+requests without replaying earlier output.

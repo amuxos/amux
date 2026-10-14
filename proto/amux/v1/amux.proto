@@ -22,6 +22,7 @@ service Amuxlet {
   rpc Interrupt(InterruptRequest) returns (InterruptResponse);
   rpc Attach(AttachRequest) returns (stream AttachEvent);
   rpc Submit(SubmitRequest) returns (SubmitResponse);
+  rpc Goal(GoalRequest) returns (GoalResponse);
   rpc QueueList(QueueListRequest) returns (QueueListResponse);
   rpc QueueClear(QueueClearRequest) returns (QueueClearResponse);
   rpc QueueCancel(QueueCancelRequest) returns (QueueCancelResponse);
@@ -54,6 +55,7 @@ service Amuxd {
   rpc Interrupt(AmuxdInterruptRequest) returns (InterruptResponse);
   rpc Attach(AmuxdAttachRequest) returns (stream AttachEvent);
   rpc Submit(AmuxdSubmitRequest) returns (SubmitResponse);
+  rpc Goal(AmuxdGoalRequest) returns (GoalResponse);
   rpc QueueList(AmuxdQueueListRequest) returns (QueueListResponse);
   rpc QueueClear(AmuxdQueueClearRequest) returns (QueueClearResponse);
   rpc QueueCancel(AmuxdQueueCancelRequest) returns (QueueCancelResponse);
@@ -247,6 +249,29 @@ message Session {
   // Unknown or empty is intentionally treated as text-only by callers.
   repeated string input_modalities = 29;
   string input_capability_source = 30;
+  // Positively discovered on the live provider; false for unsupported runtimes.
+  bool goal_supported = 31;
+}
+
+message GoalRequest {
+  string name = 1;
+  string action = 2;
+  string objective = 3;
+  optional int64 token_budget = 4;
+  string expected_session_id = 5;
+}
+message AmuxdGoalRequest {
+  string target_id = 1;
+  string name = 2;
+  string action = 3;
+  string objective = 4;
+  optional int64 token_budget = 5;
+  string expected_session_id = 6;
+}
+message GoalResponse {
+  bool supported = 1;
+  // Native GoalState JSON; empty after clear or when there is no objective.
+  bytes goal_json = 2;
 }
 
 message ExecutionIdentity {
@@ -577,6 +602,7 @@ message PruneResponse {
 
 message InterruptRequest {
   string name = 1;
+  bool preserve_goal = 2;
 }
 message InterruptResponse {
   bool ok = 1;
@@ -641,6 +667,9 @@ message AttachEvent {
   bool historical = 27;
   bool caught_up = 28;
   bytes canonical_json = 29;
+  // TAIL catch-up snapshot of the active canonical TurnStarted. This does not
+  // replay an event or advance the cursor; future events retain that Turn ID.
+  bytes active_turn_start_json = 30;
 }
 
 message RespondPermissionRequest {
@@ -1035,6 +1064,7 @@ message AmuxdPruneRequest {
 message AmuxdInterruptRequest {
   string target_id = 1;
   string name = 2;
+  bool preserve_goal = 3;
 }
 message AmuxdAttachRequest {
   string target_id = 1;

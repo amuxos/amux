@@ -38,12 +38,13 @@ func decodeEventScope(raw json.RawMessage) eventScope {
 	return scope
 }
 func (p *Proc) registerHandlers(out chan<- []byte) {
+	p.registerGoalHandlers()
 	if p.discoverSkills {
-		p.client.OnNotification("skills/changed", func(providerjsonrpc.Message) {
+		p.onNotification("skills/changed", func(providerjsonrpc.Message) {
 			p.scheduleSkillRefresh(true)
 		})
 	}
-	p.client.OnNotification("item/agentMessage/delta", func(msg providerjsonrpc.Message) {
+	p.onNotification("item/agentMessage/delta", func(msg providerjsonrpc.Message) {
 		p.deferPendingIdleCompletion()
 		var n struct {
 			Delta    string `json:"delta"`
@@ -78,7 +79,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		default:
 		}
 	})
-	p.client.OnNotification("item/reasoning/textDelta", func(msg providerjsonrpc.Message) {
+	p.onNotification("item/reasoning/textDelta", func(msg providerjsonrpc.Message) {
 		p.deferPendingIdleCompletion()
 		var n struct {
 			Delta    string `json:"delta"`
@@ -96,7 +97,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		p.resetTurnActivity()
 		p.emitTurn(agentstream.ThinkingDelta{Text: n.Delta}, agentstream.ActorAgent, "agent", "thinking_delta", "")
 	})
-	p.client.OnNotification("thread/tokenUsage/updated", func(msg providerjsonrpc.Message) {
+	p.onNotification("thread/tokenUsage/updated", func(msg providerjsonrpc.Message) {
 		p.deferPendingIdleCompletion()
 		var n threadTokenUsageUpdatedNotification
 		if err := json.Unmarshal(msg.Params, &n); err != nil {
@@ -133,7 +134,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		p.usageMu.Unlock()
 		p.emitTurn(agentstream.UsageObserved{Usage: raw}, agentstream.ActorAgent, "agent", "usage", "")
 	})
-	p.client.OnNotification("turn/started", func(msg providerjsonrpc.Message) {
+	p.onNotification("turn/started", func(msg providerjsonrpc.Message) {
 		scope := decodeEventScope(msg.Params)
 		if !p.acceptsThread(scope.ThreadID) {
 			p.deferPendingIdleCompletion()
@@ -144,13 +145,19 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 			return
 		}
 		p.threadMu.Lock()
+		nativeGoalStarted := false
+		if p.turnID == "" && p.pendingTurnStart == nil && !p.isTerminalTurnLocked(turnID) {
+			p.threadMu.Unlock()
+			nativeGoalStarted = p.admitGoalTurn(turnID)
+			p.threadMu.Lock()
+		}
 		fresh, dropped := true, false
 		switch {
 		case p.isTerminalTurnLocked(turnID):
 			dropped = true
 		case p.turnID == turnID:
 			p.lastFailureTurnID = ""
-			fresh = false
+			fresh = nativeGoalStarted
 		case p.turnID != "":
 			p.quarantineUnexpectedTurnLocked(turnID)
 			dropped = true
@@ -174,7 +181,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		// Timeline owns TurnStarted; the native notification only arms provider
 		// correlation and must not create a second lifecycle event.
 	})
-	p.client.OnNotification("turn/completed", func(msg providerjsonrpc.Message) {
+	p.onNotification("turn/completed", func(msg providerjsonrpc.Message) {
 		scope := decodeEventScope(msg.Params)
 		if !p.acceptsActiveTurn(scope.ThreadID, scope.TurnID) {
 			p.notePossibleZombieDeath(scope.TurnID)
@@ -187,7 +194,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		}
 		p.emitTurnDone(hadTool)
 	})
-	p.client.OnNotification("thread/status/changed", func(msg providerjsonrpc.Message) {
+	p.onNotification("thread/status/changed", func(msg providerjsonrpc.Message) {
 		var n struct {
 			Status struct {
 				Type string `json:"type"`
@@ -228,7 +235,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 			return
 		}
 	})
-	p.client.OnNotification("turn/failed", func(msg providerjsonrpc.Message) {
+	p.onNotification("turn/failed", func(msg providerjsonrpc.Message) {
 		scope := decodeEventScope(msg.Params)
 		if !p.acceptsActiveTurn(scope.ThreadID, scope.TurnID) {
 			p.notePossibleZombieDeath(scope.TurnID)
@@ -248,7 +255,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		}
 		p.emitTurnFailure(reason, n.Error.Code)
 	})
-	p.client.OnNotification("error", func(msg providerjsonrpc.Message) {
+	p.onNotification("error", func(msg providerjsonrpc.Message) {
 		scope := decodeEventScope(msg.Params)
 		if !p.acceptsActiveTurn(scope.ThreadID, scope.TurnID) && (scope.ThreadID != "" || scope.TurnID != "") {
 			p.deferPendingIdleCompletion()
@@ -284,7 +291,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		}
 		p.emitProviderError(reason, errorCode)
 	})
-	p.client.OnNotification("item/started", func(msg providerjsonrpc.Message) {
+	p.onNotification("item/started", func(msg providerjsonrpc.Message) {
 		p.deferPendingIdleCompletion()
 		var n itemLifecycleNotification
 		if err := json.Unmarshal(msg.Params, &n); err != nil {
@@ -298,7 +305,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 			p.noteToolStarted(n.Item, progressToolItemTypes[n.Item.Type])
 		}
 	})
-	p.client.OnNotification("item/completed", func(msg providerjsonrpc.Message) {
+	p.onNotification("item/completed", func(msg providerjsonrpc.Message) {
 		p.deferPendingIdleCompletion()
 		var n itemLifecycleNotification
 		if err := json.Unmarshal(msg.Params, &n); err != nil {
@@ -325,7 +332,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		}
 		p.threadMu.Unlock()
 	})
-	p.client.OnNotification("item/commandExecution/outputDelta", func(msg providerjsonrpc.Message) {
+	p.onNotification("item/commandExecution/outputDelta", func(msg providerjsonrpc.Message) {
 		p.deferPendingIdleCompletion()
 		var n struct {
 			Delta    string `json:"delta"`
@@ -342,7 +349,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		p.resetToolProgress()
 		p.emitTool(agentstream.ToolPhaseUpdated, agentstream.Tool{ID: n.ItemID, Name: "command", OutputPreview: truncateOutput(n.Delta)}, "tool_updated")
 	})
-	p.client.OnNotification("item/fileChange/patchUpdated", func(msg providerjsonrpc.Message) {
+	p.onNotification("item/fileChange/patchUpdated", func(msg providerjsonrpc.Message) {
 		p.deferPendingIdleCompletion()
 		var n fileChangePatchUpdatedNotification
 		if err := json.Unmarshal(msg.Params, &n); err != nil {
@@ -355,7 +362,7 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		title, input := summarizeFileChanges(n.Changes)
 		p.emitTool(agentstream.ToolPhaseUpdated, agentstream.Tool{ID: n.ItemID, Name: "file_change", Title: title, Input: input}, "tool_updated")
 	})
-	p.client.OnNotification("item/mcpToolCall/progress", func(msg providerjsonrpc.Message) {
+	p.onNotification("item/mcpToolCall/progress", func(msg providerjsonrpc.Message) {
 		p.deferPendingIdleCompletion()
 		var n struct {
 			ItemID   string `json:"itemId"`
@@ -377,12 +384,12 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 			p.handleApprovalRequest(method, msg)
 		}
 	}
-	p.client.OnRequest(methodCommandExecApproval, approvalHandler(methodCommandExecApproval))
-	p.client.OnRequest(methodFileChangeApproval, approvalHandler(methodFileChangeApproval))
-	p.client.OnRequest(methodApplyPatchApproval, approvalHandler(methodApplyPatchApproval))
-	p.client.OnRequest(methodExecCommandApprovalRoot, approvalHandler(methodExecCommandApprovalRoot))
-	p.client.OnRequest(methodPermissionsApproval, approvalHandler(methodPermissionsApproval))
-	p.client.OnRequest(methodToolRequestUserInput, providerjsonrpc.Handler(p.handleUserInputRequest))
+	p.onRequest(methodCommandExecApproval, approvalHandler(methodCommandExecApproval))
+	p.onRequest(methodFileChangeApproval, approvalHandler(methodFileChangeApproval))
+	p.onRequest(methodApplyPatchApproval, approvalHandler(methodApplyPatchApproval))
+	p.onRequest(methodExecCommandApprovalRoot, approvalHandler(methodExecCommandApprovalRoot))
+	p.onRequest(methodPermissionsApproval, approvalHandler(methodPermissionsApproval))
+	p.onRequest(methodToolRequestUserInput, providerjsonrpc.Handler(p.handleUserInputRequest))
 	p.client.OnUnknownRequest(func(method string, _ int64, params json.RawMessage) {
 		scope := decodeEventScope(params)
 		if !p.acceptsActiveTurn(scope.ThreadID, scope.TurnID) && (scope.ThreadID != "" || scope.TurnID != "") {

@@ -251,6 +251,7 @@ func (db *DB) DeleteSession(id string) error {
 	}
 	defer tx.Rollback()
 	for _, query := range []string{
+		`DELETE FROM session_goal_grants WHERE session_id=?`,
 		`DELETE FROM session_timeline_events WHERE session_id=?`,
 		`DELETE FROM messages WHERE session_id=?`,
 		`DELETE FROM sessions WHERE id=?`,

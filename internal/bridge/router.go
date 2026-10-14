@@ -178,12 +178,15 @@ func (b *Bridge) routeToSessionInChatWithMentionOptions(ctx context.Context, cha
 	log.Debug().Str("session", chat.SessionName).Str("text", routedText).Msg("bridge: routing user input to session")
 
 	switch cmd {
+	case command.CommandGoal:
+		unlock()
+		return b.handleGoalCommand(ctx, chat, msgID, openID, routedText)
 	case command.CommandAmux:
 		unlock()
 		return b.notifyThreadHelpCard(ctx, rootMsgID, renderActiveTopicStatusCard(chat))
 	case command.CommandHelp:
 		unlock()
-		return b.notifyThreadHelpCard(ctx, rootMsgID, renderBoundTopicHelpCard())
+		return b.notifyThreadHelpCard(ctx, rootMsgID, b.boundTopicHelpCard(ctx, chat))
 	case command.CommandSkill:
 		unlock()
 		return b.handleThreadSkillCommand(ctx, chat, msgID, notificationOpenID, routedText)
@@ -280,11 +283,11 @@ func (b *Bridge) routeToSessionInChatWithMentionOptions(ctx context.Context, cha
 		return b.notifyThread(ctx, rootMsgID, boundTopicConflictText(chat))
 	case command.CommandUnsupported:
 		unlock()
-		return b.notifyThreadHelpCard(ctx, rootMsgID, renderBoundTopicHelpCard())
+		return b.notifyThreadHelpCard(ctx, rootMsgID, b.boundTopicHelpCard(ctx, chat))
 	default:
 		if cmd != command.CommandNone {
 			unlock()
-			return b.notifyThreadHelpCard(ctx, rootMsgID, renderBoundTopicHelpCard())
+			return b.notifyThreadHelpCard(ctx, rootMsgID, b.boundTopicHelpCard(ctx, chat))
 		}
 	}
 

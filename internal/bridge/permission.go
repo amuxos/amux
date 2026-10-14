@@ -193,23 +193,23 @@ func (c *permissionGateway) pruneResolvedPermissionsLocked(now time.Time) {
 	}
 }
 
-func (b *Bridge) handlePermissionEvent(ctx context.Context, rootMsgID, targetID, sessionName, openID string, permission *agentui.PermissionEvent) error {
+func (b *Bridge) handlePermissionEvent(ctx context.Context, chat *LarkChat, permission *agentui.PermissionEvent) error {
 	if permission == nil || permission.RequestID == "" {
 		return nil
 	}
 	permissionID := permission.RequestID
 	key, shouldSend := b.beginPermissionRequest(&pendingPermission{
 		PermissionId: permissionID,
-		RootMsgID:    rootMsgID,
-		TargetID:     targetID,
-		SessionName:  sessionName,
-		OpenId:       openID,
+		RootMsgID:    chat.RootMsgID,
+		TargetID:     chat.TargetID,
+		SessionName:  chat.SessionName,
+		OpenId:       chat.OpenId,
 	})
 	if !shouldSend {
 		return nil
 	}
 	payload := permissionPayloadFromEvent(permission)
-	msgID, _, err := b.sendPermissionRequestCard(ctx, rootMsgID, targetID, sessionName, permissionID, payload)
+	msgID, _, err := b.sendPermissionRequestCard(ctx, chat, permissionID, payload)
 	if err != nil {
 		b.forgetPermissionRequest(key)
 		return err
@@ -242,6 +242,9 @@ func (b *Bridge) handleCardAction(ctx context.Context, event *callback.CardActio
 		return cardToast("warning", "空的卡片操作"), nil
 	}
 	if resp, handled, err := b.handleSkillPickerCardAction(ctx, event); handled || err != nil {
+		return resp, err
+	}
+	if resp, handled, err := b.handleGoalCardAction(ctx, event); handled || err != nil {
 		return resp, err
 	}
 	if resp, handled, err := b.handleManagementCardAction(ctx, event); handled || err != nil {

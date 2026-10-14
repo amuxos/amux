@@ -801,6 +801,7 @@ const managementRuntimeDefaultReasoningOption = "__runtime_default_reasoning__"
 // Cards sent by the removed experimental command may still be visible
 // or pending recovery during an upgrade. Keep them on the current /amux surface.
 type managementState struct {
+	GoalSupported                   bool
 	NativeModelsStatus              string
 	NativeModelsTargetRef           string
 	NativeModelsTargetName          string
@@ -909,6 +910,9 @@ func (b *Bridge) managementState() managementState {
 		}
 		for _, target := range targets {
 			for _, session := range target.Sessions {
+				if state.BotSession != nil && target.Id == state.BotSession.TargetID && session.Name == state.BotSession.SessionName {
+					state.GoalSupported = session.GoalSupported
+				}
 				state.Sessions++
 				if strings.EqualFold(session.State, "running") {
 					state.Running++

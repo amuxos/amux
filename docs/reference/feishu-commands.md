@@ -62,3 +62,9 @@ Bot-wide singleton mode uses `/amux` for conversation management and rejects top
 | `/status` | Show the current session status |
 | `/restart` | Restart the current session |
 | `/bind <target/session>` | Bind to another session |
+
+## Native goals (runtime capability)
+
+Only supporting runtimes expose goal actions. Use the bare word `goal`; `/goal` is not an alias. Topic mode controls the bound Session; bot singleton mode controls the shared Session. Querying elsewhere does not move automatic output. Creation and replacement accept text objectives; send attachments as follow-up messages.
+
+`goal <objective> · goal · goal pause|resume|clear · goal set <objective> · goal budget <tokens>`

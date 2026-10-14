@@ -73,6 +73,7 @@ const (
 	KindTurnFinished           Kind = "turn_finished"
 	KindSessionMetadataChanged Kind = "session_metadata_changed"
 	KindCommandsReplaced       Kind = "commands_replaced"
+	KindGoalChanged            Kind = "goal_changed"
 	KindSessionDiagnostic      Kind = "session_diagnostic"
 	KindExtensionObserved      Kind = "extension_observed"
 )
@@ -233,6 +234,9 @@ type Head struct {
 	Cursor   Cursor
 	Metadata *SessionMetadataChanged
 	Commands *CommandsReplaced
+	Goal     *GoalChanged
+	// ActiveTurnStart is captured with the read head, not a replayed event.
+	ActiveTurnStart *Event
 }
 
 type ReadMode string

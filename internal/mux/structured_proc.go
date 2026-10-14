@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/amuxos/amux/internal/agentstream"
+	"github.com/amuxos/amux/internal/session"
 )
 
 type StructuredBrokerProc struct {
@@ -13,6 +14,8 @@ type StructuredBrokerProc struct {
 	metadata              agentstream.ProducerEmission
 	inputModalities       []string
 	inputCapabilitySource string
+	goalSupported         bool
+	goalAdmitter          session.GoalTurnAdmitter
 }
 
 type structuredCapabilitiesFrame struct {
@@ -20,6 +23,7 @@ type structuredCapabilitiesFrame struct {
 	Source                 string   `json:"source"`
 	TurnCorrelationVersion int      `json:"turn_correlation_version,omitempty"`
 	TurnReplayVersion      int      `json:"turn_replay_version,omitempty"`
+	GoalSupported          bool     `json:"goal_supported,omitempty"`
 }
 
 func (p *StructuredBrokerProc) PID() int { return p.pid }
@@ -131,6 +135,9 @@ func (p *StructuredBrokerProc) SetEventSink(fn func(agentstream.ProducerEmission
 
 func (p *StructuredBrokerProc) emitEvent(ev agentstream.ProducerEmission) {
 	p.eventMu.Lock()
+	if goal, ok := ev.Session.(agentstream.GoalChanged); ok {
+		p.goalSupported = goal.Supported
+	}
 	if _, ok := ev.Session.(agentstream.SessionMetadataChanged); ok {
 		p.metadata = ev
 	}
@@ -197,6 +204,7 @@ func (p *StructuredBrokerProc) readLoop() {
 			p.inputCapabilitySource = caps.Source
 			p.turnCorrelationVersion = caps.TurnCorrelationVersion
 			p.turnReplayVersion = caps.TurnReplayVersion
+			p.goalSupported = caps.GoalSupported
 			p.eventMu.Unlock()
 			p.capabilitiesReadyOnce.Do(func() {
 				if p.capabilitiesReady != nil {
@@ -212,6 +220,13 @@ func (p *StructuredBrokerProc) readLoop() {
 			if err := p.emitCorrelated(emission); err != nil {
 				_ = p.conn.Close()
 				return
+			}
+		case structuredFrameGoalOffer:
+			go p.handleGoalOffer(payload)
+		case structuredFrameGoalRejected:
+			var result brokerGoalAdmission
+			if json.Unmarshal(payload, &result) == nil {
+				p.rejectGoalTurn(result.TurnToken, result.Error)
 			}
 		case structuredFrameAck:
 			var ackErr error

@@ -74,6 +74,59 @@ func TestClientNotification(t *testing.T) {
 	}
 }
 
+func TestClientZeroIDRequestAndNotification(t *testing.T) {
+	var output bytes.Buffer
+	c := NewClient(strings.NewReader("{\"id\":0,\"method\":\"approve\",\"params\":{}}\n{\"method\":\"approve\",\"params\":{}}\n"), &output)
+	requests, notifications := 0, 0
+	c.OnRequest("approve", func(msg Message) {
+		requests++
+		if err := c.Respond(msg.ID, map[string]string{"decision": "decline"}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	c.OnNotification("approve", func(Message) { notifications++ })
+	if err := c.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if requests != 1 || notifications != 1 {
+		t.Fatalf("requests=%d notifications=%d, want one of each", requests, notifications)
+	}
+	var response struct {
+		ID     *int64 `json:"id"`
+		Result struct {
+			Decision string `json:"decision"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.ID == nil || *response.ID != 0 || response.Result.Decision != "decline" {
+		t.Fatalf("zero-id response lost its identity: %s", output.Bytes())
+	}
+}
+
+func TestClientUnknownZeroIDRequestRepliesError(t *testing.T) {
+	var output bytes.Buffer
+	c := NewClient(strings.NewReader("{\"id\":0,\"method\":\"unknown\",\"params\":{}}\n"), &output)
+	hooked := false
+	c.OnUnknownRequest(func(method string, id int64, _ json.RawMessage) {
+		hooked = method == "unknown" && id == 0
+	})
+	if err := c.Run(); err != nil {
+		t.Fatal(err)
+	}
+	var response struct {
+		ID    *int64 `json:"id"`
+		Error *Error `json:"error"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &response); err != nil {
+		t.Fatal(err)
+	}
+	if !hooked || response.ID == nil || *response.ID != 0 || response.Error == nil || response.Error.Code != -32601 {
+		t.Fatalf("unknown zero-id request was not rejected: hooked=%v response=%s", hooked, output.Bytes())
+	}
+}
+
 func TestClientCallContextCancel(t *testing.T) {
 	r := strings.NewReader("")
 	c := NewClient(r, io.Discard)

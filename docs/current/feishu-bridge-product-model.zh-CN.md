@@ -293,3 +293,49 @@ Session。改变模式或负责人新开会话会退役旧默认关联，已接�
 Codex 设置编辑器从实际执行 Runtime 刷新原生模型选项，与可选模型服务独立。
 刷新按钮可重试获取；未登录或不可用时不展示静态 GPT 兜底列表。刷新失败保留
 已保存的模型和推理档位。
+
+## 原生目标
+
+源码已实现；真实飞书端到端验收待完成。
+
+只把消息开头的裸词 `goal` 识别为正式命令，`/goal` 不是同义入口。
+命令包括 `goal <目标>`（创建并启动）、`goal`（查询）、`goal pause`、
+`goal resume`、`goal clear`、`goal set <目标>`（显式替换）和
+`goal budget <正整数 tokens>`。未完成的目标不能被隐式覆盖，不自动设置预算。
+状态、token 用量和执行时间以原生 runtime 为准。恢复保留原生累计用量；
+更改目标描述时遵循 provider 的计量语义。清除目标保留会话历史。
+
+能力根据实际运行的 provider 发现。Codex 兼容 app-server 使用
+`thread/goal/get` 探测；不支持的方法、关闭的 feature 和无效响应均不开放功能。
+其他注册的 structured provider 通过 `pkg/extensions` 导出的 `GoalController`
+及 `NativeGoalTurnProvider` 接入。Claude SDK 和 Pi 目前没有原生目标 adapter，
+不展示目标帮助或操作。不能根据 Agent 名称判断能力，不注册原生 `/goal` 斜杠菜单。
+
+话题模式的控制操作作用于已绑定的 Session；只有创建目标可以通过正常准入流程
+启动并绑定新话题。bot singleton 模式的目标属于跨聊天共享的 bot Session。
+输出固定在创建位置，在其他位置查询不会移动输出。显式替换目标会建立新的输出
+位置，并使旧卡片按钮失效。创建和替换接受纯文本目标；附件及明确引用的材料应
+通过普通跟进消息补充。原生会话历史仍可用，目标控制不会注入飞书话题历史。
+原有 mention、负责人和群访问规则继续生效。
+
+每次原生自动续跑都必须匹配持久化的有效目标授权、原生会话及目标描述，并由唯一
+runtime owner 接纳。每次续跑分配新的 canonical Turn，使用正常的终止事件、
+传输重放和 watchdog，不继承本地专家编写权限。待处理的用户输入优先。
+只有匹配持久化输出位置的目标 turn 可以在飞书展示，其他异常 turn 保留隔离。
+启动期间的通知等待 owner 接管。暂停先撤销续跑授权，再取消原生执行；清除同时
+删除授权和输出位置。普通输入抢占保留目标授权，在输入队列结束后可以恢复因此
+暂停的目标；显式中断和 `goal pause` 撤销授权。原生 blocked、usageLimited、
+budgetLimited 和 complete 状态不会被自动恢复。owner 断开时不能接纳新的续跑；
+如果隔离导致原生目标暂停，重连后使用 `goal resume`。
+
+目标观察使用 session 级 canonical 事件及 sticky 快照，Attach 追平时恢复。
+状态卡展示原生用量、预算和时间，覆盖英文与简体中文。卡片修改操作重新检查
+权限、当前 Session 身份、输出记录代次和原生目标身份，旧卡片不能控制替换后的
+Session 或目标。
+
+Goal 权限请求沿用与该 Turn 回复相同的冻结绑定。审批按钮使用 Card 2.0 的 `column_set`
+和 callback behavior，超长请求压缩后仍保留合法按钮，不生成已废弃的 `action` 容器。
+已接收的普通输入会原子取消待处理的
+goal 接续准入；普通输入执行期间收到的 goal 准入直接拒绝，不等待该输入结束。TAIL
+Attach 在原子读取边界携带当前 canonical Turn 的开始快照。Bridge 仅恢复与持久化
+目的地和当前绑定匹配的 goal Turn，授权其后续回复与权限请求，不重发之前的输出。

@@ -56,12 +56,46 @@ func debugDropParse(line string, err error) {
 }
 
 type Message struct {
-	JSONRPC string          `json:"jsonrpc,omitempty"`
-	ID      int64           `json:"id,omitempty"`
-	Method  string          `json:"method,omitempty"`
-	Params  json.RawMessage `json:"params,omitempty"`
-	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *Error          `json:"error,omitempty"`
+	Sequence  uint64 `json:"-"`
+	idPresent bool
+	JSONRPC   string          `json:"jsonrpc,omitempty"`
+	ID        int64           `json:"id,omitempty"`
+	Method    string          `json:"method,omitempty"`
+	Params    json.RawMessage `json:"params,omitempty"`
+	Result    json.RawMessage `json:"result,omitempty"`
+	Error     *Error          `json:"error,omitempty"`
+}
+
+// Zero is a valid JSON-RPC request ID. Preserve field presence so the first
+// provider approval request is distinct from a notification, and responses
+// retain its ID on the wire.
+func (m *Message) UnmarshalJSON(data []byte) error {
+	type wireMessage Message
+	wire := struct {
+		*wireMessage
+		ID *int64 `json:"id"`
+	}{wireMessage: (*wireMessage)(m)}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	m.idPresent = wire.ID != nil
+	m.ID = 0
+	if wire.ID != nil {
+		m.ID = *wire.ID
+	}
+	return nil
+}
+
+func (m Message) MarshalJSON() ([]byte, error) {
+	type wireMessage Message
+	wire := struct {
+		*wireMessage
+		ID *int64 `json:"id,omitempty"`
+	}{wireMessage: (*wireMessage)(&m)}
+	if m.idPresent || m.ID != 0 {
+		wire.ID = &m.ID
+	}
+	return json.Marshal(wire)
 }
 
 type Error struct {
@@ -82,8 +116,9 @@ type Client struct {
 	r io.Reader
 	w io.Writer
 
-	writeMu sync.Mutex
-	nextID  atomic.Int64
+	writeMu      sync.Mutex
+	nextID       atomic.Int64
+	readSequence uint64
 
 	pendingMu sync.Mutex
 	pending   map[int64]chan Message
@@ -145,6 +180,8 @@ func (c *Client) Run() error {
 			debugDropParse(scanner.Text(), err)
 			continue
 		}
+		c.readSequence++
+		msg.Sequence = c.readSequence
 		c.dispatch(msg)
 	}
 	if err := scanner.Err(); err != nil {
@@ -188,15 +225,16 @@ func (c *Client) Notify(method string, params any) error {
 }
 
 func (c *Client) Respond(id int64, result any) error {
-	return c.write(Message{JSONRPC: "2.0", ID: id, Result: mustRaw(result)})
+	return c.write(Message{JSONRPC: "2.0", ID: id, idPresent: true, Result: mustRaw(result)})
 }
 
 func (c *Client) RespondError(id int64, code int, message string) error {
-	return c.write(Message{JSONRPC: "2.0", ID: id, Error: &Error{Code: code, Message: message}})
+	return c.write(Message{JSONRPC: "2.0", ID: id, idPresent: true, Error: &Error{Code: code, Message: message}})
 }
 
 func (c *Client) dispatch(msg Message) {
-	if msg.ID != 0 && msg.Method == "" {
+	hasID := msg.idPresent || msg.ID != 0
+	if hasID && msg.Method == "" {
 		c.pendingMu.Lock()
 		ch := c.pending[msg.ID]
 		delete(c.pending, msg.ID)
@@ -214,7 +252,7 @@ func (c *Client) dispatch(msg Message) {
 
 	c.notifyMu.RLock()
 	var h Handler
-	if msg.ID != 0 {
+	if hasID {
 		h = c.request[msg.Method]
 	} else {
 		h = c.notify[msg.Method]
@@ -229,11 +267,11 @@ func (c *Client) dispatch(msg Message) {
 	// response. For a notification there is no id
 	// to reply to; just log.
 	kind := "notification"
-	if msg.ID != 0 {
+	if hasID {
 		kind = "server-request"
 	}
 	debugDrop(kind, msg.Method, msg.ID, msg.Params)
-	if msg.ID != 0 {
+	if hasID {
 		c.notifyMu.RLock()
 		fn := c.onUnknownRequest
 		c.notifyMu.RUnlock()

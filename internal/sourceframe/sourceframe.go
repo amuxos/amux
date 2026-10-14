@@ -11,6 +11,7 @@ const (
 	SourceDesktop = "desktop"
 	SourceLark    = "lark"
 	SourceSystem  = "system"
+	SourceGoal    = "goal"
 )
 
 var (
@@ -25,6 +26,9 @@ type Classification struct {
 }
 
 func FormatInput(source, text string) []byte {
+	if source == SourceGoal {
+		return []byte("\r\n" + text + "\r\n")
+	}
 	return []byte("\r\n" + label(source) + text + "\r\n")
 }
 

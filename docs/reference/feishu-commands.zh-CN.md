@@ -62,3 +62,9 @@
 | `/status` | 查看当前 Session 状态 |
 | `/restart` | 重新启动当前 Session |
 | `/bind <target/session>` | 改为接入其他 Session |
+
+## 原生目标（runtime 能力）
+
+只有支持原生目标的 runtime 才展示目标操作。入口为裸词 `goal`，`/goal` 不是同义入口。话题模式控制已绑定的 Session，bot singleton 模式控制共享 Session；在其他位置查询不会移动自动输出。创建和替换接受纯文本目标，附件应另发跟进消息。
+
+`goal <目标> · goal · goal pause|resume|clear · goal set <目标> · goal budget <tokens>`

@@ -2518,5 +2518,107 @@
   },
   "management.watch.group_saved": {
     "other": "Watch settings saved for this group"
+  },
+  "session.goal.title": {
+    "other": "Goal"
+  },
+  "session.goal.scope": {
+    "other": "Session"
+  },
+  "session.goal.shared": {
+    "other": "This goal belongs to the bot’s shared session across chats."
+  },
+  "session.goal.empty": {
+    "other": "No goal is set. Send goal <objective> to start one."
+  },
+  "session.goal.objective": {
+    "other": "Objective"
+  },
+  "session.goal.status": {
+    "other": "Status"
+  },
+  "session.goal.tokens": {
+    "other": "Tokens used"
+  },
+  "session.goal.budget": {
+    "other": "Token budget"
+  },
+  "session.goal.time": {
+    "other": "Running time"
+  },
+  "session.goal.seconds": {
+    "other": "%d seconds"
+  },
+  "session.goal.no_budget": {
+    "other": "Not set"
+  },
+  "session.goal.status.active": {
+    "other": "Active"
+  },
+  "session.goal.status.paused": {
+    "other": "Paused"
+  },
+  "session.goal.status.blocked": {
+    "other": "Blocked"
+  },
+  "session.goal.status.usageLimited": {
+    "other": "Usage limited"
+  },
+  "session.goal.status.budgetLimited": {
+    "other": "Budget reached"
+  },
+  "session.goal.status.complete": {
+    "other": "Complete"
+  },
+  "session.goal.button.pause": {
+    "other": "Pause"
+  },
+  "session.goal.button.resume": {
+    "other": "Resume"
+  },
+  "session.goal.button.clear": {
+    "other": "Clear goal"
+  },
+  "session.goal.updated": {
+    "other": "Goal updated."
+  },
+  "session.goal.usage": {
+    "other": "goal <objective> · goal · goal pause|resume|clear · goal set <objective> · goal budget <tokens>"
+  },
+  "session.goal.no_binding": {
+    "other": "No session is bound here. Send goal <objective> to create a session and start a goal."
+  },
+  "session.goal.unsupported": {
+    "other": "This runtime does not support native goals."
+  },
+  "session.goal.denied": {
+    "other": "You do not have permission to control this session’s goal."
+  },
+  "session.goal.stale": {
+    "other": "This goal or session has changed. Send goal to refresh its state."
+  },
+  "session.goal.exists": {
+    "other": "An unfinished goal exists. Use goal set <objective> to replace it."
+  },
+  "session.goal.failed": {
+    "other": "Goal control failed: %s"
+  },
+  "session.goal.error.goal_exists": {
+    "other": "An unfinished goal exists. Use goal set <objective> to replace it."
+  },
+  "session.goal.error.goal_missing": {
+    "other": "No goal is set."
+  },
+  "session.goal.error.goal_complete": {
+    "other": "This goal is complete. Create a new goal to continue working."
+  },
+  "session.goal.error.goal_objective_invalid": {
+    "other": "The objective must contain 1 to 4,000 characters."
+  },
+  "session.goal.error.goal_budget_invalid": {
+    "other": "The token budget must be a positive integer."
+  },
+  "session.goal.text_only": {
+    "other": "Use a text-only goal objective. Send attachments and quoted material as separate follow-up messages."
   }
 }

@@ -116,7 +116,7 @@ func (b *Bridge) enqueueCoalescedInputForMessage(chat *LarkChat, input, messageI
 	go func() {
 		interruptCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_, err := b.hub.Route(interruptCtx, chat.TargetID, "Interrupt", &pb.InterruptRequest{Name: chat.SessionName})
+		_, err := b.hub.Route(interruptCtx, chat.TargetID, "Interrupt", &pb.InterruptRequest{Name: chat.SessionName, PreserveGoal: true})
 		if err != nil {
 			log.Warn().Err(err).Str("session", chat.SessionName).Msg("bridge: immediate coalesced turn interrupt failed")
 		}

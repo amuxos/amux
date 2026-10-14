@@ -196,12 +196,28 @@ func environmentValue(env []string, name string) string {
 	return ""
 }
 func (p *Proc) sendTurnInput(input []map[string]any) error {
+	p.goalControlMu.Lock()
+	defer p.goalControlMu.Unlock()
 	tid := p.snapshotThreadID()
 	if tid == "" {
 		return fmt.Errorf("%s: thread not started", p.provider())
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), turnStartTimeout)
 	defer cancel()
+	// Stop the native scheduler before reserving a client turn/start attempt.
+	// Otherwise an automatic turn can be mistaken for this submission's
+	// provisional turn. Session retains the grant and resumes after input.
+	p.threadMu.Lock()
+	goalActive := p.goalSupported && p.goal != nil && p.goal.Status == "active"
+	p.threadMu.Unlock()
+	if goalActive {
+		if _, err := p.callGoal(ctx, "thread/goal/set", map[string]any{"threadId": tid, "status": "paused"}); err != nil {
+			return err
+		}
+		if err := p.Interrupt(); err != nil {
+			return err
+		}
+	}
 	attempt := p.beginTurnStartAttempt("turn/start", false)
 	p.usageMu.Lock()
 	p.turnStartAt = time.Now()

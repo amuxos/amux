@@ -100,10 +100,16 @@ type Session struct {
 	procGeneration             uint64
 	intentionalCloseGeneration uint64
 
-	queueMu      sync.Mutex
-	queueBusy    bool
-	queueNextID  int64
-	queuePending []*queuedInput
+	queueMu          sync.Mutex
+	queueBusy        bool
+	queueGoal        bool
+	queueNextID      int64
+	queuePending     []*queuedInput
+	queueIdle        chan struct{}
+	goalMu           sync.Mutex
+	goalControlMu    sync.Mutex
+	goalGrant        *GoalGrant
+	persistGoalGrant func(*GoalGrant) error
 
 	tapMu sync.Mutex
 	tap   func(agentstream.Event) bool
@@ -444,6 +450,24 @@ func ValidateIdleTimeoutSeconds(seconds int) error {
 // Interrupt requests cancellation of the current agent turn while keeping the
 // session alive for future input.
 func (s *Session) Interrupt() error {
+	if s.GoalSupported() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		current, err := s.Goal(ctx, GoalRequest{Action: "get"})
+		if err != nil {
+			return err
+		}
+		if current != nil && !current.IsTerminal() {
+			_, err = s.Goal(ctx, GoalRequest{Action: "pause"})
+			return err
+		}
+	}
+	return s.InterruptForInput()
+}
+
+// InterruptForInput preserves an explicitly authorized goal across ordinary
+// input preemption. Explicit user interrupts go through Interrupt instead.
+func (s *Session) InterruptForInput() error {
 	s.runtimeMu.RLock()
 	proc := s.proc
 	s.runtimeMu.RUnlock()
@@ -608,6 +632,8 @@ func (s *Session) SubmitLifecycleAsync(source, displayText, control string, acti
 	}
 	if !s.queueBusy {
 		s.queueBusy = true
+		s.queueGoal = false
+		s.queueIdle = make(chan struct{})
 		s.queueMu.Unlock()
 		go s.runQueuedInput(item)
 		return item.QueueItem, nil
@@ -711,6 +737,8 @@ func (s *Session) enqueuePreemptInputWithAuthorization(source string, input User
 	}
 	if !s.queueBusy {
 		s.queueBusy = true
+		s.queueGoal = false
+		s.queueIdle = make(chan struct{})
 		s.queueMu.Unlock()
 		go s.runQueuedInput(item)
 		return item, nil
@@ -725,7 +753,7 @@ func (s *Session) enqueuePreemptInputWithAuthorization(source string, input User
 	s.queuePending[pos] = item
 	s.queueMu.Unlock()
 	if interrupt {
-		if err := s.Interrupt(); err != nil {
+		if err := s.InterruptForInput(); err != nil {
 			s.cancelPendingItem(item.ID, err)
 			return nil, err
 		}
@@ -847,6 +875,18 @@ func (s *Session) SetProc(p Proc) {
 	}
 	s.runtimeMu.Unlock()
 	p.SetEventSink(s.recordProducerEmission)
+	if native, ok := p.(NativeGoalTurnProvider); ok {
+		generation := s.ProcessGeneration()
+		native.SetGoalTurnAdmitter(func(request GoalTurnRequest) (GoalTurnBinding, error) {
+			if s.ProcessGeneration() != generation {
+				return GoalTurnBinding{}, ErrProcessUnavailable
+			}
+			return s.admitGoalTurn(request)
+		})
+	}
+	if ready, ok := p.(GoalTurnReadyProvider); ok && s.AgentTimeline().ActiveTurn() == nil {
+		ready.EnableGoalTurns()
+	}
 }
 
 // ProcessGeneration identifies the currently installed process owner. Process
@@ -910,6 +950,8 @@ func (s *Session) enqueueInputWithControlAndParts(source, text, control string, 
 		return item
 	}
 	s.queueBusy = true
+	s.queueGoal = false
+	s.queueIdle = make(chan struct{})
 	go s.runQueuedInput(item)
 	return item
 }
@@ -932,15 +974,27 @@ func (s *Session) runQueuedInput(item *queuedInput) {
 	if done != nil {
 		<-done
 	}
+	s.advanceInputQueue()
+	if item.Control == "" && item.lifecycle == nil {
+		go s.resumeGoalAfterInput()
+	}
+}
 
+func (s *Session) advanceInputQueue() {
 	s.queueMu.Lock()
 	if len(s.queuePending) == 0 {
 		s.queueBusy = false
+		s.queueGoal = false
+		if s.queueIdle != nil {
+			close(s.queueIdle)
+			s.queueIdle = nil
+		}
 		s.queueMu.Unlock()
 		return
 	}
 	next := s.queuePending[0]
 	s.queuePending = s.queuePending[1:]
+	s.queueGoal = false
 	s.queueMu.Unlock()
 
 	go s.runQueuedInput(next)

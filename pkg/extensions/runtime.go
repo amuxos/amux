@@ -42,6 +42,17 @@ type InputPart = session.InputPart
 type ImageInput = session.ImageInput
 type SessionMetadataChanged = agentstream.SessionMetadataChanged
 type CommandsReplaced = agentstream.CommandsReplaced
+type GoalState = agentstream.GoalState
+type GoalChanged = agentstream.GoalChanged
+type GoalRequest = session.GoalRequest
+type GoalController = session.GoalController
+type GoalTurnRequest = session.GoalTurnRequest
+type GoalTurnBinding = session.GoalTurnBinding
+type GoalTurnAdmitter = session.GoalTurnAdmitter
+type NativeGoalTurnProvider = session.NativeGoalTurnProvider
+type GoalTurnReadyProvider = session.GoalTurnReadyProvider
+
+var ErrGoalUnsupported = session.ErrGoalUnsupported
 
 const (
 	ProtocolACP            = adapter.ProtocolACP

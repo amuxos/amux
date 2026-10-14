@@ -1086,7 +1086,7 @@ func (s *hubServer) Interrupt(ctx context.Context, req *pb.AmuxdInterruptRequest
 	if err := s.authorizeSessionMutation(ctx, req.TargetId, req.Name); err != nil {
 		return nil, err
 	}
-	return routeUnary[pb.InterruptRequest, pb.InterruptResponse](s, ctx, req.TargetId, "Interrupt", &pb.InterruptRequest{Name: req.Name})
+	return routeUnary[pb.InterruptRequest, pb.InterruptResponse](s, ctx, req.TargetId, "Interrupt", &pb.InterruptRequest{Name: req.Name, PreserveGoal: req.PreserveGoal})
 }
 
 func (s *hubServer) Submit(ctx context.Context, req *pb.AmuxdSubmitRequest) (*pb.SubmitResponse, error) {

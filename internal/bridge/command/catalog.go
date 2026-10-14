@@ -41,6 +41,7 @@ const (
 	CommandStop             Command = "stop"
 	CommandCompact          Command = "compact"
 	CommandClear            Command = "clear"
+	CommandGoal             Command = "goal"
 	CommandQueue            Command = "queue"
 	CommandQueueClear       Command = "queue_clear"
 	CommandQueueCancel      Command = "queue_cancel"
@@ -69,6 +70,8 @@ const (
 func (c Command) SingletonDisposition() SingletonDisposition {
 	switch c {
 	case CommandStatus, CommandInterrupt, CommandRestart, CommandCompact, CommandClear:
+		return SingletonControl
+	case CommandGoal:
 		return SingletonControl
 	case CommandSkill:
 		return SingletonSkill
@@ -358,6 +361,9 @@ func Resolve(scope Scope, text string) Command {
 // Classify returns the canonical command accepted in a routing scope. It owns
 // command vocabulary only; authorization and execution remain Bridge concerns.
 func Classify(scope Scope, text string) Command {
+	if _, recognized, _ := ParseGoal(text); recognized {
+		return CommandGoal
+	}
 	if command := Resolve(scope, text); command != CommandNone {
 		return command
 	}

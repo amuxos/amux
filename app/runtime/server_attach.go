@@ -62,11 +62,28 @@ func attachTimeline(sess *session.Session, req *pb.AttachRequest, stream pb.Amux
 		})
 	}
 	sendCaughtUp := func() error {
+		var activeTurnStart []byte
+		if mode == agentstream.ReadTail && head.ActiveTurnStart != nil {
+			activeTurnStart, err = agentstream.MarshalEvent(*head.ActiveTurnStart)
+			if err != nil {
+				return status.Error(codes.Internal, err.Error())
+			}
+		}
+		if head.Goal != nil {
+			encoded, err := json.Marshal(head.Goal)
+			if err != nil {
+				return err
+			}
+			if err := stream.Send(&pb.AttachEvent{Kind: pb.AttachEvent_STRUCTURED, EventType: "goal_changed", StructuredJson: encoded, EffectiveModel: snap.EffectiveModel}); err != nil {
+				return err
+			}
+		}
 		return stream.Send(&pb.AttachEvent{
-			Kind:           pb.AttachEvent_HEARTBEAT,
-			Cursor:         headCursor,
-			CaughtUp:       true,
-			EffectiveModel: snap.EffectiveModel,
+			Kind:                pb.AttachEvent_HEARTBEAT,
+			Cursor:              headCursor,
+			CaughtUp:            true,
+			EffectiveModel:      snap.EffectiveModel,
+			ActiveTurnStartJson: activeTurnStart,
 		})
 	}
 	caughtUp := mode == agentstream.ReadTail || after.Seq >= head.Cursor.Seq
