@@ -179,9 +179,9 @@ Parent 摘要保留约三十秒的刷新节奏。
 
 `/compact`、`/clear` 和原生 `/skill` 选择器当前要求 Codex 兼容 Session。
 compact/clear 提交排队控制；interrupt 路由到当前 Session，不代表取消全部关联 Task。
-[Session 模型](session-product-model.zh-CN.md)定义普通追问的抢占与文本合并。
-相关输入路径见 `internal/bridge/` 下的 `router_control.go`、`router_submit.go`、
-`coalesce.go` 和 `skill_picker.go`。
+[Session 模型](session-product-model.zh-CN.md)定义普通追问何时注入当前 Turn、何时排队，
+以及文本合并。相关输入路径见 `internal/bridge/` 下的 `router_control.go`、
+`router_submit.go`、`coalesce.go`、`steer_target.go` 和 `skill_picker.go`。
 
 文档评论接入单独启用。在读取文档或启动执行前，要求真实提及机器人、已确认负责人
 以及负责人访问权限。群协作不会把该能力授予其他成员。绑定按机器人、文档和根评论

@@ -922,3 +922,38 @@ func TestBindingReplyCardBackendRoutesSingletonCardKitToLatestTarget(t *testing.
 		})
 	}
 }
+
+// Regression: the queue line must reach a card that already shows activity.
+// Existing CardKit cards only ever replace the activity content element and
+// skip unchanged JSON, so a queue line rendered outside that element (or a
+// queue-only change) never reached Feishu.
+func TestCardKitQueueLineReachesExistingActivityCard(t *testing.T) {
+	api := &fakeCardKitReplyAPI{cardID: "card-q"}
+	backend := &bindingReplyCardBackend{
+		cardKit:  api,
+		sendCard: func(context.Context, string, string) (string, error) { return "message-q", nil },
+	}
+	handle, err := backend.Create(context.Background(), "回答中")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	view := &agentui.ActivityView{Status: "running", CurrentStep: "sleep 50"}
+	if err := backend.UpdateActivity(context.Background(), handle, renderTurnActivity(toolActivityCardMeta{Status: "running", Activity: view})); err != nil {
+		t.Fatalf("first activity: %v", err)
+	}
+	if err := backend.UpdateActivity(context.Background(), handle, renderTurnActivity(toolActivityCardMeta{Status: "running", Activity: view, QueuedInputs: 2})); err != nil {
+		t.Fatalf("queued activity: %v", err)
+	}
+	if len(api.replaces) != 1 {
+		t.Fatalf("replaces = %d, want the queue change to replace the activity element", len(api.replaces))
+	}
+	if got := api.replaces[0].Element; !strings.Contains(got, "queue_notice") || !strings.Contains(got, "已排队 2 条消息") {
+		t.Fatalf("replaced activity lacks queue line: %s", got)
+	}
+	if err := backend.UpdateActivity(context.Background(), handle, renderTurnActivity(toolActivityCardMeta{Status: "done", Activity: &agentui.ActivityView{Status: "done"}, QueuedInputs: 2})); err != nil {
+		t.Fatalf("done activity: %v", err)
+	}
+	if got := api.replaces[len(api.replaces)-1].Element; strings.Contains(got, "queue_notice") {
+		t.Fatalf("finished activity still shows queue line: %s", got)
+	}
+}

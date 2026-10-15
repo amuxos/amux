@@ -714,6 +714,7 @@ func (p *Proc) startOrResumeThread(ctx context.Context, opts StartOptions) (prov
 	if err := p.runtimeThreadParams(ctx, opts, params); err != nil {
 		return providerjsonrpc.Message{}, err
 	}
+	p.sessionInstructionThreadParams(ctx, opts, params)
 	if resumeID := strings.TrimSpace(opts.ResumeSessionID); resumeID != "" {
 		params["threadId"] = resumeID
 		if model := strings.TrimSpace(opts.ResumeModel); model != "" {
@@ -1150,6 +1151,7 @@ func (p *Proc) clearThread() error {
 	if err := p.runtimeThreadParams(ctx, p.memoryOptions, params); err != nil {
 		return err
 	}
+	p.sessionInstructionThreadParams(ctx, p.memoryOptions, params)
 	resp, err := p.client.Call(ctx, "thread/start", params)
 	if err != nil {
 		p.emitTurnFailure(fmt.Sprintf("thread/start for clear: %v", err), "")

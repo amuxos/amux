@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -155,7 +156,7 @@ func feishuStreamTurnKey(turn agentui.TurnEvent) string {
 
 func isInputStartedTurnSource(source agentui.Source) bool {
 	switch source {
-	case agentui.SourceFeishu, agentui.SourceCLI, agentui.SourceDesktop, agentui.SourceScheduler:
+	case agentui.SourceFeishu, agentui.SourceCLI, agentui.SourceDesktop, agentui.SourceScheduler, agentui.SourceSubtask:
 		return true
 	default:
 		return false
@@ -451,6 +452,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			// that newer stream.
 			if ownsPresentation {
 				b.setTurnActive(rootMsgID, false)
+				b.forgetTurns(rootMsgID)
 			}
 		}()
 
@@ -507,6 +509,8 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 		var activityViewMu sync.RWMutex
 		var currentActivity *agentui.ActivityView
 		var statusRefresh turnStatusRefreshPolicy
+		// Immediate-feedback placeholder state (see turnPlaceholder).
+		placeholder := &turnPlaceholder{}
 		setActivityView := func(view *agentui.ActivityView) {
 			activityViewMu.Lock()
 			currentActivity = view
@@ -517,14 +521,60 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			defer activityViewMu.RUnlock()
 			return currentActivity
 		}
+		var subtaskReportTurn atomic.Bool
+		// Multi-steer final answer: completed assistant messages of the running
+		// turn and the message index at which the first steer was accepted.
+		var turnMsgMu sync.Mutex
+		var turnMessages []string
+		turnSteerStart := -1
+		turnMsgID := ""
+		resetTurnMessages := func(turnID string) {
+			turnMsgMu.Lock()
+			turnMessages, turnSteerStart, turnMsgID = nil, -1, turnID
+			turnMsgMu.Unlock()
+		}
+		recordTurnMessage := func(text string) {
+			if strings.TrimSpace(text) == "" {
+				return
+			}
+			turnMsgMu.Lock()
+			turnMessages = append(turnMessages, text)
+			turnMsgMu.Unlock()
+		}
+		markTurnSteered := func(turnID string) {
+			turnMsgMu.Lock()
+			defer turnMsgMu.Unlock()
+			if turnSteerStart >= 0 || (turnID != "" && turnMsgID != "" && turnID != turnMsgID) {
+				return
+			}
+			turnSteerStart = len(turnMessages)
+		}
+		steeredMessagesSince := func() ([]string, bool) {
+			turnMsgMu.Lock()
+			defer turnMsgMu.Unlock()
+			if turnSteerStart < 0 {
+				return nil, false
+			}
+			return append([]string(nil), turnMessages[turnSteerStart:]...), true
+		}
+		steeredFallbackAnswer := func(last string) string {
+			if since, ok := steeredMessagesSince(); ok {
+				return mergeSteeredFinalAnswer(since, last)
+			}
+			return last
+		}
+		b.registerSteerObserver(rootMsgID, token, markTurnSteered)
+		defer b.unregisterSteerObserver(rootMsgID, token)
 		activityMeta := func() toolActivityCardMeta {
 			meta := turn.Meta()
+			meta.SubtaskReport = subtaskReportTurn.Load()
 			meta.AgentProfile = streamChat.AgentProfile
 			meta.AgentType = streamChat.AgentType
 			meta.EffectiveModel = streamChat.EffectiveModel
 			meta.Activity = getActivityView()
 			meta.Subtasks = activity.Subtasks()
 			meta.ThinkingProcess = thinkingProcess()
+			meta.QueuedInputs = b.queueNoticeCount(rootMsgID)
 			if meta.Activity != nil {
 				if meta.Activity.TurnSeq > 0 {
 					meta.TurnSeq = int(meta.Activity.TurnSeq)
@@ -534,6 +584,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 				}
 			}
 			meta.ViewURL = b.sessionViewerURL(targetID, sessionName)
+			meta.Placeholder, meta.PlaceholderError = placeholder.State()
 			meta.Now = time.Now()
 			return meta
 		}
@@ -591,7 +642,13 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			},
 		)
 		publishActivity := func(view *agentui.ActivityView, force bool) {
-			if view == nil || !presentationGate.ShouldPublishActivity(view, len(activity.Subtasks()) > 0) {
+			if view == nil {
+				return
+			}
+			if !presentationGate.ShouldPublishActivity(view, len(activity.Subtasks()) > 0) &&
+				!(force && placeholder.Shown() && view.Status != "running") {
+				// A visible placeholder must still receive its terminal
+				// state even when the coordination gate hides activity.
 				return
 			}
 			fingerprint := activityViewFingerprint(view)
@@ -601,6 +658,17 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 				activitySender.MaybeSend(fingerprint)
 			}
 		}
+		b.registerQueueNoticeRefresher(rootMsgID, token, func() bool {
+			view := getActivityView()
+			// The turn_started placeholder card is the running card too, even
+			// before the stream has marked the turn running.
+			if view == nil || (!turn.Running() && !placeholder.Shown()) {
+				return false
+			}
+			activitySender.ForceSend(fmt.Sprintf("%s|queued=%d", activityViewFingerprint(view), b.queueNoticeCount(rootMsgID)))
+			return true
+		})
+		defer b.unregisterQueueNoticeRefresher(rootMsgID, token)
 		b.registerStreamFreeze(rootMsgID, token, replyStream.Supersede)
 		defer b.unregisterStreamFreeze(rootMsgID, token)
 		// Defers are LIFO: Flush publishes the final text before Close performs
@@ -621,6 +689,16 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			return streamsReplyCards
 		}
 
+		// endPlaceholder drops the "⏳ 处理中…" line once the turn produces
+		// visible output; the same card then carries the stream and result.
+		endPlaceholder := func() {
+			if !placeholder.End() {
+				return
+			}
+			if view := getActivityView(); view != nil {
+				activitySender.ForceSend(activityViewFingerprint(view) + "|placeholder-end")
+			}
+		}
 		var handleAttachEvent func(*pb.AttachEvent)
 		handleAttachEvent = func(ev *pb.AttachEvent) {
 			if ev == nil {
@@ -683,6 +761,10 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			}
 			for _, uiEvent := range agentui.FromAttachEvent(ev) {
 				for _, action := range presenter.Consume(uiEvent) {
+					if action.Kind == agentui.ActionTurnStarted || action.Kind == agentui.ActionInputEcho {
+						// Bridge-appended protocol text is model input only.
+						action.Text = stripAmuxGuidance(action.Text)
+					}
 					// Some providers omit an explicit turn_started frame and
 					// begin with assistant/result/activity output carrying the
 					// turn identity. A successful Feishu Submit already marked
@@ -698,6 +780,10 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 					}
 					switch action.Kind {
 					case agentui.ActionTurnStarted:
+						b.observeTurnStarted(rootMsgID, action.Turn.ID)
+						if action.Source == agentui.SourceSubtask {
+							b.markSubtaskTurn(rootMsgID, action.Turn.ID)
+						}
 						if action.Source == agentui.SourceGoal {
 							goalChat, err := b.goalChatForTurn(streamChat, canonical)
 							if err != nil || goalChat == nil {
@@ -739,6 +825,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						if action.Source == agentui.SourceFeishu {
 							question = toolActivityQuestionTitle(action.Text)
 						}
+						// SourceSubtask (background completion notice) keeps an
+						// empty question: neutral reply card, no raw notice.
+						subtaskReportTurn.Store(action.Source == agentui.SourceSubtask)
 						meta := turn.Start(int(action.Turn.Seq), question)
 						providerFailureNoticePending = false
 						failureNoticeDelivered = false
@@ -750,6 +839,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							setFinalAnswer("")
 							activity.Reset()
 							assistantUpdates.Reset()
+							resetTurnMessages(action.Turn.ID)
 							hasAuthoritativeResult = false
 							setActivityView(nil)
 							activitySender.Reset()
@@ -760,13 +850,32 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							// the accepted turn starts so model-side queueing is visible
 							// even for coordination turns whose later activity stays behind the
 							// external-coordination presentation gate.
+							//
+							// Immediate feedback: every user-started turn posts its
+							// main reply card right away with a "⏳ 处理中…" line, so a
+							// slow time-to-first-token is not silence. Background
+							// completion (subtask) turns stay silent until the agent
+							// produces output. Steered input never reaches here (no
+							// new turn), and queued input gets its card only when its
+							// own turn starts.
+							placeholder.Reset()
 							view := presenter.EnsureActivity()
-							if distributionActivityPossiblyQueued(streamChat.AgentType, view) {
+							wantPlaceholder := shouldShowTurnPlaceholder(action.Source)
+							if view != nil && (wantPlaceholder || distributionActivityPossiblyQueued(streamChat.AgentType, view)) {
+								if wantPlaceholder {
+									placeholder.Begin()
+								}
 								setActivityView(view)
 								activitySender.ForceSend(activityViewFingerprint(view))
 								presentationGate.ObserveForcedActivity()
 								statusRefresh.MarkRefreshed(time.Now(), view)
+								// Input queued before this card existed is
+								// annotated now that it does.
+								b.retryQueueNoticeAnnotation(rootMsgID)
 							}
+						}
+						if meta.TurnSeq != oldSeq {
+							b.refreshQueueNoticeAsync(targetID, sessionName, rootMsgID)
 						}
 						b.clearSupersededTurn(rootMsgID)
 					case agentui.ActionInputEcho:
@@ -783,6 +892,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						if b.isTurnSuperseded(rootMsgID) {
 							continue
+						}
+						if strings.TrimSpace(action.Text) != "" && action.Source != agentui.SourceSystem {
+							endPlaceholder()
 						}
 						if action.Source == agentui.SourceSystem {
 							if text, ok := bridgeProviderFailureNotice(
@@ -829,6 +941,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							continue
 						}
 						if assistantUpdates.Boundary() {
+							recordTurnMessage(assistantUpdates.LastMessage())
 							view := getActivityView()
 							if view == nil {
 								view = presenter.EnsureActivity()
@@ -847,6 +960,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						if b.isTurnSuperseded(rootMsgID) {
 							continue
+						}
+						if strings.TrimSpace(action.Text) != "" && action.Source != agentui.SourceSystem {
+							endPlaceholder()
 						}
 						if summary := assistantUpdates.Replace(action.Text); summary != "" {
 							view := getActivityView()
@@ -868,10 +984,16 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						if b.isTurnSuperseded(rootMsgID) {
 							continue
 						}
+						if strings.TrimSpace(action.Text) != "" && action.Source != agentui.SourceSystem {
+							endPlaceholder()
+						}
 						if isFollowupPrompt(action.Text) {
 							turn.MarkWaiting()
 						}
 						hasAuthoritativeResult = true
+						if current := strings.TrimSpace(assistantUpdates.LastMessage()); current != "" {
+							recordTurnMessage(current)
+						}
 						before := assistantUpdates.Summary()
 						after := assistantUpdates.ReconcileResult(action.Text)
 						if before != after {
@@ -881,10 +1003,14 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 								publishActivity(view, true)
 							}
 						}
+						finalAnswer := action.Text
+						if since, ok := steeredMessagesSince(); ok {
+							finalAnswer = mergeSteeredFinalAnswer(since, action.Text)
+						}
 						if getStreamsReplyCards() {
-							replyStream.ReplaceCurrent(action.Text)
+							replyStream.ReplaceCurrent(finalAnswer)
 						} else {
-							agg.Add([]byte(action.Text))
+							agg.Add([]byte(finalAnswer))
 						}
 					case agentui.ActionReplySegment:
 						if !visibilityGate.Allow(action) {
@@ -901,6 +1027,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							continue
 						}
 						view := action.Activity
+						if view != nil && view.Status == "running" && activityViewHasOutput(view) {
+							placeholder.End()
+						}
 						if progress := assistantUpdates.Summary(); view != nil && progress != "" {
 							// Assistant narration is the chronological Feishu-facing
 							// progress history. Structured thinking remains the current
@@ -929,27 +1058,44 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							continue
 						}
 						turn.Fail()
+						providerCode := ""
+						if action.Error != nil {
+							providerCode = action.Error.Code
+						}
+						text := ""
+						if !providerFailureNoticePending {
+							text = bridgeErrorNoticeWithCode(
+								sessionName,
+								action.Text,
+								providerCode,
+								strings.TrimSpace(streamChat.AgentProfile) != "",
+							)
+						}
+						if text != "" && placeholder.Fail(text) {
+							// The turn failed before any output: the waiting card
+							// itself shows the error instead of hanging next to a
+							// separate notice. Patch it before the reply stream
+							// finishes the card (a finished card ignores patches).
+							if view := getActivityView(); view != nil {
+								activitySender.Flush(activityViewFingerprint(view) + "|placeholder-failed")
+							}
+							replyStream.Flush()
+							failureNoticeDelivered = true
+							continue
+						}
 						replyStream.Flush()
 						if providerFailureNoticePending {
 							providerFailureNoticePending = false
 							continue
 						}
-						providerCode := ""
-						if action.Error != nil {
-							providerCode = action.Error.Code
-						}
-						if text := bridgeErrorNoticeWithCode(
-							sessionName,
-							action.Text,
-							providerCode,
-							strings.TrimSpace(streamChat.AgentProfile) != "",
-						); text != "" {
+						if text != "" {
 							sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 							_, _, sendErr := b.sendTextToBinding(sendCtx, streamChat, text)
 							cancel()
 							failureNoticeDelivered = sendErr == nil
 						}
 					case agentui.ActionTurnFinished:
+						b.observeTurnFinished(rootMsgID, action.Turn.ID)
 						allowed := visibilityGate.Allow(action)
 						visibilityGate.Observe(action)
 						providerFailureNoticePending = false
@@ -959,6 +1105,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							continue
 						}
 						b.setTurnActive(rootMsgID, false)
+						// The finished card drops the queue line (terminal render);
+						// the next turn re-reads the queue when it starts.
+						b.setQueueNotice(rootMsgID, 0, false)
 						b.refreshSubtaskProgress(activity, targetID, sessionName)
 						b.startSubtaskCards(subtaskChat, activity.Subtasks())
 						completionMeta := turn.Complete(action.Turn.State == "failed")
@@ -967,7 +1116,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							turnElapsed = activity.now().Sub(startedAt)
 						}
 						if !hasAuthoritativeResult && shouldUseAssistantResultFallback(action.Turn) {
-							if fallback := assistantUpdates.LastMessage(); fallback != "" {
+							if fallback := steeredFallbackAnswer(assistantUpdates.LastMessage()); fallback != "" {
 								if getStreamsReplyCards() {
 									replyStream.ReplaceCurrent(fallback)
 								} else {
@@ -976,7 +1125,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							}
 						}
 						view := getActivityView()
-						if view != nil && presentationGate.ShouldPublishActivity(view, len(activity.Subtasks()) > 0) {
+						if view != nil && (presentationGate.ShouldPublishActivity(view, len(activity.Subtasks()) > 0) || placeholder.Shown()) {
 							activitySender.Flush(activityViewFingerprint(view))
 						}
 						agg.Flush()
@@ -1040,6 +1189,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						hasAuthoritativeResult = false
 						setActivityView(nil)
 						statusRefresh.Reset()
+						placeholder.Reset()
 					}
 				}
 			}
@@ -1089,8 +1239,20 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 					before := getActivityView()
 					handleAttachEvent(&pb.AttachEvent{Kind: pb.AttachEvent_HEARTBEAT})
 					view := getActivityView()
+					// Hub-submitted inputs (e.g. background-completion notify) bypass
+					// bridge submitToSessionMode, so re-read the session queue on the
+					// status pulse while a turn runs and annotate the running card.
+					if turn.Running() {
+						b.refreshQueueNoticeAsync(targetID, sessionName, rootMsgID)
+					}
 					if before == nil && view != nil {
 						// The heartbeat action already created the status surface.
+						statusRefresh.MarkRefreshed(now, view)
+						continue
+					}
+					if placeholder.RefreshDue(now) && view != nil && view.Status == "running" {
+						// Keep the waiting card's elapsed time fresh.
+						activitySender.ForceSend(fmt.Sprintf("%s|placeholder=%d", activityViewFingerprint(view), now.Unix()))
 						statusRefresh.MarkRefreshed(now, view)
 						continue
 					}

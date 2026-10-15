@@ -34,6 +34,7 @@ type brokerTurnClient struct {
 	capabilitiesReadyOnce  sync.Once
 	turnCorrelationVersion int
 	turnReplayVersion      int
+	turnSteerVersion       int
 	turnCorrelation        bool
 	turnSinks              map[string]*turnSinkEntry
 }

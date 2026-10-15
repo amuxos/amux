@@ -3,12 +3,14 @@ package pi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -33,7 +35,12 @@ func writeFakePi(t *testing.T, script string) string {
 		t.Skip("shell fake pi is unix-only")
 	}
 	path := filepath.Join(t.TempDir(), "fake-pi")
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+	// Hold ForkLock while the write fd is open so a concurrently forked child
+	// (parallel tests) cannot inherit it and make exec fail with ETXTBSY.
+	syscall.ForkLock.Lock()
+	err := os.WriteFile(path, []byte(script), 0o755)
+	syscall.ForkLock.Unlock()
+	if err != nil {
 		t.Fatalf("write fake pi: %v", err)
 	}
 	return path
@@ -667,5 +674,116 @@ func TestRPCCommandMarshalsWithTypeField(t *testing.T) {
 	}
 	if !reflect.DeepEqual(m, map[string]string{"type": "prompt", "message": "hi"}) {
 		t.Fatalf("marshaled command = %v", m)
+	}
+}
+
+// fakeSteerPiScript keeps a run open after prompt until a steer arrives.
+// Steer message "REJECT" -> success:false; "SILENT" -> no reply; anything else
+// is accepted (id echoed), folded into the run and the run settles once.
+const fakeSteerPiScript = `#!/usr/bin/env python3
+import json, sys
+def out(obj): print(json.dumps(obj), flush=True)
+for line in sys.stdin:
+    msg = json.loads(line)
+    typ = msg.get("type")
+    if typ == "get_state":
+        out({"type":"response","command":"get_state","success":True,"data":{"sessionId":"sess-steer"}})
+    elif typ == "prompt":
+        out({"type":"response","command":"prompt","success":True})
+        out({"type":"agent_start"})
+    elif typ == "steer":
+        m = msg.get("message","")
+        if m == "SILENT":
+            continue
+        if m == "REJECT":
+            out({"type":"response","id":msg.get("id"),"command":"steer","success":False,"error":"not streaming"})
+            continue
+        out({"type":"response","id":msg.get("id"),"command":"steer","success":True})
+        out({"type":"queue_update","steering":[m],"followUp":[]})
+        out({"type":"message_start","message":{"id":"m2","role":"assistant","content":[]}})
+        out({"type":"message_end","message":{"id":"m2","role":"assistant","content":[{"type":"text","text":"steered:"+m}]}})
+        out({"type":"agent_settled"})
+    elif typ == "abort":
+        out({"type":"response","command":"abort","success":True})
+        out({"type":"agent_settled"})
+`
+
+func startSteerTurn(t *testing.T, token string) (*Proc, chan testEmission) {
+	t.Helper()
+	fake := writeFakePi(t, fakeSteerPiScript)
+	proc, _ := startTestProc(t, StartOptions{Cwd: t.TempDir(), Executable: fake})
+	events := make(chan testEmission, 64)
+	if err := proc.DispatchTurn(context.Background(), session.TurnDispatchRequest{TurnToken: token, Input: session.TextUserInput("long task")}, func(e testProducerEmission) bool {
+		events <- captureEmission(e)
+		return false
+	}); err != nil {
+		t.Fatalf("DispatchTurn: %v", err)
+	}
+	waitRunActive(t, proc, 10*time.Second)
+	return proc, events
+}
+
+func TestSteerTurnQueuedThenSingleTerminal(t *testing.T) {
+	proc, events := startSteerTurn(t, "turn-steer")
+	if err := proc.SteerTurn(context.Background(), session.TurnSteerRequest{TurnToken: "turn-steer", Input: session.TextUserInput("fix it")}); err != nil {
+		t.Fatalf("SteerTurn: %v", err)
+	}
+	all := drainUntilTerminal(t, events, 10*time.Second)
+	var result string
+	for _, ev := range all {
+		if ev.Body != nil && ev.Body.Result != nil {
+			result = ev.Body.Result.Text
+		}
+	}
+	if result != "steered:fix it" {
+		t.Fatalf("result = %q", result)
+	}
+	select {
+	case ev := <-events:
+		if ev.Terminal != nil {
+			t.Fatalf("second terminal: %+v", ev)
+		}
+	case <-time.After(300 * time.Millisecond):
+	}
+}
+
+func TestSteerTurnRejectedIsUnavailable(t *testing.T) {
+	proc, _ := startSteerTurn(t, "turn-rej")
+	err := proc.SteerTurn(context.Background(), session.TurnSteerRequest{TurnToken: "turn-rej", Input: session.TextUserInput("REJECT")})
+	if !errors.Is(err, session.ErrSteerUnavailable) || errors.Is(err, session.ErrSteerOutcomeUnknown) {
+		t.Fatalf("err = %v, want unavailable", err)
+	}
+}
+
+func TestSteerTurnTimeoutIsOutcomeUnknown(t *testing.T) {
+	proc, _ := startSteerTurn(t, "turn-silent")
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	err := proc.SteerTurn(ctx, session.TurnSteerRequest{TurnToken: "turn-silent", Input: session.TextUserInput("SILENT")})
+	if !errors.Is(err, session.ErrSteerOutcomeUnknown) {
+		t.Fatalf("err = %v, want outcome unknown", err)
+	}
+	proc.pendingMu.Lock()
+	n := len(proc.pending)
+	proc.pendingMu.Unlock()
+	if n != 0 {
+		t.Fatalf("pending replies leaked: %d", n)
+	}
+}
+
+func TestSteerTurnUnavailableCases(t *testing.T) {
+	proc, _ := startSteerTurn(t, "turn-a")
+	cases := []session.TurnSteerRequest{
+		{TurnToken: "turn-other", Input: session.TextUserInput("x")},
+		{TurnToken: "turn-a", Input: session.TextUserInput("   ")},
+	}
+	for _, req := range cases {
+		if err := proc.SteerTurn(context.Background(), req); !errors.Is(err, session.ErrSteerUnavailable) {
+			t.Fatalf("SteerTurn(%+v) = %v, want unavailable", req, err)
+		}
+	}
+	idle := &Proc{}
+	if err := idle.SteerTurn(context.Background(), session.TurnSteerRequest{TurnToken: "t", Input: session.TextUserInput("x")}); !errors.Is(err, session.ErrSteerUnavailable) {
+		t.Fatalf("idle steer = %v", err)
 	}
 }

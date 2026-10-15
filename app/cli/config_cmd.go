@@ -303,6 +303,7 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		key == "memory.enabled" ||
 		key == "bridge.feishu.presentation.completion_notification_enabled" ||
 		key == "bridge.feishu.group_settings.enabled" ||
+		key == "bridge.feishu.experimental.steer_foreground" ||
 		key == "mcp.auto_inject" {
 		parsed, err := strconv.ParseBool(raw)
 		if err != nil {

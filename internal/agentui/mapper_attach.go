@@ -41,6 +41,8 @@ func normalizeSource(source string) Source {
 		return SourceScheduler
 	case "goal":
 		return SourceGoal
+	case "subtask":
+		return SourceSubtask
 	case "system":
 		return SourceSystem
 	case "tool":

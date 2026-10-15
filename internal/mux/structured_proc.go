@@ -1,9 +1,12 @@
 package mux
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/session"
@@ -24,6 +27,7 @@ type structuredCapabilitiesFrame struct {
 	TurnCorrelationVersion int      `json:"turn_correlation_version,omitempty"`
 	TurnReplayVersion      int      `json:"turn_replay_version,omitempty"`
 	GoalSupported          bool     `json:"goal_supported,omitempty"`
+	TurnSteerVersion       int      `json:"turn_steer_version,omitempty"`
 }
 
 func (p *StructuredBrokerProc) PID() int { return p.pid }
@@ -37,6 +41,43 @@ func (p *StructuredBrokerProc) InputCapabilities() ([]string, string) {
 func (p *StructuredBrokerProc) Interrupt() error {
 	return p.writeControlFrame(structuredFrameInterrupt, nil)
 }
+
+// SteerTurn injects input into the broker's active correlated turn. Brokers
+// started by an older amuxlet do not advertise steering and are reported as
+// unavailable, so the runtime queues the input instead.
+func (p *StructuredBrokerProc) SteerTurn(_ context.Context, req session.TurnSteerRequest) error {
+	p.eventMu.Lock()
+	version := p.turnSteerVersion
+	_, bound := p.turnSinks[req.TurnToken]
+	p.eventMu.Unlock()
+	if version < brokerTurnSteerV1 {
+		return fmt.Errorf("%w: structured broker does not support steering", session.ErrSteerUnavailable)
+	}
+	if !bound {
+		return fmt.Errorf("%w: turn %q is not bound to this broker", session.ErrSteerUnavailable, req.TurnToken)
+	}
+	payload, err := json.Marshal(brokerTurnSteerFrame{TurnToken: req.TurnToken, Input: req.Input})
+	if err != nil {
+		return err
+	}
+	err = p.writeControlFrame(structuredFrameTurnSteer, payload)
+	if err == nil {
+		return nil
+	}
+	var ack brokerAckError
+	if errors.As(err, &ack) && !strings.HasPrefix(string(ack), brokerSteerOutcomeUnknownPrefix) {
+		return fmt.Errorf("%w: %v", session.ErrSteerUnavailable, err)
+	}
+	// The broker may have steered the turn before the ack was lost, or it
+	// reported an unknown provider outcome itself.
+	return fmt.Errorf("%w: %v", session.ErrSteerOutcomeUnknown, err)
+}
+
+// brokerAckError is an error the broker reported in its ack frame, as opposed
+// to a transport failure on the way to or from the broker.
+type brokerAckError string
+
+func (e brokerAckError) Error() string { return string(e) }
 
 func (p *StructuredBrokerProc) ReconfigureExecution(model, reasoningEffort string) error {
 	payload, err := json.Marshal(structuredReconfigureFrame{Model: model, ReasoningEffort: reasoningEffort})
@@ -88,7 +129,7 @@ func (p *StructuredBrokerProc) writeControlFrame(kind byte, payload []byte) erro
 			continue
 		}
 		if len(ackPayload) > 0 {
-			return fmt.Errorf("%s", string(ackPayload))
+			return brokerAckError(ackPayload)
 		}
 		return nil
 	}
@@ -205,6 +246,7 @@ func (p *StructuredBrokerProc) readLoop() {
 			p.turnCorrelationVersion = caps.TurnCorrelationVersion
 			p.turnReplayVersion = caps.TurnReplayVersion
 			p.goalSupported = caps.GoalSupported
+			p.turnSteerVersion = caps.TurnSteerVersion
 			p.eventMu.Unlock()
 			p.capabilitiesReadyOnce.Do(func() {
 				if p.capabilitiesReady != nil {
@@ -231,7 +273,7 @@ func (p *StructuredBrokerProc) readLoop() {
 		case structuredFrameAck:
 			var ackErr error
 			if len(payload) > 0 {
-				ackErr = fmt.Errorf("%s", string(payload))
+				ackErr = brokerAckError(payload)
 			}
 			p.ackCh <- ackErr
 		}

@@ -1096,6 +1096,7 @@ func (s *hubServer) Submit(ctx context.Context, req *pb.AmuxdSubmitRequest) (*pb
 	return routeUnary[pb.SubmitRequest, pb.SubmitResponse](s, ctx, req.TargetId, "Submit", &pb.SubmitRequest{
 		Name: req.Name, Text: req.Text, Source: req.Source, Async: req.Async, Preempt: req.Preempt,
 		PreemptAlreadyInterrupted: req.PreemptAlreadyInterrupted, Control: req.Control, Parts: req.Parts,
+		Steer: req.Steer,
 	})
 }
 

@@ -38,6 +38,7 @@ const (
 	structuredFrameGoal           byte = 0x0B
 	structuredFrameGoalAdmission  byte = 0x0C
 	structuredFrameGoalReady      byte = 0x0D
+	structuredFrameTurnSteer      byte = 0x0E
 	structuredFrameCapabilities   byte = 0x14
 	structuredFrameEmission       byte = 0x15
 	structuredFrameGoalOffer      byte = 0x16
@@ -420,6 +421,7 @@ func (b *structuredBroker) addConn(c net.Conn) *structuredBrokerConn {
 		TurnCorrelationVersion: brokerTurnProtocolV3,
 		TurnReplayVersion:      brokerTurnReplayV1,
 		GoalSupported:          goalSupported,
+		TurnSteerVersion:       b.turnSteerVersion(),
 	})
 	_ = writeBrokerFrame(bc.conn, structuredFrameCapabilities, payload)
 	if agentSessionID != "" || effectiveModel != "" {
@@ -568,6 +570,8 @@ func (b *structuredBroker) handleConn(conn *structuredBrokerConn) {
 			_ = conn.write(structuredFrameAck, []byte(errText))
 		case structuredFrameTurnRebind:
 			b.rebindCorrelatedTurn(conn, payload)
+		case structuredFrameTurnSteer:
+			_ = conn.write(structuredFrameAck, []byte(b.steerCorrelatedTurn(payload)))
 		case structuredFrameInput:
 			_ = conn.write(structuredFrameAck, []byte("correlated turn dispatch is required"))
 		case structuredFrameUserInput:
@@ -619,6 +623,47 @@ func (b *structuredBroker) handleConn(conn *structuredBrokerConn) {
 
 func (b *structuredBroker) dispatchCorrelatedTurn(conn *structuredBrokerConn, payload []byte) string {
 	return b.brokerTurns.dispatchCorrelatedTurn(conn, payload, b.proc.DispatchTurn, b.broadcastCorrelatedEvent)
+}
+
+// turnSteerVersion advertises mid-turn steering only when the provider
+// process implements it, so runtimes fall back to queued input otherwise.
+func (b *structuredBroker) turnSteerVersion() int {
+	if _, ok := b.proc.(session.TurnSteerer); ok {
+		return brokerTurnSteerV1
+	}
+	return 0
+}
+
+// steerCorrelatedTurn injects input into the admitted turn. The turn token
+// must match the turn this broker admitted; a finished or different turn is
+// rejected so the runtime can queue the input instead.
+func (b *structuredBroker) steerCorrelatedTurn(payload []byte) string {
+	var req brokerTurnSteerFrame
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return err.Error()
+	}
+	if strings.TrimSpace(req.TurnToken) == "" {
+		return "turn token is required"
+	}
+	steerer, ok := b.proc.(session.TurnSteerer)
+	if !ok {
+		return "structured provider does not support steering"
+	}
+	b.mu.Lock()
+	active := b.turnAdmission.turnToken
+	b.mu.Unlock()
+	if active != req.TurnToken {
+		return "steer target turn is not active"
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), brokerSteerWait)
+	defer cancel()
+	if err := steerer.SteerTurn(ctx, session.TurnSteerRequest{TurnToken: req.TurnToken, Input: req.Input}); err != nil {
+		if errors.Is(err, session.ErrSteerOutcomeUnknown) {
+			return brokerSteerOutcomeUnknownPrefix + err.Error()
+		}
+		return err.Error()
+	}
+	return ""
 }
 
 func (b *structuredBroker) rebindCorrelatedTurn(conn *structuredBrokerConn, payload []byte) {

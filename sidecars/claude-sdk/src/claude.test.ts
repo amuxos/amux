@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
 import { RpcPeer } from './protocol.js';
-import { applyExtraArgs, ClaudeBridge, type QueryFn, type SdkUserMessage } from './claude.js';
+import { applyExtraArgs, mergeMcpConfig, ClaudeBridge, type QueryFn, type SdkUserMessage } from './claude.js';
 
 // Collect the NDJSON notifications the bridge writes to its output stream.
 function collect(output: PassThrough): any[] {
@@ -483,4 +483,24 @@ test('a non-rate-limit assistant error keeps the result_error code', async () =>
   await tick();
 
   assert.equal(eventsOf(msgs).find((e) => e.type === 'error')?.error.code, 'result_error');
+});
+
+test('applyExtraArgs maps --mcp-config file onto SDK mcpServers', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcpcfg-'));
+  const file = path.join(dir, 'claude-mcp.json');
+  fs.writeFileSync(file, JSON.stringify({ mcpServers: { amux: { command: '/bin/amux', args: ['mcp'], env: { A: '1' } } } }));
+  const options: Record<string, unknown> = {};
+  applyExtraArgs(options, ['--model', 'opus', '--mcp-config', file]);
+  assert.deepEqual(options.mcpServers, { amux: { command: '/bin/amux', args: ['mcp'], env: { A: '1' } } });
+  assert.equal(options.model, 'opus');
+});
+
+test('mergeMcpConfig ignores unreadable or malformed configs', () => {
+  const options: Record<string, unknown> = {};
+  mergeMcpConfig(options, '/nonexistent/claude-mcp.json');
+  mergeMcpConfig(options, '{not json');
+  assert.equal(options.mcpServers, undefined);
 });

@@ -31,12 +31,31 @@ control action or add context without starting a Turn. The canonical Timeline
 owns TurnID/TurnSeq and exactly one TurnFinished. Result text alone is not a
 completion signal. A Session can contain many Turns.
 
-Feishu ordinary follow-ups can preempt active work. When a text-only input arrives
-during an active turn, Bridge requests interruption immediately, coalesces the
-burst in a default two-second window and submits the combined input with preemption.
-Material-bearing inputs bypass text coalescing. This is separate from queued
-`compact` / `clear` controls, which do not preempt preceding input. Neither
-interruption nor a context reset rolls back completed tool side effects.
+Feishu ordinary follow-ups do not preempt active work by default. A text-only
+input that arrives during an active Turn is coalesced with the burst in a default
+two-second window and then either steered or queued:
+
+- **Steered** when its sender is the one person who sent the running Turn's input.
+  The input is pinned to that TurnID and added to the running Turn; it does not
+  create a new Turn, and the Turn still ends with exactly one TurnFinished, after
+  the provider has handled its last steered input.
+- **Queued** as ordinary input for the next Turn in every other case: input from
+  another group member, group-watch alerts, Bot input or other input without a
+  sender, no known running Turn, earlier input already waiting in the queue, a
+  Turn that is being interrupted, differing Turn authorization, or a provider
+  without steering. Queued follow-ups never preempt.
+- **Not delivered** when the provider may already have taken the input but did not
+  confirm it (a timeout or broken transport). The submission fails instead of
+  queueing a second copy that could run twice.
+
+Interrupting a Turn also cancels the input steered into it. Claude stops a steered
+input that the CLI still has queued as soon as it starts running, and the next Turn
+starts with a note naming the cancelled input. `AMUX_FEISHU_BUSY_INPUT=interrupt`
+restores the previous contract: Bridge requests interruption immediately and
+submits the coalesced input with preemption. Material-bearing inputs bypass text
+coalescing. This is separate from queued `compact` / `clear` controls, which do
+not preempt preceding input. Neither interruption nor a context reset rolls back
+completed tool side effects.
 
 A TaskRun is created through Task admission for a bounded child execution. An
 ordinary Feishu request can drive a Session Turn without any TaskRun. The product

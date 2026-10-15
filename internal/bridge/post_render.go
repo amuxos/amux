@@ -289,7 +289,21 @@ type toolActivityCardMeta struct {
 	Activity        *agentui.ActivityView
 	Subtasks        []subtaskProgress
 	ThinkingProcess string
-	Now             time.Time
+	// QueuedInputs is the number of inputs waiting behind this running turn
+	// (steer_foreground experiment); shown as one line while not terminal.
+	QueuedInputs int
+	// SubtaskReport marks a turn started by a background-task completion
+	// notice: it has no user question, so an empty execution summary renders
+	// as a bare status line instead of a "no more details" panel.
+	SubtaskReport bool
+	// Placeholder marks the immediate-feedback state: the turn started but
+	// produced no visible output yet. The card shows a "⏳ 处理中…" line
+	// (with elapsed time) until the first output replaces it.
+	Placeholder bool
+	// PlaceholderError is the user-facing error shown in place of the
+	// placeholder line when the turn fails before any output.
+	PlaceholderError string
+	Now              time.Time
 }
 
 type turnCardActivity struct {
@@ -566,10 +580,21 @@ func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
 			raw, _ = json.Marshal(element)
 		}
 	}
+	terminal := meta.Status == "done" || meta.Status == "waiting" || meta.Status == "failed" || meta.Status == "stopped"
+	if meta.QueuedInputs > 0 && !terminal && len(element.Columns) > 0 {
+		// The queue line lives inside the activity content element, not in
+		// Trailing: an existing CardKit card only ever replaces that element
+		// (and skips the update when its JSON is unchanged), so a trailing
+		// line added after the card exists never reached Feishu.
+		notice := managementTextElement(sessionMessage("queue.notice", meta.QueuedInputs), "notation", "grey", nil)
+		notice.ElementID = "queue_notice"
+		element.Columns[0].Elements = append(element.Columns[0].Elements, notice)
+		raw, _ = json.Marshal(element)
+	}
 	activity := turnCardActivity{
 		Element:  element,
 		JSON:     raw,
-		Terminal: meta.Status == "done" || meta.Status == "waiting" || meta.Status == "failed" || meta.Status == "stopped",
+		Terminal: terminal,
 	}
 	if strings.TrimSpace(meta.ViewURL) != "" {
 		activity.Trailing = []cardElement{{
@@ -588,10 +613,22 @@ func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
 
 func renderTurnActivityElement(meta toolActivityCardMeta) cardElement {
 	details := renderTurnActivityDetails(meta)
-	if len(details) == 0 {
-		details = []cardElement{managementContentElement(sessionMessage("details.empty"), cardElement{Tag: "markdown"})}
+	var summary cardElement
+	switch {
+	case len(details) > 0:
+		summary = renderExecutionSummaryPanel(meta, details)
+	case meta.SubtaskReport && strings.TrimSpace(meta.Question) == "":
+		// A background-completion report has no user question and nothing
+		// to expand: show the status line alone instead of a panel whose
+		// only content is "no more details".
+		summary = renderExecutionSummaryLine(meta)
+	default:
+		summary = renderExecutionSummaryPanel(meta, []cardElement{managementContentElement(sessionMessage("details.empty"), cardElement{Tag: "markdown"})})
 	}
-	children := []cardElement{renderExecutionSummaryPanel(meta, details)}
+	children := []cardElement{summary}
+	if line, ok := renderPlaceholderStatus(meta); ok {
+		children = append(children, line)
+	}
 	if meta.ThinkingProcess != config.FeishuThinkingProcessHidden && meta.Activity != nil {
 		if step := strings.TrimSpace(meta.Activity.CurrentStep); step != "" {
 			children = append(children, renderProcessingUpdate(step, meta.ThinkingProcess))
@@ -690,11 +727,23 @@ func renderExecutionSummaryPanel(meta toolActivityCardMeta, elements []cardEleme
 	}
 }
 
+// renderExecutionSummaryLine is the execution summary without a collapsible
+// body: the same status title as plain grey notation text.
+func renderExecutionSummaryLine(meta toolActivityCardMeta) cardElement {
+	panel := renderExecutionSummaryPanel(meta, nil)
+	title := panel.Header.Title
+	return cardElement{Tag: "div", ElementID: cardKitExecutionSummaryID, Text: &title, Width: "fill"}
+}
+
 func setExecutionSummaryDetails(activity *cardElement, details []cardElement) {
 	if activity == nil || len(activity.Columns) == 0 || len(activity.Columns[0].Elements) == 0 {
 		return
 	}
-	activity.Columns[0].Elements[0].Elements = details
+	summary := &activity.Columns[0].Elements[0]
+	if summary.Tag != "collapsible_panel" {
+		return
+	}
+	summary.Elements = details
 }
 
 func renderTurnActivityDetails(meta toolActivityCardMeta) []cardElement {
@@ -1356,7 +1405,7 @@ func toolActivityCardContent(question, followup, text string, locales ...i18n.Lo
 }
 
 func toolActivityQuestionTitle(text string) string {
-	text = strings.ReplaceAll(text, artifactInstructions, "")
+	text = stripAmuxGuidance(text)
 	text = strings.TrimSpace(strings.ReplaceAll(text, "\r\n", "\n"))
 	if idx := strings.Index(text, "📱 来自飞书: "); idx >= 0 {
 		text = strings.TrimSpace(text[idx+len("📱 来自飞书: "):])
@@ -1543,4 +1592,49 @@ func markdownListItem(line string) (string, bool) {
 func jsonQuote(s string) string {
 	bs, _ := json.Marshal(s)
 	return string(bs)
+}
+
+// renderPlaceholderStatus renders the immediate-feedback line of a turn card
+// that has not produced output yet. Terminal states replace it with the
+// failure/interrupt outcome so the placeholder never hangs.
+func renderPlaceholderStatus(meta toolActivityCardMeta) (cardElement, bool) {
+	if !meta.Placeholder {
+		return cardElement{}, false
+	}
+	var text i18n.Text
+	switch meta.Status {
+	case "running", "":
+		elapsed := time.Duration(0)
+		if meta.Activity != nil && !meta.Activity.StartedAt.IsZero() {
+			now := meta.Now
+			if now.IsZero() {
+				now = time.Now()
+			}
+			elapsed = now.Sub(meta.Activity.StartedAt)
+		}
+		if elapsed >= time.Second {
+			text = i18n.Render(func(locale i18n.Locale) string {
+				locales := []i18n.Locale{locale}
+				return sessionCopy(locales, "placeholder.processing.elapsed", formatElapsed(elapsed, locales...))
+			})
+		} else {
+			text = sessionMessage("placeholder.processing")
+		}
+	case "failed":
+		if errText := strings.TrimSpace(meta.PlaceholderError); errText != "" {
+			text = sessionMessage("placeholder.failed", errText)
+		} else {
+			text = i18n.Render(func(locale i18n.Locale) string {
+				locales := []i18n.Locale{locale}
+				return sessionCopy(locales, "placeholder.failed", sessionCopy(locales, "status.failed"))
+			})
+		}
+	case "stopped":
+		text = sessionMessage("placeholder.stopped")
+	default:
+		return cardElement{}, false
+	}
+	element := managementContentElement(text, cardElement{Tag: "markdown"})
+	element.ElementID = "placeholder_status"
+	return element, true
 }

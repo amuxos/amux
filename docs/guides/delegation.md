@@ -136,13 +136,16 @@ Agent Instance and retain its ID:
 | `amux.instance_spawn` | Create a persistent expert | Starts initial work and returns a stable instance identity |
 | `amux.instance_followup` | Give an existing instance a new assignment | Starts a new TaskRun while retaining native conversation history |
 | `amux.instance_send` | Hold supplemental input for a later wake | Mailbox only; delivered before a subsequent Task prompt |
+| `amux.instance_steer` | Correct the work the instance is doing right now | No new work; joins the running execution, or falls back to the mailbox (`delivery=mailbox`) when nothing is running |
 | `amux.instance_wait` | Wait for current execution to end or the wait to time out | Does not start work; retrieve results through Task tools |
 | `amux.instance_interrupt` | Cancel the instance's current owned execution | Keeps the instance and resumable environment |
 
 A follow-up can say: “Continue instance `<agent_instance_id>` with the new
 constraints, reassess the second risk, and return the new Task ID.” A successful
 `instance_send` does not mean the expert started answering; use an execution
-entry such as `instance_followup` to wake it.
+entry such as `instance_followup` to wake it. After `instance_steer` returns
+`delivery=mailbox`, continue with `instance_followup`: the mailboxed correction
+is delivered first, so do not repeat it in the new prompt.
 
 A wait timeout from `instance_wait` is not a Task timeout or cancellation. Inspect
 the corresponding Task ID with `amux.task_get` or `amux.task_stream` for results.

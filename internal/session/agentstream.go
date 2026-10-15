@@ -149,6 +149,7 @@ func (s *Session) waitForCanonicalCompletion(turn *agentstream.Turn, done chan s
 	go func() {
 		completion := <-turn.Done()
 		if completion.Err == nil {
+			s.recordTurnTerminal(completion.Turn.ID, completion.Terminal)
 			s.observeCanonicalEvent(completion.Event)
 		} else {
 			s.handleTimelineError(completion.Err)

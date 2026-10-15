@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/isolation"
@@ -181,10 +183,10 @@ func (p *Proc) PID() int {
 }
 
 func (p *Proc) SubmitInput(input session.UserInput) error {
-	return p.submitInput(context.Background(), input)
+	return p.submitInput(context.Background(), "", input)
 }
 
-func (p *Proc) submitInput(ctx context.Context, input session.UserInput) error {
+func (p *Proc) submitInput(ctx context.Context, turnToken string, input session.UserInput) error {
 	if input.ImageCount() > 0 {
 		return fmt.Errorf("claude sidecar does not accept image input")
 	}
@@ -194,11 +196,17 @@ func (p *Proc) submitInput(ctx context.Context, input session.UserInput) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return p.submitText(ctx, text)
+	return p.submitText(ctx, turnToken, text)
 }
 
-func (p *Proc) submitText(ctx context.Context, text string) error {
-	_, err := p.client.Call(ctx, "turn.start", map[string]string{"text": text})
+// submitText starts a sidecar turn. turnToken names the amux turn so the
+// sidecar can refuse steer input aimed at a different turn.
+func (p *Proc) submitText(ctx context.Context, turnToken, text string) error {
+	params := map[string]string{"text": text}
+	if turnToken != "" {
+		params["turnToken"] = turnToken
+	}
+	_, err := p.client.Call(ctx, "turn.start", params)
 	return err
 }
 
@@ -213,7 +221,7 @@ func (p *Proc) Write(data []byte) (int, error) {
 			if text == "" {
 				continue
 			}
-			if err := p.submitText(context.Background(), text); err != nil {
+			if err := p.submitText(context.Background(), "", text); err != nil {
 				return 0, err
 			}
 			continue
@@ -236,12 +244,39 @@ func (p *Proc) DispatchTurn(ctx context.Context, req session.TurnDispatchRequest
 	if req.Input.ImageCount() > 0 {
 		return fmt.Errorf("claude sidecar does not support image input")
 	}
-	if err := p.eventSinks.BeginTurn(sink); err != nil {
+	if err := p.eventSinks.BeginTurnFor(req.TurnToken, sink); err != nil {
 		return err
 	}
-	if err := p.submitInput(ctx, req.Input); err != nil {
+	if err := p.submitInput(ctx, req.TurnToken, req.Input); err != nil {
 		p.eventSinks.AbortTurn()
 		return err
+	}
+	return nil
+}
+
+// SteerTurn injects input into the running turn through the sidecar's
+// turn.steer method. Both sides check the turn token: the request is rejected
+// when that turn is no longer the one in flight. An older sidecar without the
+// method is reported as unavailable.
+func (p *Proc) SteerTurn(ctx context.Context, req session.TurnSteerRequest) error {
+	if !p.eventSinks.TurnActiveFor(req.TurnToken) {
+		return fmt.Errorf("%w: claude turn %q is not in flight", session.ErrSteerUnavailable, req.TurnToken)
+	}
+	if req.Input.ImageCount() > 0 {
+		return fmt.Errorf("%w: claude steer does not accept image input", session.ErrSteerUnavailable)
+	}
+	text := strings.TrimSpace(req.Input.Text())
+	if text == "" {
+		return fmt.Errorf("%w: empty steer input", session.ErrSteerUnavailable)
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if _, err := p.client.Call(callCtx, "turn.steer", map[string]string{"text": text, "turnToken": req.TurnToken}); err != nil {
+		var rpcErr *providerjsonrpc.Error
+		return session.SteerCallError(err, errors.As(err, &rpcErr))
 	}
 	return nil
 }

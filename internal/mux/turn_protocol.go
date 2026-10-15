@@ -18,6 +18,11 @@ const (
 	brokerUpgradeAckWait = 300 * time.Millisecond
 	brokerRebindAckWait  = 5 * time.Second
 	brokerFrameWriteWait = 2 * time.Second
+	brokerTurnSteerV1    = 1
+	brokerSteerWait      = 15 * time.Second
+	// A turn-steer ack starting with this prefix reports that the provider
+	// may already have taken the input (session.ErrSteerOutcomeUnknown).
+	brokerSteerOutcomeUnknownPrefix = "steer outcome unknown: "
 )
 
 type brokerCapabilitiesFrame struct {
@@ -56,6 +61,11 @@ func marshalBrokerEmissionFrame(turnToken string, sequence uint64, emission agen
 		return nil, err
 	}
 	return json.Marshal(brokerEmissionFrame{TurnToken: turnToken, Sequence: sequence, Emission: emissionJSON})
+}
+
+type brokerTurnSteerFrame struct {
+	TurnToken string            `json:"turn_token"`
+	Input     session.UserInput `json:"input"`
 }
 
 type brokerTurnRebindFrame struct {

@@ -431,6 +431,7 @@ func (b *Bridge) createAndCommitSingletonBotSettings(ctx context.Context, curren
 		LaunchID:                 identity.LaunchID,
 		AgentActorToken:          identity.ActorToken,
 		AgentActorTokenExpiresAt: identity.ActorTokenExpiresAt,
+		SystemInstructions:       b.sessionStartInstructions(),
 	})
 	if err != nil {
 		return BotSettingsResult{}, fmt.Errorf("create singleton session: %w", err)

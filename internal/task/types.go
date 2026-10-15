@@ -157,6 +157,10 @@ type Spec struct {
 	// follow-up task back to the target hosting the instance's durable
 	// environment) and to record the instance's target/provider-session handle.
 	AgentInstanceID string `json:"agent_instance_id,omitempty"`
+	// NotifyParent opts a non-blocking task out of the completion message the
+	// control plane submits to ParentSessionID when the task finishes
+	// (experimental, steer_foreground). Nil means true.
+	NotifyParent *bool `json:"notify_parent,omitempty"`
 	// RunAs is an unresolved caller intent. ExecutionIdentity is set only by the
 	// trusted control plane before the spec reaches an amuxlet.
 	RunAs             string                       `json:"run_as,omitempty"`

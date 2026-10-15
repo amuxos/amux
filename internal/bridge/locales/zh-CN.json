@@ -2602,5 +2602,53 @@
   },
   "session.goal.text_only": {
     "other": "请用纯文本描述目标，附件和引用材料请在创建目标后另发消息补充。"
+  },
+  "management.steer.foreground": {
+    "other": "前台/后台分工与中途注入（实验）"
+  },
+  "management.steer.foreground.description": {
+    "other": "飞书话题/单例会话作为前台：长任务委派给后台 Agent；执行中追加的消息直接注入当前回合，而不是打断重来。默认关闭。"
+  },
+  "management.steer.foreground.currently.on": {
+    "other": "当前状态：已开启"
+  },
+  "management.steer.foreground.currently.off": {
+    "other": "当前状态：已关闭"
+  },
+  "management.steer.foreground.applies.live": {
+    "other": "保存后立即生效，无需重启（重启也会保持）。"
+  },
+  "management.choose.whether.to.enable.steer.foreground": {
+    "other": "请选择是否开启前台/后台分工与中途注入"
+  },
+  "management.show.background.tasks": {
+    "other": "显示后台任务进度卡片（实验）"
+  },
+  "management.show.background.tasks.description": {
+    "other": "开启后，飞书会话发起的每个后台任务（子任务 / 后台 Agent 实例）都会单独发送实时进度卡片。默认关闭：后台过程不刷屏，由前台 Agent 汇报结果。"
+  },
+  "management.show.background.tasks.currently.on": {
+    "other": "当前状态：已开启"
+  },
+  "management.show.background.tasks.currently.off": {
+    "other": "当前状态：已关闭"
+  },
+  "management.choose.whether.to.show.background.tasks": {
+    "other": "请选择是否显示后台任务进度卡片"
+  },
+  "session.queue.notice": {
+    "other": "⏳ 已排队 %d 条消息，将在当前任务完成后处理"
+  },
+  "session.placeholder.processing": {
+    "other": "⏳ 处理中…"
+  },
+  "session.placeholder.processing.elapsed": {
+    "other": "⏳ 处理中…（已等待 %s）"
+  },
+  "session.placeholder.failed": {
+    "other": "❌ %s"
+  },
+  "session.placeholder.stopped": {
+    "other": "⏹ 已中断"
   }
 }

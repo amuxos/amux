@@ -49,15 +49,39 @@ you want it to act on that discussion; silence on every human message is expecte
 
 ### What happens if you follow up during a response
 
-The current Feishu path treats a new plain-text request during execution as a
-revision to the work: it requests interruption, groups closely spaced inputs in
-a default window of about two seconds, and submits the combined input. Each
-message does not create a separate Task. Images and attachments use the material
-path, so do not rely on the same text-batching window for them.
+By default a plain-text follow-up you send during your own request's execution
+is **steered into the running execution** instead of interrupting it: closely
+spaced inputs are merged in a window of about two seconds and handed to the
+working Agent as a message the user sent mid-execution. The Agent decides whether it corrects the current
+work or appends a new task, and keeps completed progress. Claude reads it at the
+boundary after the current tool call; a follow-up sent while a text-only answer
+streams is handled right after that answer, still in the same execution. Codex
+uses its native `turn/steer`.
 
-Wait for completion if you want the current answer preserved in full. If you
-need to redirect it, state the new requirement and what to retain. Interruption
-does not undo file changes or external tool operations that already happened.
+Only the person who sent the running request can steer it. Messages from other
+group members, group-watch alerts and messages from other Bots are queued and run
+as the next execution, without disturbing the current one. A follow-up is also
+queued when the running execution cannot accept it: it just finished, is being
+interrupted, earlier messages are already waiting, the Agent does not support
+steering, or the sender's authorization differs from the running execution.
+Images and attachments use the material path, so do not rely on the same
+text-batching window for them.
+
+If amux cannot confirm that the running execution received a follow-up (for
+example a timeout), it does not queue another copy, because the follow-up may
+already be running. Check the reply and resend the message only if it was not
+handled.
+
+Send `/interrupt` to stop right away; in topic mode `/stop` ends the task.
+Interrupting also cancels the follow-ups already steered into that execution;
+send them again if you still want them. Interruption does not undo file changes
+or external tool operations that already happened.
+Operators can set `AMUX_FEISHU_BUSY_INPUT=interrupt` to restore the previous
+interrupt-on-follow-up behavior.
+
+In singleton mode the foreground session converses and dispatches: long work is
+delegated to background Agent Instances, and the foreground Agent relays
+corrections to the right instance with `amux.instance_steer`.
 
 ## Know which conversation receives the message
 

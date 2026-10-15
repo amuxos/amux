@@ -2761,8 +2761,8 @@ mode = "singleton"
 		t.Fatalf("routes = %+v, want one Submit to runtime-1", hub.routes)
 	}
 	req := hub.routes[0].payload.(*pb.SubmitRequest)
-	if req.Name != "bot-a-main" || req.Text != "继续分析" || req.Source != "lark" || !req.Async || !req.Preempt {
-		t.Fatalf("submit request = %+v, want singleton lark async preempt", req)
+	if req.Name != "bot-a-main" || req.Text != "继续分析" || req.Source != "lark" || !req.Async || !req.Preempt || req.Steer {
+		t.Fatalf("submit request = %+v, want singleton lark async preempt (steer_foreground off)", req)
 	}
 	chat, err := b.db.FindByRootMsg(b.currentBridgeId(), "om-dm")
 	if err != nil {

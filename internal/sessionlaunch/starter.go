@@ -33,6 +33,9 @@ type StartRequest struct {
 	LaunchID                 string
 	AgentActorToken          string
 	AgentActorTokenExpiresAt int64
+	// SystemInstructions are session-level out-of-band instructions applied
+	// from the first provider launch (RunRequest.system_instructions).
+	SystemInstructions string
 }
 
 // WorkspaceRequest describes the workspace fields forwarded to Run.
@@ -116,17 +119,18 @@ func (s *starter) Start(ctx context.Context, req StartRequest) (SessionRef, erro
 	}
 
 	runReq := &pb.RunRequest{
-		AgentProfile:    req.Launch.AgentProfile,
-		ProfileSpec:     req.Launch.ProfileSpec,
-		AgentType:       req.Launch.AgentType,
-		Name:            req.Name,
-		Env:             req.Launch.Env,
-		ExtraArgs:       req.Launch.ExtraArgs,
-		Cwd:             req.Workspace.Cwd,
-		Repo:            req.Workspace.Repo,
-		RepoRef:         req.Workspace.RepoRef,
-		WorkspaceSource: req.Workspace.Source,
-		WorkspaceScope:  req.Workspace.Scope,
+		AgentProfile:       req.Launch.AgentProfile,
+		ProfileSpec:        req.Launch.ProfileSpec,
+		AgentType:          req.Launch.AgentType,
+		Name:               req.Name,
+		Env:                req.Launch.Env,
+		ExtraArgs:          req.Launch.ExtraArgs,
+		Cwd:                req.Workspace.Cwd,
+		Repo:               req.Workspace.Repo,
+		RepoRef:            req.Workspace.RepoRef,
+		WorkspaceSource:    req.Workspace.Source,
+		WorkspaceScope:     req.Workspace.Scope,
+		SystemInstructions: req.SystemInstructions,
 	}
 	if req.ExecutionIdentity != nil || req.LaunchID != "" || req.AgentActorToken != "" {
 		runReq.ExecutionIdentity = req.ExecutionIdentity

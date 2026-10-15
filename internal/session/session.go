@@ -110,6 +110,10 @@ type Session struct {
 	goalControlMu    sync.Mutex
 	goalGrant        *GoalGrant
 	persistGoalGrant func(*GoalGrant) error
+	// parkedNotices are subtask completion notices whose turn was torn down
+	// before the model processed them; released when a process is installed.
+	parkedNotices []*queuedInput
+	turnTerminals map[string]*agentstream.Terminal
 
 	tapMu sync.Mutex
 	tap   func(agentstream.Event) bool
@@ -121,6 +125,9 @@ type Session struct {
 	turnMu        sync.Mutex
 	canonicalTurn *agentstream.Turn
 	canonicalAuth TurnAuthorization
+	// canonicalInterruptedTurn records the turn whose cancellation was
+	// accepted, so later input is never steered into a turn that is ending.
+	canonicalInterruptedTurn string
 
 	timelineMu              sync.Mutex
 	timeline                *agentstream.Timeline
@@ -244,6 +251,7 @@ type queuedInput struct {
 	preempt   bool
 	auth      TurnAuthorization
 	lifecycle func() error
+	requeues  int
 	done      chan error
 }
 
@@ -300,6 +308,9 @@ func (s *Session) ActiveTurnAuthorization() (string, TurnAuthorization, bool) {
 func (s *Session) revokeActiveTurnAuthorization() {
 	s.turnMu.Lock()
 	s.canonicalAuth = TurnAuthorization{}
+	if s.canonicalTurn != nil {
+		s.canonicalInterruptedTurn = s.canonicalTurn.Ref().ID
+	}
 	s.turnMu.Unlock()
 }
 
@@ -887,6 +898,7 @@ func (s *Session) SetProc(p Proc) {
 	if ready, ok := p.(GoalTurnReadyProvider); ok && s.AgentTimeline().ActiveTurn() == nil {
 		ready.EnableGoalTurns()
 	}
+	go s.releaseParkedNotices()
 }
 
 // ProcessGeneration identifies the currently installed process owner. Process
@@ -968,20 +980,42 @@ func (s *Session) runQueuedInput(item *queuedInput) {
 		if len(input.Parts) == 0 {
 			input = TextUserInput(item.Text)
 		}
+		if item.Source == SubtaskNoticeSource {
+			s.watchTurnTerminal(item.TurnID)
+		}
 		done, err = s.submitInputNowWithAuthorization(item.Source, input, item.TurnID, item.auth)
 	}
 	item.finish(err)
 	if done != nil {
 		<-done
 	}
-	s.advanceInputQueue()
+	var terminal *agentstream.Terminal
+	if item.Source == SubtaskNoticeSource {
+		terminal = s.takeTurnTerminal(item.TurnID)
+	}
+	requeue := shouldRequeueSubtaskNotice(item, err, terminal)
+	hasProcess := s.HasProcess()
+	s.advanceInputQueueWith(func() {
+		if requeue {
+			s.requeueSubtaskNoticeLocked(item, hasProcess && (terminal == nil || terminal.Code != "session_closed"))
+		}
+	})
 	if item.Control == "" && item.lifecycle == nil {
 		go s.resumeGoalAfterInput()
 	}
 }
 
 func (s *Session) advanceInputQueue() {
+	s.advanceInputQueueWith(nil)
+}
+
+// advanceInputQueueWith runs beforeLocked (if any) under queueMu, then
+// starts the next pending input or marks the queue idle.
+func (s *Session) advanceInputQueueWith(beforeLocked func()) {
 	s.queueMu.Lock()
+	if beforeLocked != nil {
+		beforeLocked()
+	}
 	if len(s.queuePending) == 0 {
 		s.queueBusy = false
 		s.queueGoal = false

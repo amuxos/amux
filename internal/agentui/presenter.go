@@ -89,15 +89,20 @@ func (p *Presenter) Consume(ev Event) []Action {
 	case KindInputSubmitted:
 		if sameTurn(p.turn, ev.Turn) && p.status == "running" {
 			p.adoptTurn(ev.Turn)
-			if ev.Source != SourceFeishu && ev.Source != SourceGoal {
-				return []Action{{Kind: ActionInputEcho, Turn: p.turn, Text: ev.Text}}
+			if echoesInput(ev.Source) {
+				return []Action{{Kind: ActionInputEcho, Turn: p.turn, Text: inputEchoText(ev)}}
 			}
 			return nil
 		}
 		p.startTurn(ev.Turn)
-		actions := []Action{{Kind: ActionTurnStarted, Turn: p.turn, Source: ev.Source, Text: ev.Text}}
-		if ev.Source != SourceFeishu && ev.Source != SourceGoal {
-			actions = append(actions, Action{Kind: ActionInputEcho, Turn: p.turn, Text: ev.Text})
+		startText := ev.Text
+		if ev.Source == SourceSubtask {
+			// Background-task completion notices are model input only.
+			startText = ""
+		}
+		actions := []Action{{Kind: ActionTurnStarted, Turn: p.turn, Source: ev.Source, Text: startText}}
+		if echoesInput(ev.Source) {
+			actions = append(actions, Action{Kind: ActionInputEcho, Turn: p.turn, Text: inputEchoText(ev)})
 		}
 		return actions
 	case KindTurnStarted:
@@ -433,4 +438,16 @@ func (p *Presenter) activityView() *ActivityView {
 		view.Tools = append(view.Tools, tool)
 	}
 	return view
+}
+
+// echoesInput reports whether an input of this source is echoed to the user.
+// Feishu input is already visible; background-task completion notices
+// (SourceSubtask) are silent model input and are never echoed.
+func echoesInput(src Source) bool {
+	return src != SourceFeishu && src != SourceSubtask && src != SourceGoal
+}
+
+// inputEchoText is the text echoed for a non-Feishu input.
+func inputEchoText(ev Event) string {
+	return ev.Text
 }

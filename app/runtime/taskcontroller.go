@@ -18,6 +18,7 @@ import (
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
+	"github.com/rs/zerolog/log"
 )
 
 // taskController is the in-process task.SessionController for the Phase 1 local
@@ -78,6 +79,7 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 
 	// Persistent path: reuse an existing session for this instance.
 	if spec.InstanceID != "" {
+		c.reviveArchivedInstanceSession(name, spec)
 		if sess, ok := c.srv.mgr.FindOwnedByName(name); ok {
 			snap := sess.Snapshot()
 			if err := validateTaskPermissionResume(snap, spec.PermissionPolicy); err != nil {
@@ -116,8 +118,12 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 					return nil, err
 				}
 				// Non-sleeping (e.g. still Running from a prior task that did not
-				// reach terminal sleep): reuse the live session as-is.
-				return c.childSession(sess), nil
+				// reach terminal sleep): reuse the live session as-is. Mailbox
+				// input (instance_send, or an instance_steer that found no
+				// steerable turn) still goes ahead of the new task prompt.
+				cs := c.childSession(sess)
+				c.drainMailboxInto(cs, spec.InstanceID)
+				return cs, nil
 			}
 		}
 	}
@@ -176,6 +182,9 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	recordEnv = ensureLaunchEnvPATH(spec.RecordEnv)
 	sess, err := c.srv.mgr.CreateOwned(name, spec.AgentType, spec.OwnerTaskId, spec.InstanceID, spec.Cwd)
 	if err != nil {
+		if spec.InstanceID != "" {
+			return nil, fmt.Errorf("create child session: %w; the agent instance's previous session is unusable — start a fresh instance with amux.instance_spawn", err)
+		}
 		return nil, fmt.Errorf("create child session: %w", err)
 	}
 	if err := c.srv.mgr.SetExecutionIdentity(sess, spec.ExecutionIdentity, spec.LaunchID); err != nil {
@@ -382,4 +391,29 @@ func frozenTaskPermissionPolicy(snap session.Snapshot) (string, error) {
 		}
 	}
 	return saved.PermissionPolicy, nil
+}
+
+// reviveArchivedInstanceSession makes a persistent instance's child session
+// that was archived after a failed task (start failure, runtime restart)
+// reusable: when it still belongs to this instance and holds a provider
+// conversation it is marked sleeping so the resume path below continues that
+// conversation; otherwise the stale row is removed so a fresh child session
+// can take the instance's name instead of failing with "already exists".
+func (c *taskController) reviveArchivedInstanceSession(name string, spec task.ChildSpec) {
+	stale, err := c.srv.mgr.Get(name)
+	if err != nil || stale.StateSnapshot() != session.StateArchived {
+		return
+	}
+	snap := stale.Snapshot()
+	if snap.AgentInstanceID == spec.InstanceID && snap.AgentType == spec.AgentType &&
+		strings.TrimSpace(snap.AgentSessionID) != "" && sameMemoryPrincipal(snap.ExecutionIdentity, spec.ExecutionIdentity) {
+		if err := c.srv.mgr.SetSleeping(stale, session.SleepReasonRestartFailed); err == nil {
+			log.Info().Str("session", name).Str("agent_instance_id", spec.InstanceID).Msg("runtime: reusing archived instance child session via resume")
+			return
+		}
+	}
+	_ = stale.Kill()
+	if err := c.srv.mgr.Delete(stale); err != nil {
+		log.Warn().Err(err).Str("session", name).Msg("runtime: remove stale archived instance child session")
+	}
 }

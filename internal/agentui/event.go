@@ -39,10 +39,13 @@ const (
 	SourceDesktop   Source = "desktop"
 	SourceFeishu    Source = "feishu"
 	SourceScheduler Source = "scheduler"
-	SourceSystem    Source = "system"
-	SourceTool      Source = "tool"
-	SourceResult    Source = "result"
-	SourceUnknown   Source = "unknown"
+	// SourceSubtask marks input the control plane submits to a parent session
+	// when one of its background tasks finishes.
+	SourceSubtask Source = "subtask"
+	SourceSystem  Source = "system"
+	SourceTool    Source = "tool"
+	SourceResult  Source = "result"
+	SourceUnknown Source = "unknown"
 )
 
 type Event struct {

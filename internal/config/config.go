@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 
 	"github.com/amuxos/amux/internal/amuxhome"
 	"github.com/spf13/viper"
@@ -537,6 +538,56 @@ func GetBridgeFeishuDocumentCommentsForProfile(profile string) BridgeFeishuDocum
 	documentComments.ModelRef = strings.TrimSpace(viper.GetString(base + ".model_ref"))
 	documentComments.ReasoningEffort = strings.TrimSpace(viper.GetString(base + ".reasoning_effort"))
 	return documentComments
+}
+
+// FeishuSteerForegroundKey is the experimental switch that turns on busy-input
+// steering into the running turn and the foreground/background coordination
+// prompt for Feishu singleton and thread chats. Default off.
+const FeishuSteerForegroundKey = "bridge.feishu.experimental.steer_foreground"
+
+// GetBridgeFeishuSteerForeground reports the experimental steer/foreground
+// switch. Running bridges read it at startup.
+func GetBridgeFeishuSteerForeground() bool {
+	return viper.GetBool(FeishuSteerForegroundKey)
+}
+
+// FeishuShowBackgroundTasksKey is the experimental switch that shows
+// background task (subtask / spawned agent instance) progress cards in Feishu.
+// Default off: background progress stays out of the chat; the foreground
+// agent reports results itself.
+const FeishuShowBackgroundTasksKey = "bridge.feishu.experimental.show_background_tasks"
+
+// GetBridgeFeishuShowBackgroundTasks reports the startup value of the
+// show_background_tasks switch. Running bridges apply card edits live.
+func GetBridgeFeishuShowBackgroundTasks() bool {
+	return viper.GetBool(FeishuShowBackgroundTasksKey)
+}
+
+// liveSteerForeground mirrors the steer_foreground switch for components
+// outside the bridge (the hub task router's parent-completion notifier).
+// 0 = not set by a bridge yet (fall back to the config value), 1 = off, 2 = on.
+var liveSteerForeground atomic.Int32
+
+// SetLiveSteerForeground records the steer_foreground value a running bridge
+// applied (at startup or live from the experiments card).
+func SetLiveSteerForeground(on bool) {
+	if on {
+		liveSteerForeground.Store(2)
+	} else {
+		liveSteerForeground.Store(1)
+	}
+}
+
+// LiveSteerForeground reports the running steer_foreground value.
+func LiveSteerForeground() bool {
+	switch liveSteerForeground.Load() {
+	case 2:
+		return true
+	case 1:
+		return false
+	default:
+		return GetBridgeFeishuSteerForeground()
+	}
 }
 
 func GetBridgeFeishuPresentation() BridgeFeishuPresentationConfig {

@@ -42,6 +42,10 @@ func (h *mcpHandler) spawnAgent(ctx context.Context, args json.RawMessage) (mcp.
 	string]any{"agent_instance_id": spec.AgentInstanceID, "task_id": run.ID, "status": run.Status})), nil
 }
 
+// sendMessage dispatches amux.instance_send (QueueOnly): enqueue a message into
+// the persistent agent's mailbox without waking it. The message is delivered
+// ahead of the next task prompt when the agent is woken by instance_spawn /
+// instance_followup. It does not start a new turn.
 func (h *mcpHandler) sendMessage(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
 	var a struct {
 		AgentInstanceID string `json:"agent_instance_id"`
@@ -51,26 +55,60 @@ func (h *mcpHandler) sendMessage(ctx context.Context, args json.RawMessage) (mcp
 	if err := json.Unmarshal(args, &a); err != nil {
 		return mcp.ErrorText("invalid arguments: " + err.Error()), nil
 	}
-	if a.AgentInstanceID == "" {
-		return mcp.ErrorText("agent_instance_id is required"), nil
+	resp, errResult := sendAgentMessage(ctx, &pb.SendAgentMessageRequest{Id: a.AgentInstanceID, Text: a.Text, Source: a.Source})
+	if errResult != nil {
+		return *errResult, nil
 	}
-	if a.Text == "" {
-		return mcp.ErrorText("text is required"), nil
+	return mcp.Text(toJSON(map[string]any{"agent_instance_id": a.AgentInstanceID, "queued": true, "pending_messages": resp.PendingMessages})), nil
+}
+
+// steerAgent dispatches amux.instance_steer: inject a correction into the
+// persistent agent's running turn, falling back to its mailbox when no
+// steerable turn is active.
+func (h *mcpHandler) steerAgent(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
+	var a struct {
+		AgentInstanceID string `json:"agent_instance_id"`
+		Text            string `json:"text"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return mcp.ErrorText("invalid arguments: " + err.Error()), nil
+	}
+	resp, errResult := sendAgentMessage(ctx, &pb.SendAgentMessageRequest{Id: a.AgentInstanceID, Text: a.Text, Source: "coordinator", Steer: true})
+	if errResult != nil {
+		return *errResult, nil
+	}
+	out := map[string]any{"agent_instance_id": a.AgentInstanceID, "delivery": resp.GetDelivery()}
+	if resp.GetDelivery() != "steered" {
+		out["pending_messages"] = resp.PendingMessages
+		out["fallback_reason"] = resp.GetSteerFallbackReason()
+		out["hint"] = "实例没有可注入的运行中 turn，消息已进入 mailbox，会在下次 amux.instance_followup 唤醒实例时先于新任务送达；调用 followup 时不要在 prompt 里重复这条消息。"
+	}
+	return mcp.Text(toJSON(out)), nil
+}
+
+// sendAgentMessage validates and sends an instance_send / instance_steer
+// request; a non-nil ToolResult is the error to return to the caller.
+func sendAgentMessage(ctx context.Context, req *pb.SendAgentMessageRequest) (*pb.SendAgentMessageResponse, *mcp.ToolResult) {
+	fail := func(msg string) (*pb.SendAgentMessageResponse, *mcp.ToolResult) {
+		r := mcp.ErrorText(msg)
+		return nil, &r
+	}
+	if req.Id == "" {
+		return fail("agent_instance_id is required")
+	}
+	if req.Text == "" {
+		return fail("text is required")
 	}
 	client, closeFn, err := newTaskClient()
 	if err != nil {
-		return mcp.ErrorText(err.Error()), nil
+		return fail(err.Error())
 	}
 	defer closeFn()
-	resp, err := client.SendAgentMessage(ctx, &pb.SendAgentMessageRequest{Id: a.AgentInstanceID, Text: a.Text, Source: a.Source})
+	resp, err := client.SendAgentMessage(ctx, req)
 	if err != nil {
-		return mcp.ErrorText(err.Error()), nil
+		return fail(err.Error())
 	}
-	return mcp.Text(toJSON(map[ // sendMessage dispatches amux.instance_send (QueueOnly): enqueue a message into
-	// the persistent agent's mailbox without waking it. The message is delivered
-	// ahead of the next task prompt when the agent is woken by instance_spawn /
-	// instance_followup. It does not start a new turn.
-	string]any{"agent_instance_id": a.AgentInstanceID, "queued": true, "pending_messages": resp.PendingMessages})), nil
+	return resp, nil
 }
 
 func (h *mcpHandler) followupTask(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {

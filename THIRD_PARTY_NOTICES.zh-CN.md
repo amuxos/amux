@@ -32,13 +32,13 @@ fixture、fuzz harness 和 vendor 目录不在此清单范围内。
 ## 可选 Claude sidecar
 
 `sidecars/claude-sdk/` 中 amux 自身的 Adapter 源码采用 Apache-2.0。锁文件固定的
-`@anthropic-ai/claude-agent-sdk` `0.3.158` 及同版本的八个平台包使用 Anthropic 自有条款。
+`@anthropic-ai/claude-agent-sdk` `0.3.296` 及同版本的八个平台包使用 Anthropic 自有条款。
 其许可证注明“All rights reserved”，并指向
 [Claude 法律与合规文档](https://code.claude.com/docs/en/legal-and-compliance)；
 SDK README 还指向 [Anthropic 商业条款](https://www.anthropic.com/legal/commercial-terms)。
 
-该版本的 [SDK 许可证](https://unpkg.com/@anthropic-ai/claude-agent-sdk@0.3.158/LICENSE.md)
-和 [SDK README](https://unpkg.com/@anthropic-ai/claude-agent-sdk@0.3.158/README.md)
+该版本的 [SDK 许可证](https://unpkg.com/@anthropic-ai/claude-agent-sdk@0.3.296/LICENSE.md)
+和 [SDK README](https://unpkg.com/@anthropic-ai/claude-agent-sdk@0.3.296/README.md)
 可从上游获取。可以从 npm 下载不等于获得再分发授权，amux 的许可证也不授予 Anthropic
 软件的使用权。将其捆绑到发行版之前，应核实适用条款及自身权限。
 

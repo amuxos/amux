@@ -899,6 +899,14 @@ func replaceInstallBinaries(sourceDir, binDir string, rename func(string, string
 		if err := os.CopyFS(staged, os.DirFS(sdkSource)); err != nil {
 			return err
 		}
+		// The runtime execs dist/index.js directly. tsc writes it without the
+		// execute bit, so a locally built sidecar would leave Claude sessions
+		// unable to start; set it here like install.sh and package-release.sh.
+		if runtime.GOOS != "windows" {
+			if err := os.Chmod(filepath.Join(staged, "dist", "index.js"), 0o755); err != nil {
+				return fmt.Errorf("mark Claude SDK sidecar executable: %w", err)
+			}
+		}
 		destination := filepath.Join(defaultAmuxDir(), "sidecars", "claude-sdk")
 		if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
 			return err

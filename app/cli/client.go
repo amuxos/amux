@@ -305,6 +305,20 @@ func (oc *hubClient) SubmitPreempt(ctx context.Context, targetID, name, text str
 	return err
 }
 
+// SubmitSteer injects text into the session's running turn; the runtime
+// falls back to queued input when the turn cannot be steered.
+func (oc *hubClient) SubmitSteer(ctx context.Context, targetID, name, text string) (string, string, error) {
+	resp, err := oc.c.Submit(ctx, &pb.AmuxdSubmitRequest{TargetId: targetID, Name: name, Text: text, Source: "cli", Async: true, Steer: true})
+	if err != nil {
+		return "", "", err
+	}
+	delivery := resp.GetDelivery()
+	if delivery == "" {
+		delivery = "queued"
+	}
+	return delivery, resp.GetSteerFallbackReason(), nil
+}
+
 func (oc *hubClient) QueueList(ctx context.Context, targetID, name string) ([]*pb.QueueItem, error) {
 	resp, err := oc.c.QueueList(ctx, &pb.AmuxdQueueListRequest{TargetId: targetID, Name: name})
 	if err != nil {

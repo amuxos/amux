@@ -136,3 +136,36 @@ func TestAssistantProgressWithoutResultKeepsLastMessageFallback(t *testing.T) {
 		t.Fatalf("fallback = %q, want last complete assistant message", got)
 	}
 }
+
+func TestMergeSteeredFinalAnswerKeepsEachSteerInOrder(t *testing.T) {
+	got := mergeSteeredFinalAnswer([]string{"DONE-FG", "收到甲", "收到乙", "收到丙"}, "收到丙")
+	want := "DONE-FG\n\n收到甲\n\n收到乙\n\n收到丙"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestMergeSteeredFinalAnswerDropsExactDuplicates(t *testing.T) {
+	got := mergeSteeredFinalAnswer([]string{"收到甲", "收到甲", "收到乙"}, "收到乙")
+	want := "收到甲\n\n收到乙"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestMergeSteeredFinalAnswerPrefersComprehensiveResult(t *testing.T) {
+	progress := "我直接执行，等待 45 秒后读取 README 的第一行。"
+	result := "已直接执行 sleep 45。README 第一行是 amux。另外，7 × 8 = 56。"
+	got := mergeSteeredFinalAnswer([]string{progress}, result)
+	if got != result {
+		t.Fatalf("progress leaked into final answer: %q", got)
+	}
+}
+
+func TestMergeSteeredFinalAnswerUsesProviderMergedResult(t *testing.T) {
+	result := "DONE-FG\n\n收到甲\n\n收到乙\n\n收到丙"
+	got := mergeSteeredFinalAnswer([]string{"DONE-FG", "收到甲", "收到乙", "收到丙"}, result)
+	if got != result {
+		t.Fatalf("got %q, want provider result", got)
+	}
+}

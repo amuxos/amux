@@ -1947,6 +1947,7 @@ amux session send <session-ref> <text> [flags]
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | help for send |
 | `--interrupt` | `bool` | `false` | interrupt the current turn and run this message ahead of queued inputs |
+| `--steer` | `bool` | `false` | inject this message into the running turn without interrupting it; falls back to the queue |
 
 ## `amux session set-model`
 

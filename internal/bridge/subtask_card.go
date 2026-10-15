@@ -351,6 +351,12 @@ func (b *Bridge) startSubtaskCards(chat *LarkChat, subtasks []subtaskProgress) {
 	if b == nil || b.subtasks == nil || chat == nil {
 		return
 	}
+	// Every subtask discovered here has this Feishu session as its parent, so
+	// the experimental show_background_tasks switch (default off) hides all of
+	// them; the foreground agent reports results itself.
+	if !b.showBackgroundTasks.Load() {
+		return
+	}
 	if _, ok := b.subtasks.(SubtaskEventReader); !ok {
 		return
 	}

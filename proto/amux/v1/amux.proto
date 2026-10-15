@@ -429,6 +429,9 @@ message RunRequest {
   // Unix seconds. Travels with the token so a relaunch can warn about a
   // credential the hub minted long ago and no longer tracks per session.
   int64 agent_actor_token_expires_at = 18;
+  // Session-level out-of-band instructions applied from the first launch
+  // (see SubmitRequest.system_instructions).
+  string system_instructions = 19;
 }
 message RunResponse {
   Session session = 1;
@@ -706,6 +709,24 @@ message SubmitRequest {
   // Optional execution pin used after internal file materialization.
   string expected_session_id = 10;
   string expected_launch_id = 11;
+  // Steer delivers the input into the turn that is executing now instead of
+  // starting a new turn. When the active turn cannot accept it (no active
+  // turn, provider without steer support, turn id mismatch, authorization
+  // mismatch) the runtime falls back to ordinary queued input. Mutually
+  // exclusive with preempt and control.
+  bool steer = 12;
+  // Optional steer precondition: only steer when this turn is still active.
+  string steer_expected_turn_id = 13;
+  // Session-level out-of-band instructions (for example the Feishu
+  // foreground protocol and file-delivery note). Honored only when
+  // manage_system_instructions is set. The runtime persists them for the
+  // session and applies them as system/developer instructions on the next
+  // provider launch; while the current launch does not carry them they are
+  // appended to the input as a hidden fallback.
+  string system_instructions = 14;
+  // The caller owns the session's system instructions: an empty value clears
+  // them for future launches.
+  bool manage_system_instructions = 15;
 }
 message SubmitResponse {
   bool ok = 1;
@@ -713,6 +734,16 @@ message SubmitResponse {
   repeated IgnoredInputPart ignored_parts = 3;
   string session_id = 4;
   string launch_id = 5;
+  // Delivery reports how a steer request was applied: "steered" when injected
+  // into the active turn, "queued" when it fell back to queued input. Empty
+  // for ordinary submits.
+  string delivery = 6;
+  // Human-readable reason for a steer fallback.
+  string steer_fallback_reason = 7;
+  // How managed system instructions reached the provider: "system" when the
+  // running launch carries them out of band, "inline" when they were
+  // appended to the input. Empty when none were managed.
+  string instructions_delivery = 8;
 }
 
 message ActiveTurnRequest {
@@ -1084,6 +1115,8 @@ message AmuxdSubmitRequest {
   string control = 7;
   repeated InputPart parts = 8;
   bool preempt_already_interrupted = 9;
+  // Steer into the active turn; falls back to queued input. See SubmitRequest.steer.
+  bool steer = 10;
 }
 message AmuxdQueueListRequest {
   string target_id = 1;
@@ -1445,10 +1478,17 @@ message SendAgentMessageRequest {
   string id = 1;
   string text = 2;
   string source = 3;
+  // Steer injects the message into the instance's running turn. When the
+  // instance has no steerable active turn the message falls back to the
+  // mailbox (delivered on the next wake-up).
+  bool steer = 4;
 }
 message SendAgentMessageResponse {
   bool ok = 1;
   int32 pending_messages = 2;
+  // "steered" or "mailbox".
+  string delivery = 3;
+  string steer_fallback_reason = 4;
 }
 
 message InterruptAgentInstanceRequest {

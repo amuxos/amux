@@ -17,10 +17,14 @@ Profile reference alone creates no instance reuse. Instance status (`active`,
 Terminal TaskRun outcomes are `succeeded`, `failed`, `cancelled`, `timed_out`.
 
 `instance_followup` submits work and triggers execution; `instance_send` only
-queues mailbox input, delivered on a later wake. Interrupting the instance
-cancels its current owner TaskRun while retaining the instance. Tasks receive
-explicit inputs and authorized resources, not the parent's full chat history
-by default. Parent/child identity records preserve provenance without merging
+queues mailbox input, delivered on a later wake. `instance_steer` adds a
+correction to the instance's running Turn; when no Turn can take it, the text
+falls back to the mailbox, and when the delivery outcome is unknown it is not
+queued at all. Mailbox input is delivered ahead of the next Task prompt, also
+when `instance_followup` reuses a child Session that is still running.
+Interrupting the instance cancels its current owner TaskRun while retaining
+the instance. Tasks receive explicit inputs and authorized resources, not the
+parent's full chat history by default. Parent/child identity records preserve provenance without merging
 contexts. See the [Session model](current/session-product-model.md).
 
 Follow-up work with omitted launch identity restores the instance's saved profile,

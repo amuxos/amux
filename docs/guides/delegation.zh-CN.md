@@ -116,12 +116,14 @@ amux task logs <task-id>
 | `amux.instance_spawn` | 第一次创建持久专家 | 启动初次工作，返回稳定实例身份 |
 | `amux.instance_followup` | 让已有实例继续处理明确的新要求 | 是，产生新的 TaskRun，保留原生对话历史 |
 | `amux.instance_send` | 暂存补充消息，供以后唤醒时读取 | 否，只进入信箱，在之后的任务提示前交付 |
+| `amux.instance_steer` | 纠正实例此刻正在做的工作 | 否，加入当前执行；没有执行在跑时回落到信箱（`delivery=mailbox`） |
 | `amux.instance_wait` | 等待实例当前执行结束或等待超时 | 否；结果仍通过 Task 工具获取 |
 | `amux.instance_interrupt` | 取消实例当前所属的执行 | 保留实例和可恢复环境，不删除实例身份 |
 
 追问可写：“继续使用实例 `<agent_instance_id>`，根据刚补充的约束重新评估第二个风险，
 并返回新的 Task ID。”只有换成 `instance_followup` 等真正的执行入口才会唤醒工作；
-`instance_send` 成功不代表它已经开始回答。
+`instance_send` 成功不代表它已经开始回答。`instance_steer` 返回 `delivery=mailbox` 后，
+用 `instance_followup` 继续：信箱里的纠正会先送达，新的提示里不要重复它。
 
 `instance_wait` 的等待超时也不等于 Task 超时或取消。等待结束后，按对应 Task ID 使用
 `amux.task_get` 或 `amux.task_stream` 查询结果。

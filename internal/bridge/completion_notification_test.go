@@ -384,3 +384,46 @@ completion_notification_after_seconds = 1
 		t.Fatalf("private notice = %q, want non-empty text without mention", notice)
 	}
 }
+
+func TestCompletionNotificationInheritsSourceChatOfFirstMessage(t *testing.T) {
+	loadBridgeTestConfig(t, "[bridge.feishu.presentation]\ncompletion_notification_enabled = true\ncompletion_notification_after_seconds = 1\n")
+	b, _ := newBridgeForInputTest(t)
+	b.bridgeID = "feishu:test"
+	root := singletonStreamKey("feishu:test")
+	if err := b.db.RecordTurnLinks([]TurnLink{{BridgeID: "feishu:test", RootMsgID: root, MessageID: "m1", TurnID: "turn", OpenID: "ou_user"}}); err != nil {
+		t.Fatal(err)
+	}
+	// First message's chat wins; a later steered message from another chat
+	// does not override it.
+	b.recordTurnSourceChat(root, "turn", "oc_first", "")
+	b.recordTurnSourceChat(root, "turn", "oc_other", "")
+	var sent string
+	b.dmInteractive = func(_ context.Context, _, card string) (string, string, error) {
+		sent = card
+		return "ok", "", nil
+	}
+	streamChat := &LarkChat{BridgeId: "feishu:test", RootMsgID: root} // singleton stream: no chat
+	if err := b.notifyTurnCompletion(context.Background(), streamChat, "turn", "done", "", time.Minute); err != nil {
+		t.Fatalf("notify: %v", err)
+	}
+	if !strings.Contains(sent, url.Values{"openChatId": {"oc_first"}}.Encode()) {
+		t.Fatalf("card does not link the first message's chat: %s", sent)
+	}
+}
+
+func TestCompletionNotificationSkipsSubtaskTurnSilently(t *testing.T) {
+	loadBridgeTestConfig(t, "[bridge.feishu.presentation]\ncompletion_notification_enabled = true\ncompletion_notification_after_seconds = 1\n")
+	b, _ := newBridgeForInputTest(t)
+	b.bridgeID = "feishu:test"
+	if err := b.db.RecordTurnLinks([]TurnLink{{BridgeID: "feishu:test", RootMsgID: "root", MessageID: "m1", TurnID: "turn", OpenID: "ou_user"}}); err != nil {
+		t.Fatal(err)
+	}
+	b.markSubtaskTurn("root", "turn")
+	b.dmInteractive = func(context.Context, string, string) (string, string, error) {
+		t.Fatal("subtask turn must not notify")
+		return "", "", nil
+	}
+	if err := b.notifyTurnCompletion(context.Background(), &LarkChat{BridgeId: "feishu:test", RootMsgID: "root"}, "turn", "done", "", time.Minute); err != nil {
+		t.Fatalf("subtask turn returned error (would warn): %v", err)
+	}
+}

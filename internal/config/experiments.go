@@ -13,6 +13,12 @@ type ExperimentsSettings struct {
 	CompletionNotification CompletionNotificationSettings
 	GroupSettingsEnabled   bool
 	MemoryEnabled          bool
+	// SteerForeground mirrors bridge.feishu.experimental.steer_foreground.
+	// Unlike the other fields the bridge applies it live on save.
+	SteerForeground bool
+	// ShowBackgroundTasks mirrors bridge.feishu.experimental.show_background_tasks
+	// (applied live, like SteerForeground).
+	ShowBackgroundTasks bool
 }
 
 // ExperimentsSettingsUpdate preserves the latest saved value for experiment
@@ -21,6 +27,8 @@ type ExperimentsSettingsUpdate struct {
 	CompletionNotification CompletionNotificationSettings
 	GroupSettingsEnabled   *bool
 	MemoryEnabled          *bool
+	SteerForeground        *bool
+	ShowBackgroundTasks    *bool
 }
 
 func experimentsConfigPath() string {
@@ -40,6 +48,8 @@ func GetExperimentsSettings() ExperimentsSettings {
 		CompletionNotification: CompletionNotificationSettings{Enabled: presentation.CompletionNotificationEnabled, AfterSeconds: presentation.CompletionNotificationAfterSeconds},
 		GroupSettingsEnabled:   GetBridgeFeishuGroupSettingsEnabled(),
 		MemoryEnabled:          GetMemory().Enabled,
+		SteerForeground:        GetBridgeFeishuSteerForeground(),
+		ShowBackgroundTasks:    GetBridgeFeishuShowBackgroundTasks(),
 	}
 }
 
@@ -52,6 +62,8 @@ func experimentsSettingsFromConfig(raw map[string]any) (ExperimentsSettings, err
 		CompletionNotification: completionNotificationSettings(v),
 		GroupSettingsEnabled:   v.GetBool("bridge.feishu.group_settings.enabled"),
 		MemoryEnabled:          v.GetBool("memory.enabled"),
+		SteerForeground:        v.GetBool(FeishuSteerForegroundKey),
+		ShowBackgroundTasks:    v.GetBool(FeishuShowBackgroundTasksKey),
 	}, nil
 }
 
@@ -72,6 +84,8 @@ func SaveExperimentsSettings(settings ExperimentsSettings) error {
 		CompletionNotification: settings.CompletionNotification,
 		GroupSettingsEnabled:   &settings.GroupSettingsEnabled,
 		MemoryEnabled:          &settings.MemoryEnabled,
+		SteerForeground:        &settings.SteerForeground,
+		ShowBackgroundTasks:    &settings.ShowBackgroundTasks,
 	})
 	return err
 }
@@ -90,6 +104,12 @@ func UpdateExperimentsSettings(update ExperimentsSettingsUpdate) (ExperimentsSet
 		}
 		if update.MemoryEnabled != nil {
 			setNestedConfigValue(raw, strings.Split("memory.enabled", "."), *update.MemoryEnabled)
+		}
+		if update.SteerForeground != nil {
+			setNestedConfigValue(raw, strings.Split(FeishuSteerForegroundKey, "."), *update.SteerForeground)
+		}
+		if update.ShowBackgroundTasks != nil {
+			setNestedConfigValue(raw, strings.Split(FeishuShowBackgroundTasksKey, "."), *update.ShowBackgroundTasks)
 		}
 		var err error
 		saved, err = experimentsSettingsFromConfig(raw)

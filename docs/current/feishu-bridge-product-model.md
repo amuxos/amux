@@ -252,9 +252,10 @@ Parent summaries retain their roughly thirty-second refresh cadence.
 `/compact`, `/clear` and the native `/skill` picker currently require a
 Codex-compatible Session. Compact/clear submit queued controls; interrupt routes
 to the active Session instead of cancelling every related Task. The
-[Session model](session-product-model.md) defines ordinary follow-up preemption
-and text coalescing. See `router_control.go`, `router_submit.go`, `coalesce.go`
-and `skill_picker.go` under `internal/bridge/` for these input paths.
+[Session model](session-product-model.md) defines when ordinary follow-ups are
+steered into the running Turn or queued, and text coalescing. See
+`router_control.go`, `router_submit.go`, `coalesce.go`, `steer_target.go` and
+`skill_picker.go` under `internal/bridge/` for these input paths.
 
 Document-comment intake is independently enabled. It requires an actual bot
 mention, a confirmed owner and owner access before reading document content or

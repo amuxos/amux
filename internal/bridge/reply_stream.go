@@ -374,28 +374,46 @@ func (s *replyStreamState) replaceCurrent(text string) {
 	if strings.TrimRight(full, "\n") == text {
 		return
 	}
+	continuation := false
 	if oldCurrent != "" && strings.HasSuffix(full, oldCurrent) {
 		prefix := full[:len(full)-len(oldCurrent)]
 		if prefix != "" && strings.HasPrefix(text, prefix) {
 			text = strings.TrimPrefix(text, prefix)
+			continuation = true
 		}
 	} else if oldCurrent == "" && full != "" && strings.HasPrefix(text, full) {
 		text = strings.TrimPrefix(text, full)
+		continuation = true
 	}
 	if strings.TrimSpace(text) == "" || strings.TrimRight(oldCurrent, "\n") == text {
 		return
 	}
-	s.current.Reset()
-	s.current.WriteString(text)
-
 	switch {
 	case oldCurrent != "" && strings.HasSuffix(full, oldCurrent):
-		full = full[:len(full)-len(oldCurrent)] + text
+		prefix := full[:len(full)-len(oldCurrent)]
+		if continuation {
+			full = prefix + text
+			break
+		}
+		if lastReplySegment(prefix) == strings.TrimSpace(text) {
+			// The replacement repeats the segment right before it.
+			return
+		}
+		full = joinReplySegments(prefix, text)
 	case full == "":
 		full = text
-	default:
+	case continuation:
 		full += text
+	default:
+		if lastReplySegment(full) == strings.TrimSpace(text) {
+			return
+		}
+		// A separate assistant message: keep a paragraph break so fenced code
+		// blocks and paragraphs from different messages never glue together.
+		full = joinReplySegments(full, text)
 	}
+	s.current.Reset()
+	s.current.WriteString(text)
 	s.full.Reset()
 	s.full.WriteString(full)
 
@@ -426,6 +444,9 @@ func (s *replyStreamState) reconcileFinalMessage(text string) {
 		return
 	}
 
+	if lastReplySegment(full) == strings.TrimSpace(text) {
+		return
+	}
 	separator := "\n\n"
 	if strings.HasSuffix(full, "\n\n") {
 		separator = ""
@@ -433,6 +454,34 @@ func (s *replyStreamState) reconcileFinalMessage(text string) {
 		separator = "\n"
 	}
 	s.addDelta(separator + text)
+}
+
+// joinReplySegments joins two assistant message segments with a paragraph
+// break unless the left side already ends with one (or is a prefix that
+// continues the same message mid-line, i.e. empty).
+func joinReplySegments(left, right string) string {
+	if left == "" {
+		return right
+	}
+	right = strings.TrimLeft(right, "\n")
+	switch {
+	case strings.HasSuffix(left, "\n\n"):
+		return left + right
+	case strings.HasSuffix(left, "\n"):
+		return left + "\n" + right
+	default:
+		return left + "\n\n" + right
+	}
+}
+
+// lastReplySegment is the last paragraph-separated segment of the visible
+// reply, used to drop an identical consecutive repeat.
+func lastReplySegment(full string) string {
+	full = strings.TrimSpace(full)
+	if i := strings.LastIndex(full, "\n\n"); i >= 0 {
+		return strings.TrimSpace(full[i+2:])
+	}
+	return full
 }
 
 // finalMessageOverlap returns the longest suffix of streamed that is also a

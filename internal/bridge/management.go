@@ -269,12 +269,15 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			if err != nil {
 				return cardToast("error", managementCopy("management.cannot.save.experiment.settings.check.the.configuration.file")), true, nil
 			}
+			// steer_foreground is reloadable: apply the persisted value now.
+			b.setSteerForeground(saved.SteerForeground)
+			b.showBackgroundTasks.Store(saved.ShowBackgroundTasks)
 		}
 		if action == managementActionExperimentsSaveRestart {
 			updateFocusedCard(renderManagementExperimentsRestartConfirmationCard(state))
 			return cardToast("success", managementCopy("management.saved.confirm.the.restart.to.apply.changes")), true, nil
 		}
-		updateFocusedCard(renderManagementExperimentsCard(saved, config.GetExperimentsSettings()))
+		updateFocusedCard(renderManagementExperimentsCard(saved, b.runningExperimentsSettings()))
 		if action == managementActionExperimentsSave {
 			return cardToast("success", managementCopy("management.saved.restart.amux.to.apply.changes")), true, nil
 		}

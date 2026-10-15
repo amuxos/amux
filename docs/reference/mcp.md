@@ -8,7 +8,7 @@ This reference is generated from the actual `amux mcp` tools/list registry and c
 
 MCP product semantics, permissions, and lifecycle boundaries are defined by the [CLI product model](../current/cli-product-model.md) and [Task model](../distributed-task-model.md). At runtime, [`amux.result_continue`](#amuxresult_continue) continues successful results that exceed a page budget. Tool results are not tools/list registration metadata, so this reference does not maintain a separate output Schema that could drift.
 
-Official tools in `tools/list`: **49**.
+Public `tools/list` tools: **50**.
 
 ## Public tool index
 
@@ -20,12 +20,13 @@ Official tools in `tools/list`: **49**.
 | `amux.delegation_get` | Read the current Delegation snapshot. Use delegation_wait for incremental events. |
 | `amux.delegation_intervene` | Answer a permission request for a Delegation that supports permission_response. |
 | `amux.delegation_wait` | Wait for a Delegation. event returns incremental events; actionable avoids waking the main model repeatedly for ordinary progress while preserving permission and terminal-state wakeups. wait_timed_out is not a terminal Delegation state. Track actual created attempts using the returned status. |
-| `amux.instance_followup` | Deliver a task to a persistent Agent and immediately start a new turn, retaining the provider conversation context. |
-| `amux.instance_interrupt` | Interrupt the current turn of a persistent Agent. |
+| `amux.instance_followup` | Deliver a task to a persistent Agent and immediately start a new turn, retaining the provider conversation context; use it to continue after a background task finishes, or to retry after a failure when you decide to. A child session left behind by an earlier failure is reused; if the instance is no longer usable an error suggests creating a new one with instance_spawn. |
+| `amux.instance_interrupt` | Interrupt the persistent Agent's current turn. Use it when the user asks to stop a background task; tell the user briefly afterwards, and continue later with instance_followup if needed. |
 | `amux.instance_list` | List persistent Agent Instance status, child Session status, and mailbox depth. |
 | `amux.instance_send` | Enqueue a message in a persistent Agent mailbox without waking it or starting a new turn. |
-| `amux.instance_spawn` | Create a persistent Agent Instance without blocking and return a stable agent_instance_id. |
-| `amux.instance_wait` | Wait until the persistent Agent's current turn ends or the wait times out. Retrieve results with task_get/task_stream. |
+| `amux.instance_spawn` | Spawn a persistent Agent Instance (a background instance) without blocking and return a stable agent_instance_id. Use it for tasks you judge to need a long run or many tool calls; answer short questions directly instead of delegating. Make the prompt self-contained: state the goal, constraints and deliverables, and require the background Agent to end with a concise, user-facing conclusion (at the end of its final reply, optionally starting with "结论："), not its working narration. After calling, briefly tell the user the work started in the background and keep responding to new messages; remember which agent_instance_id belongs to which task, but describe tasks to the user in natural language without raw ids. When the task ends the system automatically delivers a "后台任务完成" notice to you, so do not poll or call task_get repeatedly. |
+| `amux.instance_steer` | Inject a correction or addition into the running turn of a persistent Agent without interrupting it; use it when the user corrects or extends a background task. When the instance has no steerable turn the message falls back to its mailbox (delivery=mailbox); then continue the task with instance_followup, which delivers the mailbox correction first, so do not repeat it in the prompt. |
+| `amux.instance_wait` | Wait until the persistent Agent's current turn ends or the timeout expires; fetch results with task_get/task_stream. A foreground session usually does not need this: a completion notice arrives automatically when the background task ends, and waiting blocks your responses to new user messages. |
 | `amux.local_expert_change` | Preview, publish, or clean up a managed local expert patch. Publishing requires a later, explicitly confirmed owner turn with the exact same patch and receipt. Evaluation approval does not authorize publication. |
 | `amux.local_expert_read` | Read the exact editing baseline of a managed local expert. Available only in the current Feishu Bot owner's turn; performs no writes. |
 | `amux.memory_forget` | Delete one memory document conditionally on revision; this does not erase existing conversation history. When correcting or forgetting a preference, also inspect MEMORY.md and related topics and revise duplicate content and references. Report partial failures clearly. |
@@ -249,7 +250,7 @@ Wait for a Delegation. event returns incremental events; actionable avoids wakin
 
 ## `amux.instance_followup`
 
-Deliver a task to a persistent Agent and immediately start a new turn, retaining the provider conversation context.
+Deliver a task to a persistent Agent and immediately start a new turn, retaining the provider conversation context; use it to continue after a background task finishes, or to retry after a failure when you decide to. A child session left behind by an earlier failure is reused; if the instance is no longer usable an error suggests creating a new one with instance_spawn.
 
 **Input JSON Schema**
 
@@ -259,6 +260,10 @@ Deliver a task to a persistent Agent and immediately start a new turn, retaining
     "agent_instance_id": {
       "description": "Persistent Agent Instance to wake and deliver the Task to, from instance_spawn",
       "type": "string"
+    },
+    "notify_parent": {
+      "description": "Whether a non-blocking task automatically delivers a completion message to the calling session when it finishes (experimental, requires steer_foreground); default true, pass false to opt out",
+      "type": "boolean"
     },
     "result_granularity": {
       "description": "summary (default) returns only the Agent summary; full inlines the complete redacted transcript in result.full_transcript, truncating oversized output and pointing to amux task_stream or amux task logs; structured-summary returns summary and result.details_ref (task_id) for retrieving the full transcript on demand",
@@ -292,7 +297,7 @@ Deliver a task to a persistent Agent and immediately start a new turn, retaining
 
 ## `amux.instance_interrupt`
 
-Interrupt the current turn of a persistent Agent.
+Interrupt the persistent Agent's current turn. Use it when the user asks to stop a background task; tell the user briefly afterwards, and continue later with instance_followup if needed.
 
 **Input JSON Schema**
 
@@ -367,7 +372,7 @@ Enqueue a message in a persistent Agent mailbox without waking it or starting a 
 
 ## `amux.instance_spawn`
 
-Create a persistent Agent Instance without blocking and return a stable agent_instance_id.
+Spawn a persistent Agent Instance (a background instance) without blocking and return a stable agent_instance_id. Use it for tasks you judge to need a long run or many tool calls; answer short questions directly instead of delegating. Make the prompt self-contained: state the goal, constraints and deliverables, and require the background Agent to end with a concise, user-facing conclusion (at the end of its final reply, optionally starting with "结论："), not its working narration. After calling, briefly tell the user the work started in the background and keep responding to new messages; remember which agent_instance_id belongs to which task, but describe tasks to the user in natural language without raw ids. When the task ends the system automatically delivers a "后台任务完成" notice to you, so do not poll or call task_get repeatedly.
 
 **Input JSON Schema**
 
@@ -402,6 +407,10 @@ Create a persistent Agent Instance without blocking and return a stable agent_in
     "model": {
       "description": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default",
       "type": "string"
+    },
+    "notify_parent": {
+      "description": "Whether a non-blocking task automatically delivers a completion message to the calling session when it finishes (experimental, requires steer_foreground); default true, pass false to opt out",
+      "type": "boolean"
     },
     "permission_policy": {
       "description": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy",
@@ -479,9 +488,34 @@ Create a persistent Agent Instance without blocking and return a stable agent_in
 }
 ```
 
+## `amux.instance_steer`
+
+Inject a correction or addition into the running turn of a persistent Agent without interrupting it; use it when the user corrects or extends a background task. When the instance has no steerable turn the message falls back to its mailbox (delivery=mailbox); then continue the task with instance_followup, which delivers the mailbox correction first, so do not repeat it in the prompt.
+
+**Input JSON Schema**
+
+```json
+{
+  "properties": {
+    "agent_instance_id": {
+      "type": "string"
+    },
+    "text": {
+      "description": "Correction or addition to inject; the Agent decides whether it adjusts the current work or adds a requirement, keeping completed progress",
+      "type": "string"
+    }
+  },
+  "required": [
+    "agent_instance_id",
+    "text"
+  ],
+  "type": "object"
+}
+```
+
 ## `amux.instance_wait`
 
-Wait until the persistent Agent's current turn ends or the wait times out. Retrieve results with task_get/task_stream.
+Wait until the persistent Agent's current turn ends or the timeout expires; fetch results with task_get/task_stream. A foreground session usually does not need this: a completion notice arrives automatically when the background task ends, and waiting blocks your responses to new user messages.
 
 **Input JSON Schema**
 
@@ -1773,6 +1807,10 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
       "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
       "type": "string"
     },
+    "notify_parent": {
+      "description": "Whether a non-blocking task automatically delivers a completion message to the calling session when it finishes (experimental, requires steer_foreground); default true, pass false to opt out",
+      "type": "boolean"
+    },
     "permission_policy": {
       "description": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy",
       "enum": [
@@ -1923,6 +1961,10 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
     "model": {
       "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
       "type": "string"
+    },
+    "notify_parent": {
+      "description": "Whether a non-blocking task automatically delivers a completion message to the calling session when it finishes (experimental, requires steer_foreground); default true, pass false to opt out",
+      "type": "boolean"
     },
     "permission_policy": {
       "description": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy",

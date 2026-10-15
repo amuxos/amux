@@ -44,13 +44,42 @@ type submitReceipt struct {
 	SessionID string
 	LaunchID  string
 	TurnID    string
+	// Delivery is "steered" or "queued" for steer submits.
+	Delivery            string
+	SteerFallbackReason string
 }
 
+type submitMode struct {
+	preempt            bool
+	alreadyInterrupted bool
+	steer              bool
+	// steerExpectedTurnID pins a steer to the turn its sender owns.
+	steerExpectedTurnID string
+}
+
+// submitToSessionForMessages submits a user message the bridge believes
+// starts a new turn. In steer mode (default) a turn that turns out to be
+// running is steered only when the sender owns it (see busyInputMode);
+// otherwise the input is queued behind it. An idle session starts the turn
+// immediately either way.
 func (b *Bridge) submitToSessionForMessages(ctx context.Context, chat *LarkChat, text string, inputs []turnInputRef) (submitReceipt, error) {
+	if b.busyInputSteers() {
+		mode := b.busyInputMode(chat.RootMsgID, inputs)
+		if mode.steer && b.queueNoticeCount(chat.RootMsgID) > 0 {
+			// Items already wait in the session queue: keep FIFO order.
+			mode = submitMode{}
+		}
+		return b.submitToSessionMode(ctx, chat, text, mode, inputs)
+	}
 	return b.submitToSessionWithOptions(ctx, chat, text, true, false, inputs)
 }
 
 func (b *Bridge) submitToSessionWithOptions(ctx context.Context, chat *LarkChat, text string, preempt, alreadyInterrupted bool, inputs []turnInputRef) (submitReceipt, error) {
+	return b.submitToSessionMode(ctx, chat, text, submitMode{preempt: preempt, alreadyInterrupted: alreadyInterrupted}, inputs)
+}
+
+func (b *Bridge) submitToSessionMode(ctx context.Context, chat *LarkChat, text string, mode submitMode, inputs []turnInputRef) (submitReceipt, error) {
+	preempt, alreadyInterrupted := mode.preempt, mode.alreadyInterrupted
 	ctx, text, err := b.prepareFileMaterials(ctx, chat, text)
 	if err != nil {
 		return submitReceipt{}, err
@@ -63,14 +92,21 @@ func (b *Bridge) submitToSessionWithOptions(ctx context.Context, chat *LarkChat,
 		return submitReceipt{}, nil
 	}
 
-	// Delivery guidance belongs to the structured prompt, leaving the recorded
-	// user text and the routing/coalescing contract unchanged.
-	if len(parts) == 0 {
-		parts = []*pb.InputPart{{Value: &pb.InputPart_Text{Text: text + artifactInstructions}}}
-	} else if first, ok := parts[0].Value.(*pb.InputPart_Text); ok {
-		first.Text += artifactInstructions
-	} else {
-		parts = append(parts, &pb.InputPart{Value: &pb.InputPart_Text{Text: artifactInstructions}})
+	// Session instructions (file-delivery note + foreground protocol) travel
+	// out of band: the runtime applies them as system/developer instructions
+	// and falls back to a hidden inline append while the running launch does
+	// not carry them. With steer_foreground off the file-delivery note keeps
+	// its earlier per-turn inline delivery and no protocol is sent.
+	systemInstructions := b.sessionSystemInstructions(chat)
+	if systemInstructions == "" {
+		guidance := artifactInstructions
+		if len(parts) == 0 {
+			parts = []*pb.InputPart{{Value: &pb.InputPart_Text{Text: text + guidance}}}
+		} else if first, ok := parts[0].Value.(*pb.InputPart_Text); ok {
+			first.Text += guidance
+		} else {
+			parts = append(parts, &pb.InputPart{Value: &pb.InputPart_Text{Text: guidance}})
+		}
 	}
 	b.waitForStreamReady(ctx, chat.RootMsgID)
 	b.setTurnActive(chat.RootMsgID, true)
@@ -80,7 +116,8 @@ func (b *Bridge) submitToSessionWithOptions(ctx context.Context, chat *LarkChat,
 	if materials := materialsFromContext(ctx); materials != nil {
 		expectedSessionID, expectedLaunchID = materials.expectedSessionID, materials.expectedLaunchID
 	}
-	routed, err := b.hub.Route(sendCtx, chat.TargetID, "Submit", &pb.SubmitRequest{ExpectedSessionId: expectedSessionID, ExpectedLaunchId: expectedLaunchID, Name: chat.SessionName, Text: text, Source: "lark", Async: true, Preempt: preempt, PreemptAlreadyInterrupted: alreadyInterrupted, Parts: parts, LocalExpertAuthoring: chat.localExpertAuthoring})
+	routed, err := b.hub.Route(sendCtx, chat.TargetID, "Submit", &pb.SubmitRequest{ExpectedSessionId: expectedSessionID, ExpectedLaunchId: expectedLaunchID, Name: chat.SessionName, Text: text, Source: "lark", Async: true, Preempt: preempt, PreemptAlreadyInterrupted: alreadyInterrupted, Steer: mode.steer, SteerExpectedTurnId: mode.steerExpectedTurnID, Parts: parts, LocalExpertAuthoring: chat.localExpertAuthoring,
+		SystemInstructions: systemInstructions, ManageSystemInstructions: true})
 	if err != nil {
 		b.setTurnActive(chat.RootMsgID, false)
 		return submitReceipt{}, err
@@ -90,7 +127,20 @@ func (b *Bridge) submitToSessionWithOptions(ctx context.Context, chat *LarkChat,
 		b.setTurnActive(chat.RootMsgID, false)
 		return submitReceipt{}, fmt.Errorf("decode submit receipt: %w", err)
 	}
-	receipt := submitReceipt{SessionID: response.GetSessionId(), LaunchID: response.GetLaunchId(), TurnID: response.GetTurnId()}
+	receipt := submitReceipt{SessionID: response.GetSessionId(), LaunchID: response.GetLaunchId(), TurnID: response.GetTurnId(),
+		Delivery: response.GetDelivery(), SteerFallbackReason: response.GetSteerFallbackReason()}
+	b.recordTurnSenders(chat.RootMsgID, receipt.TurnID, inputs)
+	// Steered input joins the running turn (first chat wins); queued or
+	// coalesced input starts its own turn from this chat.
+	b.recordTurnSourceChat(chat.RootMsgID, receipt.TurnID, chat.ChatID, chat.ThreadID)
+	if receipt.Delivery == "steered" {
+		b.noteTurnSteered(chat.RootMsgID, receipt.TurnID)
+	}
+	if receipt.Delivery != "steered" && !preempt {
+		// The input may be waiting behind a running turn: show the queue
+		// depth on the running card (steer_foreground only, no new card).
+		b.refreshQueueNoticeAsync(chat.TargetID, chat.SessionName, chat.RootMsgID)
+	}
 	if b.db != nil {
 		_ = b.db.TouchChat(chat.BridgeId, chat.RootMsgID)
 		links := make([]TurnLink, 0, len(inputs))
@@ -175,7 +225,7 @@ func (b *Bridge) notifyQueue(ctx context.Context, rootMsgID string, chat *LarkCh
 	lines := make([]string, 0, len(out.Items)+1)
 	lines = append(lines, fmt.Sprintf("Pending 输入（%d 条）：", len(out.Items)))
 	for _, item := range out.Items {
-		lines = append(lines, fmt.Sprintf("- %s [%s] %s", item.Id, item.Source, truncateForNotice(item.Text, 80)))
+		lines = append(lines, queueListLine(item.Id, item.Source, item.Text))
 	}
 	return b.notifyThread(ctx, rootMsgID, strings.Join(lines, "\n"))
 }
@@ -202,4 +252,13 @@ func truncateForNotice(text string, max int) string {
 		return string(runes[:max-3]) + "..."
 	}
 	return text
+}
+
+// queueListLine renders one /queue entry. Background-task completion notices
+// are internal model input, so their raw text (ids, status) is never shown.
+func queueListLine(id, source, text string) string {
+	if source == "subtask" {
+		return fmt.Sprintf("- %s 后台任务结果（待主 Agent 处理）", id)
+	}
+	return fmt.Sprintf("- %s [%s] %s", id, source, truncateForNotice(stripAmuxGuidance(text), 80))
 }

@@ -24,6 +24,7 @@ type captureTaskClient struct {
 	pruneResp        *pb.PruneSubtasksResponse
 	listInstancesReq *pb.ListAgentInstancesRequest
 	sendMsgReq       *pb.SendAgentMessageRequest
+	sendMsgResp      *pb.SendAgentMessageResponse
 	interruptReq     *pb.InterruptAgentInstanceRequest
 	waitReq          *pb.WaitAgentInstanceRequest
 	waitResp         *pb.WaitAgentInstanceResponse
@@ -121,6 +122,9 @@ func (c *captureTaskClient) GetAgentInstance(context.Context, *pb.GetAgentInstan
 func (c *captureTaskClient) SendAgentMessage(_ context.Context, req *pb.SendAgentMessageRequest, _ ...grpc.CallOption) (*pb.SendAgentMessageResponse, error) {
 	cp := *req
 	c.sendMsgReq = &cp
+	if c.sendMsgResp != nil {
+		return c.sendMsgResp, nil
+	}
 	return &pb.SendAgentMessageResponse{Ok: true, PendingMessages: 1}, nil
 }
 

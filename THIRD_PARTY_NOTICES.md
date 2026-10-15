@@ -39,14 +39,14 @@ not provide your changes. This obligation does not relicense amux's own files.
 ## Optional Claude sidecar
 
 The amux-owned adapter source in `sidecars/claude-sdk/` is Apache-2.0. Its dependency
-`@anthropic-ai/claude-agent-sdk`, pinned in the lockfile to `0.3.158`, and the eight
+`@anthropic-ai/claude-agent-sdk`, pinned in the lockfile to `0.3.296`, and the eight
 platform packages at that version use Anthropic's own terms. Their license text
 states “All rights reserved” and refers to the
 [Claude legal and compliance documentation](https://code.claude.com/docs/en/legal-and-compliance);
 the SDK README also refers to [Anthropic's Commercial Terms](https://www.anthropic.com/legal/commercial-terms).
 
-The pinned [SDK license](https://unpkg.com/@anthropic-ai/claude-agent-sdk@0.3.158/LICENSE.md)
-and [SDK README](https://unpkg.com/@anthropic-ai/claude-agent-sdk@0.3.158/README.md)
+The pinned [SDK license](https://unpkg.com/@anthropic-ai/claude-agent-sdk@0.3.296/LICENSE.md)
+and [SDK README](https://unpkg.com/@anthropic-ai/claude-agent-sdk@0.3.296/README.md)
 are available upstream. npm availability is not a redistribution grant, and amux's
 license does not grant rights to Anthropic's software. Review the applicable terms
 and your permissions before bundling it into a distribution.

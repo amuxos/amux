@@ -16,6 +16,9 @@ TaskRun；界面出现“任务”一词本身不代表 Task 历史中有一条�
 状态和 TaskRun 状态是不同维度。TaskRun 终态为 `succeeded`、`failed`、`cancelled`、`timed_out`。
 
 `instance_followup` 提交工作并触发执行；`instance_send` 只写入信箱，等后续唤醒时交付。
+`instance_steer` 把纠正加入实例当前运行的 Turn；没有可接收的 Turn 时回落到信箱，无法
+确认是否已投递时则不写入信箱。信箱输入在下一次 Task 提示之前交付，`instance_followup`
+复用仍在运行的子 Session 时也是如此。
 中断实例会取消其当前所属 TaskRun，并保留实例。Task 接收明确输入和获授权资源，不默认
 获取父会话全部聊天历史。父子身份记录保留来源，但不合并上下文。详见
 [Session 模型](current/session-product-model.zh-CN.md)。

@@ -137,6 +137,8 @@ func newStartCmd() *cobra.Command {
 			}
 			taskRouter := newTaskRouter(hub, taskSched, taskIdx, agentInstanceStore)
 			taskRouter.principals = principalStore
+			taskRouter.parentNotify = newPersistentParentNotifier(filepath.Join(amuxhome.Dir(), "hub", "parent-notify.json"))
+			taskRouter.resumeParentNotify()
 			taskRouter.isolationGlobalEnv = config.ActiveIsolationGlobalEnv(isolationCfg)
 			subtaskReader := &bridgeSubtaskReader{router: taskRouter}
 			go newTaskReconciler(hub, taskSched, taskIdx).Run(ctx)

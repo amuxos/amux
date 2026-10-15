@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -92,17 +93,61 @@ func (c *taskController) findInstanceSession(instanceID string) (*session.Sessio
 // It never wakes a sleeping agent; the message is delivered on the next
 // instance_spawn / instance_followup wake-up.
 func (c *taskController) SendInstanceMessage(_ context.Context, instanceID, source, text string) (int, error) {
-	if instanceID == "" {
-		return 0, status.Error(codes.InvalidArgument, "agent_instance_id is required")
-	}
-	if text == "" {
-		return 0, status.Error(codes.InvalidArgument, "message text is required")
+	if err := validateInstanceMessage(instanceID, text); err != nil {
+		return 0, err
 	}
 	if source == "" {
 		source = "instance_send"
 	}
 	pending := c.mailbox.enqueue(instanceID, source, text)
 	return pending, nil
+}
+
+// SteerInstance injects a correction into the instance's running turn. When
+// the instance has no steerable active turn (sleeping, idle, provider without
+// steering, or the turn just ended) the text goes to the mailbox like
+// instance_send, so the next instance_spawn / instance_followup wake-up
+// delivers it ahead of the new prompt.
+func (c *taskController) SteerInstance(ctx context.Context, instanceID, source, text string) (string, string, int, error) {
+	if err := validateInstanceMessage(instanceID, text); err != nil {
+		return "", "", 0, err
+	}
+	if source == "" {
+		source = "instance_steer"
+	}
+	reason := "agent instance has no live session"
+	if sess, ok := c.findInstanceSession(instanceID); ok {
+		if state := sess.StateSnapshot(); state != session.StateRunning {
+			reason = fmt.Sprintf("agent instance is not running (state=%s)", state)
+		} else {
+			input := session.FrameSteerInput(session.SteerNoteSourceCoordinator, session.TextUserInput(text))
+			_, err := sess.SteerInput(ctx, source, input, "", session.TurnAuthorization{})
+			if err == nil {
+				return "steered", "", 0, nil
+			}
+			if errors.Is(err, session.ErrSteerOutcomeUnknown) {
+				// The turn may already have the message; the mailbox would
+				// deliver it a second time.
+				return "", "", 0, status.Errorf(codes.Unknown, "steer outcome unknown; the message was not queued to avoid delivering it twice: %v", err)
+			}
+			reason = err.Error()
+		}
+	}
+	pending, err := c.SendInstanceMessage(ctx, instanceID, source, text)
+	if err != nil {
+		return "", "", 0, err
+	}
+	return "mailbox", reason, pending, nil
+}
+
+func validateInstanceMessage(instanceID, text string) error {
+	if instanceID == "" {
+		return status.Error(codes.InvalidArgument, "agent_instance_id is required")
+	}
+	if text == "" {
+		return status.Error(codes.InvalidArgument, "message text is required")
+	}
+	return nil
 }
 
 // InterruptInstance cancels the current owner TaskRun through its runner.

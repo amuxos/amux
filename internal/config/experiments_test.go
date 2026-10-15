@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/amuxos/amux/internal/config"
@@ -104,5 +105,63 @@ func TestExperimentsOlderCardPreservesLatestSavedSettings(t *testing.T) {
 				t.Fatalf("legacy setter changed other experiments: %+v, %v", got, err)
 			}
 		})
+	}
+}
+
+func TestExperimentsSteerForegroundPersists(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	path := writeConfig(t, "[hub]\naddr = \"localhost:7100\"\n")
+	requireLoad(t, path)
+	if got, err := config.ReadExperimentsSettings(); err != nil || got.SteerForeground {
+		t.Fatalf("default = %+v %v", got, err)
+	}
+	on := true
+	if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{SteerForeground: &on}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := config.ReadExperimentsSettings()
+	if err != nil || !got.SteerForeground {
+		t.Fatalf("saved = %+v %v", got, err)
+	}
+	raw, _ := os.ReadFile(path)
+	if !strings.Contains(string(raw), "steer_foreground = true") {
+		t.Fatalf("config file = %s", raw)
+	}
+}
+
+func TestExperimentsShowBackgroundTasksDefaultOffAndPersists(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	path := writeConfig(t, "[hub]\naddr = \"localhost:7100\"\n")
+	requireLoad(t, path)
+	if got, err := config.ReadExperimentsSettings(); err != nil || got.ShowBackgroundTasks {
+		t.Fatalf("default = %+v %v", got, err)
+	}
+	on := true
+	if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{ShowBackgroundTasks: &on}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := config.ReadExperimentsSettings()
+	if err != nil || !got.ShowBackgroundTasks || got.SteerForeground {
+		t.Fatalf("saved = %+v %v", got, err)
+	}
+	raw, _ := os.ReadFile(path)
+	if !strings.Contains(string(raw), "show_background_tasks = true") {
+		t.Fatalf("config file = %s", raw)
+	}
+}
+
+func TestLiveSteerForegroundOverridesConfig(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	t.Cleanup(func() { config.SetLiveSteerForeground(false) })
+	config.SetLiveSteerForeground(true)
+	if !config.LiveSteerForeground() {
+		t.Fatal("live on not reported")
+	}
+	config.SetLiveSteerForeground(false)
+	if config.LiveSteerForeground() {
+		t.Fatal("live off not reported")
 	}
 }

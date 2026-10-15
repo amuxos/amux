@@ -90,10 +90,11 @@ type CorrelatedTurnRebinder interface {
 // EventSinks itself is intentionally not a temporal correlator: Proc
 // implementations must satisfy the terminal-final/native-identity contract.
 type EventSinks struct {
-	mu      sync.Mutex
-	global  func(agentstream.ProducerEmission) bool
-	turn    func(agentstream.ProducerEmission) bool
-	pending []agentstream.ProducerEmission
+	mu        sync.Mutex
+	global    func(agentstream.ProducerEmission) bool
+	turn      func(agentstream.ProducerEmission) bool
+	turnToken string
+	pending   []agentstream.ProducerEmission
 }
 
 func (s *EventSinks) SetGlobal(fn func(agentstream.ProducerEmission) bool) {
@@ -122,6 +123,12 @@ func (s *EventSinks) SetGlobal(fn func(agentstream.ProducerEmission) bool) {
 }
 
 func (s *EventSinks) BeginTurn(fn func(agentstream.ProducerEmission) bool) error {
+	return s.BeginTurnFor("", fn)
+}
+
+// BeginTurnFor installs the sink of the turn identified by token, so input
+// aimed at that turn (TurnSteerRequest) can be checked against it.
+func (s *EventSinks) BeginTurnFor(token string, fn func(agentstream.ProducerEmission) bool) error {
 	if fn == nil {
 		return errors.New("turn event sink is required")
 	}
@@ -131,12 +138,22 @@ func (s *EventSinks) BeginTurn(fn func(agentstream.ProducerEmission) bool) error
 		return ErrTurnSinkActive
 	}
 	s.turn = fn
+	s.turnToken = token
 	return nil
+}
+
+// TurnActiveFor reports whether the turn identified by token is the accepted
+// turn that has not emitted its terminal yet.
+func (s *EventSinks) TurnActiveFor(token string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.turn != nil && token != "" && s.turnToken == token
 }
 
 func (s *EventSinks) AbortTurn() {
 	s.mu.Lock()
 	s.turn = nil
+	s.turnToken = ""
 	s.mu.Unlock()
 }
 
@@ -154,6 +171,7 @@ func (s *EventSinks) Emit(ev agentstream.ProducerEmission) bool {
 		sink = s.turn
 		if ev.IsTerminal() {
 			s.turn = nil
+			s.turnToken = ""
 		}
 	} else {
 		sink = s.global

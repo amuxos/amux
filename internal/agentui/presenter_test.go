@@ -2,6 +2,7 @@ package agentui
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -307,5 +308,21 @@ func assertActionKinds(t *testing.T, actions []Action, want ...ActionKind) {
 		if actions[i].Kind != want[i] {
 			t.Fatalf("action[%d].Kind = %q, want %q", i, actions[i].Kind, want[i])
 		}
+	}
+}
+
+func TestSubtaskInputIsSilent(t *testing.T) {
+	p := NewPresenter()
+	ev := Event{Kind: KindInputSubmitted, Source: SourceSubtask, Turn: &TurnEvent{ID: "t1", Seq: 1}, Text: "[后台任务完成] task_id=task-1 status=succeeded\n摘要: long"}
+	for _, a := range p.Consume(ev) {
+		if a.Kind == ActionInputEcho {
+			t.Fatalf("subtask notice echoed: %+v", a)
+		}
+		if strings.Contains(a.Text, "后台任务完成") || strings.Contains(a.Text, "task_id") {
+			t.Fatalf("subtask notice leaked in %s: %q", a.Kind, a.Text)
+		}
+	}
+	if normalizeSource("subtask") != SourceSubtask {
+		t.Fatal("subtask source not mapped")
 	}
 }

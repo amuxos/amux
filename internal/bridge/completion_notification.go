@@ -67,9 +67,26 @@ func (b *Bridge) notifyTurnCompletionAt(ctx context.Context, chat *LarkChat, tur
 	if seconds == 0 || elapsed < time.Duration(seconds)*time.Second {
 		return nil
 	}
+	if b.isSubtaskTurn(chat.RootMsgID, turnID) {
+		// Background-task notice turns have no Feishu source chat.
+		log.Debug().Str("session", chat.SessionName).Str("turn_id", turnID).Msg("bridge: completion notification skipped for subtask turn")
+		return nil
+	}
 	recipients, err := b.db.TurnNotificationRecipients(bridgeID, turnID)
 	if err != nil || len(recipients) == 0 {
 		return err
+	}
+	if strings.TrimSpace(chat.ChatID) == "" {
+		// Steered, coalesced and queued turns inherit the chat of their
+		// first message.
+		if source, ok := b.turnSourceChat(chat.RootMsgID, turnID); ok {
+			resolved := *chat
+			resolved.ChatID = source.ChatID
+			if strings.TrimSpace(resolved.ThreadID) == "" {
+				resolved.ThreadID = source.ThreadID
+			}
+			chat = &resolved
+		}
 	}
 	jumpURL, err := b.completionNotificationURL(ctx, chat)
 	if err != nil {

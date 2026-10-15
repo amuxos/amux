@@ -157,3 +157,113 @@ func truncateAssistantProgress(text string, maxRunes int) string {
 	tailRunes := contentBudget - headRunes
 	return strings.TrimSpace(string(runes[:headRunes])) + string(marker) + strings.TrimSpace(string(runes[len(runes)-tailRunes:]))
 }
+
+// mergeSteeredFinalAnswer builds the final answer of a turn that received
+// steered input: every assistant message produced since the first steer, in
+// order, followed by the provider result, with exact duplicates dropped (and
+// the result dropped when a kept message already ends with it). A provider's
+// native result only repeats the last message, so without this merge the
+// answers to earlier steers would only survive in the collapsed process panel.
+// collapseRepeatedText reduces text made of one block repeated back to back
+// (e.g. "XX" or "X\n\nX") to a single block. A steered Claude turn spans
+// several CLI runs that can each re-emit the same answer, and without message
+// boundaries their text arrives as one concatenated message.
+func collapseRepeatedText(text string) string {
+	// Short units ("88", "haha") are legitimate answers, not glued repeats.
+	const minUnit = 12
+	n := len(text)
+	for size := minUnit; size <= n/2; size++ {
+		if n%size != 0 {
+			continue
+		}
+		unit := text[:size]
+		if strings.TrimSpace(unit) == "" {
+			continue
+		}
+		if strings.Repeat(unit, n/size) == text {
+			return strings.TrimSpace(unit)
+		}
+	}
+	// Repeats separated by blank lines ("X\n\nX\n\nX").
+	parts := strings.Split(text, "\n\n")
+	if len(parts) > 1 {
+		for size := 1; size <= len(parts)/2; size++ {
+			if len(parts)%size != 0 {
+				continue
+			}
+			unit := strings.Join(parts[:size], "\n\n")
+			if len(strings.TrimSpace(unit)) < minUnit {
+				continue
+			}
+			same := true
+			for i := size; i < len(parts); i += size {
+				if strings.Join(parts[i:i+size], "\n\n") != unit {
+					same = false
+					break
+				}
+			}
+			if same {
+				return strings.TrimSpace(unit)
+			}
+		}
+	}
+	return text
+}
+
+func mergeSteeredFinalAnswer(messages []string, result string) string {
+	var kept []string
+	seen := map[string]struct{}{}
+	add := func(text string) {
+		text = strings.TrimSpace(text)
+		if text == "" {
+			return
+		}
+		if _, ok := seen[text]; ok {
+			return
+		}
+		seen[text] = struct{}{}
+		kept = append(kept, text)
+	}
+	result = collapseRepeatedText(strings.TrimSpace(result))
+	gluedResult := false
+	for _, m := range messages {
+		m = collapseRepeatedText(strings.TrimSpace(m))
+		// A runtime without per-message boundaries (Claude SDK) can glue the
+		// last answer of a steered turn onto earlier text of the same message;
+		// the result is appended below, so keep only what precedes it.
+		if result != "" && m != result && strings.HasSuffix(m, result) {
+			m = strings.TrimSpace(strings.TrimSuffix(m, result))
+			gluedResult = true
+		}
+		add(m)
+	}
+	if result == "" {
+		return strings.Join(kept, "\n\n")
+	}
+	matchesPrior := gluedResult
+	for _, m := range kept {
+		if m == result || strings.HasSuffix(m, result) || strings.Contains(result, m) {
+			matchesPrior = true
+			break
+		}
+	}
+	if !matchesPrior && len(kept) > 0 {
+		// Fresh comprehensive result: keep progress chatter out of the answer.
+		return result
+	}
+	filtered := make([]string, 0, len(kept))
+	seen = map[string]struct{}{}
+	for _, m := range kept {
+		if m == result || strings.Contains(result, m) {
+			continue
+		}
+		if _, ok := seen[m]; ok {
+			continue
+		}
+		seen[m] = struct{}{}
+		filtered = append(filtered, m)
+	}
+	kept = filtered
+	add(result)
+	return strings.Join(kept, "\n\n")
+}

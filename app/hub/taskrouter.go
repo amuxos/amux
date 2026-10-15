@@ -67,6 +67,9 @@ type taskRouter struct {
 	// launch values. Values never enter ScheduleRequest or routed task specs; the
 	// matching runtime reads its own copy of the same operator configuration.
 	isolationGlobalEnv []string
+	// parentNotify delivers background-task completion messages to the
+	// parent session (experimental, gated by steer_foreground).
+	parentNotify *parentNotifier
 }
 
 type scheduledSubmitContextKey struct{}
@@ -87,6 +90,7 @@ func newTaskRouter(hub taskRouterHub, sched taskScheduler, index *taskIndex, ins
 			return agentprofile.ResolveTaskSpec(spec, agentprofile.DefaultPackRegistryPath())
 		},
 		credentialProvider: defaultHubCredentialProvider,
+		parentNotify:       &parentNotifier{},
 	}
 }
 
@@ -355,6 +359,7 @@ func (r *taskRouter) SubmitSubtask(ctx context.Context, req *pb.SubmitSubtaskReq
 
 	if id := taskIDFromJSON(out.TaskJson); id != "" {
 		r.index.put(id, taskPlacement{TargetID: placement.TargetID, ReservationId: placement.ReservationId, ParentSessionID: spec.ParentSessionID, AgentInstanceID: spec.AgentInstanceID})
+		r.watchForParentNotify(spec, id)
 	}
 
 	// Record (or refresh) the durable agent instance so a later follow-up task

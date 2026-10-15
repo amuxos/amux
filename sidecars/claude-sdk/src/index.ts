@@ -7,7 +7,8 @@ const bridge = new ClaudeBridge(peer);
 
 peer.on('initialize', () => bridge.initialize());
 peer.on('session.start', (msg) => bridge.startSession((msg.params ?? {}) as Parameters<typeof bridge.startSession>[0]));
-peer.on('turn.start', (msg) => bridge.startTurn((msg.params ?? {}) as { text?: string }));
+peer.on('turn.start', (msg) => bridge.startTurn((msg.params ?? {}) as { text?: string; turnToken?: string }));
+peer.on('turn.steer', (msg) => bridge.steerTurn((msg.params ?? {}) as { text?: string; turnToken?: string }));
 peer.on('interrupt', () => bridge.interrupt());
 peer.on('permission.respond', (msg) => bridge.respondPermission((msg.params ?? {}) as { permission_id?: string; option_id?: string }));
 peer.on('shutdown', () => bridge.shutdown());

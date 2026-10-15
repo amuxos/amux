@@ -68,6 +68,24 @@ func managementExperimentsSettingsFromCallback(action *callback.CallBackAction, 
 		value := enabled == "true"
 		update.MemoryEnabled = &value
 	}
+	if raw, present := managementExperimentCallbackValue(action, "steer_foreground_enabled"); present {
+		enabled, _ := raw.(string)
+		enabled = strings.TrimSpace(enabled)
+		if enabled != "true" && enabled != "false" {
+			return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.choose.whether.to.enable.steer.foreground")
+		}
+		value := enabled == "true"
+		update.SteerForeground = &value
+	}
+	if raw, present := managementExperimentCallbackValue(action, "show_background_tasks_enabled"); present {
+		enabled, _ := raw.(string)
+		enabled = strings.TrimSpace(enabled)
+		if enabled != "true" && enabled != "false" {
+			return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.choose.whether.to.show.background.tasks")
+		}
+		value := enabled == "true"
+		update.ShowBackgroundTasks = &value
+	}
 	return update, nil
 }
 
@@ -102,12 +120,39 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 	memoryItem := managementExperimentItemElement("agent_memory", managementCopy("management.agent.memory"), managementCopy("management.remember.preferences.and.experience.across.conversations.without.an.agent"), memoryEnabled, saved.MemoryEnabled != running.MemoryEnabled, []cardElement{
 		managementHintElement(managementCopy("management.supports.codex.claude.and.pi.shared.across.runtimes.in")),
 	})
+	steerEnabled := managementSelectStaticElement("steer_foreground_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.SteerForeground), []cardOption{
+		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
+		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
+	})
+	steerStatus := managementCopy("management.steer.foreground.currently.off")
+	if running.SteerForeground {
+		steerStatus = managementCopy("management.steer.foreground.currently.on")
+	}
+	// Applied live on save, so it never shows the restart-pending notice.
+	steerItem := managementExperimentItemElement("steer_foreground", managementCopy("management.steer.foreground"), managementCopy("management.steer.foreground.description"), steerEnabled, saved.SteerForeground != running.SteerForeground, []cardElement{
+		managementHintElement(steerStatus),
+		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
+	})
+	bgEnabled := managementSelectStaticElement("show_background_tasks_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.ShowBackgroundTasks), []cardOption{
+		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
+		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
+	})
+	bgStatus := managementCopy("management.show.background.tasks.currently.off")
+	if running.ShowBackgroundTasks {
+		bgStatus = managementCopy("management.show.background.tasks.currently.on")
+	}
+	bgItem := managementExperimentItemElement("show_background_tasks", managementCopy("management.show.background.tasks"), managementCopy("management.show.background.tasks.description"), bgEnabled, saved.ShowBackgroundTasks != running.ShowBackgroundTasks, []cardElement{
+		managementHintElement(bgStatus),
+		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
+	})
 	elements := []cardElement{
 		managementBackToOverviewElement(),
 		{Tag: "form", Name: "experiments_form", Direction: "vertical", VerticalSpacing: "12px", Elements: []cardElement{
 			item,
 			groupItem,
 			memoryItem,
+			steerItem,
+			bgItem,
 			managementFormButtonRowElement(managementFormSubmitButton(managementActionExperimentsSaveRestart, managementCopy("management.save.and.restart"))),
 		}},
 		managementTextElement(managementCopy("management.applies.to.all.assistants.in.this.instance"), "notation", "grey", nil),

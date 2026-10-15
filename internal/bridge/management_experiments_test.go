@@ -128,7 +128,7 @@ func TestManagementExperimentsCompactList(t *testing.T) {
 		}
 	}
 	visit(doc.Body.Elements)
-	if panels != 2 {
+	if panels != 4 {
 		t.Fatalf("panels = %d", panels)
 	}
 	running.CompletionNotification.AfterSeconds = 60

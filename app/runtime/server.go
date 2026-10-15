@@ -37,6 +37,7 @@ type server struct {
 	mgr                       *session.Manager
 	amuxletBin                string
 	amuxDir                   string
+	launchInstructions        appliedInstructions
 	version                   string
 	startedAt                 time.Time
 	defaultIdleTimeoutSeconds int
@@ -265,6 +266,9 @@ func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, 
 		return nil, status.Errorf(codes.Internal, "record params: %v", err)
 	}
 
+	if text := strings.TrimSpace(req.GetSystemInstructions()); text != "" {
+		writeSessionInstructions(s.amuxDir, sess.ID, text)
+	}
 	if err := s.startSession(a, sess, runExtraArgs, runEnv); err != nil {
 		return nil, err
 	}
@@ -555,14 +559,23 @@ func (s *server) startSessionContext(ctx context.Context, a adapter.Adapter, ses
 	if capabilityErr != nil {
 		return capabilityErr
 	}
+	var instructionsApplied string
+	extraArgs, extraEnv, instructionsApplied = s.configureSessionInstructions(snap, extraArgs, extraEnv)
 	extraArgs = nativeWorkspaceTrustArgs(snap, extraArgs)
 	if s.startSessionContextHook != nil {
-		return s.startSessionContextHook(ctx, a, sess, extraArgs, extraEnv)
+		err := s.startSessionContextHook(ctx, a, sess, extraArgs, extraEnv)
+		if err == nil {
+			s.launchInstructions.set(snap.ID, sess.ProcessGeneration(), instructionsApplied)
+		}
+		return err
 	}
 	if s.startSessionHook != nil {
 		err := s.startSessionHook(a, sess, extraArgs, extraEnv)
 		if err == nil {
 			err = ctx.Err()
+		}
+		if err == nil {
+			s.launchInstructions.set(snap.ID, sess.ProcessGeneration(), instructionsApplied)
 		}
 		return err
 	}
@@ -598,6 +611,7 @@ func (s *server) startSessionContext(ctx context.Context, a adapter.Adapter, ses
 	s.wireSessionEventTap(sess)
 	sess.SetProc(proc)
 	procGeneration := sess.ProcessGeneration()
+	s.launchInstructions.set(snap.ID, procGeneration, instructionsApplied)
 	sess.SetBrokerSocket(sockPath)
 	if err := s.mgr.SetRunning(sess); err != nil {
 		return status.Errorf(codes.Internal, "set state: %v", err)
@@ -1152,6 +1166,7 @@ func (s *server) cleanupSessionArtifacts(sess *session.Session) {
 	}
 	_ = os.RemoveAll(profileSessionDir(s.amuxDir, snap.ID))
 	removeSessionActorToken(s.amuxDir, snap.ID)
+	removeSessionInstructions(s.amuxDir, snap.ID)
 	// Clean up adapter-specific workspace trust entries so the global config
 	// does not grow unbounded.
 	// This must run before the workspace dir removal below, because the cleanup
@@ -1271,6 +1286,11 @@ func (s *server) Submit(ctx context.Context, req *pb.SubmitRequest) (_ *pb.Submi
 	if err := ownerGuard(sess); err != nil {
 		return nil, err
 	}
+	if req.GetManageSystemInstructions() {
+		// Persist before waking the session so a launch triggered by this
+		// submit already carries the instructions out of band.
+		writeSessionInstructions(s.amuxDir, snap.ID, req.GetSystemInstructions())
+	}
 	if err := s.ensureSessionActive(sess); err != nil {
 		return nil, err
 	}
@@ -1283,6 +1303,41 @@ func (s *server) Submit(ctx context.Context, req *pb.SubmitRequest) (_ *pb.Submi
 	}
 	var item session.QueueItem
 	authorization := session.TurnAuthorization{LocalExpertAuthoring: req.LocalExpertAuthoring}
+	delivery, steerFallback := "", ""
+	if req.GetSteer() {
+		if strings.TrimSpace(req.Control) != "" || req.Preempt {
+			return nil, status.Error(codes.InvalidArgument, "steer cannot be combined with preempt or session control")
+		}
+		steerSource := session.SteerNoteSourceUser
+		if req.Source == "coordinator" {
+			steerSource = session.SteerNoteSourceCoordinator
+		}
+		turnID, steerErr := sess.SteerInput(ctx, req.Source, session.FrameSteerInput(steerSource, input), req.GetSteerExpectedTurnId(), authorization)
+		if steerErr == nil {
+			if err := s.mgr.RecordActivity(sess, time.Now(), true); err != nil {
+				return nil, status.Errorf(codes.Internal, "record activity: %v", err)
+			}
+			log.Info().Str("session_id", snap.ID).Str("session", snap.Name).Str("launch_id", snap.LaunchID).
+				Str("turn_id", turnID).Str("transport_request_id", requestID).Msg("session.submit.steered")
+			return &pb.SubmitResponse{Ok: true, TurnId: turnID, SessionId: snap.ID, LaunchId: snap.LaunchID, Delivery: "steered"}, nil
+		}
+		if errors.Is(steerErr, session.ErrSteerOutcomeUnknown) {
+			// The turn may already have the input; queueing it as well could
+			// run it twice.
+			log.Warn().Err(steerErr).Str("session", snap.Name).Str("transport_request_id", requestID).Msg("session.submit.steer_outcome_unknown")
+			return nil, status.Errorf(codes.Unknown, "steer outcome unknown; the input was not queued again to avoid running it twice: %v", steerErr)
+		}
+		// Fall back to ordinary queued input: it runs after the active turn.
+		delivery, steerFallback = "queued", steerErr.Error()
+		log.Info().Err(steerErr).Str("session", snap.Name).Str("transport_request_id", requestID).Msg("session.submit.steer_fallback_queue")
+		req.Async = true
+	}
+	instructionsDelivery := ""
+	if req.GetManageSystemInstructions() && strings.TrimSpace(req.Control) == "" {
+		var inline string
+		instructionsDelivery, inline = s.sessionInstructionsDelivery(sess, req.GetSystemInstructions())
+		input = appendInstructionsInline(input, inline)
+	}
 	switch {
 	case strings.TrimSpace(req.Control) != "":
 		control := strings.TrimSpace(req.Control)
@@ -1322,7 +1377,7 @@ func (s *server) Submit(ctx context.Context, req *pb.SubmitRequest) (_ *pb.Submi
 	sessionID, launchID = snap.ID, snap.LaunchID
 	log.Info().Str("session_id", snap.ID).Str("session", snap.Name).Str("launch_id", snap.LaunchID).
 		Str("turn_id", item.TurnID).Str("transport_request_id", requestID).Msg("session.submit.accepted")
-	return &pb.SubmitResponse{Ok: true, TurnId: item.TurnID, SessionId: snap.ID, LaunchId: snap.LaunchID}, nil
+	return &pb.SubmitResponse{Ok: true, TurnId: item.TurnID, SessionId: snap.ID, LaunchId: snap.LaunchID, Delivery: delivery, SteerFallbackReason: steerFallback, InstructionsDelivery: instructionsDelivery}, nil
 }
 
 func (s *server) GetActiveTurn(_ context.Context, req *pb.ActiveTurnRequest) (*pb.ActiveTurnResponse, error) {

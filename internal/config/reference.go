@@ -44,6 +44,8 @@ func ManagedConfigKeys() []string {
 var configOptions = distributionConfigOptions([]ConfigOption{
 	{Section: "飞书实验功能", Key: "bridge.feishu.group_settings.enabled", Type: "boolean", Default: "false", Description: "群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。", Managed: true},
 	{Section: "飞书实验功能", Key: "bridge.feishu.presentation.completion_notification_enabled", Type: "boolean", Default: "false", Description: "长会话完成通知实验总开关，影响本实例全部助手；关闭时不新增成功、等待补充或失败提醒。修改后重启生效。", Managed: true},
+	{Section: "飞书实验功能", Key: "bridge.feishu.experimental.steer_foreground", Type: "boolean", Default: "false", Description: "前台协调/忙时注入实验总开关：开启后，任务执行中同一发送者的追加消息注入当前回合（不再中断重来），单例和话题会话注入前台/后台协调说明（首轮及每 20 轮）；关闭时忙时消息沿用中断并重新提交。环境变量 AMUX_FEISHU_BUSY_INPUT=interrupt 可强制关闭注入。修改后重启生效。", Managed: true},
+	{Section: "飞书实验功能", Key: "bridge.feishu.experimental.show_background_tasks", Type: "boolean", Default: "false", Description: "后台任务进度卡片实验开关：开启后，飞书会话发起的每个后台任务（子任务 / 后台 Agent 实例）单独发送实时进度卡片；默认关闭，后台过程不发卡片，由前台 Agent 汇报结果。可在飞书实验功能卡片中切换，保存后立即生效。", Managed: true},
 	{Section: "飞书实验功能", Key: "memory.enabled", Type: "boolean", Default: "false", Description: "Agent 记忆实验总开关，由 Hub 统一控制所有 Runtime，无需 Agent Profile；非隔离时全局共享，用户隔离时按有效 Principal 保存。关闭阻止读写并保留文件，已有会话保留原生记忆抑制。修改后重启生效。", Managed: true},
 	{Section: "Hub 与调度", Key: "hub.addr", Type: "string", Default: "127.0.0.1:7100", Constraints: "host:port", Description: "amuxd hub 地址。", Managed: true},
 	{Section: "Hub 与调度", Key: "hub.token", Type: "string", Default: "空", Description: "Hub 与 runtime 共享鉴权令牌。", Managed: true, Sensitive: true},

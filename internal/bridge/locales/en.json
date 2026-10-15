@@ -2620,5 +2620,53 @@
   },
   "session.goal.text_only": {
     "other": "Use a text-only goal objective. Send attachments and quoted material as separate follow-up messages."
+  },
+  "management.steer.foreground": {
+    "other": "Foreground/background split & mid-turn steering (experimental)"
+  },
+  "management.steer.foreground.description": {
+    "other": "Feishu thread/singleton chats act as the foreground: long work is delegated to background agents, and follow-ups sent mid-turn are injected into the running turn instead of interrupting it. Off by default."
+  },
+  "management.steer.foreground.currently.on": {
+    "other": "Current state: on"
+  },
+  "management.steer.foreground.currently.off": {
+    "other": "Current state: off"
+  },
+  "management.steer.foreground.applies.live": {
+    "other": "Takes effect immediately on save; no restart needed (persists across restarts)."
+  },
+  "management.choose.whether.to.enable.steer.foreground": {
+    "other": "Choose whether to enable foreground/background split & mid-turn steering"
+  },
+  "management.show.background.tasks": {
+    "other": "Show background task progress cards (experimental)"
+  },
+  "management.show.background.tasks.description": {
+    "other": "When on, each background task (subtask / spawned agent instance) started from a Feishu chat gets its own live progress card. Off by default: background work stays out of the chat and the foreground agent reports results."
+  },
+  "management.show.background.tasks.currently.on": {
+    "other": "Current state: on"
+  },
+  "management.show.background.tasks.currently.off": {
+    "other": "Current state: off"
+  },
+  "management.choose.whether.to.show.background.tasks": {
+    "other": "Choose whether to show background task progress cards"
+  },
+  "session.queue.notice": {
+    "other": "⏳ %d message(s) queued; they will be handled after the current task finishes"
+  },
+  "session.placeholder.processing": {
+    "other": "⏳ Processing…"
+  },
+  "session.placeholder.processing.elapsed": {
+    "other": "⏳ Processing… (waited %s)"
+  },
+  "session.placeholder.failed": {
+    "other": "❌ %s"
+  },
+  "session.placeholder.stopped": {
+    "other": "⏹ Interrupted"
   }
 }

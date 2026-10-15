@@ -2435,8 +2435,11 @@ type RunRequest struct {
 	// Unix seconds. Travels with the token so a relaunch can warn about a
 	// credential the hub minted long ago and no longer tracks per session.
 	AgentActorTokenExpiresAt int64 `protobuf:"varint,18,opt,name=agent_actor_token_expires_at,json=agentActorTokenExpiresAt,proto3" json:"agent_actor_token_expires_at,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// Session-level out-of-band instructions applied from the first launch
+	// (see SubmitRequest.system_instructions).
+	SystemInstructions string `protobuf:"bytes,19,opt,name=system_instructions,json=systemInstructions,proto3" json:"system_instructions,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *RunRequest) Reset() {
@@ -2593,6 +2596,13 @@ func (x *RunRequest) GetAgentActorTokenExpiresAt() int64 {
 		return x.AgentActorTokenExpiresAt
 	}
 	return 0
+}
+
+func (x *RunRequest) GetSystemInstructions() string {
+	if x != nil {
+		return x.SystemInstructions
+	}
+	return ""
 }
 
 type RunResponse struct {
@@ -4904,8 +4914,26 @@ type SubmitRequest struct {
 	// Optional execution pin used after internal file materialization.
 	ExpectedSessionId string `protobuf:"bytes,10,opt,name=expected_session_id,json=expectedSessionId,proto3" json:"expected_session_id,omitempty"`
 	ExpectedLaunchId  string `protobuf:"bytes,11,opt,name=expected_launch_id,json=expectedLaunchId,proto3" json:"expected_launch_id,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Steer delivers the input into the turn that is executing now instead of
+	// starting a new turn. When the active turn cannot accept it (no active
+	// turn, provider without steer support, turn id mismatch, authorization
+	// mismatch) the runtime falls back to ordinary queued input. Mutually
+	// exclusive with preempt and control.
+	Steer bool `protobuf:"varint,12,opt,name=steer,proto3" json:"steer,omitempty"`
+	// Optional steer precondition: only steer when this turn is still active.
+	SteerExpectedTurnId string `protobuf:"bytes,13,opt,name=steer_expected_turn_id,json=steerExpectedTurnId,proto3" json:"steer_expected_turn_id,omitempty"`
+	// Session-level out-of-band instructions (for example the Feishu
+	// foreground protocol and file-delivery note). Honored only when
+	// manage_system_instructions is set. The runtime persists them for the
+	// session and applies them as system/developer instructions on the next
+	// provider launch; while the current launch does not carry them they are
+	// appended to the input as a hidden fallback.
+	SystemInstructions string `protobuf:"bytes,14,opt,name=system_instructions,json=systemInstructions,proto3" json:"system_instructions,omitempty"`
+	// The caller owns the session's system instructions: an empty value clears
+	// them for future launches.
+	ManageSystemInstructions bool `protobuf:"varint,15,opt,name=manage_system_instructions,json=manageSystemInstructions,proto3" json:"manage_system_instructions,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *SubmitRequest) Reset() {
@@ -5015,15 +5043,53 @@ func (x *SubmitRequest) GetExpectedLaunchId() string {
 	return ""
 }
 
+func (x *SubmitRequest) GetSteer() bool {
+	if x != nil {
+		return x.Steer
+	}
+	return false
+}
+
+func (x *SubmitRequest) GetSteerExpectedTurnId() string {
+	if x != nil {
+		return x.SteerExpectedTurnId
+	}
+	return ""
+}
+
+func (x *SubmitRequest) GetSystemInstructions() string {
+	if x != nil {
+		return x.SystemInstructions
+	}
+	return ""
+}
+
+func (x *SubmitRequest) GetManageSystemInstructions() bool {
+	if x != nil {
+		return x.ManageSystemInstructions
+	}
+	return false
+}
+
 type SubmitResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
-	TurnId        string                 `protobuf:"bytes,2,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
-	IgnoredParts  []*IgnoredInputPart    `protobuf:"bytes,3,rep,name=ignored_parts,json=ignoredParts,proto3" json:"ignored_parts,omitempty"`
-	SessionId     string                 `protobuf:"bytes,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	LaunchId      string                 `protobuf:"bytes,5,opt,name=launch_id,json=launchId,proto3" json:"launch_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Ok           bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	TurnId       string                 `protobuf:"bytes,2,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	IgnoredParts []*IgnoredInputPart    `protobuf:"bytes,3,rep,name=ignored_parts,json=ignoredParts,proto3" json:"ignored_parts,omitempty"`
+	SessionId    string                 `protobuf:"bytes,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	LaunchId     string                 `protobuf:"bytes,5,opt,name=launch_id,json=launchId,proto3" json:"launch_id,omitempty"`
+	// Delivery reports how a steer request was applied: "steered" when injected
+	// into the active turn, "queued" when it fell back to queued input. Empty
+	// for ordinary submits.
+	Delivery string `protobuf:"bytes,6,opt,name=delivery,proto3" json:"delivery,omitempty"`
+	// Human-readable reason for a steer fallback.
+	SteerFallbackReason string `protobuf:"bytes,7,opt,name=steer_fallback_reason,json=steerFallbackReason,proto3" json:"steer_fallback_reason,omitempty"`
+	// How managed system instructions reached the provider: "system" when the
+	// running launch carries them out of band, "inline" when they were
+	// appended to the input. Empty when none were managed.
+	InstructionsDelivery string `protobuf:"bytes,8,opt,name=instructions_delivery,json=instructionsDelivery,proto3" json:"instructions_delivery,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *SubmitResponse) Reset() {
@@ -5087,6 +5153,27 @@ func (x *SubmitResponse) GetSessionId() string {
 func (x *SubmitResponse) GetLaunchId() string {
 	if x != nil {
 		return x.LaunchId
+	}
+	return ""
+}
+
+func (x *SubmitResponse) GetDelivery() string {
+	if x != nil {
+		return x.Delivery
+	}
+	return ""
+}
+
+func (x *SubmitResponse) GetSteerFallbackReason() string {
+	if x != nil {
+		return x.SteerFallbackReason
+	}
+	return ""
+}
+
+func (x *SubmitResponse) GetInstructionsDelivery() string {
+	if x != nil {
+		return x.InstructionsDelivery
 	}
 	return ""
 }
@@ -8917,8 +9004,10 @@ type AmuxdSubmitRequest struct {
 	Control                   string                 `protobuf:"bytes,7,opt,name=control,proto3" json:"control,omitempty"`
 	Parts                     []*InputPart           `protobuf:"bytes,8,rep,name=parts,proto3" json:"parts,omitempty"`
 	PreemptAlreadyInterrupted bool                   `protobuf:"varint,9,opt,name=preempt_already_interrupted,json=preemptAlreadyInterrupted,proto3" json:"preempt_already_interrupted,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// Steer into the active turn; falls back to queued input. See SubmitRequest.steer.
+	Steer         bool `protobuf:"varint,10,opt,name=steer,proto3" json:"steer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AmuxdSubmitRequest) Reset() {
@@ -9010,6 +9099,13 @@ func (x *AmuxdSubmitRequest) GetParts() []*InputPart {
 func (x *AmuxdSubmitRequest) GetPreemptAlreadyInterrupted() bool {
 	if x != nil {
 		return x.PreemptAlreadyInterrupted
+	}
+	return false
+}
+
+func (x *AmuxdSubmitRequest) GetSteer() bool {
+	if x != nil {
+		return x.Steer
 	}
 	return false
 }
@@ -13008,10 +13104,14 @@ func (x *GetAgentInstanceResponse) GetInstance() *AgentInstance {
 // input queue ahead of the new task prompt. Returns the number of messages now
 // pending in the mailbox.
 type SendAgentMessageRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Text          string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
-	Source        string                 `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Text   string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	Source string                 `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// Steer injects the message into the instance's running turn. When the
+	// instance has no steerable active turn the message falls back to the
+	// mailbox (delivered on the next wake-up).
+	Steer         bool `protobuf:"varint,4,opt,name=steer,proto3" json:"steer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -13067,12 +13167,22 @@ func (x *SendAgentMessageRequest) GetSource() string {
 	return ""
 }
 
+func (x *SendAgentMessageRequest) GetSteer() bool {
+	if x != nil {
+		return x.Steer
+	}
+	return false
+}
+
 type SendAgentMessageResponse struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Ok              bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
 	PendingMessages int32                  `protobuf:"varint,2,opt,name=pending_messages,json=pendingMessages,proto3" json:"pending_messages,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// "steered" or "mailbox".
+	Delivery            string `protobuf:"bytes,3,opt,name=delivery,proto3" json:"delivery,omitempty"`
+	SteerFallbackReason string `protobuf:"bytes,4,opt,name=steer_fallback_reason,json=steerFallbackReason,proto3" json:"steer_fallback_reason,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *SendAgentMessageResponse) Reset() {
@@ -13117,6 +13227,20 @@ func (x *SendAgentMessageResponse) GetPendingMessages() int32 {
 		return x.PendingMessages
 	}
 	return 0
+}
+
+func (x *SendAgentMessageResponse) GetDelivery() string {
+	if x != nil {
+		return x.Delivery
+	}
+	return ""
+}
+
+func (x *SendAgentMessageResponse) GetSteerFallbackReason() string {
+	if x != nil {
+		return x.SteerFallbackReason
+	}
+	return ""
 }
 
 type InterruptAgentInstanceRequest struct {
@@ -15138,7 +15262,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x16GetAgentProfileRequest\x12\x10\n" +
 	"\x03ref\x18\x01 \x01(\tR\x03ref\"N\n" +
 	"\x17GetAgentProfileResponse\x123\n" +
-	"\aprofile\x18\x01 \x01(\v2\x19.amux.v1.AgentProfileInfoR\aprofile\"\xbe\x05\n" +
+	"\aprofile\x18\x01 \x01(\v2\x19.amux.v1.AgentProfileInfoR\aprofile\"\xef\x05\n" +
 	"\n" +
 	"RunRequest\x12\x1d\n" +
 	"\n" +
@@ -15161,7 +15285,8 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\tlaunch_id\x18\x0f \x01(\tR\blaunchId\x12\x15\n" +
 	"\x06run_as\x18\x10 \x01(\tR\x05runAs\x12*\n" +
 	"\x11agent_actor_token\x18\x11 \x01(\tR\x0fagentActorToken\x12>\n" +
-	"\x1cagent_actor_token_expires_at\x18\x12 \x01(\x03R\x18agentActorTokenExpiresAt\"U\n" +
+	"\x1cagent_actor_token_expires_at\x18\x12 \x01(\x03R\x18agentActorTokenExpiresAt\x12/\n" +
+	"\x13system_instructions\x18\x13 \x01(\tR\x12systemInstructions\"U\n" +
 	"\vRunResponse\x12*\n" +
 	"\asession\x18\x01 \x01(\v2\x10.amux.v1.SessionR\asession\x12\x1a\n" +
 	"\bwarnings\x18\x02 \x03(\tR\bwarnings\"t\n" +
@@ -15369,7 +15494,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\n" +
 	"option_ids\x18\x04 \x03(\tR\toptionIds\"+\n" +
 	"\x19RespondPermissionResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x97\x03\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xd1\x04\n" +
 	"\rSubmitRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x12\x16\n" +
@@ -15382,14 +15507,21 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x16local_expert_authoring\x18\t \x01(\bR\x14localExpertAuthoring\x12.\n" +
 	"\x13expected_session_id\x18\n" +
 	" \x01(\tR\x11expectedSessionId\x12,\n" +
-	"\x12expected_launch_id\x18\v \x01(\tR\x10expectedLaunchId\"\xb5\x01\n" +
+	"\x12expected_launch_id\x18\v \x01(\tR\x10expectedLaunchId\x12\x14\n" +
+	"\x05steer\x18\f \x01(\bR\x05steer\x123\n" +
+	"\x16steer_expected_turn_id\x18\r \x01(\tR\x13steerExpectedTurnId\x12/\n" +
+	"\x13system_instructions\x18\x0e \x01(\tR\x12systemInstructions\x12<\n" +
+	"\x1amanage_system_instructions\x18\x0f \x01(\bR\x18manageSystemInstructions\"\xba\x02\n" +
 	"\x0eSubmitResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x17\n" +
 	"\aturn_id\x18\x02 \x01(\tR\x06turnId\x12>\n" +
 	"\rignored_parts\x18\x03 \x03(\v2\x19.amux.v1.IgnoredInputPartR\fignoredParts\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x04 \x01(\tR\tsessionId\x12\x1b\n" +
-	"\tlaunch_id\x18\x05 \x01(\tR\blaunchId\"'\n" +
+	"\tlaunch_id\x18\x05 \x01(\tR\blaunchId\x12\x1a\n" +
+	"\bdelivery\x18\x06 \x01(\tR\bdelivery\x122\n" +
+	"\x15steer_fallback_reason\x18\a \x01(\tR\x13steerFallbackReason\x123\n" +
+	"\x15instructions_delivery\x18\b \x01(\tR\x14instructionsDelivery\"'\n" +
 	"\x11ActiveTurnRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x81\x01\n" +
 	"\x12ActiveTurnResponse\x12\x16\n" +
@@ -15706,7 +15838,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12H\n" +
 	"\rtimeline_mode\x18\x04 \x01(\x0e2#.amux.v1.AttachRequest.TimelineModeR\ftimelineMode\x12!\n" +
-	"\fafter_cursor\x18\x05 \x01(\tR\vafterCursorJ\x04\b\x03\x10\x04R\x06replay\"\xa5\x02\n" +
+	"\fafter_cursor\x18\x05 \x01(\tR\vafterCursorJ\x04\b\x03\x10\x04R\x06replay\"\xbb\x02\n" +
 	"\x12AmuxdSubmitRequest\x12\x1b\n" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -15716,7 +15848,9 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\apreempt\x18\x06 \x01(\bR\apreempt\x12\x18\n" +
 	"\acontrol\x18\a \x01(\tR\acontrol\x12(\n" +
 	"\x05parts\x18\b \x03(\v2\x12.amux.v1.InputPartR\x05parts\x12>\n" +
-	"\x1bpreempt_already_interrupted\x18\t \x01(\bR\x19preemptAlreadyInterrupted\"H\n" +
+	"\x1bpreempt_already_interrupted\x18\t \x01(\bR\x19preemptAlreadyInterrupted\x12\x14\n" +
+	"\x05steer\x18\n" +
+	" \x01(\bR\x05steer\"H\n" +
 	"\x15AmuxdQueueListRequest\x12\x1b\n" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"I\n" +
@@ -16019,14 +16153,17 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x17GetAgentInstanceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"N\n" +
 	"\x18GetAgentInstanceResponse\x122\n" +
-	"\binstance\x18\x01 \x01(\v2\x16.amux.v1.AgentInstanceR\binstance\"U\n" +
+	"\binstance\x18\x01 \x01(\v2\x16.amux.v1.AgentInstanceR\binstance\"k\n" +
 	"\x17SendAgentMessageRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x12\x16\n" +
-	"\x06source\x18\x03 \x01(\tR\x06source\"U\n" +
+	"\x06source\x18\x03 \x01(\tR\x06source\x12\x14\n" +
+	"\x05steer\x18\x04 \x01(\bR\x05steer\"\xa5\x01\n" +
 	"\x18SendAgentMessageResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12)\n" +
-	"\x10pending_messages\x18\x02 \x01(\x05R\x0fpendingMessages\"/\n" +
+	"\x10pending_messages\x18\x02 \x01(\x05R\x0fpendingMessages\x12\x1a\n" +
+	"\bdelivery\x18\x03 \x01(\tR\bdelivery\x122\n" +
+	"\x15steer_fallback_reason\x18\x04 \x01(\tR\x13steerFallbackReason\"/\n" +
 	"\x1dInterruptAgentInstanceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"0\n" +
 	"\x1eInterruptAgentInstanceResponse\x12\x0e\n" +

@@ -284,6 +284,9 @@ func botSessionReclaimedText(bs *BotSession, profile string) string {
 	return "当前 bot-session 绑定的 session 已结束或不可用：" + sessionRef + "\n" + "请私聊智能体发送 /amux，在“助手”中重新配置；如需救援，可在机器上运行：\n" + fmt.Sprintf("amux bridge feishu bot-session bind --profile %s <target/session>", profile)
 }
 func botSessionSubmitFailureText(err error) string {
+	if isSteerOutcomeUnknown(err) {
+		return steerOutcomeUnknownNotice
+	}
 	return "⚠️ 当前对话暂时不可用，消息未发送。\n请稍后重试；如持续失败，请私聊发送 /amux 查看状态。"
 }
 func (b *Bridge) canUseBridge(openID string) bool {

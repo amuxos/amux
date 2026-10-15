@@ -3186,3 +3186,60 @@ func (m *mockNonAutoSelector) Capabilities() adapter.Capabilities {
 func (m *mockNonAutoSelector) Cmd(extraArgs []string) *exec.Cmd {
 	return exec.Command("true")
 }
+
+// TestCreateChildPersistentReusesArchivedSession pins instance_followup to an
+// instance whose child session was archived after a failure: a resumable
+// session is resumed (same id), a non-resumable one is replaced instead of
+// failing with "session ... already exists".
+func TestCreateChildPersistentReusesArchivedSession(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "tc.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer db.Close()
+	mgr := session.NewManager(db)
+	srv := &server{
+		mgr:     mgr,
+		amuxDir: t.TempDir(),
+		startSessionHook: func(_ adapter.Adapter, sess *session.Session, _ []string, _ []string) error {
+			sess.SetProc(&serverTestProc{})
+			return mgr.SetRunning(sess)
+		},
+	}
+	ctrl := newTaskController(srv, "t-1")
+	c1, err := ctrl.CreateChild(context.Background(), task.ChildSpec{TaskID: "task-a", AgentType: "claude", OwnerTaskId: "task-a", InstanceID: "inst-1"})
+	if err != nil {
+		t.Fatalf("CreateChild 1: %v", err)
+	}
+	sess, _ := mgr.Get("instance-inst-1")
+	if err := mgr.RecordAgentSessionID(sess, "native-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.SetState(sess, session.StateArchived); err != nil {
+		t.Fatal(err)
+	}
+	c2, err := ctrl.CreateChild(context.Background(), task.ChildSpec{TaskID: "task-b", AgentType: "claude", OwnerTaskId: "task-b", InstanceID: "inst-1"})
+	if err != nil {
+		t.Fatalf("CreateChild after archive (resumable): %v", err)
+	}
+	if c2.ID() != c1.ID() {
+		t.Fatalf("resumable archived session not reused: %s vs %s", c1.ID(), c2.ID())
+	}
+
+	// Not resumable (no provider conversation): replaced by a fresh child.
+	c1, err = ctrl.CreateChild(context.Background(), task.ChildSpec{TaskID: "task-x", AgentType: "claude", OwnerTaskId: "task-x", InstanceID: "inst-2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess, _ = mgr.Get("instance-inst-2")
+	if err := mgr.SetState(sess, session.StateArchived); err != nil {
+		t.Fatal(err)
+	}
+	c3, err := ctrl.CreateChild(context.Background(), task.ChildSpec{TaskID: "task-c", AgentType: "claude", OwnerTaskId: "task-c", InstanceID: "inst-2"})
+	if err != nil {
+		t.Fatalf("CreateChild after archive (stale): %v", err)
+	}
+	if c3.ID() == c1.ID() || c3.Name() != "instance-inst-2" {
+		t.Fatalf("stale archived session not replaced: %s %s", c3.ID(), c3.Name())
+	}
+}

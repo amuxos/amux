@@ -219,11 +219,18 @@ func (s *taskServer) SendAgentMessage(ctx context.Context, req *pb.SendAgentMess
 	if s.ctrl == nil {
 		return nil, status.Error(codes.Unimplemented, "agent instances not available on this runtime")
 	}
+	if req.GetSteer() {
+		delivery, reason, pending, err := s.ctrl.SteerInstance(ctx, req.Id, req.Source, req.Text)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.SendAgentMessageResponse{Ok: true, PendingMessages: int32(pending), Delivery: delivery, SteerFallbackReason: reason}, nil
+	}
 	pending, err := s.ctrl.SendInstanceMessage(ctx, req.Id, req.Source, req.Text)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.SendAgentMessageResponse{Ok: true, PendingMessages: int32(pending)}, nil
+	return &pb.SendAgentMessageResponse{Ok: true, PendingMessages: int32(pending), Delivery: "mailbox"}, nil
 }
 
 func (s *taskServer) InterruptAgentInstance(ctx context.Context, req *pb.InterruptAgentInstanceRequest) (*pb.InterruptAgentInstanceResponse, error) {

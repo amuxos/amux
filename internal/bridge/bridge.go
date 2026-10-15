@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -108,6 +109,8 @@ type ManagementAgentPackActions interface {
 
 // Bridge connects the hub to Lark.
 type Bridge struct {
+	// turnSources maps turns to the Feishu chat of their first input.
+	turnSources    turnSourceChats
 	hub            Hub
 	sessionStarter sessionlaunch.Starter
 	db             *bridgeDB
@@ -125,6 +128,12 @@ type Bridge struct {
 	streamController
 	inputRouter
 	turnCoalescer
+	// showBackgroundTasks is the experimental show_background_tasks switch
+	// (default off): when off, background task progress cards are not posted.
+	// Applied live from the experiments card.
+	showBackgroundTasks atomic.Bool
+	queueNotice         queueNoticeState
+	steerObservers      steerObserverState
 	subtaskCardController
 	subtaskCardPort
 
@@ -384,6 +393,9 @@ func NewWithProfile(hub Hub, profile string, secrets *Secrets, starter sessionla
 		_ = db.Close()
 		return nil, fmt.Errorf("bridge: reconcile bot settings: %w", err)
 	}
+	b.steerForeground.Store(config.GetBridgeFeishuSteerForeground())
+	config.SetLiveSteerForeground(b.steerForeground.Load())
+	b.showBackgroundTasks.Store(config.GetBridgeFeishuShowBackgroundTasks())
 	return b, nil
 }
 

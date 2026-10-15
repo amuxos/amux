@@ -8,7 +8,7 @@
 
 MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-product-model.md`](../current/cli-product-model.zh-CN.md) 和 [`docs/distributed-task-model.md`](../distributed-task-model.zh-CN.md) 为准。运行时还会通过 [`amux.result_continue`](#amuxresult_continue) 对超过单页预算的成功结果续传；工具结果本身不是 `tools/list` 注册元数据，因此不在本文档中另维护一份可能漂移的输出 Schema。
 
-`tools/list` 正式工具：**49**。
+`tools/list` 正式工具：**50**。
 
 ## 正式工具索引
 
@@ -20,12 +20,13 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.delegation_get` | 读取 Delegation 当前快照；增量事件使用 delegation_wait。 |
 | `amux.delegation_intervene` | 回答支持 permission_response 的 Delegation 权限请求。 |
 | `amux.delegation_wait` | 等待 Delegation；event 增量返回事件，actionable 避免普通进度反复唤醒主模型并保留权限/终态唤醒。wait_timed_out 不是 Delegation 终态；按返回状态维护实际创建的尝试账本。 |
-| `amux.instance_followup` | 向持久 Agent 交付任务并立即触发新 turn，保留 provider 对话上下文。 |
-| `amux.instance_interrupt` | 中断持久 Agent 当前 turn。 |
+| `amux.instance_followup` | 向持久 Agent 交付任务并立即触发新 turn，保留 provider 对话上下文；适用于后台任务完成后继续、或失败后由你决定重试。实例上次失败后遗留的子会话会被复用；若实例已无法使用，会返回错误并建议改用 instance_spawn 新建实例。 |
+| `amux.instance_interrupt` | 中断持久 Agent 当前 turn。用于用户要求停止某个后台任务时；中断后简要告知用户，之后可用 instance_followup 继续。 |
 | `amux.instance_list` | 列出持久 Agent Instance 状态、child Session 状态和 mailbox 深度。 |
 | `amux.instance_send` | 向持久 Agent mailbox 入队消息但不唤醒，不启动新 turn。 |
-| `amux.instance_spawn` | 非阻塞创建持久 Agent Instance，返回稳定的 agent_instance_id。 |
-| `amux.instance_wait` | 等待持久 Agent 当前 turn 结束或超时；结果仍用 task_get/task_stream 获取。 |
+| `amux.instance_spawn` | 非阻塞创建持久 Agent Instance（后台实例），返回稳定的 agent_instance_id。适用于你判断需要较长时间执行或大量工具调用的任务；短问题直接回答，不要委派。prompt 要自包含：写清目标、约束、交付物，并要求后台 Agent 结束时给出一段简洁的、面向用户的结论（放在最终回复末尾，可用「结论：」开头），不要把工作过程当作结论。调用后简短告诉用户已在后台开始，并继续响应用户的新消息；记住 agent_instance_id 与任务的对应关系，但对用户用自然语言描述任务，不要展示原始 id。任务结束时系统会自动向你送达一条「后台任务完成」通知，无需轮询或反复调用 task_get。 |
+| `amux.instance_steer` | 向持久 Agent 正在执行的 turn 注入纠正或补充，不中断当前工作，适用于用户纠正或补充某个后台任务时。实例无可注入的 turn 时回落到 mailbox（delivery=mailbox），此时改用 instance_followup 继续该任务；mailbox 中的纠正会先送达，prompt 里不要重复。 |
+| `amux.instance_wait` | 等待持久 Agent 当前 turn 结束或超时；结果仍用 task_get/task_stream 获取。前台会话一般不需要调用：后台任务结束时会自动送达完成通知，等待会阻塞你对用户新消息的响应。 |
 | `amux.local_expert_change` | 预览、发布或清理 managed local 专家 patch。publish 仅限后续明确确认的 owner turn，并须原样提交相同 patch 与 receipt；评测确认不等于发布确认。 |
 | `amux.local_expert_read` | 读取 managed local 专家的精确编辑基线；仅当前飞书 Bot owner turn 可用，不写入。 |
 | `amux.memory_forget` | 按 revision 条件删除一份记忆文档；不会清除已进入会话的历史。纠正或忘记偏好时还需检查 MEMORY.md 和相关主题，修订重复内容及引用；部分失败须明确报告。 |
@@ -249,7 +250,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.instance_followup`
 
-向持久 Agent 交付任务并立即触发新 turn，保留 provider 对话上下文。
+向持久 Agent 交付任务并立即触发新 turn，保留 provider 对话上下文；适用于后台任务完成后继续、或失败后由你决定重试。实例上次失败后遗留的子会话会被复用；若实例已无法使用，会返回错误并建议改用 instance_spawn 新建实例。
 
 **输入 JSON Schema**
 
@@ -259,6 +260,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     "agent_instance_id": {
       "description": "要唤醒并接收 Task 的持久 Agent Instance，取自 instance_spawn 的返回值",
       "type": "string"
+    },
+    "notify_parent": {
+      "description": "非阻塞任务完成后是否自动向发起会话送达一条完成通知（实验功能，需开启 steer_foreground）；默认 true，传 false 关闭",
+      "type": "boolean"
     },
     "result_granularity": {
       "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，超限时截断并指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript",
@@ -292,7 +297,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.instance_interrupt`
 
-中断持久 Agent 当前 turn。
+中断持久 Agent 当前 turn。用于用户要求停止某个后台任务时；中断后简要告知用户，之后可用 instance_followup 继续。
 
 **输入 JSON Schema**
 
@@ -367,7 +372,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.instance_spawn`
 
-非阻塞创建持久 Agent Instance，返回稳定的 agent_instance_id。
+非阻塞创建持久 Agent Instance（后台实例），返回稳定的 agent_instance_id。适用于你判断需要较长时间执行或大量工具调用的任务；短问题直接回答，不要委派。prompt 要自包含：写清目标、约束、交付物，并要求后台 Agent 结束时给出一段简洁的、面向用户的结论（放在最终回复末尾，可用「结论：」开头），不要把工作过程当作结论。调用后简短告诉用户已在后台开始，并继续响应用户的新消息；记住 agent_instance_id 与任务的对应关系，但对用户用自然语言描述任务，不要展示原始 id。任务结束时系统会自动向你送达一条「后台任务完成」通知，无需轮询或反复调用 task_get。
 
 **输入 JSON Schema**
 
@@ -402,6 +407,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     "model": {
       "description": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型",
       "type": "string"
+    },
+    "notify_parent": {
+      "description": "非阻塞任务完成后是否自动向发起会话送达一条完成通知（实验功能，需开启 steer_foreground）；默认 true，传 false 关闭",
+      "type": "boolean"
     },
     "permission_policy": {
       "description": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略",
@@ -479,9 +488,34 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 }
 ```
 
+## `amux.instance_steer`
+
+向持久 Agent 正在执行的 turn 注入纠正或补充，不中断当前工作，适用于用户纠正或补充某个后台任务时。实例无可注入的 turn 时回落到 mailbox（delivery=mailbox），此时改用 instance_followup 继续该任务；mailbox 中的纠正会先送达，prompt 里不要重复。
+
+**输入 JSON Schema**
+
+```json
+{
+  "properties": {
+    "agent_instance_id": {
+      "type": "string"
+    },
+    "text": {
+      "description": "要注入的纠正或补充；Agent 会判断是调整当前工作还是追加要求，并保留已完成进度",
+      "type": "string"
+    }
+  },
+  "required": [
+    "agent_instance_id",
+    "text"
+  ],
+  "type": "object"
+}
+```
+
 ## `amux.instance_wait`
 
-等待持久 Agent 当前 turn 结束或超时；结果仍用 task_get/task_stream 获取。
+等待持久 Agent 当前 turn 结束或超时；结果仍用 task_get/task_stream 获取。前台会话一般不需要调用：后台任务结束时会自动送达完成通知，等待会阻塞你对用户新消息的响应。
 
 **输入 JSON Schema**
 
@@ -1773,6 +1807,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "description": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型",
       "type": "string"
     },
+    "notify_parent": {
+      "description": "非阻塞任务完成后是否自动向发起会话送达一条完成通知（实验功能，需开启 steer_foreground）；默认 true，传 false 关闭",
+      "type": "boolean"
+    },
     "permission_policy": {
       "description": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略",
       "enum": [
@@ -1923,6 +1961,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     "model": {
       "description": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型",
       "type": "string"
+    },
+    "notify_parent": {
+      "description": "非阻塞任务完成后是否自动向发起会话送达一条完成通知（实验功能，需开启 steer_foreground）；默认 true，传 false 关闭",
+      "type": "boolean"
     },
     "permission_policy": {
       "description": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略",

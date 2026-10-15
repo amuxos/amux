@@ -301,7 +301,7 @@ func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, messag
 		identity.Identity = pinned
 	}
 	idleTimeout := int64(idleTimeoutSeconds)
-	res, err = b.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{TargetID: targetID, Name: sessionName, Launch: launch, Workspace: sessionlaunch.WorkspaceRequest{Cwd: cwd, Source: "feishu", Scope: b.feishuWorkspaceScope(chatID, messageAuthorOpenID)}, IdleTimeoutSeconds: &idleTimeout, ExecutionIdentity: identity.Identity, LaunchID: identity.LaunchID, AgentActorToken: identity.ActorToken, AgentActorTokenExpiresAt: identity.ActorTokenExpiresAt})
+	res, err = b.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{TargetID: targetID, Name: sessionName, Launch: launch, Workspace: sessionlaunch.WorkspaceRequest{Cwd: cwd, Source: "feishu", Scope: b.feishuWorkspaceScope(chatID, messageAuthorOpenID)}, IdleTimeoutSeconds: &idleTimeout, ExecutionIdentity: identity.Identity, LaunchID: identity.LaunchID, AgentActorToken: identity.ActorToken, AgentActorTokenExpiresAt: identity.ActorTokenExpiresAt, SystemInstructions: b.sessionStartInstructions()})
 	if err != nil {
 		principalID := ""
 		if identity.Identity != nil {

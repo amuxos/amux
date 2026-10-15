@@ -95,6 +95,14 @@ func TestReleaseUpdateRollsBackBinariesAndSidecarTogether(t *testing.T) {
 			if string(binary) != wantBin || string(sdk) != wantSDK {
 				t.Fatalf("partial update: binary=%q sdk=%q", binary, sdk)
 			}
+			if !failSDK && runtime.GOOS != "windows" {
+				// The source sidecar entry point is 0644 like tsc output; the
+				// installed copy must still be executable.
+				info, err := os.Stat(filepath.Join(defaultAmuxDir(), "sidecars/claude-sdk/dist/index.js"))
+				if err != nil || info.Mode().Perm()&0o111 == 0 {
+					t.Fatalf("installed sidecar entry point not executable: %v, %v", info, err)
+				}
+			}
 		})
 	}
 }

@@ -140,6 +140,8 @@ func (h *mcpHandler) handle(ctx context.Context, name string, args json.RawMessa
 		return h.spawnAgent(ctx, args)
 	case "amux.instance_send":
 		return h.sendMessage(ctx, args)
+	case "amux.instance_steer":
+		return h.steerAgent(ctx, args)
 	case "amux.instance_followup":
 		return h.followupTask(ctx, args)
 	case "amux.instance_wait":
@@ -642,6 +644,7 @@ func amuxTools() []mcp.Tool {
     "task": {"type": "string", "description": "交给 Agent Task 的提示词"},
     "mode": {"type": "string", "enum": ["ephemeral", "persistent"], "description": "ephemeral（默认）只运行一次并销毁；persistent 让 Agent Instance 跨 Task 保持存活，以支持多轮交互"},
     "agent_instance_id": {"type": "string", "description": "持久 Agent Instance 句柄（mode=persistent）；复用 instance_spawn 返回的值调用 instance_followup、instance_send 或 instance_interrupt"},
+    "notify_parent": {"type": "boolean", "description": "非阻塞任务完成后是否自动向发起会话送达一条完成通知（实验功能，需开启 steer_foreground）；默认 true，传 false 关闭"},
     "run_as": {"type": "string", "description": "可选 Principal alias 意图；由 amuxd 解析并授权，未指定时 child 继承 parent 的 Execution Principal"},
     "isolation": {"type": "string", "enum": ["process", "private-home"], "description": "Sandbox 隔离模式；Phase 1 为 best-effort trusted mode"},
     "credential_profile": {"type": "string", "description": "控制面 credential profile 名称"},
@@ -735,6 +738,7 @@ func amuxTools() []mcp.Tool {
 	"timeout_seconds": {"type": "integer", "minimum": 0, "description": "整个 Task 从接受开始计算的截止时间（秒）；0 或省略时使用 runtime 默认值（30 分钟）"},
     "trusted_mode_ack": {"type": "boolean"},
     "agent_instance_id": {"type": "string", "description": "可选的显式 Instance 句柄；省略时生成并返回新的 agent-<uuid> 句柄"},
+    "notify_parent": {"type": "boolean", "description": "非阻塞任务完成后是否自动向发起会话送达一条完成通知（实验功能，需开启 steer_foreground）；默认 true，传 false 关闭"},
     "result_granularity": {"type": "string", "enum": ["summary", "full", "structured-summary"], "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，超限时截断并指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"}
   },
   "required": ["agent", "task"]
@@ -743,6 +747,7 @@ func amuxTools() []mcp.Tool {
   "type": "object",
   "properties": {
 	"agent_instance_id": {"type": "string", "description": "要唤醒并接收 Task 的持久 Agent Instance，取自 instance_spawn 的返回值"},
+    "notify_parent": {"type": "boolean", "description": "非阻塞任务完成后是否自动向发起会话送达一条完成通知（实验功能，需开启 steer_foreground）；默认 true，传 false 关闭"},
 	"task": {"type": "string", "description": "触发下一轮的新 Task 提示词"},
 	"timeout_seconds": {"type": "integer", "minimum": 0, "description": "整个 Task 从接受开始计算的截止时间（秒）；0 或省略时使用 runtime 默认值（30 分钟）"},
     "trusted_mode_ack": {"type": "boolean"},
@@ -756,6 +761,14 @@ func amuxTools() []mcp.Tool {
     "agent_instance_id": {"type": "string"},
 	"text": {"type": "string", "description": "要排队的消息；Agent 唤醒后会在下一条 Task 提示词之前收到"},
 	"source": {"type": "string", "description": "队列输入的可选来源标签"}
+  },
+  "required": ["agent_instance_id", "text"]
+}`)
+	steerAgentSchema := json.RawMessage(`{
+  "type": "object",
+  "properties": {
+    "agent_instance_id": {"type": "string"},
+    "text": {"type": "string", "description": "要注入的纠正或补充；Agent 会判断是调整当前工作还是追加要求，并保留已完成进度"}
   },
   "required": ["agent_instance_id", "text"]
 }`)
@@ -909,12 +922,13 @@ func amuxTools() []mcp.Tool {
 		{Name: "amux.schedule_delete", Description: "删除 Schedule；既有运行对应的 Task 结果仍可读取。", InputSchema: scheduleIDSchema},
 		{Name: "amux.schedule_update", Description: "原地更新 Schedule 的名称、时间规则或 Task；省略字段保持不变，不允许 escalate-to-main。", InputSchema: updateScheduleSchema},
 		{Name: "amux.schedule_set_enabled", Description: "启用或停用 Schedule。", InputSchema: setScheduleEnabledSchema},
-		{Name: "amux.instance_spawn", Description: "非阻塞创建持久 Agent Instance，返回稳定的 agent_instance_id。", InputSchema: spawnAgentSchema},
+		{Name: "amux.instance_spawn", Description: "非阻塞创建持久 Agent Instance（后台实例），返回稳定的 agent_instance_id。适用于你判断需要较长时间执行或大量工具调用的任务；短问题直接回答，不要委派。prompt 要自包含：写清目标、约束、交付物，并要求后台 Agent 结束时给出一段简洁的、面向用户的结论（放在最终回复末尾，可用「结论：」开头），不要把工作过程当作结论。调用后简短告诉用户已在后台开始，并继续响应用户的新消息；记住 agent_instance_id 与任务的对应关系，但对用户用自然语言描述任务，不要展示原始 id。任务结束时系统会自动向你送达一条「后台任务完成」通知，无需轮询或反复调用 task_get。", InputSchema: spawnAgentSchema},
 		{Name: "amux.instance_send", Description: "向持久 Agent mailbox 入队消息但不唤醒，不启动新 turn。", InputSchema: sendMessageSchema},
-		{Name: "amux.instance_followup", Description: "向持久 Agent 交付任务并立即触发新 turn，保留 provider 对话上下文。", InputSchema: followupTaskSchema},
-		{Name: "amux.instance_wait", Description: "等待持久 Agent 当前 turn 结束或超时；结果仍用 task_get/task_stream 获取。", InputSchema: waitAgentSchema},
+		{Name: "amux.instance_steer", Description: "向持久 Agent 正在执行的 turn 注入纠正或补充，不中断当前工作，适用于用户纠正或补充某个后台任务时。实例无可注入的 turn 时回落到 mailbox（delivery=mailbox），此时改用 instance_followup 继续该任务；mailbox 中的纠正会先送达，prompt 里不要重复。", InputSchema: steerAgentSchema},
+		{Name: "amux.instance_followup", Description: "向持久 Agent 交付任务并立即触发新 turn，保留 provider 对话上下文；适用于后台任务完成后继续、或失败后由你决定重试。实例上次失败后遗留的子会话会被复用；若实例已无法使用，会返回错误并建议改用 instance_spawn 新建实例。", InputSchema: followupTaskSchema},
+		{Name: "amux.instance_wait", Description: "等待持久 Agent 当前 turn 结束或超时；结果仍用 task_get/task_stream 获取。前台会话一般不需要调用：后台任务结束时会自动送达完成通知，等待会阻塞你对用户新消息的响应。", InputSchema: waitAgentSchema},
 		{Name: "amux.instance_list", Description: "列出持久 Agent Instance 状态、child Session 状态和 mailbox 深度。", InputSchema: listAgentsSchema},
-		{Name: "amux.instance_interrupt", Description: "中断持久 Agent 当前 turn。", InputSchema: interruptAgentSchema},
+		{Name: "amux.instance_interrupt", Description: "中断持久 Agent 当前 turn。用于用户要求停止某个后台任务时；中断后简要告知用户，之后可用 instance_followup 继续。", InputSchema: interruptAgentSchema},
 		{Name: "amux.session_list", Description: "按 runtime 分组列出调用方可见的 Session；创建 Session 时不要预先调用，先省略 target 调用 session_run，仅在其报告多个 target 后用本工具选择。", InputSchema: empty},
 		{Name: "amux.session_run", Description: "用 Agent Profile 创建 Session；profile 和 name 必填。未指定 target 时先直接调用：唯一连接 target 会自动选择，多个 target 会在创建前返回明确错误。", InputSchema: sessionRunSchema},
 		{Name: "amux.session_send", Description: "向 Session 输入队列提交提示词；名称有歧义时用 target 消歧。", InputSchema: sessionSendSchema},

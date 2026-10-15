@@ -1947,6 +1947,7 @@ amux session send <session-ref> <text> [flags]
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | send 帮助 |
 | `--interrupt` | `bool` | `false` | 中断当前轮，将本消息排在队列中的输入之前运行 |
+| `--steer` | `bool` | `false` | 将本消息注入正在运行的轮次而不中断它；无法注入时回落到队列 |
 
 ## `amux session set-model`
 

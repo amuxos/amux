@@ -473,6 +473,7 @@ func TestMCPToolsIncludeAgentLevelTools(t *testing.T) {
 	for _, name := range []string{
 		"amux.instance_spawn",
 		"amux.instance_send",
+		"amux.instance_steer",
 		"amux.instance_followup",
 		"amux.instance_wait",
 		"amux.instance_list",
@@ -764,6 +765,46 @@ func TestMCPFollowupTaskSubmitsPersistentWithInstanceID(t *testing.T) {
 	}
 }
 
+func TestMCPSteerAgentRoutesToClient(t *testing.T) {
+	cap := withTaskClient(t)
+	h := &mcpHandler{}
+	steer := func(args string) map[string]any {
+		t.Helper()
+		res, err := h.handle(context.Background(), "amux.instance_steer", json.RawMessage(args))
+		if err != nil || res.IsError {
+			t.Fatalf("instance_steer = %+v, %v", res, err)
+		}
+		var out map[string]any
+		if err := json.Unmarshal([]byte(res.Content[0].Text), &out); err != nil {
+			t.Fatalf("decode result: %v", err)
+		}
+		return out
+	}
+
+	cap.sendMsgResp = &pb.SendAgentMessageResponse{Ok: true, Delivery: "steered"}
+	out := steer(`{"agent_instance_id":"agent-1","text":"use dry-run"}`)
+	if req := cap.sendMsgReq; req == nil || req.Id != "agent-1" || req.Text != "use dry-run" || !req.Steer || req.Source != "coordinator" {
+		t.Fatalf("sendMsgReq = %+v, want a coordinator steer for agent-1", req)
+	}
+	if out["delivery"] != "steered" || out["hint"] != nil {
+		t.Fatalf("steered result = %+v", out)
+	}
+
+	cap.sendMsgResp = &pb.SendAgentMessageResponse{Ok: true, Delivery: "mailbox", PendingMessages: 2, SteerFallbackReason: "no active turn"}
+	out = steer(`{"agent_instance_id":"agent-1","text":"use dry-run"}`)
+	if out["delivery"] != "mailbox" || out["fallback_reason"] != "no active turn" || out["pending_messages"] != float64(2) {
+		t.Fatalf("mailbox result = %+v", out)
+	}
+	if hint, _ := out["hint"].(string); !strings.Contains(hint, "instance_followup") {
+		t.Fatalf("mailbox hint = %q, want instance_followup guidance", hint)
+	}
+
+	res, err := h.handle(context.Background(), "amux.instance_steer", json.RawMessage(`{"agent_instance_id":"agent-1"}`))
+	if err != nil || !res.IsError {
+		t.Fatalf("missing text = %+v, %v; want a tool error", res, err)
+	}
+}
+
 func TestMCPSendMessageRoutesToClient(t *testing.T) {
 	cap := withTaskClient(t)
 	h := &mcpHandler{}
@@ -883,6 +924,7 @@ func TestMCPHandleDispatchesAgentLevelTools(t *testing.T) {
 	}{
 		{"amux.instance_spawn", `{"agent":"builtin/codex","task":"x"}`},
 		{"amux.instance_send", `{"agent_instance_id":"agent-1","text":"x"}`},
+		{"amux.instance_steer", `{"agent_instance_id":"agent-1","text":"x"}`},
 		{"amux.instance_followup", `{"agent_instance_id":"agent-1","task":"x"}`},
 		{"amux.instance_wait", `{"agent_instance_id":"agent-1"}`},
 		{"amux.instance_list", `{}`},

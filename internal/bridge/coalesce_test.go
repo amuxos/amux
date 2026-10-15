@@ -3,6 +3,7 @@ package bridge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -152,7 +153,7 @@ func (h *fakeSubmitHub) interruptCount() int {
 
 func TestSubmitToSessionPreemptsAndMarksTurnActive(t *testing.T) {
 	hub := &fakeSubmitHub{}
-	b := &Bridge{hub: hub}
+	b := &Bridge{hub: hub, turnCoalescer: turnCoalescer{}}
 	chat := &LarkChat{RootMsgID: "root1", TargetID: "t1", SessionName: "s1"}
 
 	if err := b.submitToSession(context.Background(), chat, "hello"); err != nil {
@@ -303,5 +304,210 @@ func TestPendingCoalesceWindowRemainsActiveAfterOldTurnFinishes(t *testing.T) {
 
 	if !b.shouldCoalesceInput("root1") {
 		t.Fatal("pending coalesce window should accept later burst input even after old turn is inactive")
+	}
+}
+
+// ownTurn records that the session runs turnID for input sent by openID, as
+// the submit receipt and the attach stream report it.
+func ownTurn(b *Bridge, rootMsgID, turnID, openID string) {
+	b.recordTurnSenders(rootMsgID, turnID, compactTurnInputRefs(openID, "om-start"))
+	b.observeTurnStarted(rootMsgID, turnID)
+}
+
+func TestBusyInputSteersByDefaultWithoutInterrupt(t *testing.T) {
+	hub := &fakeSubmitHub{}
+	b := &Bridge{
+		hub:           hub,
+		turnCoalescer: turnCoalescer{coalesceDelay: 30 * time.Millisecond},
+	}
+	b.steerForeground.Store(true)
+	chat := &LarkChat{RootMsgID: "root1", TargetID: "t1", SessionName: "s1"}
+	b.setTurnActive("root1", true)
+	ownTurn(b, "root1", "turn-1", "ou-a")
+
+	b.enqueueCoalescedInputForMessage(chat, "改成用 Python", "om-1", "ou-a", nil)
+	b.enqueueCoalescedInputForMessage(chat, "并且加上测试", "om-2", "ou-a", nil)
+	waitForBridgeTest(t, time.Second, func() bool { return len(hub.snapshot()) == 1 })
+	time.Sleep(20 * time.Millisecond)
+	if n := hub.interruptCount(); n != 0 {
+		t.Fatalf("interrupts = %d, steer mode must not interrupt the running turn", n)
+	}
+	subs := hub.snapshot()
+	if len(subs) != 1 {
+		t.Fatalf("submits = %d, want one merged steer", len(subs))
+	}
+	got := subs[0]
+	if !got.Steer || got.SteerExpectedTurnId != "turn-1" || got.Preempt || got.PreemptAlreadyInterrupted || !got.Async {
+		t.Fatalf("submit = %+v, want async steer pinned to turn-1 without preempt", got)
+	}
+	if got.Text != "改成用 Python\n并且加上测试" {
+		t.Fatalf("text = %q, want merged burst (runtime adds the steer note)", got.Text)
+	}
+}
+
+func TestBusyInputFromAnotherSenderQueuesInsteadOfSteering(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		inputs []turnInputRef
+	}{
+		{"another member", compactTurnInputRefs("ou-b", "om-1")},
+		{"mixed burst", append(compactTurnInputRefs("ou-a", "om-1"), compactTurnInputRefs("ou-b", "om-2")...)},
+		{"no sender (group watch / Bot)", compactTurnInputRefs("", "om-1")},
+		{"no message", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hub := &fakeSubmitHub{}
+			b := &Bridge{hub: hub, turnCoalescer: turnCoalescer{coalesceDelay: 10 * time.Millisecond}}
+			b.steerForeground.Store(true)
+			chat := &LarkChat{RootMsgID: "root1", TargetID: "t1", SessionName: "s1"}
+			b.setTurnActive("root1", true)
+			ownTurn(b, "root1", "turn-1", "ou-a")
+			if _, err := b.submitToSessionForMessages(context.Background(), chat, "hello", tc.inputs); err != nil {
+				t.Fatalf("submit: %v", err)
+			}
+			got := hub.snapshot()[0]
+			if got.Steer || got.SteerExpectedTurnId != "" || got.Preempt || !got.Async {
+				t.Fatalf("submit = %+v, want an ordinary queued submit", got)
+			}
+			if hub.interruptCount() != 0 {
+				t.Fatalf("interrupts = %d, want none", hub.interruptCount())
+			}
+		})
+	}
+}
+
+func TestSteerTargetFollowsTheRunningTurn(t *testing.T) {
+	var c turnCoalescer
+	own := compactTurnInputRefs("ou-a", "om-1")
+	if _, ok := c.steerTarget("root1", own); ok {
+		t.Fatal("no running turn is known: nothing to steer")
+	}
+	c.recordTurnSenders("root1", "turn-1", own)
+	c.observeTurnStarted("root1", "turn-1")
+	if turnID, ok := c.steerTarget("root1", own); !ok || turnID != "turn-1" {
+		t.Fatalf("steerTarget = %q, %v; want turn-1", turnID, ok)
+	}
+	// Queued input from someone else becomes the next turn; it is not theirs
+	// to steer into turn-1 and turn-2 is not ou-a's.
+	c.recordTurnSenders("root1", "turn-2", compactTurnInputRefs("ou-b", "om-2"))
+	c.observeTurnFinished("root1", "turn-1")
+	if _, ok := c.steerTarget("root1", own); ok {
+		t.Fatal("finished turn must not be steered")
+	}
+	c.observeTurnStarted("root1", "turn-2")
+	if _, ok := c.steerTarget("root1", own); ok {
+		t.Fatal("ou-a must not steer ou-b's turn")
+	}
+	if turnID, ok := c.steerTarget("root1", compactTurnInputRefs("ou-b", "om-3")); !ok || turnID != "turn-2" {
+		t.Fatalf("steerTarget = %q, %v; want turn-2 for its own sender", turnID, ok)
+	}
+	c.observeTurnFinished("root1", "turn-2")
+	if _, ok := c.steerTarget("root1", compactTurnInputRefs("ou-b", "om-3")); ok {
+		t.Fatal("finished turn must be forgotten")
+	}
+}
+
+func TestSteerTargetBeforeTurnStartedUsesSubmitReceipt(t *testing.T) {
+	var c turnCoalescer
+	own := compactTurnInputRefs("ou-a", "om-1")
+	// Rapid second message: submitted, turn_started not yet seen.
+	c.recordTurnSenders("root1", "turn-1", own)
+	if turnID, ok := c.steerTarget("root1", compactTurnInputRefs("ou-a", "om-2")); !ok || turnID != "turn-1" {
+		t.Fatalf("steerTarget = %q, %v; want turn-1 from the submit receipt", turnID, ok)
+	}
+	if _, ok := c.steerTarget("root1", compactTurnInputRefs("ou-b", "om-3")); ok {
+		t.Fatal("another sender must not steer before turn_started either")
+	}
+	if _, ok := c.steerTarget("root1", compactTurnInputRefs("", "om-4")); ok {
+		t.Fatal("input without a sender must not steer")
+	}
+}
+
+func TestSteerTargetSurvivesStreamReconnect(t *testing.T) {
+	var c turnCoalescer
+	own := compactTurnInputRefs("ou-a", "om-1")
+	c.recordTurnSenders("root1", "turn-0", compactTurnInputRefs("ou-b", "om-0"))
+	c.recordTurnSenders("root1", "turn-1", own)
+	c.observeTurnStarted("root1", "turn-1")
+	c.forgetTurns("root1") // stream ended; reconnect has not reported the turn
+	if turnID, ok := c.steerTarget("root1", own); !ok || turnID != "turn-1" {
+		t.Fatalf("steerTarget = %q, %v; want turn-1 after reconnect", turnID, ok)
+	}
+	if _, ok := c.steerTarget("root1", compactTurnInputRefs("ou-b", "om-2")); ok {
+		t.Fatal("reconnect must not let another sender steer")
+	}
+	if len(c.turnSenders["root1"]) != 1 {
+		t.Fatalf("forgetTurns kept %d turns, want only the newest", len(c.turnSenders["root1"]))
+	}
+}
+
+func TestSteerTargetWithoutAnyRecordQueues(t *testing.T) {
+	var c turnCoalescer
+	// After a bridge restart nothing is known about the running turn: queue.
+	if _, ok := c.steerTarget("root1", compactTurnInputRefs("ou-a", "om-1")); ok {
+		t.Fatal("unknown turn ownership must queue")
+	}
+	if mode := c.busyInputMode("root1", compactTurnInputRefs("ou-a", "om-1")); mode.steer {
+		t.Fatal("busyInputMode must queue without a known turn")
+	}
+}
+
+func TestBusyInputEnvRestoresInterrupt(t *testing.T) {
+	t.Setenv(busyInputEnv, "interrupt")
+	hub := &fakeSubmitHub{}
+	b := &Bridge{
+		hub:           hub,
+		turnCoalescer: turnCoalescer{coalesceDelay: 10 * time.Millisecond},
+	}
+	chat := &LarkChat{RootMsgID: "root1", TargetID: "t1", SessionName: "s1"}
+	b.setTurnActive("root1", true)
+	b.enqueueCoalescedInput(chat, "stop that")
+	waitForBridgeTest(t, time.Second, func() bool { return len(hub.snapshot()) == 1 })
+	if got := hub.snapshot()[0]; !got.Preempt || got.Steer {
+		t.Fatalf("submit = %+v, want legacy preempt", got)
+	}
+	if hub.interruptCount() != 1 {
+		t.Fatalf("interrupts = %d, want 1", hub.interruptCount())
+	}
+}
+
+func TestIdleSubmitQueuesWithoutPreempt(t *testing.T) {
+	hub := &fakeSubmitHub{}
+	b := &Bridge{hub: hub}
+	b.steerForeground.Store(true)
+	chat := &LarkChat{RootMsgID: "root1", TargetID: "t1", SessionName: "s1"}
+	if err := b.submitToSession(context.Background(), chat, "hello"); err != nil {
+		t.Fatalf("submitToSession: %v", err)
+	}
+	subs := hub.snapshot()
+	if len(subs) != 1 || subs[0].Steer || subs[0].Preempt || !subs[0].Async {
+		t.Fatalf("submits = %+v, want an ordinary queued submit (never preempt)", subs)
+	}
+}
+
+func TestIdleSubmitSteersAnUnexpectedlyRunningOwnTurn(t *testing.T) {
+	hub := &fakeSubmitHub{}
+	b := &Bridge{hub: hub}
+	b.steerForeground.Store(true)
+	chat := &LarkChat{RootMsgID: "root1", TargetID: "t1", SessionName: "s1"}
+	ownTurn(b, "root1", "turn-1", "ou-a")
+	if _, err := b.submitToSessionForMessages(context.Background(), chat, "hello", compactTurnInputRefs("ou-a", "om-1")); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	if got := hub.snapshot()[0]; !got.Steer || got.SteerExpectedTurnId != "turn-1" || got.Preempt {
+		t.Fatalf("submit = %+v, want steer pinned to turn-1", got)
+	}
+}
+
+func TestSteerOutcomeUnknownGetsDuplicateWarning(t *testing.T) {
+	err := errors.New("route Submit: rpc error: code = Unknown desc = steer outcome unknown; the input was not queued again to avoid running it twice: closed pipe")
+	if !isSteerOutcomeUnknown(err) {
+		t.Fatal("routed outcome-unknown error not recognized")
+	}
+	if got := botSessionSubmitFailureText(err); got != steerOutcomeUnknownNotice {
+		t.Fatalf("bot session notice = %q", got)
+	}
+	if isSteerOutcomeUnknown(errors.New("session busy")) {
+		t.Fatal("ordinary failure misclassified")
 	}
 }

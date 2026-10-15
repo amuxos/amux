@@ -21,6 +21,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -89,6 +90,12 @@ type Proc struct {
 	// published as session metadata for restart/resume and effective_model.
 	agentSessionID string
 	effectiveModel string
+
+	// pendingMu guards id-correlated command replies (steer). Commands sent
+	// without an id keep the name-based handling in handleResponse.
+	pendingMu sync.Mutex
+	pending   map[string]chan rpcResponse
+	nextID    atomic.Uint64
 }
 
 // rpcCommand is a pi RPC command (the subset amux sends).
@@ -100,6 +107,7 @@ type rpcCommand struct {
 
 // rpcResponse is a pi RPC response envelope.
 type rpcResponse struct {
+	ID      string          `json:"id"`
 	Command string          `json:"command"`
 	Success bool            `json:"success"`
 	Error   string          `json:"error"`
@@ -289,6 +297,9 @@ func (p *Proc) handleFrame(typ string, raw []byte) {
 func (p *Proc) handleResponse(raw []byte) {
 	var r rpcResponse
 	if err := json.Unmarshal(raw, &r); err != nil {
+		return
+	}
+	if r.ID != "" && p.deliverPending(r) {
 		return
 	}
 	switch r.Command {
@@ -550,7 +561,7 @@ func (p *Proc) DispatchTurn(ctx context.Context, req session.TurnDispatchRequest
 	if req.Control != "" {
 		return fmt.Errorf("pi session control %q is unsupported", req.Control)
 	}
-	if err := p.eventSinks.BeginTurn(sink); err != nil {
+	if err := p.eventSinks.BeginTurnFor(req.TurnToken, sink); err != nil {
 		return err
 	}
 	if err := p.SubmitInput(req.Input); err != nil {
@@ -570,6 +581,85 @@ func (p *Proc) Interrupt() error {
 	}
 	p.runMu.Unlock()
 	return p.send(rpcCommand{Type: "abort"})
+}
+
+// SteerTurn queues input into pi's running agent via the RPC `steer`
+// command. pi delivers it after the current assistant turn finishes its tool
+// calls, before the next LLM call, so the input joins the in-flight run rather
+// than starting a new one. The request carries an id and waits for the
+// matching response: success:false is a protocol rejection (unavailable, safe
+// to queue); a write failure or timeout after the write is outcome-unknown.
+func (p *Proc) SteerTurn(ctx context.Context, req session.TurnSteerRequest) error {
+	if req.Input.ImageCount() > 0 {
+		return fmt.Errorf("%w: image input cannot be steered", session.ErrSteerUnavailable)
+	}
+	text := strings.TrimSpace(req.Input.Text())
+	if text == "" {
+		return fmt.Errorf("%w: empty steer input", session.ErrSteerUnavailable)
+	}
+	if !p.snapshotRunActive() || !p.eventSinks.TurnActiveFor(req.TurnToken) {
+		return fmt.Errorf("%w: %s turn %q is not in flight", session.ErrSteerUnavailable, p.providerName, req.TurnToken)
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	// Stay below the broker's steer wait so the reply (or our timeout) is
+	// classified here rather than by the broker connection deadline.
+	callCtx, cancel := context.WithTimeout(ctx, steerReplyWait)
+	defer cancel()
+	id := fmt.Sprintf("amux-steer-%d", p.nextID.Add(1))
+	ch := p.registerPending(id)
+	defer p.dropPending(id)
+	if err := p.send(rpcCommand{ID: id, Type: "steer", Message: text}); err != nil {
+		return session.SteerCallError(fmt.Errorf("write steer: %w", err), false)
+	}
+	select {
+	case r := <-ch:
+		if !r.Success {
+			reason := strings.TrimSpace(r.Error)
+			if reason == "" {
+				reason = "steer rejected"
+			}
+			return session.SteerCallError(errors.New(reason), true)
+		}
+		return nil
+	case <-callCtx.Done():
+		return session.SteerCallError(fmt.Errorf("waiting for steer reply: %w", callCtx.Err()), false)
+	}
+}
+
+// steerReplyWait bounds a steer round trip; it must stay below the structured
+// broker's steer wait (15s).
+const steerReplyWait = 10 * time.Second
+
+func (p *Proc) registerPending(id string) chan rpcResponse {
+	ch := make(chan rpcResponse, 1)
+	p.pendingMu.Lock()
+	if p.pending == nil {
+		p.pending = make(map[string]chan rpcResponse)
+	}
+	p.pending[id] = ch
+	p.pendingMu.Unlock()
+	return ch
+}
+
+func (p *Proc) dropPending(id string) {
+	p.pendingMu.Lock()
+	delete(p.pending, id)
+	p.pendingMu.Unlock()
+}
+
+func (p *Proc) deliverPending(r rpcResponse) bool {
+	p.pendingMu.Lock()
+	ch, ok := p.pending[r.ID]
+	if ok {
+		delete(p.pending, r.ID)
+	}
+	p.pendingMu.Unlock()
+	if ok {
+		ch <- r
+	}
+	return ok
 }
 
 // RespondPermission is not supported: pi's RPC protocol has no permission
@@ -664,3 +754,6 @@ func truncateOutput(s string) string {
 	}
 	return s[:maxPreview] + "...(truncated)"
 }
+
+// Compile-time check: the structured broker advertises steer v1 for pi.
+var _ session.TurnSteerer = (*Proc)(nil)
