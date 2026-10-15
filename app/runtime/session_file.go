@@ -2,8 +2,10 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 
+	"github.com/amuxos/amux/internal/sessionfiles"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/amuxos/amux/internal/tunnel"
 	"google.golang.org/grpc/codes"
@@ -38,6 +40,9 @@ func (s *server) sessionFile(ctx context.Context, req *pb.SessionFileRequest, ac
 	}
 	data, err := s.isolationRuntime.SessionFile(ctx, snap.ExecutionIdentity, snap.Cwd, action, req.FileName, req.Data)
 	if err != nil {
+		if errors.Is(err, sessionfiles.ErrHelperUpgradeRequired) {
+			return nil, status.Error(codes.Unimplemented, err.Error())
+		}
 		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	if action == "put" {

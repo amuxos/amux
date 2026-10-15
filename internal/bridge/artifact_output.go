@@ -140,8 +140,24 @@ func (b *Bridge) deliverSessionArtifacts(ctx context.Context, chat *LarkChat, tu
 		if key == "" {
 			response, readErr := b.hub.Route(ctx, chat.TargetID, "ReadSessionArtifact", &pb.SessionFileRequest{Name: chat.SessionName, SessionId: sessionID, LaunchId: launchID, FileName: ref.name})
 			var file pb.SessionFileResponse
-			if readErr != nil || response == nil || json.Unmarshal(response.Payload, &file) != nil || len(file.Data) > sessionfiles.MaxArtifactBytes {
-				fail(fmt.Sprintf("成果 %q 读取失败；请确认文件位于 amux-outbox/ 且不超过 30 MB。", ref.name))
+			if readErr == nil {
+				if response == nil {
+					readErr = fmt.Errorf("empty artifact response")
+				} else {
+					readErr = json.Unmarshal(response.Payload, &file)
+				}
+			}
+			if readErr == nil && len(file.Data) > sessionfiles.MaxArtifactBytes {
+				readErr = fmt.Errorf("artifact exceeds %d bytes", sessionfiles.MaxArtifactBytes)
+			}
+			if readErr != nil {
+				log.Warn().Err(readErr).Str("target_id", chat.TargetID).Str("session_id", sessionID).
+					Str("launch_id", launchID).Str("turn_id", turnID).Str("file_name", ref.name).Msg("bridge: read artifact")
+				key := "artifact.read_failed"
+				if sessionfiles.NeedsHelperUpgrade(readErr) {
+					key = "file.helper_upgrade_required"
+				}
+				fail(b.fileExchangeFailureText(ctx, chat, key, ref.name))
 				continue
 			}
 			if total+len(file.Data) > maxArtifactTotalBytes {
@@ -176,6 +192,17 @@ func (b *Bridge) deliverSessionArtifacts(ctx context.Context, chat *LarkChat, tu
 			log.Warn().Err(err).Msg("bridge: persist sent artifact")
 		}
 	}
+}
+
+func (b *Bridge) fileExchangeFailureText(ctx context.Context, chat *LarkChat, key, name string) string {
+	openID := b.privateThreadRecipient(chat)
+	if target, direct, err := b.artifactDirectTarget(ctx, chat); direct && err == nil && target != nil {
+		openID = ""
+		if target.Kind == botSessionReplyDM {
+			openID = target.OpenID
+		}
+	}
+	return b.managementFallbackText(openID, sessionMessage(key, name))
 }
 
 func (b *Bridge) uploadArtifact(ctx context.Context, ref artifactRef, data []byte) (string, string, error) {

@@ -123,7 +123,15 @@ singleton Sessions.
 
 Run the same helper install command again to upgrade. Active launches prevent
 replacement; wait for them to finish and retry. Normal `amux update` does not
-replace this step. `amux isolation principal disable <principal-id>` prevents
+replace this step. In particular, a successful helper handshake does not prove
+that an older helper supports file exchange. A file-transfer notice requesting
+a helper upgrade means the running helper rejected that operation; inspect the
+installed helper as well as `amuxlet-materializer`, install matching binaries,
+and retry after the helper upgrade. The current helper runs its own file worker
+under the principal UID, so file exchange does not use the profile materializer.
+Do not force-stop active launches just to replace the helper.
+
+`amux isolation principal disable <principal-id>` prevents
 further execution and revokes active executions for that identity; persistent
 accounts and working directories remain. Start with read-only inventory:
 
@@ -151,6 +159,28 @@ objects are not rewritten to passthrough; resuming them still requires restoring
 <a id="诊断"></a>
 
 ## Diagnostics
+
+The root-only `scripts/test-linux-dac.sh` includes inbox/outbox exchange under an
+unused UID, the 30 MB artifact boundary, and rejected privileged files/FIFOs/path
+escapes. `TestArtifactDeliveryLinuxDACL4` is a separate opt-in integration fixture:
+it uses a disposable helper and real Feishu image/file upload, reply, download
+and cleanup in a dedicated test chat. Fleet discovery is replaced by an adapter
+that calls the real helper; it does not start an Agent or a Hub/Runtime daemon.
+Run it only with explicit test-message authorization, root, an unused numeric
+`AMUX_TEST_FILE_UID`, and the matching `AMUX_TEST_HELPER_BINARY`:
+
+```sh
+AMUX_ARTIFACT_L4=1 \
+AMUX_TEST_FILE_UID=<unused-uid> \
+AMUX_TEST_HELPER_BINARY=/path/to/amux-isolation-helper \
+AMUX_TEST_FEISHU_CREDENTIAL_FILE=/secure/path/test-bot.json \
+AMUX_TEST_FEISHU_CHAT_ID=<dedicated-test-chat> \
+go test ./internal/bridge -run '^TestArtifactDeliveryLinuxDACL4$' -count=1 -v
+```
+
+The credential file contains `app_id` and `app_secret`; never put its content in
+test artifacts. The fixture removes its own messages and temporary files and
+does not modify service configuration or create OS accounts.
 
 ```sh
 systemctl status amux-isolation-helper.service

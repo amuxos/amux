@@ -1,4 +1,13 @@
 {
+  "session.artifact.read_failed": {
+    "other": "Artifact %q could not be read from the runtime. Check that it is in amux-outbox/ and at most 30 MB. Ask the operator to check the file-transfer logs for the exact cause."
+  },
+  "session.file.write_failed": {
+    "other": "Attachment %q could not be written to the session. Ask the operator to check the file-transfer logs."
+  },
+  "session.file.helper_upgrade_required": {
+    "other": "File %q could not be transferred because this runtime's isolation helper is outdated. Ask the operator to upgrade the helper and its materializer with amux isolation helper install, then retry. Updating amux alone does not upgrade these components."
+  },
   "management.you.do.not.have.permission.to.manage.this.assistant": {
     "other": "You do not have permission to manage this assistant"
   },

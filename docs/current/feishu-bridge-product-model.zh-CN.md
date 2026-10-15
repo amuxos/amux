@@ -134,6 +134,12 @@ Agent 产出的 outbox 成果独立遵循飞书消息上传限制，不与输入
 30 MB，每轮最多 10 个文件、合计 300 MB。识别为图片且不超过 10 MB 时使用图片上传接口并保留
 图片展示；超过 10 MB、但不超过 30 MB 的图片改用文件上传接口发送。
 
+Linux DAC 文件交换要求 helper 支持 session-file 操作。旧 helper 不支持时，输入附件和
+输出成果均明确提示联系管理员升级隔离组件，不得误报为文件位置或大小问题。读写失败
+在运维日志中保留底层诊断，并关联目标 Runtime、Session、launch 和文件名。
+helper 通过自身固定的 worker 入口，以 principal UID 执行文件交换，不依赖 Profile
+materializer 的版本。
+
 Bridge 状态按职责分组为 controller、store 和 API port。路由与应用装配仍在 Bridge；
 所有权调整保留事件顺序、流生命周期、权限和发行版 hook。
 

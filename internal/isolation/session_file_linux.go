@@ -32,8 +32,11 @@ func (c *HelperClient) SessionFile(ctx context.Context, mapping AccountMapping, 
 		}
 		inputs = []*os.File{f}
 	}
-	_, files, err := c.requestWithFiles(ctx, HelperRequest{Operation: OpSessionFile, Mapping: &mapping, ExecutionID: workspaceID, FileAction: action, FileName: name}, inputs, 1)
+	resp, files, err := c.requestWithFiles(ctx, HelperRequest{Operation: OpSessionFile, Mapping: &mapping, ExecutionID: workspaceID, FileAction: action, FileName: name}, inputs, 1)
 	if err != nil {
+		if resp.ErrorCode == "unsupported_operation" {
+			return nil, fmt.Errorf("%w: %v", sessionfiles.ErrHelperUpgradeRequired, err)
+		}
 		return nil, err
 	}
 	defer files[0].Close()
@@ -73,7 +76,16 @@ func (s *helperServer) sessionFile(req HelperRequest, files []*os.File) (*os.Fil
 	defer os.Remove(out.Name())
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, s.cfg.MaterializerPath, "_session-file", paths.Workspace, req.FileAction, req.FileName)
+	// The running helper supplies the file protocol, including its worker. A
+	// separately installed profile materializer can predate that protocol.
+	worker := s.cfg.ExecWrapperPath
+	if worker == "" {
+		worker, err = os.Executable()
+		if err != nil {
+			return nil, err
+		}
+	}
+	cmd := exec.CommandContext(ctx, worker, "_session-file", paths.Workspace, req.FileAction, req.FileName)
 	if want == 1 {
 		cmd.Stdin = files[0]
 	}

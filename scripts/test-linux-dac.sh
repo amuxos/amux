@@ -52,9 +52,10 @@ printf 'test-linux-dac: uid range %s..%s\n' "$uid_start" "$uid_end"
 (cd "$build_root" && GOCACHE="$cache_dir" go build -o "$tmp_dir/amux-isolation-helper" ./cmd/amux-isolation-helper)
 AMUX_LINUX_DAC_E2E=1 \
 AMUX_TEST_UID_START="$uid_start" \
+AMUX_TEST_FILE_UID="$uid_end" \
 AMUX_TEST_HELPER_BINARY="$tmp_dir/amux-isolation-helper" \
 GOCACHE="$cache_dir" \
-go test -count=1 -run '^TestLinuxDAC(Root|HardeningRoot|HelperCrashRoot|FallbackRecoveryRoot|RevokeEscapedRoot)E2E$' -v ./internal/isolation
+go test -count=1 -run '^Test(LinuxDAC(Root|HardeningRoot|HelperCrashRoot|FallbackRecoveryRoot|RevokeEscapedRoot)E2E|SessionFileTargetUID)$' -v ./internal/isolation
 
 remaining_accounts="$(getent passwd | awk -F: -v first="$uid_start" -v last="$uid_end" '$3 >= first && $3 <= last {print $1 ":" $3}')"
 remaining_processes="$(ps -eo uid=,pid=,comm= | awk -v first="$uid_start" -v last="$uid_end" '$1 >= first && $1 <= last {print}')"

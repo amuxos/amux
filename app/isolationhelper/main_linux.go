@@ -11,6 +11,7 @@ import (
 
 	"github.com/amuxos/amux/internal/extensionstate"
 	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/sessionfiles"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,13 @@ var version = "dev"
 func Main(buildVersion string) {
 	extensionstate.Freeze()
 	version = buildVersion
+	if len(os.Args) == 5 && os.Args[1] == "_session-file" {
+		if err := sessionfiles.Exchange(os.Args[2], os.Args[3], os.Args[4], os.Stdin, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(125)
+		}
+		return
+	}
 	if len(os.Args) == 5 && os.Args[1] == "_isolation-materialize" {
 		if err := isolation.ApplyMaterializeBundle(os.Stdin, os.Args[2], os.Args[3], os.Args[4]); err != nil {
 			fmt.Fprintln(os.Stderr, err)

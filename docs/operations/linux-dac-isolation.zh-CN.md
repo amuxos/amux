@@ -124,6 +124,31 @@ execution 使用普通 backend；已保存的 `linux-dac` 对象不会被改写�
 
 ## 诊断
 
+helper 握手成功不代表旧版本支持文件交换。如果文件传输提示要求升级 helper，说明正在
+运行的 helper 拒绝了该操作。应同时检查已安装的 helper 和 `amuxlet-materializer`，
+通过上述安装命令更新配套二进制后重试；普通 `amux update` 不会代替这一步。
+当前 helper 使用自身的文件 worker，以 principal UID 读写文件，不依赖 Profile
+materializer。不要仅为升级 helper 而强制终止活动会话。
+
+需要 root 的 `scripts/test-linux-dac.sh` 包含未使用 UID 下的 inbox/outbox 交换、
+30 MB 成果边界，以及特权文件、FIFO 和路径逃逸拒绝验证。
+`TestArtifactDeliveryLinuxDACL4` 是单独显式启用的集成夹具，在独立 helper 和专用测试群中
+执行真实飞书图片/文件上传、回复、下载回读与清理。Runtime 发现由直接调用真实 helper 的
+适配器替代，不启动 Agent 或 Hub/Runtime daemon。只有获得测试消息授权后才可运行，
+并要求 root、未使用的数字 `AMUX_TEST_FILE_UID` 和配套的 `AMUX_TEST_HELPER_BINARY`：
+
+```sh
+AMUX_ARTIFACT_L4=1 \
+AMUX_TEST_FILE_UID=<unused-uid> \
+AMUX_TEST_HELPER_BINARY=/path/to/amux-isolation-helper \
+AMUX_TEST_FEISHU_CREDENTIAL_FILE=/secure/path/test-bot.json \
+AMUX_TEST_FEISHU_CHAT_ID=<dedicated-test-chat> \
+go test ./internal/bridge -run '^TestArtifactDeliveryLinuxDACL4$' -count=1 -v
+```
+
+凭据文件包含 `app_id` 和 `app_secret`，禁止把内容放入验收产物。夹具清理自身的消息和
+临时文件，不修改服务配置，不创建系统账号。
+
 ```sh
 systemctl status amux-isolation-helper.service
 journalctl -u amux-isolation-helper.service -n 200 --no-pager

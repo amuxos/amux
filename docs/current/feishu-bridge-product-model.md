@@ -191,6 +191,14 @@ and 300 MB total per turn. Recognized images up to 10 MB use the image upload
 API and retain image presentation; larger recognized images up to 30 MB use the
 file upload API instead.
 
+Linux DAC file exchange requires a helper that supports the session-file
+operation. An older helper produces an explicit operator upgrade notice for
+both inbound attachments and outbound artifacts; it must not be presented as
+a misplaced or oversized file. Read/write failures retain their underlying
+diagnostic in operator logs, with the target, Session, launch and file name.
+The helper performs file exchange under the principal UID using its own fixed
+worker entrypoint, independently of the profile materializer version.
+
 Bridge state is grouped by responsibility into controllers, stores and API
 ports. Routing and application wiring remain in Bridge; the ownership changes
 preserve event ordering, stream lifecycle, permissions and distribution hooks.
