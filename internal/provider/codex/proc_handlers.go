@@ -479,6 +479,7 @@ func (p *Proc) handleUserInputRequest(msg providerjsonrpc.Message) {
 		ItemID   string `json:"itemId"`
 		ThreadID string `json:"threadId"`
 		TurnID   string `json:"turnId"`
+		Blocking *bool  `json:"isBlocking"`
 	}
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		_ = p.client.RespondError(msg.ID, -32602, "invalid requestUserInput params: "+err.Error())
@@ -489,18 +490,24 @@ func (p *Proc) handleUserInputRequest(msg providerjsonrpc.Message) {
 		return
 	}
 	pending := &pendingUserInput{reqID: msg.ID, answered: make(map[string][]string), permToQ: make(map[string]string), multiSel: make(map[string]bool)}
+	seenQuestions := make(map[string]bool)
 	for _, q := range params.Items {
 		qid := strings.TrimSpace(q.ID)
-		if qid == "" {
-			continue
+		if qid == "" || strings.TrimSpace(q.Question) == "" || seenQuestions[qid] {
+			_ = p.client.RespondError(msg.ID, -32602, "invalid or duplicate user-input question")
+			return
 		}
-		iq := inputQuestion{id: qid, header: q.Header, question: q.Question, multiSelect: q.MultiSelect}
+		seenQuestions[qid] = true
+		iq := inputQuestion{id: qid, header: q.Header, question: q.Question, multiSelect: q.MultiSelect, allowOther: q.AllowOther, secret: q.Secret, blocking: params.Blocking}
+		seenOptions := make(map[string]bool)
 		for _, o := range q.Options {
 			label := strings.TrimSpace(o.Label)
-			if label == "" {
-				continue
+			if label == "" || seenOptions[label] {
+				_ = p.client.RespondError(msg.ID, -32602, "invalid or duplicate user-input option")
+				return
 			}
-			iq.options = append(iq.options, inputOption{label: label})
+			seenOptions[label] = true
+			iq.options = append(iq.options, inputOption{label: label, description: o.Description})
 		}
 		pending.questions = append(pending.questions, iq)
 		pending.multiSel[qid] = q.MultiSelect
@@ -533,9 +540,9 @@ func (p *Proc) handleUserInputRequest(msg providerjsonrpc.Message) {
 		pending.permToQ[permID] = iq.id
 		opts := make([]provider.PermissionOption, 0, len(iq.options))
 		for _, o := range iq.options {
-			opts = append(opts, provider.PermissionOption{OptionId: o.label, Name: o.label})
+			opts = append(opts, provider.PermissionOption{OptionId: o.label, Name: o.label, Description: o.description})
 		}
-		perm := provider.Permission{ID: permID, Provider: p.provider(), Options: opts, ToolCall: &provider.PermissionToolCall{Name: "AskUserQuestion", Title: iq.header, Question: iq.question, MultiSelect: iq.multiSelect}, Raw: msg.Params}
+		perm := provider.Permission{ID: permID, Provider: p.provider(), Options: opts, ToolCall: &provider.PermissionToolCall{Name: "AskUserQuestion", Title: iq.header, Question: iq.question, MultiSelect: iq.multiSelect, AllowOther: iq.allowOther, Secret: iq.secret, Blocking: iq.blocking}, Raw: msg.Params}
 		p.emitPermission(perm)
 	}
 }
@@ -555,6 +562,21 @@ func (p *Proc) respondUserInput(permID string, optionIDs []string) error { // re
 		p.threadMu.Unlock()
 		return fmt.Errorf("%s: unknown user-input request id %d", p.provider(), reqID)
 	}
+	var question *inputQuestion
+	for i := range pending.questions {
+		if pending.questions[i].id == qid {
+			question = &pending.questions[i]
+			break
+		}
+	}
+	if question == nil || pending.permToQ[permID] != qid {
+		p.threadMu.Unlock()
+		return fmt.Errorf("%s: unknown user-input question %q", p.provider(), qid)
+	}
+	if _, answered := pending.answered[qid]; answered {
+		p.threadMu.Unlock()
+		return fmt.Errorf("%s: user-input question %q was already answered", p.provider(), qid)
+	}
 	chosen := make([]string, 0, len(optionIDs))
 	seen := make(map[string]bool, len(optionIDs))
 	for _, o := range optionIDs {
@@ -569,20 +591,41 @@ func (p *Proc) respondUserInput(permID string, optionIDs []string) error { // re
 		p.threadMu.Unlock()
 		return fmt.Errorf("%s: no option selected for question %q", p.provider(), qid)
 	}
-	pending.answered[qid] = chosen
-	allAnswered := len(pending.answered) == len(pending.questions)
-	if !allAnswered {
+	if !question.multiSelect && len(chosen) != 1 {
 		p.threadMu.Unlock()
-		return nil
+		return fmt.Errorf("%s: question %q accepts one answer", p.provider(), qid)
 	}
-	delete(p.userInputs, reqID)
-	p.reconcileWatchdogTimersLocked()
-	p.threadMu.Unlock()
-	answers := make(map[string]any, len(pending.questions))
-	for _, q := range pending.questions {
-		answers[q.id] = map[string]any{"answers": pending.answered[q.id]}
+	if len(question.options) > 0 && !question.allowOther {
+		for _, answer := range chosen {
+			valid := false
+			for _, option := range question.options {
+				if option.label == answer {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				p.threadMu.Unlock()
+				return fmt.Errorf("%s: invalid answer for question %q", p.provider(), qid)
+			}
+		}
 	}
-	return p.client.Respond(reqID, map[string]any{"answers": answers})
+	pending.answered[qid] = chosen
+	defer p.threadMu.Unlock()
+	if len(pending.answered) == len(pending.questions) {
+		answers := make(map[string]any, len(pending.questions))
+		for _, q := range pending.questions {
+			answers[q.id] = map[string]any{"answers": pending.answered[q.id]}
+		}
+		if err := p.client.Respond(reqID, map[string]any{"answers": answers}); err != nil {
+			delete(pending.answered, qid) // permit a retry after a failed write
+			return err
+		}
+		delete(p.userInputs, reqID)
+		p.reconcileWatchdogTimersLocked()
+	}
+	p.emitTurn(agentstream.PermissionResolved{RequestID: permID}, agentstream.ActorUser, "user", "user_input_answered", permID)
+	return nil
 }
 
 func userInputPermissionID(reqID int64, questionID string) string {
@@ -597,7 +640,7 @@ func parseUserInputPermissionID(permID string) (int64, string, bool) {
 	reqID, err := strconv.ParseInt(permID[: // userInputPermissionID composes "<reqID>:<questionId>".
 	// parseUserInputPermissionID splits "<reqID>:<questionId>" back out.
 	idx], 10, 64)
-	if err != nil || reqID <= 0 {
+	if err != nil || reqID < 0 {
 		return 0, "", false
 	}
 	return reqID, permID[idx+1:], true
@@ -652,10 +695,11 @@ func (p *Proc) emitPermission(permission provider.Permission) {
 		request.ToolCall = &agentstream.PermissionToolCall{
 			ID: permission.ToolCall.ID, Name: permission.ToolCall.Name, Title: permission.ToolCall.Title,
 			RawInput: permission.ToolCall.RawInput, Question: permission.ToolCall.Question, MultiSelect: permission.ToolCall.MultiSelect,
+			AllowOther: permission.ToolCall.AllowOther, Secret: permission.ToolCall.Secret, Blocking: permission.ToolCall.Blocking,
 		}
 	}
 	for _, option := range permission.Options {
-		request.Options = append(request.Options, agentstream.PermissionOption{ID: option.OptionId, Name: option.Name, Kind: option.Kind})
+		request.Options = append(request.Options, agentstream.PermissionOption{ID: option.OptionId, Name: option.Name, Kind: option.Kind, Description: option.Description})
 	}
 	p.emitTurn(agentstream.PermissionRequested{Request: request}, agentstream.ActorAgent, "agent", "permission_requested", permission.ID)
 }

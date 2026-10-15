@@ -4785,7 +4785,11 @@ type RespondPermissionRequest struct {
 	// option_ids carries multiple selected options for multiSelect user-input
 	// permissions (item/tool/requestUserInput). Empty means single-select via
 	// option_id. option_id is kept for single-select backward compatibility.
-	OptionIds     []string `protobuf:"bytes,4,rep,name=option_ids,json=optionIds,proto3" json:"option_ids,omitempty"`
+	OptionIds []string `protobuf:"bytes,4,rep,name=option_ids,json=optionIds,proto3" json:"option_ids,omitempty"`
+	// Cancel a correlated user-question batch without selecting an answer.
+	Cancel bool `protobuf:"varint,5,opt,name=cancel,proto3" json:"cancel,omitempty"`
+	// Optional canonical turn binding; stale cards must not target a later turn.
+	TurnId        string `protobuf:"bytes,6,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4846,6 +4850,20 @@ func (x *RespondPermissionRequest) GetOptionIds() []string {
 		return x.OptionIds
 	}
 	return nil
+}
+
+func (x *RespondPermissionRequest) GetCancel() bool {
+	if x != nil {
+		return x.Cancel
+	}
+	return false
+}
+
+func (x *RespondPermissionRequest) GetTurnId() string {
+	if x != nil {
+		return x.TurnId
+	}
+	return ""
 }
 
 type RespondPermissionResponse struct {
@@ -9284,6 +9302,8 @@ type AmuxdRespondPermissionRequest struct {
 	// permissions (item/tool/requestUserInput). Empty means single-select via
 	// option_id.
 	OptionIds     []string `protobuf:"bytes,5,rep,name=option_ids,json=optionIds,proto3" json:"option_ids,omitempty"`
+	Cancel        bool     `protobuf:"varint,6,opt,name=cancel,proto3" json:"cancel,omitempty"`
+	TurnId        string   `protobuf:"bytes,7,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -9351,6 +9371,20 @@ func (x *AmuxdRespondPermissionRequest) GetOptionIds() []string {
 		return x.OptionIds
 	}
 	return nil
+}
+
+func (x *AmuxdRespondPermissionRequest) GetCancel() bool {
+	if x != nil {
+		return x.Cancel
+	}
+	return false
+}
+
+func (x *AmuxdRespondPermissionRequest) GetTurnId() string {
+	if x != nil {
+		return x.TurnId
+	}
+	return ""
 }
 
 type ListCollaboratorsRequest struct {
@@ -15486,13 +15520,15 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\n" +
 	"STRUCTURED\x10\x04\x12\t\n" +
 	"\x05ERROR\x10\x05\x12\t\n" +
-	"\x05USAGE\x10\x06\"\x8f\x01\n" +
+	"\x05USAGE\x10\x06\"\xc0\x01\n" +
 	"\x18RespondPermissionRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12#\n" +
 	"\rpermission_id\x18\x02 \x01(\tR\fpermissionId\x12\x1b\n" +
 	"\toption_id\x18\x03 \x01(\tR\boptionId\x12\x1d\n" +
 	"\n" +
-	"option_ids\x18\x04 \x03(\tR\toptionIds\"+\n" +
+	"option_ids\x18\x04 \x03(\tR\toptionIds\x12\x16\n" +
+	"\x06cancel\x18\x05 \x01(\bR\x06cancel\x12\x17\n" +
+	"\aturn_id\x18\x06 \x01(\tR\x06turnId\"+\n" +
 	"\x19RespondPermissionResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xd1\x04\n" +
 	"\rSubmitRequest\x12\x12\n" +
@@ -15860,14 +15896,16 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x17AmuxdQueueCancelRequest\x12\x1b\n" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x0e\n" +
-	"\x02id\x18\x03 \x01(\tR\x02id\"\xb1\x01\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id\"\xe2\x01\n" +
 	"\x1dAmuxdRespondPermissionRequest\x12\x1b\n" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12#\n" +
 	"\rpermission_id\x18\x03 \x01(\tR\fpermissionId\x12\x1b\n" +
 	"\toption_id\x18\x04 \x01(\tR\boptionId\x12\x1d\n" +
 	"\n" +
-	"option_ids\x18\x05 \x03(\tR\toptionIds\"?\n" +
+	"option_ids\x18\x05 \x03(\tR\toptionIds\x12\x16\n" +
+	"\x06cancel\x18\x06 \x01(\bR\x06cancel\x12\x17\n" +
+	"\aturn_id\x18\a \x01(\tR\x06turnId\"?\n" +
 	"\x18ListCollaboratorsRequest\x12#\n" +
 	"\rinitiator_ref\x18\x01 \x01(\tR\finitiatorRef\"\xd2\x01\n" +
 	"\x16CollaboratorDescriptor\x12\x0e\n" +

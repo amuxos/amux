@@ -24,3 +24,8 @@ func taskPermissionResponseError(id string, err error) error {
 	text := taskCatalog.Text("permission_response_failed", id, err.Error())
 	return errors.New(text.For(i18n.English) + "\n" + text.For(i18n.Chinese))
 }
+
+func taskUserInputUnavailableError() error {
+	text := taskCatalog.Text("user_input_unavailable")
+	return errors.New(text.For(i18n.English) + "\n" + text.For(i18n.Chinese))
+}

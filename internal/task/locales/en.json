@@ -1,5 +1,8 @@
 {
   "permission_response_failed": {
     "other": "permission response failed for %s: %s"
+  },
+  "user_input_unavailable": {
+    "other": "This task needs user input, but child tasks cannot ask questions. Gather the answer in an interactive session and submit the task again."
   }
 }

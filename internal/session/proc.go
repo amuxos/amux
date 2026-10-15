@@ -192,6 +192,12 @@ type InputCapabilityProvider interface {
 }
 
 // Proc abstracts I/O to an agent process behind an ACP or structured broker.
+// UserInputCanceller cancels a correlated native question batch without
+// granting execution permission or selecting a business answer.
+type UserInputCanceller interface {
+	CancelUserInput(permissionID string) error
+}
+
 type Proc interface {
 	PID() int
 	DispatchTurn(context.Context, TurnDispatchRequest, func(agentstream.ProducerEmission) bool) error

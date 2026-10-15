@@ -328,3 +328,23 @@ to finish. TAIL Attach includes the active canonical turn's start snapshot from
 the atomic read head. Bridge restores only a goal turn matching its persisted
 destination and current binding, authorizing subsequent replies and permission
 requests without replaying earlier output.
+
+## Native user questions
+
+Native user questions retain their question text, option descriptions, multi-select,
+custom-answer and secret flags across the canonical event stream. Their legacy
+permission transport envelope does not make them execution approvals. Codex-compatible
+app servers whose read-only native `features list` advertises
+`default_mode_request_user_input` receive a per-thread
+configuration override enabling it, including resume and clear; explicit launch
+feature overrides remain authoritative. Hosts without the capability keep their
+native behavior. The integration does not switch collaboration mode or mutate
+the user's configuration files.
+
+Claude SDK `AskUserQuestion` is mapped to one correlated request per question.
+The sidecar returns the original questions with `updatedInput.answers` only after
+all answers arrive; multi-select preserves selected labels. Cancelling a question
+cancels its whole native question batch, without choosing any business answer.
+Late, duplicate or invalid replies are rejected. Interruption, shutdown and native
+turn completion retire pending questions. Nonblocking native requests retain their
+blocking flag; answers are accepted only while their originating turn is active.

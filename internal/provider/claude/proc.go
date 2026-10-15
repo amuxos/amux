@@ -291,10 +291,14 @@ func (p *Proc) RespondPermission(permissionID, optionID string) error {
 	return err
 }
 
-// RespondPermissionMulti is not supported on the Claude sidecar protocol; the
-// multi-select user-input path only applies to Codex-compatible app-server.
 func (p *Proc) RespondPermissionMulti(permissionID string, optionIDs []string) error {
-	return fmt.Errorf("multi-select permission response is not supported for claude provider")
+	_, err := p.client.Call(context.Background(), "permission.respond", provider.PermissionResponse{PermissionId: permissionID, OptionIds: optionIDs})
+	return err
+}
+
+func (p *Proc) CancelUserInput(permissionID string) error {
+	_, err := p.client.Call(context.Background(), "permission.respond", provider.PermissionResponse{PermissionId: permissionID, Cancel: true})
+	return err
 }
 
 func (p *Proc) SetEventSink(fn func(agentstream.ProducerEmission) bool) {

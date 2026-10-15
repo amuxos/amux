@@ -98,6 +98,7 @@ type structuredPermissionResponseFrame struct {
 	// OptionIds carries multiple selected options for multiSelect user-input
 	// permissions (item/tool/requestUserInput). Non-empty => multi-select path.
 	OptionIds []string `json:"option_ids,omitempty"`
+	Cancel    bool     `json:"cancel,omitempty"`
 }
 
 func LaunchStructuredContext(ctx context.Context, amuxletBin, sessID, amuxDir string, opts StructuredLaunchOptions) (pid int, socket string, err error) {
@@ -595,6 +596,14 @@ func (b *structuredBroker) handleConn(conn *structuredBrokerConn) {
 			var resp structuredPermissionResponseFrame
 			if unmarshalErr := json.Unmarshal(payload, &resp); unmarshalErr != nil {
 				err = unmarshalErr.Error()
+			} else if resp.Cancel {
+				if canceller, ok := b.proc.(session.UserInputCanceller); ok {
+					if cancelErr := canceller.CancelUserInput(resp.PermissionId); cancelErr != nil {
+						err = cancelErr.Error()
+					}
+				} else {
+					err = "provider does not support cancelling user input"
+				}
 			} else if len(resp.OptionIds) > 0 {
 				if respondErr := b.proc.RespondPermissionMulti(resp.PermissionId, resp.OptionIds); respondErr != nil {
 					err = respondErr.Error()

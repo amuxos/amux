@@ -683,6 +683,10 @@ message RespondPermissionRequest {
   // permissions (item/tool/requestUserInput). Empty means single-select via
   // option_id. option_id is kept for single-select backward compatibility.
   repeated string option_ids = 4;
+  // Cancel a correlated user-question batch without selecting an answer.
+  bool cancel = 5;
+  // Optional canonical turn binding; stale cards must not target a later turn.
+  string turn_id = 6;
 }
 message RespondPermissionResponse {
   bool ok = 1;
@@ -1140,6 +1144,8 @@ message AmuxdRespondPermissionRequest {
   // permissions (item/tool/requestUserInput). Empty means single-select via
   // option_id.
   repeated string option_ids = 5;
+  bool cancel = 6;
+  string turn_id = 7;
 }
 
 message ListCollaboratorsRequest {

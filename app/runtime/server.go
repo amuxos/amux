@@ -674,6 +674,9 @@ func handleRunSessionPermission(sess *session.Session, ev agentstream.Event) boo
 	if !ok {
 		return false
 	}
+	if requested.Request.IsUserInput() {
+		return false
+	}
 	policy := launchSpecPermissionPolicy(sess.Snapshot().LaunchSpec)
 	if policy == "" {
 		return false
@@ -1416,10 +1419,23 @@ func (s *server) RespondPermission(_ context.Context, req *pb.RespondPermissionR
 	if err := ownerGuard(sess); err != nil {
 		return nil, err
 	}
+	if req.TurnId != "" {
+		turnID, _, active := sess.ActiveTurnAuthorization()
+		if !active || turnID != req.TurnId {
+			return nil, status.Error(codes.FailedPrecondition, "user_input_expired")
+		}
+	}
 	if err := s.ensureSessionActive(sess); err != nil {
 		return nil, err
 	}
-	if len(req.OptionIds) > 0 {
+	if req.Cancel {
+		if req.OptionId != "" || len(req.OptionIds) > 0 {
+			return nil, status.Error(codes.InvalidArgument, "cancellation cannot include answers")
+		}
+		if err := sess.CancelUserInput(req.PermissionId); err != nil {
+			return nil, status.Errorf(codes.FailedPrecondition, "cancel user input: %v", err)
+		}
+	} else if len(req.OptionIds) > 0 {
 		if err := sess.RespondPermissionMulti(req.PermissionId, req.OptionIds); err != nil {
 			return nil, status.Errorf(codes.FailedPrecondition, "permission response: %v", err)
 		}

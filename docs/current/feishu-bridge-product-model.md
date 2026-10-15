@@ -486,3 +486,22 @@ to finish. TAIL Attach includes the active canonical turn's start snapshot from
 the atomic read head. Bridge restores only a goal turn matching its persisted
 destination and current binding, authorizing subsequent replies and permission
 requests without replaying earlier output.
+
+## Native question cards
+
+Native questions use Card 2.0 forms with single or multiple selection and text
+input. When custom answers are allowed, a separate optional text field overrides
+the selected options; the server validates that at least one answer is present.
+Option descriptions and product labels are shown without changing answer values.
+Product text supports English and Simplified Chinese; model content stays literal.
+Secret questions are not collected in Feishu chat cards: they are cancelled with
+a localized explanation. Oversized questions are rejected rather than losing choices.
+
+Only the originating user can answer a question card; callback message/chat identity
+when supplied must match the saved request. A question is bound to its originating
+turn and expires after 15 minutes. Cancellation returns no selected answer to the
+native request. Submission is claimed once, and duplicate or stale cards cannot
+affect a later turn. Pending cards retire on turn completion or stream teardown.
+The pending store remains in memory: restarting Bridge invalidates old cards and
+does not promise durable question recovery. A scheduled prompt targeting a bound
+Session uses this same interaction path; child Tasks follow the Task question rule.

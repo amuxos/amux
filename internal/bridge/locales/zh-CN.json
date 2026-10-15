@@ -2659,5 +2659,65 @@
   },
   "session.placeholder.stopped": {
     "other": "⏹ 已中断"
+  },
+  "permission.invalid": {
+    "other": "无效的卡片操作。"
+  },
+  "permission.expired": {
+    "other": "请求已处理或已过期。"
+  },
+  "permission.unauthorized": {
+    "other": "你没有权限审批这个请求。"
+  },
+  "permission.processing": {
+    "other": "请求正在处理或已处理。"
+  },
+  "permission.failed": {
+    "other": "答案回传失败，请重试。"
+  },
+  "permission.submitted": {
+    "other": "已提交选择：%s"
+  },
+  "permission.result": {
+    "other": "Agent 交互"
+  },
+  "question.title": {
+    "other": "Agent 需要你回答"
+  },
+  "question.unauthorized": {
+    "other": "仅发起本次交互的用户可以回答。"
+  },
+  "question.invalid_answer": {
+    "other": "请选择有效选项或输入回答。"
+  },
+  "question.choose_one": {
+    "other": "请选择一项"
+  },
+  "question.choose_many": {
+    "other": "请选择一项或多项"
+  },
+  "question.answer": {
+    "other": "请输入回答"
+  },
+  "question.other": {
+    "other": "其他回答（填写后替代所选项）"
+  },
+  "question.submit": {
+    "other": "提交"
+  },
+  "question.cancel": {
+    "other": "取消本组问题"
+  },
+  "question.cancelled": {
+    "other": "已取消本组问题，未提交答案。"
+  },
+  "question.expired": {
+    "other": "问题已超过 15 分钟有效期，请重新向 Agent 发起请求。"
+  },
+  "question.unavailable": {
+    "other": "此问题无法在聊天卡片中完整展示，已取消。请使用其他支持的界面回答。"
+  },
+  "question.secret": {
+    "other": "此问题要求输入敏感信息，已取消。请通过安全的凭据流程提供，不要填写在聊天卡片中。"
   }
 }

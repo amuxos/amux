@@ -85,12 +85,16 @@ type PermissionToolCall struct {
 	RawInput    json.RawMessage `json:"raw_input,omitempty"`
 	Question    string          `json:"question"`
 	MultiSelect bool            `json:"multi_select"`
+	AllowOther  bool            `json:"allow_other,omitempty"`
+	Secret      bool            `json:"secret,omitempty"`
+	Blocking    *bool           `json:"blocking,omitempty"`
 }
 
 type PermissionOption struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Kind string `json:"kind"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Kind        string `json:"kind"`
+	Description string `json:"description,omitempty"`
 }
 
 type PermissionRequest struct {

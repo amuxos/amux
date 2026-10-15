@@ -506,6 +506,26 @@ func (s *Session) ReconfigureExecution(model, reasoningEffort string) error {
 	return reconfigurer.ReconfigureExecution(model, reasoningEffort)
 }
 
+func (s *Session) CancelUserInput(permissionID string) error {
+	s.runtimeMu.RLock()
+	proc := s.proc
+	s.runtimeMu.RUnlock()
+	if proc == nil {
+		return ErrProcessUnavailable
+	}
+	s.activityMu.Lock()
+	_, pending := s.pendingPermissions[permissionID]
+	s.activityMu.Unlock()
+	if !pending {
+		return errors.New("user-input request is no longer pending")
+	}
+	canceller, ok := proc.(UserInputCanceller)
+	if !ok {
+		return errors.New("provider does not support cancelling user input")
+	}
+	return canceller.CancelUserInput(permissionID)
+}
+
 func (s *Session) RespondPermission(permissionID, optionID string) error {
 	s.runtimeMu.RLock()
 	proc := s.proc

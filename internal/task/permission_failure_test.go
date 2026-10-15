@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/i18n"
 )
 
@@ -91,5 +92,33 @@ func TestPermissionResponseErrorLanguagesAndFallback(t *testing.T) {
 	zh := taskCatalog.Format(i18n.Chinese, key, "p1", "disconnected")
 	if en == key || zh == key || en == zh || taskCatalog.Format(i18n.Locale("unknown"), key, "p1", "disconnected") != en || taskPermissionResponseError("p1", errors.New("disconnected")).Error() != en+"\n"+zh {
 		t.Fatalf("invalid translated error: %q / %q", en, zh)
+	}
+}
+
+func TestTaskQuestionNeverUsesApprovalPolicy(t *testing.T) {
+	for _, policy := range []PermissionPolicy{PolicyAllow, PolicyDenyAll, PolicyEscalateToMain} {
+		t.Run(string(policy), func(t *testing.T) {
+			ctrl := &fakeController{onCreate: func(c *fakeChild) {
+				c.onSubmit = func(c *fakeChild, _ string) {
+					event := permissionEvent("question", "AskUserQuestion", "")
+					payload := event.Body.(agentstream.PermissionRequested)
+					payload.Request.ToolCall.Question = "Which account?"
+					event.Body = payload
+					c.emit(event)
+				}
+			}}
+			r := newTestRunner(t, ctrl, time.Minute)
+			run, err := r.Submit(Spec{Agent: "claude", Task: "choose", PermissionPolicy: policy}, "", "", 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			final := waitTerminal(t, r, run.ID)
+			if final.Status != StatusFailed || !strings.Contains(final.Error, "interactive session") || !strings.Contains(final.Error, "交互会话") {
+				t.Fatalf("final=%+v", final)
+			}
+			if len(ctrl.last().responses()) != 0 {
+				t.Fatal("task policy supplied an answer")
+			}
+		})
 	}
 }

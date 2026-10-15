@@ -243,3 +243,16 @@ Goal 权限请求沿用与该 Turn 回复相同的冻结绑定。已接收的普
 goal 接续准入；普通输入执行期间收到的 goal 准入直接拒绝，不等待该输入结束。TAIL
 Attach 在原子读取边界携带当前 canonical Turn 的开始快照。Bridge 仅恢复与持久化
 目的地和当前绑定匹配的 goal Turn，授权其后续回复与权限请求，不重发之前的输出。
+
+## 原生用户提问
+
+原生问题的正文、选项说明、多选、自定义答案和敏感输入标记在规范事件流中保留。
+沿用 permission 传输信封不代表业务问题属于执行审批。Codex 兼容 app-server 通过原生只读 `features list` 声明
+支持 `default_mode_request_user_input` 时，对新建、恢复和清空后的 thread 启用此
+配置；显式启动 feature 参数优先。不支持该能力的宿主保持原生行为。集成不切换
+collaboration mode，也不修改用户的配置文件。
+
+Claude SDK 的 `AskUserQuestion` 按问题拆为关联请求，答案齐备后携带原始 questions
+和 `updatedInput.answers` 返回；多选保留标签数组。取消一个问题会取消整批原生
+提问，不代替用户选择业务答案。拒绝迟到、重复和非法回答；中断、关闭或原生轮次
+结束会释放待答请求。原生非阻塞请求保留 blocking 标记，仅在来源轮次仍活跃时接收答案。

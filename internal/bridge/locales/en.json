@@ -2677,5 +2677,65 @@
   },
   "session.placeholder.stopped": {
     "other": "⏹ Interrupted"
+  },
+  "permission.invalid": {
+    "other": "Invalid card action."
+  },
+  "permission.expired": {
+    "other": "This request has been handled or has expired."
+  },
+  "permission.unauthorized": {
+    "other": "You cannot approve this request."
+  },
+  "permission.processing": {
+    "other": "This request is being handled or has already been handled."
+  },
+  "permission.failed": {
+    "other": "Could not send the response. Please try again."
+  },
+  "permission.submitted": {
+    "other": "Submitted: %s"
+  },
+  "permission.result": {
+    "other": "Agent interaction"
+  },
+  "question.title": {
+    "other": "The agent needs your answer"
+  },
+  "question.unauthorized": {
+    "other": "Only the user who started this interaction can answer."
+  },
+  "question.invalid_answer": {
+    "other": "Select a valid option or enter an answer."
+  },
+  "question.choose_one": {
+    "other": "Select one option"
+  },
+  "question.choose_many": {
+    "other": "Select one or more options"
+  },
+  "question.answer": {
+    "other": "Enter your answer"
+  },
+  "question.other": {
+    "other": "Other answer (replaces the selection)"
+  },
+  "question.submit": {
+    "other": "Submit"
+  },
+  "question.cancel": {
+    "other": "Cancel these questions"
+  },
+  "question.cancelled": {
+    "other": "Questions cancelled. No answer was sent."
+  },
+  "question.expired": {
+    "other": "These questions expired after 15 minutes. Ask the agent again to continue."
+  },
+  "question.unavailable": {
+    "other": "This question cannot be displayed safely in a chat card. It has been cancelled. Use another supported interface to answer."
+  },
+  "question.secret": {
+    "other": "This question asks for sensitive input and has been cancelled. Use a secure credential flow instead of a chat card."
   }
 }

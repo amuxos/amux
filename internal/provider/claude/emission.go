@@ -108,10 +108,10 @@ func canonicalClaudePermission(permission provider.Permission) agentstream.Permi
 	if permission.ToolCall != nil {
 		request.ToolCall = &agentstream.PermissionToolCall{ID: permission.ToolCall.ID, Name: permission.ToolCall.Name,
 			Title: permission.ToolCall.Title, RawInput: permission.ToolCall.RawInput, Question: permission.ToolCall.Question,
-			MultiSelect: permission.ToolCall.MultiSelect}
+			MultiSelect: permission.ToolCall.MultiSelect, AllowOther: permission.ToolCall.AllowOther, Secret: permission.ToolCall.Secret, Blocking: permission.ToolCall.Blocking}
 	}
 	for _, option := range permission.Options {
-		request.Options = append(request.Options, agentstream.PermissionOption{ID: option.OptionId, Name: option.Name, Kind: option.Kind})
+		request.Options = append(request.Options, agentstream.PermissionOption{ID: option.OptionId, Name: option.Name, Kind: option.Kind, Description: option.Description})
 	}
 	return agentstream.PermissionRequested{Request: request}
 }

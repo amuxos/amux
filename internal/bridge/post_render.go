@@ -339,29 +339,15 @@ func wrapTurnCardElements(elements []cardElement) []cardElement {
 }
 
 func renderPermissionRequestCard(targetID, sessionName, permissionID string, payload permissionPayload) string {
+	if strings.TrimSpace(payload.Tool.Question) != "" {
+		return renderQuestionCard(targetID, sessionName, permissionID, payload)
+	}
 	payload = compactPermissionPayload(payload)
 	content := permissionSummary(payload)
 	if content == "" {
 		content = "Agent 请求执行需要确认的操作。"
 	}
-	isUserInput := strings.TrimSpace(payload.Tool.Question) != ""
 	headerTitle := "Agent 工具授权请求"
-	if isUserInput {
-		headerTitle = "Agent 需要你回答"
-	}
-	metadata, _ := json.Marshal(map[string]string{
-		"permission_id": permissionID,
-		"target_id":     targetID,
-		"session_name":  sessionName,
-	})
-	if isUserInput {
-		doc := newCardDoc([]cardElement{
-			{Tag: "markdown", Content: content},
-			renderPermissionQuestionForm(payload, metadata),
-		})
-		doc.Header = &cardHeader{Title: cardTitle{Tag: "plain_text", Content: headerTitle}, Template: "orange"}
-		return marshalPermissionCard(doc)
-	}
 	actions := make([]cardAction, 0, len(payload.Options))
 	for _, opt := range payload.Options {
 		optionID := strings.TrimSpace(opt.OptionId)
@@ -473,45 +459,42 @@ func renderPermissionQuestionForm(payload permissionPayload, metadata json.RawMe
 	form := cardElement{Tag: "form", Name: "permission_form"}
 	options := make([]cardOption, 0, len(payload.Options))
 	for _, opt := range payload.Options {
-		value := strings.TrimSpace(opt.OptionId)
-		if value == "" {
-			continue
-		}
-		label := strings.TrimSpace(opt.Name)
+		label := opt.Name
 		if label == "" {
-			label = value
+			label = opt.OptionId
 		}
-		options = append(options, cardOption{Text: cardTitle{Tag: "plain_text", Content: label}, Value: value})
+		options = append(options, cardOption{Text: managementPlainText(label), Value: opt.OptionId})
 	}
 	if len(options) > 0 {
-		tag := "select_static"
-		name := "option_id"
-		placeholder := "请选择一项"
+		tag, name, placeholder := "select_static", "option_id", "question.choose_one"
 		if payload.Tool.MultiSelect {
-			tag = "multi_select_static"
-			name = "option_ids"
-			placeholder = "请选择一项或多项"
+			tag, name, placeholder = "multi_select_static", "option_ids", "question.choose_many"
 		}
 		form.Elements = append(form.Elements, cardElement{
-			Tag: tag, Name: name, Options: options, Required: true,
-			Placeholder: &cardTitle{Tag: "plain_text", Content: placeholder},
+			Tag: tag, Name: name, Options: options, Required: !payload.Tool.AllowOther,
+			Placeholder: managementPlainTextPtr(managementCopy(placeholder)),
 		})
-	} else {
+	}
+	if len(options) == 0 || payload.Tool.AllowOther {
+		placeholder := "question.answer"
+		if len(options) > 0 {
+			placeholder = "question.other"
+		}
 		form.Elements = append(form.Elements, cardElement{
-			Tag: "input", Name: "answer", Required: true,
-			Placeholder: &cardTitle{Tag: "plain_text", Content: "请输入回答"},
+			Tag: "input", Name: "answer", Required: len(options) == 0,
+			Placeholder: managementPlainTextPtr(managementCopy(placeholder)),
 		})
 	}
 	form.Elements = append(form.Elements, cardElement{
 		Tag: "button", Name: "permission_submit", Type: "primary", ActionType: "form_submit",
-		Text: &cardTitle{Tag: "plain_text", Content: "提交"}, Value: metadata,
+		Text: managementPlainTextPtr(managementCopy("question.submit")), Value: metadata,
 	})
 	return form
 }
 
-func renderPermissionResolvedCard(text string) string {
-	doc := newCardDoc([]cardElement{{Tag: "markdown", Content: text}})
-	doc.Header = &cardHeader{Title: cardTitle{Tag: "plain_text", Content: "Agent 工具授权请求"}}
+func renderPermissionResolvedCard(text any) string {
+	doc := newCardDoc([]cardElement{managementContentElement(text, cardElement{Tag: "markdown"})})
+	doc.Header = &cardHeader{Title: managementPlainText(managementCopy("permission.result"))}
 	bs, _ := json.Marshal(doc)
 	return string(bs)
 }

@@ -87,6 +87,14 @@ func (p *StructuredBrokerProc) ReconfigureExecution(model, reasoningEffort strin
 	return p.writeControlFrame(structuredFrameReconfigure, payload)
 }
 
+func (p *StructuredBrokerProc) CancelUserInput(permissionID string) error {
+	payload, err := json.Marshal(structuredPermissionResponseFrame{PermissionId: permissionID, Cancel: true})
+	if err != nil {
+		return err
+	}
+	return p.writeControlFrame(structuredFramePermissionResp, payload)
+}
+
 func (p *StructuredBrokerProc) RespondPermission(permissionID, optionID string) error {
 	payload, err := json.Marshal(structuredPermissionResponseFrame{PermissionId: permissionID, OptionId: optionID})
 	if err != nil {

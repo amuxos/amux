@@ -112,12 +112,16 @@ type PermissionTool struct {
 	RawInput    json.RawMessage
 	Question    string
 	MultiSelect bool
+	AllowOther  bool
+	Secret      bool
+	Blocking    *bool
 }
 
 type PermissionOption struct {
-	ID    string
-	Label string
-	Kind  string
+	ID          string
+	Label       string
+	Kind        string
+	Description string
 }
 
 type TurnEvent struct {

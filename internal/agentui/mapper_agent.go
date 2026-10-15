@@ -148,10 +148,13 @@ func permissionFromAgent(request agentstream.PermissionRequest) *PermissionEvent
 			RawInput:    cloneBytes(request.ToolCall.RawInput),
 			Question:    request.ToolCall.Question,
 			MultiSelect: request.ToolCall.MultiSelect,
+			AllowOther:  request.ToolCall.AllowOther,
+			Secret:      request.ToolCall.Secret,
+			Blocking:    request.ToolCall.Blocking,
 		}
 	}
 	for _, option := range request.Options {
-		out.Options = append(out.Options, PermissionOption{ID: option.ID, Label: firstNonEmpty(option.Name, option.ID), Kind: option.Kind})
+		out.Options = append(out.Options, PermissionOption{ID: option.ID, Label: firstNonEmpty(option.Name, option.ID), Kind: option.Kind, Description: option.Description})
 	}
 	return out
 }

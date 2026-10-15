@@ -604,7 +604,7 @@ func (b *Bridge) patchToolActivityMessage(ctx context.Context, msgID string, met
 	return b.patchInteractiveMessage(ctx, msgID, content, "tool activity card")
 }
 
-func (b *Bridge) patchPermissionMessage(ctx context.Context, msgID, text string) error {
+func (b *Bridge) patchPermissionMessage(ctx context.Context, msgID string, text any) error {
 	content := renderPermissionResolvedCard(text)
 	return b.patchInteractiveMessage(ctx, msgID, content, "permission request card")
 }

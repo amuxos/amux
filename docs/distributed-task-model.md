@@ -155,3 +155,14 @@ awaiting its deadline. Escalation is unavailable
 for blocking `task_run` and scheduled subtasks. Permission resolution is separate
 from workspace/OS isolation and credential authorization. An instance wait timeout
 also does not cancel or time out its Task; inspect that Task for the final result.
+
+## User questions are not execution approvals
+
+Task children currently have no user-question delegation channel. A structured
+user question therefore fails the Task with a bilingual diagnostic under every
+permission policy, including `policy-allow`, `deny-all` and `escalate-to-main`.
+It never selects the first/last option and never enters permission escalation.
+The caller can gather the missing input in an interactive Session and submit a
+new Task. This also applies to scheduled subtasks and persistent instances. Direct
+Sessions leave questions to their attached UI regardless of automatic approval
+policy; scheduled prompts sent to those Sessions have the same behavior.

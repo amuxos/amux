@@ -3,7 +3,6 @@ package bridge
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +32,10 @@ type pendingPermission struct {
 	OpenId       string
 	CreatedAt    time.Time
 	Resolving    bool
+	TurnID       string
+	ChatID       string
+	Question     *permissionPayload
+	Expiry       *time.Timer
 }
 
 const resolvedPermissionRetention = 10 * time.Minute
@@ -40,12 +43,14 @@ const resolvedPermissionRetention = 10 * time.Minute
 type permissionPayload struct {
 	Options []permissionOption `json:"options"`
 	Tool    permissionTool     `json:"toolCall"`
+	TurnID  string             `json:"-"`
 }
 
 type permissionOption struct {
-	Kind     string `json:"kind"`
-	Name     string `json:"name"`
-	OptionId string `json:"optionId"`
+	Kind        string `json:"kind"`
+	Name        string `json:"name"`
+	OptionId    string `json:"optionId"`
+	Description string `json:"description,omitempty"`
 }
 
 type permissionTool struct {
@@ -53,6 +58,9 @@ type permissionTool struct {
 	RawInput    json.RawMessage `json:"rawInput,omitempty"`
 	Question    string          `json:"question,omitempty"`
 	MultiSelect bool            `json:"multiSelect,omitempty"`
+	AllowOther  bool            `json:"allowOther,omitempty"`
+	Secret      bool            `json:"secret,omitempty"`
+	Blocking    *bool           `json:"blocking,omitempty"`
 }
 
 func permissionMapKey(targetID, sessionName, permissionID string) string {
@@ -63,7 +71,11 @@ func (p *pendingPermission) key() string {
 	if p == nil {
 		return ""
 	}
-	return permissionMapKey(p.TargetID, p.SessionName, p.PermissionId)
+	key := permissionMapKey(p.TargetID, p.SessionName, p.PermissionId)
+	if p.TurnID != "" {
+		key += "\x00" + p.TurnID
+	}
+	return key
 }
 
 func (c *permissionGateway) beginPermissionRequest(req *pendingPermission) (string, bool) {
@@ -109,10 +121,13 @@ func (c *permissionGateway) forgetPermissionRequest(key string) {
 	}
 	c.permissionMu.Lock()
 	defer c.permissionMu.Unlock()
+	if pending := c.permissions[key]; pending != nil && pending.Expiry != nil {
+		pending.Expiry.Stop()
+	}
 	delete(c.permissions, key)
 }
 
-func (c *permissionGateway) getPermission(permissionID, targetID, sessionName string) (*pendingPermission, string) {
+func (c *permissionGateway) getPermission(permissionID, targetID, sessionName string, turnIDs ...string) (*pendingPermission, string) {
 	c.permissionMu.Lock()
 	defer c.permissionMu.Unlock()
 	if c.permissions == nil {
@@ -120,6 +135,9 @@ func (c *permissionGateway) getPermission(permissionID, targetID, sessionName st
 	}
 	if targetID != "" || sessionName != "" {
 		key := permissionMapKey(targetID, sessionName, permissionID)
+		if len(turnIDs) > 0 && turnIDs[0] != "" {
+			key += "\x00" + turnIDs[0]
+		}
 		return clonePendingPermission(c.permissions[key]), key
 	}
 	var found *pendingPermission
@@ -177,6 +195,9 @@ func (c *permissionGateway) resolvePermissionRequest(key string) {
 	now := time.Now()
 	c.permissionMu.Lock()
 	defer c.permissionMu.Unlock()
+	if pending := c.permissions[key]; pending != nil && pending.Expiry != nil {
+		pending.Expiry.Stop()
+	}
 	delete(c.permissions, key)
 	if c.resolvedPermissions == nil {
 		c.resolvedPermissions = make(map[string]time.Time)
@@ -193,28 +214,59 @@ func (c *permissionGateway) pruneResolvedPermissionsLocked(now time.Time) {
 	}
 }
 
-func (b *Bridge) handlePermissionEvent(ctx context.Context, chat *LarkChat, permission *agentui.PermissionEvent) error {
+func (b *Bridge) handlePermissionEvent(ctx context.Context, chat *LarkChat, permission *agentui.PermissionEvent, turnIDs ...string) error {
 	if permission == nil || permission.RequestID == "" {
 		return nil
 	}
 	permissionID := permission.RequestID
-	key, shouldSend := b.beginPermissionRequest(&pendingPermission{
+	payload := permissionPayloadFromEvent(permission)
+	var question *permissionPayload
+	if strings.TrimSpace(payload.Tool.Question) != "" {
+		question = &payload
+	}
+	turnID := ""
+	if question != nil && len(turnIDs) > 0 {
+		turnID = turnIDs[0]
+		payload.TurnID = turnID
+	}
+	if question != nil {
+		bound := *chat
+		b.steerMu.Lock()
+		if senders := b.turnSenders[chat.RootMsgID][turnID]; len(senders) > 0 {
+			bound.OpenId = senders[0]
+		}
+		b.steerMu.Unlock()
+		chat = &bound
+	}
+	pending := &pendingPermission{
 		PermissionId: permissionID,
 		RootMsgID:    chat.RootMsgID,
 		TargetID:     chat.TargetID,
 		SessionName:  chat.SessionName,
 		OpenId:       chat.OpenId,
-	})
+		TurnID:       turnID, Question: question, ChatID: chat.ChatID,
+	}
+	key, shouldSend := b.beginPermissionRequest(pending)
 	if !shouldSend {
 		return nil
 	}
-	payload := permissionPayloadFromEvent(permission)
+	if question != nil && (payload.Tool.Secret || chat.OpenId == "" || !questionCardFits(payload)) {
+		b.cancelQuestion(pending)
+		b.resolvePermissionRequest(key)
+		return b.sendQuestionUnavailable(ctx, chat, payload.Tool.Secret)
+	}
 	msgID, _, err := b.sendPermissionRequestCard(ctx, chat, permissionID, payload)
 	if err != nil {
 		b.forgetPermissionRequest(key)
+		if question != nil {
+			b.cancelQuestion(pending)
+		}
 		return err
 	}
 	b.completePermissionRequest(key, msgID)
+	if question != nil {
+		b.armQuestionExpiry(key)
+	}
 	return nil
 }
 
@@ -229,17 +281,18 @@ func permissionPayloadFromEvent(permission *agentui.PermissionEvent) permissionP
 			RawInput:    append(json.RawMessage(nil), permission.Tool.RawInput...),
 			Question:    permission.Tool.Question,
 			MultiSelect: permission.Tool.MultiSelect,
+			AllowOther:  permission.Tool.AllowOther, Secret: permission.Tool.Secret, Blocking: permission.Tool.Blocking,
 		}
 	}
 	for _, option := range permission.Options {
-		out.Options = append(out.Options, permissionOption{Kind: option.Kind, Name: option.Label, OptionId: option.ID})
+		out.Options = append(out.Options, permissionOption{Kind: option.Kind, Name: option.Label, OptionId: option.ID, Description: option.Description})
 	}
 	return out
 }
 
 func (b *Bridge) handleCardAction(ctx context.Context, event *callback.CardActionTriggerEvent) (*callback.CardActionTriggerResponse, error) {
 	if event == nil || event.Event == nil || event.Event.Action == nil {
-		return cardToast("warning", "空的卡片操作"), nil
+		return cardToast("warning", managementCopy("permission.invalid")), nil
 	}
 	if resp, handled, err := b.handleSkillPickerCardAction(ctx, event); handled || err != nil {
 		return resp, err
@@ -252,65 +305,77 @@ func (b *Bridge) handleCardAction(ctx context.Context, event *callback.CardActio
 	}
 	value := event.Event.Action.Value
 	permissionID, _ := value["permission_id"].(string)
-	optionID, _ := value["option_id"].(string)
-	optionIDs := permissionOptionIDs(event.Event.Action)
-	if optionID == "" && len(optionIDs) > 0 {
-		optionID = optionIDs[0]
-	}
-	wireOptionIDs := optionIDs
-	if !permissionUsesMultipleOptions(event.Event.Action) {
-		wireOptionIDs = nil
-	}
 	targetID, _ := value["target_id"].(string)
 	sessionName, _ := value["session_name"].(string)
-	if permissionID == "" || optionID == "" {
-		return cardToast("warning", "不是 amux 授权操作"), nil
+	turnID, _ := value["turn_id"].(string)
+	cancelQuestion, _ := value["cancel"].(string)
+	if permissionID == "" {
+		return cardToast("warning", managementCopy("permission.invalid")), nil
 	}
-	pending, permissionKey := b.getPermission(permissionID, targetID, sessionName)
+	pending, permissionKey := b.getPermission(permissionID, targetID, sessionName, turnID)
 	if pending == nil {
-		return cardToast("warning", "授权请求已处理或已过期"), nil
+		return cardToast("warning", managementCopy("permission.expired")), nil
 	}
 	operator := ""
 	if event.Event.Operator != nil {
 		operator = event.Event.Operator.OpenID
 	}
-	if !b.canUseBridge(operator) && pending.OpenId != "" && pending.OpenId != operator {
-		return cardToast("error", "你没有权限审批这个请求"), nil
+	if pending.Question != nil {
+		if operator == "" || operator != pending.OpenId {
+			return cardToast("error", managementCopy("question.unauthorized")), nil
+		}
+		if time.Since(pending.CreatedAt) >= questionLifetime || turnID != pending.TurnID {
+			return cardToast("warning", managementCopy("permission.expired")), nil
+		}
+		if c := event.Event.Context; c != nil {
+			if (c.OpenMessageID != "" && c.OpenMessageID != pending.MessageID) ||
+				(c.OpenChatID != "" && c.OpenChatID != pending.ChatID) {
+				return cardToast("error", managementCopy("permission.invalid")), nil
+			}
+		}
+	} else if !b.canUseBridge(operator) && pending.OpenId != "" && pending.OpenId != operator {
+		return cardToast("error", managementCopy("permission.unauthorized")), nil
+	}
+	isCancel := cancelQuestion == "true" && pending.Question != nil
+	optionIDs := permissionOptionIDs(event.Event.Action)
+	if pending.Question != nil && !isCancel {
+		var valid bool
+		optionIDs, valid = questionAnswers(*pending.Question, event.Event.Action)
+		if !valid {
+			return cardToast("warning", managementCopy("question.invalid_answer")), nil
+		}
+	}
+	if !isCancel && len(optionIDs) == 0 {
+		return cardToast("warning", managementCopy("question.invalid_answer")), nil
 	}
 	pending = b.claimPermission(permissionKey)
 	if pending == nil {
-		return cardToast("warning", "授权请求正在处理或已处理"), nil
+		return cardToast("warning", managementCopy("permission.processing")), nil
 	}
-	selection := optionID
-	if len(optionIDs) > 0 {
-		selection = strings.Join(optionIDs, "、")
+	request := &pb.RespondPermissionRequest{
+		Name: pending.SessionName, PermissionId: permissionID, TurnId: pending.TurnID, Cancel: isCancel,
 	}
-	displaySelection := truncateCardText(selection, 1000)
-
+	if !isCancel {
+		request.OptionId = optionIDs[0]
+		if (pending.Question != nil && pending.Question.Tool.MultiSelect) || permissionUsesMultipleOptions(event.Event.Action) {
+			request.OptionIds = optionIDs
+		}
+	}
 	sendCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
 	defer cancel()
-	_, err := b.hub.Route(sendCtx, pending.TargetID, "RespondPermission", &pb.RespondPermissionRequest{
-		Name:         pending.SessionName,
-		PermissionId: permissionID,
-		OptionId:     optionID,
-		OptionIds:    wireOptionIDs,
-	})
+	_, err := b.hub.Route(sendCtx, pending.TargetID, "RespondPermission", request)
 	if err != nil {
 		b.releasePermissionClaim(permissionKey)
 		log.Warn().Err(err).Str("permission_id", permissionID).Msg("bridge: respond permission failed")
-		return cardToast("error", "授权回传失败: "+err.Error()), nil
+		return cardToast("error", managementCopy("permission.failed")), nil
 	}
 	b.resolvePermissionRequest(permissionKey)
-	resolved := fmt.Sprintf("%s 于 %s 选择：%s", permissionOperatorName(operator), time.Now().Format("2006-01-02 15:04:05"), displaySelection)
-	if pending.MessageID != "" {
-		messageID := pending.MessageID
-		go func() {
-			patchCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			_ = b.patchPermissionMessage(patchCtx, messageID, resolved)
-		}()
+	resolved := managementCopy("permission.submitted", truncateCardText(strings.Join(optionIDs, "、"), 1000))
+	if isCancel {
+		resolved = managementCopy("question.cancelled")
 	}
-	return cardToastWithCard("success", "已提交选择: "+displaySelection, renderPermissionResolvedCard(resolved)), nil
+	b.patchQuestionAsync(pending.MessageID, resolved)
+	return cardToastWithCard("success", resolved, renderPermissionResolvedCard(resolved)), nil
 }
 
 func permissionOperatorName(operator string) string {

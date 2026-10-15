@@ -451,6 +451,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			// must not clear the topic-level authorization/turn state owned by
 			// that newer stream.
 			if ownsPresentation {
+				b.retireQuestions(targetID, sessionName, rootMsgID, "", "", true)
 				b.setTurnActive(rootMsgID, false)
 				b.forgetTurns(rootMsgID)
 			}
@@ -1047,10 +1048,14 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							continue
 						}
 						sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-						err := b.handlePermissionEvent(sendCtx, streamChat, action.Permission)
+						err := b.handlePermissionEvent(sendCtx, streamChat, action.Permission, action.Turn.ID)
 						cancel()
 						if err != nil {
 							log.Warn().Err(err).Str("session", sessionName).Str("permission_id", action.Permission.RequestID).Msg("bridge: send permission request card error")
+						}
+					case agentui.ActionPermissionResolved:
+						if action.Permission != nil {
+							b.retireQuestions(targetID, sessionName, rootMsgID, action.Turn.ID, action.Permission.RequestID, false)
 						}
 					case agentui.ActionError:
 						if !visibilityGate.Allow(action) {
@@ -1095,6 +1100,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							failureNoticeDelivered = sendErr == nil
 						}
 					case agentui.ActionTurnFinished:
+						b.retireQuestions(targetID, sessionName, rootMsgID, action.Turn.ID, "", false)
 						b.observeTurnFinished(rootMsgID, action.Turn.ID)
 						allowed := visibilityGate.Allow(action)
 						visibilityGate.Observe(action)

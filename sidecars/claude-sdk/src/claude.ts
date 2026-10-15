@@ -72,6 +72,23 @@ interface AmuxTurn {
 interface PermissionRespondParams {
   permission_id?: string;
   option_id?: string;
+  option_ids?: string[];
+  cancel?: boolean;
+}
+
+interface UserQuestion {
+  question: string;
+  header: string;
+  options: {label: string; description?: string}[];
+  multiSelect: boolean;
+}
+
+interface UserQuestionBatch {
+  turn: AmuxTurn;
+  input: Record<string, unknown>;
+  entries: Map<string, {question: UserQuestion; answer?: string[]}>;
+  resolve: (result: unknown) => void;
+  removeAbort?: () => void;
 }
 
 // Async FIFO that lets `turn.start` / `turn.steer` hand user messages to the
@@ -241,6 +258,7 @@ export class ClaudeBridge {
   private q?: SdkQuery;
   private sessionId?: string;
   private pendingPermissions = new Map<string, (result: unknown) => void>();
+  private pendingQuestions = new Map<string, UserQuestionBatch>();
   private suggestions = new Map<string, unknown>();
   private permSeq = 0;
   private queryFn?: QueryFn;
@@ -400,7 +418,10 @@ export class ClaudeBridge {
       this.refreshStallTimer();
       return { ok: true };
     }
-    if (turn) turn.interruptRequested = true;
+    if (turn) {
+      turn.interruptRequested = true;
+      this.cancelQuestions(turn);
+    }
     // An interrupt sent between runs may not reach the run that follows, so
     // only an open run counts as interrupted; otherwise the next run's first
     // activity is interrupted again (see noteRunActivity).
@@ -423,16 +444,42 @@ export class ClaudeBridge {
 
   async respondPermission(params: PermissionRespondParams): Promise<object> {
     const id = params.permission_id ?? '';
+    const batch = this.pendingQuestions.get(id);
+    if (batch) {
+      if (batch.turn !== this.liveTurn() || batch.turn.interruptRequested) throw new Error('user_input_expired');
+      if (params.cancel) {
+        if (params.option_id || params.option_ids?.length) throw new Error('user_input_cancel_with_answers');
+        this.finishQuestions(batch, {behavior: 'deny', message: 'User cancelled the question. No answer was selected.'});
+        return {ok: true};
+      }
+      const entry = batch.entries.get(id)!;
+      if (entry.answer) throw new Error('user_input_already_answered');
+      const values = params.option_ids ?? [params.option_id ?? ''];
+      if (!Array.isArray(values) || values.some(value => typeof value !== 'string')) throw new Error('user_input_invalid_answer');
+      const answers = [...new Set(values.map(value => value.trim()).filter(Boolean))];
+      if (answers.length === 0 || (!entry.question.multiSelect && answers.length !== 1)) throw new Error('user_input_invalid_answer');
+      entry.answer = answers;
+      this.pendingQuestions.delete(id);
+      this.emitEvent('permission_resolved', {permission: {id}});
+      if ([...batch.entries.values()].every(value => value.answer)) {
+        const mapped = Object.fromEntries([...batch.entries.values()].map(value => [value.question.question,
+          value.question.multiSelect ? value.answer : value.answer![0]]));
+        this.finishQuestions(batch, {behavior: 'allow', updatedInput: {...batch.input, answers: mapped}});
+      }
+      return {ok: true};
+    }
+    if (params.cancel || params.option_ids?.length) throw new Error('user_input_not_pending');
     const resolve = this.pendingPermissions.get(id);
     if (resolve) {
       this.pendingPermissions.delete(id);
       resolve(this.permissionResult(id, params.option_id));
-    }
+    } else { throw new Error('permission_not_pending'); }
     this.suggestions.delete(id);
     return { ok: true };
   }
 
   async shutdown(): Promise<object> {
+    this.cancelQuestions();
     this.input.end();
     try {
       this.q?.close?.();
@@ -500,6 +547,7 @@ export class ClaudeBridge {
   }
 
   private endTurn(turn: AmuxTurn): void {
+    this.cancelQuestions(turn);
     turn.ended = true;
     turn.held = [];
     // Steers the CLI still has queued run anyway once dequeued.
@@ -806,6 +854,7 @@ export class ClaudeBridge {
     if (!this.outputOpen() || this.turn?.interruptRequested) {
       return Promise.resolve({ behavior: 'deny', message: 'Interrupted by user' });
     }
+    if (toolName === 'AskUserQuestion') return this.askUserQuestions(input, ctx);
     const id = `perm_${++this.permSeq}`;
     if (ctx?.suggestions) this.suggestions.set(id, ctx.suggestions);
     this.peer.notify('permission.request', {
@@ -825,6 +874,52 @@ export class ClaudeBridge {
       },
     });
     return new Promise<unknown>((resolve) => this.pendingPermissions.set(id, resolve));
+  }
+
+  private askUserQuestions(input: Record<string, unknown>, ctx: any): Promise<unknown> {
+    const questions = input.questions;
+    if (!Array.isArray(questions) || questions.length === 0 || questions.length > 4 ||
+        questions.some(q => !q || typeof q.question !== 'string' || !q.question.trim() ||
+          !Array.isArray(q.options) || q.options.some((o: any) => !o || typeof o.label !== 'string' || !o.label.trim())) ||
+        new Set(questions.map(q => q.question)).size !== questions.length) {
+      return Promise.resolve({behavior: 'deny', message: 'Invalid user question schema.'});
+    }
+    if (ctx?.signal?.aborted) return Promise.resolve({behavior: 'deny', message: 'Question interrupted.'});
+    return new Promise(resolve => {
+      const batch: UserQuestionBatch = {turn: this.liveTurn()!, input, entries: new Map(), resolve};
+      for (const question of questions as UserQuestion[]) {
+        const id = `question_${++this.permSeq}`;
+        batch.entries.set(id, {question});
+        this.pendingQuestions.set(id, batch);
+      }
+      if (ctx?.signal) {
+        const abort = () => this.finishQuestions(batch, {behavior: 'deny', message: 'Question interrupted.'});
+        ctx.signal.addEventListener('abort', abort, {once: true});
+        batch.removeAbort = () => ctx.signal.removeEventListener('abort', abort);
+      }
+      for (const [id, {question}] of batch.entries) {
+        this.peer.notify('permission.request', {permission: {
+          id, provider: 'claude',
+          toolCall: {id: ctx?.toolUseID ?? '', name: 'AskUserQuestion', title: question.header ?? '',
+            question: question.question, multiSelect: !!question.multiSelect, allowOther: true, blocking: true},
+          options: question.options.map(option => ({optionId: option.label, name: option.label, description: option.description ?? ''})),
+        }});
+      }
+    });
+  }
+
+  private finishQuestions(batch: UserQuestionBatch, result: unknown): void {
+    batch.removeAbort?.();
+    for (const id of batch.entries.keys()) {
+      if (this.pendingQuestions.delete(id)) this.emitEvent('permission_resolved', {permission: {id}});
+    }
+    batch.resolve(result);
+  }
+
+  private cancelQuestions(turn?: AmuxTurn): void {
+    for (const batch of new Set(this.pendingQuestions.values())) {
+      if (!turn || batch.turn === turn) this.finishQuestions(batch, {behavior: 'deny', message: 'Question interrupted.'});
+    }
   }
 
   private permissionResult(id: string, optionId?: string): unknown {

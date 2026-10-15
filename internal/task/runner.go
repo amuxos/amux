@@ -1107,6 +1107,9 @@ func (r *Runner) ingest(ev agentstream.Event, buf *bytes.Buffer, out *outBuf, us
 // answer (the answer arrives on at.permResp). Phase 1 supports one in-flight
 // escalation: a second permission while one is pending is denied.
 func (r *Runner) onPermission(at *activeTask, run *TaskRun, child ChildSession, wl Whitelist, permission agentstream.PermissionRequest, red *Redactor, diags *[]Diagnostic) error {
+	if permission.IsUserInput() {
+		return taskUserInputUnavailableError()
+	}
 	req := PermissionFromAgentEvent(permission)
 
 	// Defensive: a child should not raise a new permission while one is still

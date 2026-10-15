@@ -307,6 +307,9 @@ func (s *Session) noteCanonicalActivity(event agentstream.Event, now time.Time) 
 		}
 		s.pendingPermissions[requested.Request.ID] = struct{}{}
 	}
+	if resolved, ok := event.Body.(agentstream.PermissionResolved); ok {
+		delete(s.pendingPermissions, resolved.RequestID)
+	}
 }
 
 func (s *Session) completeCanonicalTurn(ref agentstream.TurnRef) {

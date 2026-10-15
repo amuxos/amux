@@ -1125,7 +1125,7 @@ func (s *hubServer) RespondPermission(ctx context.Context, req *pb.AmuxdRespondP
 	if err := s.authorizeSessionMutation(ctx, req.TargetId, req.Name); err != nil {
 		return nil, err
 	}
-	return routeUnary[pb.RespondPermissionRequest, pb.RespondPermissionResponse](s, ctx, req.TargetId, "RespondPermission", &pb.RespondPermissionRequest{Name: req.Name, PermissionId: req.PermissionId, OptionId: req.OptionId, OptionIds: req.OptionIds})
+	return routeUnary[pb.RespondPermissionRequest, pb.RespondPermissionResponse](s, ctx, req.TargetId, "RespondPermission", &pb.RespondPermissionRequest{Name: req.Name, PermissionId: req.PermissionId, OptionId: req.OptionId, OptionIds: req.OptionIds, Cancel: req.Cancel, TurnId: req.TurnId})
 }
 
 // sessionExecutionIdentity looks up the frozen identity of a live session on a

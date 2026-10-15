@@ -36,6 +36,7 @@ type turnStartAttempt struct {
 }
 
 type Proc struct {
+	defaultModeUserInput     bool
 	notificationMu           sync.Mutex
 	notificationQueue        []func()
 	notificationsInitialized bool
@@ -237,11 +238,15 @@ type inputQuestion struct {
 	header      string
 	question    string
 	multiSelect bool
+	allowOther  bool
+	secret      bool
+	blocking    *bool
 	options     []inputOption
 }
 
 type inputOption struct {
-	label string
+	label       string
+	description string
 }
 
 type pendingApproval struct {
@@ -657,7 +662,8 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	if opts.ExperimentalAPI || managedMemory(opts) {
 		initializeParams["capabilities"] = map[string]bool{"experimentalApi": true}
 	}
-	if _, err := p.client.Call(ctx, "initialize", initializeParams); err != nil {
+	initializeResponse, err := p.client.Call(ctx, "initialize", initializeParams)
+	if err != nil {
 		abortStart(handle)
 		return nil, nil, fmt.Errorf("%s initialize: %w", providerName, err)
 	}
@@ -666,6 +672,13 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 			abortStart(handle)
 			return nil, nil, fmt.Errorf("%s initialized: %w", providerName, err)
 		}
+	}
+
+	var host struct {
+		UserAgent string `json:"userAgent"`
+	}
+	if json.Unmarshal(initializeResponse.Result, &host) == nil && host.UserAgent != "" {
+		p.discoverUserInput(ctx, opts, bin, backend)
 	}
 
 	resp, err := p.startOrResumeThread(ctx, opts)
@@ -715,6 +728,7 @@ func (p *Proc) startOrResumeThread(ctx context.Context, opts StartOptions) (prov
 		return providerjsonrpc.Message{}, err
 	}
 	p.sessionInstructionThreadParams(ctx, opts, params)
+	p.userInputThreadParams(params)
 	if resumeID := strings.TrimSpace(opts.ResumeSessionID); resumeID != "" {
 		params["threadId"] = resumeID
 		if model := strings.TrimSpace(opts.ResumeModel); model != "" {
@@ -1152,6 +1166,7 @@ func (p *Proc) clearThread() error {
 		return err
 	}
 	p.sessionInstructionThreadParams(ctx, p.memoryOptions, params)
+	p.userInputThreadParams(params)
 	resp, err := p.client.Call(ctx, "thread/start", params)
 	if err != nil {
 		p.emitTurnFailure(fmt.Sprintf("thread/start for clear: %v", err), "")
@@ -1660,11 +1675,14 @@ type inputQuestionParams struct {
 	Header      string              `json:"header"`
 	Question    string              `json:"question"`
 	MultiSelect bool                `json:"multiSelect"`
+	AllowOther  bool                `json:"isOther"`
+	Secret      bool                `json:"isSecret"`
 	Options     []inputOptionParams `json:"options"`
 }
 
 type inputOptionParams struct {
-	Label string `json:"label"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
 }
 
 var errNotUserInputPermission = errors.New("not a user-input permission id")
