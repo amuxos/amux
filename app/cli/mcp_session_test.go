@@ -280,6 +280,13 @@ func TestMCPSessionRunResolvesPortableProfile(t *testing.T) {
 	if !strings.Contains(strings.Join(client.runReq.ExtraArgs, " "), "--permission-mode plan") {
 		t.Fatal("permission arguments lost")
 	}
+	res, err = (&mcpHandler{}).sessionRun(context.Background(), json.RawMessage(`{"profile":"team/reviewer","name":"child","runtime":"codex","model":"review-model"}`))
+	if err != nil || res.IsError {
+		t.Fatalf("default launch: %+v, %v", res, err)
+	}
+	if !strings.Contains(strings.Join(client.runReq.ExtraArgs, " "), `approval_policy="never" -c sandbox_mode="danger-full-access"`) {
+		t.Fatalf("MCP external expert did not default to bypass: %q", client.runReq.ExtraArgs)
+	}
 	client.runReq = nil
 	res, err = (&mcpHandler{}).sessionRun(context.Background(), json.RawMessage(`{"profile":"team/reviewer","name":"child"}`))
 	if err != nil || !res.IsError || client.runReq != nil {

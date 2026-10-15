@@ -128,6 +128,10 @@ func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, 
 	if err := validateRunPermissionPolicy(req); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+	req.ExtraArgs, err = agentprofile.SessionPermissionDefaults(req.AgentType, req.ExtraArgs, req.ProfileSpec)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
 	sess, err := s.mgr.CreateWithOptions(req.Name, req.AgentType, session.CreateOptions{
 		Cwd:                cwd,
 		IdleTimeoutSeconds: idleTimeoutSeconds,

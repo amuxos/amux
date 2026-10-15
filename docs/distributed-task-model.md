@@ -140,9 +140,8 @@ and Linux DAC execution. `policy-allow` selects `approval_policy=never`;
 `escalate-to-main` selects `approval_policy=on-request`. These policies disable
 the native sandbox; process execution uses the service account's OS permissions,
 while Linux DAC retains the outer Principal boundary.
-Claude and permission-aware distribution adapters retain native approval hooks
-without Linux DAC, and the runner automatically answers within its baseline.
-With Linux DAC they may use native bypass. `deny-all` selects native read-only
+Claude and permission-aware distribution adapters use native bypass for
+`policy-allow` with both process and Linux DAC execution. `deny-all` selects native read-only
 or deny mode and rejects approval requests. `escalate-to-main` preserves the
 native approval path and exposes requests for an explicit response. Engines
 without the required permission capability reject restrictive policies before

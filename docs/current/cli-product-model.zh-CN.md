@@ -25,6 +25,7 @@ Target 标识 Runtime 的位置。Session 是与一个智能体持续进行的�
 有界执行。Profile 引用选择专家内容。支持的内置 Profile 为 `builtin/codex`、
 `builtin/claude` 和 `builtin/pi`，默认是 `builtin/codex`。
 内置 Profile 使用 v2，只保存内容。amux 调用方为命名快捷入口提供 Runtime、模型和权限默认值；显式执行选择优先，解析后的执行设置冻结到启动快照。外部 v2 Profile 仍需调用方提供 Runtime。
+新建 Session 省略权限参数时默认使用原生 bypass，覆盖外部专家和直接引擎启动；显式权限参数优先。
 显式指定 Runtime 时，即使模型名不在 Runtime 建议列表中，也原样传给原生 Agent。
 Pack 不声明模型允许列表。
 

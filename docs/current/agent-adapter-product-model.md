@@ -11,8 +11,9 @@ is an execution location. None is the identity of a running conversation.
 
 Manifest v2 profiles require a caller-selected runtime and cannot declare engine,
 model, provider, model allowlist or permission settings. Native execution arguments
-and the runtime/model choice belong to the caller. Direct Sessions keep native
-defaults when permissions are omitted; Task children derive them from
+and the runtime/model choice belong to the caller. New direct Sessions default to native `bypass` when permission arguments are
+omitted, for both built-in and external experts. Explicit native permission
+arguments remain authoritative. Task children derive their permissions from
 `permission_policy` (default `policy-allow`). Only manifest v2 is accepted, including managed local
 authoring. Execution settings are frozen in session snapshots. Refreshing v2 content
 preserves those settings, including the provider binding and permission arguments.

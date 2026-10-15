@@ -106,9 +106,8 @@ Task 默认权限策略是 `policy-allow`。Codex 兼容引擎在 process 和 Li
 `policy-allow` 和 `escalate-to-main` 使用 `danger-full-access`；前者使用
 `approval_policy=never`，后者使用 `approval_policy=on-request`。这两种策略关闭原生沙箱；
 process 执行受服务账号的操作系统权限约束，Linux DAC 保留外层 Principal 边界。
-Claude 和支持审批的发行版 Adapter
-在无 Linux DAC 时保留原生审批钩子，由 Runner 在其规则内自动处理；Linux DAC 下可使用
-原生 bypass。`deny-all` 使用原生只读或拒绝模式并拒绝审批；`escalate-to-main` 保留原生
+Claude 和支持审批的发行版 Adapter 在 process 和 Linux DAC 下均为 `policy-allow`
+使用原生 bypass。`deny-all` 使用原生只读或拒绝模式并拒绝审批；`escalate-to-main` 保留原生
 审批入口，上报并等待显式响应。无法实现受限策略的引擎在启动前报错，Pi 仅支持
 `policy-allow`。原生模式不将 process/private-home 升级为强隔离。
 

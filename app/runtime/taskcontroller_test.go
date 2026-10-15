@@ -365,7 +365,7 @@ func TestCreateChildPersistentResumePreservesLaunchArgsSnapshot(t *testing.T) {
 	if len(launches) != 2 {
 		t.Fatalf("launches = %d, want 2", len(launches))
 	}
-	want := []string{"--model", "auto-selected", "--permission-mode", "default"}
+	want := []string{"--model", "auto-selected", "--permission-mode", "bypassPermissions"}
 	if got := c1.(*childSession).sess.Snapshot().ExtraArgs; !slices.Equal(got, want) {
 		t.Fatalf("persisted snapshot = %v, want %v", got, want)
 	}

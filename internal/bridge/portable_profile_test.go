@@ -32,6 +32,19 @@ func TestPortableBridgeUsesCallerRuntimeAndPermissions(t *testing.T) {
 	if _, err := resolveBridgeAgentLaunchWithSelection("team/reviewer", nil, "", "", ""); err == nil {
 		t.Fatal("bridge silently selected an engine")
 	}
+	for _, engine := range []string{"codex", "claude"} {
+		launch, err := resolveBridgeAgentLaunchWithSelection("team/reviewer", nil, engine, "review-model", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "--permission-mode bypassPermissions"
+		if engine == "codex" {
+			want = `approval_policy="never" -c sandbox_mode="danger-full-access"`
+		}
+		if !strings.Contains(strings.Join(launch.ExtraArgs, " "), want) {
+			t.Fatalf("Feishu external expert did not default to bypass: %q", launch.ExtraArgs)
+		}
+	}
 	state := managementState{Profiles: []managementProfileSummary{{Ref: "team/reviewer"}}}
 	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese} {
 		for _, label := range []any{managementEffectiveModelLabel(state, "team/reviewer", ""), managementProfileDefaultModelOptionLabel(state, "team/reviewer")} {

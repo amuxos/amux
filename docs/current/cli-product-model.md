@@ -34,7 +34,9 @@ Built-in Pack manifests use v2. The CLI supplies the named built-in launch prese
 when using a built-in shortcut; explicit runtime/model/native permission choices
 override it. External v2 experts continue to require `--runtime`. The default
 expert remains `builtin/codex`; its execution defaults are caller policy, not
-Profile fields.
+Profile fields. New Sessions use native bypass when permission arguments are
+omitted, including external experts and direct engine launches. Explicit
+permission arguments override this default.
 
 With an explicit runtime, a model name is passed to the native agent even when it
 is absent from runtime suggestions. Packs do not define model allowlists.

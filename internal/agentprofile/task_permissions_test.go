@@ -26,7 +26,7 @@ func TestTaskPermissionNativeMatrix(t *testing.T) {
 		{"codex", task.PolicyDenyAll, true, []string{"-c", `approval_policy="never"`, "-c", `sandbox_mode="read-only"`}},
 		{"codex", task.PolicyEscalateToMain, false, []string{"-c", `approval_policy="on-request"`, "-c", `sandbox_mode="danger-full-access"`}},
 		{"codex", task.PolicyEscalateToMain, true, []string{"-c", `approval_policy="on-request"`, "-c", `sandbox_mode="danger-full-access"`}},
-		{"claude", task.PolicyAllow, false, []string{"--permission-mode", "default"}},
+		{"claude", task.PolicyAllow, false, []string{"--permission-mode", "bypassPermissions"}},
 		{"claude", task.PolicyAllow, true, []string{"--permission-mode", "bypassPermissions"}},
 		{"claude", task.PolicyDenyAll, true, []string{"--permission-mode", "plan"}},
 		{"claude", task.PolicyEscalateToMain, true, []string{"--permission-mode", "default"}},

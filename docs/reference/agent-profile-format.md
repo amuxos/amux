@@ -37,7 +37,8 @@ even when empty. Provider source files are not part of a v2 Pack.
 
 Execution chooses the runtime and model separately. Task `permission_policy`
 also selects native permissions and normalizes native permission arguments;
-direct Sessions keep caller/native permission settings.
+new direct Sessions default to native bypass when permission arguments are
+omitted, while explicit caller permission settings take precedence.
 A caller runtime setting or explicit `--runtime` is required. Built-in shortcuts
 may have caller defaults; Tasks (including scheduled Tasks) also fall back to the
 distribution's default builtin launch preset when runtime is omitted. These

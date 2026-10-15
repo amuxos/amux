@@ -108,7 +108,7 @@ func TestBuildRunRequestAcceptsPackProfileRef(t *testing.T) {
 	if req.ProfileSpec.Model != "gpt-5-codex" {
 		t.Fatalf("profile_spec model = %q, want gpt-5-codex", req.ProfileSpec.Model)
 	}
-	if got, want := req.ExtraArgs, []string{"--model", "gpt-5-codex"}; !equalRunStrings(got, want) {
+	if got, want := req.ExtraArgs, []string{"-c", `approval_policy="never"`, "-c", `sandbox_mode="danger-full-access"`, "--model", "gpt-5-codex"}; !equalRunStrings(got, want) {
 		t.Fatalf("extra args = %#v, want %#v", got, want)
 	}
 	if len(req.Env) != 0 {
@@ -128,8 +128,8 @@ func TestBuildRunRequestUsesCallerModelWithPackContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildRunRequest: %v", err)
 	}
-	if got, want := req.ExtraArgs, []string{"--model", "custom-model"}; !equalRunStrings(got, want) {
-		t.Fatalf("extra args = %#v, want explicit model only: %#v", got, want)
+	if got, want := req.ExtraArgs, []string{"-c", `approval_policy="never"`, "-c", `sandbox_mode="danger-full-access"`, "--model", "custom-model"}; !equalRunStrings(got, want) {
+		t.Fatalf("extra args = %#v, want explicit model and default bypass: %#v", got, want)
 	}
 	if req.ProfileSpec == nil || req.ProfileSpec.Model != "custom-model" {
 		t.Fatalf("profile_spec = %+v, want explicit model snapshot", req.ProfileSpec)

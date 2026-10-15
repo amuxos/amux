@@ -11,8 +11,8 @@ Profile 提供可复用专家内容，Agent 类型是执行引擎实现，Runtim
 它们都不是某段运行中对话的身份。
 
 Manifest v2 专家要求调用方选择 Runtime，不能声明引擎、模型、Provider、模型白名单或
-权限设置。原生执行参数及 Runtime/模型选择属于调用方；直接 Session 省略权限设置时使用原生引擎
-默认值，Task 子会话则由 `permission_policy`（默认 `policy-allow`）决定。
+权限设置。原生执行参数及 Runtime/模型选择属于调用方；新建直接 Session 省略权限参数时默认使用原生 `bypass`，
+内置和外部专家一致；显式原生权限参数优先。Task 子会话则由 `permission_policy`（默认 `policy-allow`）决定。
 仅接受 v2 manifest，本地专家编辑也使用 v2。解析后的执行设置冻结到会话快照；刷新专家内容
 保留这些设置，包括 Provider 绑定及权限参数。
 MCP 的 `session_run`、`task_run`、`task_submit` 和 `instance_spawn` 输入将 Runtime、

@@ -4093,7 +4093,7 @@ func TestGroupMainChatMentionCreatesThreadBoundSession(t *testing.T) {
 	if runReq.AgentProfile != "builtin/codex" {
 		t.Fatalf("agent_profile = %q, want builtin/codex", runReq.AgentProfile)
 	}
-	if got, want := strings.Join(runReq.ExtraArgs, " "), "--model gpt-5.5 -c approval_policy=\"never\" -c sandbox_mode=\"danger-full-access\" --yolo"; got != want {
+	if got, want := strings.Join(runReq.ExtraArgs, " "), "--model gpt-5.5 --yolo"; got != want {
 		t.Fatalf("ExtraArgs = %q, want %q", got, want)
 	}
 	if runReq.ProfileSpec == nil || runReq.ProfileSpec.Model != "gpt-5.5" {

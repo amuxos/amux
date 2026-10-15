@@ -46,7 +46,7 @@ func taskPermissionArgs(agentType string, policy task.PermissionPolicy, args []s
 		mode := "default"
 		if policy == task.PolicyDenyAll {
 			mode = "plan"
-		} else if policy == task.PolicyAllow && outerConfined && protocol == "claude" {
+		} else if policy == task.PolicyAllow {
 			mode = "bypass"
 		}
 		var err error
@@ -73,6 +73,10 @@ func taskPermissionArgs(agentType string, policy task.PermissionPolicy, args []s
 // Legacy native permission flags remain readable in saved definitions, but
 // cannot override permission_policy. Non-permission arguments keep their order.
 func stripTaskPermissionArgs(args []string, protocol string) []string {
+	return stripNativePermissionArgs(args, protocol, true)
+}
+
+func stripNativePermissionArgs(args []string, protocol string, stripAddDirs bool) []string {
 	out := make([]string, 0, len(args))
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -102,7 +106,15 @@ func stripTaskPermissionArgs(args []string, protocol string) []string {
 				i++
 			}
 			continue
-		case "--ask-for-approval", "--sandbox", "--permission-mode", "--add-dir":
+		case "--add-dir":
+			if !stripAddDirs {
+				break
+			}
+			if !hasInline && i+1 < len(args) {
+				i++
+			}
+			continue
+		case "--ask-for-approval", "--sandbox", "--permission-mode":
 			if !hasInline && i+1 < len(args) {
 				i++
 			}

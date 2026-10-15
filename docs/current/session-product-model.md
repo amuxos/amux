@@ -25,6 +25,11 @@ unavailable recorded engine is an error, never an automatic engine switch.
 If no engine identity survives, native provider history cannot safely be resumed;
 recovery starts a fresh provider conversation with the amux history handoff.
 
+New Sessions default to native bypass unless native permission arguments were
+explicitly supplied. This applies to CLI, MCP and Feishu launches, independently
+of the expert. The resolved default is recorded for restart and resume; existing
+Sessions retain their saved execution settings.
+
 A Turn is one dispatched submission accepted by the Session queue. Several Feishu
 messages may be coalesced into one submission; one message can also trigger a
 control action or add context without starting a Turn. The canonical Timeline

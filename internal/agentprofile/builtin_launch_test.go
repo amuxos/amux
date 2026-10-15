@@ -72,8 +72,8 @@ func TestBuiltinCallerOverridesAndExternalIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(launch.ProfileSpec.DefaultArgs) != 0 {
-		t.Fatal("external content acquired builtin permissions")
+	if !slices.Equal(launch.ProfileSpec.DefaultArgs, []string{"--permission-mode", "bypassPermissions"}) {
+		t.Fatalf("external Session did not receive caller bypass defaults: %q", launch.ProfileSpec.DefaultArgs)
 	}
 }
 

@@ -19,6 +19,9 @@ Session 是 Runtime 持有的受管理对话，通过 target 和 Session 身份�
 已记录的引擎不可用时仍报错，不自动切换引擎。若引擎身份完全丢失，不能安全地复用原生
 Provider 历史，恢复时使用 amux 历史交接创建新的 Provider 对话。
 
+新建 Session 未显式提供原生权限参数时默认使用原生 bypass。CLI、MCP 和飞书入口一致，
+与专家来源无关。解析后的默认值写入启动记录供重启和恢复使用；已有 Session 沿用已保存的执行设置。
+
 Turn 是 Session 队列接收后派发的一次输入。多条飞书消息可能合并为一次提交；一条消息
 也可能只是触发控制操作或增加上下文，不启动 Turn。规范 Timeline 持有 TurnID、TurnSeq，
 每轮恰有一个 TurnFinished。出现结果文本本身不是完成信号。一个 Session 可以包含多轮 Turn。

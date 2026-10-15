@@ -31,10 +31,18 @@ func BuiltinLaunchDefaults(profile Profile) (BuiltinLaunchPreset, bool) {
 // shortcut configuration before resolving and freezing the launch snapshot.
 func ProjectProfileLaunchWithDefaults(profile Profile, args, env []string, opts LaunchOptions) (LaunchProjection, error) {
 	preset, ok := BuiltinLaunchDefaults(profile)
+	var launch LaunchProjection
+	var err error
 	if !ok {
-		return ProjectProfileLaunchChecked(profile, args, env, opts)
+		launch, err = ProjectProfileLaunchChecked(profile, args, env, opts)
+	} else {
+		launch, err = projectProfileLaunchWithPreset(profile, args, env, opts, preset)
 	}
-	return projectProfileLaunchWithPreset(profile, args, env, opts, preset)
+	if err != nil {
+		return LaunchProjection{}, err
+	}
+	launch.ExtraArgs, err = SessionPermissionDefaults(launch.AgentType, launch.ExtraArgs, launch.ProfileSpec)
+	return launch, err
 }
 
 func projectProfileLaunchWithPreset(profile Profile, args, env []string, opts LaunchOptions, preset BuiltinLaunchPreset) (LaunchProjection, error) {
@@ -63,6 +71,9 @@ func projectProfileLaunchWithPreset(profile Profile, args, env []string, opts La
 	selected.DefaultArgs, err = permissionModeArgs(runtime.AgentType, preset.PermissionMode)
 	if err != nil {
 		return LaunchProjection{}, err
+	}
+	if hasSessionPermissionArgs(runtime.AgentType, args) {
+		selected.DefaultArgs = nil
 	}
 	if inferredRuntime {
 		// A shortcut still accepts native execution flags. Freeze the catalog
