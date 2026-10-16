@@ -25,11 +25,16 @@ with_sidecar=0
 cgo_enabled="${CGO_ENABLED:-0}"
 
 usage() {
+  local helper_note='Linux packages require amux-isolation-helper alongside the other binaries.'
+  case "${AMUX_LANGUAGE:-${LC_ALL:-${LANG:-en}}}" in
+    zh*) helper_note='Linux 发行包要求 amux-isolation-helper 与其他二进制位于同一目录。' ;;
+  esac
   cat <<EOF
 Usage:
   scripts/package-release.sh [--version <version>] [--source <dir>] [--dist-dir <dir>] [--os <goos>] [--arch <goarch>] [--base-url <url>]
 
 Build or package amux release binaries for one platform.
+$helper_note
 
 Main flow:
   make build VERSION=<version>
@@ -147,7 +152,11 @@ fi
 source_dir="$(cd "$source_dir" && pwd)"
 dist_dir="$(mkdir -p "$dist_dir" && cd "$dist_dir" && pwd)"
 
-for bin in amux amuxd amuxlet; do
+package_binaries=(amux amuxd amuxlet)
+if [[ "$goos" == linux ]]; then
+  package_binaries+=(amux-isolation-helper)
+fi
+for bin in "${package_binaries[@]}"; do
   if [[ ! -f "$source_dir/$bin$exe" ]]; then
     printf 'missing %s in %s\n' "$bin$exe" "$source_dir" >&2
     exit 1
@@ -181,8 +190,10 @@ fi
 
 rm -rf "$package_dir" "$archive" "$checksum_file"
 mkdir -p "$package_dir"
-cp "$source_dir/amux$exe" "$source_dir/amuxd$exe" "$source_dir/amuxlet$exe" "$package_dir/"
-chmod 0755 "$package_dir/amux$exe" "$package_dir/amuxd$exe" "$package_dir/amuxlet$exe"
+for bin in "${package_binaries[@]}"; do
+  cp "$source_dir/$bin$exe" "$package_dir/"
+  chmod 0755 "$package_dir/$bin$exe"
+done
 if [[ "$goos" == windows ]]; then
   cp "$source_dir/Setup.exe" "$package_dir/Setup.exe"
   chmod 0755 "$package_dir/Setup.exe"

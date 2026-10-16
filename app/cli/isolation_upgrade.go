@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,12 +74,18 @@ func refreshInstalledIsolationHelper(cmd *cobra.Command, opts *installOptions) e
 	if err != nil {
 		return fmt.Errorf("%s: %w", helperUpgradeText(cmd, "failed"), err)
 	}
-	if !slices.Contains(meta.Binaries, "amux-isolation-helper") {
-		return fmt.Errorf("%s", helperUpgradeText(cmd, "bundle_missing"))
-	}
 	binDir, err := filepath.Abs(effectiveInstallBinDir(opts.binDir))
 	if err != nil {
 		return err
+	}
+	if !slices.Contains(meta.Binaries, "amux-isolation-helper") {
+		recovered, err := recoverLegacyHelperBundle(&meta, binDir)
+		if err != nil {
+			return fmt.Errorf("%s: %w", helperUpgradeText(cmd, "failed"), err)
+		}
+		if !recovered {
+			return fmt.Errorf("%s", helperUpgradeText(cmd, "bundle_missing"))
+		}
 	}
 	binary := filepath.Join(binDir, "amux")
 	args := []string{"isolation", "helper", "_upgrade", "--source", binDir, "--socket", socket, "--service-uid", strconv.Itoa(uid)}
@@ -101,6 +109,68 @@ func refreshInstalledIsolationHelper(cmd *cobra.Command, opts *installOptions) e
 		return fmt.Errorf("%s: %w", helperUpgradeText(cmd, "failed"), err)
 	}
 	return reportHelperUpgradeResult(cmd, result)
+}
+
+// An older updater copies only the three core binaries, then executes the new
+// CLI for post-install completion. Its downloaded source still exists until
+// that child exits. Recover only from that exact bundle, never a retained helper.
+func recoverLegacyHelperBundle(meta *installMetadata, binDir string) (bool, error) {
+	if !filepath.IsAbs(meta.SourceDir) {
+		return false, nil
+	}
+	sourceInfo, err := os.Stat(meta.SourceDir)
+	if err != nil {
+		return false, nil
+	}
+	targetInfo, err := os.Stat(binDir)
+	if err != nil || os.SameFile(sourceInfo, targetInfo) {
+		return false, nil
+	}
+	for _, name := range []string{"amux", "amuxlet"} {
+		source, err := installBinaryDigest(filepath.Join(meta.SourceDir, exeName(name)))
+		if err != nil {
+			return false, nil
+		}
+		target, err := installBinaryDigest(filepath.Join(binDir, exeName(name)))
+		if err != nil || source != target {
+			return false, nil
+		}
+	}
+	name := exeName("amux-isolation-helper")
+	info, err := os.Stat(filepath.Join(meta.SourceDir, name))
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
+		return false, nil
+	}
+	if err := copyExecutable(filepath.Join(meta.SourceDir, name), filepath.Join(binDir, name)); err != nil {
+		return false, err
+	}
+	meta.Binaries = append(meta.Binaries, "amux-isolation-helper")
+	if err := writeInstallMetadata(*meta); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func installBinaryDigest(path string) ([sha256.Size]byte, error) {
+	var result [sha256.Size]byte
+	info, err := os.Stat(path)
+	if err != nil {
+		return result, err
+	}
+	if !info.Mode().IsRegular() {
+		return result, os.ErrInvalid
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return result, err
+	}
+	defer f.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, f); err != nil {
+		return result, err
+	}
+	copy(result[:], hash.Sum(nil))
+	return result, nil
 }
 
 func reportHelperUpgradeResult(cmd *cobra.Command, result helperUpgradeResult) error {

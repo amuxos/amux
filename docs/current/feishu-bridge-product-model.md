@@ -375,6 +375,13 @@ defaults. Bridge owns the affected tables, parameterized updates and transaction
 Mappings apply simultaneously, preserve unrelated settings and historical session
 identities, and are idempotent; targets cannot also be migration sources.
 
+## Management upgrade recovery
+
+Management upgrades locate the current installed CLI even when a failed update
+has moved the running Hub executable into a removed backup directory. The
+installation metadata and default binary directory provide fallback paths.
+Failures retain a bounded tail of CLI stderr in the operator log for diagnosis.
+
 ## Management interface language
 
 `/amux` product copy is owned by stable keys in a shared English/Simplified Chinese

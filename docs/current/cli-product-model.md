@@ -70,7 +70,11 @@ launches from racing the restart. Older helpers without this capability require
 a one-time maintenance stop before updating; stopped helpers stay stopped. A failed
 helper refresh returns a failed update before ordinary service restarts; retry
 `amux update` after the cause is resolved. It never installs or enables isolation
-on a machine without a helper service. Public updates use the platform manifest
+on a machine without a helper service. Linux release bundles must include the
+matching helper. When an older installer hands off to the new CLI, post-install
+completion can recover a skipped helper from its still-present source bundle
+only after verifying that its CLI and runtime match the installed binaries.
+Public updates use the platform manifest
 from `amuxos/amux-releases` by default. `AMUX_RELEASE_URL` overrides the source;
 `AMUX_SCM_LATEST_URL` and the existing archive format remain supported for
 distributions. Manifest downloads require SHA256 verification before extraction.

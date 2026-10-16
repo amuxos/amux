@@ -5,10 +5,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -201,5 +204,67 @@ func TestLocalManagementSystemActionsUpgradeRejectsChangedLatestVersion(t *testi
 	}
 	if err := actions.Upgrade(context.Background(), "1.2.3"); err == nil {
 		t.Fatal("Upgrade changed latest version = nil, want error")
+	}
+}
+
+func TestManagementUpgradeFindsCLIWhenRunningExecutableWasRemoved(t *testing.T) {
+	for _, scenario := range []string{"default", "custom", "invalid_metadata", "path"} {
+		t.Run(scenario, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("AMUX_HOME", home)
+			target := filepath.Join(home, "bin")
+			if scenario == "custom" {
+				target = t.TempDir()
+			}
+			if err := os.MkdirAll(target, 0755); err != nil {
+				t.Fatal(err)
+			}
+			name := "amux"
+			if runtime.GOOS == "windows" {
+				name += ".exe"
+			}
+			candidate := filepath.Join(target, name)
+			if scenario != "path" {
+				if err := os.WriteFile(candidate, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if scenario == "custom" || scenario == "invalid_metadata" {
+				data, _ := json.Marshal(map[string]string{"bin_dir": target})
+				if scenario == "invalid_metadata" {
+					data = []byte("{")
+				}
+				if err := os.WriteFile(filepath.Join(home, "install.json"), data, 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			moved := filepath.Join(home, "bin", ".amux-backup-example", "amuxd (deleted)")
+			got, err := localAmuxExecutableFrom(moved, func(string) (string, error) {
+				if scenario == "path" {
+					return candidate, nil
+				}
+				t.Fatal("installed CLI should not depend on service PATH")
+				return "", os.ErrNotExist
+			})
+			if err != nil || got != candidate {
+				t.Fatalf("path=%q want=%q err=%v", got, candidate, err)
+			}
+		})
+	}
+}
+
+func TestManagementUpgradeRetainsBoundedFailureDiagnostic(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Header().Set("X-Artifact-Version", "1.2.3") }))
+	defer server.Close()
+	binary := filepath.Join(t.TempDir(), "amux")
+	diagnostic := "This update bundle did not install an isolation helper binary."
+	script := "#!/bin/sh\nprintf '%s' '" + strings.Repeat("x", 20000) + "' >&2\nprintf '%s\\n' '" + diagnostic + "' >&2\nexit 23\n"
+	if err := os.WriteFile(binary, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	actions := &localManagementSystemActions{httpClient: server.Client(), latestURL: server.URL, goos: "linux", goarch: "amd64", executable: binary}
+	err := actions.Upgrade(context.Background(), "1.2.3")
+	if err == nil || !strings.Contains(err.Error(), diagnostic) || len(err.Error()) > 8400 {
+		t.Fatalf("error=%v", err)
 	}
 }

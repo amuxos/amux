@@ -46,7 +46,9 @@ and a platform-matched Claude SDK sidecar. Install and update also download the
 managed Agent Pack Contract SCM release from
 `amuxos/agent-pack-contract-releases` into `~/.amux/libexec/agent-pack-contract`
 when `AGENT_PACK_CONTRACT_SCM_URL` is unset. Native agents and Node remain external
-prerequisites. The privileged isolation helper has its own installation process.
+prerequisites. Linux packages also include the matching
+`amux-isolation-helper`; packaging fails if it is missing. Its initial privileged
+installation remains explicit, while later updates refresh an existing service.
 
 For a mirror, `AMUX_RELEASE_BASE_URL` selects the installer's GitHub-style
 releases directory; configure `AMUX_RELEASE_URL` for subsequent CLI and service

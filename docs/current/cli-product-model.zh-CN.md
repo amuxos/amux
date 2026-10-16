@@ -50,7 +50,9 @@ Linux 更新会同时从同一发行包刷新已安装的隔离 helper 和 mater
 空闲 helper 会持有与更新器生命周期绑定的启动保护，避免新会话与重启发生竞态。
 不支持该能力的旧 helper 需要在维护窗口先停止后进行一次性迁移；已停止的服务保持停止。
 helper 更新失败会在普通服务重启前返回更新失败，消除原因后重试 `amux update` 即可。
-未安装 helper 的机器不会因此安装或开启隔离。
+未安装 helper 的机器不会因此安装或开启隔离。Linux 发行包必须包含配套 helper。
+旧安装器交接给新 CLI 后，安装收尾可从尚未清理的原发行包补齐被跳过的 helper，
+但必须先核验包内 CLI 和 Runtime 与已安装文件一致。
 公共版本默认从 `amuxos/amux-releases` 的平台清单更新。`AMUX_RELEASE_URL` 可覆盖
 来源；发行版仍可使用 `AMUX_SCM_LATEST_URL` 和已有归档格式。清单下载必须在解包前
 通过 SHA256 校验。默认不配置 authoring runtime 下载源；可选 authoring 能力不可用

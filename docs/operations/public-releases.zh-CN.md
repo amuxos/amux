@@ -37,7 +37,9 @@ Actions Secret `AMUX_RELEASE_TOKEN`。到期前更新该 Secret。不要复用�
 安装与更新还会在未设置 `AGENT_PACK_CONTRACT_SCM_URL` 时，从
 `amuxos/agent-pack-contract-releases` 下载托管的 Agent Pack Contract SCM 发布包，
 并安装到 `~/.amux/libexec/agent-pack-contract`。原生 Agent 和 Node 需要另外安装。
-特权隔离 helper 使用独立安装流程。
+Linux 发行包还必须包含同版本
+`amux-isolation-helper`，缺失时打包失败；首次特权安装仍需显式执行，之后升级会
+更新已安装的服务。
 
 镜像可通过 `AMUX_RELEASE_BASE_URL` 指定安装器使用的 GitHub 风格 releases 目录；
 后续 CLI 和服务更新检查使用 `AMUX_RELEASE_URL`（`AMUX_SCM_LATEST_URL` 作为旧别名

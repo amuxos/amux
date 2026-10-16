@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -100,6 +101,59 @@ func TestInstallStagesOptionalHelperWithRollback(t *testing.T) {
 				if err != nil || string(got) != want {
 					t.Fatalf("%s: %q %v", name, got, err)
 				}
+			}
+		})
+	}
+}
+
+func TestRecoverLegacyInstallerHelperFromMatchingBundle(t *testing.T) {
+	for _, scenario := range []string{"matching", "missing_helper", "different_runtime", "different_cli", "retained_helper"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Setenv("AMUX_HOME", t.TempDir())
+			source, target := writeFakeInstallSource(t, "release"), writeFakeInstallSource(t, "release")
+			helper := exeName("amux-isolation-helper")
+			if err := os.WriteFile(filepath.Join(target, helper), []byte("stale-helper"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if scenario != "missing_helper" {
+				if err := os.WriteFile(filepath.Join(source, helper), []byte("release-helper"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if scenario == "different_runtime" || scenario == "different_cli" {
+				name := "amuxlet"
+				if scenario == "different_cli" {
+					name = "amux"
+				}
+				if err := os.WriteFile(filepath.Join(source, exeName(name)), []byte("different release"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if scenario == "retained_helper" {
+				source = target
+			}
+			meta := installMetadata{SourceDir: source, BinDir: target, Binaries: []string{"amux", "amuxd", "amuxlet"}}
+			if err := writeInstallMetadata(meta); err != nil {
+				t.Fatal(err)
+			}
+			recovered, err := recoverLegacyHelperBundle(&meta, target)
+			if err != nil || recovered != (scenario == "matching") {
+				t.Fatalf("recovered=%v err=%v", recovered, err)
+			}
+			data, err := os.ReadFile(filepath.Join(target, helper))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "stale-helper"
+			if recovered {
+				want = "release-helper"
+			}
+			if string(data) != want {
+				t.Fatalf("helper=%q want=%q", data, want)
+			}
+			saved, err := readInstallMetadata()
+			if err != nil || slices.Contains(saved.Binaries, "amux-isolation-helper") != recovered {
+				t.Fatalf("metadata=%+v err=%v", saved, err)
 			}
 		})
 	}

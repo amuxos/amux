@@ -1,7 +1,10 @@
 import hashlib
 import importlib.util
 import json
+import os
 import tempfile
+import subprocess
+import tarfile
 import unittest
 from pathlib import Path
 
@@ -76,6 +79,42 @@ class PublicReleaseTest(unittest.TestCase):
                 release.prepare(self.root, "v1.2.3")
             except FileNotFoundError as err:
                 raise ValueError("not found") from err
+
+
+class LinuxPackageTest(unittest.TestCase):
+    def test_helper_requirement_help_locales(self):
+        script = Path(__file__).with_name("package-release.sh")
+        for locale, expected in (("en", "Linux packages require"), ("zh-CN", "Linux 发行包要求"), ("fr", "Linux packages require")):
+            with self.subTest(locale=locale):
+                result = subprocess.run(["bash", str(script), "--help"], env={**os.environ, "AMUX_LANGUAGE": locale}, check=True, capture_output=True, text=True)
+                self.assertIn(expected, result.stdout)
+                self.assertIn("amux-isolation-helper", result.stdout)
+
+    def test_platform_bundle_includes_required_helper(self):
+        script = Path(__file__).with_name("package-release.sh")
+        for platform in ("linux", "darwin"):
+            with self.subTest(platform=platform), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                source = root / "bin"
+                source.mkdir()
+                names = ["amux", "amuxd", "amuxlet", "amux-isolation-helper"]
+                for name in names:
+                    (source / name).write_bytes((name + "-matching-release").encode())
+                output = root / "dist"
+                command = ["bash", str(script), "--source", str(source), "--dist-dir", str(output), "--version", "v1.2.3", "--os", platform, "--arch", "amd64"]
+                subprocess.run(command, check=True, capture_output=True)
+                archive = output / f"amux_v1.2.3_{platform}_amd64.tar.gz"
+                member = f"amux_v1.2.3_{platform}_amd64/amux-isolation-helper"
+                with tarfile.open(archive) as package:
+                    self.assertEqual(member in package.getnames(), platform == "linux")
+                    if platform == "linux":
+                        self.assertEqual(package.extractfile(member).read(), (source / names[-1]).read_bytes())
+                        self.assertEqual(package.getmember(member).mode & 0o111, 0o111)
+                (source / names[-1]).unlink()
+                archive.unlink()
+                result = subprocess.run(command, capture_output=True)
+                self.assertEqual(result.returncode == 0, platform != "linux")
+                self.assertEqual(archive.exists(), platform != "linux")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amuxos/amux/internal/amuxhome"
 	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/updatecheck"
 )
@@ -171,12 +173,16 @@ func (a *localManagementSystemActions) Upgrade(ctx context.Context, expectedVers
 	)
 	cmd.Stdin = nil
 	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	var diagnostic maintenanceStderr
+	cmd.Stderr = &diagnostic
 	cmd.Env = os.Environ()
 	// The installed update command restarts amuxd. Keep it outside the amuxd
 	// process group so it survives the service stop and can finish the handoff.
 	configureDetachedCommand(cmd)
 	if err := cmd.Run(); err != nil {
+		if detail := strings.TrimSpace(string(diagnostic.data)); detail != "" {
+			return fmt.Errorf("amux update --restart failed: %w: %s", err, detail)
+		}
 		return fmt.Errorf("amux update --restart failed: %w", err)
 	}
 	return nil
@@ -201,16 +207,54 @@ func (a *localManagementSystemActions) end(action string) {
 }
 
 func localAmuxExecutable() (string, error) {
-	if executable, err := os.Executable(); err == nil {
-		candidate := filepath.Join(filepath.Dir(executable), "amux")
+	executable, _ := os.Executable()
+	return localAmuxExecutableFrom(executable, exec.LookPath)
+}
+
+func localAmuxExecutableFrom(executable string, lookPath func(string) (string, error)) (string, error) {
+	name := "amux"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	var candidates []string
+	if executable != "" {
+		candidates = append(candidates, filepath.Join(filepath.Dir(executable), name))
+	}
+	// A running executable may have been renamed into a backup directory that
+	// was removed after activation. Resolve the current installation as well.
+	var metadata struct {
+		BinDir string `json:"bin_dir"`
+	}
+	if data, err := os.ReadFile(amuxhome.Path("install.json")); err == nil && json.Unmarshal(data, &metadata) == nil && filepath.IsAbs(metadata.BinDir) {
+		candidates = append(candidates, filepath.Join(metadata.BinDir, name))
+	}
+	candidates = append(candidates, amuxhome.Path("bin", name))
+	for _, candidate := range candidates {
 		if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
 			return candidate, nil
 		}
 	}
-	if candidate, err := exec.LookPath("amux"); err == nil {
+	if candidate, err := lookPath(name); err == nil {
 		return candidate, nil
 	}
 	return "", fmt.Errorf("amux executable not found")
+}
+
+// Keep the last error lines without buffering an entire installer transcript.
+type maintenanceStderr struct{ data []byte }
+
+func (w *maintenanceStderr) Write(p []byte) (int, error) {
+	const limit = 8 * 1024
+	n := len(p)
+	if n >= limit {
+		w.data = append(w.data[:0], p[n-limit:]...)
+		return n, nil
+	}
+	if len(w.data)+n > limit {
+		w.data = w.data[len(w.data)+n-limit:]
+	}
+	w.data = append(w.data, p...)
+	return n, nil
 }
 
 func (a *localManagementSystemActions) amuxExecutable() (string, error) {
