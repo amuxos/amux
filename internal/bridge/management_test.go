@@ -2187,6 +2187,13 @@ max_turns_per_thread = 10
 		case <-time.After(time.Second):
 			t.Fatalf("toggle %s did not trigger permission audit", step.enabled)
 		}
+		// Card delivery and permission auditing precede the worker's deferred
+		// cleanup. Wait for completion before sending the next settings action.
+		waitForBridgeTest(t, time.Second, func() bool {
+			b.settingsMu.Lock()
+			defer b.settingsMu.Unlock()
+			return !b.botToBotSettingsActive
+		})
 	}
 }
 
