@@ -121,15 +121,28 @@ singleton Sessions.
 
 ## Upgrades, revocation, and cleanup
 
-Run the same helper install command again to upgrade. Active launches prevent
-replacement; wait for them to finish and retry. Normal `amux update` does not
-replace this step. In particular, a successful helper handshake does not prove
-that an older helper supports file exchange. A file-transfer notice requesting
-a helper upgrade means the running helper rejected that operation; inspect the
-installed helper as well as `amuxlet-materializer`, install matching binaries,
-and retry after the helper upgrade. The current helper runs its own file worker
-under the principal UID, so file exchange does not use the profile materializer.
-Do not force-stop active launches just to replace the helper.
+`amux update` automatically refreshes an installed helper and its materializer
+from the same complete release bundle. It uses root or `sudo -n`, preserves the
+existing systemd unit (including identity, roots, UID range and hardening), and
+keeps an inactive service inactive. Matching files and a matching running helper
+are left alone. It does not install a helper on a machine without one.
+
+Active launches block replacement. An idle helper atomically blocks new launches
+for the lifetime of the updater; a failed or interrupted updater releases the
+guard. Older helpers without the guard protocol must be stopped once during a
+maintenance window after sessions finish and new submissions are paused. Run
+`amux update`, then start the helper again; subsequent updates manage the restart. The update then fails before ordinary service
+restarts; existing isolated sessions continue. Retry `amux update` after they
+finish. Missing administrator privileges, incomplete bundles and helper errors
+also fail the update instead of reporting success. Replacement or startup failures
+restore the previous binary pair and attempt to recover the previous service.
+Custom units or systemd drop-ins require an operator-managed upgrade. The explicit
+`amux isolation helper install` command remains available for installation and
+configuration changes. Do not force-stop active launches to replace the helper.
+
+A successful handshake with an older helper does not prove it supports file
+exchange. The current helper runs its own file worker under the principal UID,
+independently of the profile materializer version.
 
 `amux isolation principal disable <principal-id>` prevents
 further execution and revokes active executions for that identity; persistent
@@ -159,6 +172,12 @@ objects are not rewritten to passthrough; resuming them still requires restoring
 <a id="诊断"></a>
 
 ## Diagnostics
+
+`AMUX_HELPER_UPGRADE_E2E=1` enables `TestHelperUpgradeRootIntegration` in
+`app/cli`. Provide `AMUX_TEST_OLD_HELPER_BINARY` and `AMUX_TEST_HELPER_BINARY`
+with different old/new helper builds and run it as root. The fixture verifies
+actual replacement, idempotence and failed-start recovery with disposable helper
+processes. It substitutes systemd control and never changes an installed unit.
 
 The root-only `scripts/test-linux-dac.sh` includes inbox/outbox exchange under an
 unused UID, the 30 MB artifact boundary, and rejected privileged files/FIFOs/path

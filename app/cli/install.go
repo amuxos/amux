@@ -29,6 +29,7 @@ var installBinaryNames = []string{"amux", "amuxd", "amuxlet"}
 var updateHTTPClient = &http.Client{Timeout: 60 * time.Second}
 var updateSystemLifecycleOpener systemLifecycleOpener = openSystemLifecycle
 var updatePostInstallRunner = runUpdatePostInstallCommand
+var updateIsolationHelper = refreshInstalledIsolationHelper
 var updateAgentPackAutoSyncRefresher = func() error {
 	return restartIfRunning(agentPackAutoSyncService())
 }
@@ -273,6 +274,9 @@ func runInstall(opts *installOptions) error {
 		AgentPackContractStatus:    opts.managedAuthoringState.AgentPackContractStatus,
 		LocalExpertAuthoringStatus: opts.managedAuthoringState.LocalExpertAuthoringStatus,
 	}
+	if _, err := os.Stat(filepath.Join(sourceDir, exeName("amux-isolation-helper"))); err == nil {
+		meta.Binaries = append(meta.Binaries, "amux-isolation-helper")
+	}
 	if err := writeInstallMetadata(meta); err != nil {
 		return err
 	}
@@ -398,6 +402,9 @@ func updatePostInstallRequiresInstalledBinary(opts *installOptions) bool {
 
 func completeUpdatePostInstall(cmd *cobra.Command, opts *installOptions, nextSteps installNextStepsContext) error {
 	out := cmd.OutOrStdout()
+	if err := updateIsolationHelper(cmd, opts); err != nil {
+		return err
+	}
 	if opts.restart || opts.restartSessions {
 		if err := updateAgentPackAutoSyncRefresher(); err != nil {
 			return fmt.Errorf("refresh Agent Pack auto sync: %w", err)
@@ -863,14 +870,22 @@ func replaceInstallBinaries(sourceDir, binDir string, rename func(string, string
 	}
 	defer os.RemoveAll(backupDir)
 
-	for _, name := range installBinaryNames {
+	names := append([]string(nil), installBinaryNames...)
+	// Older bundles may omit the optional privileged helper. Copy it when
+	// present, using the same staging and rollback as the core binaries.
+	if _, err := os.Stat(filepath.Join(sourceDir, exeName("amux-isolation-helper"))); err == nil {
+		names = append(names, "amux-isolation-helper")
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	for _, name := range names {
 		if err := copyExecutable(filepath.Join(sourceDir, exeName(name)), filepath.Join(stageDir, exeName(name))); err != nil {
 			return fmt.Errorf("stage %s: %w", exeName(name), err)
 		}
 	}
 
-	swaps := make([]installBinarySwap, 0, len(installBinaryNames))
-	for _, name := range installBinaryNames {
+	swaps := make([]installBinarySwap, 0, len(names))
+	for _, name := range names {
 		destination := filepath.Join(binDir, exeName(name))
 		info, statErr := os.Lstat(destination)
 		if statErr != nil && !os.IsNotExist(statErr) {

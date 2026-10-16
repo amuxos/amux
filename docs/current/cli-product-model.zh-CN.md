@@ -45,6 +45,12 @@ Pack 不声明模型允许列表。
 `amux setup local` 配置本地 Hub 和 Runtime，在支持的宿主上使用原生服务管理。
 `amux install --source <directory>` 安装本地二进制。
 `amux update --source <directory> --restart` 更新已有安装，无需重复 setup。
+Linux 更新会同时从同一发行包刷新已安装的隔离 helper 和 materializer，通过 root
+或非交互 sudo 执行，保留原 systemd unit 与隔离配置；仍有活跃隔离 launch 时拒绝替换。
+空闲 helper 会持有与更新器生命周期绑定的启动保护，避免新会话与重启发生竞态。
+不支持该能力的旧 helper 需要在维护窗口先停止后进行一次性迁移；已停止的服务保持停止。
+helper 更新失败会在普通服务重启前返回更新失败，消除原因后重试 `amux update` 即可。
+未安装 helper 的机器不会因此安装或开启隔离。
 公共版本默认从 `amuxos/amux-releases` 的平台清单更新。`AMUX_RELEASE_URL` 可覆盖
 来源；发行版仍可使用 `AMUX_SCM_LATEST_URL` 和已有归档格式。清单下载必须在解包前
 通过 SHA256 校验。默认不配置 authoring runtime 下载源；可选 authoring 能力不可用

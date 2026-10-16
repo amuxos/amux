@@ -61,7 +61,16 @@ retaining the session identity, workspace and execution settings.
 targets; `amux setup local` configures the local hub and runtime using native
 service supervision where supported. `amux install --source <directory>` installs local
 binaries. `amux update --source <directory> --restart` updates an existing
-installation without repeating setup. Public updates use the platform manifest
+installation without repeating setup. On Linux, updates also refresh an already
+installed isolation helper and its materializer from the same bundle. This uses
+root or noninteractive sudo, preserves the installed systemd unit and isolation
+settings, and refuses replacement while isolated launches are active. An idle
+helper holds an admission guard until the upgrade exits, preventing concurrent
+launches from racing the restart. Older helpers without this capability require
+a one-time maintenance stop before updating; stopped helpers stay stopped. A failed
+helper refresh returns a failed update before ordinary service restarts; retry
+`amux update` after the cause is resolved. It never installs or enables isolation
+on a machine without a helper service. Public updates use the platform manifest
 from `amuxos/amux-releases` by default. `AMUX_RELEASE_URL` overrides the source;
 `AMUX_SCM_LATEST_URL` and the existing archive format remain supported for
 distributions. Manifest downloads require SHA256 verification before extraction.

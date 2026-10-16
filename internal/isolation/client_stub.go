@@ -5,6 +5,7 @@ package isolation
 import (
 	"context"
 	"fmt"
+	"os"
 )
 
 type HelperClient struct {
@@ -56,6 +57,9 @@ func (c *HelperClient) KillPrincipal(context.Context, AccountMapping) error {
 }
 func (c *HelperClient) Drain(context.Context, bool) error { return helperUnsupported() }
 func (c *HelperClient) DrainStatus(context.Context, bool) (int, error) {
+	return 0, helperUnsupported()
+}
+func (c *HelperClient) AcquireUpgradeGuard(context.Context, *os.File) (int, error) {
 	return 0, helperUnsupported()
 }
 func (c *HelperClient) ListAccounts(context.Context) ([]AccountMapping, error) {

@@ -61,5 +61,47 @@
   },
   "agent.local_converted": {
     "other": "Local library source is v2\nrevision: %s\nChoose the runtime, model and permissions when launching."
+  },
+  "update.helper.legacy_helper": {
+    "other": "The running isolation helper predates safe upgrade guards. During a maintenance window, pause new submissions, wait for sessions to finish, stop the helper, run amux update, then start it again. Subsequent updates are automatic."
+  },
+  "update.helper.failed": {
+    "other": "Isolation helper update failed; the amux binaries may already be updated. Resolve the reported cause and retry amux update."
+  },
+  "update.helper.privilege_failed": {
+    "other": "Could not run the isolation helper update with administrator privileges. Noninteractive sudo is required; ask an administrator to grant it or update the helper, then retry amux update."
+  },
+  "update.helper.busy": {
+    "other": "Isolation helper update blocked by %d active launch(es). Existing sessions continue; retry amux update after they finish."
+  },
+  "update.helper.unchanged": {
+    "other": "Isolation helper and materializer are already up to date."
+  },
+  "update.helper.updated": {
+    "other": "Updated the isolation helper and materializer; existing isolation settings were preserved."
+  },
+  "update.helper.bundle_missing": {
+    "other": "This update bundle did not install an isolation helper binary. Retry using a complete matching release bundle."
+  },
+  "update.helper.root_required": {
+    "other": "Administrator privileges are required."
+  },
+  "update.helper.invalid_unit": {
+    "other": "The installed helper unit is not in the supported managed format; ask an administrator to update it."
+  },
+  "update.helper.invalid_source": {
+    "other": "Use an absolute path to a complete release bundle."
+  },
+  "update.helper.custom_unit": {
+    "other": "A custom service unit or systemd drop-in is present; an administrator must update the helper while preserving that configuration."
+  },
+  "update.helper.service_transition": {
+    "other": "The helper service is starting or stopping; retry after it settles."
+  },
+  "update.helper.invalid_target": {
+    "other": "The installed helper directory must be a root-owned directory without symlinks or group/other write access."
+  },
+  "update.helper.upgrade_locked": {
+    "other": "Another helper update is running; retry after it finishes."
   }
 }

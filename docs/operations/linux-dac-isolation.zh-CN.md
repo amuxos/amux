@@ -98,8 +98,21 @@ amux isolation service-member grant --service <service-principal-id> \
 
 ## 升级、撤销和清理
 
-再次执行相同的 helper install 命令升级。存在 active launch 时会拒绝覆盖，等待它们
-结束后重试。普通 `amux update` 不代替这一步。
+`amux update` 会从同一完整发行包自动更新已安装的 helper 和 materializer，通过 root
+或 `sudo -n` 执行。原 systemd unit（身份、目录、UID 范围和加固参数）保持不变，
+已停止的 helper 不会被启动。磁盘文件及运行中的 helper 都匹配时跳过；未安装 helper
+的机器不会因此安装或开启隔离。
+
+空闲 helper 会原子地暂停接收新 launch，直到更新器退出；更新失败或中断会释放保护。
+不支持该协议的旧 helper 需要一次性迁移：在维护窗口暂停新请求，等待会话结束后停止
+helper，执行 `amux update`，再启动 helper；后续升级会自动管理重启。
+
+存在活跃 launch 时拒绝替换，更新会在普通服务重启前返回失败，现有隔离会话继续运行；
+结束后重试 `amux update`。管理员权限不足、发行包缺失组件或 helper 出错也会明确失败。
+替换或启动失败时恢复原来的二进制对，并尝试恢复原服务。自定义 unit 或 systemd drop-in
+需要管理员维护升级。`amux isolation helper install` 仍用于首次安装及修改隔离配置。
+不要仅为升级 helper 而强制终止活动会话。
+
 `amux isolation principal disable <principal-id>` 阻止该身份继续执行，并撤销它的活动执行；
 长期账号和工作目录保留。先用只读清点：
 
@@ -126,9 +139,15 @@ execution 使用普通 backend；已保存的 `linux-dac` 对象不会被改写�
 
 helper 握手成功不代表旧版本支持文件交换。如果文件传输提示要求升级 helper，说明正在
 运行的 helper 拒绝了该操作。应同时检查已安装的 helper 和 `amuxlet-materializer`，
-通过上述安装命令更新配套二进制后重试；普通 `amux update` 不会代替这一步。
+通过 `amux update` 自动更新配套组件，或由管理员执行上述安装命令后重试。
 当前 helper 使用自身的文件 worker，以 principal UID 读写文件，不依赖 Profile
 materializer。不要仅为升级 helper 而强制终止活动会话。
+
+设置 `AMUX_HELPER_UPGRADE_E2E=1` 可启用 `app/cli` 中的
+`TestHelperUpgradeRootIntegration`。以 root 执行，并通过
+`AMUX_TEST_OLD_HELPER_BINARY` 和 `AMUX_TEST_HELPER_BINARY` 提供不同的新旧构建。
+该夹具启动临时 helper 进程，验证实际替换、幂等性和启动失败后的恢复；systemd 控制
+由进程控制替代，不会改动已安装的 unit。
 
 需要 root 的 `scripts/test-linux-dac.sh` 包含未使用 UID 下的 inbox/outbox 交换、
 30 MB 成果边界，以及特权文件、FIFO 和路径逃逸拒绝验证。

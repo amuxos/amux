@@ -6,7 +6,7 @@
     "other": "附件 %q 无法写入会话，请联系管理员查看文件传输日志。"
   },
   "session.file.helper_upgrade_required": {
-    "other": "文件 %q 无法传输：目标运行环境的隔离 helper 版本过旧。请联系管理员使用 amux isolation helper install 升级 helper 及其 materializer 后重试；仅更新 amux 不会升级这些组件。"
+    "other": "文件 %q 无法传输：目标运行环境的隔离 helper 版本过旧。请联系管理员使用完整发行包运行 amux update；具备非交互 sudo 权限且没有活跃隔离 launch 时，会自动更新已安装的 helper 和 materializer。管理员也可使用 amux isolation helper install。"
   },
   "management.you.do.not.have.permission.to.manage.this.assistant": {
     "other": "你没有权限管理这个智能体"

@@ -537,6 +537,7 @@ func newIsolationAccountCmd() *cobra.Command {
 func newIsolationHelperCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "helper", Short: "Install and manage the privileged Linux helper"}
 	cmd.AddCommand(newIsolationHelperDrainProbeCmd())
+	cmd.AddCommand(newIsolationHelperUpgradeCmd())
 	cmd.AddCommand(newIsolationHelperStatusCmd(), newIsolationHelperInstallCmd(), newIsolationHelperUninstallCmd())
 	return cmd
 }
@@ -866,8 +867,15 @@ func drainHelperForControl(ctx context.Context, socket string, callerUID int, pr
 // probe re-executes this binary as the socket owner, since credentials can only
 // be dropped for a whole process.
 func drainHelper(ctx context.Context, socket string, force bool) (int, error) {
+	return probeHelper(ctx, socket, force, nil)
+}
+
+func probeHelper(ctx context.Context, socket string, force bool, lease *os.File) (int, error) {
 	return drainHelperForControl(ctx, socket, os.Geteuid(), drainProbe{
 		direct: func(ctx context.Context) (int, error) {
+			if lease != nil {
+				return isolation.NewHelperClient(socket).AcquireUpgradeGuard(ctx, lease)
+			}
 			return isolation.NewHelperClient(socket).DrainStatus(ctx, force)
 		},
 		dropped: func(ctx context.Context, uid, gid int) (int, error) {
@@ -879,7 +887,13 @@ func drainHelper(ctx context.Context, socket string, force bool) (int, error) {
 			if force {
 				args = append(args, "--force")
 			}
+			if lease != nil {
+				args = append(args, "--upgrade-guard")
+			}
 			cmd := exec.CommandContext(ctx, self, args...)
+			if lease != nil {
+				cmd.Stdin = lease
+			}
 			setProcessCredential(cmd, uid, gid)
 			output, err := cmd.Output()
 			if err != nil {
@@ -899,6 +913,7 @@ func drainHelper(ctx context.Context, socket string, force bool) (int, error) {
 }
 
 func newIsolationHelperDrainProbeCmd() *cobra.Command {
+	var upgradeGuard bool
 	var socket string
 	var force bool
 	cmd := &cobra.Command{
@@ -910,7 +925,11 @@ func newIsolationHelperDrainProbeCmd() *cobra.Command {
 			if !filepath.IsAbs(socket) {
 				return fmt.Errorf("helper socket must be absolute")
 			}
-			active, err := drainHelper(cmd.Context(), socket, force)
+			var lease *os.File
+			if upgradeGuard {
+				lease = os.Stdin
+			}
+			active, err := probeHelper(cmd.Context(), socket, force, lease)
 			if err != nil {
 				return err
 			}
@@ -918,6 +937,7 @@ func newIsolationHelperDrainProbeCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&upgradeGuard, "upgrade-guard", false, "")
 	cmd.Flags().StringVar(&socket, "socket", "", "absolute helper socket path")
 	cmd.Flags().BoolVar(&force, "force", false, "kill active isolated launches")
 	return cmd

@@ -61,5 +61,47 @@
   },
   "agent.local_converted": {
     "other": "本地专家库源格式已为 v2\nrevision: %s\n启动时请显式选择 Runtime、模型和权限。"
+  },
+  "update.helper.legacy_helper": {
+    "other": "正在运行的隔离 helper 不支持安全升级保护。请在维护窗口暂停新请求、等待会话结束后停止 helper，执行 amux update，再启动 helper；后续升级会自动完成。"
+  },
+  "update.helper.failed": {
+    "other": "隔离 helper 更新失败，amux 程序可能已更新。请处理具体错误后重试 amux update。"
+  },
+  "update.helper.privilege_failed": {
+    "other": "无法以管理员权限更新隔离 helper。需要非交互 sudo 权限；请联系管理员授予权限或更新 helper，然后重试 amux update。"
+  },
+  "update.helper.busy": {
+    "other": "隔离 helper 尚有 %d 个活跃 launch，暂不能更新。现有会话继续运行，结束后请重试 amux update。"
+  },
+  "update.helper.unchanged": {
+    "other": "隔离 helper 和 materializer 已是当前版本。"
+  },
+  "update.helper.updated": {
+    "other": "隔离 helper 和 materializer 已更新，原有隔离配置已保留。"
+  },
+  "update.helper.bundle_missing": {
+    "other": "本次升级包未安装隔离 helper 程序，请使用完整且版本匹配的发行包重试。"
+  },
+  "update.helper.root_required": {
+    "other": "需要管理员权限。"
+  },
+  "update.helper.invalid_unit": {
+    "other": "已安装的 helper unit 不符合受支持的托管格式，请联系管理员更新。"
+  },
+  "update.helper.invalid_source": {
+    "other": "请使用完整发行包的绝对路径。"
+  },
+  "update.helper.custom_unit": {
+    "other": "存在自定义 service unit 或 systemd drop-in，请由管理员保留配置并更新 helper。"
+  },
+  "update.helper.service_transition": {
+    "other": "helper 正在启动或停止，请等待状态稳定后重试。"
+  },
+  "update.helper.invalid_target": {
+    "other": "helper 安装目录必须归 root 所有，不能含符号链接，也不能允许组或其他用户写入。"
+  },
+  "update.helper.upgrade_locked": {
+    "other": "另一个 helper 更新正在执行，请等待其结束后重试。"
   }
 }

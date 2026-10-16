@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net"
 	"os"
@@ -85,10 +86,11 @@ type helperServer struct {
 	db       *sql.DB
 	listener *net.UnixListener
 
-	mu        sync.Mutex
-	launches  map[string]*helperLaunch
-	draining  bool
-	mappingMu sync.Mutex
+	mu            sync.Mutex
+	launches      map[string]*helperLaunch
+	draining      bool
+	upgradeGuards int
+	mappingMu     sync.Mutex
 
 	hardeningMu        sync.Mutex
 	hardening          map[string]bool
@@ -360,7 +362,7 @@ func (s *helperServer) handleWithFiles(req HelperRequest, requestFiles []*os.Fil
 	switch req.Operation {
 	case OpHandshake:
 		s.mu.Lock()
-		draining := s.draining
+		draining := s.draining || s.upgradeGuards > 0
 		s.mu.Unlock()
 		hardening, degraded := s.hardeningStatus()
 		return HelperResponse{HelperVersion: helperVersion, Draining: draining, Hardening: hardening, DegradedReasons: degraded}, nil
@@ -443,6 +445,39 @@ func (s *helperServer) handleWithFiles(req HelperRequest, requestFiles []*os.Fil
 			return helperError("kill_failed", err.Error()), nil
 		}
 		return HelperResponse{}, nil
+	case OpUpgradeGuard:
+		if len(requestFiles) != 1 {
+			return helperError("invalid_request", "upgrade guard requires a lease pipe"), nil
+		}
+		info, err := requestFiles[0].Stat()
+		if err != nil || info.Mode()&os.ModeNamedPipe == 0 {
+			return helperError("invalid_request", "upgrade guard requires a lease pipe"), nil
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		active := 0
+		for _, launch := range s.launches {
+			if launch.desc.State == "running" {
+				active++
+			}
+		}
+		if active != 0 {
+			return HelperResponse{ActiveLaunches: active}, nil
+		}
+		fd, err := unix.FcntlInt(requestFiles[0].Fd(), unix.F_DUPFD_CLOEXEC, 0)
+		if err != nil {
+			return helperError("upgrade_guard_failed", err.Error()), nil
+		}
+		lease := os.NewFile(uintptr(fd), "upgrade-lease")
+		s.upgradeGuards++
+		go func() {
+			_, _ = io.Copy(io.Discard, lease)
+			_ = lease.Close()
+			s.mu.Lock()
+			s.upgradeGuards--
+			s.mu.Unlock()
+		}()
+		return HelperResponse{Draining: true}, nil
 	case OpDrain:
 		s.mu.Lock()
 		active := 0
@@ -758,7 +793,7 @@ func (s *helperServer) start(req HelperRequest) (LaunchDescription, []*os.File, 
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.draining {
+	if s.draining || s.upgradeGuards > 0 {
 		return LaunchDescription{}, nil, fmt.Errorf("helper is draining")
 	}
 	if launch := s.launches[req.LaunchID]; launch != nil {

@@ -35,6 +35,7 @@ const (
 	OpReclaimHome     HelperOperation = "reclaim_home"
 	OpKillPrincipal   HelperOperation = "kill_principal"
 	OpDrain           HelperOperation = "drain"
+	OpUpgradeGuard    HelperOperation = "upgrade_guard"
 	OpListAccounts    HelperOperation = "list_accounts"
 	OpRemoveAccount   HelperOperation = "remove_account"
 )

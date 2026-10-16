@@ -82,6 +82,83 @@ func TestHelperUnprivilegedLifecycleAndSCMRights(t *testing.T) {
 	}
 }
 
+// Exercise the admission boundary through real Unix requests and launches.
+func TestHelperUpgradeGuardExcludesLaunchAndReleasesOnPipeClose(t *testing.T) {
+	root := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cfg := HelperConfig{SocketPath: filepath.Join(root, "helper.sock"), StateDir: filepath.Join(root, "state"), PrincipalRoot: filepath.Join(root, "principals"), ServiceUID: os.Getuid(), ServiceGID: os.Getgid(), UIDRangeStart: max(os.Getuid(), 1), UIDRangeEnd: max(os.Getuid(), 1) + 10, AllowUnprivileged: true, SkipAccountProvision: true}
+	done := make(chan error, 1)
+	go func() { done <- ServeHelper(ctx, cfg) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}()
+	client := NewHelperClient(cfg.SocketPath)
+	waitHelperReady(t, client)
+	mapping := AccountMapping{PrincipalID: "d7eaf95f-4c18-43b2-81fd-f5f013ac901d", Account: "amux_0123456789ab", UID: max(os.Getuid(), 1), GID: max(os.Getuid(), 1)}
+	paths, err := client.PrepareRun(ctx, mapping, "exec_guard", "launch-guard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := LaunchSpec{Path: "/bin/sh", Args: []string{"-c", "sleep 300"}, Env: []string{"PATH=/usr/bin:/bin"}, Dir: paths.Workspace, Context: LaunchContext{LaunchID: "launch-guard"}}
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	defer writer.Close()
+	if active, err := client.AcquireUpgradeGuard(ctx, reader); err != nil || active != 0 {
+		t.Fatalf("guard: %d %v", active, err)
+	}
+	if handle, err := client.Start(ctx, mapping, spec); err == nil {
+		_ = handle.Kill(ctx)
+		_ = handle.Close()
+		t.Fatal("launch entered held upgrade guard")
+	}
+	// Closing the updater's pipe (also what process exit does) must reopen
+	// admission without a separate release RPC or a timeout.
+	_ = writer.Close()
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		status, err := client.Handshake(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !status.Draining {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("guard leaked after updater exit")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	handle, err := client.Start(ctx, mapping, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handle.Close()
+	defer handle.Kill(ctx)
+	busyReader, busyWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer busyReader.Close()
+	defer busyWriter.Close()
+	if active, err := client.AcquireUpgradeGuard(ctx, busyReader); err != nil || active != 1 {
+		t.Fatalf("busy: %d %v", active, err)
+	}
+	status, err := client.Handshake(ctx)
+	if err != nil || status.Draining {
+		t.Fatalf("busy guard blocked admission: %+v %v", status, err)
+	}
+	desc, err := client.Describe(ctx, "launch-guard")
+	if err != nil || desc.State != "running" {
+		t.Fatalf("busy guard interrupted launch: %+v %v", desc, err)
+	}
+}
+
 // A provider binary the principal cannot execute has to fail the Start RPC with
 // the blocking component named. Spawning it anyway leaves the caller waiting on
 // a child that dies with a bare errno on a stderr nobody reads until the broker

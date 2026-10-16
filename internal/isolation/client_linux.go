@@ -315,6 +315,23 @@ func (c *HelperClient) DrainStatus(ctx context.Context, force bool) (int, error)
 	return resp.ActiveLaunches, err
 }
 
+// AcquireUpgradeGuard atomically checks for idle launches and prevents new
+// launches while the writer of lease remains open. The caller owns the pipe.
+// -1 means that the running helper predates the guard protocol.
+func (c *HelperClient) AcquireUpgradeGuard(ctx context.Context, lease *os.File) (int, error) {
+	resp, _, err := c.requestWithFiles(ctx, HelperRequest{Operation: OpUpgradeGuard}, []*os.File{lease}, 0)
+	if resp.ErrorCode == "unsupported_operation" {
+		return -1, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if resp.ActiveLaunches == 0 && !resp.Draining {
+		return 0, fmt.Errorf("helper did not acquire upgrade guard")
+	}
+	return resp.ActiveLaunches, nil
+}
+
 func (c *HelperClient) ListAccounts(ctx context.Context) ([]AccountMapping, error) {
 	resp, _, err := c.request(ctx, HelperRequest{Operation: OpListAccounts}, 0)
 	return resp.Accounts, err

@@ -6,7 +6,7 @@
     "other": "Attachment %q could not be written to the session. Ask the operator to check the file-transfer logs."
   },
   "session.file.helper_upgrade_required": {
-    "other": "File %q could not be transferred because this runtime's isolation helper is outdated. Ask the operator to upgrade the helper and its materializer with amux isolation helper install, then retry. Updating amux alone does not upgrade these components."
+    "other": "File %q could not be transferred because this runtime's isolation helper is outdated. Ask the operator to run amux update with a complete release bundle; it also updates an installed helper and materializer when noninteractive sudo is available and no isolated launches are active. Administrators can also use amux isolation helper install."
   },
   "management.you.do.not.have.permission.to.manage.this.assistant": {
     "other": "You do not have permission to manage this assistant"
