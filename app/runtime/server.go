@@ -33,6 +33,7 @@ import (
 )
 
 type server struct {
+	maintenance *runtimeMaintenance
 	pb.UnimplementedAmuxletServer
 	mgr                       *session.Manager
 	amuxletBin                string
@@ -972,6 +973,11 @@ func (s *server) archiveSession(sess *session.Session, reason string) error {
 // serialization). Prune is a batch DB op applied per workspace source so local
 // and feishu can use different TTLs.
 func (s *server) reclaimSessions(now time.Time, localPol, feishuPol session.ReclaimPolicy) int {
+	done, err := s.maintenance.enter(true)
+	if err != nil {
+		return 0
+	}
+	defer done()
 	acted := 0
 	for _, sess := range s.mgr.List() {
 		snap := sess.Snapshot()

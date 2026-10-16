@@ -195,6 +195,10 @@ func (s *Session) admitGoalTurn(request GoalTurnRequest) (GoalTurnBinding, error
 	defer timer.Stop()
 	for {
 		s.queueMu.Lock()
+		if s.maintenance != nil && s.maintenance() {
+			s.queueMu.Unlock()
+			return GoalTurnBinding{}, errors.New("runtime_maintenance")
+		}
 		if len(s.queuePending) != 0 {
 			s.queueMu.Unlock()
 			return GoalTurnBinding{}, errors.New("user input takes priority over goal continuation")
@@ -289,7 +293,7 @@ func (s *Session) resumeGoalAfterInput() {
 	s.goalControlMu.Lock()
 	defer s.goalControlMu.Unlock()
 	s.queueMu.Lock()
-	idle := !s.queueBusy && len(s.queuePending) == 0
+	idle := (s.maintenance == nil || !s.maintenance()) && !s.queueBusy && len(s.queuePending) == 0
 	s.queueMu.Unlock()
 	s.goalMu.Lock()
 	grant := s.goalGrant
@@ -310,7 +314,7 @@ func (s *Session) resumeGoalAfterInput() {
 		return
 	}
 	s.queueMu.Lock()
-	idle = !s.queueBusy && len(s.queuePending) == 0
+	idle = (s.maintenance == nil || !s.maintenance()) && !s.queueBusy && len(s.queuePending) == 0
 	s.queueMu.Unlock()
 	s.goalMu.Lock()
 	valid := s.goalGrant == grant && grant.Enabled

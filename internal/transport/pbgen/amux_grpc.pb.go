@@ -4098,3 +4098,107 @@ var CoordinationService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "amux/v1/amux.proto",
 }
+
+const (
+	RuntimeMaintenance_Maintain_FullMethodName = "/amux.v1.RuntimeMaintenance/Maintain"
+)
+
+// RuntimeMaintenanceClient is the client API for RuntimeMaintenance service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Local Unix-socket administration only. Never routed through the Hub/tunnel.
+type RuntimeMaintenanceClient interface {
+	Maintain(ctx context.Context, in *MaintenanceRequest, opts ...grpc.CallOption) (*MaintenanceResponse, error)
+}
+
+type runtimeMaintenanceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRuntimeMaintenanceClient(cc grpc.ClientConnInterface) RuntimeMaintenanceClient {
+	return &runtimeMaintenanceClient{cc}
+}
+
+func (c *runtimeMaintenanceClient) Maintain(ctx context.Context, in *MaintenanceRequest, opts ...grpc.CallOption) (*MaintenanceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MaintenanceResponse)
+	err := c.cc.Invoke(ctx, RuntimeMaintenance_Maintain_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RuntimeMaintenanceServer is the server API for RuntimeMaintenance service.
+// All implementations should embed UnimplementedRuntimeMaintenanceServer
+// for forward compatibility.
+//
+// Local Unix-socket administration only. Never routed through the Hub/tunnel.
+type RuntimeMaintenanceServer interface {
+	Maintain(context.Context, *MaintenanceRequest) (*MaintenanceResponse, error)
+}
+
+// UnimplementedRuntimeMaintenanceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRuntimeMaintenanceServer struct{}
+
+func (UnimplementedRuntimeMaintenanceServer) Maintain(context.Context, *MaintenanceRequest) (*MaintenanceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Maintain not implemented")
+}
+func (UnimplementedRuntimeMaintenanceServer) testEmbeddedByValue() {}
+
+// UnsafeRuntimeMaintenanceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RuntimeMaintenanceServer will
+// result in compilation errors.
+type UnsafeRuntimeMaintenanceServer interface {
+	mustEmbedUnimplementedRuntimeMaintenanceServer()
+}
+
+func RegisterRuntimeMaintenanceServer(s grpc.ServiceRegistrar, srv RuntimeMaintenanceServer) {
+	// If the following call panics, it indicates UnimplementedRuntimeMaintenanceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&RuntimeMaintenance_ServiceDesc, srv)
+}
+
+func _RuntimeMaintenance_Maintain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MaintenanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RuntimeMaintenanceServer).Maintain(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RuntimeMaintenance_Maintain_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RuntimeMaintenanceServer).Maintain(ctx, req.(*MaintenanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RuntimeMaintenance_ServiceDesc is the grpc.ServiceDesc for RuntimeMaintenance service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RuntimeMaintenance_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "amux.v1.RuntimeMaintenance",
+	HandlerType: (*RuntimeMaintenanceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Maintain",
+			Handler:    _RuntimeMaintenance_Maintain_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "amux/v1/amux.proto",
+}

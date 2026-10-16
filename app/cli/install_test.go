@@ -619,6 +619,7 @@ func TestUpdateRestartHandoffsPostInstallToInstalledAmux(t *testing.T) {
 		"--post-install",
 		"--bin-dir", filepath.Join(home, ".amux", "bin"),
 		"--installed-version", version,
+		"--drain-timeout", "5m0s",
 		"--restart",
 	}
 	if !reflect.DeepEqual(gotArgs, wantArgs) {

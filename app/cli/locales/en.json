@@ -103,5 +103,35 @@
   },
   "update.helper.upgrade_locked": {
     "other": "Another helper update is running; retry after it finishes."
+  },
+  "update.maintenance.draining": {
+    "other": "Waiting for accepted work to finish before updating…"
+  },
+  "update.maintenance.ready": {
+    "other": "Upgrade maintenance ready; %d sessions will be restored afterward."
+  },
+  "update.maintenance.failed": {
+    "other": "Could not prepare upgrade maintenance; update aborted."
+  },
+  "update.maintenance.legacy": {
+    "other": "This Runtime predates coordinated upgrades. The helper safety guard still applies; active isolated launches require a one-time maintenance upgrade."
+  },
+  "update.maintenance.timeout": {
+    "other": "Upgrade wait timed out after %s (%d busy sessions, %d active tasks). No active turn was cancelled."
+  },
+  "update.maintenance.recovery_failed": {
+    "other": "Session recovery is incomplete. The Runtime retains the recovery list and retries automatically; check runtime logs."
+  },
+  "update.maintenance.drain_timeout_help": {
+    "other": "Maximum wait for accepted work to finish before a Linux helper update"
+  },
+  "update.maintenance.invalid_timeout": {
+    "other": "--drain-timeout must be positive"
+  },
+  "update.maintenance.expired": {
+    "other": "The upgrade maintenance lease expired. Retry the update."
+  },
+  "update.maintenance.restored": {
+    "other": "  sessions: restored after upgrade maintenance"
   }
 }

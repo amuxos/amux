@@ -103,5 +103,35 @@
   },
   "update.helper.upgrade_locked": {
     "other": "另一个 helper 更新正在执行，请等待其结束后重试。"
+  },
+  "update.maintenance.draining": {
+    "other": "正在等待已接收的工作完成，再进行升级……"
+  },
+  "update.maintenance.ready": {
+    "other": "升级维护已就绪，完成后将恢复 %d 个会话。"
+  },
+  "update.maintenance.failed": {
+    "other": "无法准备升级维护，升级已终止。"
+  },
+  "update.maintenance.legacy": {
+    "other": "当前 Runtime 尚不支持协调升级，仍保留 helper 安全检查；有活动隔离进程时需要一次维护升级。"
+  },
+  "update.maintenance.timeout": {
+    "other": "等待升级超时（%s，%d 个忙碌会话、%d 个活动任务），未取消活动轮次。"
+  },
+  "update.maintenance.recovery_failed": {
+    "other": "会话尚未全部恢复，Runtime 已保留恢复名单并自动重试，请查看 Runtime 日志。"
+  },
+  "update.maintenance.drain_timeout_help": {
+    "other": "Linux helper 升级前等待已接收工作完成的最长时间"
+  },
+  "update.maintenance.invalid_timeout": {
+    "other": "--drain-timeout 必须大于零"
+  },
+  "update.maintenance.expired": {
+    "other": "升级维护租约已失效，请重试升级。"
+  },
+  "update.maintenance.restored": {
+    "other": "  会话：已在升级维护后恢复"
   }
 }

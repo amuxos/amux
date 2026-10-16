@@ -50,6 +50,9 @@ type installMetadata struct {
 }
 
 type installOptions struct {
+	drainTimeout          time.Duration
+	maintenanceToken      string
+	maintenance           *updateMaintenance
 	sourceDir             string
 	binDir                string
 	shellProfile          string
@@ -106,11 +109,20 @@ func newUpdateCmd() *cobra.Command {
 		Short:             "Update the current user's amux installation",
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: completeNoFiles,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
 			nextSteps := installNextStepsConfigured
 			normalizeUpdateRestartOptions(&opts)
 			out := cmd.OutOrStdout()
+			if opts.drainTimeout <= 0 {
+				return fmt.Errorf("%s", maintenanceText(cmd, "invalid_timeout"))
+			}
 			if opts.postInstall {
+				maintenance, err := beginUpdateMaintenance(cmd, &opts)
+				if err != nil {
+					return err
+				}
+				opts.maintenance = maintenance
+				defer func() { retErr = errors.Join(retErr, maintenance.finish()) }()
 				return completeUpdatePostInstall(cmd, &opts, nextSteps)
 			}
 			printUpdateStart(out, &opts)
@@ -127,6 +139,12 @@ func newUpdateCmd() *cobra.Command {
 				opts.sourceDir = sourceDir
 				opts.installedVersion = releaseVersion
 			}
+			maintenance, err := beginUpdateMaintenance(cmd, &opts)
+			if err != nil {
+				return err
+			}
+			opts.maintenance = maintenance
+			defer func() { retErr = errors.Join(retErr, maintenance.finish()) }()
 			fmt.Fprintf(out, "Installing binaries to %s...\n", effectiveInstallBinDir(opts.binDir))
 			if err := runInstall(&opts); err != nil {
 				return err
@@ -141,6 +159,9 @@ func newUpdateCmd() *cobra.Command {
 	addInstallFlags(c, &opts)
 	c.Flags().StringVar(&opts.scmLatestURL, "release-url", opts.scmLatestURL, "Release manifest or archive URL used when --source is omitted")
 	c.Flags().StringVar(&opts.scmLatestURL, "scm-latest-url", opts.scmLatestURL, "SCM latest package URL used when --source is omitted")
+	c.Flags().DurationVar(&opts.drainTimeout, "drain-timeout", 5*time.Minute, maintenanceText(c, "drain_timeout_help"))
+	c.Flags().StringVar(&opts.maintenanceToken, "maintenance-token", "", "")
+	_ = c.Flags().MarkHidden("maintenance-token")
 	c.Flags().BoolVar(&opts.restart, "restart", false, "restart running amux services after updating")
 	c.Flags().BoolVar(&opts.restartSessions, "restart-sessions", false, "restart running local user sessions after updating")
 	c.Flags().BoolVar(&opts.restartLocalServices, "restart-local-services", false, "restart registered amux mcp and gui serve local servers after updating")
@@ -329,7 +350,9 @@ func printUpdateSummary(out io.Writer, opts *installOptions) {
 	} else {
 		fmt.Fprintln(out, "  services: not restarted (use --restart)")
 	}
-	if opts != nil && opts.restartSessions {
+	if opts != nil && opts.maintenance != nil {
+		fmt.Fprintln(out, maintenanceText(opts.maintenance.cmd, "restored"))
+	} else if opts != nil && opts.restartSessions {
 		fmt.Fprintln(out, "  sessions: restarted running local user sessions")
 	} else {
 		fmt.Fprintln(out, "  sessions: not restarted (use --restart-sessions)")
@@ -402,6 +425,17 @@ func updatePostInstallRequiresInstalledBinary(opts *installOptions) bool {
 
 func completeUpdatePostInstall(cmd *cobra.Command, opts *installOptions, nextSteps installNextStepsContext) error {
 	out := cmd.OutOrStdout()
+	if opts.maintenance != nil {
+		ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+		response, err := opts.maintenance.call(ctx, "poll")
+		cancel()
+		if err != nil {
+			return fmt.Errorf("%s: %w", maintenanceText(cmd, "failed"), err)
+		}
+		if response.Phase != "ready" {
+			return fmt.Errorf("%s", maintenanceText(cmd, "failed"))
+		}
+	}
 	if err := updateIsolationHelper(cmd, opts); err != nil {
 		return err
 	}
@@ -419,7 +453,7 @@ func completeUpdatePostInstall(cmd *cobra.Command, opts *installOptions, nextSte
 			return err
 		}
 	}
-	if opts.restartSessions {
+	if opts.restartSessions && opts.maintenance == nil {
 		result, err := restartLocalUserSessions(cmd.Context())
 		if err != nil {
 			return err
@@ -436,6 +470,9 @@ func completeUpdatePostInstall(cmd *cobra.Command, opts *installOptions, nextSte
 		}
 		printRestartedLocalServiceProcesses(out, restarted)
 	}
+	if err := opts.maintenance.finish(); err != nil {
+		return err
+	}
 	fmt.Fprintf(out, "Updated amux to %s\n", installVersion(opts))
 	printUpdateSummary(out, opts)
 	printInstallNextSteps(out, opts.binDir, opts.appliedShellProfile, nextSteps)
@@ -449,6 +486,12 @@ func runInstalledUpdatePostInstall(cmd *cobra.Command, opts *installOptions) err
 		"--post-install",
 		"--bin-dir", binDir,
 		"--installed-version", installVersion(opts),
+	}
+	if opts.maintenanceToken != "" {
+		args = append(args, "--maintenance-token", opts.maintenanceToken)
+	}
+	if opts.drainTimeout > 0 {
+		args = append(args, "--drain-timeout", opts.drainTimeout.String())
 	}
 	if opts.appliedShellProfile != "" {
 		args = append(args, "--applied-shell-profile", opts.appliedShellProfile)

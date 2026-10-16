@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -22,10 +23,11 @@ import (
 
 // Manager owns all sessions, backed by SQLite.
 type Manager struct {
-	mu       sync.RWMutex
-	sessions map[string]*Session // keyed by ID
-	byName   map[string]*Session // keyed by Name
-	db       *store.DB
+	maintenance atomic.Bool
+	mu          sync.RWMutex
+	sessions    map[string]*Session // keyed by ID
+	byName      map[string]*Session // keyed by Name
+	db          *store.DB
 
 	changeMu sync.Mutex
 	changeCh chan struct{} // closed and replaced on every state change
@@ -359,11 +361,16 @@ func (m *Manager) SetState(s *Session, state State) error {
 // SetSleeping stops runtime-only fields while preserving session identity,
 // replay, cwd, launch params, and provider AgentSessionID for a later resume.
 func (m *Manager) SetSleeping(s *Session, reasons ...string) error {
+	s.ClearQueue()
+	return m.SetSleepingPreservingQueue(s, reasons...)
+}
+
+// SetSleepingPreservingQueue requires the caller to hold an idle queue barrier.
+func (m *Manager) SetSleepingPreservingQueue(s *Session, reasons ...string) error {
 	reason := SleepReasonManual
 	if len(reasons) > 0 && reasons[0] != "" {
 		reason = reasons[0]
 	}
-	s.ClearQueue()
 	s.runtimeMu.Lock()
 	s.proc = nil
 	s.PID = 0
@@ -910,6 +917,7 @@ func (m *Manager) attachPersistenceHooks(s *Session) {
 	if m == nil || m.db == nil || s == nil {
 		return
 	}
+	s.maintenance = m.maintenance.Load
 	s.persistHandoff = func(value string) error {
 		return m.db.UpdateSessionHandoffContext(s.ID, value)
 	}
@@ -1061,4 +1069,12 @@ func decodeExecutionIdentity(raw string) principal.ExecutionIdentity {
 		_ = json.Unmarshal([]byte(raw), &identity)
 	}
 	return identity
+}
+
+// SetMaintenance blocks native continuations without revoking goal grants.
+func (m *Manager) SetMaintenance(active bool) { m.maintenance.Store(active) }
+func (m *Manager) ResumeMaintenanceGoals() {
+	for _, s := range m.List() {
+		go s.resumeGoalAfterInput()
+	}
 }

@@ -340,11 +340,6 @@ func runServer(cmd *cobra.Command, _ []string) error {
 	}
 	amuxletBin, _ := os.Executable()
 
-	// Reconnect to broker sockets for sessions that survived the restart.
-	if err := restoreRunningSessions(mgr); err != nil {
-		return fmt.Errorf("restore running sessions: %w", err)
-	}
-
 	// Remove stale socket file.
 	_ = os.Remove(sockPath)
 
@@ -352,6 +347,7 @@ func runServer(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", sockPath, err)
 	}
+	defer lis.Close()
 
 	mcpCfg := config.GetMCP()
 	hubCfg := config.GetHub()
@@ -374,8 +370,17 @@ func runServer(cmd *cobra.Command, _ []string) error {
 		providerEndpointSelector:  newProviderEndpointSelector(),
 		autoModelConfig:           distributionAutoModelConfig,
 	}
+	maintenance, err := newRuntimeMaintenance(localSrv, nil)
+	if err != nil {
+		return fmt.Errorf("load maintenance journal: %w", err)
+	}
+	// Reconnect to broker sockets for sessions that survived the restart.
+	if err := restoreRunningSessions(mgr); err != nil {
+		return fmt.Errorf("restore running sessions: %w", err)
+	}
+
 	grpcSrv := grpc.NewServer(transport.GRPCServerOptions()...)
-	pb.RegisterAmuxletServer(grpcSrv, localSrv)
+	// Registration follows maintenance journal recovery below.
 
 	// runtimeCfg identifies this runtime; its ID is both the hub registration id
 	// and the task SessionRef target id, so a routed task's session_ref matches
@@ -433,15 +438,41 @@ func runServer(cmd *cobra.Command, _ []string) error {
 	taskSrv.resolveProfile = func(spec *task.Spec) error {
 		return agentprofile.ResolveTaskSpec(spec, agentprofile.DefaultPackRegistryPath())
 	}
-	pb.RegisterAmuxTaskServer(grpcSrv, taskSrv)
+	maintenance.tasks = taskRunner.ActiveCount
+	sessionRPC := &maintenanceSessionServer{AmuxletServer: localSrv, maintenance: maintenance}
+	taskRPC := &maintenanceTaskServer{AmuxTaskServer: taskSrv, maintenance: maintenance}
+	pb.RegisterAmuxletServer(grpcSrv, sessionRPC)
+	pb.RegisterAmuxTaskServer(grpcSrv, taskRPC)
+	pb.RegisterRuntimeMaintenanceServer(grpcSrv, maintenance)
+	if err := os.Chmod(sockPath, 0600); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Drain any sessions LoadFromDB queued for restart (process died while
 	// amuxlet was down). Best-effort: log failures and move on.
 	go func() {
 		for sess := range mgr.PendingRestart() {
 			fmt.Fprintf(os.Stderr, "runtime: auto-restarting session %s\n", sess.Name)
-			if _, err := localSrv.Restart(context.Background(), &pb.RestartRequest{Name: sess.Name}); err != nil {
-				fmt.Fprintf(os.Stderr, "runtime: auto-restart %s: %v\n", sess.Name, err)
+			for {
+				done, err := maintenance.enter(true)
+				if err == nil {
+					if sess.StateSnapshot() == session.StateCreated {
+						_, err = localSrv.Restart(context.Background(), &pb.RestartRequest{Name: sess.Name})
+					}
+					done()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "runtime: auto-restart %s: %v\n", sess.Name, err)
+					}
+					break
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(time.Second):
+				}
 			}
 		}
 	}()
@@ -450,7 +481,7 @@ func runServer(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("session_reclaim config: %w", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	go maintenance.watch(ctx)
 	startSessionReclaimWatcher(ctx, localSrv, reclaimCfg)
 	startTaskCleanupWatcher(ctx, taskRunner, localSrv, config.GetRuntimeTaskCleanup())
 	startDistributionStateWatchers(ctx)
@@ -464,10 +495,10 @@ func runServer(cmd *cobra.Command, _ []string) error {
 
 	// Start tunnel client if hub.addr is configured.
 	if hubCfg.Addr != "" {
-		tc := tunnel.NewClient(hubCfg.Addr, runtimeCfg.ID, runtimeCfg.Name, mgr, localSrv)
+		tc := tunnel.NewClient(hubCfg.Addr, runtimeCfg.ID, runtimeCfg.Name, mgr, sessionRPC)
 		tc.SetVersion(version)
 		tc.SetCapabilities(buildCapabilities(runtimeCfg, isolationRuntime), hubCfg.Token)
-		tc.SetTaskServer(taskSrv)
+		tc.SetTaskServer(taskRPC)
 		go tc.Run(ctx)
 	}
 
@@ -621,6 +652,15 @@ func startTaskCleanupWatcher(ctx context.Context, runner *task.Runner, srv *serv
 	interval := time.Duration(cfg.SweepIntervalSeconds) * time.Second
 	ttl := time.Duration(cfg.TerminalHistoryTTLSeconds) * time.Second
 	sweep := func() {
+		var maintenance *runtimeMaintenance
+		if srv != nil {
+			maintenance = srv.maintenance
+		}
+		done, err := maintenance.enter(true)
+		if err != nil {
+			return
+		}
+		defer done()
 		if _, err := runner.Prune(ctx, task.PruneRequest{OlderThan: ttl}); err != nil && ctx.Err() == nil {
 			fmt.Fprintf(os.Stderr, "runtime: task cleanup: %v\n", err)
 		}

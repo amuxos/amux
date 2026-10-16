@@ -74,6 +74,23 @@ on a machine without a helper service. Linux release bundles must include the
 matching helper. When an older installer hands off to the new CLI, post-install
 completion can recover a skipped helper from its still-present source bundle
 only after verifying that its CLI and runtime match the installed binaries.
+
+Linux updates with an installed helper coordinate through the local Runtime before
+installing binaries. Maintenance rejects new launches, inputs and TaskRuns while
+allowing permission replies and interrupts. Already accepted queues and TaskRuns
+drain without cancellation. The default wait is five minutes (`--drain-timeout`);
+on timeout the update aborts before replacement and restores admission. Once
+quiescent, running Sessions are slept and durably recorded, the helper is updated,
+and requested service restarts complete before those Sessions resume. Sessions
+already sleeping are not awakened. A renewable lease and durable recovery list
+survive CLI handoff and Runtime restart; abandonment triggers recovery. Resume
+failures are reported and retried, without silently discarding the recovery list.
+Native goal continuations pause admission during maintenance; the existing goal
+grant is retained and resumed afterward. Maintenance is a local administration RPC,
+not a Hub or tunnel operation. An older Runtime without this protocol still uses
+the helper's safe guard; active launches require a one-time maintenance upgrade.
+The helper's final guard remains authoritative, including for orphan processes.
+
 Public updates use the platform manifest
 from `amuxos/amux-releases` by default. `AMUX_RELEASE_URL` overrides the source;
 `AMUX_SCM_LATEST_URL` and the existing archive format remain supported for

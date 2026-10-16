@@ -21,6 +21,7 @@ type nativeGoalRecordingProc struct {
 func TestGoalOfferDoesNotWaitForOrdinaryInputToFinish(t *testing.T) {
 	s := &Session{ID: "session", AgentSessionID: "native"}
 	p := &nativeGoalRecordingProc{}
+	s.AgentSessionID = "native"
 	s.SetProc(p)
 	if _, err := s.Goal(context.Background(), GoalRequest{Action: "create", Objective: "task"}); err != nil {
 		t.Fatal(err)
@@ -154,6 +155,7 @@ func TestGoalOrdinaryInputCanResumeButExplicitPauseCannot(t *testing.T) {
 func TestGoalCompletionRevokesContinuationGrant(t *testing.T) {
 	s := &Session{ID: "session", AgentSessionID: "native"}
 	p := &nativeGoalRecordingProc{}
+	s.AgentSessionID = "native"
 	s.SetProc(p)
 	if _, err := s.Goal(context.Background(), GoalRequest{Action: "create", Objective: "task"}); err != nil {
 		t.Fatal(err)
@@ -170,4 +172,36 @@ func TestGoalCompletionRevokesContinuationGrant(t *testing.T) {
 	if _, err := s.admitGoalTurn(GoalTurnRequest{NativeTurnID: "new-native-turn", Goal: *goal}); err == nil {
 		t.Fatal("completed goal authorized a new goal with the same objective")
 	}
+}
+
+func TestMaintenanceBlocksNativeContinuationsWithoutRevokingGrant(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "runtime.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mgr := NewManager(db)
+	s, err := mgr.Create("goal-maintenance", "codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &nativeGoalRecordingProc{}
+	s.AgentSessionID = "native"
+	s.SetProc(p)
+	if _, err := s.Goal(context.Background(), GoalRequest{Action: "create", Objective: "work"}); err != nil {
+		t.Fatal(err)
+	}
+	mgr.SetMaintenance(true)
+	if _, err := s.admitGoalTurn(GoalTurnRequest{NativeTurnID: "next", Goal: *p.goal.Clone()}); err == nil {
+		t.Fatal("continuation admitted")
+	}
+	if s.goalGrant == nil || !s.goalGrant.Enabled {
+		t.Fatal("goal grant revoked")
+	}
+	mgr.SetMaintenance(false)
+	binding, err := s.admitGoalTurn(GoalTurnRequest{NativeTurnID: "next", Goal: *p.goal.Clone()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding.Sink(agentstream.ProducerEmission{Terminal: &agentstream.Terminal{Outcome: agentstream.OutcomeSuccess}})
 }

@@ -2062,3 +2062,6 @@ func permSuffix(req PermissionRequest) string {
 		return ""
 	}
 }
+
+// ActiveCount includes accepted work through final child/sandbox cleanup.
+func (r *Runner) ActiveCount() int { r.mu.Lock(); defer r.mu.Unlock(); return len(r.active) }

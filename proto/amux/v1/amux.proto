@@ -1680,3 +1680,19 @@ message ListNativeModelsResponse {
   string status = 1; // ready or signed_out; transport/discovery failures are errors
   repeated NativeModel models = 2;
 }
+
+// Local Unix-socket administration only. Never routed through the Hub/tunnel.
+service RuntimeMaintenance {
+  rpc Maintain(MaintenanceRequest) returns (MaintenanceResponse);
+}
+message MaintenanceRequest {
+  string action = 1; // begin, poll, renew, end
+  string token = 2; // caller-generated idempotency/lease token
+}
+message MaintenanceResponse {
+  string phase = 1; // draining, ready, recovering, idle
+  repeated string busy_sessions = 2;
+  int32 active_tasks = 3;
+  int32 active_requests = 4;
+  int32 sleeping_sessions = 5;
+}

@@ -60,6 +60,7 @@ type Event struct {
 
 // Session represents a managed agent process.
 type Session struct {
+	maintenance           func() bool
 	ID                    string
 	Name                  string
 	TimelineEpoch         string
