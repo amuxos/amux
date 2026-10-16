@@ -9,6 +9,7 @@ import (
 
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/isolation"
+	"github.com/google/uuid"
 )
 
 const defaultModeUserInputFeature = "default_mode_request_user_input"
@@ -26,10 +27,14 @@ func (p *Proc) discoverUserInput(ctx context.Context, opts StartOptions, bin str
 	// backend and working directory as the agent, with a bounded lifetime.
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
+	// Helper-backed launches are idempotent by ID. Reusing the agent's ID
+	// would attach to its streams and kill it when this probe times out.
+	probeContext := opts.LaunchContext
+	probeContext.LaunchID = "launch-" + uuid.NewString()
 	handle, err := backend.Start(ctx, isolation.LaunchSpec{
 		Path: bin, Args: append(appServerArgs(opts.ExtraArgs, "features"), "list"),
 		Env: append([]string(nil), opts.Env...), Dir: opts.Cwd,
-		Context: opts.LaunchContext, SetProcessGroup: true,
+		Context: probeContext, SetProcessGroup: true,
 	})
 	if err != nil {
 		return

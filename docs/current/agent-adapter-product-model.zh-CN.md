@@ -252,6 +252,9 @@ Attach 在原子读取边界携带当前 canonical Turn 的开始快照。Bridge
 配置；显式启动 feature 参数优先。不支持该能力的宿主保持原生行为。集成不切换
 collaboration mode，也不修改用户的配置文件。
 
+能力探测沿用 Agent 的执行身份、隔离后端、环境和工作目录，但每次探测使用独立的
+进程启动 ID。探测完成、失败或超时都不得关闭 Agent 的通信流或终止其进程。
+
 Claude SDK 的 `AskUserQuestion` 按问题拆为关联请求，答案齐备后携带原始 questions
 和 `updatedInput.answers` 返回；多选保留标签数组。取消一个问题会取消整批原生
 提问，不代替用户选择业务答案。拒绝迟到、重复和非法回答；中断、关闭或原生轮次

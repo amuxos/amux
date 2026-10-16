@@ -341,6 +341,11 @@ feature overrides remain authoritative. Hosts without the capability keep their
 native behavior. The integration does not switch collaboration mode or mutate
 the user's configuration files.
 
+Capability probes retain the agent's execution identity, isolation backend,
+environment and working directory, but each probe owns a separate process launch
+ID. Probe completion, failure or timeout must not close the agent's streams or
+terminate its process.
+
 Claude SDK `AskUserQuestion` is mapped to one correlated request per question.
 The sidecar returns the original questions with `updatedInput.answers` only after
 all answers arrive; multi-select preserves selected labels. Cancelling a question
