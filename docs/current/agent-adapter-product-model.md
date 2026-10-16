@@ -130,11 +130,13 @@ model/effort reconfiguration (`set-model` without a process restart) follow the
 selected agent's capabilities; Codex supports in-process reconfiguration, others
 restart with handoff.
 
-When an ACP agent's output closes, the broker stops accepting requests and drains
+When an ACP or structured agent's output closes, the broker stops accepting requests and drains
 requests already being handled before closing client connections. Pending prompt
 results, terminal emissions and acknowledgements retain their order. Connection
 writes have a bounded shutdown deadline so an unresponsive client cannot prevent
-broker exit; a transport failure remains an error.
+broker exit; a transport failure remains an error. A shutdown request retains its
+connection until its acknowledgement is written, even when stopping the provider
+closes its output before the request handler returns.
 
 Codex-compatible providers normalize `thread/tokenUsage/updated` into
 `UsageObserved`. `tokenUsage.last` describes the latest invocation and supplies

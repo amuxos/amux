@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/amuxos/amux/internal/agentstream"
@@ -58,7 +59,9 @@ type structuredBroker struct {
 	goalOffer             *brokerGoalOffer
 	brokerTurns
 
-	conns []*structuredBrokerConn
+	conns    []*structuredBrokerConn
+	stopping bool // guarded by mu; excludes request admission while shutdown waits
+	requests sync.WaitGroup
 }
 
 type structuredBrokerConn = brokerConn
@@ -310,12 +313,14 @@ func RunStructuredBroker(socketPath, pidFile string, opts StructuredLaunchOption
 				return
 			}
 			bc := b.addConn(conn)
-			go b.handleConn(bc)
+			if bc != nil {
+				go b.handleConn(bc)
+			}
 		}
 	}()
 	<-done
 	lis.Close()
-	b.closeConns()
+	b.shutdown(time.Now().Add(5 * time.Second))
 	return nil
 }
 
@@ -407,6 +412,11 @@ func (b *structuredBroker) addConn(c net.Conn) *structuredBrokerConn {
 	b.broadcastMu.Lock()
 	defer b.broadcastMu.Unlock()
 	b.mu.Lock()
+	if b.stopping {
+		b.mu.Unlock()
+		_ = c.Close()
+		return nil
+	}
 	b.conns = append(b.conns, bc)
 	agentSessionID := b.agentSessionID
 	effectiveModel := b.effectiveModel
@@ -463,6 +473,21 @@ func (b *structuredBroker) closeConns() {
 		_ = c.conn.Close()
 	}
 	b.conns = nil
+}
+
+// Output EOF can race with the shutdown ACK. Requests retain ownership of
+// their sockets until they finish; stalled writers are closed at the deadline.
+func (b *structuredBroker) shutdown(deadline time.Time) {
+	b.mu.Lock()
+	b.stopping = true
+	b.mu.Unlock()
+	forceClose := time.AfterFunc(time.Until(deadline), b.closeConns)
+	defer forceClose.Stop()
+	if b.proc != nil {
+		_ = b.proc.Close()
+	}
+	b.requests.Wait()
+	b.closeConns()
 }
 
 func (b *structuredBroker) broadcastEvent(ev agentstream.ProducerEmission) {
@@ -541,93 +566,107 @@ func (b *structuredBroker) handleConn(conn *structuredBrokerConn) {
 		if err != nil {
 			return
 		}
-		switch kind {
-		case structuredFrameGoal:
-			b.handleGoalControl(conn, payload)
-		case structuredFrameGoalAdmission:
-			b.handleGoalAdmission(conn, payload)
-		case structuredFrameGoalReady:
-			b.mu.Lock()
-			upgraded := conn.protocolV3
-			b.mu.Unlock()
-			if upgraded {
-				if ready, ok := b.proc.(session.GoalTurnReadyProvider); ok {
-					ready.EnableGoalTurns()
-				}
-			}
-		case structuredFrameUpgrade:
-			var upgrade brokerUpgradeFrame
-			errText := ""
-			if json.Unmarshal(payload, &upgrade) != nil || upgrade.Version != brokerTurnProtocolV3 {
-				errText = "unsupported structured broker protocol"
-			} else {
-				b.mu.Lock()
-				conn.protocolV3 = true
-				b.mu.Unlock()
-			}
-			_ = conn.write(structuredFrameAck, []byte(errText))
-		case structuredFrameTurnDispatch:
-			errText := b.dispatchCorrelatedTurn(conn, payload)
-			_ = conn.write(structuredFrameAck, []byte(errText))
-		case structuredFrameTurnRebind:
-			b.rebindCorrelatedTurn(conn, payload)
-		case structuredFrameTurnSteer:
-			_ = conn.write(structuredFrameAck, []byte(b.steerCorrelatedTurn(payload)))
-		case structuredFrameInput:
-			_ = conn.write(structuredFrameAck, []byte("correlated turn dispatch is required"))
-		case structuredFrameUserInput:
-			_ = conn.write(structuredFrameAck, []byte("correlated turn dispatch is required"))
-		case structuredFrameInterrupt:
-			err := ""
-			if interruptErr := b.proc.Interrupt(); interruptErr != nil {
-				err = interruptErr.Error()
-			}
-			_ = conn.write(structuredFrameAck, []byte(err))
-		case structuredFrameShutdown:
-			b.removeConn(conn)
-			err := ""
-			if closeErr := b.proc.Close(); closeErr != nil {
-				err = closeErr.Error()
-			}
-			_ = conn.write(structuredFrameAck, []byte(err))
+		if !b.handleFrame(conn, kind, payload) {
 			return
-		case structuredFramePermissionResp:
-			err := ""
-			var resp structuredPermissionResponseFrame
-			if unmarshalErr := json.Unmarshal(payload, &resp); unmarshalErr != nil {
-				err = unmarshalErr.Error()
-			} else if resp.Cancel {
-				if canceller, ok := b.proc.(session.UserInputCanceller); ok {
-					if cancelErr := canceller.CancelUserInput(resp.PermissionId); cancelErr != nil {
-						err = cancelErr.Error()
-					}
-				} else {
-					err = "provider does not support cancelling user input"
-				}
-			} else if len(resp.OptionIds) > 0 {
-				if respondErr := b.proc.RespondPermissionMulti(resp.PermissionId, resp.OptionIds); respondErr != nil {
-					err = respondErr.Error()
-				}
-			} else if respondErr := b.proc.RespondPermission(resp.PermissionId, resp.OptionId); respondErr != nil {
-				err = respondErr.Error()
-			}
-			_ = conn.write(structuredFrameAck, []byte(err))
-		case structuredFrameControl:
-			_ = conn.write(structuredFrameAck, []byte("correlated turn dispatch is required"))
-		case structuredFrameReconfigure:
-			err := ""
-			var req structuredReconfigureFrame
-			reconfigurer, ok := b.proc.(session.ExecutionReconfigurer)
-			if unmarshalErr := json.Unmarshal(payload, &req); unmarshalErr != nil {
-				err = unmarshalErr.Error()
-			} else if !ok {
-				err = "structured provider does not support execution reconfiguration"
-			} else if reconfigureErr := reconfigurer.ReconfigureExecution(req.Model, req.ReasoningEffort); reconfigureErr != nil {
-				err = reconfigureErr.Error()
-			}
-			_ = conn.write(structuredFrameAck, []byte(err))
 		}
 	}
+}
+
+func (b *structuredBroker) handleFrame(conn *structuredBrokerConn, kind byte, payload []byte) bool {
+	b.mu.Lock()
+	if b.stopping {
+		b.mu.Unlock()
+		return false
+	}
+	b.requests.Add(1)
+	b.mu.Unlock()
+	defer b.requests.Done()
+	switch kind {
+	case structuredFrameGoal:
+		b.handleGoalControl(conn, payload)
+	case structuredFrameGoalAdmission:
+		b.handleGoalAdmission(conn, payload)
+	case structuredFrameGoalReady:
+		b.mu.Lock()
+		upgraded := conn.protocolV3
+		b.mu.Unlock()
+		if upgraded {
+			if ready, ok := b.proc.(session.GoalTurnReadyProvider); ok {
+				ready.EnableGoalTurns()
+			}
+		}
+	case structuredFrameUpgrade:
+		var upgrade brokerUpgradeFrame
+		errText := ""
+		if json.Unmarshal(payload, &upgrade) != nil || upgrade.Version != brokerTurnProtocolV3 {
+			errText = "unsupported structured broker protocol"
+		} else {
+			b.mu.Lock()
+			conn.protocolV3 = true
+			b.mu.Unlock()
+		}
+		_ = conn.write(structuredFrameAck, []byte(errText))
+	case structuredFrameTurnDispatch:
+		errText := b.dispatchCorrelatedTurn(conn, payload)
+		_ = conn.write(structuredFrameAck, []byte(errText))
+	case structuredFrameTurnRebind:
+		b.rebindCorrelatedTurn(conn, payload)
+	case structuredFrameTurnSteer:
+		_ = conn.write(structuredFrameAck, []byte(b.steerCorrelatedTurn(payload)))
+	case structuredFrameInput:
+		_ = conn.write(structuredFrameAck, []byte("correlated turn dispatch is required"))
+	case structuredFrameUserInput:
+		_ = conn.write(structuredFrameAck, []byte("correlated turn dispatch is required"))
+	case structuredFrameInterrupt:
+		err := ""
+		if interruptErr := b.proc.Interrupt(); interruptErr != nil {
+			err = interruptErr.Error()
+		}
+		_ = conn.write(structuredFrameAck, []byte(err))
+	case structuredFrameShutdown:
+		err := ""
+		if closeErr := b.proc.Close(); closeErr != nil {
+			err = closeErr.Error()
+		}
+		_ = conn.write(structuredFrameAck, []byte(err))
+		return false
+	case structuredFramePermissionResp:
+		err := ""
+		var resp structuredPermissionResponseFrame
+		if unmarshalErr := json.Unmarshal(payload, &resp); unmarshalErr != nil {
+			err = unmarshalErr.Error()
+		} else if resp.Cancel {
+			if canceller, ok := b.proc.(session.UserInputCanceller); ok {
+				if cancelErr := canceller.CancelUserInput(resp.PermissionId); cancelErr != nil {
+					err = cancelErr.Error()
+				}
+			} else {
+				err = "provider does not support cancelling user input"
+			}
+		} else if len(resp.OptionIds) > 0 {
+			if respondErr := b.proc.RespondPermissionMulti(resp.PermissionId, resp.OptionIds); respondErr != nil {
+				err = respondErr.Error()
+			}
+		} else if respondErr := b.proc.RespondPermission(resp.PermissionId, resp.OptionId); respondErr != nil {
+			err = respondErr.Error()
+		}
+		_ = conn.write(structuredFrameAck, []byte(err))
+	case structuredFrameControl:
+		_ = conn.write(structuredFrameAck, []byte("correlated turn dispatch is required"))
+	case structuredFrameReconfigure:
+		err := ""
+		var req structuredReconfigureFrame
+		reconfigurer, ok := b.proc.(session.ExecutionReconfigurer)
+		if unmarshalErr := json.Unmarshal(payload, &req); unmarshalErr != nil {
+			err = unmarshalErr.Error()
+		} else if !ok {
+			err = "structured provider does not support execution reconfiguration"
+		} else if reconfigureErr := reconfigurer.ReconfigureExecution(req.Model, req.ReasoningEffort); reconfigureErr != nil {
+			err = reconfigureErr.Error()
+		}
+		_ = conn.write(structuredFrameAck, []byte(err))
+	}
+	return true
 }
 
 func (b *structuredBroker) dispatchCorrelatedTurn(conn *structuredBrokerConn, payload []byte) string {

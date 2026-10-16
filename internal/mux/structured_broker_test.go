@@ -943,3 +943,89 @@ func TestStructuredBrokerProcSendsExecutionReconfigureFrame(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+type shutdownAckTestProc struct{ session.Proc }
+
+func (p *shutdownAckTestProc) Close() error { return nil }
+
+func TestStructuredBrokerShutdownDrainsPendingAck(t *testing.T) {
+	for _, requestKind := range []byte{structuredFrameUpgrade, structuredFrameShutdown} {
+		for _, stalled := range []bool{false, true} {
+			t.Run(fmt.Sprintf("kind=%x/stalled_client=%v", requestKind, stalled), func(t *testing.T) {
+				server, client := net.Pipe()
+				t.Cleanup(func() { _ = client.Close(); _ = server.Close() })
+				_ = client.SetDeadline(time.Now().Add(2 * time.Second))
+				observed := &acpShutdownTestConn{
+					Conn: server, writeStarted: make(chan struct{}, 1),
+				}
+				conn := &structuredBrokerConn{conn: observed}
+				b := &structuredBroker{proc: &shutdownAckTestProc{}, conns: []*structuredBrokerConn{conn}}
+				handlerDone := make(chan struct{})
+				go func() {
+					b.handleConn(conn)
+					close(handlerDone)
+				}()
+				upgrade, _ := json.Marshal(brokerUpgradeFrame{Version: brokerTurnProtocolV3})
+				if err := writeACPFrame(client, requestKind, upgrade); err != nil {
+					t.Fatal(err)
+				}
+				select {
+				case <-observed.writeStarted:
+				case <-time.After(time.Second):
+					t.Fatal("request did not reach its ACK write")
+				}
+
+				drainTimeout := time.Second
+				if stalled {
+					drainTimeout = 50 * time.Millisecond
+				}
+				shutdownDone := make(chan struct{})
+				go func() {
+					b.shutdown(time.Now().Add(drainTimeout))
+					close(shutdownDone)
+				}()
+				stoppingDeadline := time.Now().Add(time.Second)
+				for {
+					b.mu.Lock()
+					stopping := b.stopping
+					b.mu.Unlock()
+					if stopping {
+						break
+					}
+					if time.Now().After(stoppingDeadline) {
+						t.Fatal("shutdown did not stop request admission")
+					}
+					time.Sleep(time.Millisecond)
+				}
+				if b.handleFrame(conn, structuredFrameUpgrade, upgrade) {
+					t.Fatal("shutdown accepted a new request")
+				}
+				lateServer, lateClient := net.Pipe()
+				defer lateClient.Close()
+				defer lateServer.Close()
+				if b.addConn(lateServer) != nil {
+					t.Fatal("shutdown accepted a new connection")
+				}
+				if !stalled {
+					kind, payload, err := readACPFrame(client)
+					if err != nil || kind != structuredFrameAck || len(payload) != 0 {
+						t.Fatalf("pending ACK: kind=%x payload=%q err=%v", kind, payload, err)
+					}
+				}
+				select {
+				case <-shutdownDone:
+				case <-time.After(time.Second):
+					t.Fatal("shutdown blocked on the client")
+				}
+				select {
+				case <-handlerDone:
+				case <-time.After(time.Second):
+					t.Fatal("connection handler did not exit")
+				}
+				if _, _, err := readACPFrame(client); err == nil {
+					t.Fatal("connection remained open after shutdown")
+				}
+			})
+		}
+	}
+}

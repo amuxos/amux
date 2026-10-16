@@ -95,9 +95,10 @@ Session 有明确的生命周期：`created`、`running`、`idle`、`sleeping`�
 重启、恢复以及模型/思考强度的热切换（`set-model` 不重启进程）取决于所选 Agent 的
 能力：Codex 支持进程内重配，其它 Agent 通过交接重启完成。
 
-ACP Agent 的输出关闭后，broker 停止接收新请求，等待正在处理的请求收尾后再关闭
+ACP 或 structured Agent 的输出关闭后，broker 停止接收新请求，等待正在处理的请求收尾后再关闭
 客户端连接。待处理的 prompt 结果、终态事件和确认响应保持原有顺序。连接写入有
 退出超时保护，避免不响应的客户端阻止 broker 退出；传输失败仍按错误处理。
+停止请求在确认响应写入完成前保留连接，即使停止 Provider 已使输出先于请求处理结束而关闭。
 
 兼容 Codex 的 Provider 将 `thread/tokenUsage/updated` 规范化为 `UsageObserved`。
 `tokenUsage.last` 描述最近一次调用，提供 token 数和上下文窗口使用情况。
