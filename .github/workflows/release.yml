@@ -80,8 +80,27 @@ jobs:
           version: '1.72.0'
       - run: bash scripts/check.sh
 
-  build:
+  draft:
     needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Create or reuse draft release
+        env:
+          GH_TOKEN: ${{ secrets.AMUX_RELEASE_TOKEN }}
+          RELEASE_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          test -n "$GH_TOKEN" || { echo 'Configure AMUX_RELEASE_TOKEN with Contents write access to the release repository.' >&2; exit 1; }
+          if gh release view "$RELEASE_VERSION" --repo "$RELEASE_REPO" --json isDraft > /tmp/release.json 2>/dev/null; then
+            jq -e '.isDraft == true' /tmp/release.json >/dev/null || { echo 'Published releases are immutable.' >&2; exit 1; }
+            echo "Reusing existing draft release $RELEASE_VERSION"
+          else
+            gh release create "$RELEASE_VERSION" --repo "$RELEASE_REPO" --draft \
+              --title "amux $RELEASE_VERSION" --notes "amux $RELEASE_VERSION (build in progress)"
+          fi
+
+  build:
+    needs: [check, draft]
     strategy:
       fail-fast: false
       matrix:
@@ -158,16 +177,16 @@ jobs:
             test -f ./bin/amux.exe
           fi
           mv dist/latest.json "dist/manifest_${GOOS}_${GOARCH}.json"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ matrix.os }}-${{ matrix.arch }}
-          path: |
-            dist/*.tar.gz
-            dist/*_Setup.exe
-            dist/*.sha256
-            dist/manifest_*.json
-          if-no-files-found: error
-          retention-days: 7
+      - name: Upload package to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.AMUX_RELEASE_TOKEN }}
+          RELEASE_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*.tar.gz dist/*_Setup.exe dist/*.sha256 dist/manifest_*.json)
+          test "${#files[@]}" -gt 0 || { echo 'No release files produced.' >&2; exit 1; }
+          gh release upload "$RELEASE_VERSION" --repo "$RELEASE_REPO" --clobber "${files[@]}"
 
   publish:
     needs: [check, build]
@@ -178,11 +197,31 @@ jobs:
         with:
           ref: ${{ needs.check.outputs.commit }}
           persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: release-*
-          path: dist
-          merge-multiple: true
+      - name: Verify and download platform assets from draft
+        env:
+          GH_TOKEN: ${{ secrets.AMUX_RELEASE_TOKEN }}
+          RELEASE_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          test -n "$GH_TOKEN" || { echo 'Configure AMUX_RELEASE_TOKEN with Contents write access to the release repository.' >&2; exit 1; }
+          gh release view "$RELEASE_VERSION" --repo "$RELEASE_REPO" --json isDraft,assets > /tmp/release.json
+          jq -e '.isDraft == true' /tmp/release.json >/dev/null || { echo 'Published releases are immutable.' >&2; exit 1; }
+          missing=0
+          for platform in darwin_arm64 darwin_amd64 linux_arm64 linux_amd64 windows_amd64; do
+            expected=("amux_${RELEASE_VERSION}_${platform}.tar.gz" "manifest_${platform}.json")
+            if [ "$platform" = windows_amd64 ]; then
+              expected+=("amux_${RELEASE_VERSION}_${platform}_Setup.exe")
+            fi
+            for name in "${expected[@]}"; do
+              if ! jq -e --arg n "$name" '.assets | any(.name == $n)' /tmp/release.json >/dev/null; then
+                echo "Missing draft asset: $name" >&2
+                missing=1
+              fi
+            done
+          done
+          test "$missing" = 0 || { echo 'Not all 5 platform packages are present on the draft release.' >&2; exit 1; }
+          mkdir -p dist
+          gh release download "$RELEASE_VERSION" --repo "$RELEASE_REPO" --dir dist \
+            --pattern '*.tar.gz' --pattern '*_Setup.exe' --pattern 'manifest_*.json'
       - env:
           RELEASE_VERSION: ${{ needs.check.outputs.version }}
         run: python3 scripts/prepare-public-release.py dist "$RELEASE_VERSION"
@@ -191,13 +230,11 @@ jobs:
           GH_TOKEN: ${{ secrets.AMUX_RELEASE_TOKEN }}
           RELEASE_VERSION: ${{ needs.check.outputs.version }}
         run: |
-          test -n "$GH_TOKEN" || { echo 'Configure AMUX_RELEASE_TOKEN with Contents write access to the release repository.' >&2; exit 1; }
-          if gh release view "$RELEASE_VERSION" --repo "$RELEASE_REPO" --json isDraft > /tmp/release.json 2>/dev/null; then
-            jq -e '.isDraft == true' /tmp/release.json >/dev/null || { echo 'Published releases are immutable.' >&2; exit 1; }
-          else
-            gh release create "$RELEASE_VERSION" --repo "$RELEASE_REPO" --draft \
-              --title "amux $RELEASE_VERSION" --notes-file dist/notes.md
-          fi
           gh release upload "$RELEASE_VERSION" --repo "$RELEASE_REPO" --clobber \
-            dist/*.tar.gz dist/*_Setup.exe dist/*.sha256 dist/latest.json dist/version.txt dist/install.sh
-          gh release edit "$RELEASE_VERSION" --repo "$RELEASE_REPO" --draft=false --latest
+            dist/*.sha256 dist/latest.json dist/version.txt dist/install.sh
+          # Per-platform manifests were only staging inputs for latest.json.
+          for manifest in dist/manifest_*.json; do
+            gh release delete-asset "$RELEASE_VERSION" "$(basename "$manifest")" --repo "$RELEASE_REPO" --yes
+          done
+          gh release edit "$RELEASE_VERSION" --repo "$RELEASE_REPO" \
+            --title "amux $RELEASE_VERSION" --notes-file dist/notes.md --draft=false --latest
