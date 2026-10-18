@@ -28,9 +28,10 @@ type larkWSWatchdogConfig struct {
 	Disabled bool
 	// StaleAfter, when positive, is the fixed inbound-silence threshold.
 	// Otherwise the threshold is max(MinStaleAfter, PingMultiplier x the
-	// observed ping interval).
+	// observed ping interval). The same threshold bounds missing pongs,
+	// missing ping attempts, and a stuck SDK-internal reconnect.
 	StaleAfter          time.Duration
-	PingMultiplier      int
+	PingMultiplier      float64
 	MinStaleAfter       time.Duration
 	DefaultPingInterval time.Duration
 	// ClockJumpThreshold is how far wall time may run ahead of monotonic time
@@ -46,8 +47,8 @@ type larkWSWatchdogConfig struct {
 
 func defaultLarkWSWatchdogConfig() larkWSWatchdogConfig {
 	return larkWSWatchdogConfig{
-		PingMultiplier:      3,
-		MinStaleAfter:       5 * time.Minute,
+		PingMultiplier:      2.5,
+		MinStaleAfter:       4 * time.Minute,
 		DefaultPingInterval: 2 * time.Minute,
 		ClockJumpThreshold:  2 * time.Minute,
 		CheckInterval:       15 * time.Second,
@@ -110,7 +111,11 @@ type larkWSWatchdog struct {
 	mu           sync.Mutex
 	connected    bool
 	everConn     bool
+	connectedAt  wsClockReading
+	disconnAt    wsClockReading
 	lastInbound  wsClockReading
+	lastPong     wsClockReading
+	havePong     bool
 	lastPing     wsClockReading
 	havePing     bool
 	pingInterval time.Duration
@@ -128,22 +133,38 @@ func (w *larkWSWatchdog) markConnected() {
 	defer w.mu.Unlock()
 	w.connected = true
 	w.everConn = true
+	w.connectedAt = now
 	w.lastInbound = now
 	w.havePing = false
+	w.havePong = false
 }
 
 func (w *larkWSWatchdog) markDisconnected() {
+	now := w.clock.Read()
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.connected || !w.everConn {
+		w.disconnAt = now
+	}
 	w.connected = false
 }
 
-// observeInbound records a Pong or data frame received from Feishu.
+// observeInbound records a data frame received from Feishu.
 func (w *larkWSWatchdog) observeInbound() {
 	now := w.clock.Read()
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.lastInbound = now
+}
+
+// observePong records a Pong; it also counts as inbound activity.
+func (w *larkWSWatchdog) observePong() {
+	now := w.clock.Read()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.lastInbound = now
+	w.lastPong = now
+	w.havePong = true
 }
 
 // observePing records a successful Ping write and learns the server-provided
@@ -165,7 +186,7 @@ func (w *larkWSWatchdog) staleAfterLocked() time.Duration {
 	if w.cfg.StaleAfter > 0 {
 		return w.cfg.StaleAfter
 	}
-	d := time.Duration(w.cfg.PingMultiplier) * w.pingInterval
+	d := time.Duration(w.cfg.PingMultiplier * float64(w.pingInterval))
 	if d < w.cfg.MinStaleAfter {
 		d = w.cfg.MinStaleAfter
 	}
@@ -186,10 +207,18 @@ func (w *larkWSWatchdog) check() larkWSStaleVerdict {
 	defer w.mu.Unlock()
 	prev, hadPrev := w.lastCheck, w.haveCheck
 	w.lastCheck, w.haveCheck = now, true
-	if w.cfg.Disabled || !w.connected {
+	if w.cfg.Disabled || !w.everConn {
 		return larkWSStaleVerdict{}
 	}
 	staleAfter := w.staleAfterLocked()
+	if !w.connected {
+		// The SDK is reconnecting on its own. Give it one stale window; its
+		// reconnect loop can hang after a host suspend and then logs nothing.
+		if gap := now.mono - w.disconnAt.mono; gap > staleAfter {
+			return larkWSStaleVerdict{stale: true, reason: "sdk reconnect did not complete", silence: gap, staleAfter: staleAfter}
+		}
+		return larkWSStaleVerdict{}
+	}
 	silence := now.mono - w.lastInbound.mono
 	if hadPrev && w.lastInbound.mono <= prev.mono {
 		monoGap := now.mono - prev.mono
@@ -205,6 +234,22 @@ func (w *larkWSWatchdog) check() larkWSStaleVerdict {
 	}
 	if silence > staleAfter {
 		return larkWSStaleVerdict{stale: true, reason: "no pong or event received", silence: silence, staleAfter: staleAfter}
+	}
+	// Events alone do not prove the heartbeat works: require a pong after
+	// pings were sent, and require the SDK to keep attempting pings at all.
+	pongRef := w.connectedAt
+	if w.havePong {
+		pongRef = w.lastPong
+	}
+	if gap := now.mono - pongRef.mono; w.havePing && w.lastPing.mono > pongRef.mono && gap > staleAfter {
+		return larkWSStaleVerdict{stale: true, reason: "pings sent but no pong received", silence: gap, staleAfter: staleAfter}
+	}
+	pingRef := w.connectedAt
+	if w.havePing {
+		pingRef = w.lastPing
+	}
+	if gap := now.mono - pingRef.mono; gap > staleAfter {
+		return larkWSStaleVerdict{stale: true, reason: "no ping attempted", silence: gap, staleAfter: staleAfter}
 	}
 	return larkWSStaleVerdict{}
 }
@@ -222,7 +267,9 @@ func (l larkWSLogger) Debug(ctx context.Context, args ...interface{}) {
 	if len(args) > 0 {
 		if msg, ok := args[0].(string); ok {
 			switch {
-			case strings.HasPrefix(msg, "receive pong"), strings.HasPrefix(msg, "receive message"):
+			case strings.HasPrefix(msg, "receive pong"):
+				l.wd.observePong()
+			case strings.HasPrefix(msg, "receive message"):
 				l.wd.observeInbound()
 			case strings.HasPrefix(msg, "ping success"):
 				l.wd.observePing()
@@ -395,7 +442,7 @@ func (s *larkWSSupervisor) supervise(ctx context.Context, cancel context.CancelF
 			}
 			log.Warn().Str("profile", s.profile).Str("reason", v.reason).
 				Dur("silence", v.silence).Dur("stale_after", v.staleAfter).
-				Msgf("bridge: lark websocket stale, no pong for %s; reconnecting", v.silence.Round(time.Second))
+				Msgf("bridge: lark websocket stale (%s) for %s; reconnecting", v.reason, v.silence.Round(time.Second))
 			cancel()
 			s.awaitStop(done)
 			s.notifyChecked(v)

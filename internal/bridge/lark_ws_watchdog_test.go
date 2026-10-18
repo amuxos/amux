@@ -182,7 +182,7 @@ func TestLarkWSSupervisorRestartsStaleConnectionOnce(t *testing.T) {
 	first := h.nextClient()
 	first.ready()
 	h.sendTick()
-	for i := 0; i < 3; i++ { // 4.5m: pings keep "succeeding" but nothing comes back
+	for i := 0; i < 2; i++ { // 3m: pings keep "succeeding" but nothing comes back
 		h.clock.Advance(90 * time.Second)
 		first.ping()
 		h.sendTick()
@@ -192,7 +192,7 @@ func TestLarkWSSupervisorRestartsStaleConnectionOnce(t *testing.T) {
 		t.Fatal("restarted before the stale threshold")
 	default:
 	}
-	h.clock.Advance(90 * time.Second) // 6m silent > 5m floor
+	h.clock.Advance(90 * time.Second) // 4.5m silent > 4m floor
 	first.ping()
 	h.sendTick()
 	second := h.nextClient()
@@ -235,13 +235,13 @@ func TestLarkWSSupervisorPongsAndEventsKeepConnection(t *testing.T) {
 	}
 }
 
-func TestLarkWSSupervisorIgnoresSilenceWhileSDKReconnects(t *testing.T) {
+func TestLarkWSSupervisorWaitsForShortSDKReconnect(t *testing.T) {
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
 	c.hooks.OnDisconnected()
 	c.hooks.OnReconnecting()
-	h.clock.Advance(30 * time.Minute)
+	h.clock.Advance(3 * time.Minute)
 	h.noNewClient()
 	c.sdkReconnected()
 	h.clock.Advance(time.Minute)
@@ -249,6 +249,60 @@ func TestLarkWSSupervisorIgnoresSilenceWhileSDKReconnects(t *testing.T) {
 	if got := h.reconnect.Load(); got != 1 {
 		t.Fatalf("onReconnected calls = %d, want 1", got)
 	}
+}
+
+func TestLarkWSSupervisorRecyclesStuckSDKReconnect(t *testing.T) {
+	h := startFakeWSSupervisor(t, testWSConfig())
+	c := h.nextClient()
+	c.ready()
+	c.hooks.OnDisconnected()
+	h.clock.Advance(2 * time.Minute)
+	c.hooks.OnReconnecting() // repeated callbacks keep the first disconnect time
+	h.clock.Advance(4 * time.Minute) // 6m disconnected > 5m threshold
+	h.sendTick()
+	next := h.nextClient()
+	<-c.stopped
+	next.ready()
+	h.noNewClient()
+}
+
+func TestLarkWSSupervisorRecyclesWhenPongsStopDespiteEvents(t *testing.T) {
+	h := startFakeWSSupervisor(t, testWSConfig())
+	c := h.nextClient()
+	c.ready()
+	c.ping()
+	c.pong()
+	for i := 0; i < 2; i++ {
+		h.clock.Advance(2 * time.Minute)
+		c.ping()
+		c.event()
+		h.sendTick()
+	}
+	h.clock.Advance(90 * time.Second) // 5.5m since last pong
+	c.event()
+	h.sendTick()
+	h.nextClient()
+}
+
+func TestLarkWSSupervisorRecyclesWhenPingsStop(t *testing.T) {
+	h := startFakeWSSupervisor(t, testWSConfig())
+	c := h.nextClient()
+	c.ready()
+	c.ping()
+	c.pong()
+	for i := 0; i < 6; i++ { // events flow, but the SDK pinger went quiet
+		h.clock.Advance(time.Minute)
+		c.event()
+		h.sendTick()
+		if i < 4 {
+			select {
+			case <-h.clients:
+				t.Fatal("restarted before the stale threshold")
+			default:
+			}
+		}
+	}
+	h.nextClient()
 }
 
 func TestLarkWSSupervisorRecyclesAfterHostSuspend(t *testing.T) {
@@ -354,19 +408,19 @@ func TestLarkWSWatchdogStaleThreshold(t *testing.T) {
 	clock := newFakeWSClock()
 	wd := newLarkWSWatchdog(defaultLarkWSWatchdogConfig(), clock)
 	wd.markConnected()
-	if got := wd.staleAfterLocked(); got != 6*time.Minute {
-		t.Fatalf("default stale threshold = %s, want 6m (3 x 2m default ping)", got)
+	if got := wd.staleAfterLocked(); got != 5*time.Minute {
+		t.Fatalf("default stale threshold = %s, want 5m (2.5 x 2m default ping)", got)
 	}
 	wd.observePing()
 	clock.Advance(90 * time.Second)
 	wd.observePing()
-	if got := wd.staleAfterLocked(); got != 5*time.Minute {
-		t.Fatalf("stale threshold with 90s pings = %s, want 5m floor", got)
+	if got := wd.staleAfterLocked(); got != 4*time.Minute {
+		t.Fatalf("stale threshold with 90s pings = %s, want 4m floor", got)
 	}
 	clock.Advance(4 * time.Minute)
 	wd.observePing()
-	if got := wd.staleAfterLocked(); got != 12*time.Minute {
-		t.Fatalf("stale threshold with 4m pings = %s, want 12m", got)
+	if got := wd.staleAfterLocked(); got != 10*time.Minute {
+		t.Fatalf("stale threshold with 4m pings = %s, want 10m", got)
 	}
 }
 
