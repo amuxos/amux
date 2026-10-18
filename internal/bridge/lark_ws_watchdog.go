@@ -195,6 +195,7 @@ func (w *larkWSWatchdog) staleAfterLocked() time.Duration {
 
 type larkWSStaleVerdict struct {
 	stale      bool
+	suspend    bool
 	reason     string
 	silence    time.Duration
 	staleAfter time.Duration
@@ -226,6 +227,7 @@ func (w *larkWSWatchdog) check() larkWSStaleVerdict {
 		if wallGap-monoGap > w.cfg.ClockJumpThreshold || monoGap > w.cfg.ClockJumpThreshold {
 			return larkWSStaleVerdict{
 				stale:      true,
+				suspend:    true,
 				reason:     fmt.Sprintf("host suspend suspected (wall clock advanced %s, monotonic %s since last check)", wallGap.Round(time.Second), monoGap.Round(time.Second)),
 				silence:    silence,
 				staleAfter: staleAfter,
@@ -318,6 +320,9 @@ type larkWSSupervisor struct {
 	// every later one (SDK reconnect or supervisor restart).
 	onConnected   func()
 	onReconnected func()
+
+	// onSuspend runs when a host suspend is detected, before reconnecting.
+	onSuspend func()
 
 	// checked, when set (tests), observes every finished watchdog check.
 	checked func(larkWSStaleVerdict)
@@ -439,6 +444,9 @@ func (s *larkWSSupervisor) supervise(ctx context.Context, cancel context.CancelF
 			if !v.stale {
 				s.notifyChecked(v)
 				continue
+			}
+			if v.suspend && s.onSuspend != nil {
+				s.onSuspend()
 			}
 			log.Warn().Str("profile", s.profile).Str("reason", v.reason).
 				Dur("silence", v.silence).Dur("stale_after", v.staleAfter).

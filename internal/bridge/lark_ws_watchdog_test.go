@@ -91,6 +91,7 @@ type fakeWSHarness struct {
 	overlap   atomic.Bool
 	connects  atomic.Int32
 	reconnect atomic.Int32
+	suspends  chan struct{}
 	cancel    context.CancelFunc
 	runErr    chan error
 }
@@ -98,12 +99,13 @@ type fakeWSHarness struct {
 func startFakeWSSupervisor(t *testing.T, cfg larkWSWatchdogConfig) *fakeWSHarness {
 	t.Helper()
 	h := &fakeWSHarness{
-		t:       t,
-		clock:   newFakeWSClock(),
-		tick:    make(chan time.Time),
-		checked: make(chan larkWSStaleVerdict, 1),
-		clients: make(chan *fakeWSClient, 16),
-		runErr:  make(chan error, 1),
+		t:        t,
+		clock:    newFakeWSClock(),
+		tick:     make(chan time.Time),
+		checked:  make(chan larkWSStaleVerdict, 1),
+		clients:  make(chan *fakeWSClient, 16),
+		runErr:   make(chan error, 1),
+		suspends: make(chan struct{}, 16),
 	}
 	s := newLarkWSSupervisor(cfg, func(hooks larkWSHooks) larkWSClient {
 		c := &fakeWSClient{hooks: hooks, h: h, started: make(chan struct{}), stopped: make(chan struct{}), result: make(chan error, 1)}
@@ -121,6 +123,7 @@ func startFakeWSSupervisor(t *testing.T, cfg larkWSWatchdogConfig) *fakeWSHarnes
 	s.checked = func(v larkWSStaleVerdict) { h.checked <- v }
 	s.onConnected = func() { h.connects.Add(1) }
 	s.onReconnected = func() { h.reconnect.Add(1) }
+	s.onSuspend = func() { h.suspends <- struct{}{} }
 	ctx, cancel := context.WithCancel(context.Background())
 	h.cancel = cancel
 	go func() { h.runErr <- s.Run(ctx) }()
@@ -257,7 +260,7 @@ func TestLarkWSSupervisorRecyclesStuckSDKReconnect(t *testing.T) {
 	c.ready()
 	c.hooks.OnDisconnected()
 	h.clock.Advance(2 * time.Minute)
-	c.hooks.OnReconnecting() // repeated callbacks keep the first disconnect time
+	c.hooks.OnReconnecting()         // repeated callbacks keep the first disconnect time
 	h.clock.Advance(4 * time.Minute) // 6m disconnected > 5m threshold
 	h.sendTick()
 	next := h.nextClient()

@@ -324,7 +324,7 @@ func NewWithProfile(hub Hub, profile string, secrets *Secrets, starter sessionla
 		return nil, fmt.Errorf("bridge: open db: %w", err)
 	}
 	client := lark.NewClient(secrets.AppId, secrets.AppSecret,
-		lark.WithLogLevel(larkcore.LogLevelInfo),
+		larkClientOptions(lark.WithLogLevel(larkcore.LogLevelInfo))...,
 	)
 	bridgeID := BridgeIdFromAppId(secrets.AppId)
 	if bridgeID == "" {
@@ -544,7 +544,7 @@ func FetchBotIdentity(ctx context.Context, client *lark.Client) (BotIdentity, er
 }
 
 func FetchBotIdentityWithCredentials(ctx context.Context, appID, appSecret string) (BotIdentity, error) {
-	return FetchBotIdentity(ctx, lark.NewClient(appID, appSecret, lark.WithLogLevel(larkcore.LogLevelInfo)))
+	return FetchBotIdentity(ctx, lark.NewClient(appID, appSecret, larkClientOptions(lark.WithLogLevel(larkcore.LogLevelInfo))...))
 }
 
 func (b *Bridge) newEventDispatcher() *dispatcher.EventDispatcher {
@@ -617,6 +617,8 @@ func (b *Bridge) Start(ctx context.Context) error {
 		)
 	})
 	supervisor.profile = b.ProfileName()
+	// Cached tenant tokens may have expired during the suspend.
+	supervisor.onSuspend = func() { sharedLarkTokenCache.Invalidate("host suspend") }
 	supervisor.onConnected = func() {
 		log.Info().Msg("bridge: connected to Lark")
 		b.startFeishuPermissionAudit(ctx)
