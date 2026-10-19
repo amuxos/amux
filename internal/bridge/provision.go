@@ -136,8 +136,10 @@ func ProvisionFeishuApp(ctx context.Context, opts ProvisionOptions) (*ProvisionR
 		Source:     "amux",
 		Domain:     opts.Domain,
 		LarkDomain: opts.LarkDomain,
-		Addons:     registrationAddonsForProvisioning(opts.SkipAddons),
-		AppID:      strings.TrimSpace(opts.AppID),
+		// The brand text is identical in both locales and editable on the creation page.
+		AppPreset: &registration.AppPreset{Desc: managementCopy("provision.app.description").String()},
+		Addons:    registrationAddonsForProvisioning(opts.SkipAddons),
+		AppID:     strings.TrimSpace(opts.AppID),
 		OnQRCode: func(info *registration.QRCodeInfo) {
 			if info == nil {
 				return

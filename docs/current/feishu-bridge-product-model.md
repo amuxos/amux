@@ -214,6 +214,10 @@ finish using its recorded peer identity.
 The public distribution has no legacy console automation and does not read
 another tool's web-session cache. Operators can use the official registration
 flow or configure an application manually.
+Official registration pre-fills a new app's description with `Powered by amux`,
+including when automatic capability configuration is skipped. This brand text
+is identical in English and Simplified Chinese and remains editable on the
+creation page.
 
 A separately maintained distribution may register one Bridge extension before
 the Bridge is first used. It can supply provider presentation, coordination

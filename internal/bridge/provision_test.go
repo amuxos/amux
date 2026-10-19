@@ -81,6 +81,9 @@ func TestProvisionFeishuAppPassesOfficialAddonsAndAllowsExistingApp(t *testing.T
 	var captured *registration.Options
 	registerAppFn = func(_ context.Context, opts *registration.Options) (*registration.RegisterAppResult, error) {
 		captured = opts
+		if opts.AppPreset == nil || opts.AppPreset.Desc != "Powered by amux" {
+			t.Fatalf("AppPreset = %#v, want default description Powered by amux", opts.AppPreset)
+		}
 		return &registration.RegisterAppResult{
 			ClientID:     "cli_test",
 			ClientSecret: "secret",
@@ -123,6 +126,9 @@ func TestProvisionFeishuAppPassesOfficialAddonsAndAllowsExistingApp(t *testing.T
 	}
 	if captured.AppID != "" {
 		t.Fatalf("new profile AppID = %q, want empty so the confirmation page offers app selection", captured.AppID)
+	}
+	if _, err := ProvisionFeishuApp(context.Background(), ProvisionOptions{QRWriter: io.Discard, SkipAddons: true}); err != nil {
+		t.Fatalf("ProvisionFeishuApp(skip addons): %v", err)
 	}
 }
 

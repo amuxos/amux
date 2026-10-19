@@ -1,4 +1,7 @@
 {
+  "provision.app.description": {
+    "other": "Powered by amux"
+  },
   "session.artifact.read_failed": {
     "other": "Artifact %q could not be read from the runtime. Check that it is in amux-outbox/ and at most 30 MB. Ask the operator to check the file-transfer logs for the exact cause."
   },

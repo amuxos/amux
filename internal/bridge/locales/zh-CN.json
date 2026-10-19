@@ -1,4 +1,7 @@
 {
+  "provision.app.description": {
+    "other": "Powered by amux"
+  },
   "session.artifact.read_failed": {
     "other": "无法从运行环境读取成果 %q。请确认文件位于 amux-outbox/ 且不超过 30 MB；具体原因请联系管理员查看文件回传日志。"
   },
