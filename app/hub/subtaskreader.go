@@ -86,3 +86,7 @@ func (s *bridgeSubtaskEventStream) SendMsg(message any) error {
 }
 
 func (s *bridgeSubtaskEventStream) RecvMsg(any) error { return io.EOF }
+
+func (r *bridgeSubtaskReader) SubmitScheduledTask(ctx context.Context, spec []byte) (string, error) {
+	return r.router.SubmitScheduledTask(ctx, spec)
+}

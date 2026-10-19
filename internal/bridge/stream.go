@@ -1172,12 +1172,14 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						} else {
 							b.discardPendingBotHandoff(rootMsgID)
 						}
+						completedCard := replyStream.ConversationCard()
 						if !superseded {
 							replyStream.Reset()
 						}
 						if handoffEligible {
 							b.dispatchArtifactDelivery(streamChat, action.Turn.ID, getFinalAnswer(), ev.CanonicalJson)
 						}
+						b.observeCompletion(ctx, streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, getFinalAnswer(), superseded, completedCard)
 						setFinalAnswer("")
 						if !superseded && (completionMeta.Status != "failed" || !failureNoticeDelivered) {
 							b.dispatchTurnCompletionNotification(streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, turnElapsed)

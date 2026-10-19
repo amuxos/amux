@@ -46,3 +46,27 @@ func TestConfigCommandLocalePrecedence(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+type extensionValidationError struct{}
+
+func (extensionValidationError) Error() string { return "fallback" }
+func (extensionValidationError) LocalizedMessage(locale string) string {
+	if locale == "zh-CN" {
+		return "扩展配置无效"
+	}
+	return "invalid extension configuration"
+}
+
+func TestExtensionConfigValidationLocale(t *testing.T) {
+	previous := distributionHooks
+	t.Cleanup(func() { distributionHooks = previous })
+	distributionHooks.ParseConfigValue = func(string, string) (any, bool, error) {
+		return nil, true, extensionValidationError{}
+	}
+	for _, tc := range []struct{ locale, want string }{{"en", "invalid extension"}, {"zh-CN", "扩展配置无效"}, {"fr", "invalid extension"}} {
+		err := setConfigValueLocale(cliConfigFile{}, "hub.addr", "invalid", i18n.Locale(tc.locale))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("%s: %v", tc.locale, err)
+		}
+	}
+}

@@ -512,3 +512,19 @@ affect a later turn. Pending cards retire on turn completion or stream teardown.
 The pending store remains in memory: restarting Bridge invalidates old cards and
 does not promise durable question recovery. A scheduled prompt targeting a bound
 Session uses this same interaction path; child Tasks follow the Task question rule.
+
+## Distribution conversation extensions
+
+A statically registered distribution may observe accepted, correlated conversation
+submissions and canonical completions, and handle its own card callback namespace.
+The public composition registers no observer or extra experiment entries. The
+observer receives immutable binding snapshots and explicit automation/supersession
+provenance; it owns its authorization, state, bounded background work and cleanup.
+Host services provide scoped card delivery, owner/locale lookup, configuration
+transactions and trusted background task submission through the Hub task router.
+Extensions do not receive direct access to Bridge database tables. Their independent
+experiment controls do not participate in the public save-and-restart form.
+
+Completed CardKit replies expose a serializable card reference for an optional extension section. The stream owns all mutations until completion; after that, the extension persists monotonically increasing mutation sequences and updates only its section. Answer and activity elements remain owned by the reply renderer. No additional message is sent for a section update; unsupported or undelivered cards have no reference.
+
+The optional conversation section appears after reply content and its footer divider, before the brand footer. The section and footer share the reply container, including when an activity card receives its answer later; the brand footer remains the final visible element. Section updates do not add another divider or change the answer or brand elements.

@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -14,6 +15,8 @@ import (
 // Extension supplies distribution-specific Bridge behavior. Install it before
 // invoking Bridge operations. Nil hooks retain the public defaults.
 type Extension struct {
+	ObserveConversations   func(context.Context, ConversationServices) (ConversationObserver, error)
+	ExperimentEntries      func() []json.RawMessage
 	ActivityPossiblyQueued func(string, *agentui.ActivityView) bool
 	ProviderErrorNotice    func(string) string
 	ReplyCardAgent         func(string) bool

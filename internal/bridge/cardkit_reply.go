@@ -31,19 +31,20 @@ const (
 )
 
 type replyCardHandle struct {
-	delivery        replyCardDelivery
-	mode            replyCardMode
-	cardID          string
-	messageID       string
-	sequence        int
-	lastText        string
-	lastActivity    string
-	hasAnswer       bool
-	hasActivity     bool
-	finished        bool
-	messageUUID     string
-	deliveryPending bool
-	pendingInsert   *pendingCardKitInsert
+	delivery            replyCardDelivery
+	mode                replyCardMode
+	cardID              string
+	messageID           string
+	sequence            int
+	lastText            string
+	lastActivity        string
+	hasAnswer           bool
+	hasActivity         bool
+	finished            bool
+	messageUUID         string
+	deliveryPending     bool
+	pendingInsert       *pendingCardKitInsert
+	conversationSection bool
 }
 
 type pendingCardKitInsertKind uint8
@@ -107,17 +108,19 @@ type cardKitReplyAPI interface {
 }
 
 type bindingReplyCardBackend struct {
-	prepareDelivery func() (replyCardDelivery, error)
-	cardKit         cardKitReplyAPI
-	sendCard        func(context.Context, string, string) (string, error)
-	createLegacy    func(context.Context, string) (string, error)
-	patchLegacy     func(context.Context, string, string) error
+	conversationSection bool
+	prepareDelivery     func() (replyCardDelivery, error)
+	cardKit             cardKitReplyAPI
+	sendCard            func(context.Context, string, string) (string, error)
+	createLegacy        func(context.Context, string) (string, error)
+	patchLegacy         func(context.Context, string, string) error
 }
 
 func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
 	return &bindingReplyCardBackend{
-		prepareDelivery: func() (replyCardDelivery, error) { return b.prepareSessionCardDelivery(chat) },
-		cardKit:         &larkCardKitReplyAPI{bridge: b},
+		conversationSection: b.getConversationObserver() != nil,
+		prepareDelivery:     func() (replyCardDelivery, error) { return b.prepareSessionCardDelivery(chat) },
+		cardKit:             &larkCardKitReplyAPI{bridge: b},
 		sendCard: func(ctx context.Context, content, requestUUID string) (string, error) {
 			msgID, _, err := b.sendCardKitReplyToBinding(ctx, chat, content, requestUUID)
 			return msgID, err
@@ -150,7 +153,8 @@ func (b *bindingReplyCardBackend) Create(ctx context.Context, text string) (*rep
 	if err != nil {
 		return nil, err
 	}
-	cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(renderCardKitReplyData(text), delivery.locale))
+	raw := renderCardKitData(wrapTurnCardElements(renderCardKitAnswerElements(text, b.conversationSection)))
+	cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(raw, delivery.locale))
 	if err == nil {
 		var messageID string
 		requestUUID := uuid.NewString()
@@ -164,25 +168,27 @@ func (b *bindingReplyCardBackend) Create(ctx context.Context, text string) (*rep
 		}
 		if err == nil {
 			return &replyCardHandle{
-				delivery:    delivery,
-				mode:        replyCardModeCardKit,
-				cardID:      cardID,
-				messageID:   messageID,
-				lastText:    text,
-				hasAnswer:   true,
-				messageUUID: requestUUID,
+				conversationSection: b.conversationSection,
+				delivery:            delivery,
+				mode:                replyCardModeCardKit,
+				cardID:              cardID,
+				messageID:           messageID,
+				lastText:            text,
+				hasAnswer:           true,
+				messageUUID:         requestUUID,
 			}, nil
 		}
 		if ambiguousSend {
 			log.Warn().Err(err).Str("card_id", cardID).Msg("bridge: CardKit message delivery remains uncertain; preserving send identity")
 			return &replyCardHandle{
-				delivery:        delivery,
-				mode:            replyCardModeCardKit,
-				cardID:          cardID,
-				lastText:        text,
-				hasAnswer:       true,
-				messageUUID:     requestUUID,
-				deliveryPending: true,
+				conversationSection: b.conversationSection,
+				delivery:            delivery,
+				mode:                replyCardModeCardKit,
+				cardID:              cardID,
+				lastText:            text,
+				hasAnswer:           true,
+				messageUUID:         requestUUID,
+				deliveryPending:     true,
 			}, nil
 		}
 	}
@@ -217,7 +223,8 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 	if err != nil {
 		return nil, err
 	}
-	cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(renderCardKitData(activity.elements()), delivery.locale))
+	raw := renderCardKitData(activity.elements())
+	cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(raw, delivery.locale))
 	if err != nil {
 		return nil, fmt.Errorf("create CardKit activity: %w", err)
 	}
@@ -232,25 +239,27 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 	}
 	if err == nil {
 		return &replyCardHandle{
-			delivery:     delivery,
-			mode:         replyCardModeCardKit,
-			cardID:       cardID,
-			messageID:    messageID,
-			lastActivity: selectManagementCardLocale(string(activity.JSON), delivery.locale),
-			hasActivity:  true,
-			messageUUID:  requestUUID,
+			conversationSection: b.conversationSection,
+			delivery:            delivery,
+			mode:                replyCardModeCardKit,
+			cardID:              cardID,
+			messageID:           messageID,
+			lastActivity:        selectManagementCardLocale(string(activity.JSON), delivery.locale),
+			hasActivity:         true,
+			messageUUID:         requestUUID,
 		}, nil
 	}
 	if ambiguousSend {
 		log.Warn().Err(err).Str("card_id", cardID).Msg("bridge: CardKit activity delivery remains uncertain; preserving send identity")
 		return &replyCardHandle{
-			delivery:        delivery,
-			mode:            replyCardModeCardKit,
-			cardID:          cardID,
-			lastActivity:    selectManagementCardLocale(string(activity.JSON), delivery.locale),
-			hasActivity:     true,
-			messageUUID:     requestUUID,
-			deliveryPending: true,
+			conversationSection: b.conversationSection,
+			delivery:            delivery,
+			mode:                replyCardModeCardKit,
+			cardID:              cardID,
+			lastActivity:        selectManagementCardLocale(string(activity.JSON), delivery.locale),
+			hasActivity:         true,
+			messageUUID:         requestUUID,
+			deliveryPending:     true,
 		}, nil
 	}
 	return nil, fmt.Errorf("send CardKit activity: %w", err)
@@ -301,7 +310,7 @@ func (b *bindingReplyCardBackend) update(ctx context.Context, handle *replyCardH
 		})
 	} else {
 		answerElements := []cardElement{{Tag: "hr", ElementID: cardKitAnswerDividerElementID}}
-		answerElements = append(answerElements, renderCardKitAnswerElements(text)...)
+		answerElements = append(answerElements, renderCardKitAnswerElements(text, handle.conversationSection)...)
 		elements, marshalErr := json.Marshal(answerElements)
 		if marshalErr != nil {
 			return marshalErr
@@ -645,12 +654,19 @@ func (a *larkCardKitReplyAPI) FinishCard(ctx context.Context, finish cardKitRepl
 }
 
 func renderCardKitReplyData(text string) string {
-	return renderCardKitData(wrapTurnCardElements(renderCardKitAnswerElements(text)))
+	return renderCardKitData(wrapTurnCardElements(renderCardKitAnswerElements(text, false)))
 }
 
-func renderCardKitAnswerElements(text string) []cardElement {
+func renderCardKitAnswerElements(text string, withConversationSection bool) []cardElement {
 	elements := renderFinalResultElements(text)
-	return append(elements, renderAmuxBrandFooterElements()...)
+	footer := renderAmuxBrandFooterElements()
+	elements = append(elements, footer[0])
+	if withConversationSection {
+		// Build the section alongside the answer, before wrapping the turn card.
+		// This also applies when an activity card receives its answer later.
+		elements = append(elements, emptyConversationSection())
+	}
+	return append(elements, footer[1:]...)
 }
 
 // Product headings never share a content-only streaming target with Agent text.

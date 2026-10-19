@@ -338,6 +338,73 @@ func TestCardKitMainTurnAnswerFirstMovesActivityBeforeAnswer(t *testing.T) {
 	}
 }
 
+func TestCardKitConversationSectionStaysBeforeFooter(t *testing.T) {
+	for _, activityFirst := range []bool{false, true} {
+		name := "answer_first"
+		if activityFirst {
+			name = "activity_first"
+		}
+		t.Run(name, func(t *testing.T) {
+			api := &fakeCardKitReplyAPI{cardID: "card-123"}
+			sends := 0
+			backend := &bindingReplyCardBackend{
+				conversationSection: true,
+				cardKit:             api,
+				sendCard: func(context.Context, string, string) (string, error) {
+					sends++
+					return "message-123", nil
+				},
+			}
+			ctx := context.Background()
+			activity := renderTurnActivity(toolActivityCardMeta{Status: "running"})
+			var handle *replyCardHandle
+			var err error
+			if activityFirst {
+				handle, err = backend.CreateActivity(ctx, activity)
+			} else {
+				handle, err = backend.Create(ctx, "answer")
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if activityFirst {
+				// No placeholder outside the turn container before the answer exists.
+				assertCardElementOrder(t, api.createdData[0], cardKitActivityElementID)
+				assertTurnCardChildOrder(t, api.createdData[0], cardKitActivityContentID)
+				if err := backend.Update(ctx, handle, "answer"); err != nil {
+					t.Fatal(err)
+				}
+				if len(api.inserts) != 1 || api.inserts[0].Type != "insert_after" || api.inserts[0].TargetElementID != cardKitActivityContentID {
+					t.Fatalf("answer insert = %+v", api.inserts)
+				}
+				assertInsertedElementOrder(t, api.inserts[0].Elements, cardKitAnswerDividerElementID,
+					cardKitAnswerHeadingID, cardKitReplyElementID, amuxBrandDividerID, conversationSectionID, amuxBrandFooterID)
+			} else {
+				// Inspect the real nested renderer output, not only body.elements.
+				assertCardElementOrder(t, api.createdData[0], cardKitActivityElementID)
+				assertTurnCardChildOrder(t, api.createdData[0], cardKitAnswerHeadingID, cardKitReplyElementID,
+					amuxBrandDividerID, conversationSectionID, amuxBrandFooterID)
+				if err := backend.UpdateActivity(ctx, handle, activity); err != nil {
+					t.Fatal(err)
+				}
+				if len(api.inserts) != 1 || api.inserts[0].Type != "insert_before" || api.inserts[0].TargetElementID != cardKitAnswerHeadingID {
+					t.Fatalf("activity insert = %+v", api.inserts)
+				}
+				assertInsertedElementOrder(t, api.inserts[0].Elements, cardKitActivityContentID, cardKitAnswerDividerElementID)
+			}
+			if err := backend.Finish(ctx, handle, "final answer"); err != nil {
+				t.Fatal(err)
+			}
+			if sends != 1 || !handle.hasAnswer || !handle.conversationSection || !handle.finished {
+				t.Fatalf("unexpected delivery: sends=%d handle=%+v", sends, handle)
+			}
+			if len(api.updates) != 1 || api.updates[0].ElementID != cardKitReplyElementID {
+				t.Fatalf("final update must only change answer text: %+v", api.updates)
+			}
+		})
+	}
+}
+
 func TestCardKitMainTurnRetriesAmbiguousInsertWithSameIdentityBeforeFinish(t *testing.T) {
 	api := &fakeCardKitReplyAPI{
 		cardID:     "card-123",

@@ -24,3 +24,10 @@ func BridgeRequiredScopeManifest() BridgeScopeManifest { return bridge.RequiredS
 
 // BridgeRenderQRCode uses the same terminal rendering as official provisioning.
 func BridgeRenderQRCode(writer io.Writer, payload string) { bridge.RenderQRCode(writer, payload) }
+
+type ConversationBinding = bridge.ConversationBinding
+type ConversationSubmission = bridge.ConversationSubmission
+type ConversationCompletion = bridge.ConversationCompletion
+type ConversationCard = bridge.ConversationCard
+type ConversationServices = bridge.ConversationServices
+type ConversationObserver = bridge.ConversationObserver

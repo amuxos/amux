@@ -12,7 +12,9 @@ import (
 type Hooks struct {
 	AuthenticationPreflight  func(context.Context, string, string) error
 	AuthenticationProbeLabel func(string) string
-	ParseConfigValue         func(string, string) (any, bool, error)
+	// ParseConfigValue may return an error implementing LocalizedMessage(string)
+	// to render validation in the selected CLI locale (en or zh-CN).
+	ParseConfigValue func(string, string) (any, bool, error)
 	// CredentialSetExamples appends examples using the supplied invocation path.
 	CredentialSetExamples func(string) string
 	// SetupCommands returns fresh optional-component commands. It must not

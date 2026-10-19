@@ -157,6 +157,7 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		}},
 		managementTextElement(managementCopy("management.applies.to.all.assistants.in.this.instance"), "notation", "grey", nil),
 	}
+	elements = append(elements, conversationExperimentElements()...)
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.experiments"), Summary: managementCopy("management.amux.experiments"), Theme: "blue", Elements: elements})
 }
 

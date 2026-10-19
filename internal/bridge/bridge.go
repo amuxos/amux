@@ -109,6 +109,8 @@ type ManagementAgentPackActions interface {
 
 // Bridge connects the hub to Lark.
 type Bridge struct {
+	conversationMu       sync.RWMutex
+	conversationObserver ConversationObserver
 	// turnSources maps turns to the Feishu chat of their first input.
 	turnSources    turnSourceChats
 	hub            Hub
@@ -580,6 +582,12 @@ func (b *Bridge) newEventDispatcher() *dispatcher.EventDispatcher {
 
 // Start connects to Lark via WebSocket and blocks until ctx is cancelled.
 func (b *Bridge) Start(ctx context.Context) error {
+	if err := b.startConversationObserver(ctx); err != nil {
+		return err
+	}
+	if observer := b.getConversationObserver(); observer != nil {
+		defer observer.Close()
+	}
 	identityCtx, identityCancel := context.WithTimeout(ctx, 10*time.Second)
 	if b.ensureBotIdentity(identityCtx) {
 		_ = b.saveProfileSecrets()

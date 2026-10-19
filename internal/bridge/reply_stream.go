@@ -34,18 +34,20 @@ const (
 	replyCommandSupersede
 	replyCommandFlush
 	replyCommandFinalizeForBot
+	replyCommandConversationCard
 	replyCommandReset
 	replyCommandClose
 )
 
 type replyCommand struct {
-	kind           replyCommandKind
-	text           string
-	activity       turnCardActivity
-	activityResult chan replyActivityResult
-	botOpenID      string
-	botFinalResult chan bool
-	done           chan struct{}
+	kind                   replyCommandKind
+	text                   string
+	activity               turnCardActivity
+	activityResult         chan replyActivityResult
+	botOpenID              string
+	botFinalResult         chan bool
+	conversationCardResult chan *ConversationCard
+	done                   chan struct{}
 }
 
 type replyActivityResult struct {
@@ -182,6 +184,23 @@ func (s *streamingReplySender) Flush() {
 	s.runSync(replyCommandFlush)
 }
 
+// ConversationCard transfers a reference only after all stream mutations have
+// finished. The actor keeps ownership of the mutable handle itself.
+func (s *streamingReplySender) ConversationCard() *ConversationCard {
+	result := make(chan *ConversationCard, 1)
+	select {
+	case s.commands <- replyCommand{kind: replyCommandConversationCard, conversationCardResult: result}:
+	case <-s.done:
+		return nil
+	}
+	select {
+	case card := <-result:
+		return card
+	case <-s.done:
+		return nil
+	}
+}
+
 // FinalizeForBot completes a single reply card with a native CardKit mention
 // while keeping the logical Agent answer passed to onFinal undecorated. It
 // returns false when the answer spans multiple cards or the final card could
@@ -256,6 +275,12 @@ func (s *replyStreamState) handleCommand(cmd replyCommand) bool {
 		if cmd.botFinalResult != nil {
 			cmd.botFinalResult <- delivered
 		}
+	case replyCommandConversationCard:
+		var card *ConversationCard
+		if h := s.handle; h != nil && h.finished && h.hasAnswer && h.conversationSection && h.mode == replyCardModeCardKit && h.messageID != "" {
+			card = &ConversationCard{MessageID: h.messageID, CardID: h.cardID, Sequence: h.sequence, Locale: string(h.delivery.locale)}
+		}
+		cmd.conversationCardResult <- card
 	case replyCommandReset:
 		s.finishAll()
 		s.notifyFinal()

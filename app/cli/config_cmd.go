@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -279,6 +280,9 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 	var value any = raw
 	if parsed, handled, err := parseDistributionConfigValue(key, raw); handled {
 		if err != nil {
+			if localized, ok := err.(interface{ LocalizedMessage(string) string }); ok {
+				err = errors.New(localized.LocalizedMessage(string(locale)))
+			}
 			return commandValidationError(err)
 		}
 		value = parsed
