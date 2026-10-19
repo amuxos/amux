@@ -21,6 +21,73 @@ type recordingObserver struct {
 	actions     int
 }
 
+type conversationTaskRecorder struct{ submits, reads int }
+
+func (r *conversationTaskRecorder) SubtaskIDsByParent(string) []string { return nil }
+func (r *conversationTaskRecorder) GetSubtaskJSON(context.Context, string) ([]byte, error) {
+	panic("unscoped task read")
+}
+func (r *conversationTaskRecorder) SubmitConversationTask(_ context.Context, target, session string, _ []byte) (string, error) {
+	if target != "t1" || session != "s1" {
+		panic("wrong conversation")
+	}
+	r.submits++
+	return "task", nil
+}
+func (r *conversationTaskRecorder) ReadConversationTask(_ context.Context, target, session, id string) ([]byte, error) {
+	if target != "t1" || session != "s1" || id != "task" {
+		panic("wrong task conversation")
+	}
+	r.reads++
+	return []byte(`{"status":"succeeded"}`), nil
+}
+
+func TestConversationTasksValidateDurableBinding(t *testing.T) {
+	b, _ := newBridgeForInputTest(t)
+	chat := &LarkChat{BridgeId: b.currentBridgeId(), RootMsgID: "root", ChatID: "chat", OpenId: "user", TargetID: "t1", SessionName: "s1"}
+	if err := b.db.UpsertChat(*chat); err != nil {
+		t.Fatal(err)
+	}
+	recorder := &conversationTaskRecorder{}
+	b.subtasks = recorder
+	var services ConversationServices
+	b.conversationTaskServices(&services)
+	binding := b.conversationBinding(chat)
+	if _, err := services.SubmitConversationTask(context.Background(), binding, []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := services.ReadConversationTask(context.Background(), binding, "task"); err != nil {
+		t.Fatal(err)
+	}
+	for _, mutate := range []func(*ConversationBinding){
+		func(v *ConversationBinding) { v.BridgeID = "other" },
+		func(v *ConversationBinding) { v.RootID = "missing" },
+		func(v *ConversationBinding) { v.TargetID = "other" },
+		func(v *ConversationBinding) { v.Session = "other" },
+		func(v *ConversationBinding) { v.Initiator = "other" },
+		func(v *ConversationBinding) { v.ChatID = "other" },
+	} {
+		bad := binding
+		mutate(&bad)
+		if _, err := services.SubmitConversationTask(context.Background(), bad, nil); err == nil {
+			t.Fatal("submitted invalid binding")
+		}
+		if _, err := services.ReadConversationTask(context.Background(), bad, "task"); err == nil {
+			t.Fatal("read with invalid binding")
+		}
+	}
+	chat.SessionName = "replacement"
+	if err := b.db.UpsertChat(*chat); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := services.SubmitConversationTask(context.Background(), binding, nil); err == nil {
+		t.Fatal("submitted stale binding")
+	}
+	if recorder.submits != 1 || recorder.reads != 1 {
+		t.Fatalf("invalid binding reached task runner: %+v", recorder)
+	}
+}
+
 type streamObserver struct {
 	recordingObserver
 	done chan ConversationCompletion

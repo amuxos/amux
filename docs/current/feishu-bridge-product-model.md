@@ -228,6 +228,15 @@ canonical events, access checks, or the default official registration flow.
 Distribution-specific implementations and session-cache paths belong to the
 distribution module; the public Bridge operates independently without them.
 
+Conversation extensions submit and read background Tasks through a binding-scoped
+capability. The Bridge validates the Bot/topic binding; the Hub resolves the exact
+target and Session and uses its frozen principal, authority and isolation backend.
+Authority is revalidated on submission and reads, including after restart. Missing
+or changed bindings and foreign task identities fail closed. A completed parent
+Turn is sufficient: these independent Tasks do not claim an active parent Turn,
+notify the parent, or accept caller-supplied execution identities. Host-mode
+conversations remain supported when principal isolation is disabled.
+
 The parent activity card summarizes collaboration tasks without mixing their
 output into the parent Agent process panel. Each newly discovered task gets one
 child progress card per Bridge process, updated in place through its terminal

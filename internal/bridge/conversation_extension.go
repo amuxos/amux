@@ -82,11 +82,53 @@ type ConversationServices struct {
 	UpdateCardSection              func(context.Context, ConversationCard, []json.RawMessage) error
 	SubmitTask                     func(context.Context, []byte) (string, error)
 	ReadTask                       func(context.Context, string) ([]byte, error)
-	ConversationURL                func(context.Context, ConversationBinding) (string, error)
+	// Use the scoped capabilities for work originating from a conversation.
+	// They retain its execution identity and validate result access on every read.
+	SubmitConversationTask func(context.Context, ConversationBinding, []byte) (string, error)
+	ReadConversationTask   func(context.Context, ConversationBinding, string) ([]byte, error)
+	ConversationURL        func(context.Context, ConversationBinding) (string, error)
 }
 
 type BackgroundTaskSubmitter interface {
 	SubmitScheduledTask(context.Context, []byte) (string, error)
+}
+
+type ConversationTaskRunner interface {
+	SubmitConversationTask(context.Context, string, string, []byte) (string, error)
+	ReadConversationTask(context.Context, string, string, string) ([]byte, error)
+}
+
+func (b *Bridge) validateConversationTaskBinding(binding ConversationBinding) error {
+	if binding.BridgeID != b.currentBridgeId() || binding.RootID == "" || binding.TargetID == "" || binding.Session == "" || b.db == nil {
+		return fmt.Errorf("invalid conversation task binding")
+	}
+	chat, err := b.db.FindByRootMsg(binding.BridgeID, binding.RootID)
+	if err != nil {
+		return err
+	}
+	if chat == nil || chat.TargetID != binding.TargetID || chat.SessionName != binding.Session || chat.ChatID != binding.ChatID || chat.OpenId != binding.Initiator {
+		return fmt.Errorf("conversation task binding has changed")
+	}
+	return nil
+}
+
+func (b *Bridge) conversationTaskServices(s *ConversationServices) {
+	runner, ok := b.subtasks.(ConversationTaskRunner)
+	if !ok {
+		return
+	}
+	s.SubmitConversationTask = func(ctx context.Context, binding ConversationBinding, spec []byte) (string, error) {
+		if err := b.validateConversationTaskBinding(binding); err != nil {
+			return "", err
+		}
+		return runner.SubmitConversationTask(ctx, binding.TargetID, binding.Session, spec)
+	}
+	s.ReadConversationTask = func(ctx context.Context, binding ConversationBinding, id string) ([]byte, error) {
+		if err := b.validateConversationTaskBinding(binding); err != nil {
+			return nil, err
+		}
+		return runner.ReadConversationTask(ctx, binding.TargetID, binding.Session, id)
+	}
 }
 
 func (b *Bridge) conversationBinding(chat *LarkChat) ConversationBinding {
@@ -142,6 +184,7 @@ func (b *Bridge) startConversationObserver(ctx context.Context) error {
 			s.SubmitTask = submitter.SubmitScheduledTask
 		}
 	}
+	b.conversationTaskServices(&s)
 	observer, err := factory(ctx, s)
 	if err != nil {
 		return err

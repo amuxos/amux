@@ -254,6 +254,12 @@ func (r *taskRouter) SubmitSubtask(ctx context.Context, req *pb.SubmitSubtaskReq
 		return nil, taskIdentityDecisionError(identityResult.Decision, hasSubmitParent, submitParent.Identity)
 	}
 	identity = identityResult.Identity
+	// Conversation background work inherits a finalized backend. Scheduled
+	// definitions normally clear this pin so each trigger can select a backend.
+	if preserve, _ := ctx.Value(conversationSubmitContextKey{}).(bool); preserve && trustedScheduledIdentity && scheduledIdentity != nil {
+		identity.IsolationBackend = scheduledIdentity.IsolationBackend
+		identity.Source = scheduledIdentity.Source
+	}
 	if hasSubmitParent {
 		active, err := r.activeParentTurn(ctx, submitParent)
 		if err != nil {

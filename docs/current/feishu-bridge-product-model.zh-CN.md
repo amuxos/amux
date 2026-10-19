@@ -160,6 +160,12 @@ Profile 识别、旧默认值的事务性迁移，以及显式控制台 setup �
 事件、访问校验或默认官方注册流程。发行版特有实现和 Session 缓存路径属于发行版
 module；公共 Bridge 无需它们也可独立运行。
 
+会话扩展通过绑定到具体会话的能力提交和读取后台 Task。Bridge 校验 Bot/话题绑定，
+Hub 按准确的 target 和 Session 解析已冻结的 Principal、授权关系及隔离 backend。
+提交、读取以及重启恢复时重新校验授权；绑定缺失、变化或任务身份不匹配时拒绝。
+这些独立 Task 可在 parent Turn 完成后发起，不认领活动 parent Turn、不通知 parent，
+也不接受调用方指定执行身份。未开启 Principal 隔离时仍支持宿主模式会话。
+
 Parent 活动卡汇总协作任务，不把其输出混入 parent Agent 的过程面板。
 每个新发现的任务在每个 Bridge 进程内创建一张子进度卡，原地更新至终态结果。
 标签由短 Profile 名加 Persistent Agent Instance ID 的前八位组成；普通任务使用准确
