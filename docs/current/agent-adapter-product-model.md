@@ -106,6 +106,13 @@ conversation with the available amux conversation handoff. The amux session,
 execution settings and pending handoff remain intact. Other launch failures
 remain errors and do not discard the saved provider conversation identity.
 
+For Codex-compatible providers, `provider.structured.turn_hard_cap_seconds`
+defaults to 21600 seconds (6 hours) per turn, allowing long-running work to
+continue within that absolute limit. Explicit global and per-provider settings
+take precedence; zero disables the limit, negative values use the provider
+default, and configured values are capped at 7 days. Turn idle and tool idle
+timeouts remain separate watchdog limits.
+
 For Codex-compatible providers, `provider.structured.repeat_tool_call_limit`
 defaults to 50 consecutive identical tool calls in one turn. The guard counts
 unique started items with the same call-defining payload; duplicate frames do

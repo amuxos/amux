@@ -1046,9 +1046,9 @@ type StructuredProviderConfig struct {
 }
 
 const (
-	defaultTurnIdleTimeoutSeconds = 900  // 15m
-	defaultTurnHardCapSeconds     = 7200 // 2h
-	defaultToolIdleTimeoutSeconds = 3600 // 1h
+	defaultTurnIdleTimeoutSeconds = 900   // 15m
+	defaultTurnHardCapSeconds     = 21600 // 6h
+	defaultToolIdleTimeoutSeconds = 3600  // 1h
 	// defaultRepeatToolCallLimit leaves room for normal same-argument polling
 	// of long-running jobs; the previous limit of 5 interrupted healthy SQL
 	// status checks. A stuck model still stops at 50 consecutive identical

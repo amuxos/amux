@@ -77,6 +77,11 @@ Pi 使用 Chat Completions。附加 Provider 平台、默认端点和 Pi 兼容�
 可用的 amux 对话交接创建一次新的 Provider 对话。amux Session、执行设置和待处理的
 handoff 保持完整。其它启动失败仍作为错误处理，不丢弃已保存的 Provider 对话身份。
 
+对兼容 Codex 的 Provider，`provider.structured.turn_hard_cap_seconds` 默认将单轮
+绝对时长上限设为 21600 秒（6 小时），允许长时间工作在该上限内继续执行。显式全局
+和 per-provider 配置优先；0 禁用上限，负数使用 Provider 默认值，配置值最大为 7 天。
+Turn idle 和 tool idle 超时仍是独立的 watchdog 限制。
+
 对兼容 Codex 的 Provider，`provider.structured.repeat_tool_call_limit` 默认允许同一
 turn 中连续 50 次相同工具调用。防护按相同调用定义 payload 的唯一 started item
 计数；重复帧不累加，不同调用或新 turn 会重置计数。返回内容变化不会重置计数。

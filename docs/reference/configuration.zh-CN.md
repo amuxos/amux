@@ -183,7 +183,7 @@ amux system config unset <key>
 | 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `provider.structured.turn_idle_timeout_seconds` | 整数秒数 | 900 | 0 禁用，负数回默认，最大 604800 | 否 | Structured provider turn 无有效活动超时。 |
-| `provider.structured.turn_hard_cap_seconds` | 整数秒数 | 7200 | 0 禁用，负数回默认，最大 604800 | 否 | Structured provider 单 turn 绝对时长上限。 |
+| `provider.structured.turn_hard_cap_seconds` | 整数秒数 | 21600 | 0 禁用，负数回默认，最大 604800 | 否 | Structured provider 单 turn 绝对时长上限。 |
 | `provider.structured.tool_idle_timeout_seconds` | 整数秒数 | 3600 | 0 禁用，负数回默认，最大 604800 | 否 | Structured provider 工具无进度超时。 |
 | `provider.structured.repeat_tool_call_limit` | 整数计数 | 50 | 0 禁用，负数回默认，最大 1000 | 否 | Structured provider 同一 turn 内连续相同工具调用次数上限，达到即失败收尾。 |
 | `provider.structured.<provider>.turn_idle_timeout_seconds` | 整数秒数 | 继承全局 | provider 为 codex；0 禁用，负数回 provider 默认，最大 604800 | 否 | 指定 provider 的 turn idle 覆盖。 |

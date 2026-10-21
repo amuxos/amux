@@ -55,8 +55,8 @@ func TestNormalizeWatchdogConfigUsesProviderDefaults(t *testing.T) {
 		RepeatToolCallLimit:    -1,
 	}
 	codex := normalizeWatchdogConfig("codex", input)
-	if codex.TurnIdleTimeoutSeconds != 900 || codex.TurnHardCapSeconds != 7200 || codex.ToolIdleTimeoutSeconds != 3600 || codex.RepeatToolCallLimit != 50 {
-		t.Fatalf("codex defaults = %+v, want 900/7200/3600/50", codex)
+	if codex.TurnIdleTimeoutSeconds != 900 || codex.TurnHardCapSeconds != 21600 || codex.ToolIdleTimeoutSeconds != 3600 || codex.RepeatToolCallLimit != 50 {
+		t.Fatalf("codex defaults = %+v, want 900/21600/3600/50", codex)
 	}
 	clamped := normalizeWatchdogConfig("codex", config.StructuredProviderConfig{RepeatToolCallLimit: 5000})
 	if clamped.RepeatToolCallLimit != 1000 {
