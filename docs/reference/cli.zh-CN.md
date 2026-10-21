@@ -1559,9 +1559,10 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `-h, --help` | `bool` | `false` | create-task 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |
 | `--local-dir` | `string` | `""` | 覆盖目标机器上的工作目录 |
-| `--model` | `string` | `""` | 执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型 |
+| `--model` | `string` | `""` | 每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型 |
 | `--name` | `string` | `""` | Schedule 的可选标签 |
 | `--permission-policy` | `string` | `""` | Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数 |
+| `--reasoning-effort` | `string` | `""` | 每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值 |
 | `--repo-cache-key` | `string` | `""` | 工作区仓库缓存键 |
 | `--repo-commit` | `string` | `""` | 工作区仓库提交或 ref |
 | `--repo-kind` | `string` | `""` | 工作区仓库类型（例如 git） |
@@ -1682,9 +1683,10 @@ amux schedule update 8 --name nightly-report
 | `-h, --help` | `bool` | `false` | update 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |
 | `--local-dir` | `string` | `""` | 覆盖目标机器上的工作目录 |
-| `--model` | `string` | `""` | 执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型 |
+| `--model` | `string` | `""` | 每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型 |
 | `--name` | `string` | `""` | Schedule 的新标签 |
 | `--permission-policy` | `string` | `""` | Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数 |
+| `--reasoning-effort` | `string` | `""` | 每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值 |
 | `--repo-cache-key` | `string` | `""` | 工作区仓库缓存键 |
 | `--repo-commit` | `string` | `""` | 工作区仓库提交或 ref |
 | `--repo-kind` | `string` | `""` | 工作区仓库类型（例如 git） |
@@ -2696,7 +2698,7 @@ amux task submit <task prompt> [flags]
 | `--credential-profile` | `string` | `""` | 凭据 Profile 名称（由控制面解析） |
 | `-h, --help` | `bool` | `false` | submit 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |
-| `--model` | `string` | `""` | 执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型 |
+| `--model` | `string` | `""` | 执行模型引用；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型 |
 | `--permission` | `string` | `""` | Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略 |
 | `--profile` | `string` | `""` | 调度前解析的 Agent Profile 引用（覆盖 --agent） |
 | `--repo-dir` | `string` | `""` | git-worktree 工作区的仓库缓存目录 |

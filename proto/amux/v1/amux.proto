@@ -759,6 +759,10 @@ message ActiveTurnResponse {
   string turn_id = 2;
   string session_id = 3;
   string launch_id = 4;
+  // The parent session's current execution choices, mirrored so a spawned
+  // subtask can follow the model and reasoning effort the conversation is on.
+  string effective_model = 5;
+  string reasoning_effort = 6;
 }
 
 message InputPart {

@@ -3087,29 +3087,29 @@
     "en": "Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts",
     "zh-CN": "执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置"
   },
-  "Execution model ref; omitted uses the inherited launch preset model or the selected engine default": {
-    "en": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
-    "zh-CN": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default": {
+    "en": "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型"
   },
-  "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型": {
-    "en": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
-    "zh-CN": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  "执行模型引用；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型": {
+    "en": "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型"
   },
-  "Execution model ref; omitted uses the inherited launch preset model or the selected engine default\n执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型": {
-    "en": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
-    "zh-CN": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default\n执行模型引用；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型": {
+    "en": "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型"
   },
-  "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default": {
-    "en": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default",
-    "zh-CN": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  "Execution model ref frozen on the persistent instance; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default": {
+    "en": "Execution model ref frozen on the persistent instance; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用，固定到持久实例；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型"
   },
-  "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型": {
-    "en": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default",
-    "zh-CN": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  "执行模型引用，固定到持久实例；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型": {
+    "en": "Execution model ref frozen on the persistent instance; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用，固定到持久实例；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型"
   },
-  "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default\n执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型": {
-    "en": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default",
-    "zh-CN": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型"
+  "Execution model ref frozen on the persistent instance; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default\n执行模型引用，固定到持久实例；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型": {
+    "en": "Execution model ref frozen on the persistent instance; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
+    "zh-CN": "执行模型引用，固定到持久实例；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型"
   },
   "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details.": {
     "en": "Choose an expert by description and skills. runtime_required applies to direct session launches; Tasks and schedules can use the distribution launch defaults. Explicit runtime and model choices take precedence. Use profile_get for full content details.",
@@ -3206,5 +3206,53 @@
   "中断持久 Agent 当前 turn。用于用户要求停止某个后台任务时；中断后简要告知用户，之后可用 instance_followup 继续。": {
     "en": "Interrupt the persistent Agent's current turn. Use it when the user asks to stop a background task; tell the user briefly afterwards, and continue later with instance_followup if needed.",
     "zh-CN": "中断持久 Agent 当前 turn。用于用户要求停止某个后台任务时；中断后简要告知用户，之后可用 instance_followup 继续。"
+  },
+  "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default": {
+    "en": "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
+    "zh-CN": "执行思考强度；会话内创建的子任务在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值"
+  },
+  "执行思考强度；会话内创建的子任务在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值": {
+    "en": "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
+    "zh-CN": "执行思考强度；会话内创建的子任务在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值"
+  },
+  "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default\n执行思考强度；会话内创建的子任务在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值": {
+    "en": "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
+    "zh-CN": "执行思考强度；会话内创建的子任务在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值"
+  },
+  "Reasoning effort ref frozen on the persistent instance; a session-spawned instance inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default": {
+    "en": "Reasoning effort ref frozen on the persistent instance; a session-spawned instance inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
+    "zh-CN": "执行思考强度，固定到持久实例；会话内创建的实例在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值"
+  },
+  "执行思考强度，固定到持久实例；会话内创建的实例在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值": {
+    "en": "Reasoning effort ref frozen on the persistent instance; a session-spawned instance inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
+    "zh-CN": "执行思考强度，固定到持久实例；会话内创建的实例在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值"
+  },
+  "Reasoning effort ref frozen on the persistent instance; a session-spawned instance inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default\n执行思考强度，固定到持久实例；会话内创建的实例在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值": {
+    "en": "Reasoning effort ref frozen on the persistent instance; a session-spawned instance inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
+    "zh-CN": "执行思考强度，固定到持久实例；会话内创建的实例在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值"
+  },
+  "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model": {
+    "en": "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model",
+    "zh-CN": "每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型"
+  },
+  "每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型": {
+    "en": "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model",
+    "zh-CN": "每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型"
+  },
+  "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model\n每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型": {
+    "en": "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model",
+    "zh-CN": "每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型"
+  },
+  "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default": {
+    "en": "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default",
+    "zh-CN": "每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值"
+  },
+  "每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值": {
+    "en": "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default",
+    "zh-CN": "每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值"
+  },
+  "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default\n每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值": {
+    "en": "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default",
+    "zh-CN": "每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值"
   }
 }

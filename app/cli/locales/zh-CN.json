@@ -30,10 +30,16 @@
     "other": "执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置"
   },
   "mcp.task.model": {
-    "other": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型"
+    "other": "执行模型引用；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型"
+  },
+  "mcp.task.reasoning_effort": {
+    "other": "执行思考强度；会话内创建的子任务在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值"
   },
   "mcp.instance.model": {
-    "other": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型"
+    "other": "执行模型引用，固定到持久实例；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型"
+  },
+  "mcp.instance.reasoning_effort": {
+    "other": "执行思考强度，固定到持久实例；会话内创建的实例在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值"
   },
   "mcp.task.extra_args": {
     "other": "原生执行参数；权限参数按 permission_policy 归一化，其他参数保留顺序"
@@ -49,6 +55,12 @@
   },
   "mcp.task.permission_policy": {
     "other": "Task 与原生权限的统一策略：policy-allow（默认）、escalate-to-main 或 deny-all；覆盖原生权限参数，持久实例沿用该策略"
+  },
+  "mcp.schedule.model": {
+    "other": "每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型"
+  },
+  "mcp.schedule.reasoning_effort": {
+    "other": "每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值"
   },
   "mcp.schedule.permission_policy": {
     "other": "Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数"

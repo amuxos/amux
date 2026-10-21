@@ -5241,13 +5241,17 @@ func (x *ActiveTurnRequest) GetName() string {
 }
 
 type ActiveTurnResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Active        bool                   `protobuf:"varint,1,opt,name=active,proto3" json:"active,omitempty"`
-	TurnId        string                 `protobuf:"bytes,2,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
-	SessionId     string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	LaunchId      string                 `protobuf:"bytes,4,opt,name=launch_id,json=launchId,proto3" json:"launch_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Active    bool                   `protobuf:"varint,1,opt,name=active,proto3" json:"active,omitempty"`
+	TurnId    string                 `protobuf:"bytes,2,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	SessionId string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	LaunchId  string                 `protobuf:"bytes,4,opt,name=launch_id,json=launchId,proto3" json:"launch_id,omitempty"`
+	// The parent session's current execution choices, mirrored so a spawned
+	// subtask can follow the model and reasoning effort the conversation is on.
+	EffectiveModel  string `protobuf:"bytes,5,opt,name=effective_model,json=effectiveModel,proto3" json:"effective_model,omitempty"`
+	ReasoningEffort string `protobuf:"bytes,6,opt,name=reasoning_effort,json=reasoningEffort,proto3" json:"reasoning_effort,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ActiveTurnResponse) Reset() {
@@ -5304,6 +5308,20 @@ func (x *ActiveTurnResponse) GetSessionId() string {
 func (x *ActiveTurnResponse) GetLaunchId() string {
 	if x != nil {
 		return x.LaunchId
+	}
+	return ""
+}
+
+func (x *ActiveTurnResponse) GetEffectiveModel() string {
+	if x != nil {
+		return x.EffectiveModel
+	}
+	return ""
+}
+
+func (x *ActiveTurnResponse) GetReasoningEffort() string {
+	if x != nil {
+		return x.ReasoningEffort
 	}
 	return ""
 }
@@ -15687,13 +15705,15 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x15steer_fallback_reason\x18\a \x01(\tR\x13steerFallbackReason\x123\n" +
 	"\x15instructions_delivery\x18\b \x01(\tR\x14instructionsDelivery\"'\n" +
 	"\x11ActiveTurnRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\x81\x01\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xd5\x01\n" +
 	"\x12ActiveTurnResponse\x12\x16\n" +
 	"\x06active\x18\x01 \x01(\bR\x06active\x12\x17\n" +
 	"\aturn_id\x18\x02 \x01(\tR\x06turnId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x03 \x01(\tR\tsessionId\x12\x1b\n" +
-	"\tlaunch_id\x18\x04 \x01(\tR\blaunchId\"W\n" +
+	"\tlaunch_id\x18\x04 \x01(\tR\blaunchId\x12'\n" +
+	"\x0feffective_model\x18\x05 \x01(\tR\x0eeffectiveModel\x12)\n" +
+	"\x10reasoning_effort\x18\x06 \x01(\tR\x0freasoningEffort\"W\n" +
 	"\tInputPart\x12\x14\n" +
 	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12+\n" +
 	"\x05image\x18\x02 \x01(\v2\x13.amux.v1.ImageInputH\x00R\x05imageB\a\n" +

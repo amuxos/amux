@@ -640,6 +640,7 @@ func amuxTools() []mcp.Tool {
     "agent": {"type": "string", "description": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref；也可传入先经 amux.profile_get 验证的精确开发版 Profile 引用，例如 builtin/codex、team/push_sre 或 team-task-dev/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口"},
     "runtime": {"type": "string", "description": %s},
     "model": {"type": "string", "description": %s},
+    "reasoning_effort": {"type": "string", "description": %s},
     "extra_args": {"type": "array", "items": {"type": "string"}, "description": %s},
     "task": {"type": "string", "description": "交给 Agent Task 的提示词"},
     "mode": {"type": "string", "enum": ["ephemeral", "persistent"], "description": "ephemeral（默认）只运行一次并销毁；persistent 让 Agent Instance 跨 Task 保持存活，以支持多轮交互"},
@@ -659,9 +660,9 @@ func amuxTools() []mcp.Tool {
     "result_granularity": {"type": "string", "enum": ["summary", "full", "structured-summary"], "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，最大 64KB，截断时指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"}
   },
   "required": ["agent", "task"]
-}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.task.model"), quotedSchemaText("mcp.task.extra_args"), quotedSchemaText("mcp.task.permission_policy")))
+}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.task.model"), quotedSchemaText("mcp.task.reasoning_effort"), quotedSchemaText("mcp.task.extra_args"), quotedSchemaText("mcp.task.permission_policy")))
 	scheduledTaskInput := clientop.JSONSchema(clientop.ScheduledTaskSpec{})
-	for field, key := range map[string]string{"runtime": "mcp.task.runtime", "model": "mcp.task.model", "extra_args": "mcp.task.extra_args", "permission_policy": "mcp.schedule.permission_policy"} {
+	for field, key := range map[string]string{"runtime": "mcp.task.runtime", "model": "mcp.schedule.model", "reasoning_effort": "mcp.schedule.reasoning_effort", "extra_args": "mcp.task.extra_args", "permission_policy": "mcp.schedule.permission_policy"} {
 		text := commandCatalog.Text(key)
 		scheduledTaskInput["properties"].(map[string]any)[field].(map[string]any)["description"] = text.For(i18n.English) + "\n" + text.For(i18n.Chinese)
 	}
@@ -728,6 +729,7 @@ func amuxTools() []mcp.Tool {
     "agent": {"type": "string", "description": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref"},
     "runtime": {"type": "string", "description": %s},
     "model": {"type": "string", "description": %s},
+    "reasoning_effort": {"type": "string", "description": %s},
     "extra_args": {"type": "array", "items": {"type": "string"}, "description": %s},
     "task": {"type": "string", "description": "交给 Agent 的初始 Task 提示词"},
     "run_as": {"type": "string", "description": "可选 Principal alias 意图；省略时使用 parent Execution Principal 创建实例"},
@@ -742,7 +744,7 @@ func amuxTools() []mcp.Tool {
     "result_granularity": {"type": "string", "enum": ["summary", "full", "structured-summary"], "description": "summary（默认）仅返回 Agent 摘要；full 在 result.full_transcript 中内联完整脱敏 transcript，超限时截断并指向 amux task_stream 或 amux task logs；structured-summary 返回 summary 和 result.details_ref（task_id），供按需获取完整 transcript"}
   },
   "required": ["agent", "task"]
-}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.instance.model"), quotedSchemaText("mcp.task.extra_args"), quotedSchemaText("mcp.task.permission_policy")))
+}`, quotedSchemaText("mcp.task.runtime"), quotedSchemaText("mcp.instance.model"), quotedSchemaText("mcp.instance.reasoning_effort"), quotedSchemaText("mcp.task.extra_args"), quotedSchemaText("mcp.task.permission_policy")))
 	followupTaskSchema := json.RawMessage(`{
   "type": "object",
   "properties": {

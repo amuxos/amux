@@ -80,6 +80,7 @@ func TestScheduledTaskSpecToTaskSpecTrimsAndBuildsRepo(t *testing.T) {
 		Agent:             "  team/coder  ",
 		Runtime:           "  claude  ",
 		Model:             "  review-model  ",
+		ReasoningEffort:   "  high  ",
 		Task:              "  run tests  ",
 		RunAs:             "  ops-bot  ",
 		Isolation:         string(task.IsolationProcess),
@@ -102,6 +103,9 @@ func TestScheduledTaskSpecToTaskSpecTrimsAndBuildsRepo(t *testing.T) {
 	}
 	if got.Runtime != "claude" || got.Model != "review-model" {
 		t.Fatalf("scheduled execution choice was not preserved: runtime=%q model=%q", got.Runtime, got.Model)
+	}
+	if got.ReasoningEffort != "high" {
+		t.Fatalf("ReasoningEffort = %q, want trimmed %q", got.ReasoningEffort, "high")
 	}
 	if got.RunAs != "ops-bot" {
 		t.Fatalf("RunAs = %q, want trimmed \"ops-bot\"", got.RunAs)

@@ -30,10 +30,16 @@
     "other": "Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts"
   },
   "mcp.task.model": {
-    "other": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default"
+    "other": "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default"
+  },
+  "mcp.task.reasoning_effort": {
+    "other": "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default"
   },
   "mcp.instance.model": {
-    "other": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default"
+    "other": "Execution model ref frozen on the persistent instance; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default"
+  },
+  "mcp.instance.reasoning_effort": {
+    "other": "Reasoning effort ref frozen on the persistent instance; a session-spawned instance inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default"
   },
   "mcp.task.extra_args": {
     "other": "Native execution arguments; permission flags are normalized by permission_policy, other arguments retain their order"
@@ -49,6 +55,12 @@
   },
   "mcp.task.permission_policy": {
     "other": "Task and native permission policy: policy-allow (default), escalate-to-main, or deny-all; overrides native permission flags; persistent instances retain this policy"
+  },
+  "mcp.schedule.model": {
+    "other": "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model"
+  },
+  "mcp.schedule.reasoning_effort": {
+    "other": "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default"
   },
   "mcp.schedule.permission_policy": {
     "other": "Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags"

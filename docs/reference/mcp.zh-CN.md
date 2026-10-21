@@ -405,7 +405,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "model": {
-      "description": "执行模型引用，固定到持久实例；省略时使用继承的启动预设模型，或所选引擎默认模型",
+      "description": "执行模型引用，固定到持久实例；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型",
       "type": "string"
     },
     "notify_parent": {
@@ -419,6 +419,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
         "escalate-to-main",
         "deny-all"
       ],
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "description": "执行思考强度，固定到持久实例；会话内创建的实例在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值",
       "type": "string"
     },
     "result_granularity": {
@@ -972,7 +976,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "model": {
-          "description": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型",
+          "description": "每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型",
           "type": "string"
         },
         "permission_policy": {
@@ -982,6 +986,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
             "policy-allow",
             "deny-all"
           ],
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "description": "每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值",
           "type": "string"
         },
         "run_as": {
@@ -1186,7 +1194,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "string"
         },
         "model": {
-          "description": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型",
+          "description": "每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型",
           "type": "string"
         },
         "permission_policy": {
@@ -1196,6 +1204,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
             "policy-allow",
             "deny-all"
           ],
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "description": "每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值",
           "type": "string"
         },
         "run_as": {
@@ -1804,7 +1816,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "model": {
-      "description": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型",
+      "description": "执行模型引用；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型",
       "type": "string"
     },
     "notify_parent": {
@@ -1818,6 +1830,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
         "escalate-to-main",
         "deny-all"
       ],
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "description": "执行思考强度；会话内创建的子任务在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值",
       "type": "string"
     },
     "result_granularity": {
@@ -1959,7 +1975,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "model": {
-      "description": "执行模型引用；省略时使用继承的启动预设模型，或所选引擎默认模型",
+      "description": "执行模型引用；省略时使用父会话的当前模型与思考强度（同引擎时），否则使用继承的启动预设模型或所选引擎默认模型",
       "type": "string"
     },
     "notify_parent": {
@@ -1973,6 +1989,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
         "escalate-to-main",
         "deny-all"
       ],
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "description": "执行思考强度；会话内创建的子任务在同引擎时沿用该会话的当前强度，否则使用所选模型声明的默认值",
       "type": "string"
     },
     "result_granularity": {

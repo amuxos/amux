@@ -88,8 +88,9 @@ func TestScheduledTaskArgumentsSurviveCLIAndWireConversion(t *testing.T) {
 		t.Fatalf("args = %#v", got.ExtraArgs)
 	}
 	got.Model = "review-model"
+	got.ReasoningEffort = "high"
 	view := taskSpecMCPView(got)
-	if view["runtime"] != "claude" || view["model"] != "review-model" || !reflect.DeepEqual(view["extra_args"], want) {
+	if view["runtime"] != "claude" || view["model"] != "review-model" || view["reasoning_effort"] != "high" || !reflect.DeepEqual(view["extra_args"], want) {
 		t.Fatalf("schedule readback lost execution settings: %#v", view)
 	}
 	spec.ExtraArgs[0] = "changed"

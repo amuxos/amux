@@ -126,9 +126,13 @@ type WorkspaceSpec struct {
 // Spec is the validated input to submit an agent task (the MCP amux.task_submit
 // payload, minus transport concerns).
 type Spec struct {
-	Agent             string            `json:"agent"`
-	Runtime           string            `json:"runtime,omitempty"`
-	Model             string            `json:"model,omitempty"`
+	Agent   string `json:"agent"`
+	Runtime string `json:"runtime,omitempty"`
+	Model   string `json:"model,omitempty"`
+	// ReasoningEffort is the requested reasoning level. A subtask submitted
+	// from a session inherits the parent session effort here when the caller
+	// omitted it and the parent effort is known.
+	ReasoningEffort   string            `json:"reasoning_effort,omitempty"`
 	Task              string            `json:"task"`
 	Mode              Mode              `json:"mode,omitempty"`
 	Isolation         IsolationMode     `json:"isolation,omitempty"`

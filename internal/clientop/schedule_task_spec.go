@@ -45,7 +45,8 @@ type ScheduledTaskSpec struct {
 	ExtraArgs            []string      `json:"extra_args,omitempty"`
 	Agent                string        `json:"agent" desc:"Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref，例如 builtin/codex 或 team/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口"`
 	Runtime              string        `json:"runtime,omitempty"`
-	Model                string        `json:"model,omitempty" desc:"每次定时运行面向用户的模型覆盖；留空时使用 Profile 或 Agent 默认模型"`
+	Model                string        `json:"model,omitempty" desc:"每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型"`
+	ReasoningEffort      string        `json:"reasoning_effort,omitempty" desc:"每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值"`
 	Task                 string        `json:"task" desc:"Schedule 每次触发时提交的 Task 提示词"`
 	RunAs                string        `json:"run_as,omitempty" desc:"可选的已登记 Principal alias；保存 Schedule 时解析并固化"`
 	Isolation            string        `json:"isolation,omitempty" enum:"process,private-home" desc:"Sandbox 隔离模式；Phase 1 为 best-effort trusted mode"`
@@ -116,6 +117,7 @@ func (s ScheduledTaskSpec) ToTaskSpec() task.Spec {
 		Agent:             strings.TrimSpace(s.Agent),
 		Runtime:           strings.TrimSpace(s.Runtime),
 		Model:             strings.TrimSpace(s.Model),
+		ReasoningEffort:   strings.TrimSpace(s.ReasoningEffort),
 		Task:              strings.TrimSpace(s.Task),
 		Isolation:         task.IsolationMode(strings.TrimSpace(s.Isolation)),
 		CredentialProfile: strings.TrimSpace(s.CredentialProfile),

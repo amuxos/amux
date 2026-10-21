@@ -405,7 +405,7 @@ Spawn a persistent Agent Instance (a background instance) without blocking and r
       "type": "string"
     },
     "model": {
-      "description": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default",
+      "description": "Execution model ref frozen on the persistent instance; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
       "type": "string"
     },
     "notify_parent": {
@@ -419,6 +419,10 @@ Spawn a persistent Agent Instance (a background instance) without blocking and r
         "escalate-to-main",
         "deny-all"
       ],
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "description": "Reasoning effort ref frozen on the persistent instance; a session-spawned instance inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
       "type": "string"
     },
     "result_granularity": {
@@ -972,7 +976,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
           "type": "string"
         },
         "model": {
-          "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+          "description": "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model",
           "type": "string"
         },
         "permission_policy": {
@@ -982,6 +986,10 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
             "policy-allow",
             "deny-all"
           ],
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "description": "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default",
           "type": "string"
         },
         "run_as": {
@@ -1186,7 +1194,7 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
           "type": "string"
         },
         "model": {
-          "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+          "description": "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model",
           "type": "string"
         },
         "permission_policy": {
@@ -1196,6 +1204,10 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
             "policy-allow",
             "deny-all"
           ],
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "description": "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default",
           "type": "string"
         },
         "run_as": {
@@ -1804,7 +1816,7 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
       "type": "string"
     },
     "model": {
-      "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+      "description": "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
       "type": "string"
     },
     "notify_parent": {
@@ -1818,6 +1830,10 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
         "escalate-to-main",
         "deny-all"
       ],
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "description": "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
       "type": "string"
     },
     "result_granularity": {
@@ -1959,7 +1975,7 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
       "type": "string"
     },
     "model": {
-      "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+      "description": "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
       "type": "string"
     },
     "notify_parent": {
@@ -1973,6 +1989,10 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
         "escalate-to-main",
         "deny-all"
       ],
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "description": "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
       "type": "string"
     },
     "result_granularity": {

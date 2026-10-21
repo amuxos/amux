@@ -60,3 +60,23 @@ func TestPortableTaskUsesDistributionDefaultsWithoutReplacingContent(t *testing.
 		})
 	}
 }
+
+func TestResolveTaskSpecCarriesReasoningEffort(t *testing.T) {
+	registryPath := filepath.Join(t.TempDir(), "registry.json")
+	spec := task.Spec{Agent: "builtin/claude", Task: "review", ReasoningEffort: "high"}
+	if err := ResolveTaskSpec(&spec, registryPath); err != nil {
+		t.Fatal(err)
+	}
+	if spec.ResolvedProfile == nil || spec.ResolvedProfile.ReasoningEffort != "high" {
+		t.Fatalf("resolved profile = %+v, want the requested reasoning effort", spec.ResolvedProfile)
+	}
+	effortArgs := false
+	for i := 0; i+1 < len(spec.ExtraArgs); i++ {
+		if spec.ExtraArgs[i] == "--effort" && spec.ExtraArgs[i+1] == "high" {
+			effortArgs = true
+		}
+	}
+	if !effortArgs {
+		t.Fatalf("extra args = %q, want --effort high", spec.ExtraArgs)
+	}
+}

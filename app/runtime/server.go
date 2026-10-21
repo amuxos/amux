@@ -1400,7 +1400,14 @@ func (s *server) GetActiveTurn(_ context.Context, req *pb.ActiveTurnRequest) (*p
 	}
 	turnID, _, active := sess.ActiveTurnAuthorization()
 	snap := sess.Snapshot()
-	return &pb.ActiveTurnResponse{Active: active, TurnId: turnID, SessionId: snap.ID, LaunchId: snap.LaunchID}, nil
+	return &pb.ActiveTurnResponse{
+		Active:          active,
+		TurnId:          turnID,
+		SessionId:       snap.ID,
+		LaunchId:        snap.LaunchID,
+		EffectiveModel:  strings.TrimSpace(snap.EffectiveModel),
+		ReasoningEffort: launchSpecReasoningEffort(snap.LaunchSpec),
+	}, nil
 }
 
 func (s *server) GetLocalExpertAuthoringTurn(_ context.Context, req *pb.LocalExpertAuthoringTurnRequest) (*pb.LocalExpertAuthoringTurnResponse, error) {
