@@ -182,10 +182,10 @@ amux system config unset <key>
 
 | Configuration key | Type | Default | Constraints | CLI-managed | Description |
 | --- | --- | --- | --- | --- | --- |
-| `provider.structured.turn_idle_timeout_seconds` | integer seconds | 900 | 0 disables; negative values use the default; maximum 604800 | No | Structured provider turn timeout when no meaningful activity occurs. |
-| `provider.structured.turn_hard_cap_seconds` | integer seconds | 21600 | 0 disables; negative values use the default; maximum 604800 | No | Absolute duration limit for a single structured provider turn. |
-| `provider.structured.tool_idle_timeout_seconds` | integer seconds | 3600 | 0 disables; negative values use the default; maximum 604800 | No | Structured provider tool timeout when no progress occurs. |
-| `provider.structured.repeat_tool_call_limit` | integer count | 50 | 0 disables; negative values use the default; maximum 1000 | No | Maximum consecutive identical tool calls in one structured provider turn; reaching the limit finishes the turn as failed. |
+| `provider.structured.turn_idle_timeout_seconds` | integer seconds | 900 | 0 disables; negative values use the default; maximum 604800 | No | Structured provider and ACP turn timeout when no meaningful activity occurs; paused while awaiting permission or an ACP tool without a progress contract. |
+| `provider.structured.turn_hard_cap_seconds` | integer seconds | 21600 | 0 disables; negative values use the default; maximum 604800 | No | Absolute duration limit for a structured provider or ACP turn, including time awaiting permission or tools. |
+| `provider.structured.tool_idle_timeout_seconds` | integer seconds | 3600 | 0 disables; negative values use the default; maximum 604800 | No | Structured provider tool timeout when no progress occurs. ACP has no verified tool progress contract and uses the turn hard cap. |
+| `provider.structured.repeat_tool_call_limit` | integer count | 50 | 0 disables; negative values use the default; maximum 1000 | No | Maximum consecutive identical tool calls in a structured provider or ACP turn. ACP counts only distinct call IDs with complete tool identity and input. |
 | `provider.structured.<provider>.turn_idle_timeout_seconds` | integer seconds | Inherit global settings | Provider is codex; 0 disables; negative values use the provider default; maximum 604800 | No | Turn idle timeout override for the specified provider. |
 | `provider.structured.<provider>.turn_hard_cap_seconds` | integer seconds | Inherit global settings | Provider is codex | No | Turn hard cap override for the specified provider. |
 | `provider.structured.<provider>.tool_idle_timeout_seconds` | integer seconds | Inherit global settings | Provider is codex | No | Tool idle timeout override for the specified provider. |

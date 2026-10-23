@@ -99,6 +99,24 @@ func launchSpecReasoningEffort(spec string) string {
 	return ""
 }
 
+// launchSpecModel returns the frozen requested model, never the live model
+// reported by a provider (which may include provider-specific variant suffixes).
+func launchSpecModel(spec string) string {
+	var decoded struct {
+		ProfileSpec *struct {
+			Model           string `json:"model"`
+			ConfiguredModel string `json:"configured_model"`
+		} `json:"profile_spec"`
+	}
+	if !decodeLaunchSpec(spec, &decoded) || decoded.ProfileSpec == nil {
+		return ""
+	}
+	if model := strings.TrimSpace(decoded.ProfileSpec.Model); model != "" {
+		return model
+	}
+	return strings.TrimSpace(decoded.ProfileSpec.ConfiguredModel)
+}
+
 func launchSpecUsesProvider(spec string) bool {
 	var decoded struct {
 		ProfileSpec *struct {

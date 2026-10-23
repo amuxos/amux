@@ -121,6 +121,63 @@ in returned output do not reset it. Reaching the limit fails the turn with
 `code=repeat_tool_loop`. Zero disables the guard, negative values use the
 provider default, and overrides are capped at 1000.
 
+ACP v1 agents accept image input only when their `initialize` response explicitly
+advertises `agentCapabilities.promptCapabilities.image = true`. Missing, false,
+or malformed capabilities retain text-only input. The broker carries the
+negotiated modalities to the Session on every connection, including Runtime
+reconnects; older brokers without modality metadata remain text-only. Image-only
+and mixed text/image submissions preserve content order and use ACP inline
+base64 image blocks after the shared MIME, size and dimension checks.
+
+ACP adapters may map the caller's model and reasoning selection to native
+`configOptions` select values. New and resumed native conversations apply those
+frozen settings before becoming available. Every requested value must be offered
+by the agent and confirmed by its current selection or
+`session/set_config_option` readback; missing or rejected settings fail instead
+of silently choosing a default. Idle model changes use the same mapping without
+restarting the process only when both the existing and requested model are
+explicit and the provider is unchanged. Returning to the native default or
+switching provider uses the existing relaunch path. A failed change
+restores the previous native values; failure to restore closes the process.
+A write without a confirmed native response retires the process instead of
+attempting a rollback that a late write could overwrite.
+Adapters without this mapping keep their existing launch-time configuration.
+
+ACP `clear` creates a fresh native conversation in the same working directory
+and reapplies its selected execution settings while retaining the amux Session.
+ACP `compact` invokes `/compact` through `session/prompt` only when the agent's
+current available-command snapshot advertises `compact`. Both operations use
+the normal correlated Turn and terminal contract; no private compaction RPC is
+guessed. The ACP broker transport remains compatible with existing sessions.
+
+ACP usage retains the fields actually reported by the native agent. Final
+`session/prompt` usage is projected to canonical snake_case token keys without
+inferring cumulative totals or recomputing `total_tokens`. The latest
+`usage_update` context `used`/`size` and typed `cost` coexist with those token
+counts; missing values stay absent. A usage-only response still emits
+`UsageObserved`. Interrupting a turn resolves pending and late native permission
+requests with the ACP `cancelled` outcome before finishing cancellation. A
+`session/cancel` successfully sent while a native prompt RPC is active records
+cancellation for that request. Its completed response yields a cancelled turn
+even if the native stop reason is `end_turn`. Idle interrupts and interrupts
+after the response was read (including tail draining) do not rewrite that turn
+or the next turn. Cancellation never emits an early terminal before the native
+response or process retirement.
+
+ACP watchdogs use the structured-provider idle, hard-cap and repeated-tool
+settings: zero disables a layer, negative values select defaults, and values
+are bounded before conversion. Completed native tool calls are considered identical only when their kind,
+title and accumulated explicit call input match; pending placeholders and
+updates to the same call ID are not new calls. ACP has no verified tool-progress heartbeat,
+so tool execution and permission waits suspend the idle timer and remain bounded
+by the hard cap. `tool_idle_timeout_seconds` has no separate effect on ACP.
+On expiry, the driver cancels permissions and sends `session/cancel`, allows a
+bounded cancellation grace, then retires the native process and drains its
+reader before emitting the one error terminal. It retires the process even when
+cancellation responds promptly because ACP updates lack native turn identity;
+late frames cannot enter a later turn. Timers are scoped to one turn generation.
+
+
 Codex uses its app-server protocol; Claude uses the Claude Agent SDK sidecar.
 Provider and ACP implementations emit typed payloads. The session-owned canonical
 timeline assigns turn identity and order and accepts exactly one terminal event
@@ -134,8 +191,9 @@ flight and no pending permission prompts; sleep is recorded as manual, idle
 timeout or restart failure. Sleeping sessions keep their identity and workspace
 and wake on new input; archiving ends routability. Restart, resume and hot
 model/effort reconfiguration (`set-model` without a process restart) follow the
-selected agent's capabilities; Codex supports in-process reconfiguration, others
-restart with handoff.
+selected agent's capabilities. Codex and ACP agents that provide an execution
+configuration mapping support in-process reconfiguration when their eligibility
+conditions are met; other changes restart with handoff.
 
 When an ACP or structured agent's output closes, the broker stops accepting requests and drains
 requests already being handled before closing client connections. Pending prompt

@@ -11,12 +11,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/amuxos/amux/internal/acp"
+	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/agentstream"
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/isolation"
 )
 
@@ -28,10 +31,16 @@ const (
 	acpFrameUpgrade        byte = 0x05
 	acpFrameTurnDispatch   byte = 0x06
 	acpFrameTurnRebind     byte = 0x07
+	acpFrameReconfigure    byte = 0x08
 	acpFrameEmission       byte = 0x14
 	acpFrameCapabilities   byte = 0x15
 	acpFrameAck            byte = 0x20
 )
+
+type acpExecutionConfigFrame struct {
+	Model           string `json:"model"`
+	ReasoningEffort string `json:"reasoning_effort"`
+}
 
 type acpPermissionResponseFrame struct {
 	PermissionId string   `json:"permission_id"`
@@ -40,8 +49,11 @@ type acpPermissionResponseFrame struct {
 }
 
 type acpBroker struct {
-	proc           *acp.Proc
-	agentSessionID string
+	proc                  *acp.Proc
+	agentSessionID        string
+	effectiveModel        string
+	inputModalities       []string
+	inputCapabilitySource string
 	brokerTurns
 
 	conns    []*acpBrokerConn
@@ -54,8 +66,12 @@ type acpBrokerConn = brokerConn
 type ACPLaunchOptions struct {
 	Cmd             *exec.Cmd
 	Cwd             string
+	AgentType       string
+	Model           string
+	ReasoningEffort string
 	ResumeSessionID string
 	PromptTailDrain time.Duration
+	Watchdog        *config.StructuredProviderConfig
 	LaunchContext   isolation.LaunchContext
 }
 
@@ -88,7 +104,7 @@ func LaunchACPContext(ctx context.Context, amuxletBin, sessID, amuxDir string, o
 		return 0, "", err
 	}
 	defer os.Remove(launchContextFile)
-	args := buildACPBrokerArgs(sockPath, pidFile, opts.Cwd, opts.Cmd, resumeSessionIDFile, launchContextFile, opts.PromptTailDrain)
+	args := buildACPBrokerArgs(sockPath, pidFile, opts, resumeSessionIDFile, launchContextFile)
 
 	logPath := filepath.Join(sessDir, sessID+".acp.log")
 	logFile, logErr := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
@@ -138,31 +154,47 @@ func writeBrokerResumeSessionIDFile(sessDir, sessID, resumeSessionID string) (st
 	return path, nil
 }
 
-func buildACPBrokerArgs(sockPath, pidFile, cwd string, agentCmd *exec.Cmd, resumeSessionIDFile, launchContextFile string, promptTailDrain time.Duration) []string {
-	args := []string{"_acp_broker", "--socket", sockPath, "--pid-file", pidFile, "--cwd", cwd}
+func buildACPBrokerArgs(sockPath, pidFile string, opts ACPLaunchOptions, resumeSessionIDFile, launchContextFile string) []string {
+	args := []string{"_acp_broker", "--socket", sockPath, "--pid-file", pidFile, "--cwd", opts.Cwd}
+	if opts.AgentType != "" {
+		args = append(args, "--agent-type", opts.AgentType)
+	}
+	if opts.Model != "" {
+		args = append(args, "--model", opts.Model)
+	}
+	if opts.ReasoningEffort != "" {
+		args = append(args, "--reasoning-effort", opts.ReasoningEffort)
+	}
 	if resumeSessionIDFile != "" {
 		args = append(args, "--resume-session-id-file", resumeSessionIDFile)
 	}
 	if launchContextFile != "" {
 		args = append(args, "--launch-context-file", launchContextFile)
 	}
-	if promptTailDrain > 0 {
-		args = append(args, "--prompt-tail-drain", promptTailDrain.String())
+	if opts.Watchdog != nil {
+		args = append(args, "--turn-idle-timeout-seconds", strconv.Itoa(opts.Watchdog.TurnIdleTimeoutSeconds), "--turn-hard-cap-seconds", strconv.Itoa(opts.Watchdog.TurnHardCapSeconds), "--tool-idle-timeout-seconds", strconv.Itoa(opts.Watchdog.ToolIdleTimeoutSeconds), "--repeat-tool-call-limit", strconv.Itoa(opts.Watchdog.RepeatToolCallLimit))
 	}
-	for _, e := range agentCmd.Env {
+	if opts.PromptTailDrain > 0 {
+		args = append(args, "--prompt-tail-drain", opts.PromptTailDrain.String())
+	}
+	for _, e := range opts.Cmd.Env {
 		args = append(args, "--env", e)
 	}
 	args = append(args, "--")
-	args = append(args, agentCmd.Path)
-	args = append(args, agentCmd.Args[1:]...)
+	args = append(args, opts.Cmd.Path)
+	args = append(args, opts.Cmd.Args[1:]...)
 	return args
 }
 
 type ACPBrokerOptions struct {
 	Cwd             string
 	Cmd             *exec.Cmd
+	AgentType       string
+	Model           string
+	ReasoningEffort string
 	ResumeSessionID string
 	PromptTailDrain time.Duration
+	Watchdog        *config.StructuredProviderConfig
 	Backend         isolation.LaunchBackend
 	LaunchContext   isolation.LaunchContext
 }
@@ -171,10 +203,24 @@ func RunACPBrokerWithOptions(socketPath, pidFile string, opts ACPBrokerOptions) 
 	if opts.Cmd == nil {
 		return fmt.Errorf("acp command is required")
 	}
+	var executionConfig func(string, string) (map[string]string, error)
+	if opts.AgentType != "" {
+		a, err := adapter.Get(opts.AgentType)
+		if err != nil {
+			return err
+		}
+		if mapper, ok := a.(adapter.ACPExecutionConfigurator); ok {
+			executionConfig = mapper.ACPExecutionConfig
+		}
+	}
 	proc, outCh, err := acp.StartWithOptions(context.Background(), opts.Cmd, acp.StartOptions{
 		Cwd:             opts.Cwd,
+		Model:           opts.Model,
+		ReasoningEffort: opts.ReasoningEffort,
+		ExecutionConfig: executionConfig,
 		ResumeSessionID: opts.ResumeSessionID,
 		PromptTailDrain: opts.PromptTailDrain,
+		Watchdog:        opts.Watchdog,
 		Backend:         opts.Backend,
 		LaunchContext:   opts.LaunchContext,
 	})
@@ -193,7 +239,8 @@ func RunACPBrokerWithOptions(socketPath, pidFile string, opts ACPBrokerOptions) 
 		return fmt.Errorf("write pidfile: %w", err)
 	}
 
-	b := &acpBroker{proc: proc, agentSessionID: proc.SessionID()}
+	b := &acpBroker{proc: proc, agentSessionID: proc.SessionID(), effectiveModel: proc.EffectiveModel()}
+	b.inputModalities, b.inputCapabilitySource = proc.InputCapabilities()
 	proc.SetEventSink(func(ev agentstream.ProducerEmission) bool {
 		b.broadcastEvent(ev)
 		return false
@@ -278,18 +325,23 @@ func (b *acpBroker) addConn(c net.Conn) *acpBrokerConn {
 		return nil
 	}
 	b.conns = append(b.conns, bc)
-	agentSessionID := b.agentSessionID
+	agentSessionID, effectiveModel := b.agentSessionID, b.effectiveModel
 	b.mu.Unlock()
 	bc.mu.Lock()
-	payload, _ := json.Marshal(brokerCapabilitiesFrame{
-		TurnCorrelationVersion: brokerTurnProtocolV3,
-		TurnReplayVersion:      brokerTurnReplayV1,
+	payload, _ := json.Marshal(acpCapabilitiesFrame{
+		brokerCapabilitiesFrame: brokerCapabilitiesFrame{
+			TurnCorrelationVersion: brokerTurnProtocolV3,
+			TurnReplayVersion:      brokerTurnReplayV1,
+		},
+		InputModalities:      b.inputModalities,
+		ExecutionReconfigure: b.proc != nil && b.proc.SupportsExecutionReconfigure(),
+		Source:               b.inputCapabilitySource,
 	})
 	_ = writeBrokerFrame(bc.conn, acpFrameCapabilities, payload)
 	if agentSessionID != "" {
 		payload, _ := marshalBrokerEmissionFrame("", 0, agentstream.ProducerEmission{
 			Origin:  agentstream.Origin{Actor: agentstream.ActorAgent, Channel: "agent", NativeType: "session_metadata"},
-			Session: agentstream.SessionMetadataChanged{AgentSessionID: agentSessionID},
+			Session: agentstream.SessionMetadataChanged{AgentSessionID: agentSessionID, EffectiveModel: effectiveModel},
 		})
 		_ = writeBrokerFrame(bc.conn, acpFrameEmission, payload)
 	}
@@ -297,9 +349,10 @@ func (b *acpBroker) addConn(c net.Conn) *acpBrokerConn {
 	return bc
 }
 
-func (b *acpBroker) setAgentSessionID(id string) {
+func (b *acpBroker) setAgentSessionMetadata(metadata agentstream.SessionMetadataChanged) {
 	b.mu.Lock()
-	b.agentSessionID = id
+	b.agentSessionID = metadata.AgentSessionID
+	b.effectiveModel = metadata.EffectiveModel
 	b.mu.Unlock()
 }
 
@@ -332,14 +385,14 @@ func (b *acpBroker) shutdown(deadline time.Time) {
 
 func (b *acpBroker) broadcastEvent(ev agentstream.ProducerEmission) {
 	if metadata, ok := ev.Session.(agentstream.SessionMetadataChanged); ok && metadata.AgentSessionID != "" {
-		b.setAgentSessionID(metadata.AgentSessionID)
+		b.setAgentSessionMetadata(metadata)
 	}
 	b.broadcastEventForTurn("", ev)
 }
 
 func (b *acpBroker) broadcastCorrelatedEvent(turnToken string, ev agentstream.ProducerEmission) {
 	if metadata, ok := ev.Session.(agentstream.SessionMetadataChanged); ok && metadata.AgentSessionID != "" {
-		b.setAgentSessionID(metadata.AgentSessionID)
+		b.setAgentSessionMetadata(metadata)
 	}
 	b.broadcastEventForTurn(turnToken, ev)
 }
@@ -446,6 +499,15 @@ func (b *acpBroker) handleFrame(conn *acpBrokerConn, kind byte, payload []byte) 
 		}
 		_ = conn.write(acpFrameAck, []byte(err))
 		return false
+	case acpFrameReconfigure:
+		var config acpExecutionConfigFrame
+		errText := ""
+		if err := json.Unmarshal(payload, &config); err != nil {
+			errText = err.Error()
+		} else if err := b.proc.ReconfigureExecution(config.Model, config.ReasoningEffort); err != nil {
+			errText = err.Error()
+		}
+		_ = conn.write(acpFrameAck, []byte(errText))
 	case acpFramePermissionResp:
 		err := ""
 		var resp acpPermissionResponseFrame

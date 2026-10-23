@@ -780,9 +780,19 @@ func (s *server) launchProcContext(ctx context.Context, a adapter.Adapter, sess 
 		if err := resolveACPCommandPath(cmd, env); err != nil {
 			return nil, nil, "", err
 		}
+		watchdog := config.GetStructuredProviderForProvider(snap.AgentType)
+		model, effort := "", ""
+		if _, ok := a.(adapter.ACPExecutionConfigurator); ok {
+			model = launchSpecModel(snap.LaunchSpec)
+			effort = launchSpecReasoningEffort(snap.LaunchSpec)
+		}
 		agentPID, sockPath, err := mux.LaunchACPContext(ctx, s.amuxletBin, snap.ID, s.amuxDir, mux.ACPLaunchOptions{
 			Cmd:             cmd,
 			Cwd:             cwd,
+			AgentType:       snap.AgentType,
+			Model:           model,
+			ReasoningEffort: effort,
+			Watchdog:        &watchdog,
 			ResumeSessionID: snap.AgentSessionID,
 			PromptTailDrain: caps.ACPPromptTailDrain,
 			LaunchContext:   launchContext,

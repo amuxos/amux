@@ -366,7 +366,7 @@ func runRequestFromLaunchSnapshot(snap session.Snapshot) *pb.RunRequest {
 func (s *server) tryHotReconfigureExecution(sess *session.Session, snap session.Snapshot, replacement *pb.RunRequest, runExtraArgs, recordEnv []string, effectiveModel, launchSpec string) (bool, error) {
 	agentType := strings.TrimSpace(replacement.AgentType)
 	if snap.State != session.StateRunning || strings.TrimSpace(snap.AgentSessionID) == "" ||
-		!adapter.IsCodexCompatible(agentType) || strings.TrimSpace(snap.AgentType) != agentType ||
+		strings.TrimSpace(snap.AgentType) != agentType ||
 		strings.TrimSpace(snap.AgentProfile) != strings.TrimSpace(replacement.AgentProfile) ||
 		launchSpecUsesProvider(snap.LaunchSpec) || replacement.ProfileSpec == nil || replacement.ProfileSpec.Provider != nil {
 		return false, nil
@@ -375,8 +375,31 @@ func (s *server) tryHotReconfigureExecution(sess *session.Session, snap session.
 	newModel, newModelOK := agentprofile.AgentArgsModel(agentType, runExtraArgs)
 	oldEffort := launchSpecReasoningEffort(snap.LaunchSpec)
 	newEffort := launchSpecReasoningEffort(launchSpec)
-	if !oldModelOK || !newModelOK || oldEffort == "" || newEffort == "" {
-		return false, nil
+	if adapter.IsCodexCompatible(agentType) {
+		if !oldModelOK || !newModelOK || oldEffort == "" || newEffort == "" {
+			return false, nil
+		}
+	} else {
+		a, err := adapter.Get(agentType)
+		if err != nil || a.Capabilities().Protocol != adapter.ProtocolACP {
+			return false, nil
+		}
+		mapper, ok := a.(adapter.ACPExecutionConfigurator)
+		if !ok {
+			return false, nil
+		}
+		oldModel, newModel = launchSpecModel(snap.LaunchSpec), launchSpecModel(launchSpec)
+		// Rollback requires an explicit previous model. Native defaults are
+		// provider-owned and cannot be reconstructed from a live display label.
+		if oldModel == "" || newModel == "" {
+			return false, nil
+		}
+		for _, choice := range [][2]string{{oldModel, oldEffort}, {newModel, newEffort}} {
+			values, err := mapper.ACPExecutionConfig(choice[0], choice[1])
+			if err != nil || len(values) == 0 {
+				return false, nil
+			}
+		}
 	}
 	unlock, busy, pending := sess.TryLockIdleQueue()
 	if busy || pending > 0 {
@@ -395,7 +418,7 @@ func (s *server) tryHotReconfigureExecution(sess *session.Session, snap session.
 		}
 		return false, status.Errorf(codes.Internal, "record hot execution reconfiguration: %v", err)
 	}
-	sess.AppendReplay([]byte("\r\n[system] updated execution model/reasoning without restarting session\r\n"))
+	sess.AppendReplay([]byte("\r\n[system] " + executionMessage("updated") + "\r\n"))
 	return true, nil
 }
 

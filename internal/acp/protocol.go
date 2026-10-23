@@ -119,19 +119,8 @@ func semanticUpdateFromLine(line []byte) (semanticUpdate, bool) {
 		}
 		return semanticUpdate{Plan: &plan}, true
 	case "usage_update":
-		var usage struct {
-			Used int64           `json:"used"`
-			Size int64           `json:"size"`
-			Cost json.RawMessage `json:"cost,omitempty"`
-		}
-		if err := json.Unmarshal(msg.Params.Update, &usage); err != nil {
-			return semanticUpdate{}, false
-		}
-		data, err := json.Marshal(usage)
-		if err != nil {
-			return semanticUpdate{}, false
-		}
-		return semanticUpdate{Usage: data}, true
+		data := normalizedUsageUpdate(msg.Params.Update)
+		return semanticUpdate{Usage: data}, len(data) > 0
 	default:
 		return semanticUpdate{}, false
 	}

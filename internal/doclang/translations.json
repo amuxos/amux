@@ -2107,17 +2107,17 @@
     "en": "0 disables; negative values use the default; maximum 604800",
     "zh-CN": "0 禁用，负数回默认，最大 604800"
   },
-  "Structured provider turn 无有效活动超时。": {
-    "en": "Structured provider turn timeout when no meaningful activity occurs.",
-    "zh-CN": "Structured provider turn 无有效活动超时。"
+  "Structured provider 与 ACP turn 无有效活动超时；等待权限及无进度契约的 ACP 工具期间暂停。": {
+    "en": "Structured provider and ACP turn timeout when no meaningful activity occurs; paused while awaiting permission or an ACP tool without a progress contract.",
+    "zh-CN": "Structured provider 与 ACP turn 无有效活动超时；等待权限及无进度契约的 ACP 工具期间暂停。"
   },
-  "Structured provider 单 turn 绝对时长上限。": {
-    "en": "Absolute duration limit for a single structured provider turn.",
-    "zh-CN": "Structured provider 单 turn 绝对时长上限。"
+  "Structured provider 与 ACP 单 turn 绝对时长上限，包含等待权限及工具的时间。": {
+    "en": "Absolute duration limit for a structured provider or ACP turn, including time awaiting permission or tools.",
+    "zh-CN": "Structured provider 与 ACP 单 turn 绝对时长上限，包含等待权限及工具的时间。"
   },
-  "Structured provider 工具无进度超时。": {
-    "en": "Structured provider tool timeout when no progress occurs.",
-    "zh-CN": "Structured provider 工具无进度超时。"
+  "Structured provider 工具无进度超时；ACP 尚无可验证的工具进度契约，使用 turn hard cap。": {
+    "en": "Structured provider tool timeout when no progress occurs. ACP has no verified tool progress contract and uses the turn hard cap.",
+    "zh-CN": "Structured provider 工具无进度超时；ACP 尚无可验证的工具进度契约，使用 turn hard cap。"
   },
   "integer count": {
     "en": "integer count",
@@ -2127,9 +2127,9 @@
     "en": "0 disables; negative values use the default; maximum 1000",
     "zh-CN": "0 禁用，负数回默认，最大 1000"
   },
-  "Structured provider 同一 turn 内连续相同工具调用次数上限，达到即失败收尾。": {
-    "en": "Maximum consecutive identical tool calls in one structured provider turn; reaching the limit finishes the turn as failed.",
-    "zh-CN": "Structured provider 同一 turn 内连续相同工具调用次数上限，达到即失败收尾。"
+  "Structured provider 与 ACP 同一 turn 内连续相同工具调用次数上限；ACP 只计不同调用 ID 且具备完整工具身份和输入的调用。": {
+    "en": "Maximum consecutive identical tool calls in a structured provider or ACP turn. ACP counts only distinct call IDs with complete tool identity and input.",
+    "zh-CN": "Structured provider 与 ACP 同一 turn 内连续相同工具调用次数上限；ACP 只计不同调用 ID 且具备完整工具身份和输入的调用。"
   },
   "继承全局": {
     "en": "Inherit global settings",

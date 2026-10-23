@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,25 +15,52 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/agentstream"
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/isolation"
 	"github.com/amuxos/amux/internal/provider"
 	"github.com/amuxos/amux/internal/session"
 )
 
 type Proc struct {
-	handle    isolation.ProcessHandle
-	stdin     io.WriteCloser
-	out       chan []byte
-	input     *promptBuffer
-	sessionID string
-	done      chan struct{}
-	stderr    *tailBuffer
+	handle              isolation.ProcessHandle
+	stdin               io.WriteCloser
+	out                 chan []byte
+	input               *promptBuffer
+	sessionID           string
+	stateMu             sync.Mutex
+	inputMu             sync.Mutex
+	cwd                 string
+	model               string
+	reasoningEffort     string
+	executionConfig     func(string, string) (map[string]string, error)
+	configOptions       []sessionConfigOption
+	configTimeout       time.Duration
+	commands            []provider.AvailableCommand
+	settingUp           atomic.Bool
+	stagedCommands      map[string][]provider.AvailableCommand
+	done                chan struct{}
+	readDone            chan struct{}
+	closeOnce           sync.Once
+	watchdogMu          sync.Mutex
+	watchdog            *turnWatchdog
+	watchdogGeneration  uint64
+	watchdogPolicy      watchdogPolicy
+	watchdogWake        chan struct{}
+	watchdogCancelGrace time.Duration
+	discardTurnFrames   atomic.Bool
+	stderr              *tailBuffer
+
+	imageInput            bool
+	inputCapabilitySource string
 
 	waitMu  sync.Mutex
 	waitErr error
 
-	writeMu sync.Mutex
-	nextID  atomic.Int64
+	writeMu               sync.Mutex
+	promptMu              sync.Mutex
+	activePromptID        int64
+	activePromptCancelled bool
+	nextID                atomic.Int64
 	// restoring is true while session/load or session/resume hydrates an
 	// existing ACP session. Frames emitted before the restore response are
 	// historical UI state, not live output for amux attach/bridge consumers.
@@ -44,8 +72,9 @@ type Proc struct {
 	toolMu     sync.Mutex
 	toolTitles map[string]string
 
-	permMu      sync.Mutex
-	permissions map[string]int64
+	permMu              sync.Mutex
+	permissions         map[string]int64
+	permissionCancelled bool
 
 	eventSinks session.EventSinks
 
@@ -57,6 +86,7 @@ type Proc struct {
 	turnMu     sync.Mutex
 	turnDeltas strings.Builder
 	turnFinal  string
+	turnUsage  json.RawMessage
 
 	promptTailDrain time.Duration
 	turnActivity    atomic.Uint64
@@ -64,20 +94,28 @@ type Proc struct {
 }
 
 type rpcMessage struct {
-	JSONRPC string          `json:"jsonrpc,omitempty"`
-	ID      int64           `json:"id,omitempty"`
-	Method  string          `json:"method,omitempty"`
-	Params  json.RawMessage `json:"params,omitempty"`
-	Result  json.RawMessage `json:"result,omitempty"`
-	Error   json.RawMessage `json:"error,omitempty"`
+	CancellationRequested bool            `json:"-"`
+	JSONRPC               string          `json:"jsonrpc,omitempty"`
+	ID                    int64           `json:"id,omitempty"`
+	Method                string          `json:"method,omitempty"`
+	Params                json.RawMessage `json:"params,omitempty"`
+	Result                json.RawMessage `json:"result,omitempty"`
+	Error                 json.RawMessage `json:"error,omitempty"`
 }
 
 type StartOptions struct {
 	Cwd             string
+	Model           string
+	ReasoningEffort string
+	ExecutionConfig func(model, reasoningEffort string) (map[string]string, error)
 	ResumeSessionID string
 	PromptTailDrain time.Duration
-	Backend         isolation.LaunchBackend
-	LaunchContext   isolation.LaunchContext
+	Watchdog        *config.StructuredProviderConfig
+	// Test overrides; production uses seconds and a two-second cancel grace.
+	WatchdogTimeoutUnit time.Duration
+	WatchdogCancelGrace time.Duration
+	Backend             isolation.LaunchBackend
+	LaunchContext       isolation.LaunchContext
 }
 
 type tailBuffer struct {
@@ -132,16 +170,22 @@ func StartWithOptions(ctx context.Context, cmd *exec.Cmd, opts StartOptions) (*P
 
 	stderrCapture := &tailBuffer{limit: 64 * 1024}
 	p := &Proc{
-		handle:          handle,
-		stdin:           stdin,
-		out:             make(chan []byte, 256),
-		done:            make(chan struct{}),
-		stderr:          stderrCapture,
-		pending:         make(map[int64]chan rpcMessage),
-		toolTitles:      make(map[string]string),
-		permissions:     make(map[string]int64),
-		promptTailDrain: opts.PromptTailDrain,
-		turnActivityCh:  make(chan struct{}, 1),
+		handle:              handle,
+		stdin:               stdin,
+		out:                 make(chan []byte, 256),
+		done:                make(chan struct{}),
+		readDone:            make(chan struct{}),
+		watchdogPolicy:      newWatchdogPolicy(opts.Watchdog, opts.WatchdogTimeoutUnit),
+		watchdogWake:        make(chan struct{}, 1),
+		watchdogCancelGrace: opts.WatchdogCancelGrace,
+		stderr:              stderrCapture,
+		pending:             make(map[int64]chan rpcMessage),
+		toolTitles:          make(map[string]string),
+		permissions:         make(map[string]int64),
+		promptTailDrain:     opts.PromptTailDrain,
+		turnActivityCh:      make(chan struct{}, 1),
+		cwd:                 opts.Cwd,
+		executionConfig:     opts.ExecutionConfig,
 	}
 	p.input = newPromptBuffer(p.prompt)
 
@@ -187,9 +231,18 @@ func (p *Proc) initialize(ctx context.Context, opts StartOptions) error {
 	}
 
 	var initResult initializeResult
-	if err := json.Unmarshal(initResp.Result, &initResult); err != nil && opts.ResumeSessionID != "" {
-		return fmt.Errorf("decode initialize result: %w", err)
+	if err := json.Unmarshal(initResp.Result, &initResult); err != nil {
+		if opts.ResumeSessionID != "" {
+			return fmt.Errorf("decode initialize result: %w", err)
+		}
+		// Invalid optional metadata must not enable capabilities decoded before
+		// the malformed field. Preserve legacy text-only new-session startup.
+		initResult = initializeResult{}
+		p.inputCapabilitySource = "acp:default"
+	} else {
+		p.inputCapabilitySource = "acp:initialize"
 	}
+	p.imageInput = initResult.AgentCapabilities.PromptCapabilities.Image
 
 	if opts.ResumeSessionID != "" {
 		if initResult.supportsResume() {
@@ -206,27 +259,15 @@ func (p *Proc) initialize(ctx context.Context, opts StartOptions) error {
 		}
 	}
 
-	resp, err := p.call(ctx, "session/new", sessionSetupParams(opts.Cwd, ""))
-	if err != nil {
-		return err
-	}
-	var result struct {
-		SessionID string `json:"sessionId"`
-	}
-	if err := json.Unmarshal(resp.Result, &result); err != nil {
-		return fmt.Errorf("decode session/new: %w", err)
-	}
-	if result.SessionID == "" {
-		return fmt.Errorf("session/new returned empty sessionId")
-	}
-	p.sessionID = result.SessionID
-	p.emitAgentSessionID()
-	return nil
+	return p.createSession(ctx, opts.Model, opts.ReasoningEffort)
 }
 
 type initializeResult struct {
 	AgentCapabilities struct {
-		LoadSession         bool `json:"loadSession"`
+		LoadSession        bool `json:"loadSession"`
+		PromptCapabilities struct {
+			Image bool `json:"image"`
+		} `json:"promptCapabilities"`
 		SessionCapabilities struct {
 			Resume *json.RawMessage `json:"resume"`
 		} `json:"sessionCapabilities"`
@@ -251,18 +292,31 @@ func sessionSetupParams(cwd, sessionID string) map[string]any {
 func (p *Proc) restoreSession(ctx context.Context, method string, opts StartOptions) error {
 	p.restoring.Store(true)
 	defer p.restoring.Store(false)
-	if _, err := p.call(ctx, method, sessionSetupParams(opts.Cwd, opts.ResumeSessionID)); err != nil {
+	p.beginSessionSetup()
+	defer p.endSessionSetup()
+	resp, err := p.call(ctx, method, sessionSetupParams(opts.Cwd, opts.ResumeSessionID))
+	if err != nil {
 		return err
 	}
-	p.sessionID = opts.ResumeSessionID
-	p.emitAgentSessionID()
+	result, err := decodeSessionSetup(resp.Result, opts.ResumeSessionID)
+	if err != nil {
+		return err
+	}
+	options, err := p.configureSession(ctx, result.SessionID, result.ConfigOptions, opts.Model, opts.ReasoningEffort)
+	if err != nil {
+		return err
+	}
+	p.commitSession(result.SessionID, opts.Model, opts.ReasoningEffort, options)
 	return nil
 }
 
 func (p *Proc) emitAgentSessionID() {
+	p.stateMu.Lock()
+	id, model := p.sessionID, p.model
+	p.stateMu.Unlock()
 	p.emitEmission(agentstream.ProducerEmission{
 		Origin:  p.origin(agentstream.ActorAgent, "agent", "session_metadata"),
-		Session: agentstream.SessionMetadataChanged{AgentSessionID: p.sessionID},
+		Session: agentstream.SessionMetadataChanged{AgentSessionID: id, EffectiveModel: model},
 	})
 }
 
@@ -280,6 +334,7 @@ func (p *Proc) resetTurnResult() {
 	p.turnMu.Lock()
 	p.turnDeltas.Reset()
 	p.turnFinal = ""
+	p.turnUsage = nil
 	p.turnMu.Unlock()
 }
 
@@ -378,6 +433,11 @@ func (p *Proc) turnResultText() string {
 
 func (p *Proc) readLoop(r io.Reader) {
 	defer close(p.out)
+	defer func() {
+		if p.readDone != nil {
+			close(p.readDone)
+		}
+	}()
 
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -389,6 +449,7 @@ func (p *Proc) readLoop(r io.Reader) {
 		var msg rpcMessage
 		if err := json.Unmarshal(line, &msg); err == nil {
 			if msg.ID != 0 && msg.Method == "" {
+				msg.CancellationRequested = p.finishPromptRPC(msg.ID)
 				p.pendingMu.Lock()
 				ch := p.pending[msg.ID]
 				delete(p.pending, msg.ID)
@@ -411,7 +472,19 @@ func (p *Proc) readLoop(r io.Reader) {
 				continue
 			}
 		}
+		if p.discardTurnFrames.Load() {
+			continue
+		}
+		if p.settingUp.Load() {
+			if upd, ok := semanticUpdateFromLine(line); ok && upd.HasCommands {
+				p.stageCommands(line, upd.AvailableCommands)
+			}
+			continue
+		}
 		if !p.acceptsSessionFrame(line) {
+			continue
+		}
+		if p.captureConfigUpdate(line) {
 			continue
 		}
 		if p.restoring.Load() {
@@ -478,6 +551,7 @@ func (p *Proc) readLoop(r io.Reader) {
 				}
 				p.emitTurn(agentstream.PlanReplaced{Entries: entries}, agentstream.ActorAgent, "agent", "plan")
 			case len(upd.Usage) > 0:
+				p.setTurnUsage(upd.Usage)
 				p.emitTurn(agentstream.UsageObserved{Usage: upd.Usage}, agentstream.ActorAgent, "agent", "usage")
 			}
 			continue
@@ -505,7 +579,8 @@ func (p *Proc) acceptsSessionFrame(line []byte) bool {
 	if sessionID == "" {
 		sessionID = envelope.SessionID
 	}
-	return sessionID == "" || p.sessionID == "" || sessionID == p.sessionID
+	currentID := p.SessionID()
+	return sessionID == "" || currentID == "" || sessionID == currentID
 }
 
 func debugACPAgentChunk(text string) {
@@ -519,9 +594,15 @@ func (p *Proc) handleRequest(msg rpcMessage) bool {
 	if msg.Method != "session/request_permission" {
 		return false
 	}
-	permID := fmt.Sprintf("%s:%d", p.sessionID, msg.ID)
+	permID := fmt.Sprintf("%s:%d", p.SessionID(), msg.ID)
 	p.permMu.Lock()
+	if p.permissionCancelled || p.discardTurnFrames.Load() {
+		p.permMu.Unlock()
+		_ = p.writeResponse(msg.ID, map[string]any{"outcome": map[string]string{"outcome": "cancelled"}})
+		return true
+	}
 	p.permissions[permID] = msg.ID
+	p.observeWatchdogPermission(permID, true)
 	p.permMu.Unlock()
 	p.emitTurn(acpPermissionRequested(permID, msg.Params), agentstream.ActorAgent, "agent", "session/request_permission")
 	return true
@@ -538,6 +619,7 @@ func (p *Proc) RespondPermission(permissionID, optionID string) error {
 	id, ok := p.permissions[permissionID]
 	if ok {
 		delete(p.permissions, permissionID)
+		p.observeWatchdogPermission(permissionID, false)
 	}
 	p.permMu.Unlock()
 	if !ok {
@@ -565,6 +647,7 @@ func (p *Proc) RespondPermissionMulti(permissionID string, optionIDs []string) e
 // The legacy text path is retired; acptui's text-prefix matching remains only
 // as a fallback for replaying old sessions whose buffer still holds the text.
 func (p *Proc) emitToolUpdate(upd toolUpdate) {
+	p.observeWatchdogTool(upd)
 	title := enrichToolTitle(upd.Title, upd.RawInput)
 	p.toolMu.Lock()
 	if title != "" {
@@ -651,7 +734,7 @@ func (p *Proc) call(ctx context.Context, method string, params any) (rpcMessage,
 
 func callResult(method string, msg rpcMessage) (rpcMessage, error) {
 	if len(msg.Error) > 0 {
-		return rpcMessage{}, fmt.Errorf("acp %s: %s", method, string(msg.Error))
+		return msg, fmt.Errorf("acp %s: %s", method, string(msg.Error))
 	}
 	return msg, nil
 }
@@ -691,7 +774,13 @@ func (p *Proc) writeRequest(id int64, method string, params any) error {
 
 	p.writeMu.Lock()
 	defer p.writeMu.Unlock()
+	if method == "session/prompt" {
+		p.startPromptRPC(id)
+	}
 	_, err = p.stdin.Write(data)
+	if err != nil && method == "session/prompt" {
+		p.finishPromptRPC(id)
+	}
 	return err
 }
 
@@ -726,55 +815,99 @@ func (p *Proc) writeErrorResponse(id int64, code int, message string) error {
 }
 
 func (p *Proc) writeJSON(v any) error {
+	p.writeMu.Lock()
+	defer p.writeMu.Unlock()
+	return p.writeJSONLocked(v)
+}
+
+func (p *Proc) writeJSONLocked(v any) error {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
 	data = append(data, '\n')
-
-	p.writeMu.Lock()
-	defer p.writeMu.Unlock()
 	_, err = p.stdin.Write(data)
 	return err
 }
 
+func (p *Proc) startPromptRPC(id int64) {
+	p.promptMu.Lock()
+	p.activePromptID = id
+	p.activePromptCancelled = false
+	p.promptMu.Unlock()
+}
+
+func (p *Proc) finishPromptRPC(id int64) bool {
+	p.promptMu.Lock()
+	defer p.promptMu.Unlock()
+	if p.activePromptID != id {
+		return false
+	}
+	cancelled := p.activePromptCancelled
+	p.activePromptID = 0
+	p.activePromptCancelled = false
+	return cancelled
+}
+
 type promptResult struct {
-	StopReason string `json:"stopReason"`
+	StopReason string          `json:"stopReason"`
+	Usage      json.RawMessage `json:"usage"`
 }
 
 func (p *Proc) prompt(text string) error {
+	if !p.inputMu.TryLock() {
+		return session.ErrTurnSinkActive
+	}
+	defer p.inputMu.Unlock()
+	content, err := promptContent(session.TextUserInput(text), p.imageInput)
+	if err != nil {
+		return err
+	}
+	return p.promptContent(content)
+}
+
+func (p *Proc) promptContent(content []map[string]string) error {
 	p.resetTurnResult()
 	defer p.resetTurnResult()
-	resp, err := p.call(context.Background(), "session/prompt", map[string]any{
-		"sessionId": p.sessionID,
-		"prompt": []map[string]string{
-			{"type": "text", "text": text},
-		},
-	})
+	p.permMu.Lock()
+	p.permissionCancelled = false
+	p.permMu.Unlock()
+	resp, err := p.callPrompt(content)
 	if err == nil {
 		p.waitPromptTail()
 	}
 	stopReason := ""
+	var promptUsage json.RawMessage
 	if err == nil && len(resp.Result) > 0 {
 		var result promptResult
 		if json.Unmarshal(resp.Result, &result) == nil {
 			stopReason = result.StopReason
+			promptUsage = normalizedPromptUsage(result.Usage)
 		}
 	}
 	if err != nil {
-		p.emitTerminal(agentstream.Terminal{Outcome: agentstream.OutcomeError, Code: "acp_prompt_failed", Message: err.Error()}, "session/prompt")
+		code := "acp_prompt_failed"
+		var watchdogErr *watchdogFailure
+		if errors.As(err, &watchdogErr) {
+			code = watchdogErr.code
+		}
+		p.emitTerminal(agentstream.Terminal{Outcome: agentstream.OutcomeError, Code: code, Message: err.Error()}, "session/prompt")
 		return err
+	}
+	usage := p.turnResultUsage(promptUsage)
+	if len(promptUsage) > 0 {
+		p.emitTurn(agentstream.UsageObserved{Usage: usage}, agentstream.ActorAgent, "agent", "prompt_usage")
 	}
 	// Emit the provider's native turn result (the agent's own final message)
 	// before the terminal turn_done, mirroring the codex/claude structured
 	// path so the task control plane records a summary without injecting a
 	// fallback envelope. Skipped when the turn produced no final text.
 	if result := p.turnResultText(); strings.TrimSpace(result) != "" {
-		p.emitTurn(agentstream.ResultObserved{Text: result}, agentstream.ActorAgent, "result", "prompt_result")
+		p.emitTurn(agentstream.ResultObserved{Text: result, Usage: usage}, agentstream.ActorAgent, "result", "prompt_result")
 	}
 	terminal := agentstream.Terminal{Outcome: agentstream.OutcomeSuccess, Code: "completed", Message: stopReason}
-	if stopReason == "cancelled" {
-		terminal = agentstream.Terminal{Outcome: agentstream.OutcomeCancelled, Code: "cancelled", Message: stopReason}
+	if stopReason == "cancelled" || resp.CancellationRequested {
+		terminal = agentstream.Terminal{Outcome: agentstream.OutcomeCancelled, Code: "cancelled", Message: "cancelled"}
 	}
 	p.emitTerminal(terminal, "prompt_result")
 	return nil
@@ -788,7 +921,15 @@ func (p *Proc) PID() int {
 }
 
 func (p *Proc) SessionID() string {
+	p.stateMu.Lock()
+	defer p.stateMu.Unlock()
 	return p.sessionID
+}
+
+func (p *Proc) EffectiveModel() string {
+	p.stateMu.Lock()
+	defer p.stateMu.Unlock()
+	return p.model
 }
 
 func (p *Proc) Write(data []byte) (int, error) {
@@ -799,35 +940,77 @@ func (p *Proc) DispatchTurn(ctx context.Context, req session.TurnDispatchRequest
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if req.Control != "" {
-		return fmt.Errorf("ACP session control %q is unsupported", req.Control)
+	if !p.inputMu.TryLock() {
+		return session.ErrTurnSinkActive
 	}
-	if req.Input.ImageCount() > 0 {
-		return fmt.Errorf("ACP does not support image input")
+	defer p.inputMu.Unlock()
+	var content []map[string]string
+	var err error
+	switch req.Control {
+	case "":
+		content, err = promptContent(req.Input, p.imageInput)
+	case "clear":
+	case "compact":
+		if !p.hasCommand("compact") {
+			return acpError("control.compact_unavailable")
+		}
+		content = []map[string]string{{"type": "text", "text": "/compact"}}
+	default:
+		return acpError("control.unsupported", req.Control)
 	}
-	text := strings.TrimSpace(req.Input.Text())
-	if text == "" {
-		return fmt.Errorf("ACP prompt is empty")
+	if err != nil {
+		return err
 	}
 	if err := p.eventSinks.BeginTurn(sink); err != nil {
 		return err
 	}
-	if err := p.prompt(text); err != nil {
-		// prompt reports native failures through the correlated sink as an
-		// acp_prompt_failed terminal. Returning the same failure as a dispatch
-		// error would make Session synthesize a second submit_failed terminal.
+	if req.Control == "clear" {
+		p.stateMu.Lock()
+		model, effort := p.model, p.reasoningEffort
+		p.stateMu.Unlock()
+		if err := p.createSession(ctx, model, effort); err != nil {
+			p.emitTerminal(agentstream.Terminal{Outcome: agentstream.OutcomeError, Code: "acp_clear_failed", Message: err.Error()}, "session/new")
+		} else {
+			p.emitTerminal(agentstream.Terminal{Outcome: agentstream.OutcomeSuccess, Code: "completed"}, "session/new")
+		}
 		return nil
 	}
+	// Native prompt failures already emit their one correlated terminal.
+	_ = p.promptContent(content)
 	return nil
 }
 
 func (p *Proc) Interrupt() error {
-	if p.sessionID == "" {
+	id := p.SessionID()
+	if id == "" {
 		return fmt.Errorf("acp session is not initialized")
 	}
-	return p.writeNotification("session/cancel", map[string]string{
-		"sessionId": p.sessionID,
-	})
+	// Serialize the cancellation writes with native prompt submission. A new
+	// prompt cannot overtake an interrupt intended for the preceding request.
+	p.writeMu.Lock()
+	defer p.writeMu.Unlock()
+	p.promptMu.Lock()
+	defer p.promptMu.Unlock()
+	p.permMu.Lock()
+	p.permissionCancelled = true
+	pending := p.permissions
+	p.permissions = make(map[string]int64)
+	p.permMu.Unlock()
+	var firstErr error
+	for permissionID, requestID := range pending {
+		p.observeWatchdogPermission(permissionID, false)
+		if err := p.writeJSONLocked(map[string]any{"jsonrpc": "2.0", "id": requestID, "result": map[string]any{"outcome": map[string]string{"outcome": "cancelled"}}}); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	cancelErr := p.writeJSONLocked(map[string]any{"jsonrpc": "2.0", "method": "session/cancel", "params": map[string]string{"sessionId": id}})
+	if cancelErr == nil && p.activePromptID != 0 {
+		p.activePromptCancelled = true
+	}
+	if cancelErr != nil && firstErr == nil {
+		firstErr = cancelErr
+	}
+	return firstErr
 }
 
 func (p *Proc) SetEventSink(fn func(agentstream.ProducerEmission) bool) {
@@ -839,6 +1022,7 @@ func (p *Proc) emitEmission(emission agentstream.ProducerEmission) {
 }
 
 func (p *Proc) emitTurn(payload agentstream.TurnPayload, actor agentstream.ActorClass, channel, nativeType string) {
+	p.observeWatchdogActivity()
 	p.emitEmission(agentstream.ProducerEmission{Origin: p.origin(actor, channel, nativeType), Turn: payload})
 }
 
@@ -847,6 +1031,9 @@ func (p *Proc) emitTerminal(terminal agentstream.Terminal, nativeType string) {
 }
 
 func (p *Proc) emitCommands(commands []provider.AvailableCommand) {
+	p.stateMu.Lock()
+	p.commands = append([]provider.AvailableCommand(nil), commands...)
+	p.stateMu.Unlock()
 	canonical := make([]agentstream.Command, 0, len(commands))
 	for _, command := range commands {
 		canonical = append(canonical, agentstream.Command{Name: command.Name, Description: command.Description, InputHint: command.InputHint, Kind: command.Kind})
@@ -884,17 +1071,22 @@ func acpPermissionRequested(id string, raw json.RawMessage) agentstream.Permissi
 }
 
 func (p *Proc) Close() error {
-	if p.stdin != nil {
-		_ = p.stdin.Close()
-	}
-	if p.handle != nil {
-		_ = p.handle.Kill(context.Background())
-	}
-	if p.done != nil {
-		<-p.done
-	}
-	if p.handle != nil {
-		_ = p.handle.Close()
-	}
+	p.closeOnce.Do(func() {
+		if p.stdin != nil {
+			_ = p.stdin.Close()
+		}
+		if p.handle != nil {
+			_ = p.handle.Kill(context.Background())
+			// Descendants can retain stdout/stderr after the agent exits. Close
+			// our descriptors before waiting for their readers to finish.
+			_ = p.handle.Close()
+		}
+		if p.done != nil {
+			<-p.done
+		}
+		if p.readDone != nil {
+			<-p.readDone
+		}
+	})
 	return nil
 }

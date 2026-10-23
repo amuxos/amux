@@ -1,0 +1,53 @@
+{
+  "execution.unsupported": {
+    "other": "ACP 不支持执行配置"
+  },
+  "session.decode": {
+    "other": "无法解析 ACP 会话初始化响应：%v"
+  },
+  "session.empty_id": {
+    "other": "ACP 会话初始化返回了空的会话 ID"
+  },
+  "config.rollback_failed": {
+    "other": "ACP 配置回滚失败：%v"
+  },
+  "config.duplicate": {
+    "other": "ACP 声明了重复的配置项 %q"
+  },
+  "config.not_select": {
+    "other": "ACP 配置项 %q 不是可选值类型"
+  },
+  "config.unadvertised_value": {
+    "other": "ACP 配置项 %q 未声明支持值 %q"
+  },
+  "config.unadvertised_key": {
+    "other": "ACP 未声明支持配置项 %q"
+  },
+  "config.readback_mismatch": {
+    "other": "ACP 配置项 %q 的回读结果与请求值 %q 不一致"
+  },
+  "config.rollback_mismatch": {
+    "other": "ACP 配置项 %q 的回滚回读结果不一致"
+  },
+  "config.decode": {
+    "other": "无法解析 ACP 配置回读结果：%v"
+  },
+  "control.compact_unavailable": {
+    "other": "ACP 会话未声明支持 compact"
+  },
+  "control.unsupported": {
+    "other": "ACP 不支持会话控制 %q"
+  },
+  "watchdog.turn_idle_timeout": {
+    "other": "ACP 轮次等待活动超时"
+  },
+  "watchdog.turn_hard_cap": {
+    "other": "ACP 轮次超过最长运行时间"
+  },
+  "watchdog.repeat_tool_loop": {
+    "other": "ACP 轮次因连续重复的相同工具调用而停止"
+  },
+  "config.unconfirmed_write": {
+    "other": "ACP 配置更新未确认完成，Agent 进程已退役：%v"
+  }
+}

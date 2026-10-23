@@ -83,6 +83,15 @@ type Adapter interface {
 	Capabilities() Capabilities
 }
 
+// ACPExecutionConfigurator maps caller-owned execution settings to native ACP
+// select configuration values. The ACP driver validates every ID/value against
+// the agent's advertised configOptions and verifies each write by readback.
+// An empty map leaves native defaults untouched. Implementations must not read
+// credentials or mutate process-global configuration.
+type ACPExecutionConfigurator interface {
+	ACPExecutionConfig(model, reasoningEffort string) (map[string]string, error)
+}
+
 // WorkspaceTruster is implemented by adapters whose agent gates on a
 // per-directory trust prompt before doing any real work. amux runs agents
 // non-interactively (CLI/Lark bridge inject input), so such a prompt would
