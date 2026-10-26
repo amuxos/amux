@@ -31,6 +31,7 @@ func TestScheduleCardsBilingualPaginationAndUntrustedNames(t *testing.T) {
 		t.Fatal("wrong next page")
 	}
 	entry := entries[0]
+	entry.Runs = []schedule.Execution{{Status: "legacy_unconfirmed", ScheduledAt: 1}}
 	entry.Task.Name = "<at id=all>literal</at>"
 	entry.Visibility.Blocked = true
 	entry.Visibility.DeliveryError = "230013"
@@ -81,6 +82,67 @@ func TestScheduleCardsBilingualPaginationAndUntrustedNames(t *testing.T) {
 	json.Unmarshal([]byte(selectManagementCardLocale(renderScheduleDetail(entry, false), i18n.English)), &doc)
 	if !strings.Contains(fmt.Sprint(doc), "plain_text") {
 		t.Fatal("untrusted names not plain text")
+	}
+}
+
+func TestScheduleNavigationAndOverviewButtonRow(t *testing.T) {
+	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	b := &Bridge{secrets: &Secrets{AppId: "test-app", OpenId: "owner"}, schedules: scheduleTestControl{store}}
+	for _, who := range []string{"owner", "member"} {
+		var sent string
+		b.dmInteractive = func(_ context.Context, open, card string) (string, string, error) {
+			if open != who {
+				t.Fatal("incorrect private recipient")
+			}
+			sent = card
+			return "private", "", nil
+		}
+		response, handled, err := b.handleManagementCardAction(context.Background(), &callback.CardActionTriggerEvent{Event: &callback.CardActionTriggerRequest{Operator: &callback.Operator{OpenID: who}, Context: &callback.Context{OpenMessageID: "forwarded"}, Action: &callback.CallBackAction{Value: map[string]interface{}{managementActionKey: "schedule.home"}}}})
+		if err != nil || !handled || response.Toast.Type != "success" || !strings.Contains(sent, "schedule.list") {
+			t.Fatalf("home failed: %v %+v", err, response)
+		}
+		if who == "member" && (strings.Contains(sent, "schedule.alerts") || strings.Contains(sent, managementActionStatusOpen)) {
+			t.Fatal("member gained management actions")
+		}
+		if who == "owner" && !strings.Contains(sent, "schedule.alerts") {
+			t.Fatal("return dropped schedule overview")
+		}
+	}
+	for _, locale := range []i18n.Locale{"", i18n.English, i18n.Chinese} {
+		for _, raw := range []string{renderSchedules(nil, "all", 0), renderScheduleAlerts(nil, 0)} {
+			card := selectManagementCardLocale(raw, locale)
+			if !strings.Contains(card, "schedule.home") {
+				t.Fatal("missing back action")
+			}
+			label := "返回概览"
+			if locale == i18n.English {
+				label = "Back to overview"
+			}
+			if !strings.Contains(card, label) {
+				t.Fatalf("back copy: %s", card)
+			}
+		}
+		var card cardDoc
+		if err := json.Unmarshal([]byte(selectManagementCardLocale(renderManagementOverviewCard(managementState{ScheduleSummary: scheduleSummary(nil)}), locale)), &card); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, e := range card.Body.Elements {
+			if e.Tag != "column_set" || len(e.Columns) != 2 {
+				continue
+			}
+			raw, _ := json.Marshal(e)
+			if strings.Contains(string(raw), "schedule.list") && strings.Contains(string(raw), "schedule.alerts") {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal("schedule entry buttons are not on one row")
+		}
 	}
 }
 

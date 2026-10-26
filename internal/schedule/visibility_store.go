@@ -66,7 +66,9 @@ func (s *Store) migrateVisibility() error {
  CREATE TABLE IF NOT EXISTS schedule_execution_counts (run_id INTEGER PRIMARY KEY, schedule_id INTEGER NOT NULL REFERENCES scheduled_tasks(id) ON DELETE CASCADE, finished_at INTEGER NOT NULL, status TEXT NOT NULL);
  CREATE INDEX IF NOT EXISTS schedule_execution_counts_by_schedule ON schedule_execution_counts(schedule_id,finished_at);
  CREATE TABLE IF NOT EXISTS schedule_notice_route (bot_id TEXT PRIMARY KEY, open_id TEXT NOT NULL, generation TEXT NOT NULL);
- CREATE TABLE IF NOT EXISTS schedule_notice_budget (bot_id TEXT NOT NULL, open_id TEXT NOT NULL, sent_at INTEGER NOT NULL);`)
+ CREATE TABLE IF NOT EXISTS schedule_notice_budget (bot_id TEXT NOT NULL, open_id TEXT NOT NULL, sent_at INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS schedule_visibility_upgrade (id INTEGER PRIMARY KEY CHECK(id=1), max_schedule_id INTEGER NOT NULL);
+ INSERT OR IGNORE INTO schedule_visibility_upgrade SELECT 1,COALESCE(MAX(id),0) FROM scheduled_tasks;`)
 	return err
 }
 func (s *Store) BindCreator(id int64, c Creator) error {

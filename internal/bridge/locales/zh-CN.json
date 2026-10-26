@@ -2834,6 +2834,9 @@
   "schedule.notice_intro": {
     "other": "%d 个定时任务有状态更新，统一汇总给 Bot 管理员。"
   },
+  "schedule.status.legacy_unconfirmed": {
+    "other": "旧版提交记录 · 执行结果未确认"
+  },
   "schedule.status.not_run": {
     "other": "尚未执行"
   },
