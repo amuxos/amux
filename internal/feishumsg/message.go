@@ -65,7 +65,7 @@ func (m Message) Validate() error {
 		return errors.New(Copy("destination"))
 	}
 	switch m.ReceiveIDType {
-	case "chat_id", "open_id", "user_id", "union_id", "email":
+	case "chat_id":
 		return nil
 	default:
 		return errors.New(Copy("id_type"))

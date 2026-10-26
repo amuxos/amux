@@ -1,15 +1,15 @@
 {
   "description": {
-    "other": "Send plain text or Markdown with the current Session’s bound Feishu Bot. Requires user authorization for the destination and content. Specify receive_id + receive_id_type, or reply_to_message_id. Returns message_id; never sends as a user."
+    "other": "Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user."
   },
   "receive_id": {
-    "other": "Recipient ID; required for a new message, omitted for a reply."
+    "other": "Group chat ID; required for a new message, omitted for a reply. Private chats are rejected."
   },
   "receive_id_type": {
-    "other": "Recipient ID type; required with receive_id."
+    "other": "Recipient ID type; only chat_id is supported. Required with receive_id."
   },
   "reply_to_message_id": {
-    "other": "Message ID to reply to; mutually exclusive with recipient fields."
+    "other": "Group message ID to reply to; mutually exclusive with recipient fields. Private-chat replies are disabled."
   },
   "reply_in_thread": {
     "other": "Reply within a topic; only valid with reply_to_message_id. Defaults to false."
@@ -33,7 +33,7 @@
     "other": "Specify receive_id and receive_id_type, or reply_to_message_id; do not combine them."
   },
   "id_type": {
-    "other": "receive_id_type must be chat_id, open_id, user_id, union_id, or email."
+    "other": "receive_id_type must be chat_id. Direct messages are disabled."
   },
   "uuid_length": {
     "other": "uuid must not exceed 50 bytes."
@@ -70,5 +70,14 @@
   },
   "invalid_format": {
     "other": "format must be text or markdown."
+  },
+  "group_only": {
+    "other": "This tool only sends to group chats; direct messages are disabled."
+  },
+  "destination_lookup": {
+    "other": "Cannot verify the destination group; no message was sent: %s"
+  },
+  "destination_metadata": {
+    "other": "Feishu returned incomplete or unknown destination metadata; no message was sent."
   }
 }

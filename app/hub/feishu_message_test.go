@@ -54,6 +54,13 @@ func TestSendFeishuMessageAuthorizationAndRouting(t *testing.T) {
 	if err != nil || resp.GetMessageId() != "om-sent" || resp.GetBotProfile() != "bound-bot" || sender.sends != 1 || sender.message.UUID != "key" || sender.message.Format != "markdown" || sender.message.Text != "**hello**" {
 		t.Fatalf("send: %+v %v, calls=%d", resp, err, sender.sends)
 	}
+	for _, kind := range []string{"open_id", "user_id", "union_id", "email"} {
+		req.ReceiveIdType = kind
+		if _, err := s.SendFeishuMessage(ctx, req); status.Code(err) != codes.InvalidArgument || sender.sends != 1 {
+			t.Fatalf("private recipient %s reached sender: %v", kind, err)
+		}
+	}
+	req.ReceiveIdType = "chat_id"
 	req.Format = "html"
 	if _, err := s.SendFeishuMessage(ctx, req); status.Code(err) != codes.InvalidArgument || sender.sends != 1 {
 		t.Fatalf("invalid format reached sender: %v", err)

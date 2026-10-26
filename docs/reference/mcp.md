@@ -20,7 +20,7 @@ Official `tools/list` tools: **51**.
 | `amux.delegation_get` | Read the current Delegation snapshot. Use delegation_wait for incremental events. |
 | `amux.delegation_intervene` | Answer a permission request for a Delegation that supports permission_response. |
 | `amux.delegation_wait` | Wait for a Delegation. event returns incremental events; actionable avoids waking the main model repeatedly for ordinary progress while preserving permission and terminal-state wakeups. wait_timed_out is not a terminal Delegation state. Track actual created attempts using the returned status. |
-| `amux.feishu_send_message` | Send plain text or Markdown with the current Session’s bound Feishu Bot. Requires user authorization for the destination and content. Specify receive_id + receive_id_type, or reply_to_message_id. Returns message_id; never sends as a user. |
+| `amux.feishu_send_message` | Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user. |
 | `amux.instance_followup` | Deliver a task to a persistent Agent and immediately start a new turn, retaining the provider conversation context; use it to continue after a background task finishes, or to retry after a failure when you decide to. A child session left behind by an earlier failure is reused; if the instance is no longer usable an error suggests creating a new one with instance_spawn. |
 | `amux.instance_interrupt` | Interrupt the persistent Agent's current turn. Use it when the user asks to stop a background task; tell the user briefly afterwards, and continue later with instance_followup if needed. |
 | `amux.instance_list` | List persistent Agent Instance status, child Session status, and mailbox depth. |
@@ -251,7 +251,7 @@ Wait for a Delegation. event returns incremental events; actionable avoids wakin
 
 ## `amux.feishu_send_message`
 
-Send plain text or Markdown with the current Session’s bound Feishu Bot. Requires user authorization for the destination and content. Specify receive_id + receive_id_type, or reply_to_message_id. Returns message_id; never sends as a user.
+Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user.
 
 **Input JSON Schema**
 
@@ -269,17 +269,13 @@ Send plain text or Markdown with the current Session’s bound Feishu Bot. Requi
       "type": "string"
     },
     "receive_id": {
-      "description": "Recipient ID; required for a new message, omitted for a reply.",
+      "description": "Group chat ID; required for a new message, omitted for a reply. Private chats are rejected.",
       "type": "string"
     },
     "receive_id_type": {
-      "description": "Recipient ID type; required with receive_id.",
+      "description": "Recipient ID type; only chat_id is supported. Required with receive_id.",
       "enum": [
-        "chat_id",
-        "open_id",
-        "user_id",
-        "union_id",
-        "email"
+        "chat_id"
       ],
       "type": "string"
     },
@@ -288,7 +284,7 @@ Send plain text or Markdown with the current Session’s bound Feishu Bot. Requi
       "type": "boolean"
     },
     "reply_to_message_id": {
-      "description": "Message ID to reply to; mutually exclusive with recipient fields.",
+      "description": "Group message ID to reply to; mutually exclusive with recipient fields. Private-chat replies are disabled.",
       "type": "string"
     },
     "text": {

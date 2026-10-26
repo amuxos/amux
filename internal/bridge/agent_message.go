@@ -36,6 +36,9 @@ func (b *Bridge) SendAgentMessage(ctx context.Context, targetID, sessionName str
 	if b.client == nil {
 		return feishumsg.Result{}, errors.New(feishumsg.Copy("unavailable"))
 	}
+	if err := b.requireAgentMessageGroup(ctx, msg); err != nil {
+		return feishumsg.Result{}, err
+	}
 	// Scope duplicate suppression to the originating Session, including when
 	// several Sessions use the same Bot and caller-selected key.
 	requestUUID := ""
@@ -81,4 +84,51 @@ func (b *Bridge) SendAgentMessage(ctx context.Context, targetID, sessionName str
 		return result, errors.New(feishumsg.Copy("empty_response"))
 	}
 	return result, nil
+}
+
+// Check platform metadata with the sending Bot's credentials. A chat_id alone
+// does not distinguish a group from a private chat, including for replies.
+func (b *Bridge) requireAgentMessageGroup(ctx context.Context, msg feishumsg.Message) error {
+	chatID := msg.ReceiveID
+	if strings.TrimSpace(msg.ReplyToMessageID) != "" {
+		resp, err := b.client.Im.Message.Get(ctx, larkim.NewGetMessageReqBuilder().MessageId(msg.ReplyToMessageID).Build())
+		if err != nil {
+			return errors.New(feishumsg.Copy("destination_lookup", err))
+		}
+		if resp == nil {
+			return errors.New(feishumsg.Copy("destination_metadata"))
+		}
+		if !resp.Success() {
+			return errors.New(feishumsg.Copy("destination_lookup", fmt.Sprintf("code=%d msg=%s", resp.Code, resp.Msg)))
+		}
+		if resp.Data == nil || len(resp.Data.Items) == 0 || resp.Data.Items[0] == nil {
+			return errors.New(feishumsg.Copy("destination_metadata"))
+		}
+		parent := resp.Data.Items[0]
+		if stringPtr(parent.MessageId) != msg.ReplyToMessageID || strings.TrimSpace(stringPtr(parent.ChatId)) == "" || (parent.Deleted != nil && *parent.Deleted) {
+			return errors.New(feishumsg.Copy("destination_metadata"))
+		}
+		chatID = *parent.ChatId
+	}
+	resp, err := b.client.Im.Chat.Get(ctx, larkim.NewGetChatReqBuilder().ChatId(chatID).Build())
+	if err != nil {
+		return errors.New(feishumsg.Copy("destination_lookup", err))
+	}
+	if resp == nil {
+		return errors.New(feishumsg.Copy("destination_metadata"))
+	}
+	if !resp.Success() {
+		return errors.New(feishumsg.Copy("destination_lookup", fmt.Sprintf("code=%d msg=%s", resp.Code, resp.Msg)))
+	}
+	if resp.Data == nil {
+		return errors.New(feishumsg.Copy("destination_metadata"))
+	}
+	switch stringPtr(resp.Data.ChatMode) {
+	case "group", "topic":
+		return nil
+	case "p2p":
+		return errors.New(feishumsg.Copy("group_only"))
+	default:
+		return errors.New(feishumsg.Copy("destination_metadata"))
+	}
 }

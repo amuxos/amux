@@ -15,7 +15,10 @@ func TestMessageValidation(t *testing.T) {
 		valid   bool
 	}{
 		{"group", Message{ReceiveID: "oc-a", ReceiveIDType: "chat_id", Text: "hello"}, true},
-		{"user", Message{ReceiveID: "ou-a", ReceiveIDType: "open_id", Text: "hello"}, true},
+		{"open_id disabled", Message{ReceiveID: "recipient", ReceiveIDType: "open_id", Text: "hello"}, false},
+		{"user_id disabled", Message{ReceiveID: "recipient", ReceiveIDType: "user_id", Text: "hello"}, false},
+		{"union_id disabled", Message{ReceiveID: "recipient", ReceiveIDType: "union_id", Text: "hello"}, false},
+		{"email disabled", Message{ReceiveID: "recipient", ReceiveIDType: "email", Text: "hello"}, false},
 		{"reply", Message{ReplyToMessageID: "om-a", ReplyInThread: true, Text: "hello"}, true},
 		{"explicit text", Message{ReplyToMessageID: "om-a", Text: "**hello**", Format: "text"}, true},
 		{"markdown", Message{ReplyToMessageID: "om-a", Text: "**hello**", Format: "markdown"}, true},

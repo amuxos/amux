@@ -1,15 +1,15 @@
 {
   "description": {
-    "other": "使用当前 Session 绑定的飞书 Bot 发送纯文本或 Markdown。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type，或 reply_to_message_id。返回 message_id；始终使用 Bot 身份。"
+    "other": "使用当前 Session 绑定的飞书 Bot 向群聊发送纯文本或 Markdown，禁用私聊。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type=chat_id，或群消息的 reply_to_message_id。返回 message_id；始终使用 Bot 身份。"
   },
   "receive_id": {
-    "other": "接收者 ID；新消息必填，回复时省略。"
+    "other": "群聊 ID；新消息必填，回复时省略。拒绝私聊会话。"
   },
   "receive_id_type": {
-    "other": "接收者 ID 类型；与 receive_id 一起填写。"
+    "other": "接收者 ID 类型；仅支持 chat_id，与 receive_id 一起填写。"
   },
   "reply_to_message_id": {
-    "other": "要回复的消息 ID；与接收者字段互斥。"
+    "other": "要回复的群消息 ID；与接收者字段互斥。禁用私聊回复。"
   },
   "reply_in_thread": {
     "other": "在话题内回复；仅可与 reply_to_message_id 一起使用，默认 false。"
@@ -33,7 +33,7 @@
     "other": "请指定 receive_id 和 receive_id_type，或 reply_to_message_id；不能混用。"
   },
   "id_type": {
-    "other": "receive_id_type 必须为 chat_id、open_id、user_id、union_id 或 email。"
+    "other": "receive_id_type 必须为 chat_id，禁用私聊发送。"
   },
   "uuid_length": {
     "other": "uuid 不能超过 50 字节。"
@@ -70,5 +70,14 @@
   },
   "invalid_format": {
     "other": "format 必须为 text 或 markdown。"
+  },
+  "group_only": {
+    "other": "此工具仅支持群聊消息，禁用私聊发送。"
+  },
+  "destination_lookup": {
+    "other": "无法确认目标群聊，未发送消息：%s"
+  },
+  "destination_metadata": {
+    "other": "飞书返回的目标会话信息缺失或类型未知，未发送消息。"
   }
 }
