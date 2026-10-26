@@ -56,6 +56,8 @@ func (c *taskController) TargetID() string { return c.targetID }
 // sleeping session is discarded and a fresh child is created for the instance
 // (conversation context lost, but the task still executes).
 func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (task.ChildSession, error) {
+	c.srv.cleanupLaunchMu.RLock()
+	defer c.srv.cleanupLaunchMu.RUnlock()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

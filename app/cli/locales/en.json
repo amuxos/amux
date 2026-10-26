@@ -133,5 +133,74 @@
   },
   "update.maintenance.restored": {
     "other": "  sessions: restored after upgrade maintenance"
+  },
+  "cleanup.short": {
+    "other": "Preview managed data cleanup; --apply cleans and reports to administrators"
+  },
+  "cleanup.apply": {
+    "other": "Apply cleanup and notify configured administrators"
+  },
+  "cleanup.dry_run": {
+    "other": "Preview without changing data (the default)"
+  },
+  "cleanup.target": {
+    "other": "Runtime ID or name; empty selects all connected runtimes"
+  },
+  "cleanup.failed": {
+    "other": "System cleanup failed"
+  },
+  "cleanup.preview": {
+    "other": "Cleanup preview; data was not changed."
+  },
+  "cleanup.applied": {
+    "other": "Cleanup finished; administrator reports are queued for delivery."
+  },
+  "cleanup.step": {
+    "other": "%s: candidates=%d cleaned=%d skipped=%d bytes=%.2f MiB errors=%d"
+  },
+  "cleanup.partial": {
+    "other": "Some cleanup steps failed; inspect the report."
+  },
+  "cleanup.step.sessions": {
+    "other": "Archived sessions"
+  },
+  "cleanup.step.tasks": {
+    "other": "Expired terminal tasks"
+  },
+  "cleanup.step.workspaces": {
+    "other": "Orphan workspaces"
+  },
+  "cleanup.step.session_artifacts": {
+    "other": "Session artifacts"
+  },
+  "cleanup.step.provider_rollouts": {
+    "other": "Provider history files"
+  },
+  "cleanup.step.provider_trust": {
+    "other": "Stale project trust entries"
+  },
+  "cleanup.step.provider_home": {
+    "other": "Provider home"
+  },
+  "cleanup.step.logs": {
+    "other": "Logs"
+  },
+  "cleanup.step.database": {
+    "other": "Database compaction"
+  },
+  "cleanup.step.isolation": {
+    "other": "Isolated user data"
+  },
+  "cleanup.step.references": {
+    "other": "Reference validation"
+  },
+  "cleanup.step.other": {
+    "other": "Other cleanup steps"
+  },
+  "cleanup.invalid_time": {
+    "other": "Daily cleanup time must be HH:MM (00:00–23:59)."
+  },
+  "cleanup.invalid_paths": {
+    "other": "Protected workspace paths must be absolute paths, separated by spaces."
   }
 }

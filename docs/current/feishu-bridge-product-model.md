@@ -541,3 +541,14 @@ experiment controls do not participate in the public save-and-restart form.
 Completed CardKit replies expose a serializable card reference for an optional extension section. The stream owns all mutations until completion; after that, the extension persists monotonically increasing mutation sequences and updates only its section. Answer and activity elements remain owned by the reply renderer. No additional message is sent for a section update; unsupported or undelivered cards have no reference.
 
 The optional conversation section appears after reply content and its footer divider, before the brand footer. The section and footer share the reply container, including when an activity card receives its answer later; the brand footer remains the final visible element. Section updates do not add another divider or change the answer or brand elements.
+
+## Daily cleanup choice
+
+The owner can choose daily automatic cleanup when selecting ordinary or isolated topics in
+onboarding, Bot defaults or per-group settings. The choice is installation-wide,
+defaults to enabled, and is applied live. Older forms that omit the choice retain
+the saved value. Disabling preserves data and existing lifecycle reclaim rules.
+Each daily run sends the configured Bot owner a private bilingual report with
+Runtime, time, counts, reclaimed space, skipped work and failures, including
+empty results. Reports contain no conversation content, credentials or private
+workspace paths. Delivery failure is retained for retry and logged.

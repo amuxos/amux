@@ -133,5 +133,74 @@
   },
   "update.maintenance.restored": {
     "other": "  会话：已在升级维护后恢复"
+  },
+  "cleanup.short": {
+    "other": "预览受管数据清理；--apply 执行并通知管理员"
+  },
+  "cleanup.apply": {
+    "other": "执行清理并通知已配置的管理员"
+  },
+  "cleanup.dry_run": {
+    "other": "仅预览，不修改数据（默认）"
+  },
+  "cleanup.target": {
+    "other": "Runtime ID 或名称；留空选择全部已连接运行环境"
+  },
+  "cleanup.failed": {
+    "other": "系统清理失败"
+  },
+  "cleanup.preview": {
+    "other": "清理预览，数据未修改。"
+  },
+  "cleanup.applied": {
+    "other": "清理结束，管理员报告已加入投递队列。"
+  },
+  "cleanup.step": {
+    "other": "%s：候选=%d 清理=%d 跳过=%d 空间=%.2f MiB 错误=%d"
+  },
+  "cleanup.partial": {
+    "other": "部分清理步骤失败，请查看报告。"
+  },
+  "cleanup.step.sessions": {
+    "other": "已归档会话"
+  },
+  "cleanup.step.tasks": {
+    "other": "过期终态任务"
+  },
+  "cleanup.step.workspaces": {
+    "other": "孤立工作区"
+  },
+  "cleanup.step.session_artifacts": {
+    "other": "会话残留"
+  },
+  "cleanup.step.provider_rollouts": {
+    "other": "原生会话历史文件"
+  },
+  "cleanup.step.provider_trust": {
+    "other": "失效项目信任配置"
+  },
+  "cleanup.step.provider_home": {
+    "other": "原生 Agent 目录"
+  },
+  "cleanup.step.logs": {
+    "other": "日志"
+  },
+  "cleanup.step.database": {
+    "other": "数据库压缩"
+  },
+  "cleanup.step.isolation": {
+    "other": "隔离用户数据"
+  },
+  "cleanup.step.references": {
+    "other": "引用校验"
+  },
+  "cleanup.step.other": {
+    "other": "其他清理项目"
+  },
+  "cleanup.invalid_time": {
+    "other": "每日清理时间必须为 HH:MM（00:00–23:59）。"
+  },
+  "cleanup.invalid_paths": {
+    "other": "受保护工作区必须使用绝对路径，多个路径以空格分隔。"
   }
 }

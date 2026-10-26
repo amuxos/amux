@@ -5,6 +5,7 @@ package amux.v1;
 option go_package = "github.com/amuxos/amux/internal/transport/pbgen;pbgen";
 
 service Amuxlet {
+  rpc Cleanup(CleanupRequest) returns (CleanupResponse);
   // Native discovery runs under the execution identity, on the selected Runtime.
   rpc ListNativeModels(ListNativeModelsRequest) returns (ListNativeModelsResponse);
   // Internal, trusted tunnel only; exact execution and bounded workspace paths.
@@ -34,6 +35,8 @@ service Amuxlet {
 }
 
 service Amuxd {
+  // Host-operator maintenance, never available to Agent credentials.
+  rpc Cleanup(CleanupRequest) returns (CleanupResponse);
   // Model services reuse the authenticated actor; no upstream credentials leave the Hub.
   rpc ProxyModel(ProxyModelRequest) returns (stream ProxyModelChunk);
   rpc Run(AmuxdRunRequest) returns (RunResponse);
@@ -1695,4 +1698,30 @@ message MaintenanceResponse {
   int32 active_tasks = 3;
   int32 active_requests = 4;
   int32 sleeping_sessions = 5;
+}
+
+message CleanupRequest {
+ string target_id = 1;
+ bool dry_run = 2;
+ string run_id = 3;
+ repeated string protected_paths = 4;
+}
+message CleanupStep {
+ string name = 1;
+ int64 candidates = 2;
+ int64 deleted = 3;
+ int64 skipped = 4;
+ int64 bytes = 5;
+ repeated string errors = 6;
+}
+message CleanupReport {
+ string id = 1;
+ string target = 2;
+ int64 started_at = 3;
+ int64 finished_at = 4;
+ bool dry_run = 5;
+ repeated CleanupStep steps = 6;
+}
+message CleanupResponse {
+ repeated CleanupReport reports = 1;
 }

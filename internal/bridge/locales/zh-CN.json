@@ -2722,5 +2722,86 @@
   },
   "question.secret": {
     "other": "此问题要求输入敏感信息，已取消。请通过安全的凭据流程提供，不要填写在聊天卡片中。"
+  },
+  "cleanup.title": {
+    "other": "每日自动清理"
+  },
+  "cleanup.choose": {
+    "other": "选择是否每日清理"
+  },
+  "cleanup.enabled": {
+    "other": "开启（推荐）"
+  },
+  "cleanup.disabled": {
+    "other": "关闭"
+  },
+  "cleanup.hint": {
+    "other": "系统级设置，保存后生效。默认每天 06:17（Hub 时区）清理并向管理员私聊报告。"
+  },
+  "cleanup.invalid": {
+    "other": "请为每日清理选择开启或关闭。"
+  },
+  "cleanup.save_failed": {
+    "other": "会话设置已保存，但每日清理选项保存失败，请重试清理设置。"
+  },
+  "cleanup.report.title": {
+    "other": "amux 每日清理报告"
+  },
+  "cleanup.report.success": {
+    "other": "清理已完成；清理数量为零表示没有符合条件的数据。"
+  },
+  "cleanup.report.partial": {
+    "other": "本轮清理存在失败项，已成功的步骤保留；失败详情见本机诊断记录。"
+  },
+  "cleanup.report.runtime": {
+    "other": "运行环境"
+  },
+  "cleanup.report.time": {
+    "other": "完成时间"
+  },
+  "cleanup.report.counts": {
+    "other": "清理 %d · 跳过 %d · 释放 %.2f MiB · 错误 %d"
+  },
+  "cleanup.report.details": {
+    "other": "保留仍被引用和近期创建的数据。详细记录保存在 Runtime 数据目录的 daily-cleanup.json。"
+  },
+  "cleanup.report.id": {
+    "other": "报告编号："
+  },
+  "cleanup.step.sessions": {
+    "other": "已归档会话"
+  },
+  "cleanup.step.tasks": {
+    "other": "过期终态任务"
+  },
+  "cleanup.step.workspaces": {
+    "other": "孤立工作区"
+  },
+  "cleanup.step.session_artifacts": {
+    "other": "会话残留"
+  },
+  "cleanup.step.provider_rollouts": {
+    "other": "原生会话历史文件"
+  },
+  "cleanup.step.provider_trust": {
+    "other": "失效项目信任配置"
+  },
+  "cleanup.step.provider_home": {
+    "other": "原生 Agent 目录"
+  },
+  "cleanup.step.logs": {
+    "other": "日志"
+  },
+  "cleanup.step.database": {
+    "other": "数据库压缩"
+  },
+  "cleanup.step.isolation": {
+    "other": "隔离用户数据"
+  },
+  "cleanup.step.references": {
+    "other": "引用校验"
+  },
+  "cleanup.step.other": {
+    "other": "其他清理项目"
   }
 }

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/amuxos/amux/internal/cleanup"
 	"io"
 	"io/fs"
 	"net"
@@ -425,6 +426,30 @@ func (s *helperServer) handleWithFiles(req HelperRequest, requestFiles []*os.Fil
 			return responseForError(err), nil
 		}
 		return HelperResponse{}, nil
+	case OpDailyCleanup:
+		if req.Cleanup == nil || req.Cleanup.References == nil {
+			return helperError("invalid_request", "cleanup references are required"), nil
+		}
+		if err := s.validateMapping(req.Mapping); err != nil {
+			return responseForError(err), nil
+		}
+		// Serialize against prepare/start while checking the helper's own live
+		// launch registry in addition to the Runtime's persisted references.
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		refs := *req.Cleanup.References
+		refs.Workspaces = append([]string{}, refs.Workspaces...)
+		for _, launch := range s.launches {
+			if launch.desc.State == "running" {
+				refs.Workspaces = append(refs.Workspaces, launch.desc.Paths.Workspace)
+			}
+		}
+		paths := s.pathsFor(*req.Mapping, "")
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		steps := []cleanup.Step{cleanup.SweepWorkspaces(cleanupCtx, paths.Workspace, refs, 1, time.Now(), req.Cleanup.DryRun)}
+		steps = append(steps, cleanup.SweepHome(cleanupCtx, paths.Home, refs, time.Now(), req.Cleanup.DryRun)...)
+		return HelperResponse{CleanupSteps: steps}, nil
 	case OpReclaimHome:
 		if err := s.reclaimHome(req.Mapping, req.HomeCaches); err != nil {
 			return helperError("reclaim_home_failed", err.Error()), nil

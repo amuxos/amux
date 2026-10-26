@@ -245,6 +245,8 @@ func newStartCmd() *cobra.Command {
 				localExpertAuthoring:        localExpertAuthoring,
 				isolationConfig:             config.GetIsolation,
 			}
+			hubRPC.dailyCleaner = newDailyCleaner(hubRPC, bridges)
+			go hubRPC.dailyCleaner.Run(ctx)
 			if scheduleStore != nil {
 				scheduler := schedule.NewWithTaskSubmitter(hub, scheduleStore, sessionStarter, taskRouter)
 				scheduler.SetSessionPromptAuthorizer(hubRPC.authorizeScheduledSessionPrompt)

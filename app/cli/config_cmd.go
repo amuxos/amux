@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/bridge"
@@ -286,6 +287,27 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 			return commandValidationError(err)
 		}
 		value = parsed
+	}
+	if key == config.DailyCleanupEnabledKey {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.boolean", key)))
+		}
+		value = parsed
+	}
+	if key == "maintenance.daily_cleanup.at" {
+		if _, err := time.Parse("15:04", raw); err != nil || len(raw) != 5 {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "cleanup.invalid_time")))
+		}
+	}
+	if key == "maintenance.daily_cleanup.protected_paths" {
+		paths := strings.Fields(raw)
+		for _, path := range paths {
+			if !filepath.IsAbs(path) {
+				return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "cleanup.invalid_paths")))
+			}
+		}
+		value = paths
 	}
 	if key == "hub.addr" {
 		if err := validateHubAddress(raw); err != nil {

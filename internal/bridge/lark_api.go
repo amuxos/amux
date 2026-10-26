@@ -435,14 +435,14 @@ func (b *Bridge) sendInteractiveToChat(ctx context.Context, chatID, content, lab
 }
 
 func (b *Bridge) sendInteractiveToDM(ctx context.Context, openID, content, label string) (string, string, error) {
-	req := larkim.NewCreateMessageReqBuilder().
-		ReceiveIdType("open_id").
-		Body(larkim.NewCreateMessageReqBodyBuilder().
-			ReceiveId(openID).
-			MsgType("interactive").
-			Content(content).
-			Build()).
-		Build()
+	return b.sendInteractiveToDMWithUUID(ctx, openID, content, label, "")
+}
+func (b *Bridge) sendInteractiveToDMWithUUID(ctx context.Context, openID, content, label, requestID string) (string, string, error) {
+	body := larkim.NewCreateMessageReqBodyBuilder().ReceiveId(openID).MsgType("interactive").Content(content)
+	if requestID != "" {
+		body.Uuid(requestID)
+	}
+	req := larkim.NewCreateMessageReqBuilder().ReceiveIdType("open_id").Body(body.Build()).Build()
 	resp, err := b.client.Im.Message.Create(ctx, req)
 	if err != nil {
 		return "", "", fmt.Errorf("lark create "+label+": %w", err)

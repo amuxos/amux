@@ -546,6 +546,18 @@ func (c *Client) handleRequest(ctx context.Context, sendFn func(*pb.TunnelMsg) e
 		}
 		sendResp(resp, "")
 
+	case "Cleanup":
+		var r pb.CleanupRequest
+		if err := unmarshalTunnelPayload(req.Payload, &r); err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		resp, err := c.localSrv.Cleanup(reqCtx, &r)
+		if err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		sendResp(resp, "")
 	case "Prune":
 		resp, err := c.localSrv.Prune(reqCtx, &pb.PruneRequest{})
 		if err != nil {

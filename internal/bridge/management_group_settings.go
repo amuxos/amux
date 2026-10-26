@@ -88,7 +88,8 @@ func (b *Bridge) groupSettingsManagementState(settings *GroupSettings) (manageme
 		return managementState{}, err
 	}
 	state := managementState{
-		ProfileName: b.ProfileName(), DefaultAgent: effectiveBotDefaultAgentRef(bot.DefaultAgent),
+		DailyCleanup: dailyCleanupSettingValue(),
+		ProfileName:  b.ProfileName(), DefaultAgent: effectiveBotDefaultAgentRef(bot.DefaultAgent),
 		Mode: settings.InteractionMode, GroupWatch: b.groupWatchSnapshot(), NativeModelsTargetRef: settings.DefaultTarget,
 	}
 	if settings.IsolationRequired {
@@ -234,9 +235,15 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 			update(renderGroupSettingsEditCardAtPage(state, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action)))
 			return cardToast("success", managementCopy("management.group.settings.opened.not.saved.yet")), true, nil
 		}
+		if value := draft["daily_cleanup"]; value != "" && value != "true" && value != "false" {
+			return groupSettingsErrorToast(managementLocalizedError("cleanup.invalid")), true, nil
+		}
 		submitted, err := draft.settings(settings)
 		if err == nil {
 			settings, err = b.applyGroupSettings(ctx, submitted, settings.Version, openID)
+			if err == nil && managementUsesThreadRouting(submitted.InteractionMode) {
+				err = saveDailyCleanupChoice(draft["daily_cleanup"])
+			}
 		}
 		if err != nil {
 			return groupSettingsErrorToast(err), true, nil
@@ -328,8 +335,17 @@ func groupSettingsDraftFromCallback(settings *GroupSettings, action *callback.Ca
 		}
 		draft[key] = strings.TrimSpace(text)
 	}
-	if action.Name == "group_model" && action.Option != "" {
-		draft["group_model"] = action.Option
+	for _, values := range []map[string]any{action.Value, action.FormValue} {
+		if value, ok := values["daily_cleanup"]; ok {
+			text, valid := value.(string)
+			if !valid {
+				return nil, managementLocalizedError("cleanup.invalid")
+			}
+			draft["daily_cleanup"] = text
+		}
+	}
+	if (action.Name == "group_model" || action.Name == "group_interaction" || action.Name == "daily_cleanup") && action.Option != "" {
+		draft[action.Name] = action.Option
 	}
 	return draft, nil
 }
@@ -586,7 +602,7 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 			options = append(options, cardOption{Text: managementPlainText(managementConcat(managementCopy("management.current.value.validated.on.save"), currentLabel)), Value: initial})
 		}
 		field := managementSelectStaticElement(key, managementCopy("management.select.an.option"), initial, options)
-		if key == "group_model" {
+		if key == "group_model" || key == "group_interaction" || key == "daily_cleanup" {
 			field.Behaviors = []cardBehavior{{Type: "callback", Value: managementButtonValue(groupSettingsScopedButton(managementActionGroupSettingsEdit, "", "", values))}}
 		}
 		form = append(form, managementSettingsFieldRow(label, field))
@@ -599,6 +615,15 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 		{Text: managementStyledText(managementCopy("management.separate.conversation.per.topic"), cardTitle{Tag: "plain_text"}), Value: config.FeishuInteractionThread},
 		{Text: managementStyledText(managementCopy("management.separate.topics.user.isolation"), cardTitle{Tag: "plain_text"}), Value: interactionModeThreadIsolated},
 	})
+	if managementUsesThreadRouting(draft["group_interaction"]) {
+		initial := draft["daily_cleanup"]
+		if initial == "" {
+			initial = state.DailyCleanup
+		}
+		field := managementSelectStaticElement("daily_cleanup", managementCopy("cleanup.choose"), dailyCleanupInitial(initial), dailyCleanupOptions())
+		field.Behaviors = []cardBehavior{{Type: "callback", Value: managementButtonValue(groupSettingsScopedButton(managementActionGroupSettingsEdit, "", "", values))}}
+		form = append(form, managementSettingsFieldRow(managementCopy("cleanup.title"), field), managementHintElement(managementCopy("cleanup.hint")))
+	}
 	selectField(managementCopy("management.default.expert.for.new.sessions"), "group_agent", profileOptions)
 	selectField(managementCopy("management.runtime"), "group_runtime", runtimeOptions)
 	selectField(managementCopy("management.model"), "group_model", modelOptions)

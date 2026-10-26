@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/amuxos/amux/internal/cleanup"
 	"io"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ const (
 type HelperOperation string
 
 const (
+	OpDailyCleanup    HelperOperation = "daily_cleanup"
 	OpHandshake       HelperOperation = "handshake"
 	OpEnsurePrincipal HelperOperation = "ensure_principal"
 	OpPrepareRun      HelperOperation = "prepare_run"
@@ -71,18 +73,19 @@ type LaunchDescription struct {
 }
 
 type HelperRequest struct {
-	FileAction      string          `json:"file_action,omitempty"`
-	FileName        string          `json:"file_name,omitempty"`
-	ProtocolVersion int             `json:"protocol_version"`
-	RequestID       string          `json:"request_id"`
-	Operation       HelperOperation `json:"operation"`
-	LaunchID        string          `json:"launch_id,omitempty"`
-	ExecutionID     string          `json:"execution_id,omitempty"`
-	Mapping         *AccountMapping `json:"mapping,omitempty"`
-	Spec            *LaunchSpec     `json:"spec,omitempty"`
-	Signal          string          `json:"signal,omitempty"`
-	HomeCaches      []HomeCacheSpec `json:"home_caches,omitempty"`
-	Force           bool            `json:"force,omitempty"`
+	Cleanup         *DailyCleanupRequest `json:"cleanup,omitempty"`
+	FileAction      string               `json:"file_action,omitempty"`
+	FileName        string               `json:"file_name,omitempty"`
+	ProtocolVersion int                  `json:"protocol_version"`
+	RequestID       string               `json:"request_id"`
+	Operation       HelperOperation      `json:"operation"`
+	LaunchID        string               `json:"launch_id,omitempty"`
+	ExecutionID     string               `json:"execution_id,omitempty"`
+	Mapping         *AccountMapping      `json:"mapping,omitempty"`
+	Spec            *LaunchSpec          `json:"spec,omitempty"`
+	Signal          string               `json:"signal,omitempty"`
+	HomeCaches      []HomeCacheSpec      `json:"home_caches,omitempty"`
+	Force           bool                 `json:"force,omitempty"`
 }
 
 // HomeCacheSpec is one reclaimable provider cache inside a principal HOME. Path
@@ -95,6 +98,7 @@ type HomeCacheSpec struct {
 }
 
 type HelperResponse struct {
+	CleanupSteps    []cleanup.Step     `json:"cleanup_steps,omitempty"`
 	ProtocolVersion int                `json:"protocol_version"`
 	RequestID       string             `json:"request_id"`
 	LaunchID        string             `json:"launch_id,omitempty"`
@@ -160,4 +164,11 @@ func decodeHelperFrame(frame []byte, value any) error {
 		return io.ErrUnexpectedEOF
 	}
 	return json.Unmarshal(frame[4:], value)
+}
+
+// The trusted Runtime supplies references, but the helper owns roots, provider
+// policy and the clock. An omitted snapshot is always rejected.
+type DailyCleanupRequest struct {
+	References *cleanup.References `json:"references"`
+	DryRun     bool                `json:"dry_run"`
 }

@@ -3206,5 +3206,61 @@
   "中断持久 Agent 当前 turn。用于用户要求停止某个后台任务时；中断后简要告知用户，之后可用 instance_followup 继续。": {
     "en": "Interrupt the persistent Agent's current turn. Use it when the user asks to stop a background task; tell the user briefly afterwards, and continue later with instance_followup if needed.",
     "zh-CN": "中断持久 Agent 当前 turn。用于用户要求停止某个后台任务时；中断后简要告知用户，之后可用 instance_followup 继续。"
+  },
+  "每日清理时间，使用 Hub 本地时区；错过时间后在恢复运行时补一次。": {
+    "en": "Daily cleanup time in the Hub local timezone; a missed run is performed once when the system resumes.",
+    "zh-CN": "每日清理时间，使用 Hub 本地时区；错过时间后在恢复运行时补一次。"
+  },
+  "每日清理始终保留的共享或长期工作区绝对路径，作用于所有 Runtime。": {
+    "en": "Absolute paths of shared or long-lived workspaces always retained by daily cleanup, across all Runtimes.",
+    "zh-CN": "每日清理始终保留的共享或长期工作区绝对路径，作用于所有 Runtime。"
+  },
+  "absolute paths": {
+    "en": "absolute paths",
+    "zh-CN": "absolute paths"
+  },
+  "Preview managed data cleanup; --apply cleans and reports to administrators": {
+    "en": "Preview managed data cleanup; --apply cleans and reports to administrators",
+    "zh-CN": "预览受管数据清理；--apply 执行并通知管理员"
+  },
+  "预览受管数据清理；--apply 执行并通知管理员": {
+    "en": "Preview managed data cleanup; --apply cleans and reports to administrators",
+    "zh-CN": "预览受管数据清理；--apply 执行并通知管理员"
+  },
+  "Apply cleanup and notify configured administrators": {
+    "en": "Apply cleanup and notify configured administrators",
+    "zh-CN": "执行清理并通知已配置的管理员"
+  },
+  "执行清理并通知已配置的管理员": {
+    "en": "Apply cleanup and notify configured administrators",
+    "zh-CN": "执行清理并通知已配置的管理员"
+  },
+  "Preview without changing data (the default)": {
+    "en": "Preview without changing data (the default)",
+    "zh-CN": "仅预览，不修改数据（默认）"
+  },
+  "仅预览，不修改数据（默认）": {
+    "en": "Preview without changing data (the default)",
+    "zh-CN": "仅预览，不修改数据（默认）"
+  },
+  "Runtime ID or name; empty selects all connected runtimes": {
+    "en": "Runtime ID or name; empty selects all connected runtimes",
+    "zh-CN": "Runtime ID 或名称；留空选择全部已连接运行环境"
+  },
+  "Runtime ID 或名称；留空选择全部已连接运行环境": {
+    "en": "Runtime ID or name; empty selects all connected runtimes",
+    "zh-CN": "Runtime ID 或名称；留空选择全部已连接运行环境"
+  },
+  "help for cleanup": {
+    "en": "help for cleanup",
+    "zh-CN": "cleanup 命令帮助"
+  },
+  "HH:MM": {
+    "en": "HH:MM",
+    "zh-CN": "HH:MM"
+  },
+  "每日自动清理普通话题和用户隔离话题的运行数据，并向 Bot 管理员私聊报告结果；系统级开关，保存后即时生效。": {
+    "en": "Automatically clean up ordinary and user-isolated topic data daily and privately report results to Bot owners. Installation-wide switch; applies immediately.",
+    "zh-CN": "每日自动清理普通话题和用户隔离话题的运行数据，并向 Bot 管理员私聊报告结果；系统级开关，保存后即时生效。"
   }
 }

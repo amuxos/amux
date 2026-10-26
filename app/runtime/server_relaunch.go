@@ -562,6 +562,8 @@ func (s *server) adoptAgentActorToken(sess *session.Session, token string, expir
 	}
 }
 func (s *server) relaunchSession(sess *session.Session, action string) (*pb.RunResponse, error) {
+	s.cleanupLaunchMu.RLock()
+	defer s.cleanupLaunchMu.RUnlock()
 	s.relaunchMu.Lock()
 	defer s.relaunchMu.Unlock()
 	return s.relaunchSessionLocked(sess, action)

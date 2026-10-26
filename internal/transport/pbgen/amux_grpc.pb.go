@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	Amuxlet_Cleanup_FullMethodName                     = "/amux.v1.Amuxlet/Cleanup"
 	Amuxlet_ListNativeModels_FullMethodName            = "/amux.v1.Amuxlet/ListNativeModels"
 	Amuxlet_PutSessionFile_FullMethodName              = "/amux.v1.Amuxlet/PutSessionFile"
 	Amuxlet_ReadSessionArtifact_FullMethodName         = "/amux.v1.Amuxlet/ReadSessionArtifact"
@@ -47,6 +48,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AmuxletClient interface {
+	Cleanup(ctx context.Context, in *CleanupRequest, opts ...grpc.CallOption) (*CleanupResponse, error)
 	// Native discovery runs under the execution identity, on the selected Runtime.
 	ListNativeModels(ctx context.Context, in *ListNativeModelsRequest, opts ...grpc.CallOption) (*ListNativeModelsResponse, error)
 	// Internal, trusted tunnel only; exact execution and bounded workspace paths.
@@ -81,6 +83,16 @@ type amuxletClient struct {
 
 func NewAmuxletClient(cc grpc.ClientConnInterface) AmuxletClient {
 	return &amuxletClient{cc}
+}
+
+func (c *amuxletClient) Cleanup(ctx context.Context, in *CleanupRequest, opts ...grpc.CallOption) (*CleanupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CleanupResponse)
+	err := c.cc.Invoke(ctx, Amuxlet_Cleanup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *amuxletClient) ListNativeModels(ctx context.Context, in *ListNativeModelsRequest, opts ...grpc.CallOption) (*ListNativeModelsResponse, error) {
@@ -316,6 +328,7 @@ func (c *amuxletClient) RevokePrincipalLaunches(ctx context.Context, in *RevokeP
 // All implementations should embed UnimplementedAmuxletServer
 // for forward compatibility.
 type AmuxletServer interface {
+	Cleanup(context.Context, *CleanupRequest) (*CleanupResponse, error)
 	// Native discovery runs under the execution identity, on the selected Runtime.
 	ListNativeModels(context.Context, *ListNativeModelsRequest) (*ListNativeModelsResponse, error)
 	// Internal, trusted tunnel only; exact execution and bounded workspace paths.
@@ -351,6 +364,9 @@ type AmuxletServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAmuxletServer struct{}
 
+func (UnimplementedAmuxletServer) Cleanup(context.Context, *CleanupRequest) (*CleanupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Cleanup not implemented")
+}
 func (UnimplementedAmuxletServer) ListNativeModels(context.Context, *ListNativeModelsRequest) (*ListNativeModelsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListNativeModels not implemented")
 }
@@ -435,6 +451,24 @@ func RegisterAmuxletServer(s grpc.ServiceRegistrar, srv AmuxletServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Amuxlet_ServiceDesc, srv)
+}
+
+func _Amuxlet_Cleanup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CleanupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxletServer).Cleanup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxlet_Cleanup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxletServer).Cleanup(ctx, req.(*CleanupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Amuxlet_ListNativeModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -834,6 +868,10 @@ var Amuxlet_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*AmuxletServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "Cleanup",
+			Handler:    _Amuxlet_Cleanup_Handler,
+		},
+		{
 			MethodName: "ListNativeModels",
 			Handler:    _Amuxlet_ListNativeModels_Handler,
 		},
@@ -929,6 +967,7 @@ var Amuxlet_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	Amuxd_Cleanup_FullMethodName                      = "/amux.v1.Amuxd/Cleanup"
 	Amuxd_ProxyModel_FullMethodName                   = "/amux.v1.Amuxd/ProxyModel"
 	Amuxd_Run_FullMethodName                          = "/amux.v1.Amuxd/Run"
 	Amuxd_Info_FullMethodName                         = "/amux.v1.Amuxd/Info"
@@ -991,6 +1030,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AmuxdClient interface {
+	// Host-operator maintenance, never available to Agent credentials.
+	Cleanup(ctx context.Context, in *CleanupRequest, opts ...grpc.CallOption) (*CleanupResponse, error)
 	// Model services reuse the authenticated actor; no upstream credentials leave the Hub.
 	ProxyModel(ctx context.Context, in *ProxyModelRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyModelChunk], error)
 	Run(ctx context.Context, in *AmuxdRunRequest, opts ...grpc.CallOption) (*RunResponse, error)
@@ -1059,6 +1100,16 @@ type amuxdClient struct {
 
 func NewAmuxdClient(cc grpc.ClientConnInterface) AmuxdClient {
 	return &amuxdClient{cc}
+}
+
+func (c *amuxdClient) Cleanup(ctx context.Context, in *CleanupRequest, opts ...grpc.CallOption) (*CleanupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CleanupResponse)
+	err := c.cc.Invoke(ctx, Amuxd_Cleanup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *amuxdClient) ProxyModel(ctx context.Context, in *ProxyModelRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyModelChunk], error) {
@@ -1646,6 +1697,8 @@ type Amuxd_TunnelClient = grpc.BidiStreamingClient[TunnelMsg, TunnelMsg]
 // All implementations should embed UnimplementedAmuxdServer
 // for forward compatibility.
 type AmuxdServer interface {
+	// Host-operator maintenance, never available to Agent credentials.
+	Cleanup(context.Context, *CleanupRequest) (*CleanupResponse, error)
 	// Model services reuse the authenticated actor; no upstream credentials leave the Hub.
 	ProxyModel(*ProxyModelRequest, grpc.ServerStreamingServer[ProxyModelChunk]) error
 	Run(context.Context, *AmuxdRunRequest) (*RunResponse, error)
@@ -1715,6 +1768,9 @@ type AmuxdServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAmuxdServer struct{}
 
+func (UnimplementedAmuxdServer) Cleanup(context.Context, *CleanupRequest) (*CleanupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Cleanup not implemented")
+}
 func (UnimplementedAmuxdServer) ProxyModel(*ProxyModelRequest, grpc.ServerStreamingServer[ProxyModelChunk]) error {
 	return status.Error(codes.Unimplemented, "method ProxyModel not implemented")
 }
@@ -1901,6 +1957,24 @@ func RegisterAmuxdServer(s grpc.ServiceRegistrar, srv AmuxdServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Amuxd_ServiceDesc, srv)
+}
+
+func _Amuxd_Cleanup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CleanupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).Cleanup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_Cleanup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).Cleanup(ctx, req.(*CleanupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Amuxd_ProxyModel_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -2893,6 +2967,10 @@ var Amuxd_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "amux.v1.Amuxd",
 	HandlerType: (*AmuxdServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Cleanup",
+			Handler:    _Amuxd_Cleanup_Handler,
+		},
 		{
 			MethodName: "Run",
 			Handler:    _Amuxd_Run_Handler,

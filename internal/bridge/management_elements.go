@@ -353,6 +353,7 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 		"default_runtime_ref": draft.DefaultRuntimeRef, "default_model_ref": draft.DefaultModelRef,
 		"default_reasoning_effort": draft.DefaultReasoningEffort,
 		"thinking_process":         draft.ThinkingProcess,
+		"daily_cleanup":            draft.DailyCleanup,
 	}}))
 	if state.Mode != config.FeishuInteractionSingleton && draft.Interaction == config.FeishuInteractionSingleton {
 		submitButton.Confirm = managementConfirm(managementCopy("management.continue.the.same.conversation"), managementCopy("management.messages.sent.to.the.assistant.from.authorized.locations.will"))
@@ -366,7 +367,8 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 			"interaction": draft.Interaction, "default_agent": draft.DefaultAgent,
 			"default_runtime_ref": draft.DefaultRuntimeRef, "default_model_ref": draft.DefaultModelRef,
 			"default_reasoning_effort": draft.DefaultReasoningEffort,
-			"thinking_process":         draft.ThinkingProcess, managementDraftFieldKey: field,
+			"thinking_process":         draft.ThinkingProcess,
+			"daily_cleanup":            draft.DailyCleanup, managementDraftFieldKey: field,
 		}})}}
 	}
 	buttonElements := []cardElement{submitButton}
@@ -426,10 +428,17 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	thinkingProcessRow := cardElement{Tag: "column_set", FlexMode: "none", Columns: []cardColumn{managementSettingsFieldColumn(managementCopy("management.activity.display"), thinkingProcessField)}}
 	buttons.Margin = "4px 0px 0px 0px"
 	form := cardElement{Tag: "form", Name: name, Direction: "vertical", VerticalSpacing: "8px", Elements: []cardElement{buttons}}
-	values := map[string]string{"interaction": draft.Interaction, "default_agent": draft.DefaultAgent, "default_runtime_ref": draft.DefaultRuntimeRef, "default_model_ref": draft.DefaultModelRef, "default_reasoning_effort": draft.DefaultReasoningEffort, "thinking_process": draft.ThinkingProcess}
+	values := map[string]string{"interaction": draft.Interaction, "default_agent": draft.DefaultAgent, "default_runtime_ref": draft.DefaultRuntimeRef, "default_model_ref": draft.DefaultModelRef, "default_reasoning_effort": draft.DefaultReasoningEffort, "thinking_process": draft.ThinkingProcess, "daily_cleanup": draft.DailyCleanup}
 	elements := []cardElement{hintRow, profileRow, runtimeRow, modelRow}
 	elements = append(elements, modelServiceElements(state, draft.DefaultRuntimeRef, values, draftChangeAction)...)
-	return append(elements, reasoningRow, interactionRow, thinkingProcessRow, form)
+	elements = append(elements, reasoningRow, interactionRow)
+	if managementUsesThreadRouting(draft.Interaction) {
+		field := managementSelectStaticElement("daily_cleanup", managementCopy("cleanup.choose"), dailyCleanupInitial(draft.DailyCleanup), dailyCleanupOptions())
+		field.Required = false
+		field.Behaviors = draftChangeBehavior("daily_cleanup")
+		elements = append(elements, managementTextElement(managementConcat(managementCopy("cleanup.title"), " · ", managementCopy("cleanup.hint")), "notation", "grey", nil), field)
+	}
+	return append(elements, thinkingProcessRow, form)
 }
 
 func managementRuntimeOptions(state managementState) []cardOption {
@@ -604,8 +613,8 @@ func managementProfileOptionLabel(profile managementProfileSummary) any {
 	if library := strings.TrimSpace(profile.LibraryName); library != "" {
 		label = managementConcat(name, "（", managementNonemptyText(profile.LibraryLabel, library), "）")
 	}
-	// Leave room for runtime discovery controls in bilingual settings cards.
-	description := shortActivityText(strings.TrimSpace(profile.Description), 40)
+	// Leave room for runtime discovery and daily cleanup controls in bilingual cards.
+	description := shortActivityText(strings.TrimSpace(profile.Description), 36)
 	if description != "" {
 		label = managementConcat(label, " · ", description)
 	}

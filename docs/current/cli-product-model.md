@@ -199,3 +199,23 @@ not invoke conversion. The operator supplies runtime execution settings separate
 reference. An external v2 Profile requires an explicit runtime before any output is written. Builtin shortcuts can use amux caller defaults.
 Rendering projects content for that engine without launching it; execution
 permissions remain native launch arguments supplied by the caller.
+
+## Daily cleanup
+
+The installation-wide `maintenance.daily_cleanup.enabled` switch defaults to true.
+The Hub reads it live and schedules cleanup for ordinary and isolated topics at
+06:17 in the Hub's local timezone once per calendar day and Runtime. There is no
+cron dependency and no Agent turn. A durable result prevents duplicate cleanup
+after restart; notification failures retry delivery without repeating deletion.
+`amux system cleanup` previews the same Runtime cleanup; `--apply` executes it
+and sends the result to configured Bot owners. Only host operators can invoke
+this system operation; Agent credentials and enrolled users cannot.
+
+Cleanup uses existing archived Session and seven-day terminal Task lifecycle
+APIs. It retains referenced workspaces/provider threads, recent orphan data,
+explicitly protected paths, credentials and running/sleeping Sessions. It never
+sweeps global `/tmp`. Filesystem cleanup fails closed on unreadable authoritative
+state and does not follow symlinks outside managed roots. Provider-specific
+layouts are registered by distributions. Principal files are processed through
+the existing privileged helper, never by granting the Runtime broad sudo.
+Logs are bounded and SQLite compaction runs only above 300 MiB of free pages.

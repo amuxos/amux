@@ -356,6 +356,7 @@ func runServer(cmd *cobra.Command, _ []string) error {
 		creds = newHubCredentialProvider(hubCfg.Addr, hubCfg.Token)
 	}
 	localSrv := &server{
+		cleanupDB: db, cleanupTarget: runtimeCfg.ID,
 		mgr:                       mgr,
 		amuxletBin:                amuxletBin,
 		amuxDir:                   amuxDir,
@@ -421,6 +422,7 @@ func runServer(cmd *cobra.Command, _ []string) error {
 	// sessions (owner task record gone) without coupling the session layer to
 	// the task store.
 	localSrv.taskExists = taskRunner.TaskExists
+	localSrv.cleanupTasks = taskRunner
 	if recovered, rerr := taskRunner.RecoverOrphans(); rerr != nil {
 		fmt.Fprintf(os.Stderr, "runtime: recover orphan tasks: %v\n", rerr)
 	} else if len(recovered) > 0 {
