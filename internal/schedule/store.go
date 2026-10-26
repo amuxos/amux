@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/amuxos/amux/internal/amuxhome"
@@ -96,7 +97,8 @@ type Filter struct {
 
 // Store persists scheduled tasks in SQLite (modernc, CGO-free).
 type Store struct {
-	db *sql.DB
+	db    *sql.DB
+	visMu sync.Mutex
 }
 
 // DefaultSchedulePath returns ~/.amux/schedule.db.
@@ -193,7 +195,7 @@ func (s *Store) migrate() error {
 	`); err != nil {
 		return fmt.Errorf("schedule runs index: %w", err)
 	}
-	return nil
+	return s.migrateVisibility()
 }
 
 // Create inserts a new task and returns it with its assigned ID.

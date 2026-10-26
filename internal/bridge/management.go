@@ -176,6 +176,9 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			b.localizeManagementToast(response, event.Event.Operator.OpenID)
 		}
 	}()
+	if response, handled, err := b.scheduleCardAction(ctx, event, action); handled {
+		return response, true, err
+	}
 	if response, handled, err := b.handleGroupSettingsCardAction(ctx, event, action); handled {
 		return response, true, err
 	}
@@ -804,6 +807,8 @@ const managementRuntimeDefaultReasoningOption = "__runtime_default_reasoning__"
 // Cards sent by the removed experimental command may still be visible
 // or pending recovery during an upgrade. Keep them on the current /amux surface.
 type managementState struct {
+	ScheduleSummary any
+
 	DailyCleanup                    string
 	GoalSupported                   bool
 	NativeModelsStatus              string

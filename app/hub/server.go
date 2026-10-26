@@ -40,6 +40,8 @@ type hubServer struct {
 	feishuBotSessionControllers map[string]feishuBotSessionController
 	feishuMessageSenders        []feishuMessageSender
 	schedule                    *schedule.Store
+	scheduleRuntime             taskRouterHub
+	scheduleTasks               *bridgeSubtaskReader
 	creds                       task.CredentialProvider
 	principals                  *principal.Store
 	memory                      *memory.Store
@@ -1689,9 +1691,30 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 		}
 		taskRow.TaskSpecJson = normalizedSpecJson
 	}
+	creator, err := s.resolveScheduleCreator(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "resolve schedule creator: %v", err)
+	}
 	t, err := store.Create(taskRow)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
+	if creator.PrincipalID != "" {
+		var access principal.ExecutionIdentity
+		if taskRow.ScheduleType == schedule.ScheduleTypeSubtask {
+			var spec task.Spec
+			if json.Unmarshal(taskRow.TaskSpecJson, &spec) == nil && spec.ExecutionIdentity != nil {
+				access = *spec.ExecutionIdentity
+			}
+		} else {
+			access, _ = s.sessionExecutionIdentity(taskRow.TargetID, taskRow.SessionName)
+		}
+		encoded, _ := json.Marshal(access)
+		creator.AccessIdentityJSON = string(encoded)
+		if err := store.BindCreator(t.ID, creator); err != nil {
+			_, _ = store.Delete(t.ID)
+			return nil, status.Errorf(codes.Internal, "persist schedule creator: %v", err)
+		}
 	}
 	resp := &pb.CreateScheduleResponse{Id: t.ID}
 	if t.NextRunAt != nil {

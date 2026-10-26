@@ -94,12 +94,12 @@ amux 记忆，不回退到全局范围。
 默认值，历史任务也采用同一路径。Task 接纳后冻结执行快照，重试继续使用该快照。
 
 Hub 定时规则可以向 Session 投递提示，也可以提交临时子 Task。MCP `schedule_create`
-默认（`schedule_type=subtask` 或省略）使用子 Task 路径，历史记录保存 Task ID，不包含已
-完成结果，也不承诺把结果发送回原飞书聊天。`ok:task:<id>` 只表示提交成功，最终结果以
+默认（`schedule_type=subtask` 或省略）使用子 Task 路径，历史记录保存 Task ID 和对账后的
+执行终态，不承诺把结果发送回原飞书聊天。`ok:task:<id>` 只表示提交成功，最终结果以
 Task 记录为准。`schedule_type=session-prompt` 时用显式 `session` session-ref 指定目标
 （或回落 `AMUX_SESSION_ID`），解析与 CLI `amux schedule create <session-ref>` 相同，到期
-Submit 到该 Session（`Scheduler.deliverReuseSession`），可唤醒 Agent；运行状态以 Schedule
-历史中的 `ok` / `skipped:offline` 等为准。
+Submit 到该 Session（`Scheduler.deliverReuseSession`），可唤醒 Agent；Hub 记录准确的 Turn，
+并以 canonical 终态对账。`ok` / `skipped:offline` 等提交状态与执行完成分开。
 重复规则在每次触发尝试后推进，即使投递失败；已消费的一次性规则不重试。停用或删除
 Schedule 不会取消已经接受的 Task。实现见 `internal/schedule/spec.go`、
 `internal/schedule/scheduler.go` 和 `app/cli/mcp_schedule.go`。
@@ -127,3 +127,13 @@ Claude 和支持审批的发行版 Adapter 在 process 和 Linux DAC 下均为 `
 Session 中收集缺失信息后重新提交 Task。此规则同样适用于定时子任务和持久实例。
 直接 Session 的业务问题交给附着界面，不由自动审批策略代答；向其投递的定时
 prompt 使用相同规则。
+
+## 定时任务执行感知
+
+Hub 在提交前持久化每次触发，并关联对应 Task 或准确的 canonical Turn。提交成功不等于执行完成；暂时无法观测时保留待确认状态，不推断失败或自动补跑。旧的无关联历史不触发主动通知。
+
+飞书个人任务视图及每个操作均校验冻结的创建人、应用范围、有效身份绑定与执行权限。创建人来自可信请求和准确的飞书 Turn 回执，不采用最近发言人、任意收件人或 Bot owner。无法归属的任务不开启主动提醒。既有 operator/CLI 授权保持原约定。状态通知统一由 Bot 私聊发给当前配置的管理员（owner），并标明任务创建人。管理员通知中心展示任务名称、执行状态及通知操作（知道了、静默、重新检查），不授予查看其他创建人的 prompt、结果或控制执行的权限；个人任务视图仍按创建人隔离。
+
+周期任务正常完成不打扰；失败和未执行聚合 60 秒，待确认持续五分钟才提醒。持续异常更新原卡，未确认异常最多每天催办一次；稳定恢复十分钟后关闭异常卡。一次性任务有结束回执。知道了停止催办，静默持续 24 小时，暂停只影响后续触发。默认在调度时区的 22:00–08:00 安静，同一管理员/应用每 30 分钟最多三条新状态消息。
+
+投递状态与执行结果分开记录。持久化 outbox 使用固定 UUID 重试暂时故障（飞书去重窗口为一小时）。230013/230053 可用范围或屏蔽错误暂停投递，显式重新检查后再尝试，不回退给其他收件人。未配置管理员时保留待通知状态并展示投递诊断。更换管理员或迁移旧的创建人投递时，清理旧 outbox、卡片 ID 以及收件人对应的错误、确认和静默状态；执行状态、创建人及任务提醒开关保持不变。仍在持续的异常可通知新管理员，已完成的历史回执不重放。`/amux` 提供个人摘要、分页历史、结果及这些操作，中英文同步。

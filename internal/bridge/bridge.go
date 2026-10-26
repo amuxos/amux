@@ -121,6 +121,7 @@ type Bridge struct {
 	profile        string
 	bridgeID       string
 	identityPort
+	schedules        ScheduleControl
 	isolationSupport isolationSupportChecker
 
 	documentCommentController
@@ -600,6 +601,7 @@ func (b *Bridge) Start(ctx context.Context) error {
 			log.Warn().Err(err).Str("profile", b.ProfileName()).Msg("bridge: group_watch polling paused")
 		}
 	}
+	go b.runScheduleNotices(ctx)
 	go b.runGroupWatchPoller(ctx)
 	go b.runExternalBotCatalogRefresher(ctx)
 	if b.documentCommentsActive() {
@@ -1070,6 +1072,10 @@ func (b *Bridge) handleMessage(ctx context.Context, event *larkim.P2MessageRecei
 }
 
 func (b *Bridge) handlePrivateMessage(ctx context.Context, msg *larkim.EventMessage, openID, text string) error {
+	if b.schedules != nil && strings.TrimSpace(text) == "/amux" && openID != "" {
+		return b.cmdAmuxManagement(ctx, openID)
+	}
+
 	if b.secrets.OpenId == "" && openID != "" {
 		b.secrets.OpenId = openID
 		if err := b.saveProfileSecrets(); err == nil {

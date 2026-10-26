@@ -196,7 +196,8 @@ func newStartCmd() *cobra.Command {
 			go localExpertAuthoring.runEvaluationReconciler(ctx)
 			managementActions := newLocalManagementSystemActions()
 			go managementActions.RunUpdateMonitor(ctx)
-			bridges := tryStartBridges(ctx, hub, sessionStarter, subtaskReader, principalStore, webBaseURL, webToken, managementActions, bridge.ManagementSystemInfo{
+			scheduleControl := &bridgeSchedules{server: &hubServer{hub: hub, listTargets: hub.ListTargets, schedule: scheduleStore, principals: principalStore, scheduleRuntime: hub, scheduleTasks: subtaskReader, isolationConfig: config.GetIsolation}, reader: subtaskReader}
+			bridges := tryStartBridges(ctx, hub, sessionStarter, subtaskReader, principalStore, scheduleControl, webBaseURL, webToken, managementActions, bridge.ManagementSystemInfo{
 				Version:   version,
 				StartedAt: startedAt,
 				HubIP:     detectHubIP(lis.Addr()),
@@ -240,6 +241,8 @@ func newStartCmd() *cobra.Command {
 				feishuBotSessionControllers: feishuBotSessionControllers,
 				feishuMessageSenders:        feishuMessageSenders,
 				schedule:                    scheduleStore,
+				scheduleRuntime:             hub,
+				scheduleTasks:               subtaskReader,
 				principals:                  principalStore,
 				memory:                      memoryStore,
 				memoryConfig:                config.GetMemory,
@@ -253,6 +256,7 @@ func newStartCmd() *cobra.Command {
 			if scheduleStore != nil {
 				scheduler := schedule.NewWithTaskSubmitter(hub, scheduleStore, sessionStarter, taskRouter)
 				scheduler.SetSessionPromptAuthorizer(hubRPC.authorizeScheduledSessionPrompt)
+				scheduler.SetOutcomeReader(scheduleControl)
 				go scheduler.Start(ctx)
 			}
 			srv := grpc.NewServer(serverOpts...)
@@ -374,6 +378,7 @@ func tryStartBridges(
 	sessionStarter sessionlaunch.Starter,
 	subtasks bridge.SubtaskReader,
 	principals *principal.Store,
+	schedules *bridgeSchedules,
 	webBaseURL,
 	webToken string,
 	managementActions bridge.ManagementSystemActions,
@@ -416,6 +421,9 @@ func tryStartBridges(
 			continue
 		}
 		b.SetSubtaskReader(subtasks)
+		if schedules != nil && schedules.server.schedule != nil {
+			b.SetScheduleControl(schedules)
+		}
 		if principals != nil {
 			bridgeID := bridge.BridgeIdFromAppId(secrets.AppId)
 			b.SetExecutionIdentityResolver(newFeishuLaunchIdentityResolver(principals, bridgeID, profile, identifiedFeishuLaunches))

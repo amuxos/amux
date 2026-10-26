@@ -355,3 +355,23 @@ func FinalizeBackend(identity ExecutionIdentity, backend string) (ExecutionIdent
 	identity.IsolationBackend = backend
 	return identity, identity.Validate()
 }
+
+// AuthorizeEffectivePrincipal checks present authority to use an already
+// resolved principal. Unlike ownership of a historical object, a retained
+// creator identity alone does not preserve revoked delegation or membership.
+func (s *Store) AuthorizeEffectivePrincipal(actorID, effectiveID string) error {
+	s.policyMu.RLock()
+	defer s.policyMu.RUnlock()
+	if _, err := s.requireActive(actorID); err != nil {
+		return err
+	}
+	effective, err := s.requireActive(effectiveID)
+	if err != nil {
+		return err
+	}
+	if actorID == effectiveID {
+		return nil
+	}
+	_, err = s.authorizeRunAs(actorID, effective)
+	return err
+}

@@ -108,7 +108,18 @@ func (b *Bridge) handleCommand(ctx context.Context, openID, text string) error {
 	return b.cmdHelp(ctx, openID)
 }
 func (b *Bridge) cmdAmuxManagement(ctx context.Context, openID string) error {
-	return b.sendOwnerManagementCard(ctx, openID, renderManagementOverviewCard(b.managementState()))
+	state := b.managementState()
+	if b.schedules != nil {
+		entries, err := b.schedules.List(ctx, b.currentBridgeId(), openID)
+		if err != nil {
+			return err
+		}
+		if !b.canUseBridge(openID) {
+			return b.sendManagementCardToDM(ctx, openID, renderSchedules(entries, "all", 0))
+		}
+		state.ScheduleSummary = scheduleSummary(entries)
+	}
+	return b.sendOwnerManagementCard(ctx, openID, renderManagementOverviewCard(state))
 }
 func isAmuxManagementCommand(text string) bool {
 	text, ok := slashCommandText(text)

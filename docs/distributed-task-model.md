@@ -125,13 +125,14 @@ admitted, its resolved execution snapshot is frozen for retries.
 
 Hub schedules either deliver a prompt to a Session or submit an ephemeral child
 Task. MCP `schedule_create` defaults to the child-Task path (`schedule_type=subtask`
-or omitted); its history records Task IDs, not the completed result or a promise to
-send it to the originating Feishu chat. `ok:task:<id>` means submission succeeded;
+or omitted); its history records Task IDs and reconciled execution outcomes.
+This does not promise result delivery to the originating Feishu chat. `ok:task:<id>` means submission succeeded;
 final outcome comes from the Task record. With `schedule_type=session-prompt`, the
 rule targets an explicit `session` session-ref (or falls back to `AMUX_SESSION_ID`)
 resolved like CLI `amux schedule create <session-ref>`, then Submit-s into that
 Session on fire (`Scheduler.deliverReuseSession`), which can wake the Agent;
-inspect Schedule history statuses such as `ok` or `skipped:offline`.
+the Hub records its exact Turn and reconciles canonical terminal outcomes.
+Admission statuses such as `ok` or `skipped:offline` remain distinct from completion.
 Recurring rules advance after each attempted fire, including delivery failure;
 consumed one-shot rules are not retried. Disabling or deleting a Schedule does
 not cancel an already admitted Task. See `internal/schedule/spec.go`,
@@ -169,3 +170,13 @@ The caller can gather the missing input in an interactive Session and submit a
 new Task. This also applies to scheduled subtasks and persistent instances. Direct
 Sessions leave questions to their attached UI regardless of automatic approval
 policy; scheduled prompts sent to those Sessions have the same behavior.
+
+## Scheduled task visibility
+
+The Hub persists each firing before dispatch and correlates its Task or exact canonical Turn. Admission is not execution completion. An unavailable observation remains unknown; it does not imply failure or authorize replay. Older uncorrelated history is not used for proactive alerts.
+
+Feishu personal schedule views and every action require the frozen creator, application scope, active identity binding, and execution access. Creator provenance comes from the authenticated request and exact Feishu Turn receipts, never the latest speaker, an arbitrary recipient, or the Bot owner. Unattributable schedules have no proactive notifications. Existing operator/CLI authorization remains unchanged. Status notifications are sent privately by the Bot to its configured administrator (owner), with creator attribution. The administrator alert center exposes task names, execution status, and notification controls (acknowledge, snooze, recheck), but grants no access to another creator's prompts, results, or execution controls. Personal views remain creator-scoped.
+
+Recurring success is quiet. Failures and missed runs are aggregated for 60 seconds; unknown outcomes wait five minutes. Ongoing incidents update their existing card, with at most one unacknowledged reminder per day. Recovery closes the card after ten stable minutes. One-shot terminal outcomes receive a receipt. Acknowledge stops reminders; snooze lasts 24 hours; pause affects future dispatch only. Default quiet hours are 22:00–08:00 in the scheduling timezone. New status messages are limited to three per administrator/application in 30 minutes.
+
+Delivery state is separate from execution. A persistent outbox retries transient failures with a stable request UUID (Feishu deduplicates for one hour). Availability/blocking errors 230013/230053 suspend delivery until an explicit recheck; no fallback recipient is used. Missing administrator configuration retains pending notices and exposes a delivery diagnostic. Changing the administrator or migrating creator delivery retires old outbox requests and card IDs, clears recipient-specific errors/acknowledgements/snoozes, and preserves execution state, creator identity, and task notification preferences. Active incidents can then notify the new administrator; completed historical receipts are not replayed. `/amux` exposes personal summaries, paginated history, results, and these controls in English and Simplified Chinese.

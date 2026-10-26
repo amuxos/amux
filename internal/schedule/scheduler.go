@@ -2,11 +2,15 @@ package schedule
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/sessionlaunch"
@@ -52,6 +56,7 @@ type Scheduler struct {
 	taskSubmit     TaskSubmitter
 	authorize      SessionPromptAuthorizer
 	subtaskSem     chan struct{}
+	observer       OutcomeReader
 }
 
 func NewWithTaskSubmitter(sub Submitter, store *Store, starter sessionlaunch.Starter, taskSubmit TaskSubmitter) *Scheduler {
@@ -73,6 +78,7 @@ func (s *Scheduler) SetSessionPromptAuthorizer(authorize SessionPromptAuthorizer
 // Start runs the tick loop until ctx is cancelled. Intended to run in its own
 // goroutine.
 func (s *Scheduler) Start(ctx context.Context) {
+	go s.runObserver(ctx)
 	ticker := time.NewTicker(tickInterval)
 	defer ticker.Stop()
 	for {
@@ -120,23 +126,27 @@ func (s *Scheduler) fire(ctx context.Context, t Task, now time.Time) {
 		return
 	}
 
-	status := s.deliver(ctx, t, now)
-
-	// Compute the next run time. Recurring tasks always advance regardless of
-	// delivery outcome; one-shot tasks are consumed (next = nil).
 	var next *int64
 	if spec.Recurring() {
-		if nextAt, ok := spec.Next(now); ok {
-			next = unixPtr(nextAt)
+		if at, ok := spec.Next(now); ok {
+			next = unixPtr(at)
 		}
-	} else if status == statusSkippedOffline {
-		// One-shot whose target was offline: it will never fire usefully.
+	}
+	run, claimed, err := s.store.ClaimTracked(t, now, next)
+	if err != nil || !claimed {
+		return
+	}
+	status := s.deliver(context.WithValue(ctx, executionKey{}, &run), t, now)
+	if !spec.Recurring() && status == statusSkippedOffline {
 		status = statusMissed
 	}
-
-	if err := s.store.RecordRun(t.ID, now.Unix(), next, status); err != nil {
-		log.Warn().Err(err).Int64("id", t.ID).Msg("scheduler: record run")
+	_, _ = s.store.UpdateLastStatusIfRun(t.ID, now.Unix(), status)
+	_ = s.store.RecordScheduleRun(t.ID, now.Unix(), "", status)
+	finishAdmission(&run, status, now)
+	if err := s.store.Observe(run, now); err != nil {
+		log.Warn().Err(err).Msg("scheduler: persist prompt observation")
 	}
+
 }
 
 const (
@@ -153,8 +163,7 @@ func (s *Scheduler) fireSubtask(ctx context.Context, t Task, spec Spec, now time
 			next = unixPtr(nextAt)
 		}
 	}
-	ranAt := now.Unix()
-	claimed, err := s.store.ClaimRun(t.ID, t.NextRunAt, ranAt, next, statusSubmitting)
+	run, claimed, err := s.store.ClaimTracked(t, now, next)
 	if err != nil {
 		log.Warn().Err(err).Int64("id", t.ID).Msg("scheduler: claim subtask run")
 		return
@@ -168,29 +177,36 @@ func (s *Scheduler) fireSubtask(ctx context.Context, t Task, spec Spec, now time
 		if spec.Recurring() {
 			status = "error: scheduled subtask submitter unavailable"
 		}
-		s.recordSubtaskFinal(t.ID, ranAt, "", status)
+		run.Status = "missed"
+		run.Reason = "not_dispatched"
+		run.Terminal = true
+		s.recordTrackedSubtask(run, "", status)
 		return
 	}
 
 	select {
 	case s.subtaskSem <- struct{}{}:
-		go s.submitSubtask(ctx, t, ranAt)
+		go s.submitSubtask(ctx, t, run)
 	default:
 		status := statusMissed
 		if spec.Recurring() {
 			status = "error: scheduled subtask submission queue full"
 		}
-		s.recordSubtaskFinal(t.ID, ranAt, "", status)
+		run.Status = "missed"
+		run.Reason = "not_dispatched"
+		run.Terminal = true
+		s.recordTrackedSubtask(run, "", status)
 	}
 }
 
-func (s *Scheduler) submitSubtask(ctx context.Context, t Task, ranAt int64) {
+func (s *Scheduler) submitSubtask(ctx context.Context, t Task, run Execution) {
 	defer func() { <-s.subtaskSem }()
 	submitCtx, cancel := context.WithTimeout(ctx, subtaskSubmitTimeout)
 	defer cancel()
 	taskID, err := s.taskSubmit.SubmitScheduledTask(submitCtx, t.TaskSpecJson)
 	status := ""
 	if err != nil {
+		markAdmissionError(&run, err)
 		status = "error: " + err.Error()
 		taskID = ""
 	} else if taskID == "" {
@@ -198,7 +214,7 @@ func (s *Scheduler) submitSubtask(ctx context.Context, t Task, ranAt int64) {
 	} else {
 		status = "ok:task:" + taskID
 	}
-	s.recordSubtaskFinal(t.ID, ranAt, taskID, status)
+	s.recordTrackedSubtask(run, taskID, status)
 }
 
 func (s *Scheduler) recordSubtaskFinal(scheduleID int64, ranAt int64, taskID string, status string) {
@@ -236,20 +252,27 @@ func (s *Scheduler) deliverReuseSession(ctx context.Context, t Task) string {
 		if err := s.authorize(ctx, t, sess); err != nil {
 			log.Warn().Err(err).Int64("id", t.ID).Str("target", t.TargetID).Str("session", t.SessionName).
 				Msg("scheduler: session prompt authorization failed")
+			if r, _ := ctx.Value(executionKey{}).(*Execution); r != nil {
+				r.Reason = "admission_rejected"
+			}
 			return "error: " + err.Error()
 		}
 	}
 	sendCtx, cancel := context.WithTimeout(ctx, submitTimeout)
 	defer cancel()
-	_, err := s.sub.Route(sendCtx, t.TargetID, "Submit", &pb.SubmitRequest{
+	resp, err := s.sub.Route(sendCtx, t.TargetID, "Submit", &pb.SubmitRequest{
 		Name:   t.SessionName,
 		Text:   t.Prompt,
 		Source: "scheduler",
 	})
 	if err != nil {
 		log.Warn().Err(err).Int64("id", t.ID).Msg("scheduler: submit failed")
+		if r, _ := ctx.Value(executionKey{}).(*Execution); r != nil {
+			markAdmissionError(r, err)
+		}
 		return "error: " + err.Error()
 	}
+	captureSubmission(ctx, resp, t.SessionName)
 	log.Info().Int64("id", t.ID).Str("target", t.TargetID).Str("session", t.SessionName).
 		Msg("scheduler: prompt injected")
 	return statusOK
@@ -266,6 +289,9 @@ func (s *Scheduler) deliverNewSessionPerRun(ctx context.Context, t Task, now tim
 		if err := s.authorize(ctx, t, template); err != nil {
 			log.Warn().Err(err).Int64("id", t.ID).Str("target", t.TargetID).Str("session", t.SessionName).
 				Msg("scheduler: session prompt authorization failed")
+			if r, _ := ctx.Value(executionKey{}).(*Execution); r != nil {
+				r.Reason = "admission_rejected"
+			}
 			return "error: " + err.Error()
 		}
 	}
@@ -290,15 +316,19 @@ func (s *Scheduler) deliverNewSessionPerRun(ctx context.Context, t Task, now tim
 		log.Warn().Err(err).Int64("id", t.ID).Str("session", name).Msg("scheduler: run failed")
 		return "error: run: " + err.Error()
 	}
-	_, err = s.sub.Route(runCtx, t.TargetID, "Submit", &pb.SubmitRequest{
+	resp, err := s.sub.Route(runCtx, t.TargetID, "Submit", &pb.SubmitRequest{
 		Name:   session.Name,
 		Text:   t.Prompt,
 		Source: "scheduler",
 	})
 	if err != nil {
 		log.Warn().Err(err).Int64("id", t.ID).Str("session", session.Name).Msg("scheduler: submit failed")
+		if r, _ := ctx.Value(executionKey{}).(*Execution); r != nil {
+			markAdmissionError(r, err)
+		}
 		return "error: submit: " + err.Error()
 	}
+	captureSubmission(ctx, resp, session.Name)
 	log.Info().Int64("id", t.ID).Str("target", t.TargetID).Str("template", t.SessionName).Str("session", session.Name).
 		Msg("scheduler: prompt injected into new session")
 	return "ok:new-session:" + session.Name
@@ -347,4 +377,122 @@ func FirstRun(spec Spec, from time.Time) (*int64, error) {
 		return nil, fmt.Errorf("schedule %q has no future run time", spec.Raw)
 	}
 	return unixPtr(next), nil
+}
+
+// OutcomeReader reads authoritative execution state through the control plane.
+type OutcomeReader interface {
+	ObserveScheduleExecution(context.Context, Execution) (Execution, error)
+}
+
+func (s *Scheduler) SetOutcomeReader(r OutcomeReader) { s.observer = r }
+
+type executionKey struct{}
+
+func captureSubmission(ctx context.Context, msg *pb.TunnelMsg, name string) {
+	r, _ := ctx.Value(executionKey{}).(*Execution)
+	if r == nil || msg == nil {
+		return
+	}
+	var resp pb.SubmitResponse
+	if json.Unmarshal(msg.Payload, &resp) != nil {
+		return
+	}
+	r.SessionName = name
+	r.SessionID = resp.SessionId
+	r.LaunchID = resp.LaunchId
+	r.TurnID = resp.TurnId
+}
+func finishAdmission(r *Execution, status string, now time.Time) {
+	if r.Terminal {
+		r.FinishedAt = now.Unix()
+		return
+	}
+	r.Status = "submitted"
+	switch {
+	case status == statusMissed || status == statusSkippedOffline:
+		r.Status = "missed"
+		if r.Reason == "" {
+			r.Reason = "not_dispatched"
+		}
+		r.Terminal = true
+	case strings.HasPrefix(status, "error:"):
+		r.Status = "unknown"
+		if r.Reason == "admission_rejected" {
+			r.Status = "missed"
+			r.Terminal = true
+		} else {
+			r.Reason = "admission_unconfirmed"
+		}
+	}
+	if r.Terminal {
+		r.FinishedAt = now.Unix()
+	}
+}
+func (s *Scheduler) recordTrackedSubtask(r Execution, taskID, status string) {
+	s.recordSubtaskFinal(r.ScheduleID, r.SubmittedAt, taskID, status)
+	r.TaskID = taskID
+	finishAdmission(&r, status, time.Now())
+	if err := s.store.Observe(r, time.Now()); err != nil {
+		log.Warn().Err(err).Msg("scheduler: persist task observation")
+	}
+}
+func (s *Scheduler) reconcile(ctx context.Context, now time.Time) {
+	if s.observer == nil {
+		return
+	}
+	runs, err := s.store.PendingExecutions()
+	if err != nil {
+		return
+	}
+	for _, r := range runs {
+		if ctx.Err() != nil {
+			return
+		}
+		if r.TaskID == "" && r.TurnID == "" {
+			if now.Unix()-r.SubmittedAt < 60 {
+				continue
+			}
+			r.Status = "unknown"
+			r.Reason = "admission_unconfirmed"
+		} else {
+			readCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			observed, e := s.observer.ObserveScheduleExecution(readCtx, r)
+			cancel()
+			if e != nil {
+				if errors.Is(e, context.Canceled) && ctx.Err() != nil {
+					return
+				}
+				r.Status = "unknown"
+				r.Reason = "observation_unavailable"
+			} else {
+				r = observed
+			}
+		}
+		if err = s.store.Observe(r, now); err != nil {
+			log.Warn().Err(err).Msg("scheduler: reconcile observation")
+		}
+	}
+}
+
+func markAdmissionError(r *Execution, err error) {
+	switch grpcstatus.Code(err) {
+	case codes.InvalidArgument, codes.PermissionDenied, codes.Unauthenticated, codes.FailedPrecondition, codes.NotFound, codes.ResourceExhausted:
+		r.Reason = "admission_rejected"
+	}
+}
+
+func (s *Scheduler) runObserver(ctx context.Context) {
+	if s.observer == nil {
+		return
+	}
+	ticker := time.NewTicker(tickInterval)
+	defer ticker.Stop()
+	for {
+		s.reconcile(ctx, time.Now())
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }

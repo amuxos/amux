@@ -2741,6 +2741,192 @@
   "question.secret": {
     "other": "This question asks for sensitive input and has been cancelled. Use a secure credential flow instead of a chat card."
   },
+  "schedule.title": {
+    "other": "My scheduled tasks"
+  },
+  "schedule.summary": {
+    "other": "%d enabled · %d running · %d need attention"
+  },
+  "schedule.policy": {
+    "other": "Recurring success stays quiet. Status alerts go to the Bot administrator. Quiet hours: 22:00–08:00 in the schedule timezone."
+  },
+  "schedule.next": {
+    "other": "Next: %s"
+  },
+  "schedule.last_completed": {
+    "other": "Last completed: %s"
+  },
+  "schedule.recipient": {
+    "other": "Notification recipient: this Bot’s administrator"
+  },
+  "schedule.incident": {
+    "other": "%d affected runs · since %s"
+  },
+  "schedule.detail": {
+    "other": "Details"
+  },
+  "schedule.empty": {
+    "other": "No scheduled tasks in this view. Tasks with unverified creator identity are not included."
+  },
+  "schedule.page": {
+    "other": "Page %d / %d · refreshed %s"
+  },
+  "schedule.previous": {
+    "other": "Previous"
+  },
+  "schedule.next_page": {
+    "other": "Next"
+  },
+  "schedule.refresh": {
+    "other": "Refresh"
+  },
+  "schedule.filter.all": {
+    "other": "All"
+  },
+  "schedule.filter.attention": {
+    "other": "Needs attention"
+  },
+  "schedule.filter.running": {
+    "other": "Running"
+  },
+  "schedule.filter.paused": {
+    "other": "Paused"
+  },
+  "schedule.blocked.230013": {
+    "other": "Notification not delivered: the Bot administrator is outside application availability. Add the administrator to the available users and publish, then recheck."
+  },
+  "schedule.blocked.230053": {
+    "other": "Notification not delivered: the administrator has disabled messages from this Bot. Re-enable them before rechecking."
+  },
+  "schedule.delivery_retry": {
+    "other": "Notification not delivered; retry pending. Execution outcome is unchanged."
+  },
+  "schedule.snoozed": {
+    "other": "Status notifications snoozed until %s"
+  },
+  "schedule.recheck": {
+    "other": "Recheck delivery"
+  },
+  "schedule.no_result": {
+    "other": "No correlated execution result yet."
+  },
+  "schedule.run_times": {
+    "other": "Planned: %s\nStarted: %s\nFinished: %s"
+  },
+  "schedule.results": {
+    "other": "History and results"
+  },
+  "schedule.pause": {
+    "other": "Pause future runs"
+  },
+  "schedule.resume": {
+    "other": "Resume schedule"
+  },
+  "schedule.on": {
+    "other": "Enable status alerts"
+  },
+  "schedule.off": {
+    "other": "Disable status alerts"
+  },
+  "schedule.ack": {
+    "other": "Acknowledge"
+  },
+  "schedule.snooze": {
+    "other": "Snooze for 24 hours"
+  },
+  "schedule.back": {
+    "other": "My scheduled tasks"
+  },
+  "schedule.pause_note": {
+    "other": "Pause does not stop an admitted run. Acknowledge stops reminders for this incident. Status notification settings do not change subscribed reports."
+  },
+  "schedule.unavailable": {
+    "other": "This schedule is unavailable or you do not have access."
+  },
+  "schedule.updated": {
+    "other": "Updated"
+  },
+  "schedule.notice_title": {
+    "other": "Scheduled task update"
+  },
+  "schedule.notice_intro": {
+    "other": "%d scheduled tasks have updates. Notifications are collected here for the Bot administrator."
+  },
+  "schedule.status.not_run": {
+    "other": "Not run yet"
+  },
+  "schedule.status.submitting": {
+    "other": "Submitting"
+  },
+  "schedule.status.submitted": {
+    "other": "Submitted, waiting to run"
+  },
+  "schedule.status.running": {
+    "other": "Running"
+  },
+  "schedule.status.completed": {
+    "other": "Execution completed"
+  },
+  "schedule.status.failed": {
+    "other": "Execution failed"
+  },
+  "schedule.status.timed_out": {
+    "other": "Execution timed out"
+  },
+  "schedule.status.missed": {
+    "other": "This run did not start"
+  },
+  "schedule.status.cancelled": {
+    "other": "Cancelled"
+  },
+  "schedule.status.unknown": {
+    "other": "Outcome not yet confirmed"
+  },
+  "schedule.status.partial": {
+    "other": "Partial result; needs attention"
+  },
+  "schedule.recent": {
+    "other": "Last 24 hours: %d completed · %d failed · %d did not start"
+  },
+  "schedule.acknowledged": {
+    "other": "Acknowledged; daily reminders stopped for this incident."
+  },
+  "schedule.reason.not_dispatched": {
+    "other": "This occurrence could not be dispatched. Check runtime availability and schedule details."
+  },
+  "schedule.reason.admission_rejected": {
+    "other": "The runtime rejected this execution. Check current permissions and task settings."
+  },
+  "schedule.reason.admission_unconfirmed": {
+    "other": "Submission could not be confirmed. No automatic replay was attempted."
+  },
+  "schedule.reason.observation_unavailable": {
+    "other": "Execution state is temporarily unavailable. This does not confirm a failure."
+  },
+  "schedule.status.recovered": {
+    "other": "Recovered; execution completed"
+  },
+  "schedule.execution_ref": {
+    "other": "Task: %s · Session: %s · Turn: %s\nResult preview (up to 400 characters); full output remains in the execution session."
+  },
+  "schedule.creator": {
+    "other": "Creator: %s"
+  },
+  "schedule.alerts": {
+    "other": "Scheduled task notifications"
+  },
+  "schedule.admin_policy": {
+    "other": "Status notifications for this Bot. Acknowledge, snooze and recheck affect notifications only. Creators manage their own tasks and results."
+  },
+  "schedule.missing_admin": {
+    "other": "Notification pending: configure this Bot’s administrator first."
+  },
+  "schedule.alerts_off": {
+    "other": "Status alerts disabled by the creator"
+  },
+  "schedule.task_identity": {
+    "other": "Task #%d · %s"
+  },
   "cleanup.title": {
     "other": "Daily automatic cleanup"
   },

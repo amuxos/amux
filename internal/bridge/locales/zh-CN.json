@@ -2723,6 +2723,192 @@
   "question.secret": {
     "other": "此问题要求输入敏感信息，已取消。请通过安全的凭据流程提供，不要填写在聊天卡片中。"
   },
+  "schedule.title": {
+    "other": "我的定时任务"
+  },
+  "schedule.summary": {
+    "other": "%d 个启用 · %d 个执行中 · %d 个需要关注"
+  },
+  "schedule.policy": {
+    "other": "周期任务成功不打扰，状态提醒统一私聊发给 Bot 管理员。安静时段：调度时区 22:00–08:00。"
+  },
+  "schedule.next": {
+    "other": "下次计划：%s"
+  },
+  "schedule.last_completed": {
+    "other": "最近完成：%s"
+  },
+  "schedule.recipient": {
+    "other": "通知收件人：当前 Bot 的管理员"
+  },
+  "schedule.incident": {
+    "other": "已影响 %d 次运行 · 始于 %s"
+  },
+  "schedule.detail": {
+    "other": "查看详情"
+  },
+  "schedule.empty": {
+    "other": "当前没有符合条件的定时任务。创建人身份未确认的任务不在此列表中。"
+  },
+  "schedule.page": {
+    "other": "第 %d / %d 页 · 刷新于 %s"
+  },
+  "schedule.previous": {
+    "other": "上一页"
+  },
+  "schedule.next_page": {
+    "other": "下一页"
+  },
+  "schedule.refresh": {
+    "other": "刷新"
+  },
+  "schedule.filter.all": {
+    "other": "全部"
+  },
+  "schedule.filter.attention": {
+    "other": "需要关注"
+  },
+  "schedule.filter.running": {
+    "other": "执行中"
+  },
+  "schedule.filter.paused": {
+    "other": "已暂停"
+  },
+  "schedule.blocked.230013": {
+    "other": "通知未送达：Bot 管理员不在应用可用范围内。请将管理员加入可用范围并发布后重新检查。"
+  },
+  "schedule.blocked.230053": {
+    "other": "通知未送达：管理员已停用接收此 Bot 的消息，请恢复接收后重新检查。"
+  },
+  "schedule.delivery_retry": {
+    "other": "提醒尚未送达，等待重试。执行结果不受影响。"
+  },
+  "schedule.snoozed": {
+    "other": "状态提醒已静默至 %s"
+  },
+  "schedule.recheck": {
+    "other": "重新检查投递"
+  },
+  "schedule.no_result": {
+    "other": "暂无可关联的执行结果。"
+  },
+  "schedule.run_times": {
+    "other": "计划：%s\n开始：%s\n结束：%s"
+  },
+  "schedule.results": {
+    "other": "执行记录与结果"
+  },
+  "schedule.pause": {
+    "other": "暂停后续执行"
+  },
+  "schedule.resume": {
+    "other": "恢复后续执行"
+  },
+  "schedule.on": {
+    "other": "开启状态提醒"
+  },
+  "schedule.off": {
+    "other": "关闭状态提醒"
+  },
+  "schedule.ack": {
+    "other": "知道了"
+  },
+  "schedule.snooze": {
+    "other": "静默 24 小时"
+  },
+  "schedule.back": {
+    "other": "我的定时任务"
+  },
+  "schedule.pause_note": {
+    "other": "暂停不会终止已提交的运行。“知道了”停止本次异常的催办。状态提醒设置不影响已订阅的日报等内容。"
+  },
+  "schedule.unavailable": {
+    "other": "任务不可用或你无权访问。"
+  },
+  "schedule.updated": {
+    "other": "已更新"
+  },
+  "schedule.notice_title": {
+    "other": "定时任务执行动态"
+  },
+  "schedule.notice_intro": {
+    "other": "%d 个定时任务有状态更新，统一汇总给 Bot 管理员。"
+  },
+  "schedule.status.not_run": {
+    "other": "尚未执行"
+  },
+  "schedule.status.submitting": {
+    "other": "正在提交"
+  },
+  "schedule.status.submitted": {
+    "other": "已提交，等待执行"
+  },
+  "schedule.status.running": {
+    "other": "执行中"
+  },
+  "schedule.status.completed": {
+    "other": "执行完成"
+  },
+  "schedule.status.failed": {
+    "other": "执行失败"
+  },
+  "schedule.status.timed_out": {
+    "other": "执行超时"
+  },
+  "schedule.status.missed": {
+    "other": "本次未执行"
+  },
+  "schedule.status.cancelled": {
+    "other": "已取消"
+  },
+  "schedule.status.unknown": {
+    "other": "结果待确认"
+  },
+  "schedule.status.partial": {
+    "other": "部分完成，需要关注"
+  },
+  "schedule.recent": {
+    "other": "最近 24 小时：完成 %d 次 · 失败 %d 次 · 未执行 %d 次"
+  },
+  "schedule.acknowledged": {
+    "other": "已确认，本次异常不再每天催办。"
+  },
+  "schedule.reason.not_dispatched": {
+    "other": "本次未能提交执行，请检查运行环境可用性和任务配置。"
+  },
+  "schedule.reason.admission_rejected": {
+    "other": "执行请求被拒绝，请检查当前权限和任务配置。"
+  },
+  "schedule.reason.admission_unconfirmed": {
+    "other": "尚不能确认是否提交成功，系统没有自动重发任务。"
+  },
+  "schedule.reason.observation_unavailable": {
+    "other": "暂时无法获取执行状态，并不代表执行失败。"
+  },
+  "schedule.status.recovered": {
+    "other": "已恢复，执行完成"
+  },
+  "schedule.execution_ref": {
+    "other": "Task：%s · Session：%s · Turn：%s\n结果预览最多 400 字，完整输出保留在执行会话中。"
+  },
+  "schedule.creator": {
+    "other": "创建人：%s"
+  },
+  "schedule.alerts": {
+    "other": "定时任务通知中心"
+  },
+  "schedule.admin_policy": {
+    "other": "当前 Bot 的状态通知汇总。知道了、静默和重新检查只影响通知；任务及结果由创建人独立管理。"
+  },
+  "schedule.missing_admin": {
+    "other": "通知待发送：请先配置当前 Bot 的管理员。"
+  },
+  "schedule.alerts_off": {
+    "other": "创建人已关闭状态提醒"
+  },
+  "schedule.task_identity": {
+    "other": "任务 #%d · %s"
+  },
   "cleanup.title": {
     "other": "每日自动清理"
   },

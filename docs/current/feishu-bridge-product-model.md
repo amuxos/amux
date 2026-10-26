@@ -566,6 +566,16 @@ Completed CardKit replies expose a serializable card reference for an optional e
 
 The optional conversation section appears after reply content and its footer divider, before the brand footer. The section and footer share the reply container, including when an activity card receives its answer later; the brand footer remains the final visible element. Section updates do not add another divider or change the answer or brand elements.
 
+## Scheduled task visibility
+
+The Hub persists each firing before dispatch and correlates its Task or exact canonical Turn. Admission is not execution completion. An unavailable observation remains unknown; it does not imply failure or authorize replay. Older uncorrelated history is not used for proactive alerts.
+
+Feishu personal schedule views and every action require the frozen creator, application scope, active identity binding, and execution access. Creator provenance comes from the authenticated request and exact Feishu Turn receipts, never the latest speaker, an arbitrary recipient, or the Bot owner. Unattributable schedules have no proactive notifications. Existing operator/CLI authorization remains unchanged. Status notifications are sent privately by the Bot to its configured administrator (owner), with creator attribution. The administrator alert center exposes task names, execution status, and notification controls (acknowledge, snooze, recheck), but grants no access to another creator's prompts, results, or execution controls. Personal views remain creator-scoped.
+
+Recurring success is quiet. Failures and missed runs are aggregated for 60 seconds; unknown outcomes wait five minutes. Ongoing incidents update their existing card, with at most one unacknowledged reminder per day. Recovery closes the card after ten stable minutes. One-shot terminal outcomes receive a receipt. Acknowledge stops reminders; snooze lasts 24 hours; pause affects future dispatch only. Default quiet hours are 22:00–08:00 in the scheduling timezone. New status messages are limited to three per administrator/application in 30 minutes.
+
+Delivery state is separate from execution. A persistent outbox retries transient failures with a stable request UUID (Feishu deduplicates for one hour). Availability/blocking errors 230013/230053 suspend delivery until an explicit recheck; no fallback recipient is used. Missing administrator configuration retains pending notices and exposes a delivery diagnostic. Changing the administrator or migrating creator delivery retires old outbox requests and card IDs, clears recipient-specific errors/acknowledgements/snoozes, and preserves execution state, creator identity, and task notification preferences. Active incidents can then notify the new administrator; completed historical receipts are not replayed. `/amux` exposes personal summaries, paginated history, results, and these controls in English and Simplified Chinese.
+
 ## Daily cleanup choice
 
 The owner can choose daily automatic cleanup when selecting ordinary or isolated topics in

@@ -157,6 +157,9 @@ func renderManagementOverviewCard(state managementState) string {
 		elements = append(elements, managementUpdateNoticeElement(state.Update))
 	}
 	elements = append(elements, managementDividerElement(), managementSectionTitleElement(managementCopy("management.current.configuration")), managementOverviewConfigElement(state, draft), managementDividerElement(), managementSectionTitleElement(managementCopy("management.manage")), managementOverviewActionsElement(state), managementTextElement(managementCopy("management.send.amux.again.to.refresh.status"), "notation", "grey", managementIconPtr("refresh_outlined", "grey")))
+	if state.ScheduleSummary != nil {
+		elements = append(elements, managementDividerElement(), managementTextElement(state.ScheduleSummary, "normal", "default", nil), scheduleButton("title", "list", 0, nil), scheduleButton("alerts", "alerts", 0, nil))
+	}
 	elements = append(elements, managementLanguageElement())
 	card := marshalNativeManagementCard(managementCardView{Title: "amux", Summary: "amux", Theme: theme, Icon: managementIcon("robot_outlined", theme), Elements: elements})
 	return renderFocusedManagementCardForSurface(card, managementSurfaceAmux)

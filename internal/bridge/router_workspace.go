@@ -260,6 +260,9 @@ func (b *Bridge) handleGroupPublicCommand(ctx context.Context, chatID, rootMsgID
 	}
 	switch intent {
 	case command.CommandAmux:
+		if b.schedules != nil && !b.canUseBridge(openID) {
+			return b.cmdAmuxManagement(ctx, openID)
+		}
 		ws, err := b.db.ReadWorkspace(b.currentBridgeId(), chatID)
 		if err != nil {
 			return err
