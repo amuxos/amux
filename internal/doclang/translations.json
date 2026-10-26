@@ -3259,10 +3259,6 @@
     "en": "Official `tools/list` tools: **51**.",
     "zh-CN": "`tools/list` 正式工具：**51**。"
   },
-  "Recipient ID type; required with receive_id. 接收者 ID 类型；与 receive_id 一起填写。": {
-    "en": "Recipient ID type; required with receive_id.",
-    "zh-CN": "接收者 ID 类型；与 receive_id 一起填写。"
-  },
   "Optional deduplication key, at most 50 bytes. Reuse with identical destination, format and content on retries; Feishu deduplicates for one hour. 可选去重键，最多 50 字节。重试须保持相同目标、格式、内容与键；飞书在一小时内去重。": {
     "en": "Optional deduplication key, at most 50 bytes. Reuse with identical destination, format and content on retries; Feishu deduplicates for one hour.",
     "zh-CN": "可选去重键，最多 50 字节。重试须保持相同目标、格式、内容与键；飞书在一小时内去重。"
@@ -3271,18 +3267,6 @@
     "en": "Body format: text (default) or markdown. Markdown uses Feishu rich text and its supported syntax; images are not downloaded or uploaded.",
     "zh-CN": "正文格式：text（默认）或 markdown。Markdown 使用飞书富文本及其支持的语法；不下载或上传图片。"
   },
-  "Message ID to reply to; mutually exclusive with recipient fields. 要回复的消息 ID；与接收者字段互斥。": {
-    "en": "Message ID to reply to; mutually exclusive with recipient fields.",
-    "zh-CN": "要回复的消息 ID；与接收者字段互斥。"
-  },
-  "Recipient ID; required for a new message, omitted for a reply. 接收者 ID；新消息必填，回复时省略。": {
-    "en": "Recipient ID; required for a new message, omitted for a reply.",
-    "zh-CN": "接收者 ID；新消息必填，回复时省略。"
-  },
-  "Send plain text or Markdown with the current Session’s bound Feishu Bot. Requires user authorization for the destination and content. Specify receive_id + receive_id_type, or reply_to_message_id. Returns message_id; never sends as a user. 使用当前 Session 绑定的飞书 Bot 发送纯文本或 Markdown。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type，或 reply_to_message_id。返回 message_id；始终使用 Bot 身份。": {
-    "en": "Send plain text or Markdown with the current Session’s bound Feishu Bot. Requires user authorization for the destination and content. Specify receive_id + receive_id_type, or reply_to_message_id. Returns message_id; never sends as a user.",
-    "zh-CN": "使用当前 Session 绑定的飞书 Bot 发送纯文本或 Markdown。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type，或 reply_to_message_id。返回 message_id；始终使用 Bot 身份。"
-  },
   "Message body, preserved verbatim. Use format=markdown for rich text. Encoded content, including the rich-text envelope, must not exceed 20 KiB. 消息正文，原样保留。设置 format=markdown 发送富文本；编码后的内容（含富文本封装）不能超过 20 KiB。": {
     "en": "Message body, preserved verbatim. Use format=markdown for rich text. Encoded content, including the rich-text envelope, must not exceed 20 KiB.",
     "zh-CN": "消息正文，原样保留。设置 format=markdown 发送富文本；编码后的内容（含富文本封装）不能超过 20 KiB。"
@@ -3290,5 +3274,21 @@
   "Reply within a topic; only valid with reply_to_message_id. Defaults to false. 在话题内回复；仅可与 reply_to_message_id 一起使用，默认 false。": {
     "en": "Reply within a topic; only valid with reply_to_message_id. Defaults to false.",
     "zh-CN": "在话题内回复；仅可与 reply_to_message_id 一起使用，默认 false。"
+  },
+  "Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user. 使用当前 Session 绑定的飞书 Bot 向群聊发送纯文本或 Markdown，禁用私聊。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type=chat_id，或群消息的 reply_to_message_id。返回 message_id；始终使用 Bot 身份。": {
+    "en": "Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user.",
+    "zh-CN": "使用当前 Session 绑定的飞书 Bot 向群聊发送纯文本或 Markdown，禁用私聊。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type=chat_id，或群消息的 reply_to_message_id。返回 message_id；始终使用 Bot 身份。"
+  },
+  "Group chat ID; required for a new message, omitted for a reply. Private chats are rejected. 群聊 ID；新消息必填，回复时省略。拒绝私聊会话。": {
+    "en": "Group chat ID; required for a new message, omitted for a reply. Private chats are rejected.",
+    "zh-CN": "群聊 ID；新消息必填，回复时省略。拒绝私聊会话。"
+  },
+  "Recipient ID type; only chat_id is supported. Required with receive_id. 接收者 ID 类型；仅支持 chat_id，与 receive_id 一起填写。": {
+    "en": "Recipient ID type; only chat_id is supported. Required with receive_id.",
+    "zh-CN": "接收者 ID 类型；仅支持 chat_id，与 receive_id 一起填写。"
+  },
+  "Group message ID to reply to; mutually exclusive with recipient fields. Private-chat replies are disabled. 要回复的群消息 ID；与接收者字段互斥。禁用私聊回复。": {
+    "en": "Group message ID to reply to; mutually exclusive with recipient fields. Private-chat replies are disabled.",
+    "zh-CN": "要回复的群消息 ID；与接收者字段互斥。禁用私聊回复。"
   }
 }
