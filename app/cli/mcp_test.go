@@ -1097,6 +1097,16 @@ func TestMCPScheduleCreateSchemaDocumentsScheduledSubtaskPolicy(t *testing.T) {
 	if got := schema.Properties["task"].Properties["permission_policy"].Enum; !sameStrings(got, []string{"default", "policy-allow", "deny-all"}) {
 		t.Fatalf("permission_policy enum = %v, want default/policy-allow/deny-all", got)
 	}
+	modelProp := schema.Properties["task"].Properties["model"]
+	if !strings.Contains(modelProp.Description, "pass the current session model by default") ||
+		!strings.Contains(modelProp.Description, "默认应传入当前会话模型") {
+		t.Fatalf("model property = %+v, want current-session-model guidance in both languages", modelProp)
+	}
+	effortProp := schema.Properties["task"].Properties["reasoning_effort"]
+	if !strings.Contains(effortProp.Description, "pass the current session effort by default") ||
+		!strings.Contains(effortProp.Description, "默认应传入当前会话思考强度") {
+		t.Fatalf("reasoning_effort property = %+v, want current-session-effort guidance in both languages", effortProp)
+	}
 	if got := schema.Properties["schedule_type"].Enum; !sameStrings(got, []string{"subtask", "session-prompt"}) {
 		t.Fatalf("schedule_type enum = %v, want subtask/session-prompt", got)
 	}

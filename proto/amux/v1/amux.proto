@@ -45,6 +45,8 @@ service Amuxd {
   rpc FeishuStatus(FeishuStatusRequest) returns (FeishuStatusResponse);
   rpc FeishuBindings(FeishuBindingsRequest) returns (FeishuBindingsResponse);
   rpc FeishuBots(FeishuBotsRequest) returns (FeishuBotsResponse);
+  // Session-scoped Bot sending. Credentials and binding resolution stay on the Hub.
+  rpc SendFeishuMessage(SendFeishuMessageRequest) returns (SendFeishuMessageResponse);
   rpc FeishuBotSessionStatus(FeishuBotSessionStatusRequest) returns (FeishuBotSessionStatusResponse);
   rpc FeishuBotSessionBind(FeishuBotSessionBindRequest) returns (FeishuBotSessionStatusResponse);
   rpc FeishuBotSessionOff(FeishuBotSessionOffRequest) returns (FeishuBotSessionStatusResponse);
@@ -762,6 +764,10 @@ message ActiveTurnResponse {
   string turn_id = 2;
   string session_id = 3;
   string launch_id = 4;
+  // The parent session's current execution choices, mirrored so a spawned
+  // subtask can follow the model and reasoning effort the conversation is on.
+  string effective_model = 5;
+  string reasoning_effort = 6;
 }
 
 message InputPart {
@@ -1701,27 +1707,47 @@ message MaintenanceResponse {
 }
 
 message CleanupRequest {
- string target_id = 1;
- bool dry_run = 2;
- string run_id = 3;
- repeated string protected_paths = 4;
+  string target_id = 1;
+  bool dry_run = 2;
+  string run_id = 3;
+  repeated string protected_paths = 4;
 }
 message CleanupStep {
- string name = 1;
- int64 candidates = 2;
- int64 deleted = 3;
- int64 skipped = 4;
- int64 bytes = 5;
- repeated string errors = 6;
+  string name = 1;
+  int64 candidates = 2;
+  int64 deleted = 3;
+  int64 skipped = 4;
+  int64 bytes = 5;
+  repeated string errors = 6;
 }
 message CleanupReport {
- string id = 1;
- string target = 2;
- int64 started_at = 3;
- int64 finished_at = 4;
- bool dry_run = 5;
- repeated CleanupStep steps = 6;
+  string id = 1;
+  string target = 2;
+  int64 started_at = 3;
+  int64 finished_at = 4;
+  bool dry_run = 5;
+  repeated CleanupStep steps = 6;
 }
 message CleanupResponse {
- repeated CleanupReport reports = 1;
+  repeated CleanupReport reports = 1;
+}
+
+message SendFeishuMessageRequest {
+  // Supplied by MCP from AMUX_SESSION_ID; verified against the actor credential.
+  string session_id = 1;
+  string receive_id = 2;
+  string receive_id_type = 3;
+  string reply_to_message_id = 4;
+  bool reply_in_thread = 5;
+  string text = 6;
+  string uuid = 7;
+  // Empty or "text" preserves plain text; "markdown" uses a rich-text post.
+  string format = 8;
+}
+message SendFeishuMessageResponse {
+  string message_id = 1;
+  string chat_id = 2;
+  string thread_id = 3;
+  string bot_profile = 4;
+  string uuid = 5;
 }

@@ -28,6 +28,22 @@
 
 ## Bridge 职责
 
+Agent 可通过 `amux.feishu_send_message` 使用当前 Session 绑定的 Bot 在群内发送纯文本或 Markdown；禁用私聊发送。
+`format` 默认是 `text`；设置 `format=markdown` 后，`text` 正文封装为飞书 `post` 的
+`md` 节点，新消息与回复均支持。Markdown 源文保持原样，渲染遵循飞书支持的语法，
+不承诺完整 CommonMark/GFM 支持；不下载或上传图片。两种格式编码后的消息内容均限制为
+20 KiB，包含富文本封装。
+Hub 校验调用方 Session 凭据，并解析唯一的有效 Bot 绑定（话题、群 singleton、Bot
+singleton 或文档评论 Session）。工具不能选择 Bot 或其它 Session；未绑定、绑定不明确
+或冒用其它 Session 时拒绝发送。凭据保留在 Hub。目标必须显式指定：群 `receive_id`
+及 `receive_id_type=chat_id`，或要回复的群消息 ID；拒绝用户类型的接收者 ID。发送前
+Bridge 使用绑定 Bot 查询目标会话，回复时先查询原消息所属会话，且只接受飞书
+`chat_mode` 为 `group` 或 `topic`。私聊、未知类型、元数据缺失或查询失败均拒绝发送。
+此限制仅适用于该 MCP 工具，普通 Bridge 输入与回复路由保持原行为。接收者权限与 Bot
+群成员资格由飞书校验。发送是外部副作用，Agent
+须已获得用户对目标与内容的授权。成功返回飞书消息 ID；可选 `uuid` 使用飞书有限时间内的
+去重能力，重试须保持相同 uuid、目标、格式与内容。发送错误直接返回，不回退到用户身份或其它 Bot。
+
 可选 Bridge 拥有飞书/Lark API 行为、消息路由、Bot 命令、thread 与 workspace 绑定、
 权限和输出呈现。它不拥有智能体执行，也不改变本地 CLI 的要求。
 

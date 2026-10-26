@@ -113,6 +113,7 @@ type scheduleTaskFlags struct {
 	agent                string
 	runtime              string
 	model                string
+	reasoningEffort      string
 	taskPrompt           string
 	isolation            string
 	credentialProfile    string
@@ -150,6 +151,7 @@ func (f scheduleTaskFlags) clientopSpec() clientop.ScheduledTaskSpec {
 		Agent:             f.agent,
 		Runtime:           f.runtime,
 		Model:             f.model,
+		ReasoningEffort:   f.reasoningEffort,
 		Task:              f.taskPrompt,
 		RunAs:             f.runAs,
 		Isolation:         f.isolation,
@@ -247,7 +249,8 @@ func registerScheduleTaskFlags(c *cobra.Command, flags *scheduleTaskFlags) {
 	c.Flags().StringArrayVar(&flags.extraArgs, "arg", nil, commandCatalog.Format(commandLocale(c), "task.arg"))
 	c.Flags().StringVar(&flags.agent, "agent", "", "agent profile ref or legacy agent type to run")
 	c.Flags().StringVar(&flags.runtime, "runtime", "", commandCatalog.Format(commandLocale(c), "mcp.task.runtime"))
-	c.Flags().StringVar(&flags.model, "model", "", commandCatalog.Format(commandLocale(c), "mcp.task.model"))
+	c.Flags().StringVar(&flags.model, "model", "", commandCatalog.Format(commandLocale(c), "mcp.schedule.model"))
+	c.Flags().StringVar(&flags.reasoningEffort, "reasoning-effort", "", commandCatalog.Format(commandLocale(c), "mcp.schedule.reasoning_effort"))
 	c.Flags().StringVar(&flags.taskPrompt, "task", "", "task prompt to run on each schedule fire")
 	c.Flags().StringVar(&flags.isolation, "isolation", "", "isolation: process | private-home (default process)")
 	c.Flags().StringVar(&flags.credentialProfile, "credential-profile", "", "credential profile name (control-plane resolved)")

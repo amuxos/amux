@@ -156,10 +156,10 @@ var configOptions = distributionConfigOptions([]ConfigOption{
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.reasoning_effort", Type: "string", Default: "空（运行引擎默认）", Description: "群值守新 Session 使用的思考强度，必须受所选运行引擎和模型支持。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.thinking_process", Type: "enum", Default: "继承安装级群值守（collapsed）", Constraints: "expanded、collapsed、hidden", Description: "当前助手群值守任务的处理过程展示方式，与普通任务独立配置。", Managed: true},
 
-	{Section: "Structured Provider", Key: "provider.structured.turn_idle_timeout_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultTurnIdleTimeoutSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider turn 无有效活动超时。"},
-	{Section: "Structured Provider", Key: "provider.structured.turn_hard_cap_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultTurnHardCapSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 单 turn 绝对时长上限。"},
-	{Section: "Structured Provider", Key: "provider.structured.tool_idle_timeout_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultToolIdleTimeoutSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 工具无进度超时。"},
-	{Section: "Structured Provider", Key: "provider.structured.repeat_tool_call_limit", Type: "integer count", Default: strconv.Itoa(defaultRepeatToolCallLimit), Constraints: "0 禁用，负数回默认，最大 1000", Description: "Structured provider 同一 turn 内连续相同工具调用次数上限，达到即失败收尾。"},
+	{Section: "Structured Provider", Key: "provider.structured.turn_idle_timeout_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultTurnIdleTimeoutSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 与 ACP turn 无有效活动超时；等待权限及无进度契约的 ACP 工具期间暂停。"},
+	{Section: "Structured Provider", Key: "provider.structured.turn_hard_cap_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultTurnHardCapSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 与 ACP 单 turn 绝对时长上限，包含等待权限及工具的时间。"},
+	{Section: "Structured Provider", Key: "provider.structured.tool_idle_timeout_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultToolIdleTimeoutSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 工具无进度超时；ACP 尚无可验证的工具进度契约，使用 turn hard cap。"},
+	{Section: "Structured Provider", Key: "provider.structured.repeat_tool_call_limit", Type: "integer count", Default: strconv.Itoa(defaultRepeatToolCallLimit), Constraints: "0 禁用，负数回默认，最大 1000", Description: "Structured provider 与 ACP 同一 turn 内连续相同工具调用次数上限；ACP 只计不同调用 ID 且具备完整工具身份和输入的调用。"},
 })
 
 // RenderConfigurationReference renders the checked-in configuration reference.

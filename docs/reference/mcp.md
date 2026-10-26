@@ -8,7 +8,7 @@ This reference is generated from the actual `amux mcp` tools/list registry and c
 
 MCP product semantics, permissions, and lifecycle boundaries are defined by the [CLI product model](../current/cli-product-model.md) and [Task model](../distributed-task-model.md). At runtime, [`amux.result_continue`](#amuxresult_continue) continues successful results that exceed a page budget. Tool results are not tools/list registration metadata, so this reference does not maintain a separate output Schema that could drift.
 
-Public `tools/list` tools: **50**.
+Official `tools/list` tools: **51**.
 
 ## Public tool index
 
@@ -20,6 +20,7 @@ Public `tools/list` tools: **50**.
 | `amux.delegation_get` | Read the current Delegation snapshot. Use delegation_wait for incremental events. |
 | `amux.delegation_intervene` | Answer a permission request for a Delegation that supports permission_response. |
 | `amux.delegation_wait` | Wait for a Delegation. event returns incremental events; actionable avoids waking the main model repeatedly for ordinary progress while preserving permission and terminal-state wakeups. wait_timed_out is not a terminal Delegation state. Track actual created attempts using the returned status. |
+| `amux.feishu_send_message` | Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user. |
 | `amux.instance_followup` | Deliver a task to a persistent Agent and immediately start a new turn, retaining the provider conversation context; use it to continue after a background task finishes, or to retry after a failure when you decide to. A child session left behind by an earlier failure is reused; if the instance is no longer usable an error suggests creating a new one with instance_spawn. |
 | `amux.instance_interrupt` | Interrupt the persistent Agent's current turn. Use it when the user asks to stop a background task; tell the user briefly afterwards, and continue later with instance_followup if needed. |
 | `amux.instance_list` | List persistent Agent Instance status, child Session status, and mailbox depth. |
@@ -248,6 +249,60 @@ Wait for a Delegation. event returns incremental events; actionable avoids wakin
 }
 ```
 
+## `amux.feishu_send_message`
+
+Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user.
+
+**Input JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "default": "text",
+      "description": "Body format: text (default) or markdown. Markdown uses Feishu rich text and its supported syntax; images are not downloaded or uploaded.",
+      "enum": [
+        "text",
+        "markdown"
+      ],
+      "type": "string"
+    },
+    "receive_id": {
+      "description": "Group chat ID; required for a new message, omitted for a reply. Private chats are rejected.",
+      "type": "string"
+    },
+    "receive_id_type": {
+      "description": "Recipient ID type; only chat_id is supported. Required with receive_id.",
+      "enum": [
+        "chat_id"
+      ],
+      "type": "string"
+    },
+    "reply_in_thread": {
+      "description": "Reply within a topic; only valid with reply_to_message_id. Defaults to false.",
+      "type": "boolean"
+    },
+    "reply_to_message_id": {
+      "description": "Group message ID to reply to; mutually exclusive with recipient fields. Private-chat replies are disabled.",
+      "type": "string"
+    },
+    "text": {
+      "description": "Message body, preserved verbatim. Use format=markdown for rich text. Encoded content, including the rich-text envelope, must not exceed 20 KiB.",
+      "type": "string"
+    },
+    "uuid": {
+      "description": "Optional deduplication key, at most 50 bytes. Reuse with identical destination, format and content on retries; Feishu deduplicates for one hour.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "type": "object"
+}
+```
+
 ## `amux.instance_followup`
 
 Deliver a task to a persistent Agent and immediately start a new turn, retaining the provider conversation context; use it to continue after a background task finishes, or to retry after a failure when you decide to. A child session left behind by an earlier failure is reused; if the instance is no longer usable an error suggests creating a new one with instance_spawn.
@@ -405,7 +460,7 @@ Spawn a persistent Agent Instance (a background instance) without blocking and r
       "type": "string"
     },
     "model": {
-      "description": "Execution model ref frozen on the persistent instance; omitted uses the inherited launch preset model or the selected engine default",
+      "description": "Execution model ref frozen on the persistent instance; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
       "type": "string"
     },
     "notify_parent": {
@@ -419,6 +474,10 @@ Spawn a persistent Agent Instance (a background instance) without blocking and r
         "escalate-to-main",
         "deny-all"
       ],
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "description": "Reasoning effort ref frozen on the persistent instance; a session-spawned instance inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
       "type": "string"
     },
     "result_granularity": {
@@ -972,7 +1031,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
           "type": "string"
         },
         "model": {
-          "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+          "description": "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model",
           "type": "string"
         },
         "permission_policy": {
@@ -982,6 +1041,10 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
             "policy-allow",
             "deny-all"
           ],
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "description": "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default",
           "type": "string"
         },
         "run_as": {
@@ -1186,7 +1249,7 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
           "type": "string"
         },
         "model": {
-          "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+          "description": "Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model",
           "type": "string"
         },
         "permission_policy": {
@@ -1196,6 +1259,10 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
             "policy-allow",
             "deny-all"
           ],
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "description": "Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default",
           "type": "string"
         },
         "run_as": {
@@ -1804,7 +1871,7 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
       "type": "string"
     },
     "model": {
-      "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+      "description": "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
       "type": "string"
     },
     "notify_parent": {
@@ -1818,6 +1885,10 @@ Run a short Agent Task synchronously. Only policy-allow and deny-all are support
         "escalate-to-main",
         "deny-all"
       ],
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "description": "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
       "type": "string"
     },
     "result_granularity": {
@@ -1959,7 +2030,7 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
       "type": "string"
     },
     "model": {
-      "description": "Execution model ref; omitted uses the inherited launch preset model or the selected engine default",
+      "description": "Execution model ref; omitted uses the parent session's current model and reasoning effort when it runs on the session's engine, otherwise the inherited launch preset model or the selected engine default",
       "type": "string"
     },
     "notify_parent": {
@@ -1973,6 +2044,10 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
         "escalate-to-main",
         "deny-all"
       ],
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "description": "Reasoning effort ref; a session-spawned subtask inherits the session's current effort when it runs on the session's engine, otherwise the selected model's declared default",
       "type": "string"
     },
     "result_granularity": {

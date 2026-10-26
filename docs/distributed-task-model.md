@@ -62,7 +62,10 @@ result payloads or public event text. Explicit execution overrides are validated
 against profile policy and runtime capabilities.
 
 Task execution choices belong to amux, not v2 Profile content. An explicit runtime
-and model take precedence. Without a runtime, a builtin shortcut uses its own
+and model take precedence. A Task submitted from a Session inherits that
+Session's current model and reasoning effort when it runs on the Session's
+engine; inherited choices that do not resolve for the child profile keep the
+caller's own resolution. Without a runtime, a builtin shortcut uses its own
 launch preset; other profiles use the distribution's default builtin launch
 preset. An omitted model uses that preset's model when its runtime is inherited,
 or the selected engine's native default when no model is configured. These

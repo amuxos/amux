@@ -48,6 +48,8 @@ Credential Profile 标识启动凭据。Profile 声明所需环境变量，只�
 显式执行覆盖必须按 Profile 策略和 Runtime 能力验证。
 
 Task 的执行选择由 amux 管理，不属于 v2 Profile 内容。显式 Runtime、模型优先；
+从 Session 提交的 Task 在同引擎时沿用该 Session 的当前模型与思考强度；继承的
+执行选择无法在子 Profile 中解析时保留调用方自己的解析结果。
 未指定 Runtime 时，builtin 快捷入口采用自己的启动预设，其余专家采用发行版默认
 builtin 的启动预设。继承 Runtime 时，未指定的模型采用预设模型；没有配置模型时
 使用所选引擎的原生默认值。这些默认值不替换专家内容、权限策略或原生参数。

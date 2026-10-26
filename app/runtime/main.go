@@ -63,6 +63,13 @@ func Main(buildVersion string) {
 	acpBrokerCmd.Flags().String("socket", "", "broker unix socket path")
 	acpBrokerCmd.Flags().String("pid-file", "", "file to write agent PID into")
 	acpBrokerCmd.Flags().String("cwd", "", "Acp working directory")
+	acpBrokerCmd.Flags().String("agent-type", "", executionMessage("acp_agent_type"))
+	acpBrokerCmd.Flags().String("model", "", executionMessage("acp_model"))
+	acpBrokerCmd.Flags().String("reasoning-effort", "", executionMessage("acp_reasoning_effort"))
+	acpBrokerCmd.Flags().Int("turn-idle-timeout-seconds", -1, executionMessage("turn_idle"))
+	acpBrokerCmd.Flags().Int("turn-hard-cap-seconds", -1, executionMessage("turn_hard_cap"))
+	acpBrokerCmd.Flags().Int("tool-idle-timeout-seconds", -1, executionMessage("tool_idle"))
+	acpBrokerCmd.Flags().Int("repeat-tool-call-limit", -1, executionMessage("repeat_tool"))
 	acpBrokerCmd.Flags().String("resume-session-id", "", "Acp session id to resume or load (if supported)")
 	acpBrokerCmd.Flags().String("resume-session-id-file", "", "file containing Acp session id to resume or load (if supported)")
 	acpBrokerCmd.Flags().String("launch-context-file", "", "one-shot resolved launch context file")
@@ -124,6 +131,13 @@ func runACPBroker(cmd *cobra.Command, args []string) error {
 	sockPath, _ := cmd.Flags().GetString("socket")
 	pidFile, _ := cmd.Flags().GetString("pid-file")
 	cwd, _ := cmd.Flags().GetString("cwd")
+	agentType, _ := cmd.Flags().GetString("agent-type")
+	model, _ := cmd.Flags().GetString("model")
+	reasoningEffort, _ := cmd.Flags().GetString("reasoning-effort")
+	turnIdle, _ := cmd.Flags().GetInt("turn-idle-timeout-seconds")
+	turnHardCap, _ := cmd.Flags().GetInt("turn-hard-cap-seconds")
+	toolIdle, _ := cmd.Flags().GetInt("tool-idle-timeout-seconds")
+	repeatTool, _ := cmd.Flags().GetInt("repeat-tool-call-limit")
 	resumeID, _ := cmd.Flags().GetString("resume-session-id")
 	resumeIDFile, _ := cmd.Flags().GetString("resume-session-id-file")
 	launchContextFile, _ := cmd.Flags().GetString("launch-context-file")
@@ -157,6 +171,15 @@ func runACPBroker(cmd *cobra.Command, args []string) error {
 	return mux.RunACPBrokerWithOptions(sockPath, pidFile, mux.ACPBrokerOptions{
 		Cwd:             cwd,
 		Cmd:             agentCmd,
+		AgentType:       agentType,
+		Model:           model,
+		ReasoningEffort: reasoningEffort,
+		Watchdog: &config.StructuredProviderConfig{
+			TurnIdleTimeoutSeconds: turnIdle,
+			TurnHardCapSeconds:     turnHardCap,
+			ToolIdleTimeoutSeconds: toolIdle,
+			RepeatToolCallLimit:    repeatTool,
+		},
 		ResumeSessionID: resumeID,
 		PromptTailDrain: promptTailDrain,
 		LaunchContext:   launchContext,

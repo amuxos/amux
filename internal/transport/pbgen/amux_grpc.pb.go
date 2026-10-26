@@ -975,6 +975,7 @@ const (
 	Amuxd_FeishuStatus_FullMethodName                 = "/amux.v1.Amuxd/FeishuStatus"
 	Amuxd_FeishuBindings_FullMethodName               = "/amux.v1.Amuxd/FeishuBindings"
 	Amuxd_FeishuBots_FullMethodName                   = "/amux.v1.Amuxd/FeishuBots"
+	Amuxd_SendFeishuMessage_FullMethodName            = "/amux.v1.Amuxd/SendFeishuMessage"
 	Amuxd_FeishuBotSessionStatus_FullMethodName       = "/amux.v1.Amuxd/FeishuBotSessionStatus"
 	Amuxd_FeishuBotSessionBind_FullMethodName         = "/amux.v1.Amuxd/FeishuBotSessionBind"
 	Amuxd_FeishuBotSessionOff_FullMethodName          = "/amux.v1.Amuxd/FeishuBotSessionOff"
@@ -1040,6 +1041,8 @@ type AmuxdClient interface {
 	FeishuStatus(ctx context.Context, in *FeishuStatusRequest, opts ...grpc.CallOption) (*FeishuStatusResponse, error)
 	FeishuBindings(ctx context.Context, in *FeishuBindingsRequest, opts ...grpc.CallOption) (*FeishuBindingsResponse, error)
 	FeishuBots(ctx context.Context, in *FeishuBotsRequest, opts ...grpc.CallOption) (*FeishuBotsResponse, error)
+	// Session-scoped Bot sending. Credentials and binding resolution stay on the Hub.
+	SendFeishuMessage(ctx context.Context, in *SendFeishuMessageRequest, opts ...grpc.CallOption) (*SendFeishuMessageResponse, error)
 	FeishuBotSessionStatus(ctx context.Context, in *FeishuBotSessionStatusRequest, opts ...grpc.CallOption) (*FeishuBotSessionStatusResponse, error)
 	FeishuBotSessionBind(ctx context.Context, in *FeishuBotSessionBindRequest, opts ...grpc.CallOption) (*FeishuBotSessionStatusResponse, error)
 	FeishuBotSessionOff(ctx context.Context, in *FeishuBotSessionOffRequest, opts ...grpc.CallOption) (*FeishuBotSessionStatusResponse, error)
@@ -1185,6 +1188,16 @@ func (c *amuxdClient) FeishuBots(ctx context.Context, in *FeishuBotsRequest, opt
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FeishuBotsResponse)
 	err := c.cc.Invoke(ctx, Amuxd_FeishuBots_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *amuxdClient) SendFeishuMessage(ctx context.Context, in *SendFeishuMessageRequest, opts ...grpc.CallOption) (*SendFeishuMessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SendFeishuMessageResponse)
+	err := c.cc.Invoke(ctx, Amuxd_SendFeishuMessage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1707,6 +1720,8 @@ type AmuxdServer interface {
 	FeishuStatus(context.Context, *FeishuStatusRequest) (*FeishuStatusResponse, error)
 	FeishuBindings(context.Context, *FeishuBindingsRequest) (*FeishuBindingsResponse, error)
 	FeishuBots(context.Context, *FeishuBotsRequest) (*FeishuBotsResponse, error)
+	// Session-scoped Bot sending. Credentials and binding resolution stay on the Hub.
+	SendFeishuMessage(context.Context, *SendFeishuMessageRequest) (*SendFeishuMessageResponse, error)
 	FeishuBotSessionStatus(context.Context, *FeishuBotSessionStatusRequest) (*FeishuBotSessionStatusResponse, error)
 	FeishuBotSessionBind(context.Context, *FeishuBotSessionBindRequest) (*FeishuBotSessionStatusResponse, error)
 	FeishuBotSessionOff(context.Context, *FeishuBotSessionOffRequest) (*FeishuBotSessionStatusResponse, error)
@@ -1791,6 +1806,9 @@ func (UnimplementedAmuxdServer) FeishuBindings(context.Context, *FeishuBindingsR
 }
 func (UnimplementedAmuxdServer) FeishuBots(context.Context, *FeishuBotsRequest) (*FeishuBotsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FeishuBots not implemented")
+}
+func (UnimplementedAmuxdServer) SendFeishuMessage(context.Context, *SendFeishuMessageRequest) (*SendFeishuMessageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendFeishuMessage not implemented")
 }
 func (UnimplementedAmuxdServer) FeishuBotSessionStatus(context.Context, *FeishuBotSessionStatusRequest) (*FeishuBotSessionStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FeishuBotSessionStatus not implemented")
@@ -2092,6 +2110,24 @@ func _Amuxd_FeishuBots_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AmuxdServer).FeishuBots(ctx, req.(*FeishuBotsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Amuxd_SendFeishuMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendFeishuMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).SendFeishuMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_SendFeishuMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).SendFeishuMessage(ctx, req.(*SendFeishuMessageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2994,6 +3030,10 @@ var Amuxd_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FeishuBots",
 			Handler:    _Amuxd_FeishuBots_Handler,
+		},
+		{
+			MethodName: "SendFeishuMessage",
+			Handler:    _Amuxd_SendFeishuMessage_Handler,
 		},
 		{
 			MethodName: "FeishuBotSessionStatus",

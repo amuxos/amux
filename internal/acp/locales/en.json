@@ -1,0 +1,53 @@
+{
+  "execution.unsupported": {
+    "other": "ACP execution configuration is unsupported"
+  },
+  "session.decode": {
+    "other": "Cannot decode ACP session setup: %v"
+  },
+  "session.empty_id": {
+    "other": "ACP session setup returned an empty session ID"
+  },
+  "config.rollback_failed": {
+    "other": "ACP configuration rollback failed: %v"
+  },
+  "config.duplicate": {
+    "other": "ACP advertises duplicate configuration %q"
+  },
+  "config.not_select": {
+    "other": "ACP configuration %q is not a select option"
+  },
+  "config.unadvertised_value": {
+    "other": "ACP configuration %q does not advertise value %q"
+  },
+  "config.unadvertised_key": {
+    "other": "ACP does not advertise configuration %q"
+  },
+  "config.readback_mismatch": {
+    "other": "ACP configuration %q readback differs from requested value %q"
+  },
+  "config.rollback_mismatch": {
+    "other": "ACP configuration rollback readback differs for %q"
+  },
+  "config.decode": {
+    "other": "Cannot decode ACP configuration readback: %v"
+  },
+  "control.compact_unavailable": {
+    "other": "ACP session does not advertise compact"
+  },
+  "control.unsupported": {
+    "other": "ACP session control %q is unsupported"
+  },
+  "watchdog.turn_idle_timeout": {
+    "other": "ACP turn timed out while waiting for activity"
+  },
+  "watchdog.turn_hard_cap": {
+    "other": "ACP turn exceeded its maximum duration"
+  },
+  "watchdog.repeat_tool_loop": {
+    "other": "ACP turn stopped after repeated identical tool calls"
+  },
+  "config.unconfirmed_write": {
+    "other": "ACP configuration update did not confirm completion; the agent process was retired: %v"
+  }
+}

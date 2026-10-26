@@ -31,7 +31,7 @@ func ResolveTaskSpec(spec *task.Spec, registryPath string) error {
 			return err
 		}
 	}
-	opts := LaunchOptions{Runtime: spec.Runtime, Model: spec.Model}
+	opts := LaunchOptions{Runtime: spec.Runtime, Model: spec.Model, ReasoningEffort: spec.ReasoningEffort}
 	preset, hasPreset := BuiltinLaunchDefaults(profile)
 	if !hasPreset && profile.Type == "" && strings.TrimSpace(opts.Runtime) == "" {
 		// Task defaults belong to the distribution, not to portable Pack content.

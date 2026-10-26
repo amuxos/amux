@@ -265,6 +265,9 @@ func taskSpecMCPView(spec task.Spec) map[string]any {
 	if spec.Model != "" {
 		view["model"] = spec.Model
 	}
+	if spec.ReasoningEffort != "" {
+		view["reasoning_effort"] = spec.ReasoningEffort
+	}
 	if spec.Mode != "" {
 		view["mode"] = spec.Mode
 	}

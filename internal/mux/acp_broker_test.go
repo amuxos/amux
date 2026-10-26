@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/agentstream"
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/session"
 )
 
@@ -120,6 +121,9 @@ func TestACPAdvertisedV3NegotiatesUpgrade(t *testing.T) {
 	}
 	if !p.turnCorrelationEnabled() {
 		t.Fatal("advertised protocol v3 was not enabled")
+	}
+	if modalities, source := p.InputCapabilities(); len(modalities) != 0 || source != "" {
+		t.Fatalf("older broker invented input capabilities: %v, %q", modalities, source)
 	}
 }
 
@@ -630,22 +634,28 @@ func TestACPBrokerProcSetEventSinkPreservesPendingEventOrderWhenLiveEventArrives
 }
 
 func TestBuildACPBrokerArgsPassesResumeSessionIDFile(t *testing.T) {
-	cmd := exec.Command("/usr/bin/env", "coco", "acp", "serve")
-	cmd.Env = []string{"COCO_HOME=/tmp/coco"}
+	cmd := exec.Command("/usr/bin/env", "test-acp-agent", "acp", "serve")
+	cmd.Env = []string{"ACP_TEST_HOME=/tmp/acp-test"}
 
-	args := buildACPBrokerArgs("/tmp/acp.sock", "/tmp/acp.pid", "/tmp/work", cmd, "/tmp/native-session.id", "/tmp/launch-context.json", 200*time.Millisecond)
+	args := buildACPBrokerArgs("/tmp/acp.sock", "/tmp/acp.pid", ACPLaunchOptions{
+		Cwd: "/tmp/work", Cmd: cmd, PromptTailDrain: 200 * time.Millisecond,
+		AgentType: "test-acp-agent", Model: "model-a", ReasoningEffort: "high",
+	}, "/tmp/native-session.id", "/tmp/launch-context.json")
 
 	want := []string{
 		"_acp_broker",
 		"--socket", "/tmp/acp.sock",
 		"--pid-file", "/tmp/acp.pid",
 		"--cwd", "/tmp/work",
+		"--agent-type", "test-acp-agent",
+		"--model", "model-a",
+		"--reasoning-effort", "high",
 		"--resume-session-id-file", "/tmp/native-session.id",
 		"--launch-context-file", "/tmp/launch-context.json",
 		"--prompt-tail-drain", "200ms",
-		"--env", "COCO_HOME=/tmp/coco",
+		"--env", "ACP_TEST_HOME=/tmp/acp-test",
 		"--",
-		"/usr/bin/env", "coco", "acp", "serve",
+		"/usr/bin/env", "test-acp-agent", "acp", "serve",
 	}
 	if fmt.Sprint(args) != fmt.Sprint(want) {
 		t.Fatalf("args = %#v, want %#v", args, want)
@@ -789,7 +799,9 @@ func TestFakeACPBrokerServer(t *testing.T) {
 		}
 		switch req.Method {
 		case "initialize":
-			if os.Getenv("AMUX_FAKE_ACP_RESUME") == "1" {
+			if os.Getenv("AMUX_FAKE_ACP_IMAGES") == "1" {
+				fmt.Printf(`{"jsonrpc":"2.0","id":%d,"result":{"agentCapabilities":{"promptCapabilities":{"image":true}}}}`+"\n", req.ID)
+			} else if os.Getenv("AMUX_FAKE_ACP_RESUME") == "1" {
 				fmt.Printf(`{"jsonrpc":"2.0","id":%d,"result":{"agentCapabilities":{"sessionCapabilities":{"resume":{}}}}}`+"\n", req.ID)
 			} else {
 				fmt.Printf(`{"jsonrpc":"2.0","id":%d,"result":{}}`+"\n", req.ID)
@@ -868,4 +880,26 @@ func waitTestPIDFile(t *testing.T, pidFile string, errCh <-chan error) int {
 	}
 	t.Fatal("timeout waiting for pid file")
 	return 0
+}
+
+func TestACPBrokerArgsPreserveExplicitDisabledWatchdogs(t *testing.T) {
+	cmd := exec.Command("/bin/test-agent")
+	defaults := buildACPBrokerArgs("socket", "pid", ACPLaunchOptions{Cmd: cmd}, "", "")
+	for _, arg := range defaults {
+		if strings.Contains(arg, "timeout-seconds") || arg == "--turn-hard-cap-seconds" || arg == "--repeat-tool-call-limit" {
+			t.Fatalf("nil watchdog emitted override: %v", defaults)
+		}
+	}
+	args := buildACPBrokerArgs("socket", "pid", ACPLaunchOptions{Cmd: cmd, Watchdog: &config.StructuredProviderConfig{}}, "", "")
+	for _, flag := range []string{"--turn-idle-timeout-seconds", "--turn-hard-cap-seconds", "--tool-idle-timeout-seconds", "--repeat-tool-call-limit"} {
+		found := false
+		for i, arg := range args {
+			if arg == flag && i+1 < len(args) && args[i+1] == "0" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("explicit disabled flag %s missing: %v", flag, args)
+		}
+	}
 }

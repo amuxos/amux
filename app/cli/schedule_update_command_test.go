@@ -15,19 +15,24 @@ func TestScheduleTaskFlagsCarryPortableExecutionSelection(t *testing.T) {
 			cmd := &cobra.Command{}
 			registerScheduleTaskFlags(cmd, &flags)
 			if err := cmd.Flags().Parse([]string{"--agent", "team/reviewer", "--task", "review",
-				"--runtime", "claude", "--model", "review-model"}); err != nil {
+				"--runtime", "claude", "--model", "review-model", "--reasoning-effort", "high"}); err != nil {
 				t.Fatal(err)
 			}
 			spec := flags.clientopSpec().ToTaskSpec()
-			if spec.Agent != "team/reviewer" || spec.Runtime != "claude" || spec.Model != "review-model" {
+			if spec.Agent != "team/reviewer" || spec.Runtime != "claude" || spec.Model != "review-model" || spec.ReasoningEffort != "high" {
 				t.Fatalf("scheduled execution selection was lost: %#v", spec)
 			}
-			for _, flag := range []string{"runtime", "model"} {
+			for flag, markers := range map[string][2]string{
+				"runtime":          {"omitted uses", "省略时使用"},
+				"model":            {"pass the current session model by default", "默认应传入当前会话模型"},
+				"reasoning-effort": {"pass the current session effort by default", "默认应传入当前会话思考强度"},
+			} {
 				usage := cmd.Flags().Lookup(flag).Usage
-				if language == "zh-CN" && !strings.Contains(usage, "省略时使用") {
-					t.Fatalf("untranslated --%s help: %s", flag, usage)
+				want := markers[0]
+				if language == "zh-CN" {
+					want = markers[1]
 				}
-				if language != "zh-CN" && !strings.Contains(usage, "omitted uses") {
+				if !strings.Contains(usage, want) {
 					t.Fatalf("untranslated --%s help: %s", flag, usage)
 				}
 			}
@@ -50,7 +55,7 @@ func TestScheduleUpdateSharesTaskFlagsWithCreateTask(t *testing.T) {
 	// scheduled task can carry is settable through both. (update adds --spec for
 	// the time rule and --name for the label, which create-task spells
 	// differently; those two are not part of this set.)
-	for _, flag := range []string{"agent", "runtime", "model", "task", "isolation", "credential-profile", "permission-policy", "workspace-policy", "local-dir", "repo-kind", "repo-remote", "repo-cache-key", "repo-commit", "repo-subdir", "timeout", "trusted-mode-ack", "run-as"} {
+	for _, flag := range []string{"agent", "runtime", "model", "reasoning-effort", "task", "isolation", "credential-profile", "permission-policy", "workspace-policy", "local-dir", "repo-kind", "repo-remote", "repo-cache-key", "repo-commit", "repo-subdir", "timeout", "trusted-mode-ack", "run-as"} {
 		if create.Flags().Lookup(flag) == nil {
 			t.Fatalf("create-task lost --%s", flag)
 		}

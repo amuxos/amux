@@ -260,6 +260,7 @@ func (r *taskRouter) SubmitSubtask(ctx context.Context, req *pb.SubmitSubtaskReq
 		identity.IsolationBackend = scheduledIdentity.IsolationBackend
 		identity.Source = scheduledIdentity.Source
 	}
+	var parentEngine, parentModel, parentEffort string
 	if hasSubmitParent {
 		active, err := r.activeParentTurn(ctx, submitParent)
 		if err != nil {
@@ -269,13 +270,18 @@ func (r *taskRouter) SubmitSubtask(ctx context.Context, req *pb.SubmitSubtaskReq
 			return nil, status.Error(codes.FailedPrecondition, "parent session has no active turn")
 		}
 		spec.ParentTurnID = active.GetTurnId()
+		parentEngine = strings.TrimSpace(submitParent.AgentType)
+		parentModel = strings.TrimSpace(active.GetEffectiveModel())
+		parentEffort = strings.TrimSpace(active.GetReasoningEffort())
 	}
 	spec.ExecutionIdentity = &identity
 
 	if r.resolveProfile != nil {
+		pristine := spec
 		if err := r.resolveProfile(&spec); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "resolve agent profile: %v", err)
 		}
+		r.inheritParentExecution(&spec, pristine, parentEngine, parentModel, parentEffort)
 	}
 	if err := validateManagedEvaluationTask(spec, false); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -444,6 +450,7 @@ type parentSessionContext struct {
 	SessionID   string
 	SessionName string
 	OwnerTaskID string
+	AgentType   string
 	Identity    principal.ExecutionIdentity
 }
 
@@ -462,7 +469,7 @@ func (r *taskRouter) parentSession(sessionID string) (parentSessionContext, bool
 				if identity.IdentityMode == "" {
 					identity = principal.LegacyHostIdentity(principal.SourceMCP)
 				}
-				return parentSessionContext{TargetID: target.Id, SessionID: sess.Id, SessionName: sess.Name, OwnerTaskID: sess.OwnerTaskId, Identity: identity}, true
+				return parentSessionContext{TargetID: target.Id, SessionID: sess.Id, SessionName: sess.Name, OwnerTaskID: sess.OwnerTaskId, AgentType: strings.TrimSpace(sess.GetAgentType()), Identity: identity}, true
 			}
 		}
 	}
@@ -482,6 +489,37 @@ func (r *taskRouter) activeParentTurn(ctx context.Context, parent parentSessionC
 		return nil, status.Error(codes.FailedPrecondition, "active parent turn resolved to a different session")
 	}
 	return &out, nil
+}
+
+// inheritParentExecution re-resolves a subtask with the parent session's
+// current execution choices when the caller omitted the model and the child
+// runs on the parent's engine. Inherited choices that do not resolve for the
+// child profile keep the caller's own resolution, so task defaults can never
+// turn a valid submission into a failure.
+func (r *taskRouter) inheritParentExecution(spec *task.Spec, pristine task.Spec, parentEngine, parentModel, parentEffort string) {
+	if spec == nil || r.resolveProfile == nil || parentEngine == "" || parentModel == "" {
+		return
+	}
+	if strings.TrimSpace(pristine.Model) != "" || strings.TrimSpace(spec.Agent) != parentEngine {
+		return
+	}
+	retry := pristine
+	retry.Model = parentModel
+	if parentEffort != "" && strings.TrimSpace(retry.ReasoningEffort) == "" {
+		retry.ReasoningEffort = parentEffort
+	}
+	if err := r.resolveProfile(&retry); err != nil {
+		// An inherited effort can be invalid for the model the child profile
+		// resolved; keep the inherited model alone rather than dropping both.
+		if strings.TrimSpace(retry.ReasoningEffort) == strings.TrimSpace(pristine.ReasoningEffort) {
+			return
+		}
+		retry.ReasoningEffort = pristine.ReasoningEffort
+		if err := r.resolveProfile(&retry); err != nil {
+			return
+		}
+	}
+	*spec = retry
 }
 
 // hydratePersistentFollowupIdentity restores the immutable launch identity for

@@ -89,6 +89,50 @@ turn 中连续 50 次相同工具调用。防护按相同调用定义 payload �
 Provider 默认值，覆盖值上限为 1000。
 
 Codex 使用 app-server 协议，Claude 使用 Claude Agent SDK sidecar。
+ACP v1 Agent 只有在 `initialize` 响应中明确声明
+`agentCapabilities.promptCapabilities.image = true` 时才接收图片输入。能力缺失、
+为 false 或格式错误时保留纯文本输入。Broker 在每次连接时将协商出的输入类型传给
+Session，包括 Runtime 重连；未携带输入类型元数据的旧 Broker 继续按纯文本处理。
+纯图片及图文混合输入保留内容顺序，通过共享的 MIME、大小和像素检查后，使用 ACP
+内联 base64 图片块传递。
+
+ACP Adapter 可将调用方的模型和推理强度映射为原生 `configOptions` 的 select 值。
+新建和恢复的原生会话在可用前应用冻结的执行设置。所有请求值都必须出现在 Agent
+公布的选项中，并由当前选择或 `session/set_config_option` 回读确认；选项缺失或设置失败时
+报错，不静默切回默认值。空闲时切换模型使用同一映射，无需重启进程。切换失败会
+恢复先前的原生值；无法恢复时关闭进程。未确认完成的原生写入会直接退役进程，
+避免迟到写入覆盖回滚值。未声明映射的 Adapter 保留原有启动配置。
+
+ACP `clear` 在相同工作目录中新建原生会话并重新应用已选执行设置，保留 amux
+Session。ACP `compact` 仅在 Agent 当前公布的命令快照包含 `compact` 时，通过
+`session/prompt` 执行 `/compact`。两种操作都使用既有的关联 Turn 和终态规则，
+不猜测私有压缩 RPC。ACP broker 传输保持与已有会话兼容。
+
+空闲时热切换仅适用于当前与目标模型均已显式选择、且 Provider 不变的情况。恢复原生
+默认模型或切换 Provider 使用既有重启路径。
+
+ACP 用量只保留原生 Agent 实际报告的字段。`session/prompt` 最终 usage 映射为
+规范的 snake_case token 字段，不推断累计值、不重算 `total_tokens`。最新
+`usage_update` 的上下文 `used`/`size` 和带类型 `cost` 与 token 计数共存；
+缺失值保持缺失。仅有用量、没有文本的响应仍发出 `UsageObserved`。中断轮次时，
+所有待处理及迟到的原生权限请求均回复 ACP `cancelled` 结果。仅在原生 prompt RPC
+仍活动时成功发送的 `session/cancel`，才记录为该请求的取消意图；收到其完成响应后，
+即使原生 stop reason 是 `end_turn`，也产出取消终态。空闲时或响应已读取后
+（包括尾流等待期）的中断不会改写当前或下一轮结果。取消不会在原生响应或进程
+退役之前提前发出终态。
+
+ACP watchdog 使用 structured-provider 的轮次空闲、最长时限和重复工具阈值：
+0 禁用对应层，负值恢复默认，转换前执行上界限制。只有已完成的不同原生调用 ID 的工具
+种类、标题和累计显式调用输入均一致时才计为重复；pending 占位输入和相同调用 ID
+的更新不会重复计数。
+ACP 没有经过验证的工具进度心跳，因此工具执行和权限等待期间暂停空闲计时，
+由最长时限兜底；`tool_idle_timeout_seconds` 对 ACP 不产生独立效果。
+超时后先取消权限请求并发送 `session/cancel`，等待有限的取消宽限期，再终止
+原生进程并等待读取端收尾，最后发出唯一的错误终态。即使取消及时响应，也会
+退役进程，因为 ACP 更新没有原生轮次标识；迟到帧不能进入后续轮次。每个定时器
+都归属一个轮次 generation。
+
+
 Provider 与 ACP 实现直接发出 typed payload。Session 拥有的 canonical Timeline 分配
 turn 身份与顺序，并且每个 turn 只接受一个终态事件。Provider message ID 仅保留为
 来源信息。观察到结果本身不结束 turn。Session 拥有完成策略和队列推进权。
@@ -98,7 +142,8 @@ Session 有明确的生命周期：`created`、`running`、`idle`、`sleeping`�
 轮次且没有待处理权限提示时，才符合自动睡眠条件；睡眠原因记录为手动、空闲超时
 或重启失败。睡眠的 Session 保留身份与工作区，收到新输入时唤醒；归档后不再可路由。
 重启、恢复以及模型/思考强度的热切换（`set-model` 不重启进程）取决于所选 Agent 的
-能力：Codex 支持进程内重配，其它 Agent 通过交接重启完成。
+能力：Codex 以及提供执行配置映射的 ACP Agent 在满足各自条件时支持进程内重配；
+其他变更通过交接重启完成。
 
 ACP 或 structured Agent 的输出关闭后，broker 停止接收新请求，等待正在处理的请求收尾后再关闭
 客户端连接。待处理的 prompt 结果、终态事件和确认响应保持原有顺序。连接写入有

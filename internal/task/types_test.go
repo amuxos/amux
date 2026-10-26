@@ -60,3 +60,17 @@ func TestSpecPreservesLegacyTrustedModeAckAsWireNoOp(t *testing.T) {
 		t.Fatalf("normalized spec dropped legacy wire field: %s", encoded)
 	}
 }
+
+func TestSpecReasoningEffortWireField(t *testing.T) {
+	var spec Spec
+	if err := json.Unmarshal([]byte(`{"agent":"claude","task":"x","reasoning_effort":"high"}`), &spec); err != nil {
+		t.Fatalf("unmarshal spec: %v", err)
+	}
+	if spec.ReasoningEffort != "high" {
+		t.Fatalf("ReasoningEffort = %q, want high", spec.ReasoningEffort)
+	}
+	empty, _ := json.Marshal(Spec{Agent: "claude", Task: "x"})
+	if strings.Contains(string(empty), "reasoning_effort") {
+		t.Fatalf("empty spec must omit reasoning_effort: %s", empty)
+	}
+}

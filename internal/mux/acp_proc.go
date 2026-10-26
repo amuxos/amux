@@ -4,15 +4,47 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
+	"github.com/amuxos/amux/internal/acp"
 	"github.com/amuxos/amux/internal/agentstream"
 )
 
 type ACPBrokerProc struct {
 	brokerTurnClient
+	inputModalities       []string
+	inputCapabilitySource string
+	executionReconfigure  bool
+}
+
+type acpCapabilitiesFrame struct {
+	brokerCapabilitiesFrame
+	InputModalities      []string `json:"input_modalities,omitempty"`
+	Source               string   `json:"source,omitempty"`
+	ExecutionReconfigure bool     `json:"execution_reconfigure,omitempty"`
 }
 
 func (p *ACPBrokerProc) PID() int { return p.pid }
+
+func (p *ACPBrokerProc) InputCapabilities() ([]string, string) {
+	p.eventMu.Lock()
+	defer p.eventMu.Unlock()
+	return append([]string(nil), p.inputModalities...), p.inputCapabilitySource
+}
+
+func (p *ACPBrokerProc) ReconfigureExecution(model, reasoningEffort string) error {
+	p.eventMu.Lock()
+	supported := p.executionReconfigure
+	p.eventMu.Unlock()
+	if !supported {
+		return acp.ErrExecutionConfigurationUnsupported
+	}
+	payload, err := json.Marshal(acpExecutionConfigFrame{Model: model, ReasoningEffort: reasoningEffort})
+	if err != nil {
+		return err
+	}
+	return p.writeControlFrame(acpFrameReconfigure, payload)
+}
 
 func (p *ACPBrokerProc) Interrupt() error {
 	return p.writeControlFrame(acpFrameInterrupt, nil)
@@ -44,11 +76,16 @@ func (p *ACPBrokerProc) writeControlFrame(kind byte, payload []byte) error {
 		return p.waitAck()
 	}
 
-	conn, err := net.Dial("unix", p.socketPath)
+	conn, err := net.DialTimeout("unix", p.socketPath, 2*time.Second)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
+	timeout := 5 * time.Second
+	if kind == acpFrameReconfigure {
+		timeout = 45 * time.Second
+	}
+	_ = conn.SetDeadline(time.Now().Add(timeout))
 	if err := writeACPFrame(conn, kind, payload); err != nil {
 		return err
 	}
@@ -158,13 +195,16 @@ func (p *ACPBrokerProc) readLoop() {
 				return
 			}
 		case acpFrameCapabilities:
-			var capabilities brokerCapabilitiesFrame
+			var capabilities acpCapabilitiesFrame
 			if json.Unmarshal(payload, &capabilities) != nil {
 				continue
 			}
 			p.eventMu.Lock()
 			p.turnCorrelationVersion = capabilities.TurnCorrelationVersion
 			p.turnReplayVersion = capabilities.TurnReplayVersion
+			p.inputModalities = append([]string(nil), capabilities.InputModalities...)
+			p.inputCapabilitySource = capabilities.Source
+			p.executionReconfigure = capabilities.ExecutionReconfigure
 			p.eventMu.Unlock()
 			p.capabilitiesReadyOnce.Do(func() {
 				if p.capabilitiesReady != nil {

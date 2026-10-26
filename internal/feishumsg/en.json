@@ -1,0 +1,83 @@
+{
+  "description": {
+    "other": "Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user."
+  },
+  "receive_id": {
+    "other": "Group chat ID; required for a new message, omitted for a reply. Private chats are rejected."
+  },
+  "receive_id_type": {
+    "other": "Recipient ID type; only chat_id is supported. Required with receive_id."
+  },
+  "reply_to_message_id": {
+    "other": "Group message ID to reply to; mutually exclusive with recipient fields. Private-chat replies are disabled."
+  },
+  "reply_in_thread": {
+    "other": "Reply within a topic; only valid with reply_to_message_id. Defaults to false."
+  },
+  "text": {
+    "other": "Message body, preserved verbatim. Use format=markdown for rich text. Encoded content, including the rich-text envelope, must not exceed 20 KiB."
+  },
+  "uuid": {
+    "other": "Optional deduplication key, at most 50 bytes. Reuse with identical destination, format and content on retries; Feishu deduplicates for one hour."
+  },
+  "invalid": {
+    "other": "Invalid message arguments: %s"
+  },
+  "empty_text": {
+    "other": "text must not be empty."
+  },
+  "large_text": {
+    "other": "Encoded message content exceeds 20 KiB."
+  },
+  "destination": {
+    "other": "Specify receive_id and receive_id_type, or reply_to_message_id; do not combine them."
+  },
+  "id_type": {
+    "other": "receive_id_type must be chat_id. Direct messages are disabled."
+  },
+  "uuid_length": {
+    "other": "uuid must not exceed 50 bytes."
+  },
+  "session": {
+    "other": "Feishu messaging requires the current bound Session and its agent credential."
+  },
+  "unbound": {
+    "other": "The Session has no active Feishu Bot binding."
+  },
+  "ambiguous": {
+    "other": "The Session is bound to multiple Feishu Bots; resolve the bindings before sending."
+  },
+  "unavailable": {
+    "other": "The bound Feishu Bot is unavailable."
+  },
+  "lookup": {
+    "other": "Cannot resolve the Session’s Feishu Bot: %s"
+  },
+  "failed": {
+    "other": "Feishu Bot send failed: %s"
+  },
+  "empty_response": {
+    "other": "Feishu returned no message ID; delivery is uncertain. Retry only with the same uuid."
+  },
+  "request_failed": {
+    "other": "Message request %s failed: %s"
+  },
+  "json_object": {
+    "other": "Expected one JSON object."
+  },
+  "format": {
+    "other": "Body format: text (default) or markdown. Markdown uses Feishu rich text and its supported syntax; images are not downloaded or uploaded."
+  },
+  "invalid_format": {
+    "other": "format must be text or markdown."
+  },
+  "group_only": {
+    "other": "This tool only sends to group chats; direct messages are disabled."
+  },
+  "destination_lookup": {
+    "other": "Cannot verify the destination group; no message was sent: %s"
+  },
+  "destination_metadata": {
+    "other": "Feishu returned incomplete or unknown destination metadata; no message was sent."
+  }
+}

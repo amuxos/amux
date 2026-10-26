@@ -1011,7 +1011,9 @@ func TestFakeACPServer(t *testing.T) {
 		}
 		switch req.Method {
 		case "initialize":
-			if os.Getenv("AMUX_FAKE_ACP_BAD_INITIALIZE") == "1" {
+			if result := os.Getenv("AMUX_FAKE_ACP_INITIALIZE_RESULT"); result != "" {
+				fmt.Printf(`{"jsonrpc":"2.0","id":%d,"result":%s}`+"\n", req.ID, result)
+			} else if os.Getenv("AMUX_FAKE_ACP_BAD_INITIALIZE") == "1" {
 				fmt.Printf(`{"jsonrpc":"2.0","id":%d,"result":{"agentCapabilities":true}}`+"\n", req.ID)
 			} else if os.Getenv("AMUX_FAKE_ACP_RESUME") == "1" {
 				fmt.Printf(`{"jsonrpc":"2.0","id":%d,"result":{"agentCapabilities":{"sessionCapabilities":{"resume":{}}}}}`+"\n", req.ID)
