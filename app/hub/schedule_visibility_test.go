@@ -13,8 +13,124 @@ import (
 	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/schedule"
+	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
+
+func TestScheduleUpgradeRequiresUnambiguousFrozenHumanOrigin(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schedule.db")
+	store, err := schedule.OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &hubServer{schedule: store, principals: agentTokenTestStore(t)}
+	alice := scheduleHuman(t, srv.principals, "bot", "alice")
+	bob := scheduleHuman(t, srv.principals, "bot", "bob")
+	ambiguous := scheduleHuman(t, srv.principals, "bot", "ambiguous")
+	if err = srv.principals.BindAlias(principal.Alias{Provider: principal.ProviderFeishu, Scope: "another-bot", Subject: "another-alias", PrincipalID: ambiguous.ID}); err != nil {
+		t.Fatal(err)
+	}
+	disabled := scheduleHuman(t, srv.principals, "bot", "disabled")
+	if err = srv.principals.Disable(disabled.ID); err != nil {
+		t.Fatal(err)
+	}
+	service, err := srv.principals.Create(principal.Principal{Kind: principal.KindService, DisplayName: "service"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = srv.principals.BindAlias(principal.Alias{Provider: principal.ProviderFeishu, Scope: "bot", Subject: "service", PrincipalID: service.ID}); err != nil {
+		t.Fatal(err)
+	}
+	identity := func(p principal.Principal) *principal.ExecutionIdentity {
+		return &principal.ExecutionIdentity{IdentityMode: principal.IdentityModeIdentified, OriginActorPrincipalID: p.ID, EffectivePrincipalID: p.ID, Source: principal.SourceSchedule, CreationAuthorizationDecisionID: "receipt", ExecutionStateRef: "schedule-definition:original"}
+	}
+	effectiveOnly := identity(alice)
+	effectiveOnly.OriginActorPrincipalID = ""
+	noReceipt := identity(alice)
+	noReceipt.CreationAuthorizationDecisionID = ""
+	delegated := identity(alice)
+	delegated.EffectivePrincipalID = bob.ID
+	delegation, err := srv.principals.GrantDelegation(alice.ID, bob.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		identity *principal.ExecutionIdentity
+		owner    string
+		kind     string
+		visible  string
+	}{
+		{"alice", identity(alice), alice.ID, schedule.ScheduleTypeSubtask, "alice"},
+		{"bob", identity(bob), bob.ID, schedule.ScheduleTypeSubtask, "bob"},
+		{"owner-unset", identity(alice), "", schedule.ScheduleTypeSubtask, "alice"},
+		{"ambiguous", identity(ambiguous), ambiguous.ID, schedule.ScheduleTypeSubtask, ""},
+		{"disabled", identity(disabled), disabled.ID, schedule.ScheduleTypeSubtask, ""},
+		{"service", identity(service), service.ID, schedule.ScheduleTypeSubtask, ""},
+		{"missing", nil, "", schedule.ScheduleTypeSubtask, ""},
+		{"effective-only", effectiveOnly, alice.ID, schedule.ScheduleTypeSubtask, ""},
+		{"no-receipt", noReceipt, alice.ID, schedule.ScheduleTypeSubtask, ""},
+		{"owner-mismatch", identity(alice), bob.ID, schedule.ScheduleTypeSubtask, ""},
+		{"session", identity(alice), alice.ID, schedule.ScheduleTypeSessionPrompt, ""},
+		{"delegated", delegated, alice.ID, schedule.ScheduleTypeSubtask, "alice"},
+	}
+	ids := map[string]int64{}
+	for _, tt := range tests {
+		raw, _ := json.Marshal(task.Spec{ExecutionIdentity: tt.identity})
+		row, err := store.Create(schedule.Task{Name: tt.name, Spec: "every 1m", ScheduleType: tt.kind, TaskSpecJson: raw, OwnerPrincipalID: tt.owner})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids[tt.name] = row.ID
+	}
+	// Simulate an installation that has not yet run the upgrade migration.
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`DROP TABLE schedule_visibility_upgrade`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	store.Close()
+	srv.schedule, err = schedule.OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.schedule.Close()
+	c := &bridgeSchedules{server: srv}
+	ctx := context.Background()
+	for _, who := range []string{"alice", "bob", "admin", "ambiguous", "disabled", "service"} {
+		entries, err := c.List(ctx, "bot", who)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := 0
+		for _, tt := range tests {
+			_, err := c.Get(ctx, "bot", who, ids[tt.name])
+			if tt.visible == who {
+				want++
+				if err != nil {
+					t.Fatalf("%s: %v", tt.name, err)
+				}
+			} else if err == nil {
+				t.Fatalf("%s visible to %s", tt.name, who)
+			}
+		}
+		if len(entries) != want {
+			t.Fatalf("%s got %d want %d", who, len(entries), want)
+		}
+	}
+	if err = srv.principals.RevokeDelegation(delegation); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = c.Get(ctx, "bot", "alice", ids["delegated"]); err == nil {
+		t.Fatal("recovered task bypassed revoked delegation")
+	}
+	if entries, err := c.List(ctx, "another-bot", "alice"); err != nil || len(entries) != 0 {
+		t.Fatal("cross-application leak")
+	}
+}
 
 func scheduleHuman(t *testing.T, s *principal.Store, bot, open string) principal.Principal {
 	t.Helper()

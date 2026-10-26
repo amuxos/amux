@@ -161,6 +161,9 @@ func (c *bridgeSchedules) allowed(bot, open string, e schedule.Entry) bool {
 	return policy.ScheduleTriggerAccess(p.ID, identity, identity.Identified()).Allowed
 }
 func (c *bridgeSchedules) List(_ context.Context, bot, open string) ([]schedule.Entry, error) {
+	if err := c.recoverLegacyCreators(); err != nil {
+		return nil, err
+	}
 	all, err := c.server.schedule.Personal(bot, open)
 	if err != nil {
 		return nil, err
@@ -175,6 +178,9 @@ func (c *bridgeSchedules) List(_ context.Context, bot, open string) ([]schedule.
 	return out, nil
 }
 func (c *bridgeSchedules) Get(_ context.Context, bot, open string, id int64) (schedule.Entry, error) {
+	if err := c.recoverLegacyCreators(); err != nil {
+		return schedule.Entry{}, err
+	}
 	denied := errors.New("schedule unavailable")
 	t, err := c.server.schedule.Get(id)
 	if err != nil {
@@ -189,8 +195,61 @@ func (c *bridgeSchedules) Get(_ context.Context, bot, open string, id int64) (sc
 		return schedule.Entry{}, denied
 	}
 	e.CreatorName = c.creatorName(bot, open)
-	e.Runs, err = c.server.schedule.ExecutionHistory(id)
+	e.Runs, err = c.server.schedule.VisibleHistory(id)
 	return e, err
+}
+
+// Recovery trusts the frozen origin actor, never an execution principal or a
+// current Session speaker. A unique alias is required across all applications.
+func (c *bridgeSchedules) recoverLegacyCreators() error {
+	if c.server.principals == nil {
+		return nil
+	}
+	rows, err := c.server.schedule.UnboundLegacy()
+	if err != nil || len(rows) == 0 {
+		return err
+	}
+	aliases, err := c.server.principals.ListAliases()
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		var spec task.Spec
+		if row.ScheduleType != schedule.ScheduleTypeSubtask || json.Unmarshal(row.TaskSpecJson, &spec) != nil || spec.ExecutionIdentity == nil {
+			continue
+		}
+		i := spec.ExecutionIdentity
+		if !i.Identified() || i.Validate() != nil || i.Source != principal.SourceSchedule || i.CreationAuthorizationDecisionID == "" || !strings.HasPrefix(i.ExecutionStateRef, "schedule-definition:") {
+			continue
+		}
+		if row.OwnerPrincipalID != "" && row.OwnerPrincipalID != i.OriginActorPrincipalID {
+			continue
+		}
+		var alias principal.Alias
+		count := 0
+		for _, a := range aliases {
+			if a.Provider == principal.ProviderFeishu && a.PrincipalID == i.OriginActorPrincipalID {
+				alias = a
+				count++
+			}
+		}
+		if count != 1 {
+			continue
+		}
+		creator, err := c.server.creatorFromAlias(alias.Scope, alias.Subject, "upgrade:frozen-origin")
+		if err != nil || creator.PrincipalID != i.OriginActorPrincipalID {
+			continue
+		}
+		raw, err := json.Marshal(i)
+		if err != nil {
+			return err
+		}
+		creator.AccessIdentityJSON = string(raw)
+		if err = c.server.schedule.RecoverCreator(row, creator); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 func (c *bridgeSchedules) Act(ctx context.Context, bot, open string, id int64, action string) error {
 	e, err := c.Get(ctx, bot, open, id)

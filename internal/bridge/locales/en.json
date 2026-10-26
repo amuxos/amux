@@ -2852,6 +2852,9 @@
   "schedule.notice_intro": {
     "other": "%d scheduled tasks have updates. Notifications are collected here for the Bot administrator."
   },
+  "schedule.status.legacy_unconfirmed": {
+    "other": "Legacy submission record · execution outcome unconfirmed"
+  },
   "schedule.status.not_run": {
     "other": "Not run yet"
   },

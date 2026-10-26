@@ -75,10 +75,12 @@ func scheduleSummary(entries []schedule.Entry) any {
 	return managementConcat(scheduleText("summary", enabled, running, attention), "\n", scheduleText("recent", completed, failed, missed))
 }
 func renderSchedules(entries []schedule.Entry, filter string, page int) string {
-	elements := []cardElement{managementTextElement(scheduleSummary(entries), "normal", "default", nil), managementTextElement(scheduleText("policy"), "notation", "grey", nil)}
+	elements := []cardElement{scheduleBackToOverview(), managementDividerElement(), managementTextElement(scheduleSummary(entries), "normal", "default", nil), managementTextElement(scheduleText("policy"), "notation", "grey", nil)}
+	var filters []cardElement
 	for _, f := range []string{"all", "attention", "running", "paused"} {
-		elements = append(elements, scheduleButton("filter."+f, "list", 0, map[string]string{"filter": f}))
+		filters = append(filters, scheduleButton("filter."+f, "list", 0, map[string]string{"filter": f}))
 	}
+	elements = append(elements, managementFormButtonRowElement(filters...))
 	sort.SliceStable(entries, func(i, j int) bool {
 		rank := func(e schedule.Entry) int {
 			if scheduleNeedsAttention(e) {
@@ -214,7 +216,12 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	id, _ := strconv.ParseInt(managementCallbackString(event.Event.Action, "schedule_id"), 10, 64)
 	var card string
 	var err error
-	if op == "alerts" || strings.HasPrefix(op, "alert_") {
+	if op == "home" {
+		if b.canUseBridge(open) && !b.ownerConfirmed() {
+			return cardToast("error", scheduleText("unavailable")), true, nil
+		}
+		card, err = b.amuxManagementHome(ctx, open)
+	} else if op == "alerts" || strings.HasPrefix(op, "alert_") {
 		// Administrator authority applies only to notification metadata and controls.
 		// Never route these callbacks through the creator's execution authority.
 		if !b.isBotOwner(open) {
@@ -482,7 +489,7 @@ func renderScheduleAlerts(entries []schedule.Entry, page int) string {
 	})
 	pages := max(1, (len(entries)+4)/5)
 	page = max(0, min(page, pages-1))
-	elements := []cardElement{managementTextElement(scheduleText("admin_policy"), "notation", "grey", nil)}
+	elements := []cardElement{scheduleBackToOverview(), managementDividerElement(), managementTextElement(scheduleText("admin_policy"), "notation", "grey", nil)}
 	elements = append(elements, scheduleAlertElements(entries[page*5:min(len(entries), (page+1)*5)], page)...)
 	if len(entries) == 0 {
 		elements = append(elements, managementTextElement(scheduleText("empty"), "normal", "grey", nil))
@@ -548,5 +555,10 @@ func scheduleName(t schedule.Task) string {
 }
 
 func scheduleNeedsAttention(e schedule.Entry) bool {
-	return (e.Visibility.IncidentAt != 0 && e.Visibility.RecoveryAt == 0) || e.Visibility.Blocked
+	return (e.Visibility.IncidentAt != 0 && e.Visibility.RecoveryAt == 0) || e.Visibility.Blocked ||
+		(e.Visibility.IncidentAt == 0 && schedule.Attention(e.Visibility.Latest.Status))
+}
+
+func scheduleBackToOverview() cardElement {
+	return managementNavigationBackElement(managementCopy("management.back.to.overview"), "schedule.home", "schedule.back.overview")
 }

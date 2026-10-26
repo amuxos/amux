@@ -108,18 +108,33 @@ func (b *Bridge) handleCommand(ctx context.Context, openID, text string) error {
 	return b.cmdHelp(ctx, openID)
 }
 func (b *Bridge) cmdAmuxManagement(ctx context.Context, openID string) error {
+	card, err := b.amuxManagementHome(ctx, openID)
+	if err != nil {
+		return err
+	}
+	if !b.canUseBridge(openID) && b.schedules != nil {
+		return b.sendManagementCardToDM(ctx, openID, card)
+	}
+	return b.sendOwnerManagementCard(ctx, openID, card)
+}
+
+func (b *Bridge) amuxManagementHome(ctx context.Context, openID string) (string, error) {
 	state := b.managementState()
 	if b.schedules != nil {
 		entries, err := b.schedules.List(ctx, b.currentBridgeId(), openID)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if !b.canUseBridge(openID) {
-			return b.sendManagementCardToDM(ctx, openID, renderSchedules(entries, "all", 0))
+			return marshalNativeManagementCard(managementCardView{Title: "amux", Summary: "amux", Theme: "blue", Elements: []cardElement{
+				managementTextElement(scheduleSummary(entries), "normal", "default", nil),
+				managementTextElement(scheduleText("policy"), "notation", "grey", nil),
+				managementFormButtonRowElement(scheduleButton("title", "list", 0, nil)),
+			}}), nil
 		}
 		state.ScheduleSummary = scheduleSummary(entries)
 	}
-	return b.sendOwnerManagementCard(ctx, openID, renderManagementOverviewCard(state))
+	return renderManagementOverviewCard(state), nil
 }
 func isAmuxManagementCommand(text string) bool {
 	text, ok := slashCommandText(text)
