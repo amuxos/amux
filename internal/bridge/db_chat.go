@@ -411,3 +411,16 @@ func scanChat(row *sql.Row) (*LarkChat, error) {
 
 // NormalizeActiveBindings enforces the current product invariant on existing DB rows:
 // one active binding per Feishu root and one active binding per target/session.
+
+// hasAgentMessageBinding covers topic/group, Bot singleton, and document Sessions.
+func (b *bridgeDB) hasAgentMessageBinding(bridgeID, targetID, sessionName string) (bool, error) {
+	var bound bool
+	err := b.db.QueryRow(`SELECT
+		EXISTS(SELECT 1 FROM lark_chats WHERE bridge_id=? AND target_id=? AND session_name=? AND status='active') OR
+		EXISTS(SELECT 1 FROM feishu_bot_sessions WHERE bridge_id=? AND target_id=? AND session_name=? AND enabled=1) OR
+		EXISTS(SELECT 1 FROM feishu_document_sessions WHERE bridge_id=? AND target_id=? AND session_name=? AND status='active')`,
+		bridgeID, targetID, sessionName,
+		bridgeID, targetID, sessionName,
+		bridgeID, targetID, sessionName).Scan(&bound)
+	return bound, err
+}

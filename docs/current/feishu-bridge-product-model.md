@@ -29,6 +29,24 @@ or schedules require Agent tools and must be verified by their actual records;
 
 ## Bridge responsibilities
 
+Agents can use `amux.feishu_send_message` to send plain text or Markdown through
+their Session's bound Bot. `format` defaults to `text`; `format=markdown` sends
+the `text` body as a Feishu `post` with an `md` element for both new messages and
+replies. The Markdown source is preserved; rendering follows Feishu's supported
+syntax, not a promise of full CommonMark/GFM support. Images are not fetched or
+uploaded. Both formats limit the encoded message content to 20 KiB, including the
+rich-text envelope. The Hub authenticates the calling Session credential and
+resolves exactly one active Bot binding (topic, group singleton, Bot singleton,
+or document-comment Session). The tool cannot choose a Bot or another Session;
+unbound, ambiguous, and foreign Sessions fail closed. Credentials stay on the Hub.
+The destination must be explicit: a recipient ID and its type, or a message ID
+to reply to. Recipient permissions and Bot membership are enforced by Feishu.
+This is an external side effect; the Agent must have user authorization for the
+destination and content. Successful calls return the platform message ID. An
+optional `uuid` supports Feishu's time-bounded duplicate suppression; retries
+must reuse it with identical format, content and destination. Delivery errors are surfaced
+without falling back to user identity or a different Bot.
+
 The optional bridge owns Feishu/Lark API behavior, message routing, bot commands,
 thread and workspace bindings, permissions and output presentation. It does not
 own agent execution or change local CLI requirements.

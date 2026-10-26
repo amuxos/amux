@@ -8,7 +8,7 @@ This reference is generated from the actual `amux mcp` tools/list registry and c
 
 MCP product semantics, permissions, and lifecycle boundaries are defined by the [CLI product model](../current/cli-product-model.md) and [Task model](../distributed-task-model.md). At runtime, [`amux.result_continue`](#amuxresult_continue) continues successful results that exceed a page budget. Tool results are not tools/list registration metadata, so this reference does not maintain a separate output Schema that could drift.
 
-Public `tools/list` tools: **50**.
+Official `tools/list` tools: **51**.
 
 ## Public tool index
 
@@ -20,6 +20,7 @@ Public `tools/list` tools: **50**.
 | `amux.delegation_get` | Read the current Delegation snapshot. Use delegation_wait for incremental events. |
 | `amux.delegation_intervene` | Answer a permission request for a Delegation that supports permission_response. |
 | `amux.delegation_wait` | Wait for a Delegation. event returns incremental events; actionable avoids waking the main model repeatedly for ordinary progress while preserving permission and terminal-state wakeups. wait_timed_out is not a terminal Delegation state. Track actual created attempts using the returned status. |
+| `amux.feishu_send_message` | Send plain text or Markdown with the current Session’s bound Feishu Bot. Requires user authorization for the destination and content. Specify receive_id + receive_id_type, or reply_to_message_id. Returns message_id; never sends as a user. |
 | `amux.instance_followup` | Deliver a task to a persistent Agent and immediately start a new turn, retaining the provider conversation context; use it to continue after a background task finishes, or to retry after a failure when you decide to. A child session left behind by an earlier failure is reused; if the instance is no longer usable an error suggests creating a new one with instance_spawn. |
 | `amux.instance_interrupt` | Interrupt the persistent Agent's current turn. Use it when the user asks to stop a background task; tell the user briefly afterwards, and continue later with instance_followup if needed. |
 | `amux.instance_list` | List persistent Agent Instance status, child Session status, and mailbox depth. |
@@ -243,6 +244,64 @@ Wait for a Delegation. event returns incremental events; actionable avoids wakin
   },
   "required": [
     "delegation_id"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.feishu_send_message`
+
+Send plain text or Markdown with the current Session’s bound Feishu Bot. Requires user authorization for the destination and content. Specify receive_id + receive_id_type, or reply_to_message_id. Returns message_id; never sends as a user.
+
+**Input JSON Schema**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "default": "text",
+      "description": "Body format: text (default) or markdown. Markdown uses Feishu rich text and its supported syntax; images are not downloaded or uploaded.",
+      "enum": [
+        "text",
+        "markdown"
+      ],
+      "type": "string"
+    },
+    "receive_id": {
+      "description": "Recipient ID; required for a new message, omitted for a reply.",
+      "type": "string"
+    },
+    "receive_id_type": {
+      "description": "Recipient ID type; required with receive_id.",
+      "enum": [
+        "chat_id",
+        "open_id",
+        "user_id",
+        "union_id",
+        "email"
+      ],
+      "type": "string"
+    },
+    "reply_in_thread": {
+      "description": "Reply within a topic; only valid with reply_to_message_id. Defaults to false.",
+      "type": "boolean"
+    },
+    "reply_to_message_id": {
+      "description": "Message ID to reply to; mutually exclusive with recipient fields.",
+      "type": "string"
+    },
+    "text": {
+      "description": "Message body, preserved verbatim. Use format=markdown for rich text. Encoded content, including the rich-text envelope, must not exceed 20 KiB.",
+      "type": "string"
+    },
+    "uuid": {
+      "description": "Optional deduplication key, at most 50 bytes. Reuse with identical destination, format and content on retries; Feishu deduplicates for one hour.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "text"
   ],
   "type": "object"
 }

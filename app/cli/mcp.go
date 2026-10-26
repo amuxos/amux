@@ -90,6 +90,8 @@ func (h *mcpHandler) handle(ctx context.Context, name string, args json.RawMessa
 		}()
 	}
 	switch name {
+	case "amux.feishu_send_message":
+		return h.feishuSendMessage(ctx, args)
 	case "amux.memory_search":
 		return h.memorySearch(ctx, args)
 	case "amux.memory_get":
@@ -947,6 +949,7 @@ func amuxTools() []mcp.Tool {
 		{Name: "amux.session_prune", Description: "破坏性操作：永久删除已归档 Session；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent；Task 历史使用 task_prune。", InputSchema: sessionPruneSchema},
 	}
 	tools = append(tools, coordinationTools()...)
+	tools = append(tools, feishuMessageTool())
 	tools = append(tools, memoryTools()...)
 	return tools
 }

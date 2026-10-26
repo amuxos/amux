@@ -37,6 +37,7 @@ type hubServer struct {
 	hub                         *tunnel.Hub
 	listTargets                 func() []*pb.Target
 	feishuBotSessionControllers map[string]feishuBotSessionController
+	feishuMessageSenders        []feishuMessageSender
 	schedule                    *schedule.Store
 	creds                       task.CredentialProvider
 	principals                  *principal.Store

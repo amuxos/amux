@@ -1,0 +1,74 @@
+{
+  "description": {
+    "other": "使用当前 Session 绑定的飞书 Bot 发送纯文本或 Markdown。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type，或 reply_to_message_id。返回 message_id；始终使用 Bot 身份。"
+  },
+  "receive_id": {
+    "other": "接收者 ID；新消息必填，回复时省略。"
+  },
+  "receive_id_type": {
+    "other": "接收者 ID 类型；与 receive_id 一起填写。"
+  },
+  "reply_to_message_id": {
+    "other": "要回复的消息 ID；与接收者字段互斥。"
+  },
+  "reply_in_thread": {
+    "other": "在话题内回复；仅可与 reply_to_message_id 一起使用，默认 false。"
+  },
+  "text": {
+    "other": "消息正文，原样保留。设置 format=markdown 发送富文本；编码后的内容（含富文本封装）不能超过 20 KiB。"
+  },
+  "uuid": {
+    "other": "可选去重键，最多 50 字节。重试须保持相同目标、格式、内容与键；飞书在一小时内去重。"
+  },
+  "invalid": {
+    "other": "消息参数无效：%s"
+  },
+  "empty_text": {
+    "other": "text 不能为空。"
+  },
+  "large_text": {
+    "other": "编码后的消息内容超过 20 KiB。"
+  },
+  "destination": {
+    "other": "请指定 receive_id 和 receive_id_type，或 reply_to_message_id；不能混用。"
+  },
+  "id_type": {
+    "other": "receive_id_type 必须为 chat_id、open_id、user_id、union_id 或 email。"
+  },
+  "uuid_length": {
+    "other": "uuid 不能超过 50 字节。"
+  },
+  "session": {
+    "other": "飞书消息发送需要当前已绑定的 Session 及其 Agent 凭据。"
+  },
+  "unbound": {
+    "other": "当前 Session 没有有效的飞书 Bot 绑定。"
+  },
+  "ambiguous": {
+    "other": "当前 Session 绑定了多个飞书 Bot；请先消除绑定歧义。"
+  },
+  "unavailable": {
+    "other": "绑定的飞书 Bot 不可用。"
+  },
+  "lookup": {
+    "other": "无法解析 Session 绑定的飞书 Bot：%s"
+  },
+  "failed": {
+    "other": "飞书 Bot 发送失败：%s"
+  },
+  "empty_response": {
+    "other": "飞书未返回消息 ID；发送结果不确定。重试时必须使用相同 uuid。"
+  },
+  "request_failed": {
+    "other": "消息请求 %s 失败：%s"
+  },
+  "json_object": {
+    "other": "必须提供一个 JSON 对象。"
+  },
+  "format": {
+    "other": "正文格式：text（默认）或 markdown。Markdown 使用飞书富文本及其支持的语法；不下载或上传图片。"
+  },
+  "invalid_format": {
+    "other": "format 必须为 text 或 markdown。"
+  }
+}

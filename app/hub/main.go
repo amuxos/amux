@@ -209,8 +209,10 @@ func newStartCmd() *cobra.Command {
 				defer runtime.Close()
 			}
 			feishuBotSessionControllers := make(map[string]feishuBotSessionController, len(bridges))
+			var feishuMessageSenders []feishuMessageSender
 			for _, b := range bridges {
 				feishuBotSessionControllers[b.ProfileName()] = b
+				feishuMessageSenders = append(feishuMessageSenders, b)
 			}
 			// Register a session event handler that (1) reclaims persistent agent
 			// instances whose owner session has archived — the instance follows the
@@ -236,6 +238,7 @@ func newStartCmd() *cobra.Command {
 				hub:                         hub,
 				listTargets:                 hub.ListTargets,
 				feishuBotSessionControllers: feishuBotSessionControllers,
+				feishuMessageSenders:        feishuMessageSenders,
 				schedule:                    scheduleStore,
 				principals:                  principalStore,
 				memory:                      memoryStore,

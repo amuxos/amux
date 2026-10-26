@@ -42,6 +42,8 @@ service Amuxd {
   rpc FeishuStatus(FeishuStatusRequest) returns (FeishuStatusResponse);
   rpc FeishuBindings(FeishuBindingsRequest) returns (FeishuBindingsResponse);
   rpc FeishuBots(FeishuBotsRequest) returns (FeishuBotsResponse);
+  // Session-scoped Bot sending. Credentials and binding resolution stay on the Hub.
+  rpc SendFeishuMessage(SendFeishuMessageRequest) returns (SendFeishuMessageResponse);
   rpc FeishuBotSessionStatus(FeishuBotSessionStatusRequest) returns (FeishuBotSessionStatusResponse);
   rpc FeishuBotSessionBind(FeishuBotSessionBindRequest) returns (FeishuBotSessionStatusResponse);
   rpc FeishuBotSessionOff(FeishuBotSessionOffRequest) returns (FeishuBotSessionStatusResponse);
@@ -1699,4 +1701,24 @@ message MaintenanceResponse {
   int32 active_tasks = 3;
   int32 active_requests = 4;
   int32 sleeping_sessions = 5;
+}
+
+message SendFeishuMessageRequest {
+  // Supplied by MCP from AMUX_SESSION_ID; verified against the actor credential.
+  string session_id = 1;
+  string receive_id = 2;
+  string receive_id_type = 3;
+  string reply_to_message_id = 4;
+  bool reply_in_thread = 5;
+  string text = 6;
+  string uuid = 7;
+  // Empty or "text" preserves plain text; "markdown" uses a rich-text post.
+  string format = 8;
+}
+message SendFeishuMessageResponse {
+  string message_id = 1;
+  string chat_id = 2;
+  string thread_id = 3;
+  string bot_profile = 4;
+  string uuid = 5;
 }
