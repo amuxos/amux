@@ -102,6 +102,7 @@ After changing public command names, hierarchy, visibility, descriptions, argume
 | `amux session stop` | Stop a session and its agent process |
 | `amux setup` | Set up this amux installation |
 | `amux system` | Inspect and manage this amux installation |
+| `amux system cleanup` | Preview managed data cleanup; --apply cleans and reports to administrators |
 | `amux system config` | Manage amux configuration |
 | `amux system config get` | Get config value |
 | `amux system config path` | Print config file path |
@@ -2061,6 +2062,7 @@ amux system [flags]
 
 | Command | Description |
 | --- | --- |
+| `amux system cleanup` | Preview managed data cleanup; --apply cleans and reports to administrators |
 | `amux system config` | Manage amux configuration |
 | `amux system diagnose` | Correlate a message, turn, task, or session |
 | `amux system doctor` | Diagnose this installation without changing it |
@@ -2079,6 +2081,25 @@ amux system [flags]
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | help for system |
+
+## `amux system cleanup`
+
+Preview managed data cleanup; --apply cleans and reports to administrators
+
+**Usage**
+
+```text
+amux system cleanup [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--apply` | `bool` | `false` | Apply cleanup and notify configured administrators |
+| `--dry-run` | `bool` | `false` | Preview without changing data (the default) |
+| `-h, --help` | `bool` | `false` | help for cleanup |
+| `--target` | `string` | `""` | Runtime ID or name; empty selects all connected runtimes |
 
 ## `amux system config`
 

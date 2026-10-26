@@ -61,6 +61,16 @@ func managementDraftFromCallback(action *callback.CallBackAction, state manageme
 		draft.Interaction = strings.TrimSpace(v)
 	}
 	draftField := managementDraftFieldFromCallback(action, state)
+	for _, values := range []map[string]interface{}{action.Value, action.FormValue} {
+		if value, ok := values["daily_cleanup"].(string); ok && value != "" {
+			draft.DailyCleanup = value
+			draft.DailyCleanupSubmitted = true
+		}
+	}
+	if draftField == "daily_cleanup" && action.Option != "" {
+		draft.DailyCleanup = action.Option
+		draft.DailyCleanupSubmitted = true
+	}
 	if draftField == "interaction" {
 		if selected := strings.TrimSpace(action.Option); managementValidInteraction(selected) {
 			draft.Interaction = selected
@@ -126,14 +136,14 @@ func managementDraftFieldFromCallback(action *callback.CallBackAction, state man
 	if action == nil {
 		return ""
 	}
-	for _, field := range []string{"interaction", "default_agent", "default_runtime_ref", "default_model_ref", "default_reasoning_effort", "thinking_process"} {
+	for _, field := range []string{"interaction", "default_agent", "default_runtime_ref", "default_model_ref", "default_reasoning_effort", "thinking_process", "daily_cleanup"} {
 		if strings.TrimSpace(action.Name) == field {
 			return field
 		}
 	}
 	if field, ok := action.Value[managementDraftFieldKey].(string); ok {
 		switch strings.TrimSpace(field) {
-		case "interaction", "default_agent", "default_runtime_ref", "default_model_ref", "default_reasoning_effort", "thinking_process":
+		case "interaction", "default_agent", "default_runtime_ref", "default_model_ref", "default_reasoning_effort", "thinking_process", "daily_cleanup":
 			return strings.TrimSpace(field)
 		}
 	}
@@ -352,6 +362,10 @@ func normalizeManagementSurface(value string) managementSurface {
 
 func (b *Bridge) runManagementSettingsTransition(openID, messageID string, previous managementState, draft managementSettingsDraft, req BotSettingsRequest, onboarding bool, surface managementSurface) {
 	draft = managementNormalizeDraftForState(previous, draft)
+	if draft.DailyCleanupSubmitted && draft.DailyCleanup != "true" && draft.DailyCleanup != "false" {
+		b.updateManagementCardFromCallback(openID, messageID, renderSettingsFailureCardForSurface(previous, draft, managementLocalizedError("cleanup.invalid"), surface))
+		return
+	}
 	go func() {
 		patchCtx, patchCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		processingCard := renderSettingsProcessingCard(previous, draft)
@@ -364,6 +378,9 @@ func (b *Bridge) runManagementSettingsTransition(openID, messageID string, previ
 		transitionCtx, transitionCancel := context.WithTimeout(context.Background(), 45*time.Second)
 		result, err := b.ApplyBotSettings(transitionCtx, req)
 		transitionCancel()
+		if err == nil && result.Status == BotSettingsStatusSuccess && managementUsesThreadRouting(draft.Interaction) && draft.DailyCleanupSubmitted {
+			err = saveDailyCleanupChoice(draft.DailyCleanup)
+		}
 		if err == nil && result.Status == BotSettingsStatusSuccess &&
 			draft.ThinkingProcess != previous.ThinkingProcess {
 			err = b.saveManagementThinkingProcess(draft.ThinkingProcess)
@@ -665,6 +682,7 @@ func managementDraftFromState(state managementState) managementSettingsDraft {
 		DefaultRuntimeRef: managementEffectiveRuntimeRef(state), DefaultModelRef: strings.TrimSpace(state.DefaultModelRef),
 		DefaultReasoningEffort: strings.TrimSpace(state.DefaultReasoningEffort),
 		ThinkingProcess:        strings.TrimSpace(state.ThinkingProcess),
+		DailyCleanup:           state.DailyCleanup,
 	})
 }
 
@@ -1057,7 +1075,15 @@ func renderSettingsCardForSurface(state managementState, surface managementSurfa
 	capabilitiesAction := managementButton{Text: managementCopy("management.manage.integrations"), Type: "default", Action: managementActionCapabilitiesOpen, Icon: managementIconPtr("setting_outlined", "blue")}
 	capabilities := managementCapabilityViews(state)
 	elements := []cardElement{managementSectionTitleElement(managementCopy("management.task.defaults")), managementTaskDefaultsElement(state, draft, "amux_settings_task_defaults"), managementButtonRowElement([]managementButton{settingsAction}), managementDividerElement(), managementSectionTitleElement(managementCopy("management.integrations")), managementCapabilitiesSummaryElement(capabilities), managementButtonRowElement([]managementButton{capabilitiesAction})}
-	elements = append(elements, managementHintElement(managementCopy("management.these.settings.affect.only.this.assistant")))
+	if managementUsesThreadRouting(state.Mode) {
+		value := managementCopy("cleanup.enabled")
+		if state.DailyCleanup == "false" {
+			value = managementCopy("cleanup.disabled")
+		}
+		elements = append(elements, managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("cleanup.title"), Body: value}), managementHintElement(managementCopy("cleanup.hint")))
+	} else {
+		elements = append(elements, managementHintElement(managementCopy("management.these.settings.affect.only.this.assistant")))
+	}
 	var buttons []managementButton
 	if surface != managementSurfaceAmux {
 		if state.CanManagePacks {
@@ -1850,6 +1876,7 @@ func renderSettingsConfirmationCard(state managementState, draft managementSetti
 		"default_runtime_ref": req.DefaultRuntimeRef, "default_model_ref": req.DefaultModelRef,
 		"default_reasoning_effort": req.DefaultReasoningEffort,
 		"thinking_process":         draft.ThinkingProcess,
+		"daily_cleanup":            draft.DailyCleanup,
 		"expected_version":         strconv.FormatInt(req.ExpectedVersion, 10), "request_id": req.RequestID,
 		"confirmation_token": result.ConfirmationToken}
 	title := managementCopy("management.confirm.default.expert.change")
@@ -2048,6 +2075,8 @@ type managementProfileSummary struct {
 	CurrentOnly     bool
 }
 type managementSettingsDraft struct {
+	DailyCleanup           string
+	DailyCleanupSubmitted  bool
 	Interaction            string
 	DefaultAgent           string
 	DefaultRuntimeRef      string

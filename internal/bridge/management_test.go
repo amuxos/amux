@@ -1258,12 +1258,14 @@ func TestRenderSettingsEditCardKeepsLargeProfileCatalogWithinCardLimit(t *testin
 			Description: strings.Repeat("用于复杂研发任务的专家说明", 8),
 		})
 	}
-	card := renderSettingsEditCard(
-		managementState{Mode: "thread", DefaultAgent: profiles[0].Ref, Profiles: profiles},
-		managementSettingsDraft{Interaction: "thread", DefaultAgent: profiles[0].Ref},
-	)
-	if len(card) >= maxFeishuCardBytes {
-		t.Fatalf("settings card bytes = %d, want below Feishu card limit %d", len(card), maxFeishuCardBytes)
+	for _, mode := range []string{"thread", interactionModeThreadIsolated} {
+		card := renderSettingsEditCard(
+			managementState{Mode: mode, DefaultAgent: profiles[0].Ref, Profiles: profiles, DailyCleanup: "true"},
+			managementSettingsDraft{Interaction: mode, DefaultAgent: profiles[0].Ref, DailyCleanup: "true"},
+		)
+		if len(card) >= maxFeishuCardBytes {
+			t.Fatalf("%s settings card bytes = %d, want below Feishu card limit %d", mode, len(card), maxFeishuCardBytes)
+		}
 	}
 }
 

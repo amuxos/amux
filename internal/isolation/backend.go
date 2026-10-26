@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/amuxos/amux/internal/cleanup"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -454,4 +455,24 @@ func replaceLaunchEnv(env []string, key, value string) []string {
 		out = append(out, prefix+value)
 	}
 	return out
+}
+
+func (r *Runtime) DailyCleanup(ctx context.Context, refs cleanup.References, dry bool) ([]cleanup.Step, error) {
+	if r == nil || !r.cfg.Enabled || r.cfg.Backend == principal.BackendPassthrough {
+		return nil, nil
+	}
+	accounts, err := r.client.ListAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var steps []cleanup.Step
+	for _, a := range accounts {
+		result, err := r.client.DailyCleanup(ctx, a, DailyCleanupRequest{References: &refs, DryRun: dry})
+		if err != nil {
+			steps = append(steps, cleanup.Step{Name: "isolation", Errors: []string{err.Error()}})
+			continue
+		}
+		steps = append(steps, result...)
+	}
+	return steps, nil
 }

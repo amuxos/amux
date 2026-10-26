@@ -19,6 +19,8 @@ import (
 )
 
 func (s *server) ChangeCwd(ctx context.Context, req *pb.ChangeCwdRequest) (*pb.ChangeCwdResponse, error) {
+	s.cleanupLaunchMu.RLock()
+	defer s.cleanupLaunchMu.RUnlock()
 	sess, err := s.mgr.Get(req.Name)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "%v", err)

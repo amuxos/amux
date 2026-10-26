@@ -23,6 +23,7 @@ import (
 	"github.com/amuxos/amux/internal/provider"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/sessioninput"
+	"github.com/amuxos/amux/internal/store"
 	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/amuxos/amux/internal/tunnel"
@@ -33,6 +34,12 @@ import (
 )
 
 type server struct {
+	dailyCleanupMu  sync.Mutex
+	cleanupLaunchMu sync.RWMutex
+	cleanupDB       *store.DB
+	cleanupTasks    *task.Runner
+	cleanupTarget   string
+
 	maintenance *runtimeMaintenance
 	pb.UnimplementedAmuxletServer
 	mgr                       *session.Manager
@@ -96,6 +103,8 @@ func ownerGuard(sess *session.Session) error {
 }
 
 func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, error) {
+	s.cleanupLaunchMu.RLock()
+	defer s.cleanupLaunchMu.RUnlock()
 	if err := ctx.Err(); err != nil {
 		return nil, grpcContextError(err)
 	}

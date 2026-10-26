@@ -33,6 +33,7 @@ import (
 )
 
 type hubServer struct {
+	dailyCleaner *dailyCleaner
 	pb.UnimplementedAmuxdServer
 	hub                         *tunnel.Hub
 	listTargets                 func() []*pb.Target

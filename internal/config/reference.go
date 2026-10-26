@@ -42,6 +42,9 @@ func ManagedConfigKeys() []string {
 }
 
 var configOptions = distributionConfigOptions([]ConfigOption{
+	{Section: "Runtime 清理", Key: "maintenance.daily_cleanup.enabled", Type: "boolean", Default: "true", Description: "每日自动清理普通话题和用户隔离话题的运行数据，并向 Bot 管理员私聊报告结果；系统级开关，保存后即时生效。", Managed: true},
+	{Section: "Runtime 清理", Key: "maintenance.daily_cleanup.at", Type: "string", Default: "06:17", Constraints: "HH:MM", Description: "每日清理时间，使用 Hub 本地时区；错过时间后在恢复运行时补一次。", Managed: true},
+	{Section: "Runtime 清理", Key: "maintenance.daily_cleanup.protected_paths", Type: "string array", Default: "[]", Constraints: "absolute paths", Description: "每日清理始终保留的共享或长期工作区绝对路径，作用于所有 Runtime。", Managed: true},
 	{Section: "飞书实验功能", Key: "bridge.feishu.group_settings.enabled", Type: "boolean", Default: "false", Description: "群独立配置实验总开关，影响本实例全部助手；关闭时保留群设置和会话，已配置独立策略的群暂停新任务，未配置群和私聊沿用助手设置。修改后重启生效。", Managed: true},
 	{Section: "飞书实验功能", Key: "bridge.feishu.presentation.completion_notification_enabled", Type: "boolean", Default: "false", Description: "长会话完成通知实验总开关，影响本实例全部助手；关闭时不新增成功、等待补充或失败提醒。修改后重启生效。", Managed: true},
 	{Section: "飞书实验功能", Key: "bridge.feishu.experimental.steer_foreground", Type: "boolean", Default: "false", Description: "前台协调/忙时注入实验总开关：开启后，任务执行中同一发送者的追加消息注入当前回合（不再中断重来），单例和话题会话注入前台/后台协调说明（首轮及每 20 轮）；关闭时忙时消息沿用中断并重新提交。环境变量 AMUX_FEISHU_BUSY_INPUT=interrupt 可强制关闭注入。修改后重启生效。", Managed: true},

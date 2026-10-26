@@ -17,6 +17,19 @@ amux system config unset <key>
 
 “CLI-managed” specifically means the generic `amux system config set/get/unset` commands. Keys marked “No” may have dedicated commands listed in their descriptions; otherwise edit TOML directly. Replace `<profile>` with the actual Feishu Bot Profile name. `<provider>` supports only `codex`. This reference does not include example sensitive values.
 
+## Runtime cleanup
+
+| Configuration key | Type | Default | Constraints | CLI-managed | Description |
+| --- | --- | --- | --- | --- | --- |
+| `maintenance.daily_cleanup.enabled` | boolean | true | — | Yes | Automatically clean up ordinary and user-isolated topic data daily and privately report results to Bot owners. Installation-wide switch; applies immediately. |
+| `maintenance.daily_cleanup.at` | string | 06:17 | HH:MM | Yes | Daily cleanup time in the Hub local timezone; a missed run is performed once when the system resumes. |
+| `maintenance.daily_cleanup.protected_paths` | string array | [] | absolute paths | Yes | Absolute paths of shared or long-lived workspaces always retained by daily cleanup, across all Runtimes. |
+| `runtime.task_cleanup.enabled` | boolean | true | — | No | Whether to clean up terminal task history automatically. |
+| `runtime.task_cleanup.terminal_history_ttl_seconds` | integer seconds | 604800 (7 days) | >0 | No | Retention period for terminal task history. |
+| `runtime.task_cleanup.sweep_interval_seconds` | integer seconds | 3600 | >0 | No | Sweep interval for terminal task cleanup. |
+| `runtime.broker_reap.enabled` | boolean | true | — | No | Whether to periodically reap orphaned Session broker processes and their files (deleted or stopped Sessions, or duplicate brokers). |
+| `runtime.broker_reap.sweep_interval_seconds` | integer seconds | 300 | >0 | No | Sweep interval for orphaned broker reaping. |
+
 ## Experimental Feishu features
 
 | Configuration key | Type | Default | Constraints | CLI-managed | Description |
@@ -46,16 +59,6 @@ amux system config unset <key>
 | `runtime.max_sessions` | integer | 100 (applied by the Runtime) | >=0 | Yes | Maximum concurrent Sessions on the machine; 0 uses the Runtime default. |
 | `runtime.max_concurrency` | integer | 10 (applied by the Runtime) | >=0 | Yes | Maximum concurrency per Agent type; 0 uses the Runtime default. |
 | `runtime.labels.<label>` | string map entry | None | — | Yes | Scheduling labels, such as pool and repo_cache. |
-
-## Runtime cleanup
-
-| Configuration key | Type | Default | Constraints | CLI-managed | Description |
-| --- | --- | --- | --- | --- | --- |
-| `runtime.task_cleanup.enabled` | boolean | true | — | No | Whether to clean up terminal task history automatically. |
-| `runtime.task_cleanup.terminal_history_ttl_seconds` | integer seconds | 604800 (7 days) | >0 | No | Retention period for terminal task history. |
-| `runtime.task_cleanup.sweep_interval_seconds` | integer seconds | 3600 | >0 | No | Sweep interval for terminal task cleanup. |
-| `runtime.broker_reap.enabled` | boolean | true | — | No | Whether to periodically reap orphaned Session broker processes and their files (deleted or stopped Sessions, or duplicate brokers). |
-| `runtime.broker_reap.sweep_interval_seconds` | integer seconds | 300 | >0 | No | Sweep interval for orphaned broker reaping. |
 
 ## Session reclamation
 

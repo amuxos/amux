@@ -5,6 +5,7 @@ package isolation
 import (
 	"context"
 	"fmt"
+	"github.com/amuxos/amux/internal/cleanup"
 	"io"
 	"net"
 	"os"
@@ -381,4 +382,12 @@ func (h *helperProcessHandle) Close() error {
 		}
 	})
 	return h.closeErr
+}
+
+func (c *HelperClient) DailyCleanup(ctx context.Context, mapping AccountMapping, req DailyCleanupRequest) ([]cleanup.Step, error) {
+	resp, _, err := c.request(ctx, HelperRequest{Operation: OpDailyCleanup, Mapping: &mapping, Cleanup: &req}, 0)
+	if err != nil {
+		return nil, err
+	}
+	return resp.CleanupSteps, nil
 }

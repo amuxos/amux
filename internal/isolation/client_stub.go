@@ -5,6 +5,7 @@ package isolation
 import (
 	"context"
 	"fmt"
+	"github.com/amuxos/amux/internal/cleanup"
 	"os"
 )
 
@@ -67,4 +68,8 @@ func (c *HelperClient) ListAccounts(context.Context) ([]AccountMapping, error) {
 }
 func (c *HelperClient) RemoveAccount(context.Context, AccountMapping) error {
 	return helperUnsupported()
+}
+
+func (c *HelperClient) DailyCleanup(context.Context, AccountMapping, DailyCleanupRequest) ([]cleanup.Step, error) {
+	return nil, fmt.Errorf("isolation helper is Linux-only")
 }

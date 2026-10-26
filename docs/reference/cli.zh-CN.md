@@ -102,6 +102,7 @@
 | `amux session stop` | 停止 Session 及其智能体进程 |
 | `amux setup` | 配置当前 amux 安装 |
 | `amux system` | 检查和管理当前 amux 安装 |
+| `amux system cleanup` | 预览受管数据清理；--apply 执行并通知管理员 |
 | `amux system config` | 管理 amux 配置 |
 | `amux system config get` | 获取配置值 |
 | `amux system config path` | 输出配置文件路径 |
@@ -2061,6 +2062,7 @@ amux system [flags]
 
 | 命令 | 说明 |
 | --- | --- |
+| `amux system cleanup` | 预览受管数据清理；--apply 执行并通知管理员 |
 | `amux system config` | 管理 amux 配置 |
 | `amux system diagnose` | 关联查询消息、轮次、任务或 Session |
 | `amux system doctor` | 诊断当前安装，不修改配置 |
@@ -2079,6 +2081,25 @@ amux system [flags]
 | 选项 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | system 帮助 |
+
+## `amux system cleanup`
+
+预览受管数据清理；--apply 执行并通知管理员
+
+**用法**
+
+```text
+amux system cleanup [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `--apply` | `bool` | `false` | 执行清理并通知已配置的管理员 |
+| `--dry-run` | `bool` | `false` | 仅预览，不修改数据（默认） |
+| `-h, --help` | `bool` | `false` | cleanup 命令帮助 |
+| `--target` | `string` | `""` | Runtime ID 或名称；留空选择全部已连接运行环境 |
 
 ## `amux system config`
 

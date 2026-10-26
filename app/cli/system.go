@@ -44,6 +44,7 @@ func newSystemCmdWithOpener(open systemLifecycleOpener) *cobra.Command {
 		newSystemDoctorCmd(open),
 		newSystemOperationCmd(open),
 		newSystemLogsCmd(),
+		newSystemCleanupCmd(),
 		newSystemDiagnoseCmd(),
 		newSystemServiceCmd(),
 		newConfigCmd(),

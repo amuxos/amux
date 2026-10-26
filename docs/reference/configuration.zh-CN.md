@@ -17,6 +17,19 @@ amux system config unset <key>
 
 “CLI 可管理”专指通用 `amux system config set/get/unset`；标为“否”的键可能由说明中列出的专用命令管理，否则需要直接编辑 TOML。Profile 键中的 `<profile>` 替换为实际飞书智能体 Profile 名；Provider 键中的 `<provider>` 只支持 `codex`。敏感值不会在本文档中给出示例。
 
+## Runtime 清理
+
+| 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `maintenance.daily_cleanup.enabled` | 布尔值 | true | — | 是 | 每日自动清理普通话题和用户隔离话题的运行数据，并向 Bot 管理员私聊报告结果；系统级开关，保存后即时生效。 |
+| `maintenance.daily_cleanup.at` | 字符串 | 06:17 | HH:MM | 是 | 每日清理时间，使用 Hub 本地时区；错过时间后在恢复运行时补一次。 |
+| `maintenance.daily_cleanup.protected_paths` | 字符串数组 | [] | absolute paths | 是 | 每日清理始终保留的共享或长期工作区绝对路径，作用于所有 Runtime。 |
+| `runtime.task_cleanup.enabled` | 布尔值 | true | — | 否 | 是否自动清理终态 task 历史。 |
+| `runtime.task_cleanup.terminal_history_ttl_seconds` | 整数秒数 | 604800（7 天） | >0 | 否 | 终态 task 历史保留时间。 |
+| `runtime.task_cleanup.sweep_interval_seconds` | 整数秒数 | 3600 | >0 | 否 | 终态 task 清理扫描周期。 |
+| `runtime.broker_reap.enabled` | 布尔值 | true | — | 否 | 是否定期回收孤儿 session broker 进程及其文件（session 已删除或不再运行、或为重复 broker）。 |
+| `runtime.broker_reap.sweep_interval_seconds` | 整数秒数 | 300 | >0 | 否 | 孤儿 broker 回收扫描周期。 |
+
 ## 飞书实验功能
 
 | 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
@@ -46,16 +59,6 @@ amux system config unset <key>
 | `runtime.max_sessions` | 整数 | 100（runtime 应用） | >=0 | 是 | 整机并发 Session 上限；0 由 runtime 使用默认值。 |
 | `runtime.max_concurrency` | 整数 | 10（runtime 应用） | >=0 | 是 | 每种 Agent 的并发上限；0 由 runtime 使用默认值。 |
 | `runtime.labels.<label>` | 字符串映射项 | 无 | — | 是 | 调度标签，例如 pool、repo_cache。 |
-
-## Runtime 清理
-
-| 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| `runtime.task_cleanup.enabled` | 布尔值 | true | — | 否 | 是否自动清理终态 task 历史。 |
-| `runtime.task_cleanup.terminal_history_ttl_seconds` | 整数秒数 | 604800（7 天） | >0 | 否 | 终态 task 历史保留时间。 |
-| `runtime.task_cleanup.sweep_interval_seconds` | 整数秒数 | 3600 | >0 | 否 | 终态 task 清理扫描周期。 |
-| `runtime.broker_reap.enabled` | 布尔值 | true | — | 否 | 是否定期回收孤儿 session broker 进程及其文件（session 已删除或不再运行、或为重复 broker）。 |
-| `runtime.broker_reap.sweep_interval_seconds` | 整数秒数 | 300 | >0 | 否 | 孤儿 broker 回收扫描周期。 |
 
 ## Session 回收
 
