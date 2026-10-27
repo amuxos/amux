@@ -279,23 +279,53 @@ func (m *runtimeMaintenance) recover(ctx context.Context) (*pb.MaintenanceRespon
 	m.srv.mgr.ResumeMaintenanceGoals()
 	return m.response(), nil
 }
+
+// maintenanceWatchInterval is how soon recovery is retried once a recovery
+// need appears, and maintenanceWatchMaxInterval caps the backoff while
+// attempts keep failing.
+const (
+	maintenanceWatchInterval    = 5 * time.Second
+	maintenanceWatchMaxInterval = 5 * time.Minute
+)
+
+// watch retries recovery for the sessions the maintenance lease still owns.
+// A resume that keeps failing must not become a hot loop: every attempt
+// materializes a fresh run tree and starts a broker, so repeated failures back
+// off to maintenanceWatchMaxInterval until one attempt makes progress.
 func (m *runtimeMaintenance) watch(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	timer := time.NewTimer(maintenanceWatchInterval)
+	defer timer.Stop()
+	interval := maintenanceWatchInterval
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-timer.C:
 		}
+		progressed := true
 		m.mu.Lock()
 		if m.record != nil && (m.record.Phase == "recovering" || !m.now().Before(m.record.Expires)) {
 			recoveryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			if _, err := m.recover(recoveryCtx); err != nil {
 				fmt.Fprintf(os.Stderr, "runtime: maintenance recovery: %v\n", err)
+				progressed = false
 			}
 			cancel()
 		}
 		m.mu.Unlock()
+		interval = nextMaintenanceWatchInterval(interval, progressed)
+		timer.Reset(interval)
 	}
+}
+
+// nextMaintenanceWatchInterval doubles the wait after a failed attempt and
+// snaps back to the base interval as soon as an attempt makes progress.
+func nextMaintenanceWatchInterval(current time.Duration, progressed bool) time.Duration {
+	if progressed || current <= 0 {
+		return maintenanceWatchInterval
+	}
+	if next := current * 2; next < maintenanceWatchMaxInterval {
+		return next
+	}
+	return maintenanceWatchMaxInterval
 }

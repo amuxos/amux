@@ -251,6 +251,24 @@ func (r *Runtime) RemoveRun(ctx context.Context, identity principal.ExecutionIde
 	return r.client.RemoveRun(ctx, mapping, launchID)
 }
 
+// Kill terminates every process of one launch. RemoveRun only drops the run
+// directory; a provider whose broker died without shutting it down keeps
+// running inside the helper and holds whatever provider-native locks it
+// acquired, so ending a launch has to kill it. A launch the helper no longer
+// tracks (already reaped, or never started) is not an error: the helper
+// answers for exited launches with success and for unknown ones with a
+// not-found that callers treat as best effort.
+func (r *Runtime) Kill(ctx context.Context, identity principal.ExecutionIdentity, launchID string) error {
+	if r == nil || identity.IsolationBackend != principal.BackendLinuxDAC || r.store == nil {
+		return nil
+	}
+	launchID = strings.TrimSpace(launchID)
+	if launchID == "" {
+		return nil
+	}
+	return r.client.Kill(ctx, launchID)
+}
+
 // RemoveWorkspace reclaims a finished execution's workspace. The tree is owned
 // by the principal at 0700, so the service user cannot delete it itself and the
 // directories would otherwise accumulate for the life of the account.

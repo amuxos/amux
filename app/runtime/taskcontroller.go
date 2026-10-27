@@ -152,6 +152,16 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	}
 	spec.Cwd = cwd
 	spec.ExecutionIdentity = executionIdentity
+	// prepareExecution created the child run directory; every exit below that
+	// never attaches a process reclaims it (see reclaimLaunchRun).
+	childIdentity := spec.ExecutionIdentity
+	childLaunchID := spec.LaunchID
+	childAttached := false
+	defer func() {
+		if !childAttached {
+			c.srv.reclaimLaunchRun(childIdentity, childLaunchID)
+		}
+	}()
 	if executionIdentity.IsolationBackend == principal.BackendLinuxDAC {
 		spec.Env, spec.RecordEnv, spec.ExtraArgs, err = materializeLinuxDACTaskLaunch(
 			func(sources []isolation.BundleSource) error {
@@ -163,7 +173,6 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 			}), spec.Env, spec.RecordEnv, spec.ExtraArgs,
 		)
 		if err != nil {
-			_ = c.srv.isolationRuntime.RemoveRun(context.Background(), executionIdentity, spec.LaunchID)
 			return nil, fmt.Errorf("materialize child isolation bundle: %w", err)
 		}
 	}
@@ -242,6 +251,7 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	}
 	cs := c.childSession(sess)
 	c.drainMailboxInto(cs, spec.InstanceID)
+	childAttached = true
 	return cs, nil
 }
 

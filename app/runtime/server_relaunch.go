@@ -133,6 +133,17 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "prepare reconfigured launch: %v", err)
 	}
+	// PrepareRun already created run/<launch-id> for the reconfigured attempt.
+	// Reclaim it on every exit that does not attach this attempt's process,
+	// including the restore path below: restoring rotates to a fresh launch
+	// id, so the captured id can never name the restored directory.
+	prepared := sess.Snapshot()
+	attached := false
+	defer func() {
+		if !attached {
+			s.reclaimLaunchRun(prepared.ExecutionIdentity, prepared.LaunchID)
+		}
+	}()
 	if err := materializeProfileWorkspace(replacement, materializationCwd, "", s.amuxDir); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "reconfigure profile materialization: %v", err)
 	}
@@ -159,6 +170,7 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 	}
 	launchErr := s.startSessionContext(ctx, a, sess, runExtraArgs, runEnv)
 	if launchErr == nil {
+		attached = true
 		return &pb.RunResponse{Session: toProtoSession(sess)}, nil
 	}
 	if preserveProviderSession && missingNativeConversationOnResume(replacement.AgentType, launchErr) {
@@ -169,6 +181,7 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 			launchErr = fmt.Errorf("native resume failed: %v; prepare fresh provider conversation: %w", launchErr, err)
 		} else if retryErr := s.startSessionContext(ctx, a, sess, runExtraArgs, runEnv); retryErr == nil {
 			sess.AppendReplay([]byte("\r\n[system] provider history was unavailable; continuing from amux conversation handoff\r\n"))
+			attached = true
 			return &pb.RunResponse{Session: toProtoSession(sess)}, nil
 		} else {
 			launchErr = fmt.Errorf("native resume failed: %v; fresh provider conversation failed: %w", launchErr, retryErr)
@@ -312,6 +325,16 @@ func (s *server) restorePreviousExecution(ctx context.Context, sess *session.Ses
 	if err != nil {
 		return fmt.Errorf("prepare restored launch: %w", err)
 	}
+	// PrepareRun already created run/<launch-id>, and nothing removes it
+	// unless a process attaches and exits: every exit below that never gets
+	// that far reclaims it.
+	prepared := sess.Snapshot()
+	attached := false
+	defer func() {
+		if !attached {
+			s.reclaimLaunchRun(prepared.ExecutionIdentity, prepared.LaunchID)
+		}
+	}()
 	if snap.ExecutionIdentity.IsolationBackend == principal.BackendLinuxDAC {
 		currentLaunchID := sess.Snapshot().LaunchID
 		runEnv, recordEnv, runExtraArgs, err = materializeLinuxDACSessionLaunch(func(sources []isolation.BundleSource) error {
@@ -327,6 +350,7 @@ func (s *server) restorePreviousExecution(ctx context.Context, sess *session.Ses
 		s.reportLaunchWarning(sess)(warning)
 	}
 	if err := s.startSessionContext(ctx, a, sess, runExtraArgs, runEnv); err == nil {
+		attached = true
 		return nil
 	} else if !missingNativeConversationOnResume(snap.AgentType, err) {
 		return err
@@ -342,6 +366,7 @@ func (s *server) restorePreviousExecution(ctx context.Context, sess *session.Ses
 	if err := s.startSessionContext(ctx, a, sess, runExtraArgs, runEnv); err != nil {
 		return fmt.Errorf("fresh restored conversation: %w", err)
 	}
+	attached = true
 	return nil
 }
 
@@ -491,6 +516,16 @@ func (s *server) refreshProfileAndRelaunch(ctx context.Context, sess *session.Se
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "prepare refreshed launch: %v", err)
 	}
+	// PrepareRun already created run/<launch-id>, and nothing removes it
+	// unless a process attaches and exits: every exit below that never gets
+	// that far reclaims it.
+	prepared := sess.Snapshot()
+	attached := false
+	defer func() {
+		if !attached {
+			s.reclaimLaunchRun(prepared.ExecutionIdentity, prepared.LaunchID)
+		}
+	}()
 	if err := materializeProfileWorkspace(refreshReq, refreshCwd, "", s.amuxDir); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "refresh profile materialization: %v", err)
 	}
@@ -511,6 +546,7 @@ func (s *server) refreshProfileAndRelaunch(ctx context.Context, sess *session.Se
 	if err := s.startSessionContext(ctx, a, sess, runExtraArgs, runEnv); err != nil {
 		return nil, err
 	}
+	attached = true
 	return &pb.RunResponse{Session: toProtoSession(sess)}, nil
 }
 
@@ -665,6 +701,16 @@ func (s *server) relaunchSessionLockedWithEnvContextAndQueue(ctx context.Context
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "prepare %s launch: %v", action, err)
 	}
+	// PrepareRun already created run/<launch-id>, and nothing removes it
+	// unless a process attaches and exits: every exit below that never gets
+	// that far reclaims it.
+	prepared := sess.Snapshot()
+	attached := false
+	defer func() {
+		if !attached {
+			s.reclaimLaunchRun(prepared.ExecutionIdentity, prepared.LaunchID)
+		}
+	}()
 	if fallbackReq != nil {
 		if err := materializeProfileWorkspace(fallbackReq, materializationCwd, "", s.amuxDir); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -769,6 +815,7 @@ func (s *server) relaunchSessionLockedWithEnvContextAndQueue(ctx context.Context
 		}
 		return nil, launchErr
 	}
+	attached = true
 	return &pb.RunResponse{Session: toProtoSession(sess)}, nil
 }
 func (s *server) prepareRelaunchIsolation(ctx context.Context, sess *session.Session, snap session.Snapshot) (isolation.PrincipalPaths, error) {

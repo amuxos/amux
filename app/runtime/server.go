@@ -284,6 +284,9 @@ func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, 
 		writeSessionInstructions(s.amuxDir, sess.ID, text)
 	}
 	if err := s.startSession(a, sess, runExtraArgs, runEnv); err != nil {
+		// The launch never attached; its run directory would otherwise sit
+		// orphaned next to the session parked in restart_failed.
+		s.reclaimLaunchRun(identity, launchID)
 		return nil, err
 	}
 	for _, warning := range launchWarnings {
@@ -653,8 +656,31 @@ func (s *server) waitForSessionProcess(sess *session.Session, procDone <-chan st
 		_ = s.mgr.SetArchivedAfterProcessExit(sess)
 	}
 	if s.isolationRuntime != nil {
-		_ = s.isolationRuntime.RemoveRun(context.Background(), startedIdentity, cleanup.RemoveLaunch)
+		// The broker is gone. Kill whatever it left behind before the run
+		// directory disappears: a broker that died without shutting down
+		// (crash, SIGKILL during a restart storm) leaves its provider running
+		// inside the helper, holding provider-native locks that then fail
+		// every future resume of the session.
+		ctx := context.Background()
+		_ = s.isolationRuntime.Kill(ctx, startedIdentity, cleanup.RemoveLaunch)
+		_ = s.isolationRuntime.RemoveRun(ctx, startedIdentity, cleanup.RemoveLaunch)
 	}
+}
+
+// reclaimLaunchRun abandons a launch attempt that will never attach a process:
+// it terminates anything the helper already started for it and removes the run
+// directory PrepareRun created. Only waitForSessionProcess removes that
+// directory once a process owns it; without this, every failed attempt (a
+// broker that never comes up, a provider that refuses to start, an aborted
+// launch) abandons a run tree of agent config and HOME projection on disk, and
+// recovery retries leak one tree per attempt until the volume fills.
+func (s *server) reclaimLaunchRun(identity principal.ExecutionIdentity, launchID string) {
+	if s == nil || s.isolationRuntime == nil {
+		return
+	}
+	ctx := context.Background()
+	_ = s.isolationRuntime.Kill(ctx, identity, launchID)
+	_ = s.isolationRuntime.RemoveRun(ctx, identity, launchID)
 }
 
 func (s *server) wireSessionEventTap(sess *session.Session) {

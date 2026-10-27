@@ -307,3 +307,24 @@ func TestMaintenanceRecoveryRetainsJournalWhenRunningStateCannotPersist(t *testi
 		t.Fatal(err)
 	}
 }
+
+func TestMaintenanceWatchIntervalBacksOffAfterFailedRecovery(t *testing.T) {
+	if got := nextMaintenanceWatchInterval(maintenanceWatchInterval, false); got != 10*time.Second {
+		t.Fatalf("interval after one failed attempt = %s, want 10s", got)
+	}
+	if got := nextMaintenanceWatchInterval(10*time.Second, false); got != 20*time.Second {
+		t.Fatalf("interval after two failed attempts = %s, want 20s", got)
+	}
+	if got := nextMaintenanceWatchInterval(4*time.Minute, false); got != maintenanceWatchMaxInterval {
+		t.Fatalf("interval above the cap = %s, want %s", got, maintenanceWatchMaxInterval)
+	}
+	if got := nextMaintenanceWatchInterval(maintenanceWatchMaxInterval, false); got != maintenanceWatchMaxInterval {
+		t.Fatalf("interval at the cap = %s, want %s", got, maintenanceWatchMaxInterval)
+	}
+	if got := nextMaintenanceWatchInterval(maintenanceWatchMaxInterval, true); got != maintenanceWatchInterval {
+		t.Fatalf("interval after progress = %s, want %s", got, maintenanceWatchInterval)
+	}
+	if got := nextMaintenanceWatchInterval(0, false); got != maintenanceWatchInterval {
+		t.Fatalf("interval from zero = %s, want %s", got, maintenanceWatchInterval)
+	}
+}
