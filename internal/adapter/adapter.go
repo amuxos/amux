@@ -143,6 +143,22 @@ type IsolatedHomeCredentialInspector interface {
 	CredentialExpiry(relPath string, data []byte) (time.Time, bool)
 }
 
+// IsolatedHomePrincipalCredentials is implemented by adapters whose isolated
+// HOME credential can come from a login the principal itself performed in its
+// own HOME (for example a per-user CLI sign-in), so the agent calls its models
+// under the user's own identity instead of the service account's. The runtime
+// reads PrincipalHomeSources from the principal HOME as the principal and asks
+// DerivePrincipalHomeFile to synthesize the HOME file; every missing or
+// unusable case keeps the service projection unchanged.
+type IsolatedHomePrincipalCredentials interface {
+	// PrincipalHomeSources returns HOME-relative files read from the
+	// principal's own HOME. Missing files are simply absent from the map.
+	PrincipalHomeSources() []string
+	// DerivePrincipalHomeFile converts source contents into the HOME-relative
+	// file to stage for this principal. ok=false keeps the service projection.
+	DerivePrincipalHomeFile(sources map[string][]byte, now time.Time) (relPath string, data []byte, ok bool)
+}
+
 // AutoModelSelectionConfig is the runtime-owned launch policy supplied to an
 // AutoModelSelector. Adapter-specific config parsing stays in cmd wiring.
 type AutoModelSelectionConfig struct {

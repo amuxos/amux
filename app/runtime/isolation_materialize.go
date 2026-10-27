@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -155,6 +156,10 @@ func rewriteLaunchPaths(values []string, mappings []pathMapping) []string {
 type isolatedHomeProjection struct {
 	SourceHome string
 	Files      []string
+	// Override carries derived HOME-relative files (for example a credential
+	// synthesized from the principal's own login) that replace the service
+	// account's copy for the same path. Paths absent here keep the service copy.
+	Override map[string][]byte
 	// Expiry reports when a credential lapses. The second result is false when
 	// the format carries no expiry or cannot be parsed, which is never treated
 	// as expired.
@@ -168,27 +173,38 @@ type isolatedHomeProjection struct {
 // every newly launched session for several days.
 const credentialExpiryWarnWindow = 24 * time.Hour
 
-// stageIsolatedHomeFiles copies HOME-relative provider credentials from the
-// service user's home into a staging tree the materialization bundle can carry.
-// The bundle only transports logical prefixes, so the files have to be laid out
-// under a real directory first. Returns "" when the agent declares no such
-// files or none of them exist; the caller owns the returned directory.
+// stageIsolatedHomeFiles lays out the HOME-relative provider credentials the
+// launch bundle carries: the service user's copies plus any file derived from
+// the principal's own login (projection.Override), which takes precedence for
+// the same path. The bundle only transports logical prefixes, so the files
+// have to be laid out under a real directory first. Returns "" when there is
+// nothing to carry; the caller owns the returned directory.
 //
-// An expired credential is reported, not refused: the projection is a copy of
-// whatever the service account currently holds, and blocking the launch on a
-// parsed timestamp would turn a warning into an outage.
+// An expired service credential is reported, not refused: the projection is a
+// copy of whatever the service account currently holds, and blocking the
+// launch on a parsed timestamp would turn a warning into an outage.
 func stageIsolatedHomeFiles(projection isolatedHomeProjection) (string, error) {
 	sourceHome := strings.TrimSpace(projection.SourceHome)
-	if sourceHome == "" || len(projection.Files) == 0 {
-		return "", nil
-	}
-	var staged string
-	for _, rel := range projection.Files {
-		rel = filepath.Clean(strings.TrimSpace(rel))
-		if rel == "." || rel == ".." || filepath.IsAbs(rel) || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return "", fmt.Errorf("isolated home file %q escapes HOME", rel)
+	files := make(map[string][]byte, len(projection.Files)+len(projection.Override))
+	for rel, data := range projection.Override {
+		cleaned, err := cleanIsolatedHomeRel(rel)
+		if err != nil {
+			return "", err
 		}
-		source := filepath.Join(sourceHome, rel)
+		files[cleaned] = data
+	}
+	for _, rel := range projection.Files {
+		cleaned, err := cleanIsolatedHomeRel(rel)
+		if err != nil {
+			return "", err
+		}
+		if _, overridden := files[cleaned]; overridden {
+			continue
+		}
+		if sourceHome == "" {
+			continue
+		}
+		source := filepath.Join(sourceHome, cleaned)
 		info, err := os.Lstat(source)
 		if os.IsNotExist(err) {
 			continue
@@ -197,18 +213,23 @@ func stageIsolatedHomeFiles(projection isolatedHomeProjection) (string, error) {
 			return "", err
 		}
 		if !info.Mode().IsRegular() {
-			return "", fmt.Errorf("isolated home file %s is not a regular file", rel)
+			return "", fmt.Errorf("isolated home file %s is not a regular file", cleaned)
 		}
 		data, err := os.ReadFile(source)
 		if err != nil {
 			return "", err
 		}
-		reportCredentialExpiry(projection, rel, data)
-		if staged == "" {
-			if staged, err = os.MkdirTemp("", "amux-isolated-home-"); err != nil {
-				return "", err
-			}
-		}
+		reportCredentialExpiry(projection, cleaned, data)
+		files[cleaned] = data
+	}
+	if len(files) == 0 {
+		return "", nil
+	}
+	staged, err := os.MkdirTemp("", "amux-isolated-home-")
+	if err != nil {
+		return "", err
+	}
+	for rel, data := range files {
 		target := filepath.Join(staged, rel)
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 			_ = os.RemoveAll(staged)
@@ -220,6 +241,14 @@ func stageIsolatedHomeFiles(projection isolatedHomeProjection) (string, error) {
 		}
 	}
 	return staged, nil
+}
+
+func cleanIsolatedHomeRel(rel string) (string, error) {
+	cleaned := filepath.Clean(strings.TrimSpace(rel))
+	if cleaned == "." || cleaned == ".." || filepath.IsAbs(cleaned) || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("isolated home file %q escapes HOME", rel)
+	}
+	return cleaned, nil
 }
 
 func reportCredentialExpiry(projection isolatedHomeProjection, rel string, data []byte) {
@@ -297,8 +326,9 @@ func serviceHomeDir() string {
 }
 
 // isolatedHomeProjectionFor assembles one launch's credential projection,
-// including the adapter's own expiry reader when it has one.
-func isolatedHomeProjectionFor(agentType string, warn func(string)) isolatedHomeProjection {
+// including the adapter's own expiry reader when it has one, plus a
+// per-principal override derived from a login the principal itself performed.
+func isolatedHomeProjectionFor(ctx context.Context, rt *isolation.Runtime, identity principal.ExecutionIdentity, agentType string, warn func(string)) isolatedHomeProjection {
 	projection := isolatedHomeProjection{
 		SourceHome: serviceHomeDir(),
 		Files:      isolatedHomeFilesFor(agentType),
@@ -309,8 +339,45 @@ func isolatedHomeProjectionFor(agentType string, warn func(string)) isolatedHome
 		if inspector, ok := a.(adapter.IsolatedHomeCredentialInspector); ok {
 			projection.Expiry = inspector.CredentialExpiry
 		}
+		projection.Override = principalHomeCredentialOverride(ctx, rt, identity, a, projection.Now)
 	}
 	return projection
+}
+
+// principalHomeCredentialOverride derives an isolated HOME file from a login
+// the principal itself performed in its own HOME (for example a per-user CLI
+// sign-in). The adapter declares the HOME-relative source files; the runtime
+// reads them as the principal and the adapter synthesizes the replacement.
+// Every failure - the principal has not signed in, the source is unusable or
+// expired, the HOME is unreadable, or the helper predates the read operation -
+// returns nil, and the launch keeps projecting the service account's copy.
+func principalHomeCredentialOverride(ctx context.Context, rt *isolation.Runtime, identity principal.ExecutionIdentity, a adapter.Adapter, now time.Time) map[string][]byte {
+	if rt == nil || identity.IsolationBackend != principal.BackendLinuxDAC || !identity.Identified() {
+		return nil
+	}
+	provider, ok := a.(adapter.IsolatedHomePrincipalCredentials)
+	if !ok {
+		return nil
+	}
+	sources := provider.PrincipalHomeSources()
+	if len(sources) == 0 {
+		return nil
+	}
+	readCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	contents, err := rt.ReadPrincipalHomeFiles(readCtx, identity, sources)
+	if err != nil || len(contents) == 0 {
+		return nil
+	}
+	rel, data, ok := provider.DerivePrincipalHomeFile(contents, now)
+	if !ok || len(data) == 0 {
+		return nil
+	}
+	cleaned, err := cleanIsolatedHomeRel(rel)
+	if err != nil {
+		return nil
+	}
+	return map[string][]byte{cleaned: data}
 }
 
 // principalWorkspaceInUse reports whether another session still addresses the

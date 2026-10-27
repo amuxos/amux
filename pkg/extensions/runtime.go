@@ -25,6 +25,7 @@ type WorkspaceTruster = adapter.WorkspaceTruster
 type IsolatedHomeProvisioner = adapter.IsolatedHomeProvisioner
 type IsolatedHomeReclaimer = adapter.IsolatedHomeReclaimer
 type IsolatedHomeCredentialInspector = adapter.IsolatedHomeCredentialInspector
+type IsolatedHomePrincipalCredentials = adapter.IsolatedHomePrincipalCredentials
 type AutoModelSelector = adapter.AutoModelSelector
 type ACPExecutionConfigurator = adapter.ACPExecutionConfigurator
 type StructuredLaunchOptions = mux.StructuredLaunchOptions

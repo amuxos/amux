@@ -280,6 +280,12 @@ its user namespace. This does not enable a permission mode or change hardening;
 private-home and ordinary launches do not acquire this flag from amux.
 Linux DAC materialization creates `.codex` as the target user even without native
 credential files, preserves existing contents and rejects symlink destinations.
+An adapter may also declare per-principal credential sources: HOME-relative
+files read from the principal's own HOME as that principal and synthesized by
+the adapter into an isolated HOME file. When the principal has signed in inside
+its own HOME and the login is usable, the derived file replaces the service
+account's copy for that path; a missing, unusable, or expired principal login
+keeps the service projection unchanged.
 Claude's SDK inherits the sidecar's effective launch environment; the provider
 must not reapply the Runtime's original environment after backend isolation.
 Built-in Linux DAC launches do not modify the service user's workspace trust;

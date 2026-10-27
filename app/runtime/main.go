@@ -121,6 +121,13 @@ func Main(buildVersion string) {
 		},
 	})
 
+	root.AddCommand(&cobra.Command{
+		Use: "_read-home-files <home> <relative-file>...", Hidden: true, Args: cobra.MinimumNArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return isolation.ReadHomeFilesWorker(args[0], args[1:], os.Stdout)
+		},
+	})
+
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

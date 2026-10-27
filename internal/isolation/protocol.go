@@ -25,6 +25,7 @@ const (
 	OpEnsurePrincipal HelperOperation = "ensure_principal"
 	OpPrepareRun      HelperOperation = "prepare_run"
 	OpSessionFile     HelperOperation = "session_file"
+	OpReadHomeFiles   HelperOperation = "read_home_files"
 	OpMaterializeRun  HelperOperation = "materialize_run"
 	OpStart           HelperOperation = "start"
 	OpDescribe        HelperOperation = "describe"
@@ -85,6 +86,7 @@ type HelperRequest struct {
 	Spec            *LaunchSpec          `json:"spec,omitempty"`
 	Signal          string               `json:"signal,omitempty"`
 	HomeCaches      []HomeCacheSpec      `json:"home_caches,omitempty"`
+	HomeFiles       []string             `json:"home_files,omitempty"`
 	Force           bool                 `json:"force,omitempty"`
 }
 

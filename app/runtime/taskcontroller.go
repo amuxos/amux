@@ -168,7 +168,7 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 				return c.srv.isolationRuntime.MaterializeExecution(ctx, executionIdentity, spec.LaunchID, principalPaths.Workspace, sources)
 			},
 			sourceCwd, principalPaths,
-			isolatedHomeProjectionFor(spec.AgentType, func(msg string) {
+			isolatedHomeProjectionFor(ctx, c.srv.isolationRuntime, executionIdentity, spec.AgentType, func(msg string) {
 				fmt.Fprintf(os.Stderr, "runtime: %s\n", msg)
 			}), spec.Env, spec.RecordEnv, spec.ExtraArgs,
 		)

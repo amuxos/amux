@@ -34,6 +34,14 @@ func Main(buildVersion string) {
 		}
 		return
 	}
+
+	if len(os.Args) >= 4 && os.Args[1] == "_read-home-files" {
+		if err := isolation.ReadHomeFilesWorker(os.Args[2], os.Args[3:], os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(125)
+		}
+		return
+	}
 	if len(os.Args) == 2 && os.Args[1] == "_probe_mount" {
 		if err := isolation.ApplyPrincipalMountView(
 			os.Getenv(isolation.MountViewRootEnv),

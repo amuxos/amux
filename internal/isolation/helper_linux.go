@@ -385,6 +385,12 @@ func (s *helperServer) handleWithFiles(req HelperRequest, requestFiles []*os.Fil
 			return helperError("session_file_failed", err.Error()), nil
 		}
 		return HelperResponse{}, []*os.File{file}
+	case OpReadHomeFiles:
+		file, err := s.readHomeFiles(req)
+		if err != nil {
+			return helperError("read_home_files_failed", err.Error()), nil
+		}
+		return HelperResponse{}, []*os.File{file}
 	case OpMaterializeRun:
 		if len(requestFiles) != 1 {
 			return helperError("materialize_failed", "materialize_run requires exactly one bundle fd"), nil
@@ -541,6 +547,7 @@ func (s *helperServer) handleWithFiles(req HelperRequest, requestFiles []*os.Fil
 	default:
 		return helperError("unsupported_operation", "unsupported helper operation"), nil
 	}
+
 }
 
 func helperError(code, message string) HelperResponse {

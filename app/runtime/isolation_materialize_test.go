@@ -2,10 +2,14 @@ package runtime
 
 import (
 	"bytes"
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/isolation"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/session"
@@ -241,5 +245,98 @@ func TestPrincipalWorkspaceInUseIgnoresOtherPrincipals(t *testing.T) {
 
 	if principalWorkspaceInUse(self, []session.Snapshot{self, other}) {
 		t.Fatal("an unrelated principal's session blocked reclamation")
+	}
+}
+
+// The credential derived from the principal's own login replaces the service
+// account's copy for the same HOME path; other projected files keep their
+// service copies.
+func TestStageIsolatedHomeFilesPrefersDerivedOverride(t *testing.T) {
+	sourceHome := t.TempDir()
+	for _, rel := range []string{".trae/cli/auth.json", ".codex/auth.json"} {
+		if err := os.MkdirAll(filepath.Join(sourceHome, filepath.FromSlash(filepath.Dir(rel))), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(sourceHome, filepath.FromSlash(rel)), []byte("service-"+rel), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	staged, err := stageIsolatedHomeFiles(isolatedHomeProjection{
+		SourceHome: sourceHome,
+		Files:      []string{".trae/cli/auth.json", ".codex/auth.json"},
+		Override:   map[string][]byte{".trae/cli/auth.json": []byte("derived-credential")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(staged)
+	data, err := os.ReadFile(filepath.Join(staged, ".trae", "cli", "auth.json"))
+	if err != nil || string(data) != "derived-credential" {
+		t.Fatalf("derived credential = %q, %v", data, err)
+	}
+	data, err = os.ReadFile(filepath.Join(staged, ".codex", "auth.json"))
+	if err != nil || string(data) != "service-.codex/auth.json" {
+		t.Fatalf("codex credential = %q, %v", data, err)
+	}
+}
+
+// A principal-signed-in credential is staged even when the service account has
+// no copy of that file at all.
+func TestStageIsolatedHomeFilesStagesOverrideWithoutServiceCopy(t *testing.T) {
+	staged, err := stageIsolatedHomeFiles(isolatedHomeProjection{
+		SourceHome: t.TempDir(),
+		Files:      []string{".trae/cli/auth.json"},
+		Override:   map[string][]byte{".trae/cli/auth.json": []byte("derived-credential")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if staged == "" {
+		t.Fatal("expected a staging directory")
+	}
+	defer os.RemoveAll(staged)
+	data, err := os.ReadFile(filepath.Join(staged, ".trae", "cli", "auth.json"))
+	if err != nil || string(data) != "derived-credential" {
+		t.Fatalf("credential = %q, %v", data, err)
+	}
+}
+
+// Override paths come from adapter code but still reach the privileged
+// materializer; an escape must never be staged.
+func TestStageIsolatedHomeFilesRejectsEscapingOverride(t *testing.T) {
+	if _, err := stageIsolatedHomeFiles(isolatedHomeProjection{
+		SourceHome: t.TempDir(),
+		Override:   map[string][]byte{"../outside": []byte("credential")},
+	}); err == nil {
+		t.Fatal("expected an escaping override path to be rejected")
+	}
+}
+
+type stubCredentialAdapter struct{}
+
+func (stubCredentialAdapter) Cmd([]string) *exec.Cmd { return exec.Command("true") }
+
+func (stubCredentialAdapter) Capabilities() adapter.Capabilities { return adapter.Capabilities{} }
+
+func (stubCredentialAdapter) PrincipalHomeSources() []string { return []string{"sources/one"} }
+
+func (stubCredentialAdapter) DerivePrincipalHomeFile(map[string][]byte, time.Time) (string, []byte, bool) {
+	return "", nil, false
+}
+
+// Without a principal identity or a usable isolation runtime there is nothing
+// to derive: the projection keeps the service copy.
+func TestPrincipalHomeCredentialOverrideRequiresIsolation(t *testing.T) {
+	stub := stubCredentialAdapter{}
+	if got := principalHomeCredentialOverride(context.Background(), nil, principal.ExecutionIdentity{}, stub, time.Now()); got != nil {
+		t.Fatalf("override = %v, want nil without an isolation runtime", got)
+	}
+	identified := principal.ExecutionIdentity{
+		IdentityMode:         principal.IdentityModeIdentified,
+		EffectivePrincipalID: "7aac69c6-8fbf-4c1a-9f00-123456789abc",
+		IsolationBackend:     principal.BackendLinuxDAC,
+	}
+	if got := principalHomeCredentialOverride(context.Background(), &isolation.Runtime{}, identified, stub, time.Now()); got != nil {
+		t.Fatalf("override = %v, want nil when the isolation runtime cannot read", got)
 	}
 }

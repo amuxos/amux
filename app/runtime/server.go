@@ -246,7 +246,7 @@ func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, 
 				return s.isolationRuntime.MaterializeExecution(ctx, identity, launchID, principalPaths.Workspace, sources)
 			},
 			materializationCwd, profileSessionDir(s.amuxDir, sess.ID), "", principalPaths,
-			isolatedHomeProjectionFor(req.AgentType, func(msg string) {
+			isolatedHomeProjectionFor(ctx, s.isolationRuntime, identity, req.AgentType, func(msg string) {
 				launchWarnings = append(launchWarnings, msg)
 			}), runEnv, recordEnv, runExtraArgs,
 		)

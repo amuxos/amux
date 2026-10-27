@@ -152,7 +152,7 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 		runEnv, recordEnv, runExtraArgs, err = materializeLinuxDACSessionLaunch(func(sources []isolation.BundleSource) error {
 			return s.isolationRuntime.MaterializeExecution(ctx, snap.ExecutionIdentity, currentLaunchID, principalPaths.Workspace, sources)
 		}, materializationCwd, profileSessionDir(s.amuxDir, snap.ID), snap.LaunchID, principalPaths,
-			isolatedHomeProjectionFor(replacement.AgentType, s.reportLaunchWarning(sess)), runEnv, recordEnv, runExtraArgs)
+			isolatedHomeProjectionFor(ctx, s.isolationRuntime, snap.ExecutionIdentity, replacement.AgentType, s.reportLaunchWarning(sess)), runEnv, recordEnv, runExtraArgs)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "materialize reconfigured isolation launch bundle: %v", err)
 		}
@@ -340,7 +340,7 @@ func (s *server) restorePreviousExecution(ctx context.Context, sess *session.Ses
 		runEnv, recordEnv, runExtraArgs, err = materializeLinuxDACSessionLaunch(func(sources []isolation.BundleSource) error {
 			return s.isolationRuntime.MaterializeExecution(ctx, snap.ExecutionIdentity, currentLaunchID, principalPaths.Workspace, sources)
 		}, materializationCwd, profileSessionDir(s.amuxDir, snap.ID), snap.LaunchID, principalPaths,
-			isolatedHomeProjectionFor(snap.AgentType, s.reportLaunchWarning(sess)), runEnv, recordEnv, runExtraArgs)
+			isolatedHomeProjectionFor(ctx, s.isolationRuntime, snap.ExecutionIdentity, snap.AgentType, s.reportLaunchWarning(sess)), runEnv, recordEnv, runExtraArgs)
 		if err != nil {
 			return fmt.Errorf("materialize restored isolation launch: %w", err)
 		}
@@ -533,7 +533,7 @@ func (s *server) refreshProfileAndRelaunch(ctx context.Context, sess *session.Se
 		currentLaunchID := sess.Snapshot().LaunchID
 		runEnv, recordEnv, runExtraArgs, err = materializeLinuxDACSessionLaunch(func(sources []isolation.BundleSource) error {
 			return s.isolationRuntime.MaterializeExecution(ctx, snap.ExecutionIdentity, currentLaunchID, principalPaths.Workspace, sources)
-		}, refreshCwd, profileSessionDir(s.amuxDir, snap.ID), snap.LaunchID, principalPaths, isolatedHomeProjectionFor(snap.AgentType, s.reportLaunchWarning(sess)), runEnv, recordEnv, runExtraArgs)
+		}, refreshCwd, profileSessionDir(s.amuxDir, snap.ID), snap.LaunchID, principalPaths, isolatedHomeProjectionFor(ctx, s.isolationRuntime, snap.ExecutionIdentity, snap.AgentType, s.reportLaunchWarning(sess)), runEnv, recordEnv, runExtraArgs)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "refresh isolation launch bundle: %v", err)
 		}
@@ -769,7 +769,7 @@ func (s *server) relaunchSessionLockedWithEnvContextAndQueue(ctx context.Context
 		currentLaunchID := sess.Snapshot().LaunchID
 		relaunchEnv, recordEnv, runExtraArgs, err = materializeLinuxDACSessionLaunch(func(sources []isolation.BundleSource) error {
 			return s.isolationRuntime.MaterializeExecution(ctx, snap.ExecutionIdentity, currentLaunchID, principalPaths.Workspace, sources)
-		}, materializationCwd, profileSessionDir(s.amuxDir, snap.ID), snap.LaunchID, principalPaths, isolatedHomeProjectionFor(snap.AgentType, s.reportLaunchWarning(sess)), relaunchEnv, recordEnv, runExtraArgs)
+		}, materializationCwd, profileSessionDir(s.amuxDir, snap.ID), snap.LaunchID, principalPaths, isolatedHomeProjectionFor(ctx, s.isolationRuntime, snap.ExecutionIdentity, snap.AgentType, s.reportLaunchWarning(sess)), relaunchEnv, recordEnv, runExtraArgs)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "materialize %s isolation bundle: %v", action, err)
 		}
