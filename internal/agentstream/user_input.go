@@ -7,3 +7,7 @@ import "strings"
 func (p PermissionRequest) IsUserInput() bool {
 	return p.ToolCall != nil && strings.TrimSpace(p.ToolCall.Question) != ""
 }
+
+func (p PermissionRequest) IsAsyncUserInput() bool {
+	return p.IsUserInput() && p.ToolCall.Delivery == "async"
+}

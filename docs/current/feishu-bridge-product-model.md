@@ -545,10 +545,20 @@ Only the originating user can answer a question card; callback message/chat iden
 when supplied must match the saved request. A question is bound to its originating
 turn and expires after 15 minutes. Cancellation returns no selected answer to the
 native request. Submission is claimed once, and duplicate or stale cards cannot
-affect a later turn. Pending cards retire on turn completion or stream teardown.
+affect a later turn. Synchronous cards retire on turn completion or stream teardown.
 The pending store remains in memory: restarting Bridge invalidates old cards and
 does not promise durable question recovery. A scheduled prompt targeting a bound
 Session uses this same interaction path; child Tasks follow the Task question rule.
+
+Async follow-up question cards remain answerable for 15 minutes after creation,
+including after their originating turn succeeds. Answers queue without interrupting
+active work and are pinned to the originating Session, launch and native conversation.
+The native conversation is checked again at dispatch if an answer waits in the queue.
+The original question accompanies the answer. Cancellation and expiry are local;
+there is no pending provider RPC to resolve. Failed/interrupted turns and stream
+teardown retire these cards. If answer delivery cannot be confirmed, the card is
+retired with an explanation rather than allowing a duplicate submission. Bridge
+restart invalidates these in-memory cards too.
 
 ## Distribution conversation extensions
 

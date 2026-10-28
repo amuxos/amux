@@ -127,3 +127,98 @@ func TestQuestionExpiryCancelsWithoutAnswer(t *testing.T) {
 		t.Fatalf("request=%+v", req)
 	}
 }
+
+func TestAsyncQuestionCallbackQueuesOnceWithExecutionPins(t *testing.T) {
+	for _, outcome := range []string{"success", "cancel", "unknown"} {
+		t.Run(outcome, func(t *testing.T) {
+			b, hub := newBridgeForInputTest(t)
+			if outcome == "unknown" {
+				hub.routeErrs = map[string]error{"Submit": context.DeadlineExceeded}
+			}
+			chat := &LarkChat{BridgeId: b.currentBridgeId(), RootMsgID: "root", ChatID: "chat", TargetID: "target", SessionName: "work", OpenId: "asker", localExpertAuthoring: true}
+			payload := permissionPayload{Tool: permissionTool{Question: "Choose scope", Delivery: "async", AgentSessionID: "native", AllowOther: true}, Options: []permissionOption{{OptionId: "API"}}}
+			pending := &pendingPermission{PermissionId: "q", TargetID: "target", SessionName: "work", OpenId: "asker", TurnID: "turn", Question: &payload, ChatID: "chat", Chat: chat, SessionID: "session", LaunchID: "launch"}
+			key, _ := b.beginPermissionRequest(pending)
+			b.armQuestionExpiry(key)
+			// The successful originating turn ends before the user clicks.
+			b.retireQuestions("target", "work", "", "turn", "", false, true)
+			if p, _ := b.getPermission("q", "target", "work", "turn"); p == nil {
+				t.Fatal("successful turn retired async question")
+			}
+			action := &callback.CardActionTriggerEvent{Event: &callback.CardActionTriggerRequest{Operator: &callback.Operator{OpenID: "asker"}, Context: &callback.Context{OpenChatID: "chat"}, Action: &callback.CallBackAction{Value: map[string]interface{}{"permission_id": "q", "target_id": "target", "session_name": "work", "turn_id": "turn"}, FormValue: map[string]interface{}{"option_id": "API"}}}}
+			if outcome == "cancel" {
+				action.Event.Action.Value["cancel"] = "true"
+			}
+			resp, err := b.handleCardAction(context.Background(), action)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (resp.Toast.Type == "success") != (outcome != "unknown") {
+				t.Fatalf("response=%+v", resp)
+			}
+			again, _ := b.handleCardAction(context.Background(), action)
+			if again.Toast.Type == "success" {
+				t.Fatal("duplicate answer accepted")
+			}
+			hub.mu.Lock()
+			routes := append([]routeCall(nil), hub.routes...)
+			hub.mu.Unlock()
+			submits := 0
+			for _, route := range routes {
+				if route.method == "RespondPermission" || route.method == "Interrupt" {
+					t.Fatalf("unexpected RPC: %s", route.method)
+				}
+				if route.method != "Submit" {
+					continue
+				}
+				submits++
+				req := route.payload.(*pb.SubmitRequest)
+				if req.Text != "Choose scope\n\nAPI" || req.Source != "lark" || !req.Async || req.Preempt || req.Steer || req.LocalExpertAuthoring || req.ExpectedSessionId != "session" || req.ExpectedLaunchId != "launch" || req.ExpectedAgentSessionId != "native" {
+					t.Fatalf("submit=%+v", req)
+				}
+			}
+			want := 1
+			if outcome == "cancel" {
+				want = 0
+			}
+			if submits != want {
+				t.Fatalf("submits=%d want %d", submits, want)
+			}
+		})
+	}
+}
+
+func TestAsyncQuestionExpiryAndFailureAreLocal(t *testing.T) {
+	for _, reason := range []string{"expiry", "failure", "teardown"} {
+		t.Run(reason, func(t *testing.T) {
+			hub := &bridgeTestHub{}
+			b := &Bridge{hub: hub}
+			p := permissionPayload{Tool: permissionTool{Question: "Question", Delivery: "async"}}
+			key, _ := b.beginPermissionRequest(&pendingPermission{PermissionId: "q", TargetID: "t", SessionName: "s", TurnID: "turn", Question: &p})
+			if reason == "expiry" {
+				b.expireQuestion(key)
+			} else {
+				b.retireQuestions("t", "s", "", "", "", reason == "teardown")
+			}
+			if pending, _ := b.getPermission("q", "t", "s", "turn"); pending != nil {
+				t.Fatal("retired question retained")
+			}
+			if len(hub.routes) != 0 {
+				t.Fatalf("async retirement sent RPC: %+v", hub.routes)
+			}
+		})
+	}
+}
+
+func TestAsyncQuestionUnconfirmedDeliveryLanguages(t *testing.T) {
+	text := managementCopy("question.delivery_unknown")
+	card := renderPermissionResolvedCard(text)
+	for _, want := range []string{"Answer delivery could not be confirmed", "无法确认答案是否已送达", "en_us", "zh_cn"} {
+		if !strings.Contains(card, want) {
+			t.Fatalf("missing %q in %s", want, card)
+		}
+	}
+	if text.For("") != text.For("en") {
+		t.Fatal("fallback language changed")
+	}
+}

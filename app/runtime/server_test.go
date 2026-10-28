@@ -3243,3 +3243,52 @@ func TestCreateChildPersistentReusesArchivedSession(t *testing.T) {
 		t.Fatalf("stale archived session not replaced: %s %s", c3.ID(), c3.Name())
 	}
 }
+
+func TestSubmitAsyncQuestionExecutionPins(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "runtime.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mgr := session.NewManager(db)
+	sess, err := mgr.Create("questions", "codex", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	launch, err := mgr.RotateLaunchID(sess)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.RecordAgentSessionID(sess, "native"); err != nil {
+		t.Fatal(err)
+	}
+	var writes atomic.Int32
+	sess.SetProc(&serverTestProc{onWriteData: func([]byte) { writes.Add(1) }})
+	srv := &server{mgr: mgr}
+	for _, pin := range []string{"session", "launch", "native", "valid"} {
+		t.Run(pin, func(t *testing.T) {
+			req := &pb.SubmitRequest{Name: sess.Name, Text: "answer", Source: "lark", Async: true, ExpectedSessionId: sess.ID, ExpectedLaunchId: launch, ExpectedAgentSessionId: "native"}
+			switch pin {
+			case "session":
+				req.ExpectedSessionId = "old"
+			case "launch":
+				req.ExpectedLaunchId = "old"
+			case "native":
+				req.ExpectedAgentSessionId = "old"
+			}
+			_, err := srv.Submit(context.Background(), req)
+			if pin == "valid" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if status.Code(err) != codes.FailedPrecondition {
+				t.Fatalf("error=%v", err)
+			}
+			if writes.Load() != 0 {
+				t.Fatal("stale question reached provider")
+			}
+		})
+	}
+}

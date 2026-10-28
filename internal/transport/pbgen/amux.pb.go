@@ -4950,8 +4950,10 @@ type SubmitRequest struct {
 	// The caller owns the session's system instructions: an empty value clears
 	// them for future launches.
 	ManageSystemInstructions bool `protobuf:"varint,15,opt,name=manage_system_instructions,json=manageSystemInstructions,proto3" json:"manage_system_instructions,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// Optional native-conversation pin for an asynchronous question answer.
+	ExpectedAgentSessionId string `protobuf:"bytes,16,opt,name=expected_agent_session_id,json=expectedAgentSessionId,proto3" json:"expected_agent_session_id,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *SubmitRequest) Reset() {
@@ -5087,6 +5089,13 @@ func (x *SubmitRequest) GetManageSystemInstructions() bool {
 		return x.ManageSystemInstructions
 	}
 	return false
+}
+
+func (x *SubmitRequest) GetExpectedAgentSessionId() string {
+	if x != nil {
+		return x.ExpectedAgentSessionId
+	}
+	return ""
 }
 
 type SubmitResponse struct {
@@ -16134,7 +16143,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x06cancel\x18\x05 \x01(\bR\x06cancel\x12\x17\n" +
 	"\aturn_id\x18\x06 \x01(\tR\x06turnId\"+\n" +
 	"\x19RespondPermissionResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xd1\x04\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x8c\x05\n" +
 	"\rSubmitRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x12\x16\n" +
@@ -16151,7 +16160,8 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x05steer\x18\f \x01(\bR\x05steer\x123\n" +
 	"\x16steer_expected_turn_id\x18\r \x01(\tR\x13steerExpectedTurnId\x12/\n" +
 	"\x13system_instructions\x18\x0e \x01(\tR\x12systemInstructions\x12<\n" +
-	"\x1amanage_system_instructions\x18\x0f \x01(\bR\x18manageSystemInstructions\"\xba\x02\n" +
+	"\x1amanage_system_instructions\x18\x0f \x01(\bR\x18manageSystemInstructions\x129\n" +
+	"\x19expected_agent_session_id\x18\x10 \x01(\tR\x16expectedAgentSessionId\"\xba\x02\n" +
 	"\x0eSubmitResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x17\n" +
 	"\aturn_id\x18\x02 \x01(\tR\x06turnId\x12>\n" +

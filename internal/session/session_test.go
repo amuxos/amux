@@ -1642,3 +1642,49 @@ func TestTerminalFailedDoesNotBumpInteraction(t *testing.T) {
 		t.Fatalf("terminal failed bumped InteractionAt to %v, want unchanged %v", got, base)
 	}
 }
+
+func TestAsyncQuestionDoesNotBlockIdleReclaim(t *testing.T) {
+	s := &Session{}
+	for _, delivery := range []string{"async", ""} {
+		s.noteCanonicalActivity(agentstream.Event{Body: agentstream.PermissionRequested{Request: agentstream.PermissionRequest{ID: delivery + "question", ToolCall: &agentstream.PermissionToolCall{Question: "Choose", Delivery: delivery}}}}, time.Now())
+		want := 0
+		if delivery == "" {
+			want = 1
+		}
+		if got := s.PendingPermissionCount(); got != want {
+			t.Fatalf("delivery=%q pending=%d", delivery, got)
+		}
+	}
+}
+
+func TestQueuedAsyncAnswerRejectsChangedNativeConversation(t *testing.T) {
+	s := &Session{Replay: replayBufferForTest(), AgentSessionID: "native-old"}
+	release, started := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	proc := &recordingProc{autoTurnDone: true, onWriteData: func(data []byte) {
+		if string(data) == "\r" {
+			once.Do(func() { close(started); <-release })
+		}
+	}}
+	s.SetProc(proc)
+	firstDone := make(chan error, 1)
+	go func() { firstDone <- s.Submit(context.Background(), "cli", "first") }()
+	<-started
+	if _, err := s.SubmitInputAsyncPinned("lark", TextUserInput("old answer"), TurnAuthorization{}, "native-old"); err != nil {
+		t.Fatal(err)
+	}
+	s.runtimeMu.Lock()
+	s.AgentSessionID = "native-new"
+	s.runtimeMu.Unlock()
+	close(release)
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+	// A later synchronous submit also proves the rejected answer drained.
+	if err := s.Submit(context.Background(), "cli", "next"); err != nil {
+		t.Fatal(err)
+	}
+	if got := joinedWrites(proc.snapshot()); got != "first\rnext\r" {
+		t.Fatalf("stale answer reached provider: %q", got)
+	}
+}

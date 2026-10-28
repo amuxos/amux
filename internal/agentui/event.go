@@ -99,6 +99,8 @@ type PlanEntry struct {
 
 type PermissionEvent struct {
 	RequestID  string
+	SessionID  string
+	LaunchID   string
 	Provider   string
 	Tool       *PermissionTool
 	Options    []PermissionOption
@@ -106,15 +108,17 @@ type PermissionEvent struct {
 }
 
 type PermissionTool struct {
-	ID          string
-	Name        string
-	Title       string
-	RawInput    json.RawMessage
-	Question    string
-	MultiSelect bool
-	AllowOther  bool
-	Secret      bool
-	Blocking    *bool
+	ID             string
+	Name           string
+	Title          string
+	RawInput       json.RawMessage
+	Question       string
+	MultiSelect    bool
+	AllowOther     bool
+	Secret         bool
+	Blocking       *bool
+	Delivery       string
+	AgentSessionID string
 }
 
 type PermissionOption struct {

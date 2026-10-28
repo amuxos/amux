@@ -2735,6 +2735,9 @@
   "question.expired": {
     "other": "These questions expired after 15 minutes. Ask the agent again to continue."
   },
+  "question.delivery_unknown": {
+    "other": "Answer delivery could not be confirmed. This card is closed to prevent duplicate submissions. Check the conversation before replying again."
+  },
   "question.unavailable": {
     "other": "This question cannot be displayed safely in a chat card. It has been cancelled. Use another supported interface to answer."
   },

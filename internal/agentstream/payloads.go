@@ -88,6 +88,9 @@ type PermissionToolCall struct {
 	AllowOther  bool            `json:"allow_other,omitempty"`
 	Secret      bool            `json:"secret,omitempty"`
 	Blocking    *bool           `json:"blocking,omitempty"`
+	// Async delivery has no pending provider RPC; answers become queued input.
+	Delivery       string `json:"delivery,omitempty"`
+	AgentSessionID string `json:"agent_session_id,omitempty"`
 }
 
 type PermissionOption struct {

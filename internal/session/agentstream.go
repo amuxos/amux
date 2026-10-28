@@ -96,6 +96,7 @@ func (s *Session) submitCorrelatedTurn(
 	input UserInput,
 	turnID string,
 	authorization TurnAuthorization,
+	expectedAgentSessionID string,
 ) (<-chan struct{}, error) {
 	if source == "" {
 		source = sourceframe.SourceCLI
@@ -120,6 +121,10 @@ func (s *Session) submitCorrelatedTurn(
 		s.canonicalAuth = authorization
 		s.turnMu.Unlock()
 		s.observeCanonicalEvent(turn.StartedEvent())
+
+		if expectedAgentSessionID != "" && s.Snapshot().AgentSessionID != expectedAgentSessionID {
+			return errors.New("native conversation changed before queued input dispatch")
+		}
 
 		dispatchedInput := input
 		handoff := ""
@@ -301,7 +306,7 @@ func (s *Session) noteCanonicalActivity(event agentstream.Event, now time.Time) 
 	if interaction {
 		s.LastInteractionAt = now
 	}
-	if requested, ok := event.Body.(agentstream.PermissionRequested); ok && requested.Request.ID != "" {
+	if requested, ok := event.Body.(agentstream.PermissionRequested); ok && requested.Request.ID != "" && !requested.Request.IsAsyncUserInput() {
 		if s.pendingPermissions == nil {
 			s.pendingPermissions = make(map[string]struct{})
 		}

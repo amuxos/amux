@@ -96,3 +96,19 @@ func TestFromAttachEventKeepsOnlyCanonicalAndHeartbeatContracts(t *testing.T) {
 		t.Fatalf("invalid canonical event = %+v, want error", events)
 	}
 }
+
+func TestAsyncQuestionCanonicalIdentitySurvivesAttach(t *testing.T) {
+	ev := agentstream.Event{SessionID: "session", Cursor: agentstream.Cursor{Epoch: "epoch", Seq: 1}, Turn: &agentstream.TurnRef{ID: "turn", Seq: 1}, At: time.Now(), Origin: agentstream.Origin{LaunchID: "launch"}, Body: agentstream.PermissionRequested{Request: agentstream.PermissionRequest{ID: "async:item:0", ToolCall: &agentstream.PermissionToolCall{Question: "Choose", Delivery: "async", AgentSessionID: "native", AllowOther: true}}}}
+	raw, err := agentstream.MarshalEvent(ev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := FromAttachEvent(&pb.AttachEvent{CanonicalJson: raw})
+	if len(events) != 1 {
+		t.Fatalf("events=%+v", events)
+	}
+	p := events[0].Permission
+	if p == nil || p.SessionID != "session" || p.LaunchID != "launch" || p.Tool.AgentSessionID != "native" || p.Tool.Delivery != "async" || p.Tool.Question != "Choose" {
+		t.Fatalf("permission=%+v", p)
+	}
+}

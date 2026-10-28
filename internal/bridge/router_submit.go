@@ -54,7 +54,10 @@ type submitMode struct {
 	alreadyInterrupted bool
 	steer              bool
 	// steerExpectedTurnID pins a steer to the turn its sender owns.
-	steerExpectedTurnID string
+	steerExpectedTurnID    string
+	expectedSessionID      string
+	expectedLaunchID       string
+	expectedAgentSessionID string
 }
 
 // submitToSessionForMessages submits a user message the bridge believes
@@ -112,11 +115,13 @@ func (b *Bridge) submitToSessionMode(ctx context.Context, chat *LarkChat, text s
 	b.setTurnActive(chat.RootMsgID, true)
 	sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	expectedSessionID, expectedLaunchID := "", ""
+	expectedSessionID, expectedLaunchID := mode.expectedSessionID, mode.expectedLaunchID
 	if materials := materialsFromContext(ctx); materials != nil {
-		expectedSessionID, expectedLaunchID = materials.expectedSessionID, materials.expectedLaunchID
+		if expectedSessionID == "" {
+			expectedSessionID, expectedLaunchID = materials.expectedSessionID, materials.expectedLaunchID
+		}
 	}
-	routed, err := b.hub.Route(sendCtx, chat.TargetID, "Submit", &pb.SubmitRequest{ExpectedSessionId: expectedSessionID, ExpectedLaunchId: expectedLaunchID, Name: chat.SessionName, Text: text, Source: "lark", Async: true, Preempt: preempt, PreemptAlreadyInterrupted: alreadyInterrupted, Steer: mode.steer, SteerExpectedTurnId: mode.steerExpectedTurnID, Parts: parts, LocalExpertAuthoring: chat.localExpertAuthoring,
+	routed, err := b.hub.Route(sendCtx, chat.TargetID, "Submit", &pb.SubmitRequest{ExpectedSessionId: expectedSessionID, ExpectedLaunchId: expectedLaunchID, ExpectedAgentSessionId: mode.expectedAgentSessionID, Name: chat.SessionName, Text: text, Source: "lark", Async: true, Preempt: preempt, PreemptAlreadyInterrupted: alreadyInterrupted, Steer: mode.steer, SteerExpectedTurnId: mode.steerExpectedTurnID, Parts: parts, LocalExpertAuthoring: chat.localExpertAuthoring,
 		SystemInstructions: systemInstructions, ManageSystemInstructions: true})
 	if err != nil {
 		b.setTurnActive(chat.RootMsgID, false)

@@ -3,6 +3,7 @@ package bridge
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -99,7 +100,7 @@ func questionAnswers(payload permissionPayload, action *callback.CallBackAction)
 }
 
 func (b *Bridge) cancelQuestion(pending *pendingPermission) {
-	if pending == nil || pending.Question == nil {
+	if pending == nil || pending.Question == nil || pending.Question.Tool.Delivery == "async" {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
@@ -161,10 +162,13 @@ func (b *Bridge) expireQuestion(key string) {
 
 // Resolution and terminal events retire cards without inventing a business
 // answer. A callback already in progress owns its success/failure presentation.
-func (b *Bridge) retireQuestions(targetID, sessionName, rootMsgID, turnID, permissionID string, cancelNative bool) {
+func (b *Bridge) retireQuestions(targetID, sessionName, rootMsgID, turnID, permissionID string, cancelNative bool, keepAsync ...bool) {
 	b.permissionMu.Lock()
 	var keys []string
 	for key, pending := range b.permissions {
+		if len(keepAsync) > 0 && keepAsync[0] && pending.Question != nil && pending.Question.Tool.Delivery == "async" {
+			continue
+		}
 		if pending.Question != nil && !pending.Resolving && pending.TargetID == targetID && pending.SessionName == sessionName &&
 			(rootMsgID == "" || pending.RootMsgID == rootMsgID) && (turnID == "" || pending.TurnID == turnID) &&
 			(permissionID == "" || pending.PermissionId == permissionID) {
@@ -183,4 +187,19 @@ func (b *Bridge) retireQuestions(targetID, sessionName, rootMsgID, turnID, permi
 		b.resolvePermissionRequest(key)
 		b.patchQuestionAsync(pending.MessageID, managementCopy("permission.expired"))
 	}
+}
+
+func (b *Bridge) submitAsyncQuestionAnswer(ctx context.Context, pending *pendingPermission, answers []string) error {
+	if pending.Chat == nil || pending.SessionID == "" || pending.LaunchID == "" || pending.Question.Tool.AgentSessionID == "" {
+		return fmt.Errorf("async question has no bound execution")
+	}
+	chat := *pending.Chat
+	chat.OpenId = pending.OpenId
+	chat.localExpertAuthoring = false
+	text := pending.Question.Tool.Question + "\n\n" + strings.Join(answers, "\n")
+	_, err := b.submitToSessionMode(ctx, &chat, text, submitMode{
+		expectedSessionID: pending.SessionID, expectedLaunchID: pending.LaunchID,
+		expectedAgentSessionID: pending.Question.Tool.AgentSessionID,
+	}, []turnInputRef{{OpenID: pending.OpenId}})
+	return err
 }

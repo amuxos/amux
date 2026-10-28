@@ -248,12 +248,13 @@ type TurnAuthorization struct {
 
 type queuedInput struct {
 	QueueItem
-	input     UserInput
-	preempt   bool
-	auth      TurnAuthorization
-	lifecycle func() error
-	requeues  int
-	done      chan error
+	input                  UserInput
+	preempt                bool
+	auth                   TurnAuthorization
+	expectedAgentSessionID string
+	lifecycle              func() error
+	requeues               int
+	done                   chan error
 }
 
 // RecordReplayEvent appends a visible non-agent system transcript frame.
@@ -612,10 +613,16 @@ func (s *Session) SubmitInputAsync(source string, input UserInput) (QueueItem, e
 }
 
 func (s *Session) SubmitInputAsyncWithAuthorization(source string, input UserInput, authorization TurnAuthorization) (QueueItem, error) {
+	return s.SubmitInputAsyncPinned(source, input, authorization, "")
+}
+
+// SubmitInputAsyncPinned rechecks the native conversation at dispatch, so an
+// earlier queued clear cannot redirect a follow-up answer to a new context.
+func (s *Session) SubmitInputAsyncPinned(source string, input UserInput, authorization TurnAuthorization, expectedAgentSessionID string) (QueueItem, error) {
 	if !s.HasProcess() {
 		return QueueItem{}, ErrProcessUnavailable
 	}
-	return s.enqueueUserInputWithAuthorization(source, input, authorization).QueueItem, nil
+	return s.enqueueInputWithControlAndParts(source, input.DisplayText(), "", input, authorization, expectedAgentSessionID).QueueItem, nil
 }
 
 // SubmitControlAsync queues a provider-native session control without
@@ -953,14 +960,14 @@ func (s *Session) HasProcess() bool {
 }
 
 func (s *Session) enqueueUserInputWithAuthorization(source string, input UserInput, authorization TurnAuthorization) *queuedInput {
-	return s.enqueueInputWithControlAndParts(source, input.DisplayText(), "", input, authorization)
+	return s.enqueueInputWithControlAndParts(source, input.DisplayText(), "", input, authorization, "")
 }
 
 func (s *Session) enqueueInputWithControl(source, text, control string) *queuedInput {
-	return s.enqueueInputWithControlAndParts(source, text, control, UserInput{}, TurnAuthorization{})
+	return s.enqueueInputWithControlAndParts(source, text, control, UserInput{}, TurnAuthorization{}, "")
 }
 
-func (s *Session) enqueueInputWithControlAndParts(source, text, control string, input UserInput, authorization TurnAuthorization) *queuedInput {
+func (s *Session) enqueueInputWithControlAndParts(source, text, control string, input UserInput, authorization TurnAuthorization, expectedAgentSessionID string) *queuedInput {
 	s.queueMu.Lock()
 	defer s.queueMu.Unlock()
 
@@ -974,9 +981,10 @@ func (s *Session) enqueueInputWithControlAndParts(source, text, control string, 
 			Control:   control,
 			CreatedAt: time.Now(),
 		},
-		input: input,
-		auth:  authorization,
-		done:  make(chan error, 1),
+		input:                  input,
+		auth:                   authorization,
+		expectedAgentSessionID: expectedAgentSessionID,
+		done:                   make(chan error, 1),
 	}
 	if s.queueBusy {
 		s.queuePending = append(s.queuePending, item)
@@ -1004,7 +1012,7 @@ func (s *Session) runQueuedInput(item *queuedInput) {
 		if item.Source == SubtaskNoticeSource {
 			s.watchTurnTerminal(item.TurnID)
 		}
-		done, err = s.submitInputNowWithAuthorization(item.Source, input, item.TurnID, item.auth)
+		done, err = s.submitInputNowWithAuthorization(item.Source, input, item.TurnID, item.auth, item.expectedAgentSessionID)
 	}
 	item.finish(err)
 	if done != nil {
@@ -1060,15 +1068,15 @@ func (s *Session) submitControlNow(source, displayText, control, turnID string) 
 	if !ok {
 		return nil, ErrProcessUnavailable
 	}
-	return s.submitCorrelatedTurn(dispatcher, source, displayText, control, UserInput{}, turnID, TurnAuthorization{})
+	return s.submitCorrelatedTurn(dispatcher, source, displayText, control, UserInput{}, turnID, TurnAuthorization{}, "")
 }
 
-func (s *Session) submitInputNowWithAuthorization(source string, input UserInput, turnID string, authorization TurnAuthorization) (<-chan struct{}, error) {
+func (s *Session) submitInputNowWithAuthorization(source string, input UserInput, turnID string, authorization TurnAuthorization, expectedAgentSessionID string) (<-chan struct{}, error) {
 	dispatcher, ok := s.correlatedDispatcher()
 	if !ok {
 		return nil, ErrProcessUnavailable
 	}
-	return s.submitCorrelatedTurn(dispatcher, source, input.DisplayText(), "", input, turnID, authorization)
+	return s.submitCorrelatedTurn(dispatcher, source, input.DisplayText(), "", input, turnID, authorization, expectedAgentSessionID)
 }
 
 func (s *Session) cancelPendingItem(id string, err error) bool {

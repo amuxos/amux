@@ -1338,6 +1338,9 @@ func (s *server) Submit(ctx context.Context, req *pb.SubmitRequest) (_ *pb.Submi
 	if (req.ExpectedSessionId != "" && req.ExpectedSessionId != snap.ID) || (req.ExpectedLaunchId != "" && req.ExpectedLaunchId != snap.LaunchID) {
 		return nil, status.Error(codes.FailedPrecondition, "session execution changed after file materialization")
 	}
+	if req.ExpectedAgentSessionId != "" && req.ExpectedAgentSessionId != snap.AgentSessionID {
+		return nil, status.Error(codes.FailedPrecondition, "native conversation changed after question presentation")
+	}
 	if req.GetLocalExpertAuthoring() && !tunnel.IsTrustedSubmit(ctx) {
 		return nil, status.Error(codes.PermissionDenied, "local expert authoring grant requires trusted tunnel provenance")
 	}
@@ -1351,6 +1354,12 @@ func (s *server) Submit(ctx context.Context, req *pb.SubmitRequest) (_ *pb.Submi
 	}
 	if err := s.ensureSessionActive(sess); err != nil {
 		return nil, err
+	}
+	if req.ExpectedAgentSessionId != "" {
+		active := sess.Snapshot()
+		if (req.ExpectedSessionId != "" && active.ID != req.ExpectedSessionId) || (req.ExpectedLaunchId != "" && active.LaunchID != req.ExpectedLaunchId) || active.AgentSessionID != req.ExpectedAgentSessionId {
+			return nil, status.Error(codes.FailedPrecondition, "question execution changed while activating session")
+		}
 	}
 	input, err := sessioninput.FromProto(req.Parts, req.Text)
 	if err != nil {
@@ -1418,7 +1427,7 @@ func (s *server) Submit(ctx context.Context, req *pb.SubmitRequest) (_ *pb.Submi
 	case req.Preempt:
 		item, err = sess.SubmitPreemptInputWaitWithAuthorization(ctx, req.Source, input, true, authorization)
 	case req.Async:
-		item, err = sess.SubmitInputAsyncWithAuthorization(req.Source, input, authorization)
+		item, err = sess.SubmitInputAsyncPinned(req.Source, input, authorization, req.ExpectedAgentSessionId)
 	default:
 		item, err = sess.SubmitInputWithAuthorization(ctx, req.Source, input, authorization)
 	}
