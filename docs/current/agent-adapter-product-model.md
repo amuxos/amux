@@ -426,3 +426,10 @@ cancels its whole native question batch, without choosing any business answer.
 Late, duplicate or invalid replies are rejected. Interruption, shutdown and native
 turn completion retire pending questions. Nonblocking native requests retain their
 blocking flag; answers are accepted only while their originating turn is active.
+
+Codex-compatible `agentMessage` items with `delivery: "async"` and `questions`
+are follow-up questions, including messages produced by `request_user_input_async`.
+Each question becomes a canonical user-input request with its original text and
+choices, custom answers enabled, and async delivery metadata. These requests do
+not block the Session or create a pending provider RPC. Feishu collects the answer
+as ordinary queued user input in the same execution and native conversation.

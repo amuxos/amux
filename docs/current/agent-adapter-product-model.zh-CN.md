@@ -314,3 +314,8 @@ Claude SDK 的 `AskUserQuestion` 按问题拆为关联请求，答案齐备后�
 和 `updatedInput.answers` 返回；多选保留标签数组。取消一个问题会取消整批原生
 提问，不代替用户选择业务答案。拒绝迟到、重复和非法回答；中断、关闭或原生轮次
 结束会释放待答请求。原生非阻塞请求保留 blocking 标记，仅在来源轮次仍活跃时接收答案。
+
+Codex 兼容协议中带 `delivery: "async"` 和 `questions` 的 `agentMessage` 是异步追问，
+包括 `request_user_input_async` 产生的消息。每个问题转成规范用户提问请求，保留正文
+和选项，允许自定义答案，并携带异步投递信息。这类请求不阻塞 Session，也没有待返回
+的 Provider RPC。飞书将答案作为普通用户输入排入同一执行和原生会话。

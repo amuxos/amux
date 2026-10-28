@@ -35,6 +35,9 @@ type pendingPermission struct {
 	TurnID       string
 	ChatID       string
 	Question     *permissionPayload
+	Chat         *LarkChat
+	SessionID    string
+	LaunchID     string
 	Expiry       *time.Timer
 }
 
@@ -54,13 +57,15 @@ type permissionOption struct {
 }
 
 type permissionTool struct {
-	Title       string          `json:"title"`
-	RawInput    json.RawMessage `json:"rawInput,omitempty"`
-	Question    string          `json:"question,omitempty"`
-	MultiSelect bool            `json:"multiSelect,omitempty"`
-	AllowOther  bool            `json:"allowOther,omitempty"`
-	Secret      bool            `json:"secret,omitempty"`
-	Blocking    *bool           `json:"blocking,omitempty"`
+	Title          string          `json:"title"`
+	RawInput       json.RawMessage `json:"rawInput,omitempty"`
+	Question       string          `json:"question,omitempty"`
+	MultiSelect    bool            `json:"multiSelect,omitempty"`
+	AllowOther     bool            `json:"allowOther,omitempty"`
+	Secret         bool            `json:"secret,omitempty"`
+	Blocking       *bool           `json:"blocking,omitempty"`
+	Delivery       string          `json:"delivery,omitempty"`
+	AgentSessionID string          `json:"agentSessionId,omitempty"`
 }
 
 func permissionMapKey(targetID, sessionName, permissionID string) string {
@@ -245,12 +250,16 @@ func (b *Bridge) handlePermissionEvent(ctx context.Context, chat *LarkChat, perm
 		SessionName:  chat.SessionName,
 		OpenId:       chat.OpenId,
 		TurnID:       turnID, Question: question, ChatID: chat.ChatID,
+		SessionID: permission.SessionID, LaunchID: permission.LaunchID,
 	}
+	bound := *chat
+	pending.Chat = &bound
 	key, shouldSend := b.beginPermissionRequest(pending)
 	if !shouldSend {
 		return nil
 	}
-	if question != nil && (payload.Tool.Secret || chat.OpenId == "" || !questionCardFits(payload)) {
+	if question != nil && (payload.Tool.Secret || chat.OpenId == "" || !questionCardFits(payload) ||
+		(payload.Tool.Delivery == "async" && (pending.SessionID == "" || pending.LaunchID == "" || payload.Tool.AgentSessionID == ""))) {
 		b.cancelQuestion(pending)
 		b.resolvePermissionRequest(key)
 		return b.sendQuestionUnavailable(ctx, chat, payload.Tool.Secret)
@@ -282,6 +291,7 @@ func permissionPayloadFromEvent(permission *agentui.PermissionEvent) permissionP
 			Question:    permission.Tool.Question,
 			MultiSelect: permission.Tool.MultiSelect,
 			AllowOther:  permission.Tool.AllowOther, Secret: permission.Tool.Secret, Blocking: permission.Tool.Blocking,
+			Delivery: permission.Tool.Delivery, AgentSessionID: permission.Tool.AgentSessionID,
 		}
 	}
 	for _, option := range permission.Options {
@@ -368,8 +378,24 @@ func (b *Bridge) handleCardAction(ctx context.Context, event *callback.CardActio
 	}
 	sendCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
 	defer cancel()
-	_, err := b.hub.Route(sendCtx, pending.TargetID, "RespondPermission", request)
+	var err error
+	if pending.Question != nil && pending.Question.Tool.Delivery == "async" {
+		if !isCancel {
+			err = b.submitAsyncQuestionAnswer(sendCtx, pending, optionIDs)
+		}
+	} else {
+		_, err = b.hub.Route(sendCtx, pending.TargetID, "RespondPermission", request)
+	}
 	if err != nil {
+		if pending.Question != nil && pending.Question.Tool.Delivery == "async" {
+			// A broken receipt cannot prove the queued input was rejected. Never
+			// permit a second submit from this card after an ambiguous outcome.
+			b.resolvePermissionRequest(permissionKey)
+			text := managementCopy("question.delivery_unknown")
+			b.patchQuestionAsync(pending.MessageID, text)
+			log.Warn().Err(err).Str("permission_id", permissionID).Msg("bridge: async question answer delivery unconfirmed")
+			return cardToastWithCard("warning", text, renderPermissionResolvedCard(text)), nil
+		}
 		b.releasePermissionClaim(permissionKey)
 		log.Warn().Err(err).Str("permission_id", permissionID).Msg("bridge: respond permission failed")
 		return cardToast("error", managementCopy("permission.failed")), nil

@@ -736,6 +736,8 @@ message SubmitRequest {
   // The caller owns the session's system instructions: an empty value clears
   // them for future launches.
   bool manage_system_instructions = 15;
+  // Optional native-conversation pin for an asynchronous question answer.
+  string expected_agent_session_id = 16;
 }
 message SubmitResponse {
   bool ok = 1;

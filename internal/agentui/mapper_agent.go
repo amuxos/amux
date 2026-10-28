@@ -63,6 +63,8 @@ func FromAgentEvent(event agentstream.Event) []Event {
 		out.Kind = KindPermissionRequested
 		out.Source = SourceSystem
 		out.Permission = permissionFromAgent(body.Request)
+		out.Permission.SessionID = event.SessionID
+		out.Permission.LaunchID = event.Origin.LaunchID
 	case agentstream.PermissionResolved:
 		out.Kind = KindPermissionResolved
 		out.Source = SourceSystem
@@ -142,15 +144,17 @@ func permissionFromAgent(request agentstream.PermissionRequest) *PermissionEvent
 	out := &PermissionEvent{RequestID: request.ID, Provider: request.Provider, RawPayload: cloneBytes(request.Details)}
 	if request.ToolCall != nil {
 		out.Tool = &PermissionTool{
-			ID:          request.ToolCall.ID,
-			Name:        request.ToolCall.Name,
-			Title:       request.ToolCall.Title,
-			RawInput:    cloneBytes(request.ToolCall.RawInput),
-			Question:    request.ToolCall.Question,
-			MultiSelect: request.ToolCall.MultiSelect,
-			AllowOther:  request.ToolCall.AllowOther,
-			Secret:      request.ToolCall.Secret,
-			Blocking:    request.ToolCall.Blocking,
+			ID:             request.ToolCall.ID,
+			Name:           request.ToolCall.Name,
+			Title:          request.ToolCall.Title,
+			RawInput:       cloneBytes(request.ToolCall.RawInput),
+			Question:       request.ToolCall.Question,
+			MultiSelect:    request.ToolCall.MultiSelect,
+			AllowOther:     request.ToolCall.AllowOther,
+			Secret:         request.ToolCall.Secret,
+			Blocking:       request.ToolCall.Blocking,
+			Delivery:       request.ToolCall.Delivery,
+			AgentSessionID: request.ToolCall.AgentSessionID,
 		}
 	}
 	for _, option := range request.Options {

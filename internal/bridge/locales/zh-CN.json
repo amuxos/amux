@@ -2717,6 +2717,9 @@
   "question.expired": {
     "other": "问题已超过 15 分钟有效期，请重新向 Agent 发起请求。"
   },
+  "question.delivery_unknown": {
+    "other": "无法确认答案是否已送达。为避免重复提交，此卡片已关闭，请先查看会话进展，再决定是否重新回复。"
+  },
   "question.unavailable": {
     "other": "此问题无法在聊天卡片中完整展示，已取消。请使用其他支持的界面回答。"
   },

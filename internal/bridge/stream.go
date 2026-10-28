@@ -1100,7 +1100,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							failureNoticeDelivered = sendErr == nil
 						}
 					case agentui.ActionTurnFinished:
-						b.retireQuestions(targetID, sessionName, rootMsgID, action.Turn.ID, "", false)
+						b.retireQuestions(targetID, sessionName, rootMsgID, action.Turn.ID, "", false, action.Turn.State == "turn_done")
 						b.observeTurnFinished(rootMsgID, action.Turn.ID)
 						allowed := visibilityGate.Allow(action)
 						visibilityGate.Observe(action)

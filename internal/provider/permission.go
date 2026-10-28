@@ -20,10 +20,12 @@ type PermissionToolCall struct {
 	Question string `json:"question,omitempty"`
 	// MultiSelect indicates the user may select multiple options. Only set for
 	// user-input permissions.
-	MultiSelect bool  `json:"multiSelect,omitempty"`
-	AllowOther  bool  `json:"allowOther,omitempty"`
-	Secret      bool  `json:"secret,omitempty"`
-	Blocking    *bool `json:"blocking,omitempty"`
+	MultiSelect    bool   `json:"multiSelect,omitempty"`
+	AllowOther     bool   `json:"allowOther,omitempty"`
+	Secret         bool   `json:"secret,omitempty"`
+	Blocking       *bool  `json:"blocking,omitempty"`
+	Delivery       string `json:"delivery,omitempty"`
+	AgentSessionID string `json:"agentSessionId,omitempty"`
 }
 
 type PermissionOption struct {

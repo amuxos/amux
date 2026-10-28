@@ -37,6 +37,8 @@ type turnStartAttempt struct {
 
 type Proc struct {
 	defaultModeUserInput     bool
+	asyncInputTurnID         string
+	asyncInputItems          map[string]bool // guarded by threadMu; bounded to one native turn
 	notificationMu           sync.Mutex
 	notificationQueue        []func()
 	notificationsInitialized bool
@@ -176,7 +178,7 @@ type Proc struct {
 	// armed live turn that is still silently thinking, dropping its output.
 	curTurnProduced bool
 	// curTurnHadTool distinguishes a genuinely empty provider completion from
-	// a tool-only turn, which must not invite an unsafe manual retry.
+	// a tool-only or async-question turn, which must not invite a manual retry.
 	curTurnHadTool bool
 	// These fields back the repeated-identical-tool-call watchdog: the most
 	// recent call-defining key, its consecutive count, and the item IDs already
@@ -1797,7 +1799,14 @@ type threadItem struct {
 	// webSearch fields
 	Query string `json:"query,omitempty"`
 	// agentMessage text (unused for tool mapping but parsed for completeness).
-	Text string `json:"text,omitempty"`
+	Text      string               `json:"text,omitempty"`
+	Delivery  string               `json:"delivery,omitempty"`
+	Questions []asyncInputQuestion `json:"questions,omitempty"`
+}
+
+type asyncInputQuestion struct {
+	Title   string   `json:"title"`
+	Options []string `json:"options"`
 }
 
 // fileUpdateChange is one file change in a fileChange item / patchUpdated

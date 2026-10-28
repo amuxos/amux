@@ -314,6 +314,10 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		if !p.acceptsActiveTurn(n.ThreadID, n.TurnID) {
 			return
 		}
+		if n.Item.Type == "agentMessage" && n.Item.Delivery == "async" && len(n.Item.Questions) > 0 {
+			p.emitAsyncUserInput(n)
+			return
+		}
 		p.emitItemToolEvent(n.Item, "", false)
 		if isToolItemType(n.Item.Type) {
 			p.noteToolCompleted(n.Item.ID)
@@ -696,6 +700,7 @@ func (p *Proc) emitPermission(permission provider.Permission) {
 			ID: permission.ToolCall.ID, Name: permission.ToolCall.Name, Title: permission.ToolCall.Title,
 			RawInput: permission.ToolCall.RawInput, Question: permission.ToolCall.Question, MultiSelect: permission.ToolCall.MultiSelect,
 			AllowOther: permission.ToolCall.AllowOther, Secret: permission.ToolCall.Secret, Blocking: permission.ToolCall.Blocking,
+			Delivery: permission.ToolCall.Delivery, AgentSessionID: permission.ToolCall.AgentSessionID,
 		}
 	}
 	for _, option := range permission.Options {
