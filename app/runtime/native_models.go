@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/isolation"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/provider/codex"
@@ -45,9 +46,22 @@ func (s *server) ListNativeModels(parent context.Context, req *pb.ListNativeMode
 	if err != nil {
 		return nil, err
 	}
+	env := append(os.Environ(), s.launchEnvForIdentity(identity, nil)...)
+	executable := req.AgentExecutable
+	if executable == "" {
+		executable = config.GetCodexExecutable()
+	}
+	resolutionEnv := env
+	if identity.IsolationBackend == principal.BackendLinuxDAC {
+		resolutionEnv = append(append([]string{}, env...), "HOME="+paths.Home)
+	}
+	executable, err = resolveCodexExecutable(executable, resolutionEnv)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 	models, signedIn, err := codex.DiscoverModels(ctx, codex.StartOptions{
-		Backend: backend, LaunchContext: launchContext, Cwd: cwd,
-		Env: append(os.Environ(), s.launchEnvForIdentity(identity, nil)...),
+		Backend: backend, LaunchContext: launchContext, Cwd: cwd, Executable: executable,
+		Env: env,
 	})
 	if err != nil {
 		return nil, err

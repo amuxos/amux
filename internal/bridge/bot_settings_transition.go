@@ -223,6 +223,9 @@ func (b *Bridge) reconfigureAndCommitSingletonBotSettings(ctx context.Context, r
 		ExtraArgs:    append([]string(nil), launch.ExtraArgs...),
 		Cwd:          cwd,
 	}
+	if replacement.AgentType == "codex" {
+		replacement.AgentExecutable = config.GetCodexExecutable()
+	}
 	restartCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	resp, err := b.hub.Route(restartCtx, target.Id, "Restart", &pb.RestartRequest{

@@ -3346,5 +3346,21 @@
   "Apply cleanup and notify configured administrators": {
     "en": "Apply cleanup and notify configured administrators",
     "zh-CN": "执行清理并通知已配置的管理员"
+  },
+  "Codex 启动程序；留空使用 codex。在执行节点解析，保存并重启后用于新会话及模型发现。": {
+    "en": "Codex executable; empty uses codex. Resolved on the execution Runtime; save and restart to apply to new Sessions and model discovery.",
+    "zh-CN": "Codex 启动程序；留空使用 codex。在执行节点解析，保存并重启后用于新会话及模型发现。"
+  },
+  "程序名称、绝对路径或 ~/ 路径；不是 shell 命令": {
+    "en": "Program name, absolute path or ~/ path; not a shell command",
+    "zh-CN": "程序名称、绝对路径或 ~/ 路径；不是 shell 命令"
+  },
+  "## Agent": {
+    "en": "## Agent",
+    "zh-CN": "## Agent"
+  },
+  "codex": {
+    "en": "codex",
+    "zh-CN": "codex"
   }
 }

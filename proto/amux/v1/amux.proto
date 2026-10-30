@@ -437,6 +437,8 @@ message RunRequest {
   // Session-level out-of-band instructions applied from the first launch
   // (see SubmitRequest.system_instructions).
   string system_instructions = 19;
+  // Configured on the installation; resolved and frozen by the execution Runtime.
+  string agent_executable = 20;
 }
 message RunResponse {
   Session session = 1;
@@ -1677,6 +1679,7 @@ message ProxyModelChunk {
 message ListNativeModelsRequest {
   string agent_type = 1;
   ExecutionIdentity execution_identity = 2;
+  string agent_executable = 3;
 }
 
 message NativeModel {

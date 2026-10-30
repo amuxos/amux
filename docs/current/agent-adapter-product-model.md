@@ -433,3 +433,5 @@ Each question becomes a canonical user-input request with its original text and
 choices, custom answers enabled, and async delivery metadata. These requests do
 not block the Session or create a pending provider RPC. Feishu collects the answer
 as ordinary queued user input in the same execution and native conversation.
+
+Configured Codex launchers use the existing app-server transport for both model discovery and Session execution. The frozen executable belongs to Session launch state, not the model identifier. Launcher authentication and configuration remain owned by the launcher.

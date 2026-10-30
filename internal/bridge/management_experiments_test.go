@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	"github.com/spf13/viper"
 )
@@ -24,14 +25,14 @@ func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 		return nil
 	}
 	event := settingsCallback("system.experiments.save_restart", nil)
-	event.Event.Action.FormValue = map[string]interface{}{"completion_enabled": "true", "completion_seconds": "120", "memory_enabled": "true", "group_settings_enabled": "true"}
+	event.Event.Action.FormValue = map[string]interface{}{"completion_enabled": "true", "completion_seconds": "120", "memory_enabled": "true", "group_settings_enabled": "true", "codex_executable": "~/.local/bin/codex-team"}
 	event.Event.Operator.OpenID = "not-owner"
 	resp, handled, err := b.handleManagementCardAction(context.Background(), event)
 	if err != nil || !handled || resp.Toast.Type != "error" {
 		t.Fatalf("non-owner save = %+v, %v", resp, err)
 	}
 	saved, err := config.ReadExperimentsSettings()
-	if err != nil || saved.CompletionNotification.Enabled || saved.MemoryEnabled || saved.GroupSettingsEnabled {
+	if err != nil || saved.CompletionNotification.Enabled || saved.MemoryEnabled || saved.GroupSettingsEnabled || saved.CodexExecutable != "" {
 		t.Fatalf("non-owner changed settings: %+v %v", saved, err)
 	}
 	event.Event.Operator.OpenID = "owner-open"
@@ -40,7 +41,7 @@ func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 		t.Fatalf("owner save = %+v, %v", resp, err)
 	}
 	saved, err = config.ReadExperimentsSettings()
-	if err != nil || !saved.CompletionNotification.Enabled || saved.CompletionNotification.AfterSeconds != 120 || !saved.MemoryEnabled || !saved.GroupSettingsEnabled {
+	if err != nil || !saved.CompletionNotification.Enabled || saved.CompletionNotification.AfterSeconds != 120 || !saved.MemoryEnabled || !saved.GroupSettingsEnabled || saved.CodexExecutable != "~/.local/bin/codex-team" {
 		t.Fatalf("owner settings = %+v, %v", saved, err)
 	}
 	select {
@@ -128,7 +129,7 @@ func TestManagementExperimentsCompactList(t *testing.T) {
 		}
 	}
 	visit(doc.Body.Elements)
-	if panels != 4 {
+	if panels != 5 {
 		t.Fatalf("panels = %d", panels)
 	}
 	running.CompletionNotification.AfterSeconds = 60
@@ -253,6 +254,17 @@ func TestCompletionNotificationExperimentDisabledSuppressesAllNewNotices(t *test
 			if err := b.notifyTurnCompletion(context.Background(), &LarkChat{BridgeId: "feishu:test", RootMsgID: "root"}, "turn", status, "", time.Hour); err != nil {
 				t.Fatal(err)
 			}
+		}
+	}
+}
+
+func TestCodexExecutableExperimentBilingual(t *testing.T) {
+	saved := config.ExperimentsSettings{CodexExecutable: "~/bin/codex-team"}
+	card := renderManagementExperimentsCard(saved, config.ExperimentsSettings{})
+	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese} {
+		rendered := selectManagementCardLocale(card, locale)
+		if !json.Valid([]byte(rendered)) || !strings.Contains(rendered, "codex_executable") || !strings.Contains(rendered, "~/bin/codex-team") || strings.Contains(rendered, "management.codex.executable.") {
+			t.Fatalf("%s card: %s", locale, rendered)
 		}
 	}
 }

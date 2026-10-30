@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/amuxos/amux/internal/agentprofile"
+	"github.com/amuxos/amux/internal/config"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
@@ -131,6 +132,9 @@ func (s *starter) Start(ctx context.Context, req StartRequest) (SessionRef, erro
 		WorkspaceSource:    req.Workspace.Source,
 		WorkspaceScope:     req.Workspace.Scope,
 		SystemInstructions: req.SystemInstructions,
+	}
+	if runReq.AgentType == "codex" {
+		runReq.AgentExecutable = config.GetCodexExecutable()
 	}
 	if req.ExecutionIdentity != nil || req.LaunchID != "" || req.AgentActorToken != "" {
 		runReq.ExecutionIdentity = req.ExecutionIdentity

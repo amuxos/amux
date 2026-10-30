@@ -3013,5 +3013,20 @@
   },
   "cleanup.step.other": {
     "other": "Other cleanup steps"
+  },
+  "management.codex.executable.title": {
+    "other": "Codex launcher"
+  },
+  "management.codex.executable.placeholder": {
+    "other": "Leave blank to use codex"
+  },
+  "management.codex.executable.description": {
+    "other": "Use a custom executable for model discovery and new Codex conversations. Save and restart to apply."
+  },
+  "management.codex.executable.scope": {
+    "other": "Applies to this amux instance. The path must exist on the selected Runtime; ~/ uses the execution HOME. Enter a program path, without arguments. Existing conversations keep their original launcher."
+  },
+  "management.codex.executable.invalid": {
+    "other": "Enter a program path of at most 4096 characters, without line breaks."
   }
 }

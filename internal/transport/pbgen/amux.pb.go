@@ -2438,8 +2438,10 @@ type RunRequest struct {
 	// Session-level out-of-band instructions applied from the first launch
 	// (see SubmitRequest.system_instructions).
 	SystemInstructions string `protobuf:"bytes,19,opt,name=system_instructions,json=systemInstructions,proto3" json:"system_instructions,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Configured on the installation; resolved and frozen by the execution Runtime.
+	AgentExecutable string `protobuf:"bytes,20,opt,name=agent_executable,json=agentExecutable,proto3" json:"agent_executable,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *RunRequest) Reset() {
@@ -2601,6 +2603,13 @@ func (x *RunRequest) GetAgentActorTokenExpiresAt() int64 {
 func (x *RunRequest) GetSystemInstructions() string {
 	if x != nil {
 		return x.SystemInstructions
+	}
+	return ""
+}
+
+func (x *RunRequest) GetAgentExecutable() string {
+	if x != nil {
+		return x.AgentExecutable
 	}
 	return ""
 }
@@ -14919,6 +14928,7 @@ type ListNativeModelsRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	AgentType         string                 `protobuf:"bytes,1,opt,name=agent_type,json=agentType,proto3" json:"agent_type,omitempty"`
 	ExecutionIdentity *ExecutionIdentity     `protobuf:"bytes,2,opt,name=execution_identity,json=executionIdentity,proto3" json:"execution_identity,omitempty"`
+	AgentExecutable   string                 `protobuf:"bytes,3,opt,name=agent_executable,json=agentExecutable,proto3" json:"agent_executable,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -14965,6 +14975,13 @@ func (x *ListNativeModelsRequest) GetExecutionIdentity() *ExecutionIdentity {
 		return x.ExecutionIdentity
 	}
 	return nil
+}
+
+func (x *ListNativeModelsRequest) GetAgentExecutable() string {
+	if x != nil {
+		return x.AgentExecutable
+	}
+	return ""
 }
 
 type NativeModel struct {
@@ -15909,7 +15926,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x16GetAgentProfileRequest\x12\x10\n" +
 	"\x03ref\x18\x01 \x01(\tR\x03ref\"N\n" +
 	"\x17GetAgentProfileResponse\x123\n" +
-	"\aprofile\x18\x01 \x01(\v2\x19.amux.v1.AgentProfileInfoR\aprofile\"\xef\x05\n" +
+	"\aprofile\x18\x01 \x01(\v2\x19.amux.v1.AgentProfileInfoR\aprofile\"\x9a\x06\n" +
 	"\n" +
 	"RunRequest\x12\x1d\n" +
 	"\n" +
@@ -15933,7 +15950,8 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x06run_as\x18\x10 \x01(\tR\x05runAs\x12*\n" +
 	"\x11agent_actor_token\x18\x11 \x01(\tR\x0fagentActorToken\x12>\n" +
 	"\x1cagent_actor_token_expires_at\x18\x12 \x01(\x03R\x18agentActorTokenExpiresAt\x12/\n" +
-	"\x13system_instructions\x18\x13 \x01(\tR\x12systemInstructions\"U\n" +
+	"\x13system_instructions\x18\x13 \x01(\tR\x12systemInstructions\x12)\n" +
+	"\x10agent_executable\x18\x14 \x01(\tR\x0fagentExecutable\"U\n" +
 	"\vRunResponse\x12*\n" +
 	"\asession\x18\x01 \x01(\v2\x10.amux.v1.SessionR\asession\x12\x1a\n" +
 	"\bwarnings\x18\x02 \x03(\tR\bwarnings\"t\n" +
@@ -16944,11 +16962,12 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x04body\x18\x03 \x01(\fR\x04body\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x83\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xae\x01\n" +
 	"\x17ListNativeModelsRequest\x12\x1d\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\tR\tagentType\x12I\n" +
-	"\x12execution_identity\x18\x02 \x01(\v2\x1a.amux.v1.ExecutionIdentityR\x11executionIdentity\"\xcc\x01\n" +
+	"\x12execution_identity\x18\x02 \x01(\v2\x1a.amux.v1.ExecutionIdentityR\x11executionIdentity\x12)\n" +
+	"\x10agent_executable\x18\x03 \x01(\tR\x0fagentExecutable\"\xcc\x01\n" +
 	"\vNativeModel\x12\x14\n" +
 	"\x05model\x18\x01 \x01(\tR\x05model\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12+\n" +

@@ -49,7 +49,7 @@ func (b *Bridge) loadNativeModels(parent context.Context, state managementState,
 	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
 	defer cancel()
 	response, err := b.hub.Route(ctx, target.ID, "ListNativeModels", &pb.ListNativeModelsRequest{
-		AgentType: "codex", ExecutionIdentity: identity.Identity,
+		AgentType: "codex", ExecutionIdentity: identity.Identity, AgentExecutable: config.GetCodexExecutable(),
 	})
 	if err != nil || response == nil || response.Error != "" {
 		return state

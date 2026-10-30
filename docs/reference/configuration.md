@@ -17,6 +17,12 @@ amux system config unset <key>
 
 “CLI-managed” specifically means the generic `amux system config set/get/unset` commands. Keys marked “No” may have dedicated commands listed in their descriptions; otherwise edit TOML directly. Replace `<profile>` with the actual Feishu Bot Profile name. `<provider>` supports only `codex`. This reference does not include example sensitive values.
 
+## Agent
+
+| Configuration key | Type | Default | Constraints | CLI-managed | Description |
+| --- | --- | --- | --- | --- | --- |
+| `adapter.codex.executable` | string | codex | Program name, absolute path or ~/ path; not a shell command | Yes | Codex executable; empty uses codex. Resolved on the execution Runtime; save and restart to apply to new Sessions and model discovery. |
+
 ## Runtime cleanup
 
 | Configuration key | Type | Default | Constraints | CLI-managed | Description |

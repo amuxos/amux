@@ -160,3 +160,7 @@ Provider 线程、近期孤立数据、显式保护路径、凭据，以及运�
 不清理全局 `/tmp`；权威状态读取失败时停止相关删除，不通过符号链接越出受管目录。
 Provider 特定布局由发行版注册；principal 文件通过现有特权 helper 处理，不授予 Runtime
 宽泛 sudo。日志有大小上限，SQLite 空闲页超过 300 MiB 时才压缩。
+
+## 配置 Codex 启动程序
+
+`adapter.codex.executable` 指定兼容 Codex 的启动程序（PATH 中的名称、绝对路径或 `~/` 路径）；留空使用 `codex`。该值是程序路径，不是 shell 命令。Hub 将配置传递给新 Codex Session；模型发现也在选中的 Runtime 上使用同一个程序。Runtime 按执行环境 HOME 展开 `~/`。Session 保存启动程序，重启、恢复和切模型均沿用；修改配置只影响新 Session。缺少该字段的已有 Session 继续使用 `codex`。所有者私聊 `/amux` 的实验功能表单可修改此实例级配置，保存并重启后生效。路径必须在选中的每个 Runtime 上存在，不会修改远端配置文件。

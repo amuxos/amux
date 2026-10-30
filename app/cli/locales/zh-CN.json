@@ -214,5 +214,8 @@
   },
   "cleanup.invalid_paths": {
     "other": "受保护工作区必须使用绝对路径，多个路径以空格分隔。"
+  },
+  "config.codex_executable.invalid": {
+    "other": "请输入不超过 4096 字符且不含换行的程序路径。"
   }
 }

@@ -54,6 +54,7 @@ const (
 // controller persists it with OwnerTaskId so owner enforcement can reject direct
 // mutating RPCs from anyone but this runner.
 type ChildSpec struct {
+	AgentExecutable  string
 	TaskID           string
 	AgentType        string
 	AgentProfile     string
@@ -682,6 +683,7 @@ func (r *Runner) execute(at *activeTask, run *TaskRun, spec Spec, actor actorCre
 	defer cancelCleanup()
 
 	child, err := r.opts.Control.CreateChild(at.ctx, ChildSpec{
+		AgentExecutable:          spec.AgentExecutable,
 		TaskID:                   run.ID,
 		AgentType:                run.AgentType,
 		AgentProfile:             run.AgentProfile,
