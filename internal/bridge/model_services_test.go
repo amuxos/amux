@@ -19,7 +19,7 @@ func TestRuntimeSwitchToCodexWithModelServicesPreservesSaveDraft(t *testing.T) {
 				state := managementState{
 					Mode: config.FeishuInteractionSingleton, Version: 7,
 					DefaultAgent: "builtin/claude", DefaultRuntimeRef: "claude",
-					DefaultModelRef: "native-model", DefaultReasoningEffort: "high",
+					DefaultModelRef: "GPT-5.6-Sol", DefaultReasoningEffort: "high",
 					ThinkingProcess: config.FeishuThinkingProcessExpanded,
 				}
 				for n := 0; n < services; n++ {
@@ -53,12 +53,22 @@ func TestRuntimeSwitchToCodexWithModelServicesPreservesSaveDraft(t *testing.T) {
 				savedDraft := managementDraftFromCallback(save, state)
 				req := managementBotSettingsRequest(state, savedDraft, "settings-card", "owner")
 				if req.DefaultRuntimeRef != "codex" || req.DefaultAgent != state.DefaultAgent ||
-					req.DefaultModelRef != state.DefaultModelRef || req.DefaultReasoningEffort != state.DefaultReasoningEffort ||
+					req.DefaultModelRef != "" || req.DefaultReasoningEffort != "" ||
 					req.Interaction != state.Mode || req.ExpectedVersion != state.Version || savedDraft.ThinkingProcess != state.ThinkingProcess {
 					t.Fatalf("runtime switch lost the save draft: request=%+v draft=%+v", req, savedDraft)
 				}
 			})
 		}
+	}
+}
+
+func TestRuntimeSelectionRetainsModelWhenRuntimeUnchanged(t *testing.T) {
+	state := managementState{DefaultRuntimeRef: "codex", DefaultModelRef: "gpt-5.6-sol", DefaultReasoningEffort: "high"}
+	draft := managementDraftFromCallback(&callback.CallBackAction{Option: "codex", Value: map[string]any{
+		managementDraftFieldKey: "default_runtime_ref", "default_runtime_ref": "codex",
+	}}, state)
+	if draft.DefaultModelRef != state.DefaultModelRef || draft.DefaultReasoningEffort != state.DefaultReasoningEffort {
+		t.Fatalf("unchanged runtime lost selection: %+v", draft)
 	}
 }
 
