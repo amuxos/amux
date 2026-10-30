@@ -214,5 +214,8 @@
   },
   "cleanup.invalid_paths": {
     "other": "Protected workspace paths must be absolute paths, separated by spaces."
+  },
+  "config.codex_executable.invalid": {
+    "other": "Enter a program path of at most 4096 characters, without line breaks."
   }
 }

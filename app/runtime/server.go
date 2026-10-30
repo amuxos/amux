@@ -275,6 +275,21 @@ func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, 
 	// restart/resume preserves the previously selected model from the snapshot.
 	runExtraArgs, effectiveModel = s.maybeAutoSelectModel(a, req.AgentType, cwd, runEnv, runExtraArgs, effectiveModel)
 
+	if req.AgentType == "codex" {
+		executable := req.AgentExecutable
+		if executable == "" {
+			executable = config.GetCodexExecutable()
+		}
+		resolutionEnv := append(os.Environ(), runEnv...)
+		if identity.IsolationBackend == principal.BackendLinuxDAC {
+			resolutionEnv = append(resolutionEnv, "HOME="+principalPaths.Home)
+		}
+		req.AgentExecutable, err = resolveCodexExecutable(executable, resolutionEnv)
+		if err != nil {
+			cleanupCreatedSession()
+			return nil, status.Errorf(codes.InvalidArgument, "codex executable: %v", err)
+		}
+	}
 	if err := s.mgr.RecordLaunchParams(sess, runExtraArgs, recordEnv, req.WorkspaceSource, req.WorkspaceScope, req.AgentProfile, effectiveModel, launchSpecSnapshot(req)); err != nil {
 		cleanupCreatedSession()
 		return nil, status.Errorf(codes.Internal, "record params: %v", err)
@@ -785,8 +800,13 @@ func (s *server) launchProcContext(ctx context.Context, a adapter.Adapter, sess 
 			return nil, nil, "", status.Errorf(codes.FailedPrecondition, "responses-chat provider: %v", err)
 		}
 		resumeModel, _ := agentprofile.AgentArgsModel(snap.AgentType, launchArgs)
+		executable := ""
+		if snap.AgentType == "codex" {
+			executable = launchSpecExecutable(snap.LaunchSpec)
+		}
 		agentPID, sockPath, err := mux.LaunchStructuredContext(ctx, s.amuxletBin, snap.ID, s.amuxDir, mux.StructuredLaunchOptions{
 			Provider:               providerID,
+			Executable:             executable,
 			SessionID:              snap.ID,
 			ResumeSessionID:        snap.AgentSessionID,
 			ResumeModel:            resumeModel,

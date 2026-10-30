@@ -8,9 +8,11 @@ import (
 	"testing"
 
 	"github.com/amuxos/amux/internal/agentprofile"
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/i18n"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
+	"github.com/spf13/viper"
 )
 
 type nativeModelsHub struct {
@@ -34,6 +36,9 @@ func (h *nativeModelsHub) Route(_ context.Context, target, method string, reques
 }
 
 func TestNativeModelsRefreshUsesTargetIdentityAndDropsStaleOptions(t *testing.T) {
+	old := viper.Get(config.CodexExecutableKey)
+	defer viper.Set(config.CodexExecutableKey, old)
+	viper.Set(config.CodexExecutableKey, "~/bin/codex-team")
 	hub := &nativeModelsHub{result: &pb.ListNativeModelsResponse{Status: "ready", Models: []*pb.NativeModel{{Model: "future-model", DisplayName: "Future", ReasoningEfforts: []string{"ultra"}, DefaultReasoningEffort: "ultra", IsDefault: true}}}}
 	b := &Bridge{hub: hub}
 	b.SetExecutionIdentityResolver(func(openID, ref, target string, shared bool) (LaunchIdentity, error) {
@@ -46,7 +51,7 @@ func TestNativeModelsRefreshUsesTargetIdentityAndDropsStaleOptions(t *testing.T)
 		{Ref: "stale-model", Kind: agentprofile.ModelKindNative}, {Ref: "custom-provider/model", Kind: agentprofile.ModelKindProvider},
 	}}}}
 	state := b.loadNativeModels(context.Background(), base, "editor")
-	if hub.target != "remote" || hub.request.ExecutionIdentity.EffectivePrincipalId != "principal-a" {
+	if hub.target != "remote" || hub.request.ExecutionIdentity.EffectivePrincipalId != "principal-a" || hub.request.AgentExecutable != "~/bin/codex-team" {
 		t.Fatalf("wrong execution environment: %+v", hub)
 	}
 	models := state.Runtimes[0].Models

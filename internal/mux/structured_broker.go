@@ -67,6 +67,7 @@ type structuredBroker struct {
 type structuredBrokerConn = brokerConn
 
 type StructuredLaunchOptions struct {
+	Executable             string
 	Provider               string
 	SessionID              string
 	ResumeSessionID        string
@@ -178,6 +179,9 @@ func LaunchStructuredContext(ctx context.Context, amuxletBin, sessID, amuxDir st
 
 func buildStructuredBrokerArgs(sockPath, pidFile string, opts StructuredLaunchOptions, resumeSessionIDFile, launchContextFile, credentialFile string) []string {
 	args := []string{"_structured_broker", "--provider", opts.Provider, "--session-id", opts.SessionID, "--socket", sockPath, "--pid-file", pidFile, "--cwd", opts.Cwd}
+	if opts.Executable != "" {
+		args = append(args, "--executable", opts.Executable)
+	}
 	if resumeSessionIDFile != "" {
 		args = append(args, "--resume-session-id-file", resumeSessionIDFile)
 	}
@@ -340,7 +344,7 @@ func startStructuredProc(opts StructuredLaunchOptions) (session.Proc, <-chan []b
 	case "claude-sdk":
 		return claude.Start(context.Background(), claude.StartOptions{SessionID: opts.SessionID, ResumeSessionID: opts.ResumeSessionID, Cwd: opts.Cwd, Env: opts.Env, ExtraArgs: opts.ExtraArgs, Backend: opts.Backend, LaunchContext: opts.LaunchContext})
 	case "codex-app-server":
-		startOpts := codex.StartOptions{Cwd: opts.Cwd, Env: opts.Env, ExtraArgs: opts.ExtraArgs, ResumeSessionID: opts.ResumeSessionID, ResumeModel: opts.ResumeModel, ResumeReasoningEffort: opts.ResumeReasoningEffort, DiscoverSkills: true, ExcludedSkillRoots: opts.ExcludedSkillRoots, Watchdog: watchdog, Backend: opts.Backend, LaunchContext: opts.LaunchContext}
+		startOpts := codex.StartOptions{Executable: opts.Executable, Cwd: opts.Cwd, Env: opts.Env, ExtraArgs: opts.ExtraArgs, ResumeSessionID: opts.ResumeSessionID, ResumeModel: opts.ResumeModel, ResumeReasoningEffort: opts.ResumeReasoningEffort, DiscoverSkills: true, ExcludedSkillRoots: opts.ExcludedSkillRoots, Watchdog: watchdog, Backend: opts.Backend, LaunchContext: opts.LaunchContext}
 		if opts.ResponsesChat != nil {
 			executable, err := responsesChatSupervisorExecutable()
 			if err != nil {

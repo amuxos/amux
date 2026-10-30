@@ -12,6 +12,7 @@ import (
 
 	"github.com/amuxos/amux/internal/agentinstance"
 	"github.com/amuxos/amux/internal/agentprofile"
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/executionauth"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/registry"
@@ -288,6 +289,9 @@ func (r *taskRouter) SubmitSubtask(ctx context.Context, req *pb.SubmitSubtaskReq
 	}
 	// Re-marshal so only the server-resolved identity/profile travels to the
 	// runtime; the runtime never interprets the caller's run_as alias.
+	if spec.Agent == "codex" {
+		spec.AgentExecutable = config.GetCodexExecutable()
+	}
 	b, merr := json.Marshal(spec)
 	if merr != nil {
 		return nil, status.Errorf(codes.Internal, "encode resolved spec: %v", merr)

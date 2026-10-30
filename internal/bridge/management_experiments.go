@@ -86,6 +86,14 @@ func managementExperimentsSettingsFromCallback(action *callback.CallBackAction, 
 		value := enabled == "true"
 		update.ShowBackgroundTasks = &value
 	}
+	if raw, present := managementExperimentCallbackValue(action, "codex_executable"); present {
+		value, ok := raw.(string)
+		if !ok || !config.ValidCodexExecutable(value) {
+			return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.codex.executable.invalid")
+		}
+		value = strings.TrimSpace(value)
+		update.CodexExecutable = &value
+	}
 	return update, nil
 }
 
@@ -145,6 +153,8 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		managementHintElement(bgStatus),
 		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
 	})
+	executable := cardElement{Tag: "input", Name: "codex_executable", DefaultValue: saved.CodexExecutable, Placeholder: managementStyledTextPtr(managementCopy("management.codex.executable.placeholder"), cardTitle{Tag: "plain_text"})}
+	executableItem := managementExperimentItemElement("codex_executable", managementCopy("management.codex.executable.title"), managementCopy("management.codex.executable.description"), cardElement{Tag: "div", Text: managementStyledTextPtr("Codex", cardTitle{Tag: "plain_text"})}, saved.CodexExecutable != running.CodexExecutable, []cardElement{executable, managementHintElement(managementCopy("management.codex.executable.scope"))})
 	elements := []cardElement{
 		managementBackToOverviewElement(),
 		{Tag: "form", Name: "experiments_form", Direction: "vertical", VerticalSpacing: "12px", Elements: []cardElement{
@@ -153,6 +163,7 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 			memoryItem,
 			steerItem,
 			bgItem,
+			executableItem,
 			managementFormButtonRowElement(managementFormSubmitButton(managementActionExperimentsSaveRestart, managementCopy("management.save.and.restart"))),
 		}},
 		managementTextElement(managementCopy("management.applies.to.all.assistants.in.this.instance"), "notation", "grey", nil),

@@ -319,3 +319,5 @@ Codex 兼容协议中带 `delivery: "async"` 和 `questions` 的 `agentMessage` 
 包括 `request_user_input_async` 产生的消息。每个问题转成规范用户提问请求，保留正文
 和选项，允许自定义答案，并携带异步投递信息。这类请求不阻塞 Session，也没有待返回
 的 Provider RPC。飞书将答案作为普通用户输入排入同一执行和原生会话。
+
+配置的 Codex 启动器在模型发现和 Session 执行时复用现有 app-server 传输。保存的程序路径属于 Session 启动状态，不属于模型标识。认证和原生配置仍由启动器负责。

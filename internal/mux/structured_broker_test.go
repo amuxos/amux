@@ -623,6 +623,7 @@ func TestResponsesChatSupervisorExecutablePreservesInstallPath(t *testing.T) {
 func TestBuildStructuredBrokerArgsPassesResumeSessionIDFile(t *testing.T) {
 	opts := StructuredLaunchOptions{
 		Provider:              "codex-app-server",
+		Executable:            "/opt/custom path/codex-team",
 		SessionID:             "amux-session",
 		ResumeModel:           "example-model",
 		ResumeReasoningEffort: "xhigh",
@@ -643,6 +644,7 @@ func TestBuildStructuredBrokerArgsPassesResumeSessionIDFile(t *testing.T) {
 		"--socket", "/tmp/structured.sock",
 		"--pid-file", "/tmp/structured.pid",
 		"--cwd", "/tmp/work",
+		"--executable", "/opt/custom path/codex-team",
 		"--resume-session-id-file", "/tmp/provider-session.id",
 		"--resume-model", "example-model",
 		"--resume-reasoning-effort", "xhigh",

@@ -2995,5 +2995,20 @@
   },
   "cleanup.step.other": {
     "other": "其他清理项目"
+  },
+  "management.codex.executable.title": {
+    "other": "Codex 启动程序"
+  },
+  "management.codex.executable.placeholder": {
+    "other": "留空使用 codex"
+  },
+  "management.codex.executable.description": {
+    "other": "通过自定义启动程序获取模型并创建 Codex 会话。保存并重启后生效。"
+  },
+  "management.codex.executable.scope": {
+    "other": "作用于此 amux 实例。路径须在选中的 Runtime 上存在；~/ 使用执行用户的 HOME。只填程序路径，不附加参数。已有会话沿用原启动程序。"
+  },
+  "management.codex.executable.invalid": {
+    "other": "请输入不超过 4096 字符且不含换行的程序路径。"
   }
 }

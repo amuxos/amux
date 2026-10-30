@@ -600,3 +600,5 @@ Each daily run sends the configured Bot owner a private bilingual report with
 Runtime, time, counts, reclaimed space, skipped work and failures, including
 empty results. Reports contain no conversation content, credentials or private
 workspace paths. Delivery failure is retained for retry and logged.
+
+The owner-only experiments page includes the installation-wide Codex executable. Empty restores `codex`; the value is resolved on the execution Runtime, including remote targets. Saving preserves fields omitted by older cards and uses the existing save/restart confirmation. Existing Sessions keep their launch executable.

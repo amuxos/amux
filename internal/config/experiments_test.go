@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -163,5 +164,33 @@ func TestLiveSteerForegroundOverridesConfig(t *testing.T) {
 	config.SetLiveSteerForeground(false)
 	if config.LiveSteerForeground() {
 		t.Fatal("live off not reported")
+	}
+}
+
+func TestExperimentsCodexExecutablePreservesOmittedAndRejectsInvalid(t *testing.T) {
+	dir := t.TempDir()
+	viper.SetConfigFile(filepath.Join(dir, "config.toml"))
+	t.Cleanup(func() { viper.SetConfigFile("") })
+	program := "~/.local/bin/codex-team"
+	saved, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{CodexExecutable: &program})
+	if err != nil || saved.CodexExecutable != program {
+		t.Fatalf("save: %+v %v", saved, err)
+	}
+	saved, err = config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{})
+	if err != nil || saved.CodexExecutable != program {
+		t.Fatalf("old card: %+v %v", saved, err)
+	}
+	invalid := "bad\nprogram"
+	if _, err = config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{CodexExecutable: &invalid}); err == nil {
+		t.Fatal("accepted multiline executable")
+	}
+	saved, err = config.ReadExperimentsSettings()
+	if err != nil || saved.CodexExecutable != program {
+		t.Fatalf("invalid update changed config: %+v %v", saved, err)
+	}
+	empty := ""
+	saved, err = config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{CodexExecutable: &empty})
+	if err != nil || saved.CodexExecutable != "" {
+		t.Fatalf("reset: %+v %v", saved, err)
 	}
 }

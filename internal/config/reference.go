@@ -42,6 +42,7 @@ func ManagedConfigKeys() []string {
 }
 
 var configOptions = distributionConfigOptions([]ConfigOption{
+	{Section: "Agent", Key: CodexExecutableKey, Type: "string", Default: "codex", Description: "Codex 启动程序；留空使用 codex。在执行节点解析，保存并重启后用于新会话及模型发现。", Constraints: "程序名称、绝对路径或 ~/ 路径；不是 shell 命令", Managed: true},
 	{Section: "Runtime 清理", Key: "maintenance.daily_cleanup.enabled", Type: "boolean", Default: "true", Description: "每日自动清理普通话题和用户隔离话题的运行数据，并向 Bot 管理员私聊报告结果；系统级开关，保存后即时生效。", Managed: true},
 	{Section: "Runtime 清理", Key: "maintenance.daily_cleanup.at", Type: "string", Default: "06:17", Constraints: "HH:MM", Description: "每日清理时间，使用 Hub 本地时区；错过时间后在恢复运行时补一次。", Managed: true},
 	{Section: "Runtime 清理", Key: "maintenance.daily_cleanup.protected_paths", Type: "string array", Default: "[]", Constraints: "absolute paths", Description: "每日清理始终保留的共享或长期工作区绝对路径，作用于所有 Runtime。", Managed: true},

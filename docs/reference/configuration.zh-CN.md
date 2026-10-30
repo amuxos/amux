@@ -17,6 +17,12 @@ amux system config unset <key>
 
 “CLI 可管理”专指通用 `amux system config set/get/unset`；标为“否”的键可能由说明中列出的专用命令管理，否则需要直接编辑 TOML。Profile 键中的 `<profile>` 替换为实际飞书智能体 Profile 名；Provider 键中的 `<provider>` 只支持 `codex`。敏感值不会在本文档中给出示例。
 
+## Agent
+
+| 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `adapter.codex.executable` | 字符串 | codex | 程序名称、绝对路径或 ~/ 路径；不是 shell 命令 | 是 | Codex 启动程序；留空使用 codex。在执行节点解析，保存并重启后用于新会话及模型发现。 |
+
 ## Runtime 清理
 
 | 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |

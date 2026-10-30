@@ -91,6 +91,7 @@ func Main(buildVersion string) {
 	structuredBrokerCmd.Flags().String("launch-context-file", "", "one-shot resolved launch context file")
 	structuredBrokerCmd.Flags().String("socket", "", "broker unix socket path")
 	structuredBrokerCmd.Flags().String("pid-file", "", "file to write agent PID into")
+	structuredBrokerCmd.Flags().String("executable", "", "provider executable")
 	structuredBrokerCmd.Flags().String("cwd", "", "provider working directory")
 	structuredBrokerCmd.Flags().StringArray("env", nil, "env vars for provider (KEY=VAL)")
 	structuredBrokerCmd.Flags().StringArray("excluded-skill-root", nil, "skill root excluded from provider discovery")
@@ -210,6 +211,7 @@ func runStructuredBroker(cmd *cobra.Command, args []string) error {
 	sockPath, _ := cmd.Flags().GetString("socket")
 	pidFile, _ := cmd.Flags().GetString("pid-file")
 	providerID, _ := cmd.Flags().GetString("provider")
+	executable, _ := cmd.Flags().GetString("executable")
 	sessionID, _ := cmd.Flags().GetString("session-id")
 	resumeID, _ := cmd.Flags().GetString("resume-session-id")
 	resumeIDFile, _ := cmd.Flags().GetString("resume-session-id-file")
@@ -248,6 +250,7 @@ func runStructuredBroker(cmd *cobra.Command, args []string) error {
 	defer isolationRuntime.Close()
 	opts := mux.StructuredLaunchOptions{
 		Provider:               providerID,
+		Executable:             executable,
 		SessionID:              sessionID,
 		ResumeSessionID:        resumeID,
 		ResumeModel:            resumeModel,

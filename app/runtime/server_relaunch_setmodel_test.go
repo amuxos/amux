@@ -33,7 +33,8 @@ func TestReconfigureExecutionBackfillsProfileFromSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	oldReq := &pb.RunRequest{
-		AgentProfile: "builtin/codex", AgentType: "codex", ExtraArgs: []string{"--model", "gpt-5.5"},
+		AgentExecutable: "/custom/bin/codex-team",
+		AgentProfile:    "builtin/codex", AgentType: "codex", ExtraArgs: []string{"--model", "gpt-5.5"},
 		ProfileSpec: &pb.AgentProfileSpec{Ref: "builtin/codex", Type: "codex", Model: "gpt-5.5", ReasoningEffort: "medium"},
 	}
 	if err := mgr.RecordLaunchParams(sess, oldReq.ExtraArgs, nil, "cli", "local", oldReq.AgentProfile, "gpt-5.5", launchSpecSnapshot(oldReq)); err != nil {
@@ -75,7 +76,7 @@ func TestReconfigureExecutionBackfillsProfileFromSnapshot(t *testing.T) {
 		t.Fatal("process was restarted; hot reconfigure expected after backfill")
 	}
 	got := sess.Snapshot()
-	if got.AgentSessionID != "native-thread" || got.EffectiveModel != "gpt-5.4" {
+	if got.AgentSessionID != "native-thread" || got.EffectiveModel != "gpt-5.4" || launchSpecExecutable(got.LaunchSpec) != "/custom/bin/codex-team" {
 		t.Fatalf("snapshot = %+v", got)
 	}
 }

@@ -29,7 +29,7 @@ for line in sys.stdin:
     else: sys.exit(4)
     print(json.dumps({'id':req['id'],'result':result}),flush=True)
 `
-	if err := os.WriteFile(filepath.Join(dir, "codex"), []byte(code), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "codex-team"), []byte(code), 0700); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -38,7 +38,7 @@ for line in sys.stdin:
 	srv := &server{amuxDir: t.TempDir(), isolationGlobalEnv: []string{"NATIVE_MODEL_TEST=runtime-model"}}
 	for _, name := range []string{"runtime-model", "refreshed-model"} {
 		srv.isolationGlobalEnv = []string{"NATIVE_MODEL_TEST=" + name}
-		result, err := srv.ListNativeModels(context.Background(), &pb.ListNativeModelsRequest{AgentType: "codex", ExecutionIdentity: principal.ToProtoIdentity(identity)})
+		result, err := srv.ListNativeModels(context.Background(), &pb.ListNativeModelsRequest{AgentType: "codex", AgentExecutable: filepath.Join(dir, "codex-team"), ExecutionIdentity: principal.ToProtoIdentity(identity)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,7 +49,7 @@ for line in sys.stdin:
 		}
 	}
 	identity.IsolationBackend = principal.BackendLinuxDAC
-	if _, err := srv.ListNativeModels(context.Background(), &pb.ListNativeModelsRequest{AgentType: "codex", ExecutionIdentity: principal.ToProtoIdentity(identity)}); err == nil {
+	if _, err := srv.ListNativeModels(context.Background(), &pb.ListNativeModelsRequest{AgentType: "codex", AgentExecutable: filepath.Join(dir, "codex-team"), ExecutionIdentity: principal.ToProtoIdentity(identity)}); err == nil {
 		t.Fatal("missing isolation backend fell back to service credentials")
 	}
 }

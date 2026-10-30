@@ -12,6 +12,7 @@ import (
 	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/agentstream"
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/isolation"
 	"github.com/amuxos/amux/internal/memoryprotocol"
 	"github.com/amuxos/amux/internal/principal"
@@ -191,6 +192,20 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	// spec.Env; the PATH-fixed values computed before the resume path predate it.
 	launchEnv = ensureLaunchEnvPATH(spec.Env)
 	recordEnv = ensureLaunchEnvPATH(spec.RecordEnv)
+	if spec.AgentType == "codex" {
+		executable := spec.AgentExecutable
+		if executable == "" {
+			executable = config.GetCodexExecutable()
+		}
+		resolutionEnv := append(os.Environ(), launchEnv...)
+		if executionIdentity.IsolationBackend == principal.BackendLinuxDAC {
+			resolutionEnv = append(resolutionEnv, "HOME="+principalPaths.Home)
+		}
+		spec.AgentExecutable, err = resolveCodexExecutable(executable, resolutionEnv)
+		if err != nil {
+			return nil, err
+		}
+	}
 	sess, err := c.srv.mgr.CreateOwned(name, spec.AgentType, spec.OwnerTaskId, spec.InstanceID, spec.Cwd)
 	if err != nil {
 		if spec.InstanceID != "" {
@@ -212,11 +227,12 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	// because they preserve the previously selected model.
 	extraArgs, effectiveModel = c.srv.maybeAutoSelectModel(a, spec.AgentType, spec.Cwd, launchEnv, extraArgs, effectiveModel)
 	launchSpec := launchSpecSnapshot(&pb.RunRequest{
-		AgentProfile: spec.AgentProfile,
-		ProfileSpec:  spec.ProfileSpec,
-		AgentType:    spec.AgentType,
-		Name:         name,
-		Cwd:          spec.Cwd,
+		AgentExecutable: spec.AgentExecutable,
+		AgentProfile:    spec.AgentProfile,
+		ProfileSpec:     spec.ProfileSpec,
+		AgentType:       spec.AgentType,
+		Name:            name,
+		Cwd:             spec.Cwd,
 	})
 	var launchFields map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(launchSpec), &launchFields); err != nil {

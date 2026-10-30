@@ -43,6 +43,7 @@ func launchSpecSnapshot(req *pb.RunRequest) string {
 		Placement        *pb.AgentProfilePlacement `json:"placement,omitempty"`
 	}
 	type snapshot struct {
+		AgentExecutable       string           `json:"agent_executable,omitempty"`
 		AgentProfile          string           `json:"agent_profile,omitempty"`
 		AgentType             string           `json:"agent_type,omitempty"`
 		Name                  string           `json:"name,omitempty"`
@@ -55,7 +56,7 @@ func launchSpecSnapshot(req *pb.RunRequest) string {
 		WorkspaceScope        string           `json:"workspace_scope,omitempty"`
 		ProfileSpec           *profileSnapshot `json:"profile_spec,omitempty"`
 	}
-	out := snapshot{AgentProfile: req.AgentProfile, AgentType: req.AgentType, Name: req.Name, Cwd: req.Cwd, Repo: req.Repo, RepoRef: req.RepoRef, IdleTimeoutSeconds: req.IdleTimeoutSeconds, IdleTimeoutSecondsSet: req.IdleTimeoutSecondsSet, WorkspaceSource: req.WorkspaceSource, WorkspaceScope: req.WorkspaceScope}
+	out := snapshot{AgentExecutable: req.AgentExecutable, AgentProfile: req.AgentProfile, AgentType: req.AgentType, Name: req.Name, Cwd: req.Cwd, Repo: req.Repo, RepoRef: req.RepoRef, IdleTimeoutSeconds: req.IdleTimeoutSeconds, IdleTimeoutSecondsSet: req.IdleTimeoutSecondsSet, WorkspaceSource: req.WorkspaceSource, WorkspaceScope: req.WorkspaceScope}
 	if spec := req.ProfileSpec; spec != nil {
 		profile := &profileSnapshot{Ref: spec.Ref, PinnedRef: spec.PinnedRef, Namespace: spec.Namespace, Name: spec.Name, Revision: spec.Revision, Type: spec.Type, Model: spec.Model, ConfiguredModel: spec.ConfiguredModel, Source: spec.Source, Description: spec.Description, Agents: spec.Agents, Skills: append([]string(nil), spec.Skills...), SkillDirs: append([]string(nil), spec.SkillDirs...), Envs: append([]string(nil), spec.Envs...), EnvRefs: append([]string(nil), spec.EnvRefs...), MCPConfig: spec.McpConfig, PermissionPolicy: spec.PermissionPolicy, RuntimeRef: spec.RuntimeRef, ReasoningEffort: spec.ReasoningEffort, ProviderRef: spec.ProviderRef, Provider: spec.Provider, Placement: spec.Placement}
 		out.ProfileSpec = profile
