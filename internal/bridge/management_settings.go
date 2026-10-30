@@ -110,10 +110,12 @@ func managementDraftFromCallback(action *callback.CallBackAction, state manageme
 		draft.ThinkingProcess = strings.TrimSpace(v)
 	}
 	if draftField == "default_runtime_ref" {
-		draft.DefaultRuntimeRef = strings.TrimSpace(action.Option)
-		if !managementValidRuntimeModel(state, draft.DefaultRuntimeRef, draft.DefaultModelRef) {
+		selected := strings.TrimSpace(action.Option)
+		if selected != draft.DefaultRuntimeRef {
 			draft.DefaultModelRef = ""
+			draft.DefaultReasoningEffort = ""
 		}
+		draft.DefaultRuntimeRef = selected
 	}
 	if draftField == "default_reasoning_effort" {
 		draft.DefaultReasoningEffort = managementReasoningEffortFromForm(action.Option)
