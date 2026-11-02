@@ -79,7 +79,7 @@ for line in sys.stdin:
 `
 
 func TestUserInputDiscoveryStartupLifecycle(t *testing.T) {
-	for _, mode := range []string{"success", "failure", "timeout", "initialize-failure", "missing-host", "cancel"} {
+	for _, mode := range []string{"success", "failure", "timeout", "initialize-failure", "missing-host", "cancel", "ignore-term"} {
 		t.Run(mode, func(t *testing.T) {
 			opts := compatibleStartOptions(t, writeFakeCodex(t, lifecycleUserInputServer))
 			opts.ProviderName = "codex"
@@ -154,12 +154,13 @@ func (b *startupProbeBackend) Start(ctx context.Context, spec isolation.LaunchSp
 }
 
 const lifecycleUserInputServer = `#!/usr/bin/env python3
-import json, os, pathlib, sys, time
+import json, os, pathlib, signal, sys, time
 mode = os.environ['AMUX_TEST_PROBE_MODE']
 marker = pathlib.Path('probe-started')
 if sys.argv[-2:] == ['features', 'list']:
+    if mode == 'ignore-term': signal.signal(signal.SIGTERM, signal.SIG_IGN)
     marker.touch()
-    if mode in ['timeout', 'initialize-failure', 'missing-host', 'cancel']: time.sleep(30)
+    if mode in ['ignore-term', 'timeout', 'initialize-failure', 'missing-host', 'cancel']: time.sleep(30)
     if mode == 'failure': sys.exit(7)
     print('default_mode_request_user_input under development false')
     sys.exit(0)

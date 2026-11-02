@@ -10,6 +10,7 @@ import (
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/isolation"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 const defaultModeUserInputFeature = "default_mode_request_user_input"
@@ -51,10 +52,7 @@ func probeUserInput(ctx context.Context, opts StartOptions, bin string, backend 
 		if exited {
 			return
 		}
-		cleanup, stop := context.WithTimeout(context.Background(), time.Second)
-		defer stop()
-		_ = handle.Kill(cleanup)
-		_, _ = handle.Wait(cleanup)
+		stopUserInputProbe(handle)
 	}()
 	_ = handle.Stdin().Close()
 	go func() { _, _ = io.Copy(io.Discard, handle.Stderr()) }()
@@ -75,6 +73,36 @@ func probeUserInput(ctx context.Context, opts StartOptions, bin string, backend 
 		return false
 	}
 	return supportsDefaultModeUserInput(string(data))
+}
+
+// A launcher may hold a shared update lock while probing. Killing it outright
+// bypasses its exit handlers and can block the agent (or the next Session) until
+// that lock expires. Give it a bounded opportunity to release its own resources;
+// never unlink a launcher's locks from amux. Cleanup outlives the probe context.
+func stopUserInputProbe(handle isolation.ProcessHandle) {
+	started := time.Now()
+	method, exited := "terminate", false
+	defer func() {
+		log.Debug().Str("launch_id", handle.LaunchID()).Int("pid", handle.PID()).
+			Str("method", method).Bool("exited", exited).Dur("duration_ms", time.Since(started)).
+			Msg("app-server startup: user-input probe cleanup")
+	}()
+	grace, stopGrace := context.WithTimeout(context.Background(), time.Second)
+	if err := handle.Signal(grace, "TERM"); err == nil {
+		status, err := handle.Wait(grace)
+		if err == nil || !status.ExitedAt.IsZero() {
+			exited = true
+			stopGrace()
+			return
+		}
+	}
+	stopGrace()
+	method = "kill"
+	cleanup, stop := context.WithTimeout(context.Background(), time.Second)
+	defer stop()
+	_ = handle.Kill(cleanup)
+	status, err := handle.Wait(cleanup)
+	exited = err == nil || !status.ExitedAt.IsZero()
 }
 
 func supportsDefaultModeUserInput(output string) bool {

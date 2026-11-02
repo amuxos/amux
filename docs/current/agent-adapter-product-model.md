@@ -417,7 +417,11 @@ the user's configuration files.
 Capability probes retain the agent's execution identity, isolation backend,
 environment and working directory, but each probe owns a separate process launch
 ID. Probe completion, failure or timeout must not close the agent's streams or
-terminate its process.
+terminate its process. Cancelled or timed-out probes first receive a graceful
+termination signal and up to one second to release launcher resources, including
+shared update locks. If termination fails or the grace period expires, amux
+force-stops and reaps the probe with a separate one-second cleanup deadline.
+It never removes launcher-owned lock files itself.
 
 Codex starts its bounded native feature probe alongside app-server initialization,
 then joins it before creating or resuming a thread. Explicit feature overrides

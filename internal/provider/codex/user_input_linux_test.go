@@ -96,6 +96,9 @@ func TestUserInputDiscoveryIsolatedProcessLifecycle(t *testing.T) {
 			if _, err := proc.client.Call(ctx, "config/read", map[string]any{}); err != nil {
 				t.Fatalf("agent stopped responding after probe cleanup: %v", err)
 			}
+			if _, err := os.Stat(filepath.Join(opts.Cwd, "probe-update-lock")); !os.IsNotExist(err) {
+				t.Fatalf("isolated probe left its launcher lock: %v", err)
+			}
 			if len(backend.handles) != 3 {
 				t.Fatalf("started %d processes, want agent and two probes", len(backend.handles))
 			}
@@ -139,10 +142,18 @@ func (b *userInputHelperBackend) Start(ctx context.Context, spec isolation.Launc
 }
 
 const isolatedUserInputServer = `#!/usr/bin/env python3
-import json, os, sys, time
+import json, os, pathlib, signal, sys, time
 if sys.argv[-2:] == ['features', 'list']:
     mode = os.environ['AMUX_TEST_PROBE_MODE']
-    if mode == 'timeout': time.sleep(30)
+    if mode == 'timeout':
+        lock = pathlib.Path('probe-update-lock')
+        lock.mkdir()
+        def terminate(signum, frame):
+            lock.rmdir()
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            os.kill(os.getpid(), signal.SIGTERM)
+        signal.signal(signal.SIGTERM, terminate)
+        time.sleep(30)
     if mode == 'failure': sys.exit(7)
     print('default_mode_request_user_input under development false')
     sys.exit(0)
