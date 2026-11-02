@@ -445,3 +445,7 @@ not block the Session or create a pending provider RPC. Feishu collects the answ
 as ordinary queued user input in the same execution and native conversation.
 
 Configured Codex launchers use the existing app-server transport for both model discovery and Session execution. The frozen executable belongs to Session launch state, not the model identifier. Launcher authentication and configuration remain owned by the launcher.
+
+Registered app-server integrations share the executable setting, owner-only experiments form, execution-node resolution and frozen Session launch state. Native model discovery uses that same executable, without static native fallback; provider/service entries stay separate.
+
+Discovered native backend variants persist an opaque `@native-variant:` reference containing the model and backend identifier. The UI uses the discovered display name; launch reconstructs both values without a built-in catalog. Malformed references are rejected.

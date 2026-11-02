@@ -192,16 +192,16 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	// spec.Env; the PATH-fixed values computed before the resume path predate it.
 	launchEnv = ensureLaunchEnvPATH(spec.Env)
 	recordEnv = ensureLaunchEnvPATH(spec.RecordEnv)
-	if spec.AgentType == "codex" {
+	if config.SupportsAgentExecutable(spec.AgentType) {
 		executable := spec.AgentExecutable
 		if executable == "" {
-			executable = config.GetCodexExecutable()
+			executable = config.GetAgentExecutable(spec.AgentType)
 		}
 		resolutionEnv := append(os.Environ(), launchEnv...)
 		if executionIdentity.IsolationBackend == principal.BackendLinuxDAC {
 			resolutionEnv = append(resolutionEnv, "HOME="+principalPaths.Home)
 		}
-		spec.AgentExecutable, err = resolveCodexExecutable(executable, resolutionEnv)
+		spec.AgentExecutable, err = resolveAgentExecutable(spec.AgentType, executable, resolutionEnv)
 		if err != nil {
 			return nil, err
 		}
@@ -225,7 +225,7 @@ func (c *taskController) CreateChild(ctx context.Context, spec task.ChildSpec) (
 	// Auto-select model for fresh child sessions when no explicit model is set
 	// (e.g. provider load-aware selection). Persistent resume paths above skip this
 	// because they preserve the previously selected model.
-	extraArgs, effectiveModel = c.srv.maybeAutoSelectModel(a, spec.AgentType, spec.Cwd, launchEnv, extraArgs, effectiveModel)
+	extraArgs, effectiveModel = c.srv.maybeAutoSelectModel(a, spec.AgentType, spec.Cwd, launchEnv, extraArgs, effectiveModel, spec.AgentExecutable)
 	launchSpec := launchSpecSnapshot(&pb.RunRequest{
 		AgentExecutable: spec.AgentExecutable,
 		AgentProfile:    spec.AgentProfile,

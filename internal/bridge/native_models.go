@@ -17,7 +17,11 @@ type nativeModelQuery struct {
 	request *pb.ListNativeModelsRequest
 }
 
-func (b *Bridge) prepareNativeModels(state managementState, openID string) *nativeModelQuery {
+func (b *Bridge) prepareNativeModels(state managementState, openID string, agents ...string) *nativeModelQuery {
+	agent := "codex"
+	if len(agents) > 0 {
+		agent = agents[0]
+	}
 	if b.hub == nil {
 		return nil
 	}
@@ -35,21 +39,28 @@ func (b *Bridge) prepareNativeModels(state managementState, openID string) *nati
 		return nil
 	}
 	return &nativeModelQuery{target: target, request: &pb.ListNativeModelsRequest{
-		AgentType: "codex", ExecutionIdentity: identity.Identity, AgentExecutable: config.GetCodexExecutable(),
+		AgentType: agent, ExecutionIdentity: identity.Identity, AgentExecutable: config.GetAgentExecutable(agent),
 	}}
 }
 
-func (b *Bridge) loadNativeModels(parent context.Context, state managementState, openID string) managementState {
-	return b.loadNativeModelsQuery(parent, state, b.prepareNativeModels(state, openID))
+func (b *Bridge) loadNativeModels(parent context.Context, state managementState, openID string, agents ...string) managementState {
+	return b.loadNativeModelsQuery(parent, state, b.prepareNativeModels(state, openID, agents...), agents...)
 }
 
-func (b *Bridge) loadNativeModelsQuery(parent context.Context, state managementState, query *nativeModelQuery) managementState {
+func (b *Bridge) loadNativeModelsQuery(parent context.Context, state managementState, query *nativeModelQuery, agents ...string) managementState {
+	agent := "codex"
+	if len(agents) > 0 {
+		agent = agents[0]
+	}
+	if query != nil {
+		agent = query.request.AgentType
+	}
 	state.NativeModelsStatus = "unavailable"
 	// Never mutate a shared editor snapshot or accumulate stale models on refresh.
 	state.Runtimes = slices.Clone(managementRuntimeCatalog(state))
 	index := -1
 	for i := range state.Runtimes {
-		if state.Runtimes[i].Ref != "codex" {
+		if state.Runtimes[i].Ref != agent {
 			continue
 		}
 		index = i
@@ -97,6 +108,17 @@ func (b *Bridge) loadNativeModelsQuery(parent context.Context, state managementS
 			DisplayName: model.DisplayName, SupportedReasoningEfforts: slices.Clone(model.ReasoningEfforts),
 			DefaultReasoningEffort: model.DefaultReasoningEffort,
 		})
+		for _, variant := range model.Variants {
+			if variant.BackendVariant == "" {
+				continue
+			}
+			ref := agentprofile.NativeVariantRef(model.Model, variant.BackendVariant)
+			if seen[ref] {
+				continue
+			}
+			seen[ref] = true
+			runtime.Models = append(runtime.Models, agentprofile.RuntimeModelOption{Ref: ref, AgentModel: model.Model, BackendVariant: variant.BackendVariant, Kind: agentprofile.ModelKindNative, DisplayName: variant.DisplayName, SupportedReasoningEfforts: slices.Clone(model.ReasoningEfforts), DefaultReasoningEffort: model.DefaultReasoningEffort})
+		}
 		if model.IsDefault {
 			runtime.NativeDefaultCapabilitiesKnown = true
 			runtime.DefaultReasoningEfforts = slices.Clone(model.ReasoningEfforts)
@@ -107,14 +129,14 @@ func (b *Bridge) loadNativeModelsQuery(parent context.Context, state managementS
 }
 
 func nativeModelElements(state managementState, runtime string, values map[string]string, action string) []cardElement {
-	if runtime != "codex" {
+	if !config.SupportsAgentExecutable(runtime) {
 		return nil
 	}
 	status := state.NativeModelsStatus
 	if status == "" {
 		status = "unavailable"
 	}
-	var hint any = managementCopy("management.model.native." + status)
+	var hint any = managementCopy("management.model.native."+status, config.AgentExecutableLabel(runtime))
 	if state.NativeModelsTargetName != "" {
 		hint = managementConcat(hint, " · ", state.NativeModelsTargetName)
 	}
@@ -126,7 +148,7 @@ func nativeModelElements(state managementState, runtime string, values map[strin
 	return []cardElement{
 		managementHintElement(hint),
 		managementButtonElement(managementButton{
-			Action: action, Name: action + ".native_models.refresh", Text: managementCopy("management.model.native.refresh"), Values: refreshValues,
+			Action: action, Name: action + ".native_models.refresh", Text: managementCopy("management.model.native.refresh", config.AgentExecutableLabel(runtime)), Values: refreshValues,
 		}),
 	}
 }

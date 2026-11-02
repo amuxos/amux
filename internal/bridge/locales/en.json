@@ -2478,16 +2478,16 @@
     "other": "One-click install"
   },
   "management.model.native.ready": {
-    "other": "Codex native models refreshed from the execution environment."
+    "other": "%s native models refreshed from the execution environment."
   },
   "management.model.native.signed_out": {
-    "other": "Codex is not signed in on this Runtime. Sign in there, then refresh."
+    "other": "%s is not signed in on this Runtime. Sign in there, then refresh."
   },
   "management.model.native.unavailable": {
-    "other": "Codex models unavailable. Check the Runtime and native sign-in, then refresh."
+    "other": "%s models unavailable. Check the Runtime and native sign-in, then refresh."
   },
   "management.model.native.refresh": {
-    "other": "Refresh Codex models"
+    "other": "Refresh %s models"
   },
   "management.watch.choose_group": {
     "other": "Choose a watched group below to edit its settings."
@@ -3030,9 +3030,24 @@
     "other": "Enter a program path of at most 4096 characters, without line breaks."
   },
   "management.model.native.loading": {
-    "other": "Loading native models…"
+    "other": "Loading native models (%s)…"
   },
   "management.model.service.status.loading": {
     "other": "Loading…"
+  },
+  "management.launcher.title": {
+    "other": "%s launcher"
+  },
+  "management.launcher.placeholder": {
+    "other": "Empty uses %s"
+  },
+  "management.launcher.description": {
+    "other": "Choose the program used to launch %s and discover its native models."
+  },
+  "management.launcher.scope": {
+    "other": "Resolved on the execution Runtime. Save and restart applies to new Sessions; existing Sessions keep their program. Enter a program name, absolute path or ~/ path, not a shell command."
+  },
+  "management.launcher.invalid": {
+    "other": "Enter a valid program path (up to 4096 characters, without line breaks)."
   }
 }

@@ -3,6 +3,8 @@ package agentprofile
 import (
 	"fmt"
 	"strings"
+
+	"github.com/amuxos/amux/internal/config"
 )
 
 func ResolveModelSelection(profile Profile, requested string) (ResolvedModelSelection, error) {
@@ -136,7 +138,7 @@ func validateProfileReasoningEffort(profile Profile, effort string) error {
 // authorized by a Profile, including native models absent from the distribution
 // runtime catalog.
 func ProfileNativeRuntimeModel(runtime RuntimeOption, modelRef string) RuntimeModelOption {
-	model := RuntimeModelOption{Ref: strings.TrimSpace(modelRef), SupportedReasoningEfforts: cloneStrings(runtime.DefaultReasoningEfforts), NativeCapabilitiesUnknown: runtime.Ref == "codex"}
+	model := RuntimeModelOption{Ref: strings.TrimSpace(modelRef), SupportedReasoningEfforts: cloneStrings(runtime.DefaultReasoningEfforts), NativeCapabilitiesUnknown: config.SupportsAgentExecutable(runtime.Ref)}
 	for _, candidate := range runtime.Models {
 		if candidate.Ref == model.Ref {
 			return cloneRuntimeModelOption(candidate)

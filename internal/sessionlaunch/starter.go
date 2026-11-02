@@ -133,8 +133,8 @@ func (s *starter) Start(ctx context.Context, req StartRequest) (SessionRef, erro
 		WorkspaceScope:     req.Workspace.Scope,
 		SystemInstructions: req.SystemInstructions,
 	}
-	if runReq.AgentType == "codex" {
-		runReq.AgentExecutable = config.GetCodexExecutable()
+	if config.SupportsAgentExecutable(runReq.AgentType) {
+		runReq.AgentExecutable = config.GetAgentExecutable(runReq.AgentType)
 	}
 	if req.ExecutionIdentity != nil || req.LaunchID != "" || req.AgentActorToken != "" {
 		runReq.ExecutionIdentity = req.ExecutionIdentity

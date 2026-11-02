@@ -162,6 +162,7 @@ type IsolatedHomePrincipalCredentials interface {
 // AutoModelSelectionConfig is the runtime-owned launch policy supplied to an
 // AutoModelSelector. Adapter-specific config parsing stays in cmd wiring.
 type AutoModelSelectionConfig struct {
+	Executable           string // Resolved Session launcher, also used for model queries.
 	Priority             []string
 	LoadThresholdPercent int
 }

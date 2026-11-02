@@ -479,7 +479,7 @@ func managementRuntimeModelOptions(state managementState, runtimeRef string) []c
 			}
 		}
 		if !found {
-			if model, err := agentprofile.ResolveRuntimeModel(runtime, current); err == nil && (model.DisplayName != "" || runtimeRef == "codex") {
+			if model, err := agentprofile.ResolveRuntimeModel(runtime, current); err == nil && (model.DisplayName != "" || config.SupportsAgentExecutable(runtimeRef)) {
 				runtime.Models = append(runtime.Models, model)
 			}
 		}

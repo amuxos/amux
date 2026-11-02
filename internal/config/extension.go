@@ -11,6 +11,7 @@ import (
 // Extension supplies configuration metadata and defaults for a distribution.
 type Extension struct {
 	Options            []ConfigOption
+	AgentExecutables   map[string]string // app-server agent type -> display name
 	StructuredDefaults map[string]func(StructuredProviderConfig) StructuredProviderConfig
 }
 
@@ -37,6 +38,14 @@ func RegisterExtension(ext Extension) error {
 		if name == "" || name == "codex" || name != strings.TrimSpace(name) || defaults == nil {
 			return fmt.Errorf("invalid extension structured provider %q", name)
 		}
+	}
+	for name, label := range ext.AgentExecutables {
+		if name == "" || name == "codex" || strings.ContainsAny(name, ". /\\\t\r\n") || label == "" {
+			return fmt.Errorf("invalid executable integration %q", name)
+		}
+	}
+	for name, label := range ext.AgentExecutables {
+		agentExecutables[name] = label
 	}
 	for _, option := range ext.Options {
 		found := false

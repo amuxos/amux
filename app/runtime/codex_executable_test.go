@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -42,6 +43,10 @@ func TestCodexExecutableUsesExecutionHomeAndPATH(t *testing.T) {
 }
 
 func TestCodexExecutableFrozenInSessionLaunch(t *testing.T) {
+	testExecutableFrozenInSessionLaunch(t, "codex")
+}
+
+func testExecutableFrozenInSessionLaunch(t *testing.T, agent string) {
 	dir := t.TempDir()
 	db, err := store.Open(filepath.Join(dir, "runtime.db"))
 	if err != nil {
@@ -49,12 +54,13 @@ func TestCodexExecutableFrozenInSessionLaunch(t *testing.T) {
 	}
 	defer db.Close()
 	mgr := session.NewManager(db)
-	old := viper.Get(config.CodexExecutableKey)
-	defer viper.Set(config.CodexExecutableKey, old)
-	viper.Set(config.CodexExecutableKey, "/configured/launcher")
+	key := config.AgentExecutableKey(agent)
+	old := viper.Get(key)
+	defer viper.Set(key, old)
+	viper.Set(key, "/configured/launcher")
 	srv := &server{mgr: mgr, amuxDir: dir, disableMCPAutoInject: true,
 		startSessionContextHook: func(_ context.Context, _ adapter.Adapter, _ *session.Session, _, _ []string) error { return nil }}
-	resp, err := srv.Run(context.Background(), &pb.RunRequest{AgentType: "codex", Name: "configured", Cwd: dir, AgentExecutable: "/forwarded/launcher"})
+	resp, err := srv.Run(context.Background(), &pb.RunRequest{AgentType: agent, Name: "configured", Cwd: dir, AgentExecutable: "/forwarded/launcher"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,12 +72,34 @@ func TestCodexExecutableFrozenInSessionLaunch(t *testing.T) {
 	if got := launchSpecExecutable(snap.LaunchSpec); got != "/forwarded/launcher" {
 		t.Fatalf("launch = %q", got)
 	}
-	viper.Set(config.CodexExecutableKey, "/changed/launcher")
+	viper.Set(key, "/changed/launcher")
 	resumed := runRequestFromLaunchSnapshot(snap)
 	if resumed.AgentExecutable != "/forwarded/launcher" {
 		t.Fatalf("resume changed launcher: %+v", resumed)
 	}
 	if launchSpecExecutable(`{"agent_type":"codex"}`) != "codex" {
 		t.Fatal("legacy session adopted configured launcher")
+	}
+}
+
+func TestRegisteredExecutableFrozenInSessionLaunch(t *testing.T) {
+	const child = "AMUX_TEST_RUNTIME_EXECUTABLE"
+	if os.Getenv(child) != "1" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestRegisteredExecutableFrozenInSessionLaunch$")
+		cmd.Env = append(os.Environ(), child+"=1")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v\n%s", err, out)
+		}
+		return
+	}
+	if err := config.RegisterExtension(config.Extension{AgentExecutables: map[string]string{"custom": "Custom"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := adapter.Register("custom", func() adapter.Adapter { return &adapter.CodexAdapter{} }); err != nil {
+		t.Fatal(err)
+	}
+	testExecutableFrozenInSessionLaunch(t, "custom")
+	if got := launchSpecExecutable("", "custom"); got != "custom" {
+		t.Fatalf("legacy launcher: %s", got)
 	}
 }

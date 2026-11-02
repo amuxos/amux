@@ -237,8 +237,8 @@ func setConfigValue(cfg cliConfigFile, key, raw string) error {
 
 func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale) error {
 	parts := strings.Split(key, ".")
-	if key == config.CodexExecutableKey && !config.ValidCodexExecutable(raw) {
-		return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.codex_executable.invalid")))
+	if config.IsAgentExecutableKey(key) && !config.ValidAgentExecutable(raw) {
+		return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.launcher.invalid")))
 	}
 	if !supportedConfigKey(key) {
 		return commandValidationError(fmt.Errorf("unsupported config key %q", key))

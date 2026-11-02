@@ -3,6 +3,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -24,7 +25,7 @@ func TestExperimentsAtomicSaveAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := config.ReadExperimentsSettings()
-	if err != nil || got != want {
+	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("saved = %+v %v", got, err)
 	}
 	if config.GetBridgeFeishuGroupSettingsEnabled() || config.GetMemory().Enabled || config.GetBridgeFeishuPresentation().CompletionNotificationEnabled {
@@ -46,7 +47,7 @@ func TestExperimentsAtomicSaveAndRestart(t *testing.T) {
 	}
 	viper.Reset()
 	requireLoad(t, path)
-	if config.GetExperimentsSettings() != want {
+	if !reflect.DeepEqual(config.GetExperimentsSettings(), want) {
 		t.Fatal("reload did not enable all experiments")
 	}
 	if config.GetHub().Addr != "localhost:7100" || config.GetBridgeFeishuPresentationForProfile("special").CompletionNotificationAfterSeconds != 30 {

@@ -16,8 +16,8 @@ import (
 )
 
 func (s *server) ListNativeModels(parent context.Context, req *pb.ListNativeModelsRequest) (*pb.ListNativeModelsResponse, error) {
-	if req.GetAgentType() != "codex" {
-		return nil, status.Error(codes.InvalidArgument, "native model discovery requires codex")
+	if !config.SupportsAgentExecutable(req.GetAgentType()) {
+		return nil, status.Error(codes.InvalidArgument, config.ExecutableError("unsupported", req.GetAgentType()).Error())
 	}
 	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
 	defer cancel()
@@ -49,19 +49,19 @@ func (s *server) ListNativeModels(parent context.Context, req *pb.ListNativeMode
 	env := append(os.Environ(), s.launchEnvForIdentity(identity, nil)...)
 	executable := req.AgentExecutable
 	if executable == "" {
-		executable = config.GetCodexExecutable()
+		executable = config.GetAgentExecutable(req.AgentType)
 	}
 	resolutionEnv := env
 	if identity.IsolationBackend == principal.BackendLinuxDAC {
 		resolutionEnv = append(append([]string{}, env...), "HOME="+paths.Home)
 	}
-	executable, err = resolveCodexExecutable(executable, resolutionEnv)
+	executable, err = resolveAgentExecutable(req.AgentType, executable, resolutionEnv)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	models, signedIn, err := codex.DiscoverModels(ctx, codex.StartOptions{
 		Backend: backend, LaunchContext: launchContext, Cwd: cwd, Executable: executable,
-		Env: env,
+		Env: env, ProviderName: req.AgentType,
 	})
 	if err != nil {
 		return nil, err
@@ -76,6 +76,9 @@ func (s *server) ListNativeModels(parent context.Context, req *pb.ListNativeMode
 			DefaultReasoningEffort: model.DefaultReasoningEffort, IsDefault: model.IsDefault}
 		for _, effort := range model.SupportedReasoningEfforts {
 			entry.ReasoningEfforts = append(entry.ReasoningEfforts, effort.ReasoningEffort)
+		}
+		for _, variant := range model.Variants {
+			entry.Variants = append(entry.Variants, &pb.NativeModelVariant{DisplayName: variant.DisplayName, BackendVariant: variant.BackendVariant})
 		}
 		result.Models = append(result.Models, entry)
 	}

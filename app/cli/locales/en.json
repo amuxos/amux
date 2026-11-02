@@ -217,5 +217,8 @@
   },
   "config.codex_executable.invalid": {
     "other": "Enter a program path of at most 4096 characters, without line breaks."
+  },
+  "config.launcher.invalid": {
+    "other": "Enter a program path of at most 4096 characters, without line breaks."
   }
 }

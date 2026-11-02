@@ -164,3 +164,5 @@ Provider 特定布局由发行版注册；principal 文件通过现有特权 hel
 ## 配置 Codex 启动程序
 
 `adapter.codex.executable` 指定兼容 Codex 的启动程序（PATH 中的名称、绝对路径或 `~/` 路径）；留空使用 `codex`。该值是程序路径，不是 shell 命令。Hub 将配置传递给新 Codex Session；模型发现也在选中的 Runtime 上使用同一个程序。Runtime 按执行环境 HOME 展开 `~/`。Session 保存启动程序，重启、恢复和切模型均沿用；修改配置只影响新 Session。缺少该字段的已有 Session 继续使用 `codex`。所有者私聊 `/amux` 的实验功能表单可修改此实例级配置，保存并重启后生效。路径必须在选中的每个 Runtime 上存在，不会修改远端配置文件。
+
+注册的 app-server 集成复用执行程序设置、所有者实验功能表单、执行节点路径解析和 Session 启动路径快照。原生模型发现使用同一个程序，不回退静态原生目录；Provider 和模型服务条目保持独立。

@@ -105,22 +105,22 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 	recordEnv := memoryprotocol.SetEnv(ensureLaunchEnvPATH(replacement.Env), memoryprotocol.BindingEnv, memoryprotocol.Binding(snap.Env))
 	runEnv := s.launchEnvForIdentity(snap.ExecutionIdentity, append(append([]string{}, providerEnv...), recordEnv...))
 	effectiveModel := effectiveRunModel(replacement)
-	runExtraArgs, effectiveModel = s.maybeAutoSelectModel(a, replacement.AgentType, snap.Cwd, runEnv, runExtraArgs, effectiveModel)
-	replacement.ExtraArgs = append([]string(nil), runExtraArgs...)
-	if replacement.AgentType == "codex" {
-		if snap.AgentType == "codex" {
-			replacement.AgentExecutable = launchSpecExecutable(snap.LaunchSpec)
+	if config.SupportsAgentExecutable(replacement.AgentType) {
+		if snap.AgentType == replacement.AgentType {
+			replacement.AgentExecutable = launchSpecExecutable(snap.LaunchSpec, snap.AgentType)
 		} else {
 			executable := replacement.AgentExecutable
 			if executable == "" {
-				executable = config.GetCodexExecutable()
+				executable = config.GetAgentExecutable(replacement.AgentType)
 			}
-			replacement.AgentExecutable, err = resolveCodexExecutable(executable, append(os.Environ(), runEnv...))
+			replacement.AgentExecutable, err = resolveAgentExecutable(replacement.AgentType, executable, append(os.Environ(), runEnv...))
 			if err != nil {
 				return nil, status.Error(codes.InvalidArgument, err.Error())
 			}
 		}
 	}
+	runExtraArgs, effectiveModel = s.maybeAutoSelectModel(a, replacement.AgentType, snap.Cwd, runEnv, runExtraArgs, effectiveModel, replacement.AgentExecutable)
+	replacement.ExtraArgs = append([]string(nil), runExtraArgs...)
 	launchSpec := launchSpecSnapshot(replacement)
 	if hot, err := s.tryHotReconfigureExecution(sess, snap, replacement, runExtraArgs, recordEnv, effectiveModel, launchSpec); err != nil {
 		return nil, err
@@ -395,7 +395,7 @@ func runRequestFromLaunchSnapshot(snap session.Snapshot) *pb.RunRequest {
 	}
 	_ = decodeLaunchSpec(snap.LaunchSpec, &saved)
 	return &pb.RunRequest{
-		AgentExecutable: launchSpecExecutable(snap.LaunchSpec),
+		AgentExecutable: launchSpecExecutable(snap.LaunchSpec, snap.AgentType),
 		AgentProfile:    snap.AgentProfile, ProfileSpec: saved.ProfileSpec, AgentType: snap.AgentType,
 		Name: snap.Name, Env: append([]string(nil), snap.Env...), ExtraArgs: append([]string(nil), snap.ExtraArgs...),
 		Cwd: snap.Cwd, Repo: saved.Repo, RepoRef: saved.RepoRef,
@@ -522,14 +522,14 @@ func (s *server) refreshProfileAndRelaunch(ctx context.Context, sess *session.Se
 	}
 	recordEnv := memoryprotocol.SetEnv(ensureLaunchEnvPATH(launch.Env), memoryprotocol.BindingEnv, memoryprotocol.Binding(snap.Env))
 	runEnv := s.launchEnvForIdentity(snap.ExecutionIdentity, append(append([]string{}, providerEnv...), recordEnv...))
-	if refreshReq.AgentType == "codex" && snap.AgentType == "codex" {
-		refreshReq.AgentExecutable = launchSpecExecutable(snap.LaunchSpec)
+	if config.SupportsAgentExecutable(refreshReq.AgentType) && snap.AgentType == refreshReq.AgentType {
+		refreshReq.AgentExecutable = launchSpecExecutable(snap.LaunchSpec, snap.AgentType)
 	}
 	launchSpec := launchSpecSnapshot(refreshReq)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	runExtraArgs, launch.Model = s.maybeAutoSelectModel(a, launch.AgentType, snap.Cwd, runEnv, runExtraArgs, launch.Model)
+	runExtraArgs, launch.Model = s.maybeAutoSelectModel(a, launch.AgentType, snap.Cwd, runEnv, runExtraArgs, launch.Model, refreshReq.AgentExecutable)
 	_ = sess.Kill()
 	principalPaths, err := s.prepareRelaunchIsolation(ctx, sess, snap)
 	if err != nil {

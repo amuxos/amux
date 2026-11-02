@@ -100,3 +100,10 @@ var RegisterStructuredLaunchPreparation = mux.RegisterStructuredLaunchPreparatio
 func RegisterResponsesChatCommand(command ResponsesChatCommand) error {
 	return mux.RegisterResponsesChatCommand(command)
 }
+
+func ResolveAgentExecutable(agent, value string, env []string) (string, error) {
+	return provider.ResolveAgentExecutable(agent, value, env)
+}
+
+type AppServerNativeModel = codex.NativeModel
+type AppServerNativeModelVariant = codex.NativeModelVariant

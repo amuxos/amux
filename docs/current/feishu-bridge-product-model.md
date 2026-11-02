@@ -625,3 +625,5 @@ empty results. Reports contain no conversation content, credentials or private
 workspace paths. Delivery failure is retained for retry and logged.
 
 The owner-only experiments page includes the installation-wide Codex executable. Empty restores `codex`; the value is resolved on the execution Runtime, including remote targets. Saving preserves fields omitted by older cards and uses the existing save/restart confirmation. Existing Sessions keep their launch executable.
+
+Registered app-server integrations share the executable setting, owner-only experiments form, execution-node resolution and frozen Session launch state. Native model discovery uses that same executable, without static native fallback; provider/service entries stay separate.

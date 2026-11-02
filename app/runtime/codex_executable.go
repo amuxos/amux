@@ -1,53 +1,29 @@
 package runtime
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-
-	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/provider"
 )
 
-// Resolve on the execution node, never on the Hub that rendered the picker.
 func resolveCodexExecutable(value string, env []string) (string, error) {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		value = "codex"
-	}
-	if !config.ValidCodexExecutable(value) {
-		return "", fmt.Errorf("invalid %s", config.CodexExecutableKey)
-	}
-	if strings.HasPrefix(value, "~/") {
-		home := ""
-		for _, entry := range env {
-			if strings.HasPrefix(entry, "HOME=") {
-				home = strings.TrimPrefix(entry, "HOME=")
-			}
-		}
-		if home == "" {
-			return "", fmt.Errorf("%s: execution HOME is required", config.CodexExecutableKey)
-		}
-		value = filepath.Join(home, strings.TrimPrefix(value, "~/"))
-	}
-	if strings.ContainsAny(value, `/\`) && !filepath.IsAbs(value) {
-		return "", fmt.Errorf("%s: relative executable path", config.CodexExecutableKey)
-	}
-	// Default command remains compatible with installations that resolve inside
-	// their isolation backend. Explicit launchers are resolved using launch PATH.
-	if value == "codex" {
-		return value, nil
-	}
-	return provider.ResolveExecutableFromEnvPATH(value, append(os.Environ(), env...))
+	return provider.ResolveAgentExecutable("codex", value, env)
+}
+func resolveAgentExecutable(agent, value string, env []string) (string, error) {
+	return provider.ResolveAgentExecutable(agent, value, env)
 }
 
-func launchSpecExecutable(spec string) string {
+func launchSpecExecutable(spec string, agents ...string) string {
 	var saved struct {
+		AgentType       string `json:"agent_type"`
 		AgentExecutable string `json:"agent_executable"`
 	}
 	_ = decodeLaunchSpec(spec, &saved)
 	if saved.AgentExecutable == "" {
+		if len(agents) > 0 && agents[0] != "" {
+			return agents[0]
+		}
+		if saved.AgentType != "" {
+			return saved.AgentType
+		}
 		return "codex"
 	}
 	return saved.AgentExecutable

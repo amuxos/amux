@@ -64,5 +64,8 @@
   },
   "conversion_symlink": {
     "other": "source conversion requires regular files and directories: %s"
+  },
+  "native_variant_invalid": {
+    "other": "Invalid native model variant."
   }
 }

@@ -14,15 +14,22 @@ import (
 )
 
 type NativeModel struct {
-	ID                        string `json:"id"`
-	Model                     string `json:"model"`
-	DisplayName               string `json:"displayName"`
-	Hidden                    bool   `json:"hidden"`
-	IsDefault                 bool   `json:"isDefault"`
+	BusinessMetadata          json.RawMessage      `json:"businessMetadata"`
+	Variants                  []NativeModelVariant `json:"-"`
+	ID                        string               `json:"id"`
+	Model                     string               `json:"model"`
+	DisplayName               string               `json:"displayName"`
+	Hidden                    bool                 `json:"hidden"`
+	IsDefault                 bool                 `json:"isDefault"`
 	SupportedReasoningEfforts []struct {
 		ReasoningEffort string `json:"reasoningEffort"`
 	} `json:"supportedReasoningEfforts"`
 	DefaultReasoningEffort string `json:"defaultReasoningEffort"`
+}
+
+type NativeModelVariant struct {
+	DisplayName    string
+	BackendVariant string
 }
 
 // DiscoverModels uses only account/model RPCs: it never creates a thread or turn.
@@ -59,7 +66,16 @@ func DiscoverModels(parent context.Context, opts StartOptions) ([]NativeModel, b
 	go func() { _, _ = io.Copy(io.Discard, handle.Stderr()) }()
 	client := jsonrpc.NewClient(handle.Stdout(), handle.Stdin())
 	go func() { _ = client.Run() }()
-	return discoverModels(ctx, client)
+	models, signedIn, err := discoverModels(ctx, client)
+	if err == nil && signedIn {
+		providerMu.RLock()
+		registration := registeredProviders[opts.ProviderName]
+		providerMu.RUnlock()
+		if registration.DecorateNativeModels != nil {
+			models = registration.DecorateNativeModels(models)
+		}
+	}
+	return models, signedIn, err
 }
 
 func discoverModels(ctx context.Context, client *jsonrpc.Client) ([]NativeModel, bool, error) {

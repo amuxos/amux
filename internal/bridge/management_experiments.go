@@ -88,11 +88,26 @@ func managementExperimentsSettingsFromCallback(action *callback.CallBackAction, 
 	}
 	if raw, present := managementExperimentCallbackValue(action, "codex_executable"); present {
 		value, ok := raw.(string)
-		if !ok || !config.ValidCodexExecutable(value) {
+		if !ok || !config.ValidAgentExecutable(value) {
 			return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.codex.executable.invalid")
 		}
 		value = strings.TrimSpace(value)
 		update.CodexExecutable = &value
+	}
+	for _, agent := range config.AgentExecutableNames() {
+		if agent == "codex" {
+			continue
+		}
+		if raw, present := managementExperimentCallbackValue(action, agent+"_executable"); present {
+			value, ok := raw.(string)
+			if !ok || !config.ValidAgentExecutable(value) {
+				return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.launcher.invalid")
+			}
+			if update.AgentExecutables == nil {
+				update.AgentExecutables = map[string]string{}
+			}
+			update.AgentExecutables[agent] = strings.TrimSpace(value)
+		}
 	}
 	return update, nil
 }
@@ -167,6 +182,18 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 			managementFormButtonRowElement(managementFormSubmitButton(managementActionExperimentsSaveRestart, managementCopy("management.save.and.restart"))),
 		}},
 		managementTextElement(managementCopy("management.applies.to.all.assistants.in.this.instance"), "notation", "grey", nil),
+	}
+	for _, agent := range config.AgentExecutableNames() {
+		if agent == "codex" {
+			continue
+		}
+		name := agent + "_executable"
+		label := config.AgentExecutableLabel(agent)
+		input := cardElement{Tag: "input", Name: name, DefaultValue: saved.AgentExecutables[agent], Placeholder: managementStyledTextPtr(managementCopy("management.launcher.placeholder", agent), cardTitle{Tag: "plain_text"})}
+		entry := managementExperimentItemElement(name, managementCopy("management.launcher.title", label), managementCopy("management.launcher.description", label), cardElement{Tag: "div", Text: managementStyledTextPtr(label, cardTitle{Tag: "plain_text"})}, saved.AgentExecutables[agent] != running.AgentExecutables[agent], []cardElement{input, managementHintElement(managementCopy("management.launcher.scope"))})
+		form := &elements[1]
+		n := len(form.Elements)
+		form.Elements = append(form.Elements[:n-1], entry, form.Elements[n-1])
 	}
 	elements = append(elements, conversationExperimentElements()...)
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.experiments"), Summary: managementCopy("management.amux.experiments"), Theme: "blue", Elements: elements})

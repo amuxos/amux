@@ -273,23 +273,23 @@ func (s *server) Run(ctx context.Context, req *pb.RunRequest) (*pb.RunResponse, 
 	// If no explicit model was resolved, let the adapter auto-select based on
 	// runtime conditions (e.g. provider model load). Only for fresh sessions;
 	// restart/resume preserves the previously selected model from the snapshot.
-	runExtraArgs, effectiveModel = s.maybeAutoSelectModel(a, req.AgentType, cwd, runEnv, runExtraArgs, effectiveModel)
 
-	if req.AgentType == "codex" {
+	if config.SupportsAgentExecutable(req.AgentType) {
 		executable := req.AgentExecutable
 		if executable == "" {
-			executable = config.GetCodexExecutable()
+			executable = config.GetAgentExecutable(req.AgentType)
 		}
 		resolutionEnv := append(os.Environ(), runEnv...)
 		if identity.IsolationBackend == principal.BackendLinuxDAC {
 			resolutionEnv = append(resolutionEnv, "HOME="+principalPaths.Home)
 		}
-		req.AgentExecutable, err = resolveCodexExecutable(executable, resolutionEnv)
+		req.AgentExecutable, err = resolveAgentExecutable(req.AgentType, executable, resolutionEnv)
 		if err != nil {
 			cleanupCreatedSession()
-			return nil, status.Errorf(codes.InvalidArgument, "codex executable: %v", err)
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 	}
+	runExtraArgs, effectiveModel = s.maybeAutoSelectModel(a, req.AgentType, cwd, runEnv, runExtraArgs, effectiveModel, req.AgentExecutable)
 	if err := s.mgr.RecordLaunchParams(sess, runExtraArgs, recordEnv, req.WorkspaceSource, req.WorkspaceScope, req.AgentProfile, effectiveModel, launchSpecSnapshot(req)); err != nil {
 		cleanupCreatedSession()
 		return nil, status.Errorf(codes.Internal, "record params: %v", err)
@@ -372,7 +372,7 @@ func effectiveRunModel(req *pb.RunRequest) string {
 // extraArgs and effectiveModel is empty. If a model is selected, it is injected
 // into extraArgs as ["--model", <model>] and returned as effectiveModel.
 // Best-effort: errors are logged and do not block launch.
-func (s *server) maybeAutoSelectModel(a adapter.Adapter, agentType, cwd string, env, extraArgs []string, effectiveModel string) ([]string, string) {
+func (s *server) maybeAutoSelectModel(a adapter.Adapter, agentType, cwd string, env, extraArgs []string, effectiveModel string, executables ...string) ([]string, string) {
 	sel, ok := a.(adapter.AutoModelSelector)
 	if !ok {
 		return extraArgs, effectiveModel
@@ -391,6 +391,9 @@ func (s *server) maybeAutoSelectModel(a adapter.Adapter, agentType, cwd string, 
 	cfg, enabled := s.autoModelConfig(agentType)
 	if !enabled {
 		return extraArgs, effectiveModel
+	}
+	if len(executables) > 0 {
+		cfg.Executable = executables[0]
 	}
 	model, err := sel.SelectAutoModel(cwd, env, cfg)
 	if err != nil {
@@ -801,8 +804,8 @@ func (s *server) launchProcContext(ctx context.Context, a adapter.Adapter, sess 
 		}
 		resumeModel, _ := agentprofile.AgentArgsModel(snap.AgentType, launchArgs)
 		executable := ""
-		if snap.AgentType == "codex" {
-			executable = launchSpecExecutable(snap.LaunchSpec)
+		if config.SupportsAgentExecutable(snap.AgentType) {
+			executable = launchSpecExecutable(snap.LaunchSpec, snap.AgentType)
 		}
 		agentPID, sockPath, err := mux.LaunchStructuredContext(ctx, s.amuxletBin, snap.ID, s.amuxDir, mux.StructuredLaunchOptions{
 			Provider:               providerID,

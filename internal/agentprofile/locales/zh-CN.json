@@ -64,5 +64,8 @@
   },
   "conversion_symlink": {
     "other": "源码转换要求普通文件和目录：%s"
+  },
+  "native_variant_invalid": {
+    "other": "原生模型变体无效。"
   }
 }

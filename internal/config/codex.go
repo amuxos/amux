@@ -1,21 +1,44 @@
 package config
 
 import (
-	"github.com/spf13/viper"
+	"sort"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 const CodexExecutableKey = "adapter.codex.executable"
 
-// GetCodexExecutable returns the installation's program, defaulting to codex. A launcher owns its native configuration and auth.
-func GetCodexExecutable() string {
-	value := strings.TrimSpace(viper.GetString(CodexExecutableKey))
+var agentExecutables = map[string]string{"codex": "Codex"}
+
+func AgentExecutableKey(agent string) string    { return "adapter." + agent + ".executable" }
+func SupportsAgentExecutable(agent string) bool { _, ok := agentExecutables[agent]; return ok }
+func AgentExecutableNames() []string {
+	names := make([]string, 0, len(agentExecutables))
+	for name := range agentExecutables {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+func AgentExecutableLabel(agent string) string { return agentExecutables[agent] }
+func GetAgentExecutable(agent string) string {
+	value := strings.TrimSpace(viper.GetString(AgentExecutableKey(agent)))
 	if value == "" {
-		return "codex"
+		return agent
 	}
 	return value
 }
-
-func ValidCodexExecutable(value string) bool {
+func GetCodexExecutable() string             { return GetAgentExecutable("codex") }
+func ValidCodexExecutable(value string) bool { return ValidAgentExecutable(value) }
+func ValidAgentExecutable(value string) bool {
 	return !strings.ContainsAny(value, "\x00\r\n") && len(value) <= 4096
+}
+func IsAgentExecutableKey(key string) bool {
+	for _, agent := range AgentExecutableNames() {
+		if key == AgentExecutableKey(agent) {
+			return true
+		}
+	}
+	return false
 }

@@ -217,5 +217,8 @@
   },
   "config.codex_executable.invalid": {
     "other": "请输入不超过 4096 字符且不含换行的程序路径。"
+  },
+  "config.launcher.invalid": {
+    "other": "请输入不超过 4096 字符且不含换行的程序路径。"
   }
 }

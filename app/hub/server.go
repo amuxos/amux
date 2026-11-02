@@ -983,8 +983,8 @@ func (s *hubServer) Run(ctx context.Context, req *pb.AmuxdRunRequest) (*pb.RunRe
 		ExecutionIdentity:     principal.ToProtoIdentity(identity),
 		LaunchId:              launchID,
 	}
-	if payload.AgentType == "codex" {
-		payload.AgentExecutable = config.GetCodexExecutable()
+	if config.SupportsAgentExecutable(payload.AgentType) {
+		payload.AgentExecutable = config.GetAgentExecutable(payload.AgentType)
 	}
 	payload.AgentActorToken, payload.AgentActorTokenExpiresAt = s.issueAgentActorToken(
 		identity, sessionAgentCredentialSubject(req.TargetId, req.Name))
@@ -1034,8 +1034,8 @@ func (s *hubServer) Restart(ctx context.Context, req *pb.AmuxdRestartRequest) (*
 	if req.Replacement != nil && req.RefreshProfile {
 		return nil, status.Error(codes.InvalidArgument, "replacement and refresh_profile are mutually exclusive")
 	}
-	if req.Replacement != nil && req.Replacement.AgentType == "codex" {
-		req.Replacement.AgentExecutable = config.GetCodexExecutable()
+	if req.Replacement != nil && config.SupportsAgentExecutable(req.Replacement.AgentType) {
+		req.Replacement.AgentExecutable = config.GetAgentExecutable(req.Replacement.AgentType)
 	}
 	token, expires := s.relaunchAgentActorToken(req.TargetId, req.Name)
 	return routeUnary[pb.RestartRequest, pb.RunResponse](s, ctx, req.TargetId, "Restart", &pb.RestartRequest{

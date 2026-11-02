@@ -2,6 +2,7 @@ package agentprofile
 
 import (
 	"fmt"
+	"github.com/amuxos/amux/internal/config"
 	"sort"
 	"strings"
 )
@@ -216,28 +217,31 @@ func ResolveRuntimeOption(ref string) (RuntimeOption, error) {
 func ResolveRuntimeModel(runtime RuntimeOption, requested string) (RuntimeModelOption, error) {
 	requested = strings.TrimSpace(requested)
 	if requested == "" {
-		return RuntimeModelOption{Kind: ModelKindDefault, NativeCapabilitiesUnknown: runtime.Ref == "codex" && !runtime.NativeDefaultCapabilitiesKnown}, nil
+		return RuntimeModelOption{Kind: ModelKindDefault, NativeCapabilitiesUnknown: config.SupportsAgentExecutable(runtime.Ref) && !runtime.NativeDefaultCapabilitiesKnown}, nil
 	}
 	for _, model := range runtime.Models {
 		if model.Ref == requested {
 			return cloneRuntimeModelOption(model), nil
 		}
 	}
+	if config.SupportsAgentExecutable(runtime.Ref) && strings.HasPrefix(requested, nativeVariantPrefix) {
+		return resolveNativeVariant(requested)
+	}
 	if customization.ResolveServiceModel != nil {
 		if model, handled, err := customization.ResolveServiceModel(runtime.Ref, requested); handled || err != nil {
 			return model, err
 		}
 	}
-	if allowUnlistedNativeRuntimeModels || runtime.Ref == "codex" {
+	if allowUnlistedNativeRuntimeModels || config.SupportsAgentExecutable(runtime.Ref) {
 		for _, source := range runtimeCatalogSources {
 			if source.ref == runtime.Ref {
 				efforts := cloneStrings(runtime.DefaultReasoningEfforts)
-				if runtime.Ref == "codex" {
+				if config.SupportsAgentExecutable(runtime.Ref) {
 					efforts = nil
 				}
 				return RuntimeModelOption{
 					Ref: requested, Kind: ModelKindNative, AgentModel: requested,
-					NativeCapabilitiesUnknown: runtime.Ref == "codex",
+					NativeCapabilitiesUnknown: config.SupportsAgentExecutable(runtime.Ref),
 					SupportedReasoningEfforts: efforts,
 				}, nil
 			}

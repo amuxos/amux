@@ -223,8 +223,8 @@ func (b *Bridge) reconfigureAndCommitSingletonBotSettings(ctx context.Context, r
 		ExtraArgs:    append([]string(nil), launch.ExtraArgs...),
 		Cwd:          cwd,
 	}
-	if replacement.AgentType == "codex" {
-		replacement.AgentExecutable = config.GetCodexExecutable()
+	if config.SupportsAgentExecutable(replacement.AgentType) {
+		replacement.AgentExecutable = config.GetAgentExecutable(replacement.AgentType)
 	}
 	restartCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

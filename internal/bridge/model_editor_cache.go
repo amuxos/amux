@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/agentprofile"
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/modelservice"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	"github.com/rs/zerolog/log"
@@ -156,8 +157,8 @@ type editorModelScope struct {
 func (b *Bridge) prepareEditorModelScope(base managementState, openID, messageID, runtimeRef string) editorModelScope {
 	scope := editorModelScope{cacheable: messageID != ""}
 	parts := []any{openID, messageID, runtimeRef, base.Mode, base.Runtimes}
-	if runtimeRef == "codex" {
-		scope.native = b.prepareNativeModels(base, openID)
+	if config.SupportsAgentExecutable(runtimeRef) {
+		scope.native = b.prepareNativeModels(base, openID, runtimeRef)
 		if scope.native == nil {
 			scope.cacheable = false
 		} else {
@@ -199,10 +200,10 @@ func forceEditorModelRefresh(action *callback.CallBackAction) bool {
 
 func loadingEditorModels(base managementState, runtimeRef string) managementState {
 	base = editorModelsFromState(base).apply(base)
-	if runtimeRef == "codex" {
+	if config.SupportsAgentExecutable(runtimeRef) {
 		base.NativeModelsStatus = "loading"
 		for i := range base.Runtimes {
-			if base.Runtimes[i].Ref != "codex" {
+			if base.Runtimes[i].Ref != runtimeRef {
 				continue
 			}
 			base.Runtimes[i].Models = slices.DeleteFunc(base.Runtimes[i].Models, func(m agentprofile.RuntimeModelOption) bool { return m.Kind == agentprofile.ModelKindNative })
@@ -235,8 +236,8 @@ func (b *Bridge) refreshEditorModels(ctx context.Context, base managementState, 
 			defer cancel()
 			state := base
 			started := time.Now()
-			if runtimeRef == "codex" {
-				state = b.loadNativeModelsQuery(queryCtx, state, scope.native)
+			if config.SupportsAgentExecutable(runtimeRef) {
+				state = b.loadNativeModelsQuery(queryCtx, state, scope.native, runtimeRef)
 			}
 			nativeElapsed := time.Since(started)
 			serviceStarted := time.Now()
@@ -291,7 +292,7 @@ func retainUnavailableEditorModels(state managementState, previous editorModelSn
 			if current.Ref != old.Ref {
 				continue
 			}
-			native := current.Ref == "codex" && state.NativeModelsStatus == "unavailable"
+			native := config.SupportsAgentExecutable(current.Ref) && state.NativeModelsStatus == "unavailable"
 			if native {
 				current.NativeDefaultCapabilitiesKnown = old.NativeDefaultCapabilitiesKnown
 				current.DefaultReasoningEfforts = slices.Clone(old.DefaultReasoningEfforts)

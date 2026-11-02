@@ -2460,16 +2460,16 @@
     "other": "一键安装"
   },
   "management.model.native.ready": {
-    "other": "已从执行环境刷新 Codex 原生模型。"
+    "other": "已从执行环境刷新 %s 原生模型。"
   },
   "management.model.native.signed_out": {
-    "other": "此 Runtime 上的 Codex 尚未登录。请在该环境登录后刷新。"
+    "other": "此 Runtime 上的 %s 尚未登录。请在该环境登录后刷新。"
   },
   "management.model.native.unavailable": {
-    "other": "Codex 模型暂不可用，请检查 Runtime 和原生登录后刷新。"
+    "other": "%s 模型暂不可用，请检查 Runtime 和原生登录后刷新。"
   },
   "management.model.native.refresh": {
-    "other": "刷新 Codex 模型"
+    "other": "刷新 %s 模型"
   },
   "management.watch.choose_group": {
     "other": "请选择下方的值守群，修改该群设置。"
@@ -3012,9 +3012,24 @@
     "other": "请输入不超过 4096 字符且不含换行的程序路径。"
   },
   "management.model.native.loading": {
-    "other": "正在加载原生模型…"
+    "other": "正在加载原生模型（%s）…"
   },
   "management.model.service.status.loading": {
     "other": "正在加载…"
+  },
+  "management.launcher.title": {
+    "other": "%s 启动程序"
+  },
+  "management.launcher.placeholder": {
+    "other": "留空使用 %s"
+  },
+  "management.launcher.description": {
+    "other": "选择启动 %s 和发现其原生模型时使用的程序。"
+  },
+  "management.launcher.scope": {
+    "other": "路径在执行节点解析。保存并重启后用于新会话；已有会话保持原程序。请输入程序名、绝对路径或 ~/ 路径，不是 shell 命令。"
+  },
+  "management.launcher.invalid": {
+    "other": "请输入有效程序路径（不超过 4096 字符，不含换行）。"
   }
 }

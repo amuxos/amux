@@ -289,8 +289,8 @@ func (r *taskRouter) SubmitSubtask(ctx context.Context, req *pb.SubmitSubtaskReq
 	}
 	// Re-marshal so only the server-resolved identity/profile travels to the
 	// runtime; the runtime never interprets the caller's run_as alias.
-	if spec.Agent == "codex" {
-		spec.AgentExecutable = config.GetCodexExecutable()
+	if config.SupportsAgentExecutable(spec.Agent) {
+		spec.AgentExecutable = config.GetAgentExecutable(spec.Agent)
 	}
 	b, merr := json.Marshal(spec)
 	if merr != nil {

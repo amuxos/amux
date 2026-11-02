@@ -223,3 +223,5 @@ Logs are bounded and SQLite compaction runs only above 300 MiB of free pages.
 ## Configured Codex executable
 
 `adapter.codex.executable` selects a Codex-compatible executable (a PATH name, absolute path, or `~/` path); empty uses `codex`. It is a program path, not a shell command. The Hub forwards the configured program to new Codex Sessions; model discovery uses the same program on the selected Runtime. The Runtime resolves `~/` against the execution HOME. Each Session freezes its program for restart, resume and model changes; changing the setting affects new Sessions. Existing Sessions without this field retain `codex`. The owner-only `/amux` experiments form edits this installation-wide setting; save and restart activates it. The path must exist on each selected Runtime. It does not edit remote configuration files.
+
+Registered app-server integrations share the executable setting, owner-only experiments form, execution-node resolution and frozen Session launch state. Native model discovery uses that same executable, without static native fallback; provider/service entries stay separate.

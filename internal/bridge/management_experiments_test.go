@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -78,7 +79,7 @@ func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 		t.Fatalf("invalid save = %+v %v", resp, err)
 	}
 	after, _ := config.ReadExperimentsSettings()
-	if after != saved {
+	if !reflect.DeepEqual(after, saved) {
 		t.Fatal("invalid callback changed saved settings")
 	}
 	event.Event.Action.FormValue["completion_seconds"] = "120"
@@ -89,7 +90,7 @@ func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 		t.Fatalf("older card save = %+v %v", resp, err)
 	}
 	after, _ = config.ReadExperimentsSettings()
-	if after != saved {
+	if !reflect.DeepEqual(after, saved) {
 		t.Fatal("older card changed the saved memory value")
 	}
 }

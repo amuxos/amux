@@ -17,7 +17,9 @@ import (
 
 	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/agentprofile"
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/credentialref"
+	"github.com/amuxos/amux/internal/provider"
 	"github.com/spf13/cobra"
 )
 
@@ -909,10 +911,14 @@ func runAgentProfileDoctor(ctx context.Context, out io.Writer, profile agentprof
 			findings = append(findings, getErr)
 			return
 		}
-		path, lookupErr := exec.LookPath(a.Cmd(nil).Path)
+		program := a.Cmd(nil).Path
+		if config.SupportsAgentExecutable(agentType) {
+			program = config.GetAgentExecutable(agentType)
+		}
+		path, lookupErr := resolveAgentDoctorExecutable(agentType, program)
 		if lookupErr != nil {
-			fmt.Fprintf(out, "[FAIL] executable: %s (not found in PATH)\n", a.Cmd(nil).Path)
-			findings = append(findings, fmt.Errorf("%s executable is not available in PATH", a.Cmd(nil).Path))
+			fmt.Fprintf(out, "[FAIL] executable: %s (not found in PATH)\n", program)
+			findings = append(findings, fmt.Errorf("%s executable is not available in PATH", program))
 			return
 		}
 		executables[agentType] = path
@@ -1327,4 +1333,15 @@ func completeAgentPackNamespaces(_ *cobra.Command, args []string, toComplete str
 		values = append(values, pack.Namespace+"\t"+pack.SourceKind)
 	}
 	return filterCompletionValues(values, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
+func resolveAgentDoctorExecutable(agentType, program string) (string, error) {
+	if config.SupportsAgentExecutable(agentType) {
+		resolved, err := provider.ResolveAgentExecutable(agentType, program, os.Environ())
+		if err != nil {
+			return "", err
+		}
+		program = resolved
+	}
+	return exec.LookPath(program)
 }
