@@ -74,6 +74,7 @@ func TestUserInputDiscoveryIsolatedProcessLifecycle(t *testing.T) {
 				}
 			})
 			opts := compatibleStartOptions(t, writeFakeCodex(t, isolatedUserInputServer))
+			opts.ProviderName = "codex"
 			opts.Cwd = paths.Workspace
 			opts.Env = append(os.Environ(), "AMUX_TEST_PROBE_MODE="+mode, sessionprotocol.InstructionEnv+"=runtime instructions")
 			opts.Backend = backend

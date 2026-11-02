@@ -419,6 +419,12 @@ environment and working directory, but each probe owns a separate process launch
 ID. Probe completion, failure or timeout must not close the agent's streams or
 terminate its process.
 
+Codex starts its bounded native feature probe alongside app-server initialization,
+then joins it before creating or resuming a thread. Explicit feature overrides
+skip the probe. Initialization failure cancels and joins the probe; hosts without
+a user-agent handshake discard its result. Other compatible providers retain
+handshake-gated discovery. Probe results are not shared across Sessions or identities.
+
 Claude SDK `AskUserQuestion` is mapped to one correlated request per question.
 The sidecar returns the original questions with `updatedInput.answers` only after
 all answers arrive; multi-select preserves selected labels. Cancelling a question

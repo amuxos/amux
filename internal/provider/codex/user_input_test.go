@@ -10,10 +10,12 @@ import (
 )
 
 func TestUserInputDiscoveryAppliedToStartResumeAndClear(t *testing.T) {
-	for _, resume := range []bool{false, true} {
-		for _, explicit := range []bool{false, true} {
-			t.Run(strings.Join([]string{map[bool]string{true: "resume", false: "start"}[resume], map[bool]string{true: "explicit", false: "managed"}[explicit]}, "/"), func(t *testing.T) {
-				script := `#!/usr/bin/env python3
+	for _, providerName := range []string{"compatible", "codex"} {
+		t.Run(providerName, func(t *testing.T) {
+			for _, resume := range []bool{false, true} {
+				for _, explicit := range []bool{false, true} {
+					t.Run(strings.Join([]string{map[bool]string{true: "resume", false: "start"}[resume], map[bool]string{true: "explicit", false: "managed"}[explicit]}, "/"), func(t *testing.T) {
+						script := `#!/usr/bin/env python3
 import json, sys
 if sys.argv[-2:] == ["features", "list"]:
     print("default_mode_request_user_input  under development  false")
@@ -32,26 +34,29 @@ for line in sys.stdin:
         result={}
     if "id" in msg: print(json.dumps({"id":msg["id"],"result":result}),flush=True)
 `
-				opts := compatibleStartOptions(t, writeFakeCodex(t, script))
-				if resume {
-					opts.ResumeSessionID = "existing"
+						opts := compatibleStartOptions(t, writeFakeCodex(t, script))
+						opts.ProviderName = providerName
+						if resume {
+							opts.ResumeSessionID = "existing"
+						}
+						if explicit {
+							opts.ExtraArgs = []string{"-c", "features.default_mode_request_user_input=false"}
+						}
+						proc, _, err := Start(context.Background(), opts)
+						if err != nil {
+							t.Fatal(err)
+						}
+						defer proc.Close()
+						if proc.defaultModeUserInput == explicit {
+							t.Fatalf("managed feature=%v", proc.defaultModeUserInput)
+						}
+						if err := proc.clearThread(); err != nil {
+							t.Fatal(err)
+						}
+					})
 				}
-				if explicit {
-					opts.ExtraArgs = []string{"-c", "features.default_mode_request_user_input=false"}
-				}
-				proc, _, err := Start(context.Background(), opts)
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer proc.Close()
-				if proc.defaultModeUserInput == explicit {
-					t.Fatalf("managed feature=%v", proc.defaultModeUserInput)
-				}
-				if err := proc.clearThread(); err != nil {
-					t.Fatal(err)
-				}
-			})
-		}
+			}
+		})
 	}
 }
 

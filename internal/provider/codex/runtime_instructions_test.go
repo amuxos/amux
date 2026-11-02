@@ -18,6 +18,8 @@ import (
 // The wire log lets the test check configuration frequency and unmodified input.
 const fakeRuntimeInstructionsServer = `#!/usr/bin/env python3
 import json,os,sys
+# Native feature queries must not truncate the app-server wire log.
+if sys.argv[-2:] == ["features", "list"]: sys.exit(0)
 threads=0
 instructions=None
 log=open(os.environ['AMUX_NATIVE_TEST_LOG'],'w',buffering=1)

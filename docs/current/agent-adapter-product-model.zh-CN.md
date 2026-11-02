@@ -310,6 +310,11 @@ collaboration mode，也不修改用户的配置文件。
 能力探测沿用 Agent 的执行身份、隔离后端、环境和工作目录，但每次探测使用独立的
 进程启动 ID。探测完成、失败或超时都不得关闭 Agent 的通信流或终止其进程。
 
+Codex 在 app-server 初始化期间并行执行有时限的原生 feature 探测，在创建或恢复
+thread 前等待结果。显式 feature 参数跳过探测；初始化失败时取消并回收探测。
+未在握手中返回 user-agent 的宿主不采用探测结果，其他兼容 Provider 仍在握手后
+才进行探测。探测结果不跨 Session 或执行身份共享。
+
 Claude SDK 的 `AskUserQuestion` 按问题拆为关联请求，答案齐备后携带原始 questions
 和 `updatedInput.answers` 返回；多选保留标签数组。取消一个问题会取消整批原生
 提问，不代替用户选择业务答案。拒绝迟到、重复和非法回答；中断、关闭或原生轮次

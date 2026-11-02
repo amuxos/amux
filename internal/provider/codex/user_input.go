@@ -17,9 +17,15 @@ const defaultModeUserInputFeature = "default_mode_request_user_input"
 // Capability discovery avoids forcing experimental settings on older hosts.
 // The override belongs to this thread, not the user's global configuration.
 func (p *Proc) discoverUserInput(ctx context.Context, opts StartOptions, bin string, backend isolation.LaunchBackend) {
+	p.defaultModeUserInput = probeUserInput(ctx, opts, bin, backend)
+}
+
+// Return the result rather than mutating Proc: Codex can run this during its
+// initialize handshake and publish the result only after joining the probe.
+func probeUserInput(ctx context.Context, opts StartOptions, bin string, backend isolation.LaunchBackend) bool {
 	for _, arg := range opts.ExtraArgs {
 		if strings.Contains(arg, defaultModeUserInputFeature) {
-			return
+			return false
 		}
 	}
 	// The app-server feature list hides under-development features. The native
@@ -37,7 +43,7 @@ func (p *Proc) discoverUserInput(ctx context.Context, opts StartOptions, bin str
 		Context: probeContext, SetProcessGroup: true,
 	})
 	if err != nil {
-		return
+		return false
 	}
 	defer handle.Close()
 	exited := false
@@ -48,6 +54,7 @@ func (p *Proc) discoverUserInput(ctx context.Context, opts StartOptions, bin str
 		cleanup, stop := context.WithTimeout(context.Background(), time.Second)
 		defer stop()
 		_ = handle.Kill(cleanup)
+		_, _ = handle.Wait(cleanup)
 	}()
 	_ = handle.Stdin().Close()
 	go func() { _, _ = io.Copy(io.Discard, handle.Stderr()) }()
@@ -57,17 +64,17 @@ func (p *Proc) discoverUserInput(ctx context.Context, opts StartOptions, bin str
 	select {
 	case data = <-output:
 	case <-ctx.Done():
-		return
+		return false
 	}
 	status, err := handle.Wait(ctx)
 	if err != nil {
-		return
+		return false
 	}
 	exited = true
 	if status.Code != 0 {
-		return
+		return false
 	}
-	p.defaultModeUserInput = supportsDefaultModeUserInput(string(data))
+	return supportsDefaultModeUserInput(string(data))
 }
 
 func supportsDefaultModeUserInput(output string) bool {

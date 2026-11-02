@@ -658,6 +658,26 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 		close(out)
 	}()
 
+	// Codex launchers can spend seconds before answering initialize. Start the
+	// independent, bounded feature probe now rather than adding its full cost
+	// after that handshake. Other app-server dialects retain handshake gating.
+	var probeDone chan struct{}
+	var probeSupported bool
+	var cancelProbe context.CancelFunc
+	if providerName == "codex" {
+		var probeCtx context.Context
+		probeCtx, cancelProbe = context.WithCancel(ctx)
+		probeDone = make(chan struct{})
+		go func() {
+			probeSupported = probeUserInput(probeCtx, opts, bin, backend)
+			close(probeDone)
+		}()
+		defer func() {
+			cancelProbe()
+			<-probeDone
+		}()
+	}
+	initializeStarted := time.Now()
 	initializeParams := map[string]any{
 		"clientInfo": map[string]string{"name": "amux", "version": "dev"},
 	}
@@ -669,6 +689,7 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 		abortStart(handle)
 		return nil, nil, fmt.Errorf("%s initialize: %w", providerName, err)
 	}
+	log.Debug().Str("provider", providerName).Dur("duration_ms", time.Since(initializeStarted)).Msg("app-server startup: initialize")
 	if opts.SendInitialized {
 		if err := p.client.Notify("initialized", nil); err != nil {
 			abortStart(handle)
@@ -679,9 +700,18 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	var host struct {
 		UserAgent string `json:"userAgent"`
 	}
-	if json.Unmarshal(initializeResponse.Result, &host) == nil && host.UserAgent != "" {
+	hostSupportsDiscovery := json.Unmarshal(initializeResponse.Result, &host) == nil && host.UserAgent != ""
+	probeWaitStarted := time.Now()
+	if probeDone != nil {
+		if !hostSupportsDiscovery {
+			cancelProbe()
+		}
+		<-probeDone
+		p.defaultModeUserInput = hostSupportsDiscovery && probeSupported
+	} else if hostSupportsDiscovery {
 		p.discoverUserInput(ctx, opts, bin, backend)
 	}
+	log.Debug().Str("provider", providerName).Dur("duration_ms", time.Since(probeWaitStarted)).Bool("supported", p.defaultModeUserInput).Msg("app-server startup: user-input probe wait")
 
 	resp, err := p.startOrResumeThread(ctx, opts)
 	if err != nil {
