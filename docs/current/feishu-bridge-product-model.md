@@ -407,12 +407,33 @@ optional model service controls. Each service action has a distinct card element
 install and recheck controls or multiple services can coexist. Saving submits
 the selected runtime even when an optional service still requires setup.
 
+Settings editors render their current draft before model discovery completes.
+For up to 30 seconds, edits on the same card reuse a model snapshot scoped to
+the acting Feishu user, resolved execution identity/environment, target, launcher
+and Runtime catalog. Concurrent edits share discovery; explicit refresh,
+login/install and Runtime changes bypass the snapshot. Cache data contains
+choices and status, never provider credentials or executable callbacks.
+Transient refresh failures retain choices for at most five minutes without
+changing the draft; an authoritative signed-out result removes that source's
+choices. Late results cannot replace a newer edit, saved settings or a different
+page. Loading and failure states are available in English and Simplified Chinese.
+
 ## Distribution default migrations
 
 Distributions declare exact old-to-new profile reference mappings for retired
 defaults. Bridge owns the affected tables, parameterized updates and transaction.
 Mappings apply simultaneously, preserve unrelated settings and historical session
 identities, and are idempotent; targets cannot also be migration sources.
+
+## Management card update ordering
+
+Each management-card interaction invalidates pending results from the previous
+view. Update checks and model discovery may finish in the background, but their
+checking, success and failure cards must still belong to the current view before
+writing. The version is checked after acquiring the card delivery lock and again
+before sending a replacement DM after a failed PATCH. Already-issued requests
+finish before the newer view is written through the same lock. Navigation keeps
+the existing callback toast and asynchronous PATCH delivery.
 
 ## Management upgrade recovery
 

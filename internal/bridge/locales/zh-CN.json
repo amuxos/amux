@@ -3010,5 +3010,11 @@
   },
   "management.codex.executable.invalid": {
     "other": "请输入不超过 4096 字符且不含换行的程序路径。"
+  },
+  "management.model.native.loading": {
+    "other": "正在加载原生模型…"
+  },
+  "management.model.service.status.loading": {
+    "other": "正在加载…"
   }
 }

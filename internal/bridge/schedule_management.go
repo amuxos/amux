@@ -212,6 +212,15 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	}
 	open := event.Event.Operator.OpenID
 	bot := b.currentBridgeId()
+	message := ""
+	if event.Event.Context != nil {
+		message = event.Event.Context.OpenMessageID
+	}
+	privateCard := b.db != nil && b.db.isPrivateManagementCard(bot, open, message)
+	var version uint64
+	if privateCard {
+		version = b.advanceModelServiceEditor(message)
+	}
 	op := strings.TrimPrefix(action, "schedule.")
 	id, _ := strconv.ParseInt(managementCallbackString(event.Event.Action, "schedule_id"), 10, 64)
 	var card string
@@ -273,13 +282,9 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	if err != nil {
 		return cardToast("error", scheduleText("unavailable")), true, nil
 	}
-	message := ""
-	if event.Event.Context != nil {
-		message = event.Event.Context.OpenMessageID
-	}
 	// Never write a private view into a forwarded/shared card.
-	if b.db != nil && b.db.isPrivateManagementCard(bot, open, message) {
-		b.updateManagementCardFromCallback(open, message, card)
+	if privateCard {
+		b.updateManagementCardAtVersion(open, message, card, version)
 	} else {
 		err = b.sendManagementCardToDM(ctx, open, card)
 	}

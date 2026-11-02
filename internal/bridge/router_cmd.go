@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/amuxos/amux/internal/bridge/command"
 	"github.com/amuxos/amux/internal/config"
@@ -121,7 +124,9 @@ func (b *Bridge) cmdAmuxManagement(ctx context.Context, openID string) error {
 func (b *Bridge) amuxManagementHome(ctx context.Context, openID string) (string, error) {
 	state := b.managementState()
 	if b.schedules != nil {
+		started := time.Now()
 		entries, err := b.schedules.List(ctx, b.currentBridgeId(), openID)
+		log.Debug().Dur("duration_ms", time.Since(started)).Msg("bridge: management schedule summary read completed")
 		if err != nil {
 			return "", err
 		}

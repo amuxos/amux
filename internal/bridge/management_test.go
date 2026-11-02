@@ -814,12 +814,14 @@ func TestManagementCardActionDeduplicatesPackOperationNonce(t *testing.T) {
 	if err != nil || first == nil || first.Toast == nil || first.Toast.Type != "success" {
 		t.Fatalf("first callback = %#v, %v", first, err)
 	}
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		if len(actions.syncCalls) == 1 {
-			break
+	// Wait through the operation's synchronized completion state before reading
+	// the fake's calls or simulating restart; polling its slice races with Sync.
+	deadline := time.Now().Add(2 * time.Second)
+	for b.managementPackOperationActive("owner-open", "om-pack-action") {
+		if time.Now().After(deadline) {
+			t.Fatal("pack sync did not finish")
 		}
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 	}
 	if len(actions.syncCalls) != 1 {
 		t.Fatalf("sync calls = %#v, want exactly one", actions.syncCalls)
@@ -833,7 +835,6 @@ func TestManagementCardActionDeduplicatesPackOperationNonce(t *testing.T) {
 	if err != nil || second == nil || second.Toast == nil || second.Toast.Type != "warning" {
 		t.Fatalf("duplicate callback after restart = %#v, %v, want warning", second, err)
 	}
-	time.Sleep(30 * time.Millisecond)
 	if len(actions.syncCalls) != 1 {
 		t.Fatalf("sync calls after restart = %#v, want exactly one", actions.syncCalls)
 	}

@@ -3028,5 +3028,11 @@
   },
   "management.codex.executable.invalid": {
     "other": "Enter a program path of at most 4096 characters, without line breaks."
+  },
+  "management.model.native.loading": {
+    "other": "Loading native models…"
+  },
+  "management.model.service.status.loading": {
+    "other": "Loading…"
   }
 }

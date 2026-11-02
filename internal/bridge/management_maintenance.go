@@ -238,15 +238,25 @@ func (b *Bridge) recoverPendingManagementCardOnce(ctx context.Context, allowAtte
 	return true, nil
 }
 
-func (b *Bridge) runManagementUpdateCheck(openID, messageID string, state managementState, surface managementSurface) {
+func (b *Bridge) runManagementUpdateCheck(openID, messageID string, state managementState, surface managementSurface, version uint64) {
 	go func() {
 		defer b.endManagementMaintenance("update_check")
+		current := func() bool { return b.modelServiceEditorCurrent(messageID, version) }
+		write := func(ctx context.Context, card string) {
+			b.writeManagementCardFromCallbackIf(ctx, openID, messageID, card, current)
+		}
+		fail := func(message any) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			card := renderFocusedManagementCardForSurface(renderSystemMaintenanceFailureCard(message, managementActionSystemUpdate, managementCopy("management.retry.update.check")), surface)
+			write(ctx, card)
+		}
 		patchCtx, patchCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		checkingCard := renderFocusedManagementCardForSurface(renderSystemUpdateCheckingCard(state), surface)
-		b.writeManagementCardFromCallback(patchCtx, openID, messageID, checkingCard)
+		write(patchCtx, checkingCard)
 		patchCancel()
 		if b.managementActions == nil {
-			b.patchManagementMaintenanceFailure(openID, messageID, managementCopy("management.cannot.check.for.updates.right.now.retry.on.the"), managementActionSystemUpdate, managementCopy("management.retry.update.check"), surface)
+			fail(managementCopy("management.cannot.check.for.updates.right.now.retry.on.the"))
 			return
 		}
 		checkCtx, checkCancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -254,13 +264,13 @@ func (b *Bridge) runManagementUpdateCheck(openID, messageID string, state manage
 		checkCancel()
 		if err != nil {
 			log.Warn().Err(err).Msg("bridge: management update check failed")
-			b.patchManagementMaintenanceFailure(openID, messageID, managementCopy("management.update.check.failed.try.again.later"), managementActionSystemUpdate, managementCopy("management.retry.update.check"), surface)
+			fail(managementCopy("management.update.check.failed.try.again.later"))
 			return
 		}
 		finalCtx, finalCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer finalCancel()
 		resultCard := renderManagementCardForSurface(renderSystemUpdateResultCard(state, result), surface, managementViewSystem)
-		b.writeManagementCardFromCallback(finalCtx, openID, messageID, resultCard)
+		write(finalCtx, resultCard)
 	}()
 }
 
@@ -278,11 +288,24 @@ func (b *Bridge) updateManagementCardFromCallback(openID, messageID, cardJSON st
 	if b == nil {
 		return
 	}
-	go func() {
-		sendCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		b.writeManagementCardFromCallback(sendCtx, openID, messageID, cardJSON)
-	}()
+	b.settingsMu.Lock()
+	version := b.modelServiceVersions[messageID]
+	b.settingsMu.Unlock()
+	b.updateManagementCardAtVersion(openID, messageID, cardJSON, version)
+}
+
+func (b *Bridge) updateManagementCardAtVersion(openID, messageID, card string, version uint64) {
+	go b.writeManagementCardAtVersion(context.Background(), openID, messageID, card, version)
+}
+
+// Write in the editor goroutine so its loading and completed views cannot race
+// each other. Recheck after acquiring the per-card delivery lock.
+func (b *Bridge) writeManagementCardAtVersion(parent context.Context, openID, messageID, card string, version uint64) {
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
+	defer cancel()
+	b.writeManagementCardFromCallbackIf(ctx, openID, messageID, card, func() bool {
+		return b.modelServiceEditorCurrent(messageID, version)
+	})
 }
 
 func (b *Bridge) writeManagementCardFromCallback(ctx context.Context, openID, messageID, cardJSON string) {
@@ -290,12 +313,16 @@ func (b *Bridge) writeManagementCardFromCallback(ctx context.Context, openID, me
 }
 
 func (b *Bridge) writeManagementCardFromCallbackIf(ctx context.Context, openID, messageID, cardJSON string, current func() bool) {
+	queued := time.Now()
 	unlock := b.lockRoute("management-card\x00" + strings.TrimSpace(messageID))
 	defer unlock()
+	waited := time.Since(queued)
 	if current != nil && !current() {
 		return
 	}
-	_ = b.deliverManagementCard(ctx, openID, messageID, cardJSON)
+	started := time.Now()
+	delivered := b.deliverManagementCardIf(ctx, openID, messageID, cardJSON, current)
+	log.Debug().Str("message_id", messageID).Dur("queue_ms", waited).Dur("delivery_ms", time.Since(started)).Bool("delivered", delivered).Msg("bridge: management card delivery completed")
 }
 
 func (b *Bridge) writeManagementCardFromCallbackWithFallback(ctx context.Context, openID, messageID, cardJSON, fallbackCardJSON string) {
@@ -324,6 +351,10 @@ func (b *Bridge) writeManagementCardFromCallbackWithFallback(ctx context.Context
 }
 
 func (b *Bridge) deliverManagementCard(ctx context.Context, openID, messageID, cardJSON string) bool {
+	return b.deliverManagementCardIf(ctx, openID, messageID, cardJSON, nil)
+}
+
+func (b *Bridge) deliverManagementCardIf(ctx context.Context, openID, messageID, cardJSON string, current func() bool) bool {
 	canSend := b.dmInteractive != nil || b.client != nil
 	attempted, err := b.patchManagementCard(ctx, messageID, b.managementCardForPatch(openID, messageID, cardJSON))
 	if !attempted && !canSend {
@@ -335,7 +366,7 @@ func (b *Bridge) deliverManagementCard(ctx context.Context, openID, messageID, c
 		}
 		log.Warn().Err(err).Str("message_id", messageID).Msg("bridge: failed to patch management callback card")
 	}
-	if !canSend {
+	if !canSend || (current != nil && !current()) {
 		return false
 	}
 	if err := b.sendManagementCardToDM(ctx, openID, cardJSON); err != nil {

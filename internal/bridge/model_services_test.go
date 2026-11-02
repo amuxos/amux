@@ -13,7 +13,7 @@ import (
 )
 
 func TestRuntimeSwitchToCodexWithModelServicesPreservesSaveDraft(t *testing.T) {
-	for _, status := range []string{"", "signed_in", "signed_out", "expired", "pending", "unavailable", "setup_required", "installing"} {
+	for _, status := range []string{"", "signed_in", "signed_out", "expired", "pending", "unavailable", "setup_required", "installing", "loading"} {
 		for _, services := range []int{1, 2} {
 			t.Run(fmt.Sprintf("%s/services=%d", status, services), func(t *testing.T) {
 				state := managementState{
