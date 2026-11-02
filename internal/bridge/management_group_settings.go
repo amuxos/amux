@@ -171,8 +171,8 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 	if event.Event.Context != nil {
 		messageID = event.Event.Context.OpenMessageID
 	}
-	update := func(card string) { b.updateManagementCardFromCallback(openID, messageID, card) }
 	version := b.advanceModelServiceEditor(messageID)
+	update := func(card string) { b.updateManagementCardAtVersion(openID, messageID, card, version) }
 	if action == managementActionGroupSettingsEdit || action == managementActionGroupSettingsSave {
 		draft, err := groupSettingsDraftFromCallback(settings, modelServiceDraftAction(event.Event.Action))
 		if err != nil {
@@ -201,15 +201,14 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 					defer cancel()
 					for {
-						current := state
-						if runtimeRef == "codex" {
-							current = b.loadNativeModels(ctx, current, openID)
-						}
-						current = b.loadModelServices(ctx, current, openID, service, operation)
+						current := b.refreshEditorModels(ctx, state, openID, messageID, runtimeRef, service, operation,
+							forceEditorModelRefresh(event.Event.Action) || operation == "refresh", func(current managementState) {
+								card := renderGroupSettingsEditCardAtPage(current, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action))
+								b.writeManagementCardAtVersion(ctx, openID, messageID, card, version)
+							})
 						if !b.modelServiceEditorCurrent(messageID, version) {
 							return
 						}
-						update(renderGroupSettingsEditCardAtPage(current, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action)))
 						pending := false
 						for _, entry := range current.ModelServices {
 							if entry.Service.ID == service && (entry.State.Status == "pending" || entry.State.Status == "installing") {

@@ -34,7 +34,7 @@ func serviceSupports(s modelservice.Service, runtime string) bool {
 func modelServiceStatusLabel(state string) any {
 	key := "check"
 	switch state {
-	case "signed_in", "signed_out", "expired", "pending", "unavailable", "setup_required", "installing":
+	case "signed_in", "signed_out", "expired", "pending", "unavailable", "setup_required", "installing", "loading":
 		key = state
 	}
 	return managementCopy("management.model.service.status." + key)
@@ -45,6 +45,13 @@ func (b *Bridge) loadModelServices(ctx context.Context, state managementState, o
 	}
 	principal, err := b.resolveModelServicePrincipal(openID)
 	if err != nil {
+		return state
+	}
+	return b.loadModelServicesForPrincipal(ctx, state, principal, selectedService, action)
+}
+
+func (b *Bridge) loadModelServicesForPrincipal(ctx context.Context, state managementState, principal, selectedService, action string) managementState {
+	if principal == "" {
 		return state
 	}
 	state.ModelServices = nil
@@ -210,7 +217,7 @@ func modelServiceSelection(action *callback.CallBackAction) (id, operation strin
 
 // SDK/network calls run outside the Feishu callback deadline. The existing card
 // is patched, and the unsaved editor draft remains the source of form values.
-func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent, action, openID, messageID string) bool {
+func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent, action, openID, messageID string, version uint64) bool {
 	if b.hub == nil && (len(modelservice.List()) == 0 || b.resolveModelServicePrincipal == nil) {
 		return false
 	}
@@ -219,7 +226,6 @@ func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent
 	}
 	surface := managementSurfaceFromCallback(event.Event.Action)
 	service, operation := modelServiceSelection(event.Event.Action)
-	version := b.advanceModelServiceEditor(messageID)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
@@ -239,17 +245,6 @@ func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent
 		if action == managementActionGroupWatchEdit {
 			runtimeRef = watchDraft.RuntimeRef
 		}
-		load := func(operation string) managementState {
-			state := base
-			if runtimeRef == "codex" {
-				state = b.loadNativeModels(ctx, state, openID)
-			}
-			return b.loadModelServices(ctx, state, openID, service, operation)
-		}
-		state := load(operation)
-		if !b.modelServiceEditorCurrent(messageID, version) {
-			return
-		}
 		render := func(current managementState) string {
 			switch action {
 			case managementActionOnboardingEdit:
@@ -262,8 +257,14 @@ func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent
 				return renderSettingsEditCardForSurface(current, draft, surface)
 			}
 		}
-		card := render(state)
-		b.updateManagementCardFromCallback(openID, messageID, renderFocusedManagementCardForSurface(card, surface))
+		publish := func(current managementState) {
+			card := renderFocusedManagementCardForSurface(render(current), surface)
+			b.writeManagementCardAtVersion(ctx, openID, messageID, card, version)
+		}
+		load := func(operation string, force bool) managementState {
+			return b.refreshEditorModels(ctx, base, openID, messageID, runtimeRef, service, operation, force, publish)
+		}
+		state := load(operation, forceEditorModelRefresh(event.Event.Action))
 		// Only this still-current editor may refresh while installing or logging in.
 		for service != "" {
 			pending := false
@@ -283,12 +284,10 @@ func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent
 			if !b.modelServiceEditorCurrent(messageID, version) {
 				return
 			}
-			state = load("refresh")
+			state = load("refresh", true)
 			if !b.modelServiceEditorCurrent(messageID, version) {
 				return
 			}
-			card = render(state)
-			b.updateManagementCardFromCallback(openID, messageID, renderFocusedManagementCardForSurface(card, surface))
 		}
 	}()
 	return true

@@ -20,6 +20,7 @@ import (
 // managementSettingsState owns settings-editor progress state.
 type managementSettingsState struct {
 	settingsMu                sync.Mutex
+	editorModels              editorModelCache
 	modelServiceVersions      map[string]uint64
 	onboardingCardSentByOpen  map[string]bool
 	documentSettingsActive    bool

@@ -12,7 +12,38 @@ import (
 	"github.com/google/uuid"
 )
 
+type nativeModelQuery struct {
+	target  resolvedBridgeTarget
+	request *pb.ListNativeModelsRequest
+}
+
+func (b *Bridge) prepareNativeModels(state managementState, openID string) *nativeModelQuery {
+	if b.hub == nil {
+		return nil
+	}
+	targetRef := state.NativeModelsTargetRef
+	if targetRef == "" && state.Mode == config.FeishuInteractionSingleton && state.BotSession != nil && state.BotSession.Enabled {
+		targetRef = state.BotSession.TargetID
+	}
+	target, issue := b.resolveRunTarget(targetRef)
+	if issue != "" {
+		return nil
+	}
+	identity, err := b.executionIdentity(openID, "feishu-session:models-"+uuid.NewString(), target.ID,
+		state.Mode == config.FeishuInteractionSingleton, state.Mode == interactionModeThreadIsolated)
+	if err != nil {
+		return nil
+	}
+	return &nativeModelQuery{target: target, request: &pb.ListNativeModelsRequest{
+		AgentType: "codex", ExecutionIdentity: identity.Identity, AgentExecutable: config.GetCodexExecutable(),
+	}}
+}
+
 func (b *Bridge) loadNativeModels(parent context.Context, state managementState, openID string) managementState {
+	return b.loadNativeModelsQuery(parent, state, b.prepareNativeModels(state, openID))
+}
+
+func (b *Bridge) loadNativeModelsQuery(parent context.Context, state managementState, query *nativeModelQuery) managementState {
 	state.NativeModelsStatus = "unavailable"
 	// Never mutate a shared editor snapshot or accumulate stale models on refresh.
 	state.Runtimes = slices.Clone(managementRuntimeCatalog(state))
@@ -30,27 +61,12 @@ func (b *Bridge) loadNativeModels(parent context.Context, state managementState,
 		runtime.DefaultReasoningEfforts = nil
 		runtime.DefaultReasoningEffort = ""
 	}
-	if index < 0 || b.hub == nil {
-		return state
-	}
-	targetRef := state.NativeModelsTargetRef
-	if targetRef == "" && state.Mode == config.FeishuInteractionSingleton && state.BotSession != nil && state.BotSession.Enabled {
-		targetRef = state.BotSession.TargetID
-	}
-	target, issue := b.resolveRunTarget(targetRef)
-	if issue != "" {
-		return state
-	}
-	identity, err := b.executionIdentity(openID, "feishu-session:models-"+uuid.NewString(), target.ID,
-		state.Mode == config.FeishuInteractionSingleton, state.Mode == interactionModeThreadIsolated)
-	if err != nil {
+	if index < 0 || query == nil {
 		return state
 	}
 	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
 	defer cancel()
-	response, err := b.hub.Route(ctx, target.ID, "ListNativeModels", &pb.ListNativeModelsRequest{
-		AgentType: "codex", ExecutionIdentity: identity.Identity, AgentExecutable: config.GetCodexExecutable(),
-	})
+	response, err := b.hub.Route(ctx, query.target.ID, "ListNativeModels", query.request)
 	if err != nil || response == nil || response.Error != "" {
 		return state
 	}
@@ -62,7 +78,7 @@ func (b *Bridge) loadNativeModels(parent context.Context, state managementState,
 		return state
 	}
 	state.NativeModelsStatus = result.Status
-	state.NativeModelsTargetName = valueOrPlaceholder(target.Name, target.ID)
+	state.NativeModelsTargetName = valueOrPlaceholder(query.target.Name, query.target.ID)
 	if result.Status != "ready" {
 		return state
 	}
@@ -102,10 +118,15 @@ func nativeModelElements(state managementState, runtime string, values map[strin
 	if state.NativeModelsTargetName != "" {
 		hint = managementConcat(hint, " · ", state.NativeModelsTargetName)
 	}
+	refreshValues := make(map[string]string, len(values)+1)
+	for key, value := range values {
+		refreshValues[key] = value
+	}
+	refreshValues["native_models_action"] = "refresh"
 	return []cardElement{
 		managementHintElement(hint),
 		managementButtonElement(managementButton{
-			Action: action, Name: action + ".native_models.refresh", Text: managementCopy("management.model.native.refresh"), Values: values,
+			Action: action, Name: action + ".native_models.refresh", Text: managementCopy("management.model.native.refresh"), Values: refreshValues,
 		}),
 	}
 }

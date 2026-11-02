@@ -193,10 +193,14 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	if event.Event.Context != nil {
 		messageID = strings.TrimSpace(event.Event.Context.OpenMessageID)
 	}
+	// A rejected duplicate check does not navigate and must keep its pending result.
+	if (action == managementActionSystemUpdate || action == "system.update.open") && !b.beginManagementMaintenance("update_check") {
+		return cardToast("warning", managementCopy("management.a.system.maintenance.operation.is.already.in.progress")), true, nil
+	}
 	if action != managementActionPermissionRecheck {
 		b.invalidateFeishuPermissionRecheck(messageID)
 	}
-	b.advanceModelServiceEditor(messageID)
+	version := b.advanceModelServiceEditor(messageID)
 	if action == managementActionLanguage {
 		return b.changeManagementLocale(openID, messageID, event.Event.Action), true, nil
 	}
@@ -210,7 +214,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			return cardToast("warning", managementCopy("management.watch.choose_group")), true, nil
 		}
 	}
-	if b.handleModelServiceEditor(event, action, openID, messageID) {
+	if b.handleModelServiceEditor(event, action, openID, messageID, version) {
 		return cardToast("success", managementCopy("management.model.service.updating")), true, nil
 	}
 	state := b.managementState()
@@ -219,17 +223,17 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	}
 	surface := managementSurfaceFromCallback(event.Event.Action)
 	updateCard := func(card string, page managementView) {
-		b.updateManagementCardFromCallback(
+		b.updateManagementCardAtVersion(
 			openID,
 			messageID,
-			renderManagementCardForSurface(card, surface, page),
+			renderManagementCardForSurface(card, surface, page), version,
 		)
 	}
 	updateFocusedCard := func(card string) {
-		b.updateManagementCardFromCallback(
+		b.updateManagementCardAtVersion(
 			openID,
 			messageID,
-			renderFocusedManagementCardForSurface(card, surface),
+			renderFocusedManagementCardForSurface(card, surface), version,
 		)
 	}
 	settingsEditCard := func(current managementState, draft managementSettingsDraft) string {
@@ -728,10 +732,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		b.runManagementSystemRestart(openID, messageID, surface)
 		return cardToast("success", managementCopy("management.restarting.amux")), true, nil
 	case managementActionSystemUpdate, "system.update.open":
-		if !b.beginManagementMaintenance("update_check") {
-			return cardToast("warning", managementCopy("management.a.system.maintenance.operation.is.already.in.progress")), true, nil
-		}
-		b.runManagementUpdateCheck(openID, messageID, state, surface)
+		b.runManagementUpdateCheck(openID, messageID, state, surface, version)
 		return cardToast("success", managementCopy("management.checking.for.updates")), true, nil
 	case managementActionSystemUpdateDismiss:
 		version := managementCallbackString(event.Event.Action, "version")
@@ -850,6 +851,11 @@ type managementState struct {
 }
 
 func (b *Bridge) managementState() managementState {
+	started := time.Now()
+	defer func() {
+		log.Debug().Dur("duration_ms", time.Since(started)).Msg("bridge: management state read completed")
+	}()
+
 	state := managementState{
 		ProfileName:  b.ProfileName(),
 		DailyCleanup: dailyCleanupSettingValue(),
