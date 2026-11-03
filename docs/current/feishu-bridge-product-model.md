@@ -215,6 +215,14 @@ and 300 MB total per turn. Recognized images up to 10 MB use the image upload
 API and retain image presentation; larger recognized images up to 30 MB use the
 file upload API instead.
 
+Artifact links use paths relative to the workspace's `amux-outbox/` directory.
+The Bridge accepts both `amux-artifact:chart.png` and
+`amux-artifact:amux-outbox/chart.png`, removes one optional `amux-outbox/`
+prefix after URL decoding, and validates the remaining relative path before
+reading it. Equivalent links share one delivery identity, including across
+retries. Absolute paths and directory traversal remain invalid; file reads
+stay confined to `amux-outbox/` under the Session's execution identity.
+
 Linux DAC file exchange requires a helper that supports the session-file
 operation. An older helper produces an explicit operator upgrade notice for
 both inbound attachments and outbound artifacts; it must not be presented as
