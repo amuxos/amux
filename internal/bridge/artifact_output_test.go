@@ -104,7 +104,11 @@ func TestArtifactLinksOnlyExplicitOutboxReferences(t *testing.T) {
 	if err != nil || len(refs) != 2 || refs[0].name != "报告 v1.csv" || !refs[1].image {
 		t.Fatalf("%+v %v", refs, err)
 	}
-	for _, bad := range []string{"../secret", "%2Fetc%2Fpasswd", "a%5Cb", "a/../../secret"} {
+	for _, bad := range []string{
+		"", ".", "..", "../secret", "%2Fetc%2Fpasswd", "a%5Cb", "a/../../secret", "%ZZ",
+		"amux-outbox/", "amux-outbox/../secret", "amux-outbox/%2e%2e/secret",
+		"amux-outbox//etc/passwd", "amux-outbox/a%5Cb", "amux-outbox/./chart.png",
+	} {
 		if _, err := artifactRefs("[x](amux-artifact:" + bad + ")"); err == nil {
 			t.Fatalf("accepted %s", bad)
 		}
@@ -112,6 +116,32 @@ func TestArtifactLinksOnlyExplicitOutboxReferences(t *testing.T) {
 	rendered := renderArtifactLinks("[report](amux-artifact:report.csv)")
 	if strings.Contains(rendered, "amux-artifact:") || !strings.Contains(rendered, "report") {
 		t.Fatal(rendered)
+	}
+}
+
+func TestArtifactLinksNormalizeOutboxPrefix(t *testing.T) {
+	for _, tc := range []struct {
+		path string
+		want string
+	}{
+		{"chart.png", "chart.png"},
+		{"amux-outbox/chart.png", "chart.png"},
+		{"plots/chart.png", "plots/chart.png"},
+		{"amux-outbox/plots/chart.png", "plots/chart.png"},
+		{"amux-outbox%2Fplots%2F报告%20v1.png", "plots/报告 v1.png"},
+		{"amux-outbox/amux-outbox/chart.png", "amux-outbox/chart.png"},
+		{"amux-outbox-chart.png", "amux-outbox-chart.png"},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			refs, err := artifactRefs("![chart](amux-artifact:" + tc.path + ")")
+			if err != nil || len(refs) != 1 || refs[0].name != tc.want || !refs[0].image {
+				t.Fatalf("refs=%+v err=%v; want image %q", refs, err, tc.want)
+			}
+		})
+	}
+	refs, err := artifactRefs("[chart](amux-artifact:amux-outbox/plots/chart.png) [again](amux-artifact:plots/chart.png) [encoded](amux-artifact:amux-outbox%2Fplots%2Fchart.png)")
+	if err != nil || len(refs) != 1 || refs[0].name != "plots/chart.png" {
+		t.Fatalf("equivalent links were not deduplicated: refs=%+v err=%v", refs, err)
 	}
 }
 
@@ -146,14 +176,18 @@ func TestArtifactDeliveryPersistsUploadAndRetriesSameMessage(t *testing.T) {
 		}
 		return nil
 	}
-	for i := 0; i < 3; i++ {
-		b.deliverSessionArtifacts(context.Background(), chat, "turn", "[report](amux-artifact:report.txt)", nil)
+	for _, text := range []string{
+		"[report](amux-artifact:amux-outbox/report.txt) [again](amux-artifact:report.txt)",
+		"[report](amux-artifact:report.txt)",
+		"[report](amux-artifact:amux-outbox%2Freport.txt)",
+	} {
+		b.deliverSessionArtifacts(context.Background(), chat, "turn", text, nil)
 	}
 	if uploads != 1 || sends != 2 || len(h.reads) != 1 || len(notices) != 1 || uuids[0] != uuids[1] {
 		t.Fatalf("uploads=%d sends=%d reads=%d notices=%v uuids=%v", uploads, sends, len(h.reads), notices, uuids)
 	}
-	if h.reads[0].SessionId != "sid" || h.reads[0].LaunchId != "launch" {
-		t.Fatal("artifact not bound to original execution")
+	if h.reads[0].SessionId != "sid" || h.reads[0].LaunchId != "launch" || h.reads[0].FileName != "report.txt" {
+		t.Fatalf("artifact read changed identity or path: %+v", h.reads[0])
 	}
 }
 

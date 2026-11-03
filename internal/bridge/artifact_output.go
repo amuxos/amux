@@ -59,6 +59,7 @@ func artifactRefs(text string) ([]artifactRef, error) {
 	seen := map[string]bool{}
 	for _, m := range matches {
 		name, err := url.PathUnescape(m[2])
+		name = strings.TrimPrefix(name, "amux-outbox/")
 		if err != nil || sessionfiles.Validate("read", name) != nil {
 			return nil, fmt.Errorf("成果链接包含无效路径")
 		}
