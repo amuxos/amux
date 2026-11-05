@@ -41,6 +41,11 @@ chat in Feishu and send `/amux` to view management controls. Confirm the selecte
 Agent and interaction mode. Owner controls are available only to the configured
 owner; do not use a group chat for owner-only system operations.
 
+Choose “Getting started” to confirm conversation mode, model and reasoning effort
+and try a first task. Reenter from `/amux` at any time. The
+[capability plaza](../guides/capability-plaza.md) provides 16 workflows, editable
+examples and optional daily recommendations.
+
 ## 3. Send one small request
 
 Send “Reply with one sentence explaining what you can help with.” in that private

@@ -750,7 +750,7 @@ func naturalEntrySessionName(bridgeID, chatID, rootMsgID string) string {
 	return fmt.Sprintf("feishu-%x", sum[:])[:19]
 }
 func displayTitleFromRequest(text string) string {
-	return truncateForNotice(strings.TrimSpace(text), 48)
+	return truncateForNotice(strings.TrimSpace(stripAmuxGuidance(text)), 48)
 }
 func slashCommandText(text string) (string, bool) {
 	text = strings.TrimSpace(stripMention(text))

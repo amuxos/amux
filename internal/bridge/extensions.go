@@ -14,7 +14,18 @@ import (
 
 // Extension supplies distribution-specific Bridge behavior. Install it before
 // invoking Bridge operations. Nil hooks retain the public defaults.
+// OnboardingOptions supplies distribution-specific authoring resources.
+// PromptGuidance is Agent content, not product UI. ResolveUsername must only
+// return an authenticated account name; a typed name is never proof of access.
+type OnboardingOptions struct {
+	GitURLTemplate  string
+	SkillCatalogURL string
+	PromptGuidance  string
+	ResolveUsername func(context.Context) (string, error)
+}
+
 type Extension struct {
+	Onboarding             OnboardingOptions
 	ObserveConversations   func(context.Context, ConversationServices) (ConversationObserver, error)
 	ExperimentEntries      func() []json.RawMessage
 	ActivityPossiblyQueued func(string, *agentui.ActivityView) bool

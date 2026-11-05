@@ -8,6 +8,7 @@ import (
 )
 
 type BridgeExtension = bridge.Extension
+type BridgeOnboardingOptions = bridge.OnboardingOptions
 type BridgeActivityView = agentui.ActivityView
 type BridgeConsoleOptions = bridge.ConsoleOptions
 type BridgeConsoleResult = bridge.ConsoleResult

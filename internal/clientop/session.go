@@ -190,17 +190,35 @@ func sessionByRef(ctx context.Context, hub pb.AmuxdClient, ref SessionRef) (*pb.
 		return nil, "", err
 	}
 	target := strings.TrimSpace(ref.Target)
+	var found *pb.Session
+	var targetID string
 	for _, t := range resp.GetTargets() {
 		if target != "" && t.GetId() != target && t.GetName() != target {
 			continue
 		}
 		for _, sess := range t.GetSessions() {
-			if sess.GetName() == want || sess.GetId() == want {
-				return sess, t.GetId(), nil
+			if sess.GetName() != want && sess.GetId() != want {
+				continue
 			}
+			if found != nil {
+				return nil, "", fmt.Errorf("session %q is ambiguous; specify a target", want)
+			}
+			found, targetID = sess, t.GetId()
 		}
 	}
+	if found != nil {
+		return found, targetID, nil
+	}
 	return nil, "", fmt.Errorf("session %q not found", want)
+}
+
+// ResolveSessionRef locates one caller-visible session without guessing a target.
+func ResolveSessionRef(ctx context.Context, hub pb.AmuxdClient, ref SessionRef) (SessionRef, error) {
+	sess, target, err := sessionByRef(ctx, hub, ref)
+	if err != nil {
+		return SessionRef{}, err
+	}
+	return SessionRef{Name: sess.GetName(), Target: target}, nil
 }
 
 // SessionQueueList lists a session's queued inputs.

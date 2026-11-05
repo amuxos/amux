@@ -6,6 +6,10 @@ This guide covers a first request, supporting material, follow-ups, progress,
 permissions, and starting over. You need a connected bot and permission to use
 it. Operators can start with [bot setup](../tutorials/first-feishu-bot.md).
 
+For ideas, owners can open `/amux` → “Capability plaza” in private chat to browse
+16 capabilities and edit a prompt before sending. The
+[plaza guide](capability-plaza.md) covers all examples, prerequisites and daily recommendations.
+
 ## Identify the current surface
 
 `/amux` opens different views depending on where you send it. In a group, select

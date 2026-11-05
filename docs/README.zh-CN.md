@@ -19,6 +19,7 @@
 
 ## 在飞书中工作
 
+- [能力广场与每日推荐](guides/capability-plaza.zh-CN.md)
 - [对话与追问](guides/feishu-conversations.zh-CN.md)
 - [群设置与访问控制](guides/feishu-groups.zh-CN.md)
 - [委派给其他 Agent](guides/delegation.zh-CN.md)

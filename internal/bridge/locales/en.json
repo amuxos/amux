@@ -2013,7 +2013,7 @@
     "other": "Message handling"
   },
   "management.language": {
-    "other": "Interface language"
+    "other": "界面语言 (Language)"
   },
   "management.language.auto": {
     "other": "Follow Feishu language"
@@ -3049,5 +3049,722 @@
   },
   "management.launcher.invalid": {
     "other": "Enter a valid program path (up to 4096 characters, without line breaks)."
+  },
+  "guide.title": {
+    "other": "Getting started"
+  },
+  "guide.subtitle": {
+    "other": "Set up your assistant, try a task, then configure experts as needed."
+  },
+  "guide.title.welcome": {
+    "other": "Welcome to amux"
+  },
+  "guide.title.mode": {
+    "other": "1 · Choose how conversations work"
+  },
+  "guide.title.model": {
+    "other": "2 · Choose the assistant’s model"
+  },
+  "guide.title.applying": {
+    "other": "Saving settings"
+  },
+  "guide.title.tasks": {
+    "other": "3 · Try a task"
+  },
+  "guide.title.review_task": {
+    "other": "Review your task"
+  },
+  "guide.title.running": {
+    "other": "Follow task progress"
+  },
+  "guide.title.explore": {
+    "other": "Keep exploring"
+  },
+  "guide.title.select": {
+    "other": "Choose your current expert"
+  },
+  "guide.title.select_review": {
+    "other": "Confirm expert selection"
+  },
+  "guide.title.import": {
+    "other": "Add an expert library"
+  },
+  "guide.title.create": {
+    "other": "Create an expert with Skills"
+  },
+  "guide.title.review_expert": {
+    "other": "Review your expert draft"
+  },
+  "guide.title.review_import": {
+    "other": "Review the library address"
+  },
+  "guide.title.done": {
+    "other": "You’re ready"
+  },
+  "guide.welcome.body": {
+    "other": "Choose conversation settings and a model, then try checking meetings, booking a room or scheduling a task. You can also create an expert straight away. Reopening keeps your settings and libraries and does not resend tasks."
+  },
+  "guide.start": {
+    "other": "Start guide"
+  },
+  "guide.resume": {
+    "other": "Resume guide"
+  },
+  "guide.direct": {
+    "other": "Use amux now"
+  },
+  "guide.create": {
+    "other": "Create an expert"
+  },
+  "guide.mode.body": {
+    "other": "Separate conversations per topic: follow up within a topic while handling other topics separately. Useful for parallel tasks. Continuous conversation: new messages continue the same chat history, useful for ongoing work. Your installation setting is selected; you can change it here."
+  },
+  "guide.mode.choose": {
+    "other": "Choose a conversation mode"
+  },
+  "guide.mode.shared.title": {
+    "other": "What do different topics share?"
+  },
+  "guide.mode.shared.body": {
+    "other": "For example, summarize meetings in topic A and review code in topic B. B does not automatically continue A’s chat history, but both may read and write files in the same workspace. Separating files and execution environments requires user isolation to be configured separately. Existing isolation settings are preserved."
+  },
+  "guide.next": {
+    "other": "Next"
+  },
+  "guide.model.body": {
+    "other": "The runtime runs tools and performs tasks. The model understands material, reasons and answers. Available models depend on the runtime, model service and account. Signing in to a model service is separate from authorizing a Skill to access work resources."
+  },
+  "guide.model.reasoning": {
+    "other": "Reasoning effort controls how much the model reasons before answering. A new guide defaults to the strongest supported effort, useful for complex tasks and sometimes slower. Explicit saved choices are preserved. Unknown capabilities are not invented; a listed model is not proof of a successful call."
+  },
+  "guide.save.task": {
+    "other": "Save and try a task"
+  },
+  "guide.applying.body": {
+    "other": "Saving through the managed settings flow. Replacing the current conversation requires confirmation."
+  },
+  "guide.tasks.body": {
+    "other": "Choose a task to review before sending. The Agent uses its normal Skills and requests work-account authorization during execution when needed, then continues the original task."
+  },
+  "guide.sample.meetings": {
+    "other": "Show me the meetings scheduled for this week."
+  },
+  "guide.sample.room": {
+    "other": "Book a meeting room this Saturday from 8:00 PM to 8:30 PM."
+  },
+  "guide.sample.joke": {
+    "other": "Create a recurring task that tells me a joke every minute."
+  },
+  "guide.sample.coordinator": {
+    "other": "Show the existing experts, their responsibilities and Skills without changing configuration. Then let me choose an actual expert and a concrete task for that expert."
+  },
+  "guide.task.review": {
+    "other": "The following will be sent as your request to the Agent. For actions such as room booking, the Agent checks required details such as time and location."
+  },
+  "guide.send": {
+    "other": "Send to Agent"
+  },
+  "guide.back": {
+    "other": "Back to edit"
+  },
+  "guide.task.sent": {
+    "other": "Your request entered the normal task flow. A submission receipt does not mean the work is complete. The Agent replies and requests any authorization in the task conversation in this chat."
+  },
+  "guide.task.status": {
+    "other": "Latest progress: %s"
+  },
+  "guide.task.request": {
+    "other": "Onboarding task"
+  },
+  "guide.task.uncertain": {
+    "other": "Submission has not been confirmed. Check task replies in this chat or task status in /amux before retrying. Reopening the guide will not resend it."
+  },
+  "guide.schedule.body": {
+    "other": "This task repeats every minute, starting in about one minute. The creation receipt is not the joke result. Wait for one actual joke before cancelling."
+  },
+  "guide.schedule.cancel": {
+    "other": "After receiving a joke, type “Cancel this scheduled task” in that task conversation. The Agent identifies and disables that same schedule and verifies it has stopped. The first result remains in the conversation."
+  },
+  "guide.prompt.schedule": {
+    "other": "Use amux.schedule_create with schedule_type=session-prompt and spec=every 1m, bound to this session, so actual jokes appear in this conversation. Retain the returned schedule_id. Report the creation receipt without fabricating a run or cancelling automatically after the first result. When the user later asks to cancel this task, cancel only that schedule_id and verify it is disabled using schedule_get."
+  },
+  "guide.explore": {
+    "other": "Keep exploring"
+  },
+  "guide.expert.body": {
+    "other": "An expert (Agent Profile) is like a person with particular Skills: a name, responsibilities, working instructions and a list of Skills. Switching experts is like asking someone experienced in that kind of work to help."
+  },
+  "guide.skill.body": {
+    "other": "A Skill describes a repeatable method for a kind of work and can include instructions, scripts and references, such as checking meetings or reviewing code. Adding a Skill teaches an expert how to do that work."
+  },
+  "guide.library.body": {
+    "other": "One expert library (Agent Pack) is one Git repository containing multiple experts and their shared Skills. Add a library once to choose among its experts, then switch your current expert in /amux management."
+  },
+  "guide.select": {
+    "other": "Choose current expert"
+  },
+  "guide.import": {
+    "other": "Add a library by Git address"
+  },
+  "guide.select.body": {
+    "other": "%s is shown first, followed by runtime default experts. Switching here changes the current expert for future work. For a single trial, ask %s to delegate without changing the default."
+  },
+  "guide.coordinator.try": {
+    "other": "Try expert discovery and delegation"
+  },
+  "guide.select.confirm": {
+    "other": "After confirmation, new work uses this expert. The runtime, model and identity are preserved; running tasks retain their snapshots. Replacing a continuous conversation follows the managed confirmation flow."
+  },
+  "guide.switch": {
+    "other": "Set as current expert"
+  },
+  "guide.import.body": {
+    "other": "Enter a remote Git address, such as an SSH URL. The Agent inspects its experts, Skills and formal revision before using the normal library installation flow. An existing library should be reused for a duplicate address."
+  },
+  "guide.create.body": {
+    "other": "Enter a name, responsibility and stable ID, then choose the remote Git repository for its configuration. Add a second expert to an existing personal library while retaining the first. Changing the username updates the default personal Git address; a typed username does not grant repository access."
+  },
+  "guide.name": {
+    "other": "Expert name"
+  },
+  "guide.id": {
+    "other": "Stable ID, e.g. office-helper"
+  },
+  "guide.responsibility": {
+    "other": "What should this expert do?"
+  },
+  "guide.username": {
+    "other": "Authenticated username, editable"
+  },
+  "guide.git": {
+    "other": "Remote Git address for the library"
+  },
+  "guide.skills": {
+    "other": "Skills: enter keywords, platform Skill links, or describe a Skill to create"
+  },
+  "guide.preview": {
+    "other": "Save draft and review"
+  },
+  "guide.skill.catalog": {
+    "other": "Find and import Skills with Agent"
+  },
+  "guide.skill.maintenance": {
+    "other": "Import from the Skill catalog or describe a Skill for the Agent to write. To add or update a Skill later, describe the change in that expert’s conversation, review the changes and confirm publication. Shared Skill updates must list all affected experts and are adopted for new work after merge and sync."
+  },
+  "guide.expert.review": {
+    "other": "This is the authoring request preview. Next, the Agent inspects the repository and prepares a draft; the repository has not been created or pushed. Review the actual file changes before confirming publication."
+  },
+  "guide.prepare": {
+    "other": "Ask Agent to prepare configuration"
+  },
+  "guide.import.review": {
+    "other": "The Agent will inspect this remote library and add its experts, reusing existing configuration. After successful installation, all its experts appear in management."
+  },
+  "guide.prompt.expert": {
+    "other": "Prepare an expert named %s with stable ID %s and responsibility %s, in remote Git library %s. Skill requirements: %s. Inspect the existing repository and manifest first; retain other experts and Skills. One Git library contains multiple experts; do not create a separate repository per expert. Check source and version for imports, and draft newly authored Skills. Show a concrete preview of configuration files, Skill changes and affected experts. Do not create a remote repository or publish until I confirm in a later turn. Then reuse the existing repository or create it if missing; check permissions against the authenticated identity. For existing remote libraries, use the normal branch, MR, merge and formal sync flow. A push or MR receipt does not mean the formal revision has been adopted."
+  },
+  "guide.prompt.import": {
+    "other": "Inspect and add expert library %s using its remote Git address. Check actual permissions, manifest, experts and Skills. Reuse an existing registration for a duplicate URL. After installation, list all available experts and the formal revision so I can choose an expert."
+  },
+  "guide.done.body": {
+    "other": "Enter /amux to open management, switch experts, manage expert libraries or reopen this guide at any time."
+  },
+  "guide.reopen": {
+    "other": "Reopen guide"
+  },
+  "guide.finish": {
+    "other": "Finish guide"
+  },
+  "guide.refresh": {
+    "other": "Refresh progress"
+  },
+  "guide.private": {
+    "other": "The owner must use the original card in a private chat with the bot."
+  },
+  "guide.storage": {
+    "other": "Could not save guide progress. Try again later."
+  },
+  "guide.stale": {
+    "other": "Guide progress has changed. Continue with the latest card."
+  },
+  "guide.invalid": {
+    "other": "This selection is unavailable. Refresh and choose again."
+  },
+  "guide.invalid.expert": {
+    "other": "Enter an expert name, valid stable ID, responsibility and remote Git address. You can change the username to generate a default address."
+  },
+  "guide.invalid.git": {
+    "other": "Enter a remote SSH or HTTPS Git address. This guide does not use local directories."
+  },
+  "guide.config.changed": {
+    "other": "Settings changed elsewhere. Review your selection before saving again."
+  },
+  "guide.isolation": {
+    "other": "User isolation is currently required. Preserve this setting; use assistant settings to change the isolation policy."
+  },
+  "guide.updated": {
+    "other": "Guide updated"
+  },
+  "guide.owner.required": {
+    "other": "Complete bot setup and confirm its owner first."
+  },
+  "guide.busy": {
+    "other": "Submitting or saving. Please wait; the task will not be resent."
+  },
+  "guide.expert.skills": {
+    "other": "This expert’s Skills: %s"
+  },
+  "guide.skill.manage": {
+    "other": "Add or update this expert’s Skills"
+  },
+  "guide.prompt.skill": {
+    "other": "I want to add or update Skills for expert %s. Inspect its Git library, current Skills and source versions, show me the current state and ask which Skills I need. I can import from the Skill catalog or describe a Skill to create. List all affected experts when editing shared Skills. Show a concrete preview and wait for confirmation in a later turn before using the library’s normal publication flow. Preserve its other experts."
+  },
+  "guide.result.finished": {
+    "other": "The Agent has finished this turn. Read its task reply in this chat."
+  },
+  "guide.result.failed": {
+    "other": "This turn did not complete successfully. Check the task error or authorization instructions in this chat."
+  },
+  "guide.effort.low": {
+    "other": "low · Less reasoning, faster"
+  },
+  "guide.effort.medium": {
+    "other": "medium · Moderate reasoning"
+  },
+  "guide.effort.high": {
+    "other": "high · Strong reasoning"
+  },
+  "guide.effort.xhigh": {
+    "other": "xhigh · Extra reasoning"
+  },
+  "guide.effort.max": {
+    "other": "max · Maximum reasoning, may take longer"
+  },
+  "guide.back.step": {
+    "other": "Back"
+  },
+  "guide.sample.action.meetings": {
+    "other": "Check this week's meetings"
+  },
+  "guide.sample.action.room": {
+    "other": "Book a meeting room"
+  },
+  "guide.sample.action.joke": {
+    "other": "Try a scheduled task"
+  },
+  "guide.saving": {
+    "other": "Saving settings"
+  },
+  "guide.submitting": {
+    "other": "Submitting the task"
+  },
+  "guide.skill.catalog.plan": {
+    "other": "The Agent will search the platform using this expert’s responsibilities and Skill requirements, show real candidates with their purpose and version for your selection, then download the selected Skills into this library’s change preview. The next action sends this request."
+  },
+  "guide.prompt.skill.search": {
+    "other": "First search Skill platform %s for real candidates matching the expert responsibilities and Skill requirements above. Recommend at most five, showing their purpose, source identifier, available versions and dependencies. If I specified an exact Skill, verify its details directly. Otherwise wait for my selection in this task conversation. Do not stop at providing website links. Download the complete package at a fixed version, inspect SKILL.md, scripts and references, record source and version, and include its contents and the expert’s Skill references in the Git library’s actual change preview. Preserve other experts and Skills. Wait for my confirmation of the file preview before publishing."
+  },
+  "management.back.to.document.comments": {
+    "other": "Back to document comments"
+  },
+  "management.back.to.group.watch": {
+    "other": "Back to group watch"
+  },
+  "schedule.back_detail": {
+    "other": "Back to schedule details"
+  },
+  "discovery.title": {
+    "other": "Capability plaza"
+  },
+  "discovery.intro": {
+    "other": "Explore amux workflows. Review and edit an example before sending it; browsing starts no work."
+  },
+  "discovery.back": {
+    "other": "Back to capability plaza"
+  },
+  "discovery.back.detail": {
+    "other": "Back to capability details"
+  },
+  "discovery.examples": {
+    "other": "View examples"
+  },
+  "discovery.category": {
+    "other": "Choose a category"
+  },
+  "discovery.category.all": {
+    "other": "All capabilities"
+  },
+  "discovery.category.automation": {
+    "other": "Automation and tasks"
+  },
+  "discovery.category.collaboration": {
+    "other": "Chats and collaboration"
+  },
+  "discovery.category.experts": {
+    "other": "Experts and Skills"
+  },
+  "discovery.category.system": {
+    "other": "Settings and maintenance"
+  },
+  "discovery.page": {
+    "other": "Page %d of %d"
+  },
+  "discovery.previous": {
+    "other": "Previous page"
+  },
+  "discovery.next": {
+    "other": "Next page"
+  },
+  "discovery.random": {
+    "other": "Show another capability"
+  },
+  "discovery.settings": {
+    "other": "Open related settings"
+  },
+  "discovery.use": {
+    "other": "Use example %d"
+  },
+  "discovery.daily.title": {
+    "other": "Daily discovery · Explore an amux capability"
+  },
+  "discovery.daily.on": {
+    "other": "Daily discovery is on: 11:00 (%s), starting the day after activation. Each round avoids repeats."
+  },
+  "discovery.daily.off": {
+    "other": "Daily discovery is off. Enable it to receive one private card each day from tomorrow at 11:00 (%s)."
+  },
+  "discovery.daily.enable": {
+    "other": "Enable daily discovery"
+  },
+  "discovery.daily.disable": {
+    "other": "Turn off daily discovery"
+  },
+  "discovery.edit": {
+    "other": "Edit this request before sending"
+  },
+  "discovery.send": {
+    "other": "Send to assistant"
+  },
+  "discovery.review": {
+    "other": "This is an editable request for real work. Fill in names, links and times before sending. Configuration changes and external writes keep their normal confirmation steps."
+  },
+  "discovery.submitted": {
+    "other": "This submission has been recorded. Check this private chat for the task response. Repeated clicks will not send it again."
+  },
+  "discovery.sent": {
+    "other": "Request sent. Continue in this private chat for responses and any required authorization. The task is not yet confirmed complete."
+  },
+  "discovery.uncertain": {
+    "other": "Delivery could not be confirmed. Check this chat before submitting again to avoid duplicate work. This submission will not be retried automatically."
+  },
+  "discovery.request": {
+    "other": "Capability example request"
+  },
+  "discovery.private": {
+    "other": "Open /amux in your private chat with the assistant, then enter the capability plaza."
+  },
+  "discovery.missing": {
+    "other": "This capability has changed. Return to the plaza and choose again."
+  },
+  "discovery.failed": {
+    "other": "Capability discovery could not be loaded or saved. Try again later."
+  },
+  "discovery.invalid": {
+    "other": "Enter a valid request, or return to the capability details and select the example again."
+  },
+  "discovery.schedules.title": {
+    "other": "Run work on a schedule"
+  },
+  "discovery.schedules.body": {
+    "other": "Create schedules in natural language, inspect results and cancel them. Creation receipts and actual run results are separate."
+  },
+  "discovery.schedules.requires": {
+    "other": "An online Runtime is required. External data still requires the relevant Skill and authorization."
+  },
+  "discovery.schedules.prompt.0": {
+    "other": "Create a scheduled task that tells me a joke in this conversation every minute. Return the saved task ID and next run time. After the first actual joke, I will say “Cancel this scheduled task.”"
+  },
+  "discovery.schedules.prompt.1": {
+    "other": "List my current schedules with their next run times and latest results. Do not change them yet."
+  },
+  "discovery.experiments.title": {
+    "other": "Explore experimental features"
+  },
+  "discovery.experiments.body": {
+    "other": "Experiments include per-group settings, Agent memory, completion notifications, foreground follow-ups and background-task display. Settings distinguish saved and active values."
+  },
+  "discovery.experiments.requires": {
+    "other": "Only the owner can change these settings. Follow the page for saving or confirming a restart."
+  },
+  "discovery.experiments.prompt.0": {
+    "other": "Explain the current amux experiments, which are active and which need a restart. Do not change settings yet."
+  },
+  "discovery.experiments.prompt.1": {
+    "other": "I want notifications when long tasks finish. Explain thresholds and impact, then show me how to enable them in Experiments."
+  },
+  "discovery.group_agent.title": {
+    "other": "Give each group its own Agent"
+  },
+  "discovery.group_agent.body": {
+    "other": "Per-group settings choose an expert, Runtime, model, reasoning effort and conversation mode. New settings apply to new sessions."
+  },
+  "discovery.group_agent.requires": {
+    "other": "Enable and apply per-group settings in Experiments, then mention the assistant with /amux in the target group. Existing sessions keep their configuration."
+  },
+  "discovery.group_agent.prompt.0": {
+    "other": "I want a code-review expert for my engineering group and a calendar expert for my office group. List available experts and explain the setup steps without changing other groups."
+  },
+  "discovery.group_agent.prompt.1": {
+    "other": "Explain how to choose a model and reasoning effort for one group and apply them to new conversations."
+  },
+  "discovery.calendar.title": {
+    "other": "Check calendars and book rooms"
+  },
+  "discovery.calendar.body": {
+    "other": "Use an Agent conversation to inspect calendars, find times and book a room. Complete authorization within the task when requested."
+  },
+  "discovery.calendar.requires": {
+    "other": "Requires a calendar/meeting-room Skill and work-account authorization. This card does not mean a calendar is connected."
+  },
+  "discovery.calendar.prompt.0": {
+    "other": "Show my meetings for this week, grouped by date with time, subject and location."
+  },
+  "discovery.calendar.prompt.1": {
+    "other": "Find a room for Saturday from 8:00 to 8:30 PM. Confirm the exact date, location and headcount before booking."
+  },
+  "discovery.experts.title": {
+    "other": "Choose an expert for the work"
+  },
+  "discovery.experts.body": {
+    "other": "An expert is like a person with particular Skills: responsibilities and reusable ways of working. Switch the everyday expert in assistant settings; existing tasks keep their snapshot."
+  },
+  "discovery.experts.requires": {
+    "other": "Experts must be available in the current libraries. Review responsibilities and execution settings before switching."
+  },
+  "discovery.experts.prompt.0": {
+    "other": "List the configured experts with their responsibilities and Skills. Recommend one for [work description]."
+  },
+  "discovery.experts.prompt.1": {
+    "other": "I want to change my everyday expert. Show the current expert, available choices and the impact, then wait for my selection."
+  },
+  "discovery.libraries.title": {
+    "other": "Keep several experts in one library"
+  },
+  "discovery.libraries.body": {
+    "other": "Manage multiple experts and shared Skills in a remote Git repository. Adding, syncing and managing libraries use the normal Agent Pack workflow."
+  },
+  "discovery.libraries.requires": {
+    "other": "Requires an accessible Git URL and the Agent Pack format. Adoption depends on normal merge and sync."
+  },
+  "discovery.libraries.prompt.0": {
+    "other": "Inspect this Git expert library and list its experts and Skills. Start with a read-only preview: [Git URL]."
+  },
+  "discovery.libraries.prompt.1": {
+    "other": "Add a second expert named [name] for [responsibility] to this existing library. Inspect it and preview the diff, retaining all existing experts and Skills: [Git URL]."
+  },
+  "discovery.skills.title": {
+    "other": "Teach an expert a Skill"
+  },
+  "discovery.skills.body": {
+    "other": "A Skill is a reusable method with instructions, scripts or references. Import or author Skills and inspect the effects of updates."
+  },
+  "discovery.skills.requires": {
+    "other": "Requires a readable Skill source and library access. Import complete packages, pin versions and confirm publication."
+  },
+  "discovery.skills.prompt.0": {
+    "other": "Teach [expert name] to do [capability]. Inspect existing Skills and propose an import or authoring plan with sources before preparing library changes."
+  },
+  "discovery.skills.prompt.1": {
+    "other": "Review an update to [Skill name] in [Git URL]. List every affected expert and preview the changes first."
+  },
+  "discovery.delegation.title": {
+    "other": "Delegate work to specialists"
+  },
+  "discovery.delegation.body": {
+    "other": "Split work into tasks for suitable experts, then combine their results."
+  },
+  "discovery.delegation.requires": {
+    "other": "Requires available experts, a Runtime and execution authorization. Confirm scope and deliverables first."
+  },
+  "discovery.delegation.prompt.0": {
+    "other": "Break [task description] into independent pieces and recommend experts. Show the plan before executing and combining results."
+  },
+  "discovery.delegation.prompt.1": {
+    "other": "Ask suitable experts to review implementation, tests and risks for this proposal, then combine evidence-backed feedback: [proposal or link]."
+  },
+  "discovery.group_watch.title": {
+    "other": "Watch selected group conversations"
+  },
+  "discovery.group_watch.body": {
+    "other": "Group watch follows selected group messages and handles work according to configured rules. Its settings can pause, resume and choose an expert."
+  },
+  "discovery.group_watch.requires": {
+    "other": "The target group must use topic mode and include the bot with message access. Configure the watch scope explicitly."
+  },
+  "discovery.group_watch.prompt.0": {
+    "other": "Explain how to choose watched groups, set the execution expert and pause watching. Do not expand the scope yet."
+  },
+  "discovery.group_watch.prompt.1": {
+    "other": "I want the assistant to watch [group name], using an expert skilled in [work domain] to handle eligible new topics. Check prerequisites and propose the settings, then wait for my confirmation."
+  },
+  "discovery.document_comments.title": {
+    "other": "Start work from document comments"
+  },
+  "discovery.document_comments.body": {
+    "other": "The owner can mention the assistant in a document comment to start work with the selected expert and receive a comment reply. Choose execution options in settings."
+  },
+  "discovery.document_comments.requires": {
+    "other": "Requires the document-comment feature, document access and event subscription. Comments do not automatically grant execution authorization."
+  },
+  "discovery.document_comments.prompt.0": {
+    "other": "Explain how to request work in a document comment, what permissions are needed and how to choose the expert."
+  },
+  "discovery.document_comments.prompt.1": {
+    "other": "I want to request [work description] through a document comment. Inspect the setup and explain the trigger without publishing changes."
+  },
+  "discovery.context.title": {
+    "other": "Organize conversations by topic"
+  },
+  "discovery.context.body": {
+    "other": "Continuous conversation supports ongoing discussion; topic mode separates the histories of different work. Topic history and execution isolation are separate settings."
+  },
+  "discovery.context.requires": {
+    "other": "Mode changes follow managed confirmation. Separate histories do not guarantee isolated files."
+  },
+  "discovery.context.prompt.0": {
+    "other": "Explain when to use continuous conversation or topic mode and how each differs from file isolation. Do not change settings yet."
+  },
+  "discovery.context.prompt.1": {
+    "other": "I am working on [work one] and [work two]. Suggest how to organize topics so their conversation contexts remain separate."
+  },
+  "discovery.background.title": {
+    "other": "Keep collaborating during long work"
+  },
+  "discovery.background.body": {
+    "other": "Experiments offer foreground follow-ups, background-task display and notifications for long work."
+  },
+  "discovery.background.requires": {
+    "other": "Depends on the engine and enabled experiments. Settings indicate whether saving applies live or requires a restart."
+  },
+  "discovery.background.prompt.0": {
+    "other": "Explain foreground follow-ups, background-task display and completion notifications. Inspect their current switches without changing them."
+  },
+  "discovery.background.prompt.1": {
+    "other": "I have a long task: [task]. Suggest how to keep discussing other work while it runs using my current engine."
+  },
+  "discovery.goals.title": {
+    "other": "Set a goal for ongoing work"
+  },
+  "discovery.goals.body": {
+    "other": "Use a goal for work that needs several rounds, such as investigating failing tests or preparing an introductory guide. In the work conversation, send goal <objective> to start, goal for status, goal pause to pause, goal resume to continue, or goal clear to remove the goal while keeping the conversation. Do not prefix these commands with /."
+  },
+  "discovery.goals.requires": {
+    "other": "The current Session must actually support goals; Codex also requires a successful capability check. Claude SDK and Pi do not currently support them. Control the goal in the same work conversation. The examples below only prepare a draft and do not start a goal."
+  },
+  "discovery.goals.prompt.0": {
+    "other": "I want to keep investigating failing tests in a repository until I have an evidence-backed root cause, a fix and validation results. Draft a message I can send in the Feishu work conversation using goal <objective>, specifying scope, permitted actions and completion criteria. Leave placeholders for an unconfirmed repository, test scope or authorization, and list missing information outside the draft. Only prepare a draft; do not access files, call tools or start a goal."
+  },
+  "discovery.goals.prompt.1": {
+    "other": "I want to turn this knowledge base into an introductory guide with source links: [knowledge-base link]. First ask me to confirm the reading scope, intended readers and completion criteria, then draft a message I can send directly in the Feishu work conversation, using the format goal <objective>. Only prepare a draft; do not start a goal, read the knowledge base or publish documents."
+  },
+  "discovery.runtimes.title": {
+    "other": "Choose an execution environment and model"
+  },
+  "discovery.runtimes.body": {
+    "other": "A Runtime supplies the actual execution environment. Model and reasoning choices configure new work, with real selections shown in assistant settings."
+  },
+  "discovery.runtimes.requires": {
+    "other": "Requires an available Runtime and model. Changing defaults does not migrate running work."
+  },
+  "discovery.runtimes.prompt.0": {
+    "other": "Explain what the execution host, engine, model and reasoning effort each control. Use my assistant defaults to show where I can inspect and choose actually available options without changing anything."
+  },
+  "discovery.runtimes.prompt.1": {
+    "other": "Recommend an available model and reasoning level for [work description]. Explain quality and latency trade-offs before making changes."
+  },
+  "discovery.bot_collaboration.title": {
+    "other": "Collaborate across assistants"
+  },
+  "discovery.bot_collaboration.body": {
+    "other": "Supported assistants can delegate and respond to one another. The owner manages collaboration settings."
+  },
+  "discovery.bot_collaboration.requires": {
+    "other": "Requires assistant collaboration, a discoverable target bot and permitted execution access."
+  },
+  "discovery.bot_collaboration.prompt.0": {
+    "other": "Explain assistant-to-assistant collaboration, the current collaboration switch and how to inspect eligible assistants in a target group. Do not send messages or delegate work."
+  },
+  "discovery.bot_collaboration.prompt.1": {
+    "other": "I want [target assistant] to help with [work]. Check availability and authorization, then propose a plan before proceeding."
+  },
+  "discovery.maintenance.title": {
+    "other": "Inspect and maintain amux"
+  },
+  "discovery.maintenance.body": {
+    "other": "The management page summarizes health and version, with update checks and confirmed restart operations."
+  },
+  "discovery.maintenance.requires": {
+    "other": "Only the owner can perform maintenance. Updates and restarts follow management-page confirmation."
+  },
+  "discovery.maintenance.prompt.0": {
+    "other": "Explain the current amux version and connection observations, distinguish known facts from unchecked items, and show how to view system status in management. Do not restart or update."
+  },
+  "discovery.maintenance.prompt.1": {
+    "other": "Explain the amux upgrade process and its effects on running work. Show how to check for updates, verify the target version and confirm an upgrade in management. Do not install or restart."
+  },
+  "discovery.schedules.guidance": {
+    "other": "Use only real amux schedule tools, not engine Cron timers. amux schedules persist in the Hub. Missing/failed queries are unknown, never zero. Read schedule_list through has_more=false; inspect the exact ID with schedule_get. For results in the current work conversation use schedule_type=session-prompt, spec=every 1m and its real session reference (AMUX_SESSION_ID); never bind a temporary audit Task. If the binding is unknown, ask for it or resolve it with session_list. Do not invent a CLI syntax; use the MCP terminal fallback from the common guidance. Create/change only when requested and authorized. Report the actual integer ID and next_run_at; creation is not execution. On cancellation, disable only the identified ID and verify with schedule_get. The recurring joke does not auto-cancel after one run. In read-only tests only explain the plan, with no writes or request to start. Quote next_run_at_iso/last_run_at_iso exactly with UTC; do not mentally convert numeric timestamps. Preserve the actual returned ISO value, or calculate a local conversion with a date/time tool before reporting it."
+  },
+  "discovery.task.context": {
+    "other": "[amux capability context]\nCapability: %s\nDescription: %s\nPrerequisites: %s\nHub-observed snapshot (not the execution machine configuration): %s"
+  },
+  "discovery.task.guidance": {
+    "other": "Answer the user request above using this capability guide and the supplied snapshot first. Empty or not_checked/unknown values are not evidence of absence or availability. The snapshot does not grant permission or verify external integrations. For an explanation or draft, do not change settings, launch goals, create schedules, delegate, restart or publish. Use actual exposed tools for requested operations; never invent amux MCP tools, commands, config keys or successful results. Do not search installed source trees or repeatedly explore help to explain a card. Managed settings are changed through the corresponding /amux page and its confirmation, not direct TOML/SQLite edits. The Agent may run away from the Hub; its local registry/config cannot establish Hub truth. If a required operation is unavailable, explain the exact limitation and provide the supported management entry. Keep the answer practical and concise; describe the next action and how to verify its result. For feature explanations, usually use one small table or 3–6 short points. Do not echo internal JSON keys, Profile refs or execution paths. Refer only to management entries supplied in this guide; do not invent Target/Runtime management pages, unexposed model-list tools or offers to inspect unavailable state. Deliver an explanation/draft directly rather than ending with an unsolicited offer to continue. Bracketed placeholders such as [work] are missing user input, not actual materials. Ask for the missing input before acting; never treat this capability context as the user document. An untested integration has unknown authorization, not missing authorization. When amux tools are not exposed by the engine, use the terminal: amux mcp call <tool> --describe shows the actual schema without executing; pipe a JSON object to amux mcp call <tool> to call the SAME Hub tools with the current actor and permissions. The output is an MCP JSON envelope: check the exit code and isError, then read content[].text. Never replace amux tools with the engine CronCreate/CronList/CronDelete or GoalCreate/GoalUpdate. Do not use a local CLI registry as a substitute for Hub profile queries."
+  },
+  "discovery.experiments.guidance": {
+    "other": "Explain group settings, memory, foreground follow-ups, background-task display and completion notifications from experiments_saved and experiments_running. Equal values are effective; differing values are saved but not yet effective. Do not assert saved values unless experiments_saved_status=ok. steer_foreground and show_background_tasks can apply live on save; follow the management page for restart confirmation of other changes. Entry: owner private chat /amux → Experiments. Do not ask the user to edit files or enable switches without a request. Foreground follow-up means the USER can add input while work is running; it does not mean the assistant automatically interviews the user. Completion notifications fire when a turn finishes AND that turn took at least the configured duration. They do not wait that long after completion and are unrelated to unread time. Completion notification settings require the management restart confirmation; do not claim every switch is live-applied."
+  },
+  "discovery.group_agent.guidance": {
+    "other": "Check the effective group-settings experiment in the snapshot. Entry: private /amux → Experiments, then after activation mention the actual bot with /amux in the target group and choose its group settings. A group name is not an ID; private chat does not establish that group configuration. Confirm the target group and use paginated amux.profile_list/profile_get to verify experts. Expert, engine, model and reasoning defaults apply to new group Sessions, not existing work or other groups. Verify settings using the group settings summary and the actual execution card, never by asking the model which model it thinks it is."
+  },
+  "discovery.calendar.guidance": {
+    "other": "Use installed calendar/room Skills and resolve dates in the user timezone. Weekly meeting lookup is read-only. For room booking, confirm the date, location and capacity, book only the confirmed scope and inspect actual receipts. Handle account authorization within this task without a separate connection or conversation flow. Check relative dates by calculation using the current date and agreed timezone. In Asia/Shanghai, Saturday following Friday 2026-10-30 is 2026-10-31. The Hub timezone is only a reference, not proof of the user timezone. Do not invent meetings, room availability or authorization status."
+  },
+  "discovery.experts.guidance": {
+    "other": "Use amux.profile_list through all pages and amux.profile_get for actual responsibilities and Skills. A local CLI registry empty result cannot establish that no expert exists. new_session_defaults describes assistant defaults, not the expert of running work. Change defaults through private /amux → assistant settings; existing work retains its snapshot."
+  },
+  "discovery.libraries.guidance": {
+    "other": "One remote Git expert library can contain multiple experts and shared Skill definitions. A shared Skill must be explicitly referenced by an expert; it is not automatically enabled for every expert. Inspect the actual repository and its Agent Pack v2 authoring instructions before proposing file paths, field names or a build command; authoring layouts can differ. Do not invent a universal profiles/<name>/profile.toml template or profile model fields. Missing Git URL/name/responsibility requires clarification before tools. Adding/syncing libraries uses private /amux → Expert libraries. Preserve existing experts, show the real diff, and publish/merge/sync only with authorization; a created repo/MR is not adoption."
+  },
+  "discovery.skills.guidance": {
+    "other": "An expert is a reusable configuration with specific Skills; a Skill bundles a working method, instructions and resources. Inspect existing Skills and confirm a missing expert name or source. Import a complete external package pinned to its source/version; inspect instructions, scripts and references without executing them. Preview both expert references and package changes. List every affected expert for shared updates, then publish/sync after confirmation."
+  },
+  "discovery.delegation.guidance": {
+    "other": "A planning-only request does not launch child work. For actual delegation use exposed amux coordination tools and installed coordination Skills; specify expert, inputs, scope and deliverables. Retain real task_id/agent_instance_id; an intention is not a delegation. Verify and summarize actual results."
+  },
+  "discovery.group_watch.guidance": {
+    "other": "Group watch handles eligible NEW ROOT messages in explicitly enrolled topic groups, filtered by sender types (user/app). It is not a keyword subscription: the UI has no work-topic keyword or @-only trigger selector. Work focus belongs in the selected expert instructions, not a fictional UI filter. Enroll by the owner mentioning the bot in the target group with 开启群值守 and confirming the group card; manage from private /amux → Group watch or the group /amux page. Per-group settings include enable/pause, inherit/custom execution settings, expert/engine/model/effort, active-session limit and idle sleep. The snapshot only knows global enable/count, not a group expert; do not assume a particular expert. Confirm group, topic mode, bot membership, permissions and sender scope first. No direct config/DB writes. Sender filtering supports user/app types only, not a member allowlist or selecting specific people."
+  },
+  "discovery.document_comments.guidance": {
+    "other": "The document_comments_enabled snapshot is only the entry switch. It does not prove document access or event subscriptions. new_session_defaults and interaction_mode are ordinary Bot chat defaults, NOT the separately configured document-comment expert/engine. Do not report those defaults as comment execution settings; view them on private /amux → Document comments. The owner mentions the bot in a document comment; replies use the same comment thread. Explain prerequisites without writing comments, documents or configuration. Unfilled work/link placeholders need user input. The separately configured comment expert/engine are UNKNOWN in this snapshot, not unconfigured. Do not assert whether overrides exist."
+  },
+  "discovery.context.guidance": {
+    "other": "Explain singleton as shared conversation and thread as separate chat histories per topic. Separate topics may still share files, credentials and machines. Execution isolation follows its actual principal/OS configuration and does not promise a separate filesystem per topic. Do not invent a topic directory/list in /amux. Change handling mode only via /amux → Assistant settings with confirmation; do not reset existing conversations."
+  },
+  "discovery.background.guidance": {
+    "other": "Use saved/running snapshot values for steer_foreground, show_background_tasks and completion_notification/after_seconds. Follow-up injection, background display and completion notifications are separate. Switches do not guarantee every engine supports every steering method. Entry: private /amux → Experiments. A request for a plan does not authorize delegation or changing switches. Foreground follow-up is user input during execution, not proactive questions. Background display uses progress cards, not a floating panel. A completion threshold of 60 seconds means a turn taking at least 60 seconds notifies WHEN IT FINISHES, not 60 seconds after it finishes. A separate topic can separate conversation histories, but same-session parallel execution is not guaranteed."
+  },
+  "discovery.goals.guidance": {
+    "other": "This card only drafts objectives. Formal Feishu messages are goal <objective> to create, goal for status, goal pause, goal resume and goal clear, without a / prefix. There are no corresponding amux MCP goal tools; do not invent goal_create or amux goal CLI, or confuse your engine own goal tools with the Feishu Session goal. Support is discovered in the target Session; the Codex name does not prove support, and Claude SDK/Pi are unsupported. Do not invent an unspecified budget. Do not probe, create, replace or resume a goal here; draft a plain-text message with scope, allowed actions and completion criteria. This draft request must not access the filesystem or call tools. Use clear placeholders for an unknown repository/scope, not the test sandbox. The goal message contains only work, scope, permitted actions and completion criteria; keep questions, explanations and sandbox paths outside it. Bundle essential missing information in one question if needed. Providing more information is not authorization to start; do not promise to begin immediately afterward. If permission to clone, run tests, edit files or publish is unspecified, write [allowed operations: to be confirmed] in the draft. Do not grant those permissions on the user behalf."
+  },
+  "discovery.runtimes.guidance": {
+    "other": "Distinguish execution machine (Runtime target), native engine, model and reasoning effort. Configured engine rows and new-session defaults do not prove model availability or login. Real selectable values are refreshed in /amux → Assistant settings → model page; there is no general Target/Runtime management page or full model-catalog query tool. Do not invent fixed low/medium/high levels, a medium default, prices or speed multipliers. Initial onboarding selects the strongest supported reasoning level; an existing blank effort means not explicitly configured, NOT medium or proof of an effective strong level. Stronger reasoning may take longer. Missing [work] needs a task description before a concrete recommendation; no changes to existing work. This is an explanation request. Finish by directing the user to the model page; do not offer to fetch a full model catalog yourself."
+  },
+  "discovery.bot_collaboration.guidance": {
+    "other": "The snapshot only establishes the collaboration switch. This example starts in private chat; its external_bot directory cannot establish which bots belong to a group. Confirm the target group and discover under a valid group binding and authorization. Use amux.collaborator_list according to coordination Skills only when preparing actual delegation; internal expert discovery uses profile_list/profile_get. Explanation/check requests do not send messages or create external delegations."
+  },
+  "discovery.maintenance.guidance": {
+    "other": "The exact private management entry is /amux → System status (not a separate System maintenance page). It shows version, Hub/runtime/bridge connectivity, counts and deployment details. Its controls are Check for updates and Restart, with refresh on unhealthy status. It does not run a full health sweep or test every engine/model login, and has no generic Target identity/catalog panel. full_system_health=not_checked stays unknown. Check for updates is read-only. When an update exists, selecting the displayed target version requires a confirmation that installs AND restarts; do not invent a separate mandatory post-install restart question or guarantee running work is unaffected. Existing session records are retained; offline/recovery or work interruption depends on the actual maintenance flow. Do not install, restart, edit config or stop sessions for this explanation."
   }
 }

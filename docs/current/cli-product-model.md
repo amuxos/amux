@@ -225,3 +225,30 @@ Logs are bounded and SQLite compaction runs only above 300 MiB of free pages.
 `adapter.codex.executable` selects a Codex-compatible executable (a PATH name, absolute path, or `~/` path); empty uses `codex`. It is a program path, not a shell command. The Hub forwards the configured program to new Codex Sessions; model discovery uses the same program on the selected Runtime. The Runtime resolves `~/` against the execution HOME. Each Session freezes its program for restart, resume and model changes; changing the setting affects new Sessions. Existing Sessions without this field retain `codex`. The owner-only `/amux` experiments form edits this installation-wide setting; save and restart activates it. The path must exist on each selected Runtime. It does not edit remote configuration files.
 
 Registered app-server integrations share the executable setting, owner-only experiments form, execution-node resolution and frozen Session launch state. Native model discovery uses that same executable, without static native fallback; provider/service entries stay separate.
+
+Operators can send a getting-started card to the saved owner with
+`amux bridge feishu onboarding --profile <name>`. This sends one private card
+to the saved owner. Add `--capabilities` to send the capability plaza instead;
+`--capabilities --enable-daily` also enables daily discovery starting tomorrow.
+Without `--enable-daily`, sending a plaza leaves delivery preferences unchanged.
+Neither form starts another event consumer, resets settings, or replays tasks.
+
+## Terminal access to MCP tools
+
+`amux mcp call <tool>` accepts a JSON object on stdin (or `--input-file`) and
+prints the MCP tool-result envelope as JSON. This is a terminal fallback when
+an engine does not expose its registered amux tools to the model. It uses the
+same enabled-tool registry, SDK schema validation, actor credentials and Hub
+authorization as `amux mcp`; it does not bypass permissions or use a local
+profile registry. It joins transport result chunks within one invocation;
+domain pagination such as `profile_list` still requires following `next_cursor`.
+Tool errors retain `isError` and return a nonzero exit code. Unknown tools,
+disabled MCP and invalid input fail without running a handler.
+
+MCP `session_stream` resolves an omitted target from the caller-visible session
+listing. An ambiguous session name fails and requires a target; it never picks
+the first matching machine.
+
+MCP schedule creation, detail and list results retain numeric Unix timestamps
+and also provide `next_run_at_iso` / `last_run_at_iso` in UTC RFC3339 when set.
+Agents can quote these values without guessing a timezone or converting epochs mentally.

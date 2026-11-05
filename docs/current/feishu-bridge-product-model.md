@@ -452,6 +452,18 @@ Failures retain a bounded tail of CLI stderr in the operator log for diagnosis.
 
 ## Management interface language
 
+Every subpage reached from `/amux`, including editors, confirmations, loading,
+error and onboarding pages, retains a top-level Back to overview action. Nested
+pages also name their parent (assistant settings, integrations, document comments,
+expert library, or schedule details). Returning is navigation only: it never
+submits an unsaved form or repeats a task. Surface metadata survives every
+callback and asynchronous refresh so later pages keep the same navigation.
+
+The overview shows seven management actions, including the capability plaza,
+with at most three actions per row. The language
+selector keeps the bilingual label `界面语言 (Language)` in both languages so a
+viewer can find it after choosing an unfamiliar interface language.
+
 `/amux` product copy is owned by stable keys in a shared English/Simplified Chinese
 catalog. Templates interpolate runtime values without translating user-provided
 names, paths, identifiers, diagnostics, or Agent output. Catalog validation checks
@@ -635,3 +647,96 @@ workspace paths. Delivery failure is retained for retry and logged.
 The owner-only experiments page includes the installation-wide Codex executable. Empty restores `codex`; the value is resolved on the execution Runtime, including remote targets. Saving preserves fields omitted by older cards and uses the existing save/restart confirmation. Existing Sessions keep their launch executable.
 
 Registered app-server integrations share the executable setting, owner-only experiments form, execution-node resolution and frozen Session launch state. Native model discovery uses that same executable, without static native fallback; provider/service entries stay separate.
+
+## Capability discovery
+
+`/amux` includes a Capability plaza. A shared bilingual catalog describes
+implemented product workflows, prerequisites, and editable example prompts.
+It covers schedules, experiments, per-group execution settings, experts and Skills, collaboration, context and operations.
+Integration examples identify required Skills/access rather than promising a
+connected account. Cards link to existing settings where applicable.
+
+New Bot setup enables one daily discovery card, starting the following day at
+11:00 in the Hub host's timezone. Existing installations are not opted in on
+upgrade. The owner can enable or disable recommendations in the plaza or daily
+card. Delivery and preferences are scoped to Bot and current owner, persist
+across restart, and never target a group. Random selection avoids repeats until
+the available catalog has been exhausted. At most one delivery is claimed per
+local date, including concurrent workers and reconnects; offline dates are not
+backfilled. A failed or uncertain send is not automatically replayed that day.
+
+Browsing, changing examples and editing prompts never starts Agent work.
+Explicit submission uses ordinary authorization and conversation routing, with
+persistent duplicate suppression. This flow keeps first-run onboarding progress
+independent. A sent request is not reported as completed work. Every plaza,
+detail, prompt and result card retains navigation back to its parent and `/amux`.
+
+Each natural-language example includes its capability description, prerequisites,
+specific tool/management guidance and an allowlisted Hub-side state snapshot.
+Saved experiments and running values are distinct; unavailable observations stay
+unknown. The snapshot contains no credentials, full config, provider settings,
+owner identity or watched-group IDs. An Agent's local filesystem is not evidence
+of the Hub's settings. Management changes use the existing confirmed card flow;
+missing tools do not authorize invented commands or direct database/config edits.
+Formal `goal` and slash commands are routed unchanged so appended context cannot
+turn a status query into creation. Goal examples draft concrete objectives and
+completion criteria; the card itself explains the actual bare `goal` controls.
+
+The [capability plaza guide](../guides/capability-plaza.md) documents all 16
+capabilities, 32 examples, prerequisites, setup reentry and daily delivery rules.
+
+## Owner onboarding
+
+Model discovery uses the selected engine and the draft conversation environment,
+including engines registered by a distribution through the app-server integration.
+
+The owner can open the guided setup at any time from `/amux`. First owner
+capture offers the same welcome card. Reentry preserves settings, expert
+libraries and the saved draft. Guide progress is persisted per Bot and owner;
+versioned callbacks reject stale cards and never replay an example on resume.
+
+The guide separates message handling, runtime/model selection and first tasks.
+Reasoning effort is always visible and a previously unset preference defaults
+to the strongest capability actually advertised by the selected model. Saved
+preferences and isolation requirements are preserved. Separate topic histories
+can still share workspace files; execution isolation is configured separately.
+
+Examples are submitted only after review through ordinary authorized Agent
+routing. An accepted submission is not a completed task. Calendar authorization
+is requested by the installed Skill during execution. The repeating joke
+example uses a session-prompt schedule every minute, asks the owner to wait for
+one actual result, then cancel that same schedule by natural language.
+
+Continue exploring offers selecting an expert, adding a Git library, or creating
+an expert with Skills. An expert is like a person with particular Skills; a Skill
+describes a repeatable way of working. One Git library contains multiple experts
+and shared Skills. Creation collects a remote Git address, responsibility and
+Skills, then submits an authoring request to the Agent. The Agent must inspect
+the existing repository and show a concrete preview before publication, retain
+other experts, and wait for normal merge/sync before claiming adoption. The
+wizard never reports repository publication merely from task submission.
+
+The optional Skill catalog action submits the expert form to a review, preserving
+its name, responsibility, repository and Skill requirements. After confirmation,
+the Agent searches the catalog, presents real candidates and fixed versions for
+selection, then downloads the selected package into the expert-library change
+preview. It does not open a catalog website as the import action. Task progress
+offers refresh and exploration without a message deep link; replies and any
+authorization instructions appear in the same chat's task conversation.
+
+Distribution hooks supply personal repository templates, Skill catalog sources
+and execution guidance; proprietary endpoints remain outside the public core.
+
+Operators can send the same card to the saved owner with
+`amux bridge feishu onboarding --profile <name>`. This sends one private card
+and does not start another event consumer, reset settings, or replay tasks.
+
+A newly configured Bot with an already identified owner queues its welcome card
+until the Bridge connects. Ordinary upgrades do not create that marker. Delivery
+is claimed before sending so an uncertain outcome is not replayed on reconnect;
+the permanent management entry remains available for explicit reentry.
+
+Onboarding navigation and draft edits return the replacement card directly in
+the callback response. Success navigation does not emit a generic update toast.
+Examples use separate full-width actions with short labels and visible request
+text. Each exploratory page offers Back, retaining saved drafts.

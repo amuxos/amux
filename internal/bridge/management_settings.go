@@ -151,7 +151,7 @@ func managementDraftFieldFromCallback(action *callback.CallBackAction, state man
 		}
 	}
 	actionName, _ := action.Value[managementActionKey].(string)
-	if actionName != managementActionSettingsEdit && actionName != managementActionOnboardingEdit {
+	if actionName != managementActionSettingsEdit && actionName != managementActionOnboardingEdit && actionName != guideEdit {
 		return ""
 	}
 	option := strings.TrimSpace(action.Option)
@@ -412,8 +412,8 @@ func (b *Bridge) runManagementSettingsTransition(openID, messageID string, previ
 			switch result.Status {
 			case BotSettingsStatusSuccess:
 				current := b.managementState()
-				if onboarding {
-					finalCard = renderOnboardingCompleteCard(current, managementDraftFromState(current))
+				if onboarding || b.guideSettingsMatch(openID, messageID, req) {
+					finalCard = b.completeGuideSettings(openID, current)
 				} else {
 					finalCard = renderSettingsCardForSurface(current, surface)
 				}
@@ -1486,6 +1486,7 @@ func renderDocumentCommentsEditCard(state managementState, draft managementDocum
 	buttons := managementFormButtonRowElement(submit, managementCallbackButton(managementActionDocumentCommentsOpen, managementCopy("management.cancel"), "default"))
 	buttons.Margin = "4px 0px 0px 0px"
 	elements = append(elements, cardElement{Tag: "form", Name: "document_comments_form", Direction: "vertical", VerticalSpacing: "8px", Elements: []cardElement{buttons}})
+	elements = append([]cardElement{managementSubpageBackElement(managementCopy("management.back.to.document.comments"), managementActionDocumentCommentsOpen, "amux.document_comments.edit.back"), managementDividerElement()}, elements...)
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.edit.comment.task.settings"), Subtitle: managementCopy("management.set.the.expert.and.execution.options.for.new.comment"), Summary: managementCopy("management.edit.document.comment.task.settings"), Theme: "blue", Icon: managementIcon("edit_outlined", "blue"), Elements: elements})
 }
 
@@ -1870,6 +1871,9 @@ func renderSettingsEditCardForSurface(state managementState, draft managementSet
 	elements := managementSettingsEditorElements(state,
 		"settings_form", draft, managementActionSettingsSave, managementCopy("management.save"), managementActionSettingsCancel,
 		libraryAction, managementMessageHandlingHintElement())
+	if surface == managementSurfaceAmux {
+		elements = append([]cardElement{managementSubpageBackElement(managementCopy("management.back.to.assistant.settings"), managementActionSettingsOpen, "amux.settings.edit.back"), managementDividerElement()}, elements...)
+	}
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.edit.defaults"), Subtitle: managementCopy("management.takes.effect.when.saved"), Summary: managementCopy("management.edit.amux.assistant.defaults"), Theme: "blue", Icon: managementIcon("edit_outlined", "blue"), Elements: elements})
 }
 
@@ -1901,6 +1905,7 @@ func renderSettingsConfirmationCard(state managementState, draft managementSetti
 		summary = managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.current.message.handling"), Body: managementInteractionText(state.Mode)}, managementSummaryItem{Title: managementCopy("management.switch.to"), Body: managementInteractionText(req.Interaction)})
 	}
 	elements := []cardElement{summary, managementHintElement(managementImpactText(result))}
+	elements = append([]cardElement{managementSubpageBackElement(managementCopy("management.back.to.assistant.settings"), managementActionSettingsCancel, "amux.settings.confirm.back"), managementDividerElement()}, elements...)
 	return marshalNativeManagementCard(managementCardView{Title: title, Subtitle: subtitle, Summary: managementCopy("management.assistant.settings.need.confirmation"), Theme: "orange", Icon: managementIcon("warning_outlined", "orange"), Elements: elements, Buttons: []managementButton{{Text: confirmText, Type: "primary", Action: managementActionSettingsConfirm, Values: values}, {Text: managementCopy("management.cancel"), Type: "default", Action: managementActionSettingsCancel}}})
 }
 
@@ -2037,6 +2042,9 @@ func renderSettingsFailureCardForSurface(state managementState, draft management
 	}
 	elements := []cardElement{managementHintElement(message), managementProfileLibraryHintElement(state)}
 	elements = append(elements, managementSettingsEditorElements(state, "settings_form", draft, managementActionSettingsSave, managementCopy("management.retry"), managementActionSettingsCancel, libraryAction, managementTextElement("", "notation", "grey", nil))...)
+	if surface == managementSurfaceAmux {
+		elements = append([]cardElement{managementSubpageBackElement(managementCopy("management.back.to.assistant.settings"), managementActionSettingsOpen, "amux.settings.failure.back"), managementDividerElement()}, elements...)
+	}
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.save.failed"), Subtitle: managementCopy("management.settings.unchanged.you.can.try.again"), Summary: managementCopy("management.amux.assistant.settings.failed"), Theme: "red", Icon: managementIcon("warning_outlined", "red"), Elements: elements})
 }
 

@@ -78,6 +78,7 @@ func TestManagementI18nAllPagesAndStableActions(t *testing.T) {
 			for editor, card := range map[string]string{
 				"settings":   renderSettingsEditCard(serviceState, draft),
 				"onboarding": renderOnboardingDraftCard(serviceState, draft),
+				"guide":      renderGuideCard(serviceState, onboardingProgress{Step: "model", Revision: 1, Draft: draft}, nil),
 				"documents":  renderDocumentCommentsEditCard(serviceState, managementDocumentCommentsDraft{Mode: "custom", AgentRef: state.DefaultAgent, RuntimeRef: "codex"}),
 				"watch":      renderGroupWatchEditCard(serviceState, managementGroupWatchDraft{Mode: "custom", AgentRef: state.DefaultAgent, RuntimeRef: "codex"}),
 				"group":      renderGroupSettingsEditCardAtPage(serviceState, managementGroupSettingsDraft{"group_agent": state.DefaultAgent, "group_runtime": "codex"}, nil, 0),
@@ -111,8 +112,8 @@ func TestManagementI18nAllPagesAndStableActions(t *testing.T) {
 					}
 					if locale == i18n.English {
 						// These are actual input commands, not translated aliases; language names
-						// are intentionally displayed in their own language in the selector.
-						for _, literal := range []string{"简体中文", "开启协作模式", "关闭协作模式", "切回负责人模式", "开启群值守", "关闭群值守", "中断", "停一下"} {
+						// and the bilingual language label intentionally remain recognizable.
+						for _, literal := range []string{"界面语言 (Language)", "简体中文", "开启协作模式", "关闭协作模式", "切回负责人模式", "开启群值守", "关闭群值守", "中断", "停一下"} {
 							text = strings.ReplaceAll(text, literal, "")
 						}
 						if strings.ContainsFunc(text, func(r rune) bool { return unicode.Is(unicode.Han, r) }) {
@@ -188,6 +189,15 @@ func stripManagementTestText(value any) {
 	case []any:
 		for _, v := range node {
 			stripManagementTestText(v)
+		}
+	}
+}
+
+func TestManagementI18nLanguageLabelRemainsBilingual(t *testing.T) {
+	raw := renderManagementOverviewCard(managementState{})
+	for _, locale := range []i18n.Locale{"", i18n.English, i18n.Chinese, "fr"} {
+		if !strings.Contains(selectManagementCardLocale(raw, locale), "界面语言 (Language)") {
+			t.Fatalf("language entry is not recognizable in locale %q", locale)
 		}
 	}
 }
@@ -298,7 +308,7 @@ func TestManagementI18nCallbackDeliveryAndSharedCards(t *testing.T) {
 		t.Fatal(response, handled, err)
 	}
 	patched = nextPatch()
-	if strings.Contains(patched, "i18n_content") || !strings.Contains(patched, "Interface language") {
+	if strings.Contains(patched, "i18n_content") || !strings.Contains(patched, "界面语言 (Language)") {
 		t.Fatal("private update lost preference")
 	}
 	// Delayed/background updates resolve the current persisted preference at delivery.

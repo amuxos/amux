@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/amuxos/amux/internal/clientop"
 	"github.com/amuxos/amux/internal/mcp"
@@ -78,9 +79,10 @@ func (h *mcpHandler) createSchedule(ctx context.Context, args json.RawMessage) (
 		return mcp.ErrorText(mcpScheduleCreateError(err)), nil
 	}
 	return mcp.Text(toJSON(map[string]any{
-		"schedule_id":   result.ID,
-		"next_run_at":   result.NextRunAt,
-		"schedule_type": scheduleType,
+		"schedule_id":     result.ID,
+		"next_run_at":     result.NextRunAt,
+		"next_run_at_iso": mcpScheduleTimeISO(result.NextRunAt),
+		"schedule_type":   scheduleType,
 	})), nil
 }
 
@@ -215,6 +217,12 @@ string]any {
 		return nil
 	}
 	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	if item.NextRunAt > 0 {
+		view["next_run_at_iso"] = mcpScheduleTimeISO(item.NextRunAt)
+	}
+	if item.LastRunAt > 0 {
+		view["last_run_at_iso"] = mcpScheduleTimeISO(item.LastRunAt)
+	}
 	if item.ScheduleType == "" || item.ScheduleType == schedule.ScheduleTypeSessionPrompt {
 		view["target_name"] = item.TargetName
 		view["session_name"] = item.SessionName
@@ -237,6 +245,12 @@ string]any {
 		return nil
 	}
 	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	if item.NextRunAt > 0 {
+		view["next_run_at_iso"] = mcpScheduleTimeISO(item.NextRunAt)
+	}
+	if item.LastRunAt > 0 {
+		view["last_run_at_iso"] = mcpScheduleTimeISO(item.LastRunAt)
+	}
 	if item.ScheduleType == "" || item.ScheduleType == schedule.ScheduleTypeSessionPrompt {
 		view["target_id"] = item.TargetId
 		view["target_name"] = item.TargetName
@@ -446,4 +460,12 @@ func toJSON(v any) string {
 		return "{}"
 	}
 	return string(b)
+}
+
+// UTC is unambiguous even when the caller runs in a different timezone from the Hub.
+func mcpScheduleTimeISO(unix int64) string {
+	if unix <= 0 {
+		return ""
+	}
+	return time.Unix(unix, 0).UTC().Format(time.RFC3339)
 }

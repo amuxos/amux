@@ -1635,8 +1635,8 @@ func TestManagementRestartFailureClearsPendingRecovery(t *testing.T) {
 	failureCard := waitForManagementCard(t, patched, func(card string) bool {
 		return strings.Contains(card, "操作失败")
 	})
-	if strings.Contains(failureCard, `"element_id":"amux_management_back"`) || strings.Contains(failureCard, `"element_id":"amux_navigation"`) {
-		t.Fatalf("maintenance failure card = %s, should keep recovery focused", failureCard)
+	if !strings.Contains(failureCard, `"element_id":"amux_management_back"`) || strings.Contains(failureCard, `"element_id":"amux_navigation"`) {
+		t.Fatalf("maintenance failure card = %s, should retain the overview back action", failureCard)
 	}
 	deadline := time.Now().Add(time.Second)
 	for {
@@ -2260,14 +2260,14 @@ func TestManagementCapabilityNavigationUsesFocusedCards(t *testing.T) {
 	}{
 		{
 			action:    managementActionCapabilitiesOpen,
-			want:      []string{"接入能力", "返回助手设置", "云文档评论", "已关闭", "打开设置", managementActionDocumentCommentsOpen},
-			notWant:   []string{"返回概览", managementActionDocumentCommentsSet},
+			want:      []string{"接入能力", "返回概览", "返回助手设置", "云文档评论", "已关闭", "打开设置", managementActionDocumentCommentsOpen},
+			notWant:   []string{managementActionDocumentCommentsSet},
 			wantToast: "已打开接入能力",
 		},
 		{
 			action:    managementActionDocumentCommentsOpen,
-			want:      []string{"云文档评论", "返回接入能力", "当前状态", "已关闭", "任务配置", "继承助手默认", "专家", "模型", "如何使用", "开启云文档评论", managementActionDocumentCommentsSet},
-			notWant:   []string{"返回概览", "返回助手设置"},
+			want:      []string{"云文档评论", "返回概览", "返回接入能力", "当前状态", "已关闭", "任务配置", "继承助手默认", "专家", "模型", "如何使用", "开启云文档评论", managementActionDocumentCommentsSet},
+			notWant:   []string{"返回助手设置"},
 			wantToast: "已打开云文档评论设置",
 		},
 	} {
@@ -2628,7 +2628,7 @@ func TestHandleP2PChatEnteredSendsOnboardingOnce(t *testing.T) {
 	if len(cards) != 1 {
 		t.Fatalf("cards = %d, want 1", len(cards))
 	}
-	if !strings.Contains(cards[0], "配置助手") {
+	if !strings.Contains(cards[0], "欢迎使用 amux") {
 		t.Fatalf("card = %s, want onboarding content", cards[0])
 	}
 	if b.secrets == nil || b.secrets.OpenId != openID {
@@ -2717,7 +2717,7 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 		t.Fatalf("unmarshal /amux card: %v", err)
 	}
 	foundConfig := false
-	foundActions := false
+	foundActionRows := 0
 	for index, element := range doc.Body.Elements {
 		if element.ElementID == "amux_overview_config" {
 			foundConfig = true
@@ -2747,13 +2747,14 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 				}
 			}
 		}
-		if element.ElementID == "amux_overview_actions" {
-			foundActions = true
-			if index != 7 || element.FlexMode != "bisect" || len(element.Columns) != 5 {
-				t.Fatalf("/amux overview actions = %#v, want unified five-action grid", element)
+		if strings.HasPrefix(element.ElementID, "amux_overview_actions") {
+			row := foundActionRows
+			foundActionRows++
+			wantActions := []string{managementActionSystemMaintenance, managementActionSettingsOpen, managementActionPackLibraryOpen, managementActionExperimentsOpen, managementActionGuideOpen, managementActionHelpOpen, capabilityAction + "open"}
+			if index != 7+row || element.FlexMode != "none" || len(element.Columns) != min(3, len(wantActions)-row*3) {
+				t.Fatal("overview rows must contain at most three actions")
 			}
-			wantActions := []string{managementActionSystemMaintenance, managementActionSettingsOpen, managementActionPackLibraryOpen, managementActionExperimentsOpen, managementActionHelpOpen}
-			for actionIndex, wantAction := range wantActions {
+			for actionIndex, wantAction := range wantActions[row*3 : min(len(wantActions), row*3+3)] {
 				button := element.Columns[actionIndex].Elements[0]
 				var value map[string]string
 				if err := json.Unmarshal(button.Value, &value); err != nil || value[managementActionKey] != wantAction {
@@ -2762,17 +2763,17 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 			}
 		}
 	}
-	if len(doc.Body.Elements) != 10 || managementTextContent(doc.Body.Elements[3]) != "当前配置" || managementTextContent(doc.Body.Elements[6]) != "管理" {
+	if len(doc.Body.Elements) != 12 || managementTextContent(doc.Body.Elements[3]) != "当前配置" || managementTextContent(doc.Body.Elements[6]) != "管理" {
 		t.Fatalf("/amux body = %#v, want status → current config → management hierarchy", doc.Body.Elements)
 	}
-	if managementTextContent(doc.Body.Elements[8]) != "重新发送 /amux 刷新状态" {
+	if managementTextContent(doc.Body.Elements[10]) != "重新发送 /amux 刷新状态" {
 		t.Fatal("refresh hint must precede the language selector")
 	}
 	if button := findManagementButtonByAction(t, sentCard, managementActionExperimentsOpen); button.Width != "fill" || button.Type != "default" || button.Icon == nil || button.Icon.Color != "grey" {
 		t.Fatalf("experiment entry = %#v, want full-width quiet management button with icon", button)
 	}
-	if !foundConfig || !foundActions {
-		t.Fatalf("/amux card = %s, found config=%v actions=%v", sentCard, foundConfig, foundActions)
+	if !foundConfig || foundActionRows != 3 {
+		t.Fatalf("/amux card = %s, found config=%v action rows=%d", sentCard, foundConfig, foundActionRows)
 	}
 	if b.isPrivateManagementCommand("/amux1") {
 		t.Fatal("/amux1 must be removed from owner private management commands")
@@ -2913,11 +2914,13 @@ func TestAmuxAssistantUsesStableBackActionAndFocusedEditFlow(t *testing.T) {
 				t.Fatalf("settings edit patch = %s, want %q", card, want)
 			}
 		}
-		for _, unwanted := range []string{`"element_id":"amux_navigation"`, "返回概览"} {
+		for _, unwanted := range []string{`"element_id":"amux_navigation"`} {
 			if strings.Contains(card, unwanted) {
 				t.Fatalf("settings edit patch = %s, should omit %q", card, unwanted)
 			}
 		}
+		findManagementButtonByAction(t, card, managementActionStatusOpen)
+		findManagementButtonByAction(t, card, managementActionSettingsOpen)
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for /amux settings edit patch")
 	}
@@ -2942,8 +2945,8 @@ func TestAmuxAssistantUsesStableBackActionAndFocusedEditFlow(t *testing.T) {
 	}
 	select {
 	case card := <-patched:
-		if !strings.Contains(card, `"tag":"form"`) || strings.Contains(card, `"element_id":"amux_navigation"`) || strings.Contains(card, "返回概览") {
-			t.Fatalf("settings validation patch = %s, want focused form", card)
+		if !strings.Contains(card, `"tag":"form"`) || strings.Contains(card, `"element_id":"amux_navigation"`) || !strings.Contains(card, "返回概览") {
+			t.Fatalf("settings validation patch = %s, want form with a return action", card)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for /amux settings validation patch")
@@ -2965,13 +2968,14 @@ func TestAmuxAssistantUsesStableBackActionAndFocusedEditFlow(t *testing.T) {
 	if !handled || resp == nil || resp.Toast == nil || resp.Toast.Type != "success" {
 		t.Fatalf("cancel response = %#v, handled = %v", resp, handled)
 	}
-	select {
-	case card := <-patched:
-		if !strings.Contains(card, "返回概览") || strings.Contains(card, `"element_id":"amux_navigation"`) || strings.Contains(card, `"tag":"form"`) {
-			t.Fatalf("settings cancel patch = %s, want stable settings summary", card)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for /amux settings cancel patch")
+	// Model discovery can have queued an intermediate editor patch before the
+	// cancellation. Wait for its summary instead of treating that older patch
+	// as the cancellation's result.
+	card := waitForManagementCard(t, patched, func(card string) bool {
+		return strings.Contains(card, `"element_id":"amux_settings_task_defaults"`)
+	})
+	if card == "" || !strings.Contains(card, "返回概览") || strings.Contains(card, `"element_id":"amux_navigation"`) || strings.Contains(card, `"tag":"form"`) {
+		t.Fatalf("settings cancel patch = %s, want stable settings summary", card)
 	}
 }
 
@@ -3130,7 +3134,7 @@ func TestAmuxSettingsFailureKeepsFocusedRecoveryFlow(t *testing.T) {
 		managementSurfaceAmux,
 	)
 	card = renderFocusedManagementCardForSurface(card, managementSurfaceAmux)
-	for _, hidden := range []string{managementActionPackLibraryOpen, `"element_id":"amux_navigation"`, `"element_id":"amux_management_back"`} {
+	for _, hidden := range []string{managementActionPackLibraryOpen, `"element_id":"amux_navigation"`} {
 		if strings.Contains(card, hidden) {
 			t.Fatalf("settings failure card = %s, should omit cross-module action %q", card, hidden)
 		}
@@ -3138,6 +3142,8 @@ func TestAmuxSettingsFailureKeepsFocusedRecoveryFlow(t *testing.T) {
 	if !strings.Contains(card, `"tag":"form"`) {
 		t.Fatalf("settings failure card = %s, want focused retry form", card)
 	}
+	findManagementButtonByAction(t, card, managementActionStatusOpen)
+	findManagementButtonByAction(t, card, managementActionSettingsOpen)
 }
 
 func TestSettingsFailureReasonRedactsCredentials(t *testing.T) {

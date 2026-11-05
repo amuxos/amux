@@ -196,6 +196,7 @@ func (b *Bridge) startConversationObserver(ctx context.Context) error {
 }
 
 func (b *Bridge) observeSubmission(ctx context.Context, chat *LarkChat, turnID, text string, inputs []turnInputRef) {
+	b.observeGuideSubmission(chat, turnID, inputs)
 	observer := b.getConversationObserver()
 	if observer == nil || chat == nil {
 		return
@@ -214,6 +215,7 @@ func (b *Bridge) observeSubmission(ctx context.Context, chat *LarkChat, turnID, 
 }
 
 func (b *Bridge) observeCompletion(ctx context.Context, chat *LarkChat, turnID, status, stopReason, answer string, superseded bool, cards ...*ConversationCard) {
+	b.observeGuideCompletion(chat, turnID, status)
 	observer := b.getConversationObserver()
 	if observer == nil || chat == nil {
 		return

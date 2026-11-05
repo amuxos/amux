@@ -1622,3 +1622,15 @@ func TestFillParentSessionFromEnv(t *testing.T) {
 		}
 	})
 }
+
+func TestMCPScheduleTimesIncludeUnambiguousUTC(t *testing.T) {
+	item := &pb.ScheduleItem{Id: 7, NextRunAt: 1793291643, LastRunAt: 1793291583}
+	for _, view := range []map[string]any{scheduleItemMCPView(item), scheduleItemMCPListSummary(item)} {
+		if view["next_run_at"] != int64(1793291643) || view["next_run_at_iso"] != "2026-10-29T16:34:03Z" || view["last_run_at_iso"] != "2026-10-29T16:33:03Z" {
+			t.Fatalf("timestamps=%+v", view)
+		}
+	}
+	if mcpScheduleTimeISO(0) != "" {
+		t.Fatal("unset timestamp invented a date")
+	}
+}

@@ -324,6 +324,11 @@ func (h *mcpHandler) sessionStream(ctx context.Context, args json.RawMessage) (m
 		return mcp.ErrorText(err.Error()), nil
 	}
 	defer closeFn()
+	ref, err = clientop.ResolveSessionRef(ctx, client, ref)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+
 	drainCtx, cancel := context.WithTimeout(ctx, sessionStreamMaxWait)
 	defer cancel()
 	stream, err := client.Attach(drainCtx, &pb.AmuxdAttachRequest{TargetId: ref.Target, Name: ref.Name, TimelineMode: pb.AttachRequest_FOLLOW})

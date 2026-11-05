@@ -34,6 +34,13 @@
       "collapsed": false,
       "pages": [
         {
+          "source": "docs/guides/capability-plaza.md",
+          "title": {
+            "en": "Capability plaza and daily discovery",
+            "zh-CN": "能力广场与每日推荐"
+          }
+        },
+        {
           "source": "docs/guides/feishu-conversations.md",
           "title": {
             "en": "Conversations and follow-ups",

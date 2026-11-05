@@ -504,7 +504,8 @@ func renderLoadedPackManagementCard(pack agentprofile.LoadedPackState, view mana
 			elements = append(elements, managementHintElement(managementCopy("management.automatic.updates.are.off.you.can.check.for.updates")))
 		}
 	}
-	elements = append(elements, managementDividerElement(), managementFormButtonRowElement(managementNavigationButtonElement(managementPackLibraryNavigateButton(managementCopy("management.back.to.expert.library"), view.Section, view.Page))))
+	back := managementFormButtonRowElement(managementNavigationButtonElement(managementPackLibraryNavigateButton(managementCopy("management.back.to.expert.library"), view.Section, view.Page)))
+	elements = append([]cardElement{back, managementDividerElement()}, elements...)
 	return marshalNativeManagementCard(managementCardView{Title: managementValueOrPlaceholder(pack.DisplayName, managementCopy("management.expert.library.management")), Subtitle: managementCopy("management.check.for.updates.or.remove"), Summary: managementCopy("management.amux.expert.library.management"), Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: elements})
 }
 

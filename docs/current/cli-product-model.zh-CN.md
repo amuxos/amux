@@ -166,3 +166,23 @@ Provider 特定布局由发行版注册；principal 文件通过现有特权 hel
 `adapter.codex.executable` 指定兼容 Codex 的启动程序（PATH 中的名称、绝对路径或 `~/` 路径）；留空使用 `codex`。该值是程序路径，不是 shell 命令。Hub 将配置传递给新 Codex Session；模型发现也在选中的 Runtime 上使用同一个程序。Runtime 按执行环境 HOME 展开 `~/`。Session 保存启动程序，重启、恢复和切模型均沿用；修改配置只影响新 Session。缺少该字段的已有 Session 继续使用 `codex`。所有者私聊 `/amux` 的实验功能表单可修改此实例级配置，保存并重启后生效。路径必须在选中的每个 Runtime 上存在，不会修改远端配置文件。
 
 注册的 app-server 集成复用执行程序设置、所有者实验功能表单、执行节点路径解析和 Session 启动路径快照。原生模型发现使用同一个程序，不回退静态原生目录；Provider 和模型服务条目保持独立。
+
+运维者可执行 `amux bridge feishu onboarding --profile <name>` 向已保存的负责人
+发送引导卡。加 `--capabilities` 改为发送能力广场，配合 `--enable-daily` 从次日开启
+每日能力推荐。不传 `--enable-daily` 时发送广场不改变推荐偏好。
+两种方式均不会启动第二个事件消费者、重置配置或重发任务。
+
+## 通过终端访问 MCP 工具
+
+`amux mcp call <tool>` 从标准输入（或 `--input-file`）接收 JSON 对象，
+输出 JSON 格式的 MCP 工具结果。当引擎未向模型展示已注册的 amux 工具时，
+此命令提供终端调用通道。它使用与 `amux mcp` 相同的启用工具注册表、SDK
+Schema 校验、调用者凭据和 Hub 授权，不绕过权限，也不改用本地专家注册表。
+同次调用自动拼接传输结果分块；`profile_list` 等业务分页仍需沿 `next_cursor` 查询。
+工具错误保留 `isError` 并返回非零退出码。未知工具、禁用 MCP 和无效输入均在执行前失败。
+
+MCP `session_stream` 在未指定目标机器时，从调用者可见的会话列表解析目标。
+同名会话存在歧义时要求指定目标，不默认选择第一台匹配的机器。
+
+MCP 定时计划创建、详情和列表保留 Unix 数字时间戳，非零时同时返回 UTC RFC3339
+格式的 `next_run_at_iso` / `last_run_at_iso`。助手可直接引用，避免猜时区或心算时间戳。

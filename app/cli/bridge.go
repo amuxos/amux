@@ -37,7 +37,7 @@ func newFeishuBridgeCmd() *cobra.Command {
 		Short:             "Manage the Feishu/Lark bridge adapter",
 		ValidArgsFunction: completeNoFiles,
 	}
-	c.AddCommand(newFeishuSetupCmd(), newFeishuStatusCmd(), newFeishuTestCmd(), newFeishuDisableCmd(), newFeishuBindingsCmd(), newFeishuBotsCmd(), newFeishuBotSessionCmd(), newFeishuContextCmd(), newFeishuGroupSettingsCmd())
+	c.AddCommand(newFeishuSetupCmd(), newFeishuOnboardingCmd(), newFeishuStatusCmd(), newFeishuTestCmd(), newFeishuDisableCmd(), newFeishuBindingsCmd(), newFeishuBotsCmd(), newFeishuBotSessionCmd(), newFeishuContextCmd(), newFeishuGroupSettingsCmd())
 	return c
 }
 
@@ -308,6 +308,8 @@ func finalizeFeishuSetup(cmd *cobra.Command, profile, secretsPath string, s *bri
 }
 
 func finalizeFeishuSetupWithLaunch(cmd *cobra.Command, profile, secretsPath string, s *bridge.Secrets, noStart bool, interactionMode, defaultAgent, defaultRuntime, defaultModel string) error {
+	previous, _ := bridge.LoadProfileSecrets(profile)
+	newBot := previous == nil || previous.AppId != s.AppId
 	if s.BotName == "" || s.BotOpenId == "" {
 		fmt.Println("正在自动获取 bot identity...")
 		lookupCtx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
@@ -341,6 +343,11 @@ func finalizeFeishuSetupWithLaunch(cmd *cobra.Command, profile, secretsPath stri
 	}
 	if err := ensureLocalConfigForFeishuSetupWithInteraction(profile, interactionMode); err != nil {
 		return fmt.Errorf("写入本机默认配置失败: %w", err)
+	}
+	if newBot {
+		if err := bridge.QueueOnboardingGuide(profile, s.AppId, s.OpenId); err != nil {
+			return fmt.Errorf("%s: %w", commandCatalog.Format(commandLocale(cmd), "onboarding.queue_failed"), err)
+		}
 	}
 	fmt.Printf("\n✅ profile %s 凭证已保存到 %s\n", profile, secretsPath)
 	fmt.Println()

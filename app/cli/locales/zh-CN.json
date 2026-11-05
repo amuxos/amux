@@ -220,5 +220,83 @@
   },
   "config.launcher.invalid": {
     "other": "请输入不超过 4096 字符且不含换行的程序路径。"
+  },
+  "onboarding.short": {
+    "other": "向已确认负责人发送飞书新手引导卡片"
+  },
+  "onboarding.profile": {
+    "other": "飞书机器人 Profile 名称"
+  },
+  "onboarding.sent": {
+    "other": "已向负责人发送新手引导卡片；请在飞书中继续。"
+  },
+  "onboarding.failed": {
+    "other": "无法发送新手引导卡片"
+  },
+  "onboarding.owner_required": {
+    "other": "请先完成机器人配置并确认负责人。"
+  },
+  "onboarding.queue_failed": {
+    "other": "无法准备新手引导卡片"
+  },
+  "onboarding.capabilities": {
+    "other": "发送能力广场卡片"
+  },
+  "onboarding.enable_daily": {
+    "other": "发送能力广场时开启每日能力推荐"
+  },
+  "onboarding.daily_requires_capabilities": {
+    "other": "--enable-daily 需要同时设置 --capabilities"
+  },
+  "onboarding.capabilities_sent": {
+    "other": "能力广场卡片已发送给负责人，请在飞书继续。"
+  },
+  "mcp.call.short": {
+    "other": "通过终端调用 amux MCP 工具"
+  },
+  "mcp.call.long": {
+    "other": "使用与标准输入输出 MCP 服务相同的 Schema、调用者身份和权限调用已注册的 amux 工具。从标准输入或 --input-file 读取 JSON 对象，输出 JSON 格式的 MCP 工具结果。自动拼接传输分块，业务分页仍需显式查询。工具失败返回非零退出码。使用 --describe 查看工具 Schema 而不执行。"
+  },
+  "mcp.call.input_file": {
+    "other": "JSON 参数文件；- 表示标准输入"
+  },
+  "mcp.call.describe": {
+    "other": "显示工具 Schema，不执行调用"
+  },
+  "mcp.call.disabled": {
+    "other": "MCP 已禁用；请启用 mcp.enabled 后再调用工具"
+  },
+  "mcp.call.unknown_tool": {
+    "other": "未知或不可用的 MCP 工具"
+  },
+  "mcp.call.input_error": {
+    "other": "无法读取 MCP 参数"
+  },
+  "mcp.call.input_too_large": {
+    "other": "MCP 参数超过 8 MiB"
+  },
+  "mcp.call.input_object": {
+    "other": "MCP 参数必须为 JSON 对象"
+  },
+  "mcp.call.failed": {
+    "other": "MCP 调用失败"
+  },
+  "mcp.call.tool_error": {
+    "other": "MCP 工具返回错误；请查看 JSON 结果"
+  },
+  "mcp.call.continuation_response": {
+    "other": "MCP 续传结果无效"
+  },
+  "mcp.call.continuation_metadata": {
+    "other": "MCP 续传元数据不一致"
+  },
+  "mcp.call.continuation_size": {
+    "other": "MCP 续传结果超过原始长度"
+  },
+  "mcp.call.continuation_incomplete": {
+    "other": "MCP 续传结果不完整"
+  },
+  "mcp.call.continuation_cursor": {
+    "other": "MCP 续传游标无效"
   }
 }

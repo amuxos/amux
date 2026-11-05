@@ -225,7 +225,7 @@ func renderGroupWatchEditorPages(state managementState, draft managementGroupWat
 			buttons = append(buttons, submit(managementActionGroupWatchEdit, managementCopy("management.next.page"), page+1))
 		}
 		form := append(append([]cardElement(nil), inputRows...), managementFormButtonRowElement(buttons...))
-		elements := []cardElement{managementHintElement(managementCopy("management.watch.only_this_group"))}
+		elements := []cardElement{managementSubpageBackElement(managementCopy("management.back.to.group.watch"), managementActionGroupWatchOpen, "amux.group_watch.edit.back"), managementDividerElement(), managementHintElement(managementCopy("management.watch.only_this_group"))}
 		if !state.GroupWatch.Enabled {
 			elements = append(elements, managementHintElement(managementCopy("management.watch.global_paused")))
 		}

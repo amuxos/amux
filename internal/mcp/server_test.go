@@ -402,3 +402,27 @@ func mustUnmarshal(t *testing.T, s string, v any) {
 		t.Fatalf("unmarshal %q: %v", s, err)
 	}
 }
+
+func TestCallToolUsesRegisteredSchemaAndErrors(t *testing.T) {
+	calls := 0
+	srv := NewServer("test", "1", []Tool{{Name: "amux.test", InputSchema: json.RawMessage(`{"type":"object","properties":{"value":{"type":"integer"}},"required":["value"],"additionalProperties":false}`)}}, func(ctx context.Context, name string, args json.RawMessage) (ToolResult, error) {
+		calls++
+		return ErrorText("tool rejected"), nil
+	})
+	for _, tc := range []struct{ name, args string }{{"amux.missing", `{}`}, {"amux.test", `{"value":"invalid"}`}, {"amux.test", `{}`}} {
+		result, err := srv.CallTool(context.Background(), tc.name, json.RawMessage(tc.args))
+		if err == nil && !result.IsError {
+			t.Fatalf("%s %s unexpectedly accepted: %+v", tc.name, tc.args, result)
+		}
+	}
+	if calls != 0 {
+		t.Fatalf("invalid requests invoked handler %d times", calls)
+	}
+	result, err := srv.CallTool(context.Background(), "amux.test", json.RawMessage(`{"value":1}`))
+	if err != nil || !result.IsError || len(result.Content) != 1 || result.Content[0].Text != "tool rejected" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	if calls != 1 {
+		t.Fatalf("calls=%d", calls)
+	}
+}

@@ -55,6 +55,7 @@ func newMcpCmd() *cobra.Command {
 			return srv.Serve(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout())
 		},
 	}
+	cmd.AddCommand(newMCPCallCmd())
 	return cmd
 }
 
