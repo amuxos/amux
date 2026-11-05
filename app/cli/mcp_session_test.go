@@ -591,3 +591,31 @@ func TestDrainSessionTranscriptHonorsDeadline(t *testing.T) {
 		t.Errorf("transcript = %q truncated = %v, want empty false", transcript, truncated)
 	}
 }
+
+type mcpSessionStreamClient struct {
+	pb.AmuxdClient
+	targets  []*pb.Target
+	attached *pb.AmuxdAttachRequest
+}
+
+func (f *mcpSessionStreamClient) ListTargets(context.Context, *pb.ListTargetsRequest, ...grpc.CallOption) (*pb.ListTargetsResponse, error) {
+	return &pb.ListTargetsResponse{Targets: f.targets}, nil
+}
+func (f *mcpSessionStreamClient) Attach(_ context.Context, req *pb.AmuxdAttachRequest, _ ...grpc.CallOption) (pb.Amuxd_AttachClient, error) {
+	f.attached = req
+	return &fakeAttachClient{events: []*pb.AttachEvent{{Kind: pb.AttachEvent_OUTPUT, Data: []byte("actual scheduled joke")}}}, nil
+}
+func TestMCPSessionStreamResolvesTargetAndRejectsAmbiguity(t *testing.T) {
+	f := &mcpSessionStreamClient{targets: []*pb.Target{{Id: "target-a", Sessions: []*pb.Session{{Id: "session-id", Name: "work"}}}}}
+	useMCPSessionRunClient(t, f)
+	result, err := (&mcpHandler{}).sessionStream(context.Background(), json.RawMessage(`{"session":"session-id"}`))
+	if err != nil || result.IsError || f.attached == nil || f.attached.TargetId != "target-a" || f.attached.Name != "work" || !strings.Contains(result.Content[0].Text, "actual scheduled joke") {
+		t.Fatalf("result=%+v attach=%+v err=%v", result, f.attached, err)
+	}
+	f.targets = append(f.targets, &pb.Target{Id: "target-b", Sessions: []*pb.Session{{Id: "second", Name: "work"}}})
+	f.attached = nil
+	result, err = (&mcpHandler{}).sessionStream(context.Background(), json.RawMessage(`{"session":"work"}`))
+	if err != nil || !result.IsError || f.attached != nil || !strings.Contains(result.Content[0].Text, "ambiguous") {
+		t.Fatalf("ambiguous result=%+v err=%v", result, err)
+	}
+}

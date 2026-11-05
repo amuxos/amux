@@ -19,6 +19,7 @@ Start with work in Feishu. If you already have a bot, open Conversations and fol
 
 ## Work in Feishu
 
+- [Capability plaza and daily discovery](guides/capability-plaza.md)
 - [Conversations and follow-ups](guides/feishu-conversations.md)
 - [Group settings and access](guides/feishu-groups.md)
 - [Delegate to other Agents](guides/delegation.md)

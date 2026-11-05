@@ -602,6 +602,7 @@ func (b *Bridge) Start(ctx context.Context) error {
 		}
 	}
 	go b.runScheduleNotices(ctx)
+	go b.runCapabilityDiscovery(ctx)
 	go b.runGroupWatchPoller(ctx)
 	go b.runExternalBotCatalogRefresher(ctx)
 	if b.documentCommentsActive() {
@@ -631,6 +632,13 @@ func (b *Bridge) Start(ctx context.Context) error {
 	supervisor.onSuspend = func() { sharedLarkTokenCache.Invalidate("host suspend") }
 	supervisor.onConnected = func() {
 		log.Info().Msg("bridge: connected to Lark")
+		go func() {
+			welcomeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			if err := b.deliverPendingOnboarding(welcomeCtx); err != nil {
+				log.Warn().Err(err).Msg("bridge: onboarding welcome delivery unavailable")
+			}
+		}()
 		b.startFeishuPermissionAudit(ctx)
 		b.startNativeSlashCommandSync(ctx)
 		b.startPendingManagementRecovery(ctx)
@@ -1082,9 +1090,10 @@ func (b *Bridge) handlePrivateMessage(ctx context.Context, msg *larkim.EventMess
 			log.Info().Str("open_id", openID).Msg("bridge: auto-captured owner open_id")
 		}
 		b.triggerFeishuPermissionAudit(ctx)
-		_, _, _ = b.notifyDM(ctx, openID,
-			fmt.Sprintf("✅ 已记录你的 Open ID：%s\n以后可直接使用 /help 查看命令。", openID))
-		return nil
+		if err := b.db.initDiscovery(b.currentBridgeId(), openID, time.Now()); err != nil {
+			return err
+		}
+		return b.sendGuideWelcome(ctx, openID)
 	}
 
 	if !b.ownerConfirmed() || !b.canUseBridge(openID) {

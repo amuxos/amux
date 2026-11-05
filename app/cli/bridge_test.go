@@ -163,6 +163,37 @@ func TestFinalizeFeishuSetupPersistsAuthoritativeDefaultAgent(t *testing.T) {
 	if status.InteractionMode != config.FeishuInteractionThread || status.DefaultAgent != "builtin/claude" {
 		t.Fatalf("status = %+v, want thread/builtin-claude", status)
 	}
+	db, err := sql.Open("sqlite", bridge.DefaultDBPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var pending bool
+	if err := db.QueryRow(`SELECT json_extract(body,'$.PendingWelcome') FROM feishu_onboarding WHERE bridge_id=? AND open_id=?`, bridge.BridgeIdFromAppId(s.AppId), s.OpenId).Scan(&pending); err != nil || !pending {
+		t.Fatalf("new setup welcome queued=%v err=%v", pending, err)
+	}
+	var daily bool
+	var startDate string
+	if err := db.QueryRow(`SELECT enabled,start_date FROM feishu_discovery_preferences WHERE bridge_id=? AND open_id=?`, bridge.BridgeIdFromAppId(s.AppId), s.OpenId).Scan(&daily, &startDate); err != nil || !daily || startDate == "" {
+		t.Fatalf("new setup daily discovery=%v start=%q err=%v", daily, startDate, err)
+	}
+	if _, err := db.Exec(`UPDATE feishu_discovery_preferences SET enabled=0`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`DELETE FROM feishu_onboarding`); err != nil {
+		t.Fatal(err)
+	}
+	// Reconfiguring the same Bot must not enroll an existing owner again.
+	if err := finalizeFeishuSetup(&cobra.Command{}, profile, secretsPath, s, true, config.FeishuInteractionThread, "builtin/claude"); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM feishu_onboarding`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("existing setup queued=%d err=%v", count, err)
+	}
+	if err := db.QueryRow(`SELECT enabled FROM feishu_discovery_preferences WHERE bridge_id=? AND open_id=?`, bridge.BridgeIdFromAppId(s.AppId), s.OpenId).Scan(&daily); err != nil || daily {
+		t.Fatalf("reconfiguration changed daily preference=%v err=%v", daily, err)
+	}
 }
 
 func TestConfigureFeishuSetupDefaultAgentWaitsForRegistryLock(t *testing.T) {

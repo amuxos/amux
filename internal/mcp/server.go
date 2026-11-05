@@ -87,12 +87,17 @@ func NewServer(name, version string, tools []Tool, handler Handler) *Server {
 		if len(t.InputSchema) == 0 {
 			t.InputSchema = json.RawMessage(`{"type":"object"}`)
 		}
-		sdk.AddTool(&sdkmcp.Tool{
+		sdkmcp.AddTool(sdk, &sdkmcp.Tool{
 			Name:        t.Name,
 			Description: t.Description,
 			InputSchema: t.InputSchema,
-		}, func(ctx context.Context, req *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
-			return invoke(ctx, req.Params.Name, req.Params.Arguments)
+		}, func(ctx context.Context, req *sdkmcp.CallToolRequest, input map[string]json.RawMessage) (*sdkmcp.CallToolResult, any, error) {
+			args, err := json.Marshal(input)
+			if err != nil {
+				return nil, nil, err
+			}
+			result, err := invoke(ctx, req.Params.Name, args)
+			return result, nil, err
 		})
 	}
 
@@ -121,6 +126,36 @@ func toSDKResult(result ToolResult) *sdkmcp.CallToolResult {
 		content = append(content, &sdkmcp.TextContent{Text: item.Text})
 	}
 	return &sdkmcp.CallToolResult{Content: content, IsError: result.IsError}
+}
+
+// CallTool uses the same SDK registry and input validation as a remote MCP host.
+// The server and handler remain alive between calls (including continuations).
+func (s *Server) CallTool(ctx context.Context, name string, args json.RawMessage) (ToolResult, error) {
+	clientTransport, serverTransport := sdkmcp.NewInMemoryTransports()
+	ss, err := s.sdk.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		return ToolResult{}, err
+	}
+	defer ss.Close()
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "amux-terminal", Version: "1"}, nil)
+	cs, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		return ToolResult{}, err
+	}
+	defer cs.Close()
+	result, err := cs.CallTool(ctx, &sdkmcp.CallToolParams{Name: name, Arguments: args})
+	if err != nil {
+		return ToolResult{}, err
+	}
+	out := ToolResult{IsError: result.IsError, Content: make([]Content, 0, len(result.Content))}
+	for _, item := range result.Content {
+		v, ok := item.(*sdkmcp.TextContent)
+		if !ok {
+			return ToolResult{}, fmt.Errorf("unsupported MCP result content %T", item)
+		}
+		out.Content = append(out.Content, Content{Type: "text", Text: v.Text})
+	}
+	return out, nil
 }
 
 // Serve runs the SDK's JSON-RPC loop until the input ends or ctx is cancelled.

@@ -139,7 +139,7 @@ func (b *Bridge) handleP2PChatEntered(ctx context.Context, event *larkim.P2ChatA
 	if b.onboardingCardAlreadySent(openID) {
 		return nil
 	}
-	return b.sendManagementCardToDM(ctx, openID, renderOnboardingCard(b.managementState()))
+	return b.sendGuideWelcome(ctx, openID)
 }
 
 func (b *Bridge) handleBotMenu(ctx context.Context, event *larkapplication.P2BotMenuV6) error {
@@ -210,9 +210,16 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			return cardToast("error", managementCopy("management.you.do.not.have.permission.to.manage.this.assistant")), true, nil
 		}
 		if chatID == "" || !groupWatchConfigHasChat(b.groupWatchSnapshot(), chatID) {
-			b.updateManagementCardFromCallback(openID, messageID, renderGroupWatchManagementCardWithNoticeAndNames(b.managementState(), managementCopy("management.watch.choose_group"), b.resolveGroupWatchNames(ctx, b.groupWatchSnapshot().ChatIDs)))
+			card := renderGroupWatchManagementCardWithNoticeAndNames(b.managementState(), managementCopy("management.watch.choose_group"), b.resolveGroupWatchNames(ctx, b.groupWatchSnapshot().ChatIDs))
+			b.updateManagementCardFromCallback(openID, messageID, renderFocusedManagementCardForSurface(card, managementSurfaceFromCallback(event.Event.Action)))
 			return cardToast("warning", managementCopy("management.watch.choose_group")), true, nil
 		}
+	}
+	if response, handled, err := b.handleDiscoveryAction(ctx, event, action, openID, messageID); handled {
+		return response, handled, err
+	}
+	if response, handled, err := b.handleGuideAction(ctx, event, action, openID, messageID); handled {
+		return response, handled, err
 	}
 	if b.handleModelServiceEditor(event, action, openID, messageID, version) {
 		return cardToast("success", managementCopy("management.model.service.updating")), true, nil

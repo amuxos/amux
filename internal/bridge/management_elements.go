@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"time"
 
@@ -10,14 +11,6 @@ import (
 )
 
 func renderManagementCardForSurface(cardJSON string, surface managementSurface, active managementView) string {
-	return renderManagementCardForSurfaceMode(cardJSON, surface, active, true)
-}
-
-func renderFocusedManagementCardForSurface(cardJSON string, surface managementSurface) string {
-	return renderManagementCardForSurfaceMode(cardJSON, surface, "", false)
-}
-
-func renderManagementCardForSurfaceMode(cardJSON string, surface managementSurface, active managementView, showStableShell bool) string {
 	if surface != managementSurfaceAmux {
 		return cardJSON
 	}
@@ -25,21 +18,21 @@ func renderManagementCardForSurfaceMode(cardJSON string, surface managementSurfa
 	if err := json.Unmarshal([]byte(cardJSON), &doc); err != nil {
 		return cardJSON
 	}
-	if showStableShell {
-		for _, element := range doc.Body.Elements {
-			if element.ElementID == "amux_management_back" {
-				return cardJSON
-			}
+	hasOverviewBack := false
+	for _, element := range doc.Body.Elements {
+		if element.ElementID == "amux_management_back" {
+			hasOverviewBack = true
+			break
 		}
 	}
-	if showStableShell && active == managementViewLibrary {
+	if active == managementViewLibrary {
 		doc.Body.Elements = omitNavigationLibraryBackButtons(doc.Body.Elements)
 		if last := len(doc.Body.Elements) - 1; last >= 0 && doc.Body.Elements[last].Tag == "hr" {
 			doc.Body.Elements = doc.Body.Elements[:last]
 		}
 	}
 	decorateManagementSurfaceElements(doc.Body.Elements, surface)
-	if showStableShell && active != managementViewOverview {
+	if active != managementViewOverview && !hasOverviewBack {
 		backElements := []cardElement{managementBackToOverviewElement()}
 		decorateManagementSurfaceElements(backElements, surface)
 		back := backElements[0]
@@ -50,6 +43,12 @@ func renderManagementCardForSurfaceMode(cardJSON string, surface managementSurfa
 		return cardJSON
 	}
 	return string(raw)
+}
+
+// Focused editors and operation states keep the same escape route as section
+// pages. Their forms and parent-specific actions remain in the page content.
+func renderFocusedManagementCardForSurface(cardJSON string, surface managementSurface) string {
+	return renderManagementCardForSurface(cardJSON, surface, "")
 }
 
 func managementBackToOverviewElement() cardElement {
@@ -156,13 +155,15 @@ func renderManagementOverviewCard(state managementState) string {
 	if state.SystemStatus == managementSystemHealthy && state.Update.ShouldPrompt {
 		elements = append(elements, managementUpdateNoticeElement(state.Update))
 	}
-	elements = append(elements, managementDividerElement(), managementSectionTitleElement(managementCopy("management.current.configuration")), managementOverviewConfigElement(state, draft), managementDividerElement(), managementSectionTitleElement(managementCopy("management.manage")), managementOverviewActionsElement(state), managementTextElement(managementCopy("management.send.amux.again.to.refresh.status"), "notation", "grey", managementIconPtr("refresh_outlined", "grey")))
+	elements = append(elements, managementDividerElement(), managementSectionTitleElement(managementCopy("management.current.configuration")), managementOverviewConfigElement(state, draft), managementDividerElement(), managementSectionTitleElement(managementCopy("management.manage")))
+	elements = append(elements, managementOverviewActionElements(state)...)
+	elements = append(elements, managementTextElement(managementCopy("management.send.amux.again.to.refresh.status"), "notation", "grey", managementIconPtr("refresh_outlined", "grey")))
 	if state.ScheduleSummary != nil {
 		elements = append(elements, managementDividerElement(), managementTextElement(state.ScheduleSummary, "normal", "default", nil), managementFormButtonRowElement(scheduleButton("title", "list", 0, nil), scheduleButton("alerts", "alerts", 0, nil)))
 	}
 	elements = append(elements, managementLanguageElement())
 	card := marshalNativeManagementCard(managementCardView{Title: "amux", Summary: "amux", Theme: theme, Icon: managementIcon("robot_outlined", theme), Elements: elements})
-	return renderFocusedManagementCardForSurface(card, managementSurfaceAmux)
+	return renderManagementCardForSurface(card, managementSurfaceAmux, managementViewOverview)
 }
 
 func managementOverviewConfigElement(state managementState, draft managementSettingsDraft) cardElement {
@@ -219,13 +220,15 @@ func managementVerticalSummaryElement(elementID string, rows ...cardElement) car
 	return cardElement{Tag: "column_set", ElementID: elementID, FlexMode: "none", Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, Direction: "vertical", VerticalAlign: "top", VerticalSpacing: "4px", BackgroundStyle: "grey-50", Padding: "8px 12px 8px 12px", Elements: rows}}}
 }
 
-func managementOverviewActionsElement(state managementState) cardElement {
+func managementOverviewActionElements(state managementState) []cardElement {
 	items := []managementButton{
 		{Text: managementCopy("management.system.status"), Type: "default", Action: managementActionSystemMaintenance, Name: "amux.overview.system", Icon: managementIconPtr("setting_outlined", "grey")},
 		{Text: managementCopy("management.assistant.settings"), Type: "primary", Action: managementActionSettingsOpen, Name: "amux.overview.settings", Icon: managementIconPtr("setting_outlined", "blue")},
 		{Text: managementCopy("management.expert.library"), Type: "default", Action: managementActionPackLibraryOpen, Name: "amux.overview.library", Icon: managementIconPtr("robot_outlined", "grey")},
 		{Text: managementCopy("management.experiments"), Type: "default", Action: managementActionExperimentsOpen, Name: "amux.overview.experiments", Icon: managementIconPtr("setting_outlined", "grey")},
+		{Text: guideCopy("title"), Type: "default", Action: managementActionGuideOpen, Name: "amux.overview.guide", Icon: managementIconPtr("info_outlined", "grey")},
 		{Text: managementCopy("management.help"), Type: "default", Action: managementActionHelpOpen, Name: "amux.overview.help", Icon: managementIconPtr("info_outlined", "grey")},
+		{Text: discoveryCopy("title"), Type: "default", Action: capabilityAction + "open", Name: "amux.overview.discovery", Icon: managementIconPtr("info_outlined", "grey")},
 	}
 	if state.SystemStatus != managementSystemHealthy || state.Update.ShouldPrompt {
 		items[0].Type = "primary"
@@ -236,13 +239,24 @@ func managementOverviewActionsElement(state managementState) cardElement {
 	if state.SystemStatus == managementSystemHealthy && state.Update.ShouldPrompt {
 		items[0].Text = managementCopy("management.view.update")
 	}
-	columns := make([]cardColumn, 0, len(items))
-	for _, item := range items {
-		button := managementButtonElement(item)
-		button.Width = "fill"
-		columns = append(columns, cardColumn{Tag: "column", Width: "weighted", Weight: 1, HorizontalAlign: "center", Elements: []cardElement{button}})
+	rows := make([]cardElement, 0, 2)
+	for start := 0; start < len(items); start += 3 {
+		columns := make([]cardColumn, 0, 3)
+		for _, item := range items[start:min(len(items), start+3)] {
+			button := managementButtonElement(item)
+			button.Width = "fill"
+			columns = append(columns, cardColumn{Tag: "column", Width: "weighted", Weight: 1, HorizontalAlign: "center", Elements: []cardElement{button}})
+		}
+		id := "amux_overview_actions"
+		if start > 0 {
+			id += "_more"
+		}
+		if start > 3 {
+			id += "_" + strconv.Itoa(start/3)
+		}
+		rows = append(rows, cardElement{Tag: "column_set", ElementID: id, FlexMode: "none", HorizontalSpacing: "8px", Columns: columns})
 	}
-	return cardElement{Tag: "column_set", ElementID: "amux_overview_actions", FlexMode: "bisect", HorizontalSpacing: "8px", Columns: columns}
+	return rows
 }
 
 func marshalNativeManagementCard(view managementCardView) string {
@@ -365,6 +379,9 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	if submitAction == managementActionOnboardingSubmit {
 		draftChangeAction = managementActionOnboardingEdit
 	}
+	if submitAction == guideSave {
+		draftChangeAction = guideEdit
+	}
 	draftChangeBehavior := func(field string) []cardBehavior {
 		return []cardBehavior{{Type: "callback", Value: managementButtonValue(managementButton{Action: draftChangeAction, Values: map[string]string{
 			"interaction": draft.Interaction, "default_agent": draft.DefaultAgent,
@@ -408,6 +425,14 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	modelField.Required = false
 	modelField.Behaviors = draftChangeBehavior("default_model_ref")
 	reasoningOptions := managementRuntimeReasoningOptions(modelState, draft.DefaultRuntimeRef, draft.DefaultModelRef)
+	if submitAction == guideSave {
+		for i, option := range reasoningOptions {
+			switch option.Value {
+			case "low", "medium", "high", "xhigh", "max":
+				reasoningOptions[i].Text = managementPlainText(guideCopy("effort." + option.Value))
+			}
+		}
+	}
 	initialReasoningEffort := draft.DefaultReasoningEffort
 	if initialReasoningEffort == "" {
 		initialReasoningEffort = managementRuntimeDefaultReasoningOption
@@ -433,7 +458,13 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	form := cardElement{Tag: "form", Name: name, Direction: "vertical", VerticalSpacing: "8px", Elements: []cardElement{buttons}}
 	values := map[string]string{"interaction": draft.Interaction, "default_agent": draft.DefaultAgent, "default_runtime_ref": draft.DefaultRuntimeRef, "default_model_ref": draft.DefaultModelRef, "default_reasoning_effort": draft.DefaultReasoningEffort, "thinking_process": draft.ThinkingProcess, "daily_cleanup": draft.DailyCleanup}
 	elements := []cardElement{hintRow, profileRow, runtimeRow, modelRow}
+	if submitAction == guideSave {
+		elements = []cardElement{runtimeRow, modelRow}
+	}
 	elements = append(elements, modelServiceElements(state, draft.DefaultRuntimeRef, values, draftChangeAction)...)
+	if submitAction == guideSave {
+		return append(elements, reasoningRow, form)
+	}
 	elements = append(elements, reasoningRow, interactionRow)
 	if managementUsesThreadRouting(draft.Interaction) {
 		field := managementSelectStaticElement("daily_cleanup", managementCopy("cleanup.choose"), dailyCleanupInitial(draft.DailyCleanup), dailyCleanupOptions())

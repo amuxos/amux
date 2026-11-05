@@ -3362,5 +3362,17 @@
   "codex": {
     "en": "codex",
     "zh-CN": "codex"
+  },
+  "Send the Feishu getting-started card to the saved owner": {
+    "en": "Send the Feishu getting-started card to the saved owner",
+    "zh-CN": "向已确认负责人发送飞书新手引导卡片"
+  },
+  "Send the capability plaza card": {
+    "en": "Send the capability plaza card",
+    "zh-CN": "发送能力广场卡片"
+  },
+  "Enable daily discovery when sending the capability plaza": {
+    "en": "Enable daily discovery when sending the capability plaza",
+    "zh-CN": "发送能力广场时开启每日能力推荐"
   }
 }

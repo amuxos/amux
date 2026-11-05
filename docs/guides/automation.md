@@ -6,6 +6,12 @@ These entry points can all trigger Agents, but their conditions, context and
 result destinations differ. Choose the right one and verify what the system
 actually saved or received, instead of relying on a conversational promise.
 
+To try a small example, open `/amux` → “Capability plaza” in owner private chat.
+The [schedule example](capability-plaza.md#schedules) creates a joke every minute
+in the current conversation; after one actual result, ask to cancel that same rule.
+[Daily capability recommendations](capability-plaza.md) are separate: they introduce
+workflows and do not create schedules or run the examples.
+
 | Entry | Trigger | Execution and result |
 | --- | --- | --- |
 | Schedule | A saved Hub time rule becomes due | Submit to a Session or create a child Task; inspect its records |

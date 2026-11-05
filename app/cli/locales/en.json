@@ -220,5 +220,83 @@
   },
   "config.launcher.invalid": {
     "other": "Enter a program path of at most 4096 characters, without line breaks."
+  },
+  "onboarding.short": {
+    "other": "Send the Feishu getting-started card to the saved owner"
+  },
+  "onboarding.profile": {
+    "other": "Feishu bot profile name"
+  },
+  "onboarding.sent": {
+    "other": "Sent the guide card to the owner. Continue in Feishu."
+  },
+  "onboarding.failed": {
+    "other": "Could not send the guide card"
+  },
+  "onboarding.owner_required": {
+    "other": "Complete bot setup and confirm its owner first."
+  },
+  "onboarding.queue_failed": {
+    "other": "Could not prepare the getting-started card"
+  },
+  "onboarding.capabilities": {
+    "other": "Send the capability plaza card"
+  },
+  "onboarding.enable_daily": {
+    "other": "Enable daily discovery when sending the capability plaza"
+  },
+  "onboarding.daily_requires_capabilities": {
+    "other": "--enable-daily requires --capabilities"
+  },
+  "onboarding.capabilities_sent": {
+    "other": "Sent the capability plaza to the owner. Continue in Feishu."
+  },
+  "mcp.call.short": {
+    "other": "Call an amux MCP tool through the terminal"
+  },
+  "mcp.call.long": {
+    "other": "Call a registered amux tool with the same schema, caller identity and permissions as the stdio MCP server. Read a JSON object from stdin or --input-file and print a JSON MCP tool-result envelope. Transport chunks are joined automatically; domain pagination remains explicit. Tool errors return a nonzero exit code. Use --describe to inspect the tool schema without executing it."
+  },
+  "mcp.call.input_file": {
+    "other": "JSON arguments file, or - for stdin"
+  },
+  "mcp.call.describe": {
+    "other": "Print the tool schema without calling it"
+  },
+  "mcp.call.disabled": {
+    "other": "MCP is disabled; enable mcp.enabled before calling tools"
+  },
+  "mcp.call.unknown_tool": {
+    "other": "Unknown or unavailable MCP tool"
+  },
+  "mcp.call.input_error": {
+    "other": "Could not read MCP arguments"
+  },
+  "mcp.call.input_too_large": {
+    "other": "MCP arguments exceed 8 MiB"
+  },
+  "mcp.call.input_object": {
+    "other": "MCP arguments must be a JSON object"
+  },
+  "mcp.call.failed": {
+    "other": "MCP call failed"
+  },
+  "mcp.call.tool_error": {
+    "other": "MCP tool returned an error; see the JSON result"
+  },
+  "mcp.call.continuation_response": {
+    "other": "Invalid MCP continuation response"
+  },
+  "mcp.call.continuation_metadata": {
+    "other": "Inconsistent MCP continuation metadata"
+  },
+  "mcp.call.continuation_size": {
+    "other": "MCP continuation exceeds its original size"
+  },
+  "mcp.call.continuation_incomplete": {
+    "other": "MCP continuation is incomplete"
+  },
+  "mcp.call.continuation_cursor": {
+    "other": "Invalid MCP continuation cursor"
   }
 }

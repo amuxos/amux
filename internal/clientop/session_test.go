@@ -487,3 +487,22 @@ func TestSessionSetModelRejectsOwnerHeldSession(t *testing.T) {
 		t.Fatal("restart was sent for an owner-held session")
 	}
 }
+
+func TestResolveSessionRefRequiresUniqueVisibleMatch(t *testing.T) {
+	fake := &sessionFakeAmuxd{listResp: &pb.ListTargetsResponse{Targets: []*pb.Target{
+		{Id: "a", Name: "alpha", Sessions: []*pb.Session{{Id: "s1", Name: "work"}}},
+		{Id: "b", Name: "beta", Sessions: []*pb.Session{{Id: "s2", Name: "work"}}},
+	}}}
+	if _, err := ResolveSessionRef(context.Background(), fake, SessionRef{Name: "work"}); err == nil || !strings.Contains(err.Error(), "ambiguous") {
+		t.Fatalf("ambiguous err=%v", err)
+	}
+	for _, ref := range []SessionRef{{Name: "s2"}, {Name: "work", Target: "beta"}} {
+		got, err := ResolveSessionRef(context.Background(), fake, ref)
+		if err != nil || got.Name != "work" || got.Target != "b" {
+			t.Fatalf("got=%+v err=%v", got, err)
+		}
+	}
+	if _, err := ResolveSessionRef(context.Background(), fake, SessionRef{Name: "missing"}); err == nil {
+		t.Fatal("missing session accepted")
+	}
+}

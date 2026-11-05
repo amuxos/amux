@@ -141,6 +141,11 @@ func renderScheduleDetail(e schedule.Entry, result bool, pages ...int) string {
 	page = max(0, min(page, max(0, (len(e.Runs)-1)/5)))
 	v := e.Visibility
 	elements := []cardElement{managementTextElement(scheduleName(e.Task), "heading-3", "default", nil), managementTextElement(scheduleStatus(e), "normal", "default", nil), managementTextElement(scheduleText("recipient"), "notation", "grey", nil), managementTextElement(e.Task.Spec, "normal", "default", nil), managementTextElement(scheduleText("next", scheduleNext(e)), "normal", "default", nil), managementTextElement(scheduleText("last_completed", scheduleTime(v.LastCompletedAt)), "normal", "default", nil)}
+	back := managementNavigationBackElement(scheduleText("back"), "schedule.list", "schedule.back.list")
+	if result {
+		back = managementButtonRowElement([]managementButton{{Text: scheduleText("back_detail"), Type: "default", Action: "schedule.detail", Name: "schedule.back.detail", Values: map[string]string{"schedule_id": strconv.FormatInt(e.Task.ID, 10)}, Icon: managementIconPtr("left_outlined", "grey")}})
+	}
+	elements = append([]cardElement{scheduleBackToOverview(), back, managementDividerElement()}, elements...)
 	if v.IncidentAt != 0 {
 		elements = append(elements, managementTextElement(scheduleText("incident", v.IncidentCount, scheduleTime(v.IncidentAt)), "normal", "orange", nil))
 	}
@@ -193,7 +198,7 @@ func renderScheduleDetail(e schedule.Entry, result bool, pages ...int) string {
 	} else {
 		elements = append(elements, scheduleButton("off", "off", e.Task.ID, nil))
 	}
-	elements = append(elements, scheduleButton("ack", "ack", e.Task.ID, nil), scheduleButton("snooze", "snooze", e.Task.ID, nil), managementTextElement(scheduleText("pause_note"), "notation", "grey", nil), scheduleButton("back", "list", 0, nil))
+	elements = append(elements, scheduleButton("ack", "ack", e.Task.ID, nil), scheduleButton("snooze", "snooze", e.Task.ID, nil), managementTextElement(scheduleText("pause_note"), "notation", "grey", nil))
 	return marshalNativeManagementCard(managementCardView{Title: scheduleText("title"), Summary: scheduleText("title"), Theme: "blue", Elements: elements})
 }
 func truncateScheduleResult(s string) string {

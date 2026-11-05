@@ -2001,7 +2001,7 @@
     "other": "处理方式"
   },
   "management.language": {
-    "other": "界面语言"
+    "other": "界面语言 (Language)"
   },
   "management.language.auto": {
     "other": "跟随飞书语言"
@@ -3031,5 +3031,722 @@
   },
   "management.launcher.invalid": {
     "other": "请输入有效程序路径（不超过 4096 字符，不含换行）。"
+  },
+  "guide.title": {
+    "other": "新手引导"
+  },
+  "guide.subtitle": {
+    "other": "设置助手，完成第一项工作，再按需要配置专家。"
+  },
+  "guide.title.welcome": {
+    "other": "欢迎使用 amux"
+  },
+  "guide.title.mode": {
+    "other": "1 · 选择对话方式"
+  },
+  "guide.title.model": {
+    "other": "2 · 助手使用的模型"
+  },
+  "guide.title.applying": {
+    "other": "正在保存设置"
+  },
+  "guide.title.tasks": {
+    "other": "3 · 发起一个任务"
+  },
+  "guide.title.review_task": {
+    "other": "确认要发送的任务"
+  },
+  "guide.title.running": {
+    "other": "查看任务进展"
+  },
+  "guide.title.explore": {
+    "other": "继续探索"
+  },
+  "guide.title.select": {
+    "other": "选择当前专家"
+  },
+  "guide.title.select_review": {
+    "other": "确认切换专家"
+  },
+  "guide.title.import": {
+    "other": "添加专家库"
+  },
+  "guide.title.create": {
+    "other": "创建专家，配置 Skill"
+  },
+  "guide.title.review_expert": {
+    "other": "确认专家草稿"
+  },
+  "guide.title.review_import": {
+    "other": "确认专家库地址"
+  },
+  "guide.title.done": {
+    "other": "开始使用吧"
+  },
+  "guide.welcome.body": {
+    "other": "先确认对话方式和模型，再试着查会议、订会议室或创建定时任务。也可以直接创建专家。重新进入会保留配置和专家库，不会重发任务。"
+  },
+  "guide.start": {
+    "other": "开始引导"
+  },
+  "guide.resume": {
+    "other": "继续上次进度"
+  },
+  "guide.direct": {
+    "other": "直接使用"
+  },
+  "guide.create": {
+    "other": "创建专家"
+  },
+  "guide.mode.body": {
+    "other": "每个话题独立：同一话题接着聊，不同话题分别处理，适合多项任务并行。连续对话：新消息接着同一段聊天继续，适合长期协作。沿用安装时的选择，也可以在这里调整。"
+  },
+  "guide.mode.choose": {
+    "other": "选择对话方式"
+  },
+  "guide.mode.shared.title": {
+    "other": "不同话题会共享哪些内容"
+  },
+  "guide.mode.shared.body": {
+    "other": "例如，在话题 A 整理会议，在话题 B 审阅代码：B 不会自动接着 A 的聊天记录，但两边仍可能读写同一工作区的文件。要分开文件和执行环境，需要另外配置用户隔离。已有隔离设置会保留。"
+  },
+  "guide.next": {
+    "other": "下一步"
+  },
+  "guide.model.body": {
+    "other": "运行引擎是实际调用工具、执行任务的软件。模型负责理解材料、推理和回答。可选模型由引擎、模型服务和账号决定；登录模型服务与 Skill 使用工作账号的授权是两件事。"
+  },
+  "guide.model.reasoning": {
+    "other": "思考强度：模型在回答前投入多少推理。全新引导默认强思考，采用模型支持的最高档位；复杂任务通常更合适，也可能等待更久。已有明确选择会保留。未知能力不会编造档位，尚未调用不代表已验证可用。"
+  },
+  "guide.save.task": {
+    "other": "保存设置，体验任务"
+  },
+  "guide.applying.body": {
+    "other": "正在通过受管流程保存配置；如果需要替换当前会话，会先展示确认。"
+  },
+  "guide.tasks.body": {
+    "other": "选择一项任务，先查看内容再发送。Agent 按正常 Skill 流程执行，需要工作账号授权时会在执行中提示，授权后继续原任务。"
+  },
+  "guide.sample.meetings": {
+    "other": "帮我查看这周有哪些会议信息。"
+  },
+  "guide.sample.room": {
+    "other": "帮我订一个周六晚上 8 点到 8 点 30 的会议室。"
+  },
+  "guide.sample.joke": {
+    "other": "创建一个定时任务，每 1 分钟给我讲一个笑话。"
+  },
+  "guide.sample.coordinator": {
+    "other": "看看目前有哪些专家配置，列出他们的职责和 Skill，不要修改配置。然后让我选一位实际存在的专家和具体工作，再让这位专家帮我干活。"
+  },
+  "guide.task.review": {
+    "other": "下面的内容会作为你的请求发给 Agent。会议室预约等操作由 Agent 检查时间、地点等必要信息后执行。"
+  },
+  "guide.send": {
+    "other": "发送给 Agent"
+  },
+  "guide.back": {
+    "other": "返回修改"
+  },
+  "guide.task.sent": {
+    "other": "请求已交给普通任务流程。发送回执不代表工作已完成；Agent 会在当前私聊的任务对话中回复，并按需提示授权。"
+  },
+  "guide.task.status": {
+    "other": "最近进展：%s"
+  },
+  "guide.task.request": {
+    "other": "引导体验任务"
+  },
+  "guide.task.uncertain": {
+    "other": "尚未确认是否成功提交。请检查当前私聊中的任务回复或 /amux 中的任务状态，再决定是否重试；重新进入引导不会自动重发。"
+  },
+  "guide.schedule.body": {
+    "other": "这是每分钟重复的定时任务，第一次约在 1 分钟后。创建成功的回执不是笑话结果；请等到收到第一次真实笑话，再取消。"
+  },
+  "guide.schedule.cancel": {
+    "other": "收到笑话后，在该任务对话输入“帮我取消这个定时任务。” Agent 会定位并停用同一个任务，确认已停止。第一次结果会保留。"
+  },
+  "guide.prompt.schedule": {
+    "other": "使用 amux.schedule_create，schedule_type=session-prompt，spec=every 1m，绑定当前会话，在当前对话真实回复笑话。记录返回的 schedule_id；先报告创建回执，不要伪造首次执行，也不要收到第一次结果后自动取消。用户之后说“帮我取消这个定时任务”时，仅取消这个 schedule_id，并用 schedule_get 验证已停用。"
+  },
+  "guide.explore": {
+    "other": "继续探索"
+  },
+  "guide.expert.body": {
+    "other": "专家（Agent Profile）就像一个掌握特定 Skill 的人：有名字、职责、做事要求和技能清单。切换专家，就像请另一位熟悉这类工作的人来协助。"
+  },
+  "guide.skill.body": {
+    "other": "Skill 是完成一类工作的操作方法与流程，可以包含说明、脚本和参考资料。例如查会议、审阅代码。为专家添加 Skill，就是教会这位专家一种做事方法。"
+  },
+  "guide.library.body": {
+    "other": "一个专家库（Agent Pack）就是一个 Git 仓库，可以同时容纳多位专家和他们共用的 Skill。添加一次库，就能选择其中的不同专家；之后可在 /amux 管理界面切换当前专家。"
+  },
+  "guide.select": {
+    "other": "选择当前专家"
+  },
+  "guide.import": {
+    "other": "添加专家库 Git 地址"
+  },
+  "guide.select.body": {
+    "other": "优先展示 %s，其次是各运行引擎的默认专家。这里切换的是以后工作使用的当前专家；只试用一次可以请 %s 委派，不改变默认选择。"
+  },
+  "guide.coordinator.try": {
+    "other": "体验专家发现与委派"
+  },
+  "guide.select.confirm": {
+    "other": "确认后，新工作使用这位专家。保留当前引擎、模型与身份；运行中的任务使用原快照。连续对话需要受管确认后替换会话。"
+  },
+  "guide.switch": {
+    "other": "设为当前专家"
+  },
+  "guide.import.body": {
+    "other": "填写远程 Git 地址，例如 SSH Git 地址。Agent 会检查库内专家、Skill 和正式版本，再通过正常添加流程接入；重复地址应复用已有库。"
+  },
+  "guide.create.body": {
+    "other": "先填写名字、职责和稳定 ID，再选择存放配置的远程 Git 仓库。已有个人库可以继续添加第二位专家，保留第一位。修改用户名会更新默认个人 Git 地址；输入的用户名不代表已获仓库权限。"
+  },
+  "guide.name": {
+    "other": "专家叫什么名字"
+  },
+  "guide.id": {
+    "other": "稳定 ID，例如 office-helper"
+  },
+  "guide.responsibility": {
+    "other": "这位专家负责什么工作"
+  },
+  "guide.username": {
+    "other": "已登录账号用户名，可修改"
+  },
+  "guide.git": {
+    "other": "专家库远程 Git 地址"
+  },
+  "guide.skills": {
+    "other": "有哪些 Skill：填写关键词、平台 Skill 地址，或描述要新建的 Skill"
+  },
+  "guide.preview": {
+    "other": "保存草稿，查看预览"
+  },
+  "guide.skill.catalog": {
+    "other": "让 Agent 搜索并导入 Skill"
+  },
+  "guide.skill.maintenance": {
+    "other": "可以从 Skill 平台导入，也可以描述需求让 Agent 编写。以后要添加或更新 Skill，在该专家的任务里说明需求；先查看变更预览，再确认发布。更新共用 Skill 时，需要列出所有受影响专家，合入并同步后用于新工作。"
+  },
+  "guide.expert.review": {
+    "other": "这是创建请求的预览。下一步让 Agent 检查仓库并编写草稿；尚未创建或推送仓库。Agent 展示实际文件变更后，由你确认发布。"
+  },
+  "guide.prepare": {
+    "other": "让 Agent 准备专家配置"
+  },
+  "guide.import.review": {
+    "other": "Agent 将检查这个远程库并添加专家，复用已存在的配置；添加成功后可以在管理界面查看库内的全部专家。"
+  },
+  "guide.prompt.expert": {
+    "other": "请帮我准备一位专家，名字：%s；稳定 ID：%s；职责：%s；专家库远程 Git 地址：%s；Skill 需求：%s。先检查已有仓库和 manifest，保留同库其他专家与 Skill。一个 Git 库容纳多个专家；不要给每位专家新建一个库。导入指定 Skill 时检查来源和版本，自建 Skill 时先写草稿。先展示实际配置文件、Skill 变更和受影响专家的预览；在我后续确认之前不要创建远程库或发布。确认后复用已有库或创建缺失库；仓库权限按实际登录身份检查。已有远程库按分支、MR、合入、正式同步流程更新，不能将 push/MR 成功说成正式采用。"
+  },
+  "guide.prompt.import": {
+    "other": "请检查并添加这个专家库：%s。只能使用远程 Git 地址，检查实际权限、manifest、库内专家和 Skill，重复地址复用已有库，不重复克隆或安装。添加后显示所有可用专家与正式版本，让我选择要使用的专家。"
+  },
+  "guide.done.body": {
+    "other": "输入 /amux 进入管理界面，随时切换专家、管理专家库或重新进入新手引导。"
+  },
+  "guide.reopen": {
+    "other": "重新进入引导"
+  },
+  "guide.finish": {
+    "other": "完成引导"
+  },
+  "guide.refresh": {
+    "other": "刷新进展"
+  },
+  "guide.private": {
+    "other": "请由负责人在机器人私聊中的原始卡片操作。"
+  },
+  "guide.storage": {
+    "other": "暂时无法保存引导进度，请稍后重试。"
+  },
+  "guide.stale": {
+    "other": "这张卡片的进度已更新，请使用最新卡片继续。"
+  },
+  "guide.invalid": {
+    "other": "所选内容已不可用，请刷新后重新选择。"
+  },
+  "guide.invalid.expert": {
+    "other": "请填写专家名字、有效的稳定 ID、职责和远程 Git 地址。支持修改用户名后生成默认地址。"
+  },
+  "guide.invalid.git": {
+    "other": "请输入远程 SSH 或 HTTPS Git 地址。引导不使用本地目录。"
+  },
+  "guide.config.changed": {
+    "other": "配置已在其他入口更改。请重新检查当前选择，再保存。"
+  },
+  "guide.isolation": {
+    "other": "当前已要求用户隔离。请保留此设置；调整隔离策略请使用助手设置。"
+  },
+  "guide.updated": {
+    "other": "引导已更新"
+  },
+  "guide.owner.required": {
+    "other": "请先完成机器人配置并确认负责人。"
+  },
+  "guide.busy": {
+    "other": "正在提交或保存，请稍等。不会重复发送任务。"
+  },
+  "guide.expert.skills": {
+    "other": "这位专家的 Skill：%s"
+  },
+  "guide.skill.manage": {
+    "other": "添加或更新这位专家的 Skill"
+  },
+  "guide.prompt.skill": {
+    "other": "我想为专家 %s 添加或更新 Skill。请先检查专家所属 Git 库、已有 Skill 和来源版本，向我展示现状并询问这次需要的 Skill。可以从 Skill 平台导入，或描述需求创建。编辑共用 Skill 时列出所有受影响专家。展示具体变更预览，等我后续确认后按原库发布流程更新；保留同库其他专家。"
+  },
+  "guide.result.finished": {
+    "other": "Agent 已完成本轮回复，请查看当前私聊中的任务回复。"
+  },
+  "guide.result.failed": {
+    "other": "本轮未成功完成，请查看当前私聊中的任务错误或授权提示。"
+  },
+  "guide.effort.low": {
+    "other": "low · 少量思考，较快"
+  },
+  "guide.effort.medium": {
+    "other": "medium · 适中思考"
+  },
+  "guide.effort.high": {
+    "other": "high · 强思考"
+  },
+  "guide.effort.xhigh": {
+    "other": "xhigh · 更强思考"
+  },
+  "guide.effort.max": {
+    "other": "max · 最强思考，可能等待更久"
+  },
+  "guide.back.step": {
+    "other": "上一步"
+  },
+  "guide.sample.action.meetings": {
+    "other": "查看本周会议"
+  },
+  "guide.sample.action.room": {
+    "other": "预约会议室"
+  },
+  "guide.sample.action.joke": {
+    "other": "体验定时任务"
+  },
+  "guide.saving": {
+    "other": "正在保存设置"
+  },
+  "guide.submitting": {
+    "other": "正在提交任务"
+  },
+  "guide.skill.catalog.plan": {
+    "other": "Agent 会根据这位专家的职责和 Skill 需求搜索平台，先列出真实候选、用途与版本供你选择，再下载选定的 Skill 并纳入同一个专家库的变更预览。下一步会发送这个请求。"
+  },
+  "guide.prompt.skill.search": {
+    "other": "请先从 Skill 平台 %s 搜索与上述专家职责和 Skill 需求相符的真实候选，最多推荐 5 个，说明各自用途、来源标识、可用版本和依赖。若我已指定准确的 Skill，直接核对其详情。未明确指定时，等待我在当前任务对话选定候选；不要停留在提供网页链接。选择后下载固定版本的完整包，检查 SKILL.md、脚本及参考资料，记录来源与版本，把内容和专家的 Skill 引用一起纳入上述 Git 库的实际变更预览。保留同库其他专家和 Skill；仍需等我确认文件预览后才发布。"
+  },
+  "management.back.to.document.comments": {
+    "other": "返回文档评论"
+  },
+  "management.back.to.group.watch": {
+    "other": "返回群值守"
+  },
+  "schedule.back_detail": {
+    "other": "返回定时任务详情"
+  },
+  "discovery.title": {
+    "other": "能力广场"
+  },
+  "discovery.intro": {
+    "other": "发现 amux 已有的产品能力。查看示例，按需修改后发送；浏览不会执行任务。"
+  },
+  "discovery.back": {
+    "other": "返回能力广场"
+  },
+  "discovery.back.detail": {
+    "other": "返回能力介绍"
+  },
+  "discovery.examples": {
+    "other": "查看使用示例"
+  },
+  "discovery.category": {
+    "other": "选择能力分类"
+  },
+  "discovery.category.all": {
+    "other": "全部能力"
+  },
+  "discovery.category.automation": {
+    "other": "自动化与任务"
+  },
+  "discovery.category.collaboration": {
+    "other": "群聊与协作"
+  },
+  "discovery.category.experts": {
+    "other": "专家与 Skill"
+  },
+  "discovery.category.system": {
+    "other": "设置与维护"
+  },
+  "discovery.page": {
+    "other": "第 %d / %d 页"
+  },
+  "discovery.previous": {
+    "other": "上一页"
+  },
+  "discovery.next": {
+    "other": "下一页"
+  },
+  "discovery.random": {
+    "other": "换一个能力"
+  },
+  "discovery.settings": {
+    "other": "打开对应管理页"
+  },
+  "discovery.use": {
+    "other": "使用示例 %d"
+  },
+  "discovery.daily.title": {
+    "other": "每日发现 · 今天了解一项 amux 能力"
+  },
+  "discovery.daily.on": {
+    "other": "每日推荐已开启：每天 11:00（%s），从开启后的次日起投递。每轮介绍不重复。"
+  },
+  "discovery.daily.off": {
+    "other": "每日推荐已关闭。开启后从次日 11:00（%s）开始，每天私聊推荐一个能力。"
+  },
+  "discovery.daily.enable": {
+    "other": "开启每日推荐"
+  },
+  "discovery.daily.disable": {
+    "other": "关闭每日推荐"
+  },
+  "discovery.edit": {
+    "other": "修改成你要做的事，再发送"
+  },
+  "discovery.send": {
+    "other": "发送给助手"
+  },
+  "discovery.review": {
+    "other": "这是可编辑的真实任务请求。补充群名、链接、时间等信息，确认后再发送；设置变更和外部写操作仍需按正常流程确认。"
+  },
+  "discovery.submitted": {
+    "other": "已记录本次发送请求，请查看当前私聊中的任务回复。重复点击不会再次发送。"
+  },
+  "discovery.sent": {
+    "other": "请求已发送，请在当前私聊继续查看回复和处理按需授权。这不代表任务已经完成。"
+  },
+  "discovery.uncertain": {
+    "other": "未能确认请求是否发送成功。请先查看当前私聊中的任务回复，避免重复执行；这次提交不会自动重发。"
+  },
+  "discovery.request": {
+    "other": "能力体验任务"
+  },
+  "discovery.private": {
+    "other": "请在你与助手的私聊中重新输入 /amux，再打开能力广场。"
+  },
+  "discovery.missing": {
+    "other": "这项能力已调整，请返回能力广场重新选择。"
+  },
+  "discovery.failed": {
+    "other": "暂时无法读取或保存能力引导，请稍后重试。"
+  },
+  "discovery.invalid": {
+    "other": "请填写有效的请求后重新提交，或返回能力介绍重新选择示例。"
+  },
+  "discovery.schedules.title": {
+    "other": "让助手按时做事"
+  },
+  "discovery.schedules.body": {
+    "other": "用自然语言创建定时任务、查看执行结果和取消任务。创建回执与真实执行结果会分别展示。"
+  },
+  "discovery.schedules.requires": {
+    "other": "需要在线的 Runtime；外部数据仍需要对应 Skill 和授权。"
+  },
+  "discovery.schedules.prompt.0": {
+    "other": "帮我创建一个在当前对话里每 1 分钟讲一个笑话的定时任务。创建后告诉我任务编号和下次执行时间。收到第一次真实笑话后，我会再说“帮我取消这个定时任务”。"
+  },
+  "discovery.schedules.prompt.1": {
+    "other": "帮我查看当前有哪些定时任务，列出下次执行时间和最近执行结果，先不要修改。"
+  },
+  "discovery.experiments.title": {
+    "other": "发现实验室里的开关"
+  },
+  "discovery.experiments.body": {
+    "other": "实验功能包括群独立设置、Agent 记忆、长任务完成通知、前台追问和后台任务展示。管理页区分保存值与当前生效值。"
+  },
+  "discovery.experiments.requires": {
+    "other": "仅负责人可以更改；按页面提示保存或确认重启。"
+  },
+  "discovery.experiments.prompt.0": {
+    "other": "帮我介绍当前 amux 实验功能分别解决什么问题，哪些已生效、哪些需要重启，先不要修改配置。"
+  },
+  "discovery.experiments.prompt.1": {
+    "other": "我想让长任务完成后通知我。先说明通知阈值和影响，再告诉我如何在实验功能页开启。"
+  },
+  "discovery.group_agent.title": {
+    "other": "每个群用自己的专家与模型"
+  },
+  "discovery.group_agent.body": {
+    "other": "群独立设置可以为不同群选择专家、Runtime、模型、思考强度与对话方式。新的设置用于新会话。"
+  },
+  "discovery.group_agent.requires": {
+    "other": "先在实验功能启用群独立设置并按提示生效，再到目标群 @助手发送 /amux。现有会话保留原配置。"
+  },
+  "discovery.group_agent.prompt.0": {
+    "other": "我想给研发群配置代码审查专家、给办公群配置日程专家。先列出可用专家并说明群独立设置步骤，不要修改其他群。"
+  },
+  "discovery.group_agent.prompt.1": {
+    "other": "帮我说明如何为一个群设置独立模型和思考强度，以及如何让新会话采用这些设置。"
+  },
+  "discovery.calendar.title": {
+    "other": "查看日程与预订会议室"
+  },
+  "discovery.calendar.body": {
+    "other": "通过正常 Agent 对话查询日历、寻找合适时间，或预订会议室。需要授权时在任务中完成。"
+  },
+  "discovery.calendar.requires": {
+    "other": "需要日历/会议室 Skill 以及工作账号授权；卡片不代表已经连接日历。"
+  },
+  "discovery.calendar.prompt.0": {
+    "other": "帮我查看这周有哪些会议信息，按日期列出时间、主题和会议地点。"
+  },
+  "discovery.calendar.prompt.1": {
+    "other": "帮我找一个周六晚上 8 点到 8 点 30 分可用的会议室。先确认具体日期、地点和人数，再预订。"
+  },
+  "discovery.experts.title": {
+    "other": "给不同工作选择专家"
+  },
+  "discovery.experts.body": {
+    "other": "专家像掌握特定 Skill 的人，包含职责和可复用的工作方法。在助手设置中切换日常专家，已有任务保留原快照。"
+  },
+  "discovery.experts.requires": {
+    "other": "专家需要已加入当前专家库；切换前查看职责与执行设置。"
+  },
+  "discovery.experts.prompt.0": {
+    "other": "看看目前有哪些专家配置，按职责和 Skill 列出来，并推荐谁适合做 [工作内容]。"
+  },
+  "discovery.experts.prompt.1": {
+    "other": "我想切换日常专家。请先列出当前专家、可选专家和切换影响，等我选择后再操作。"
+  },
+  "discovery.libraries.title": {
+    "other": "一个专家库存放多位专家"
+  },
+  "discovery.libraries.body": {
+    "other": "用远程 Git 仓库管理多个专家和共用 Skill。添加、同步和管理库复用正式的 Agent Pack 流程。"
+  },
+  "discovery.libraries.requires": {
+    "other": "需要可访问的 Git 地址；专家配置遵循 Agent Pack 格式，正式采用取决于合入与同步。"
+  },
+  "discovery.libraries.prompt.0": {
+    "other": "帮我检查这个 Git 专家库里有哪些专家、各自有什么 Skill，先只读预览：[Git 地址]。"
+  },
+  "discovery.libraries.prompt.1": {
+    "other": "我想在现有专家库里增加第二位专家 [名字]，负责 [职责]。先检查原仓库并展示变更预览，保留已有专家和 Skill：[Git 地址]。"
+  },
+  "discovery.skills.title": {
+    "other": "让专家学会或更新一种 Skill"
+  },
+  "discovery.skills.body": {
+    "other": "Skill 是可复用的工作方法，可以带说明、脚本和参考资料。为专家导入或编写 Skill，并检查更新影响。"
+  },
+  "discovery.skills.requires": {
+    "other": "需要可读取的 Skill 来源和目标专家库权限；导入完整包，固定版本，确认后发布。"
+  },
+  "discovery.skills.prompt.0": {
+    "other": "我想让 [专家名字] 学会 [能力]。先检查已有 Skill，给出可导入或自建的方案和来源，确认后再准备专家库变更。"
+  },
+  "discovery.skills.prompt.1": {
+    "other": "帮我检查 [Git 地址] 中 [Skill 名字] 的更新方案，列出受影响的全部专家，先展示变更预览。"
+  },
+  "discovery.delegation.title": {
+    "other": "把工作拆给不同专家"
+  },
+  "discovery.delegation.body": {
+    "other": "通过任务与专家协作把一项工作分解，让合适的专家各自处理，再汇总结果。"
+  },
+  "discovery.delegation.requires": {
+    "other": "需要可用专家、Runtime 和执行权限；先确认范围和交付要求。"
+  },
+  "discovery.delegation.prompt.0": {
+    "other": "把 [任务描述] 拆成几项可独立完成的工作，推荐相应专家，先给分工方案，确认后再执行并汇总结果。"
+  },
+  "discovery.delegation.prompt.1": {
+    "other": "请让适合的专家分别审查这份方案的实现、测试和风险，合并为一份带依据的意见：[方案内容或链接]。"
+  },
+  "discovery.group_watch.title": {
+    "other": "让助手关注指定群的工作"
+  },
+  "discovery.group_watch.body": {
+    "other": "群值守可以关注选定群的消息并按规则处理工作，管理页可以暂停、恢复和选择执行专家。"
+  },
+  "discovery.group_watch.requires": {
+    "other": "目标群需要使用话题模式，机器人已加入并具备读取消息权限；先显式配置值守范围。"
+  },
+  "discovery.group_watch.prompt.0": {
+    "other": "帮我说明群值守如何选择群、设置执行专家和暂停，先不要扩大当前值守范围。"
+  },
+  "discovery.group_watch.prompt.1": {
+    "other": "我想让助手值守 [群名]，由擅长 [工作领域] 的专家处理符合条件的新话题。先检查条件并给出设置方案，等我确认。"
+  },
+  "discovery.document_comments.title": {
+    "other": "在文档评论里发起工作"
+  },
+  "discovery.document_comments.body": {
+    "other": "负责人在文档评论中 @助手提出请求，由选定专家处理，并在评论里回复。管理页可选择专家与执行选项。"
+  },
+  "discovery.document_comments.requires": {
+    "other": "需要启用文档评论入口、文档权限和事件订阅；普通评论不会自动等同执行授权。"
+  },
+  "discovery.document_comments.prompt.0": {
+    "other": "帮我介绍如何在文档评论里向助手提需求，需要哪些权限，以及如何选择处理评论的专家。"
+  },
+  "discovery.document_comments.prompt.1": {
+    "other": "我想在文档评论中让助手帮我修改 [工作内容]。先检查文档评论配置并说明触发方式，不要发布修改。"
+  },
+  "discovery.context.title": {
+    "other": "让对话按话题组织"
+  },
+  "discovery.context.body": {
+    "other": "连续对话方便接着聊，按话题处理把不同工作的聊天记录分开。话题分开与文件执行隔离是不同设置。"
+  },
+  "discovery.context.requires": {
+    "other": "切换模式走受管确认流程；聊天记录分开不保证文件工作区隔离。"
+  },
+  "discovery.context.prompt.0": {
+    "other": "请介绍连续对话和按话题处理分别适合什么场景，并说明它们与文件隔离的区别，先不要修改。"
+  },
+  "discovery.context.prompt.1": {
+    "other": "我同时处理 [工作一] 和 [工作二]，请建议怎样组织话题，避免把两项工作的对话上下文混在一起。"
+  },
+  "discovery.background.title": {
+    "other": "长任务执行时继续协作"
+  },
+  "discovery.background.body": {
+    "other": "实验功能支持前台追问与后台任务展示，也可以为长任务完成设置通知。"
+  },
+  "discovery.background.requires": {
+    "other": "依赖所选引擎能力与相应实验开关；页面会说明即时生效或需要重启。"
+  },
+  "discovery.background.prompt.0": {
+    "other": "请说明前台追问、后台任务展示和完成通知各自有什么用，并检查当前开关状态，先不要更改。"
+  },
+  "discovery.background.prompt.1": {
+    "other": "我有一个耗时任务 [任务]，想执行期间继续讨论别的问题。先给我适合当前引擎的操作方案。"
+  },
+  "discovery.goals.title": {
+    "other": "为持续工作设置目标"
+  },
+  "discovery.goals.body": {
+    "other": "适合排查测试失败、整理入门指南等需要多轮推进的工作。在工作对话中发送 goal <具体目标> 开始，goal 查看状态，goal pause 暂停，goal resume 继续，goal clear 清除目标并保留对话。命令前不加 /。"
+  },
+  "discovery.goals.requires": {
+    "other": "需要当前会话实际支持目标功能；Codex 也要以实际检测为准，Claude SDK 和 Pi 暂不支持。在同一工作对话中控制目标；下方示例只准备目标草稿，不会启动。"
+  },
+  "discovery.goals.prompt.0": {
+    "other": "我想持续排查某个仓库的测试失败，直到找出有证据的根因并给出修复与验证结果。请帮我拟一条可在飞书工作对话发送的目标消息，格式为 goal <目标正文>，写清范围、允许的操作和完成标准。仓库地址、测试范围或授权不明确时保留占位，并在草稿外告诉我需要补充什么。只准备草稿，不访问文件、不调用工具、不启动目标。"
+  },
+  "discovery.goals.prompt.1": {
+    "other": "我想把这个知识库整理成带原文链接的新人入门指南：[知识库链接]。请先向我确认阅读范围、目标读者和完成标准，再拟一条可在飞书工作对话直接发送的目标消息，格式为 goal <目标正文>。只准备草稿，不启动目标、不读取知识库、不发布文档。"
+  },
+  "discovery.runtimes.title": {
+    "other": "选择工作在哪里、用什么模型执行"
+  },
+  "discovery.runtimes.body": {
+    "other": "Runtime 提供实际执行环境，模型和思考强度决定新任务的执行组合。助手设置展示当前真实选择。"
+  },
+  "discovery.runtimes.requires": {
+    "other": "需要可用 Runtime 和模型；更改默认值不会把运行中任务迁移到另一个环境。"
+  },
+  "discovery.runtimes.prompt.0": {
+    "other": "请说明执行机器、运行引擎、模型和思考强度各自控制什么，结合当前助手默认设置，告诉我在哪里查看和选择真实可用项，先不要更改。"
+  },
+  "discovery.runtimes.prompt.1": {
+    "other": "针对 [工作内容] 推荐一个可用的模型和思考强度，说明质量与耗时的取舍，等我确认后再调整。"
+  },
+  "discovery.bot_collaboration.title": {
+    "other": "让多个助手协作"
+  },
+  "discovery.bot_collaboration.body": {
+    "other": "Bot 协作可以让受支持的助手相互委派和响应，相关设置由负责人管理。"
+  },
+  "discovery.bot_collaboration.requires": {
+    "other": "需要启用助手协作、可发现的目标 Bot 和允许的执行权限。"
+  },
+  "discovery.bot_collaboration.prompt.0": {
+    "other": "请介绍助手之间如何协作，说明当前协作开关状态，以及怎样在目标群查看可协作的助手，先不要发送消息或委派任务。"
+  },
+  "discovery.bot_collaboration.prompt.1": {
+    "other": "我想让 [目标助手] 协助 [工作]。先检查可用性与授权范围，给出协作方案后等我确认。"
+  },
+  "discovery.maintenance.title": {
+    "other": "查看系统状态与安全维护"
+  },
+  "discovery.maintenance.body": {
+    "other": "管理页汇总系统状态和版本，可检查更新或按确认流程重启。"
+  },
+  "discovery.maintenance.requires": {
+    "other": "仅负责人可执行维护；更新与重启使用管理页确认流程。"
+  },
+  "discovery.maintenance.prompt.0": {
+    "other": "请帮我解读当前 amux 版本和连接状态，区分已知状态与尚未检查的项目，并告诉我怎样在管理页查看系统状态，先不要重启或更新。"
+  },
+  "discovery.maintenance.prompt.1": {
+    "other": "我想了解升级 amux 的流程和对运行中工作的影响。请说明怎样在管理页检查更新、核对目标版本并确认升级，先不要安装或重启。"
+  },
+  "discovery.schedules.guidance": {
+    "other": "只使用真实 amux 定时工具，不用引擎 Cron 临时定时器。amux 计划持久保存在 Hub。查询失败或未查询表示未知，不能说零条。schedule_list 沿 has_more=false 读完；schedule_get 核对准确 ID。当前工作对话收结果时使用 schedule_type=session-prompt、spec=every 1m 和真实会话引用（AMUX_SESSION_ID），不能绑定临时验收 Task；绑定未知时查询 session_list 或确认。不要编造 CLI 语法；使用通用指引中的 MCP 终端通道。仅请求且授权创建/修改时执行，回报真实整数 ID 与 next_run_at；创建回执不等于已执行。取消只停用已识别的同一 ID，再用 schedule_get 核验。每分钟笑话不会首次执行后自动取消。只读验收仅解释方案，不写入、不询问是否立即开始。 时间直接引用工具 next_run_at_iso/last_run_at_iso 的 UTC 原值，不心算数字时间戳；如需当地时间须用日期时间工具计算并标时区。"
+  },
+  "discovery.task.context": {
+    "other": "[amux 能力说明]\n能力：%s\n说明：%s\n使用条件：%s\nHub 观测快照（不是 Agent 执行机器的配置）：%s"
+  },
+  "discovery.task.guidance": {
+    "other": "先用以上能力说明与快照回答用户原始请求。空值、not_checked 和 unknown 不代表不存在或已支持。快照不授予操作权限，也不证明外部平台已连接。解释或准备草稿时，不修改设置、不启动目标、不建定时、不委派、不重启、不发布。实际操作使用当前真实暴露的工具，不编造 amux MCP 工具、命令、配置键或成功结果。不要为了介绍卡片而搜索安装源码或反复探索 help。受管设置通过对应的 /amux 管理页和确认流程更改，不直接改 TOML/SQLite。Agent 可能在另一台机器执行，本地 registry/配置不能证明 Hub 状态。缺少必要能力时说明具体限制并给出实际支持的管理入口。回答简洁，说明下一步操作和怎样核验结果。 功能介绍通常用一张小表或 3—6 条短说明回答，不复述内部 JSON 字段、Profile ref 或执行路径。只引用本指引已经给出的管理入口；不要发明 Target/Runtime 管理页、未暴露的模型查询工具，或提出自己无法执行的“我可以检查”。请求只要说明或草稿时直接交付，不以“要我继续吗”收尾。 方括号占位符（如 [任务]）表示用户尚未提供信息，不是实际材料；缺参先补充，不能把此能力指引当成用户文档。未检查平台授权时应说未知，不能说未连接或未授权。若引擎未展示 amux 工具，可通过终端调用：amux mcp call <工具名> --describe 只显示真实 Schema；将 JSON 对象通过标准输入传给 amux mcp call <工具名>，调用相同 Hub 工具并沿用当前身份和权限。输出是 MCP JSON 结果，先检查退出码和 isError，再读 content[].text。禁止用引擎的 CronCreate/CronList/CronDelete 或 GoalCreate/GoalUpdate 替代 amux 操作；禁止用本地 CLI 专家注册表替代 Hub 发现。"
+  },
+  "discovery.experiments.guidance": {
+    "other": "根据快照 experiments_saved 与 experiments_running 逐项解释群独立设置、记忆、前台追问、后台任务展示和完成通知。相同表示已生效，不同表示保存后尚未生效；experiments_saved_status 不是 ok 时不能断言保存值。steer_foreground 与 show_background_tasks 可在保存时即时应用，其余按管理页提示确认重启。入口为负责人私聊 /amux → 实验功能；不要让用户编辑文件或默认替用户打开开关。 前台追问表示用户可在执行中补充文字，由前台协调处理，不是助手主动盘问。完成通知在本轮完成时触发，条件是本轮耗时达到阈值；不是结束后等这么久，也不是未读提醒。完成通知设置需要按管理页确认重启，不要把所有开关说成立即生效。"
+  },
+  "discovery.group_agent.guidance": {
+    "other": "先查看快照中群独立设置是否已生效；入口为私聊 /amux → 实验功能，按页面提示生效后，在目标群真正 @助手发送 /amux → 修改本群设置。群名不是群 ID，私聊不能证明某个群的当前配置。先确认目标群与专家需求，专家列表用 amux.profile_list/profile_get 分页核实。默认专家、运行引擎、模型和思考强度只作用于该群的新会话，不改其他群或迁移旧任务。 通过本群设置摘要和实际执行卡摘要核验运行配置，不靠询问模型自称是什么型号。"
+  },
+  "discovery.calendar.guidance": {
+    "other": "通过已安装的日历/会议室 Skill 查询，日期按用户时区明确到具体日期。查周会只读；订会议室先确认日期、地点和人数，按用户确认范围预订，核对真实日程/会议室回执。账号授权在同一任务按需进行，不引导另建会话或独立连接流程。 相对日期必须结合当前日期和确认的时区计算核对。Asia/Shanghai 的 2026-10-30 是周五，接下来的周六是 2026-10-31。Hub 时区只是参考，不能证明用户时区。不得编造会议、会议室空闲或授权状态。"
+  },
+  "discovery.experts.guidance": {
+    "other": "实际专家能力发现使用 amux.profile_list 并读完全部分页，具体职责和 Skill 使用 amux.profile_get 核实；不要用本机 CLI registry 的空结果断言专家不存在。快照 new_session_defaults 是助手新会话默认值，不等于当前运行任务的专家。切换默认专家通过私聊 /amux → 助手设置；已有任务保留快照。"
+  },
+  "discovery.libraries.guidance": {
+    "other": "一个远程 Git 专家库可含多个专家及共享 Skill 定义；共享 Skill 需被具体专家显式引用，不会自动给全库专家启用。先看实际仓库及 Agent Pack v2 编写说明，再确定目录、字段和构建命令；不同库的编写布局可不同，不能虚构统一的 profiles/<名字>/profile.toml 模板或专家模型字段。缺 Git 地址、名字或职责时先补齐再调工具。添加/同步入口为私聊 /amux → 专家库。保留已有专家、展示真实 diff，按授权发布/合入/同步；创建仓库或 MR 不等于正式采用。"
+  },
+  "discovery.skills.guidance": {
+    "other": "专家是掌握特定 Skill 的可复用配置；Skill 是一类工作的方法、说明和配套资源。先读取目标专家已有 Skill，缺专家名字或来源先确认。外部 Skill 下载完整包并固定来源与版本，检查说明、脚本、引用而不擅自执行，预览专家引用和包内容的实际 diff；共享更新列出所有受影响专家，确认后按专家库发布同步。"
+  },
+  "discovery.delegation.guidance": {
+    "other": "只要求分工方案时不启动子任务。实际委派使用当前暴露的 amux 协调工具，并按已安装的协调 Skill 明确专家、材料、范围和交付标准；获取真实 task_id/agent_instance_id，不把“将请专家”当作已委派，完成后核对并汇总真实结果。"
+  },
+  "discovery.group_watch.guidance": {
+    "other": "群值守处理已明确纳入值守的话题群中，符合发送者类型（user/app）的新根消息。不是关键词订阅；管理页没有工作主题关键词或“仅被 @”触发选择项。工作重点应体现在所选专家职责中，不虚构筛选配置。负责人在目标群 @助手发送“开启群值守”并确认卡片纳入该群；私聊 /amux → 群值守 或群 /amux 管理。每群可设置启停、继承/自定义执行配置、专家/引擎/模型/思考强度、活跃会话上限和休眠。快照只知总开关和群数，不知某群专家，不能假定具体默认专家。先确认目标群、话题模式、机器人入群、权限和发送者范围；不直接改配置/数据库。 发送者筛选仅支持 user/app 类型，不支持按指定成员白名单选择人。"
+  },
+  "discovery.document_comments.guidance": {
+    "other": "快照 document_comments_enabled 只表示入口开关，不证明文档权限或事件订阅已完成。new_session_defaults 和 interaction_mode 是普通聊天默认值，不是单独配置的文档评论专家/引擎；不能拿它们报告评论执行配置，应到私聊 /amux → 文档评论查看。负责人在文档评论真正 @助手触发，结果在同一评论串回复。仅介绍或检查时不写评论/文档/配置；工作或链接占位未填时先补齐。 快照没有观察评论专家/引擎配置，状态必须写“未知”，不能写“未配置”或推断具体默认专家/引擎，也不能断言不存在覆盖。"
+  },
+  "discovery.context.guidance": {
+    "other": "singleton 延续共享会话，thread 按话题保留各自聊天历史。不同话题仍可能共用文件、凭据和执行机器；执行隔离按实际 Principal/操作系统配置决定，不保证每个话题独立文件系统。/amux 没有通用话题目录列表，不编造入口。模式通过 /amux → 助手设置确认变更，不自行重置已有对话。"
+  },
+  "discovery.background.guidance": {
+    "other": "按快照说明 steer_foreground、show_background_tasks 与 completion_notification/after_seconds 的已保存和生效状态。前台追问、后台展示、完成通知是三个独立功能；开关不保证每个引擎支持所有注入方式。入口为私聊 /amux → 实验功能，只要操作方案时不委派或改开关。 前台追问是用户在执行中补充，不是主动追问。后台展示使用进度卡，不存在通用浮窗面板。60 秒完成通知阈值表示本轮耗时至少 60 秒时，在完成当下通知，不是完成后再等 60 秒。另开话题可分开聊天历史，但不保证同会话并行执行。"
+  },
+  "discovery.goals.guidance": {
+    "other": "本卡只准备目标草稿。飞书正式消息为 goal <目标正文> 创建、goal 查询、goal pause 暂停、goal resume 恢复、goal clear 清除；没有 / 前缀。amux MCP 没有对应的目标管理工具，不编造 goal_create 或 amux goal CLI，不把你自身引擎的通用 goal 工具当作飞书会话目标。是否支持由目标会话真实探测；Codex 名称不能证明支持，Claude SDK/Pi 暂不支持。用户未给预算不编造预算。不要主动探测、创建、替换或恢复目标；根据用户场景拟定包含范围、允许操作和完成标准的纯文本消息。 这一草稿请求不访问文件系统、不调用工具。仓库或范围未知时保留清晰占位，不把测试沙箱当成用户仓库。目标消息只写任务、范围、允许操作和完成标准，不塞入问题清单、说明或当前沙箱路径。必要时在消息外合并询问一组关键信息。用户补充信息不等于授权启动，不能说“补充后立即开始”。 用户没有明确允许克隆、测试、改文件或发布时，草稿写 [允许操作：待确认]，不得替用户授予这些权限。"
+  },
+  "discovery.runtimes.guidance": {
+    "other": "区分执行机器 Runtime target、原生引擎、模型与思考强度。配置目录和新会话默认值不证明模型在线或登录。真实可选项在 /amux → 助手设置 → 模型页刷新；没有通用 Target/Runtime 管理页或完整模型目录查询工具。不虚构固定低/中/高档位、默认中档、价格或速度倍数。首次引导选择实际支持的最强思考；已有设置为空表示未显式配置，不等于默认中档，也不能证明当前已生效为强档。强思考通常更耗时。[工作内容] 缺失时先要任务描述，再给具体建议，不迁移已有工作。 本请求只解释，结尾指向模型页即可，不再提出由你查询完整模型目录。"
+  },
+  "discovery.bot_collaboration.guidance": {
+    "other": "快照只说明协作开关。当前能力示例在私聊发起，私聊不能用 external_bot 目录证明某个群有哪些 Bot；先确认目标助手所在群，并在有效群会话与真实授权下发现目标。仅准备实际委派时按协调 Skill 使用 amux.collaborator_list；内部专家能力发现用 profile_list/profile_get。解释或检查请求不发送消息、不创建外部委派。"
+  },
+  "discovery.maintenance.guidance": {
+    "other": "准确入口为负责人私聊 /amux → 系统状态，不是另一个“系统维护”页面。展示版本、Hub/Runtime/Bridge 连接、数量及部署信息；操作是检查更新与重启，异常时可重新检查。不会执行完整健康巡检或逐个测试引擎/模型登录，也没有通用 Target 身份/目录面板。full_system_health=not_checked 仍是未知。检查更新只读；有更新时对页面展示的目标版本确认升级，会安装并重启，不能编造安装后还必须另问一次重启，也不保证运行工作完全不受影响。会话记录保留；短暂离线/恢复或工作中断以实际维护流程为准。介绍时不安装/重启/改配置/停会话。"
   }
 }
