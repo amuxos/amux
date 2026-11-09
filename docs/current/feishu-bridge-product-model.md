@@ -342,6 +342,18 @@ workspace settings; saves are atomic and version checked. Existing installations
 retain Bot-wide behavior until a group saves its own settings. Group access mode
 remains separate from thread/singleton interaction and execution isolation.
 
+Group settings saves acknowledge the card callback immediately with a saving
+status, then validate and commit in the background with a 15-second budget.
+Duplicate saves for the same group are rejected while one is pending. Registry,
+group-policy and routing lock waits and the database transaction honor cancellation;
+a timed-out wait must not later commit the submitted settings. The result card
+reports success, failure or a version conflict, and retains the submitted draft
+for retry after a failed save. An optional daily-cleanup switch is saved after
+the group transaction; failure of that separate write is reported as a partial
+success, never as an unchanged group policy. Navigating away suppresses stale
+card updates but does not revoke an already accepted save. Operator logs record
+save-stage durations and errors without recording the form contents.
+
 When the group editor uses a builtin expert's caller-selected runtime, model
 choices come from that runtime catalog, including discovered native and model-service
 choices. Its default option retains the caller preset model. Explicit runtime

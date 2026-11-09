@@ -1,11 +1,13 @@
 package bridge
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/amuxos/amux/internal/i18n"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
@@ -16,8 +18,12 @@ const managementActionLanguage = "bot.language.set"
 const managementLanguageField = "amux_interface_language"
 
 func (db *bridgeDB) managementLocale(bridgeID, openID string) (i18n.Locale, error) {
+	return db.managementLocaleContext(context.Background(), bridgeID, openID)
+}
+
+func (db *bridgeDB) managementLocaleContext(ctx context.Context, bridgeID, openID string) (i18n.Locale, error) {
 	var value string
-	err := db.db.QueryRow(`SELECT locale FROM feishu_management_locales WHERE bridge_id=? AND open_id=?`, bridgeID, openID).Scan(&value)
+	err := db.db.QueryRowContext(ctx, `SELECT locale FROM feishu_management_locales WHERE bridge_id=? AND open_id=?`, bridgeID, openID).Scan(&value)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
@@ -49,18 +55,26 @@ func (db *bridgeDB) recordPrivateManagementCard(bridgeID, openID, messageID stri
 }
 
 func (db *bridgeDB) isPrivateManagementCard(bridgeID, openID, messageID string) bool {
+	return db.isPrivateManagementCardContext(context.Background(), bridgeID, openID, messageID)
+}
+
+func (db *bridgeDB) isPrivateManagementCardContext(ctx context.Context, bridgeID, openID, messageID string) bool {
 	if messageID == "" || openID == "" {
 		return false
 	}
 	var owner string
-	return db.db.QueryRow(`SELECT open_id FROM feishu_private_management_cards WHERE bridge_id=? AND message_id=?`, bridgeID, messageID).Scan(&owner) == nil && owner == openID
+	return db.db.QueryRowContext(ctx, `SELECT open_id FROM feishu_private_management_cards WHERE bridge_id=? AND message_id=?`, bridgeID, messageID).Scan(&owner) == nil && owner == openID
 }
 
 func (b *Bridge) managementLocale(openID string) i18n.Locale {
 	if b.db == nil || openID == "" {
 		return ""
 	}
-	locale, err := b.db.managementLocale(b.currentBridgeId(), openID)
+	// Language preference is presentation-only. A busy single-connection pool
+	// must not keep a card callback from acknowledging an accepted operation.
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	locale, err := b.db.managementLocaleContext(ctx, b.currentBridgeId(), openID)
 	if err != nil {
 		log.Warn().Err(err).Msg("bridge: could not read management language preference")
 	}
@@ -74,7 +88,9 @@ func (b *Bridge) managementCardForRecipient(openID, cardJSON string) string {
 func (b *Bridge) managementCardForPatch(openID, messageID, cardJSON string) string {
 	// Only server-recorded direct messages may use a personal override. Unknown
 	// and shared cards retain native per-viewer translations, including old cards.
-	if b.db == nil || !b.db.isPrivateManagementCard(b.currentBridgeId(), openID, messageID) {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if b.db == nil || !b.db.isPrivateManagementCardContext(ctx, b.currentBridgeId(), openID, messageID) {
 		return cardJSON
 	}
 	return b.managementCardForRecipient(openID, cardJSON)

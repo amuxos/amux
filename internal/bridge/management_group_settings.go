@@ -50,7 +50,9 @@ func (b *Bridge) groupSettingsCardScope(settings *GroupSettings, chatName string
 	}
 }
 
-func (b *Bridge) groupSettingsFromCardScope(action *callback.CallBackAction) (*GroupSettings, string, error) {
+// Authenticate the immutable scope without database or registry I/O so saves
+// can acknowledge the Feishu callback before waiting for shared resources.
+func (b *Bridge) authenticateGroupSettingsCardScope(action *callback.CallBackAction) (*GroupSettings, string, error) {
 	bridgeID, chatID := managementCallbackString(action, "bridge_id"), managementCallbackString(action, "chat_id")
 	chatName := managementCallbackString(action, "chat_name")
 	version, err := strconv.ParseInt(managementCallbackString(action, "expected_version"), 10, 64)
@@ -62,19 +64,31 @@ func (b *Bridge) groupSettingsFromCardScope(action *callback.CallBackAction) (*G
 	if want == "" || !hmac.Equal([]byte(want), []byte(got)) {
 		return nil, "", managementLocalizedError("management.invalid.group.settings.card.scope.send.amux.again.in")
 	}
+	return &GroupSettings{BridgeID: bridgeID, ChatID: chatID, Version: version}, chatName, nil
+}
+
+func (b *Bridge) groupSettingsFromCardScope(action *callback.CallBackAction) (*GroupSettings, string, error) {
+	return b.groupSettingsFromCardScopeContext(context.Background(), action)
+}
+
+func (b *Bridge) groupSettingsFromCardScopeContext(ctx context.Context, action *callback.CallBackAction) (*GroupSettings, string, error) {
+	scope, chatName, err := b.authenticateGroupSettingsCardScope(action)
+	if err != nil {
+		return nil, "", err
+	}
 	// Even an authentic old card must not modify a chat now known to be private.
-	ws, err := b.db.ReadWorkspace(bridgeID, chatID)
+	ws, err := b.db.ReadWorkspaceContext(ctx, scope.BridgeID, scope.ChatID)
 	if err != nil {
 		return nil, "", err
 	}
 	if ws.Kind == WorkspaceKindPrivate {
 		return nil, "", managementLocalizedError("management.per.group.settings.are.unavailable.in.private.chat")
 	}
-	settings, err := b.groupSettingsDraft(chatID)
+	settings, err := b.groupSettingsDraftContext(ctx, scope.ChatID)
 	if err != nil {
 		return nil, "", err
 	}
-	if settings.Version != version {
+	if settings.Version != scope.Version {
 		return nil, "", errGroupSettingsChanged
 	}
 	return settings, chatName, nil
@@ -83,12 +97,20 @@ func (b *Bridge) groupSettingsFromCardScope(action *callback.CallBackAction) (*G
 // This deliberately avoids managementState: merely opening a group card must
 // not seed a Bot state, workspace, group policy or Session.
 func (b *Bridge) groupSettingsManagementState(settings *GroupSettings) (managementState, error) {
-	bot, err := b.currentBotProfileStateReadOnly()
+	return b.groupSettingsManagementStateContext(context.Background(), settings)
+}
+
+func (b *Bridge) groupSettingsManagementStateContext(ctx context.Context, settings *GroupSettings) (managementState, error) {
+	bot, err := b.groupSettingsBotProfileStateContext(ctx)
+	if err != nil {
+		return managementState{}, err
+	}
+	cleanup, err := config.ReadDailyCleanupSettingsContext(ctx)
 	if err != nil {
 		return managementState{}, err
 	}
 	state := managementState{
-		DailyCleanup: dailyCleanupSettingValue(),
+		DailyCleanup: strconv.FormatBool(cleanup.Enabled),
 		ProfileName:  b.ProfileName(), DefaultAgent: effectiveBotDefaultAgentRef(bot.DefaultAgent),
 		Mode: settings.InteractionMode, GroupWatch: b.groupWatchSnapshot(), NativeModelsTargetRef: settings.DefaultTarget,
 	}
@@ -101,17 +123,25 @@ func (b *Bridge) groupSettingsManagementState(settings *GroupSettings) (manageme
 }
 
 func (b *Bridge) currentGroupSettingsCard(settings *GroupSettings, chatName string) (string, error) {
-	state, err := b.groupSettingsManagementState(settings)
+	return b.currentGroupSettingsCardContext(context.Background(), settings, chatName)
+}
+
+func (b *Bridge) currentGroupSettingsCardContext(ctx context.Context, settings *GroupSettings, chatName string) (string, error) {
+	return b.currentGroupSettingsCardWithNoticeContext(ctx, settings, chatName, "")
+}
+
+func (b *Bridge) currentGroupSettingsCardWithNoticeContext(ctx context.Context, settings *GroupSettings, chatName string, notice any) (string, error) {
+	state, err := b.groupSettingsManagementStateContext(ctx, settings)
 	if err != nil {
 		return "", err
 	}
-	root, err := b.db.GetGroupSessionRoot(settings.BridgeID, settings.ChatID)
+	root, err := b.db.GetGroupSessionRootContext(ctx, settings.BridgeID, settings.ChatID)
 	if err != nil {
 		return "", err
 	}
 	var current *LarkChat
 	if root != "" {
-		current, err = b.db.FindByRootMsg(settings.BridgeID, root)
+		current, err = b.db.FindByRootMsgContext(ctx, settings.BridgeID, root)
 		if err != nil {
 			return "", err
 		}
@@ -119,7 +149,7 @@ func (b *Bridge) currentGroupSettingsCard(settings *GroupSettings, chatName stri
 			return "", managementLocalizedError("management.the.current.persistent.conversation.does.not.belong.to.this")
 		}
 	}
-	return renderCurrentGroupSettingsCard(state, settings, root, current, b.groupSettingsCardScope(settings, chatName)), nil
+	return renderCurrentGroupSettingsCardWithNotice(state, settings, root, current, b.groupSettingsCardScope(settings, chatName), notice), nil
 }
 
 func (b *Bridge) sendCurrentGroupSettingsCard(ctx context.Context, openID, chatID, chatName string) error {
@@ -163,6 +193,22 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 	if err := requireGroupSettingsExperiment(); err != nil {
 		return groupSettingsErrorToast(err), true, nil
 	}
+	if action == managementActionGroupSettingsSave {
+		scope, chatName, err := b.authenticateGroupSettingsCardScope(event.Event.Action)
+		if err != nil {
+			return groupSettingsErrorToast(err), true, nil
+		}
+		messageID := ""
+		if event.Event.Context != nil {
+			messageID = event.Event.Context.OpenMessageID
+		}
+		version, ok := b.beginGroupSettingsSave(scope.ChatID, messageID)
+		if !ok {
+			return cardToast("warning", managementCopy("management.group_settings.save_pending")), true, nil
+		}
+		b.runGroupSettingsSave(openID, messageID, chatName, scope, modelServiceDraftAction(event.Event.Action), version)
+		return cardToast("success", managementCopy("management.group_settings.saving")), true, nil
+	}
 	settings, chatName, err := b.groupSettingsFromCardScope(event.Event.Action)
 	if err != nil {
 		return groupSettingsErrorToast(err), true, nil
@@ -173,80 +219,65 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 	}
 	version := b.advanceModelServiceEditor(messageID)
 	update := func(card string) { b.updateManagementCardAtVersion(openID, messageID, card, version) }
-	if action == managementActionGroupSettingsEdit || action == managementActionGroupSettingsSave {
+	if action == managementActionGroupSettingsEdit {
 		draft, err := groupSettingsDraftFromCallback(settings, modelServiceDraftAction(event.Event.Action))
 		if err != nil {
 			return groupSettingsErrorToast(err), true, nil
 		}
-		if action == managementActionGroupSettingsEdit {
-			state, err := b.groupSettingsManagementState(settings)
-			if err != nil {
-				return groupSettingsErrorToast(err), true, nil
-			}
-			if b.hub != nil || (len(modelservice.List()) > 0 && b.resolveModelServicePrincipal != nil) {
-				state.NativeModelsTargetRef = draft["group_target"]
-				state.Mode = draft["group_interaction"]
-				runtimeRef := draft["group_runtime"]
-				if runtimeRef == managementGroupNativeRuntime {
-					profileRef := groupSettingsOptional(draft["group_agent"], managementGroupInheritProfile)
-					if profileRef == "" {
-						profileRef = state.DefaultAgent
-					}
-					if profile, ok := managementProfileByRef(state, profileRef); ok {
-						runtimeRef = profile.AgentType
-					}
-				}
-				service, operation := modelServiceSelection(event.Event.Action)
-				go func() {
-					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
-					defer cancel()
-					for {
-						current := b.refreshEditorModels(ctx, state, openID, messageID, runtimeRef, service, operation,
-							forceEditorModelRefresh(event.Event.Action) || operation == "refresh", func(current managementState) {
-								card := renderGroupSettingsEditCardAtPage(current, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action))
-								b.writeManagementCardAtVersion(ctx, openID, messageID, card, version)
-							})
-						if !b.modelServiceEditorCurrent(messageID, version) {
-							return
-						}
-						pending := false
-						for _, entry := range current.ModelServices {
-							if entry.Service.ID == service && (entry.State.Status == "pending" || entry.State.Status == "installing") {
-								pending = true
-							}
-						}
-						if !pending {
-							return
-						}
-						select {
-						case <-ctx.Done():
-							return
-						case <-time.After(3 * time.Second):
-						}
-						if !b.modelServiceEditorCurrent(messageID, version) {
-							return
-						}
-						operation = "refresh"
-					}
-				}()
-				return cardToast("success", managementCopy("management.model.service.updating")), true, nil
-			}
-			update(renderGroupSettingsEditCardAtPage(state, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action)))
-			return cardToast("success", managementCopy("management.group.settings.opened.not.saved.yet")), true, nil
-		}
-		if value := draft["daily_cleanup"]; value != "" && value != "true" && value != "false" {
-			return groupSettingsErrorToast(managementLocalizedError("cleanup.invalid")), true, nil
-		}
-		submitted, err := draft.settings(settings)
-		if err == nil {
-			settings, err = b.applyGroupSettings(ctx, submitted, settings.Version, openID)
-			if err == nil && managementUsesThreadRouting(submitted.InteractionMode) {
-				err = saveDailyCleanupChoice(draft["daily_cleanup"])
-			}
-		}
+		state, err := b.groupSettingsManagementState(settings)
 		if err != nil {
 			return groupSettingsErrorToast(err), true, nil
 		}
+		if b.hub != nil || (len(modelservice.List()) > 0 && b.resolveModelServicePrincipal != nil) {
+			state.NativeModelsTargetRef = draft["group_target"]
+			state.Mode = draft["group_interaction"]
+			runtimeRef := draft["group_runtime"]
+			if runtimeRef == managementGroupNativeRuntime {
+				profileRef := groupSettingsOptional(draft["group_agent"], managementGroupInheritProfile)
+				if profileRef == "" {
+					profileRef = state.DefaultAgent
+				}
+				if profile, ok := managementProfileByRef(state, profileRef); ok {
+					runtimeRef = profile.AgentType
+				}
+			}
+			service, operation := modelServiceSelection(event.Event.Action)
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+				defer cancel()
+				for {
+					current := b.refreshEditorModels(ctx, state, openID, messageID, runtimeRef, service, operation,
+						forceEditorModelRefresh(event.Event.Action) || operation == "refresh", func(current managementState) {
+							card := renderGroupSettingsEditCardAtPage(current, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action))
+							b.writeManagementCardAtVersion(ctx, openID, messageID, card, version)
+						})
+					if !b.modelServiceEditorCurrent(messageID, version) {
+						return
+					}
+					pending := false
+					for _, entry := range current.ModelServices {
+						if entry.Service.ID == service && (entry.State.Status == "pending" || entry.State.Status == "installing") {
+							pending = true
+						}
+					}
+					if !pending {
+						return
+					}
+					select {
+					case <-ctx.Done():
+						return
+					case <-time.After(3 * time.Second):
+					}
+					if !b.modelServiceEditorCurrent(messageID, version) {
+						return
+					}
+					operation = "refresh"
+				}
+			}()
+			return cardToast("success", managementCopy("management.model.service.updating")), true, nil
+		}
+		update(renderGroupSettingsEditCardAtPage(state, draft, b.groupSettingsCardScope(settings, chatName), groupSettingsPageFromAction(event.Event.Action)))
+		return cardToast("success", managementCopy("management.group.settings.opened.not.saved.yet")), true, nil
 	}
 	if action == managementActionGroupConversationNew {
 		if err := b.newGroupConversation(settings.ChatID, settings.Version, openID); err != nil {
@@ -272,9 +303,7 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 	}
 	update(card)
 	var message any = managementCopy("management.current.group.settings.opened")
-	if action == managementActionGroupSettingsSave {
-		message = managementCopy("management.group.settings.saved.new.execution.options.apply.only.to")
-	} else if action == managementActionGroupConversationNew {
+	if action == managementActionGroupConversationNew {
 		message = managementCopy("management.new.persistent.conversation.ready.the.next.group.message.starts")
 	} else if action == managementActionGroupSettingsWatch {
 		message = managementGroupWatchSuccessText(managementCallbackString(event.Event.Action, "operation"))
@@ -415,6 +444,10 @@ func groupSettingsScopedButton(action string, label any, buttonType string, scop
 }
 
 func renderCurrentGroupSettingsCard(state managementState, settings *GroupSettings, root string, current *LarkChat, scope map[string]string) string {
+	return renderCurrentGroupSettingsCardWithNotice(state, settings, root, current, scope, "")
+}
+
+func renderCurrentGroupSettingsCardWithNotice(state managementState, settings *GroupSettings, root string, current *LarkChat, scope map[string]string, notice any) string {
 	agentRef, source := settings.DefaultAgent, managementCopy("management.selected.for.this.group")
 	if agentRef == "" {
 		agentRef, source = state.DefaultAgent, managementCopy("management.follow.the.assistant.default.expert")
@@ -468,6 +501,9 @@ func renderCurrentGroupSettingsCard(state managementState, settings *GroupSettin
 			managementSummaryItem{Title: managementCopy("management.context.message.count"), Body: strconv.Itoa(settings.ThreadContextLimit)},
 			managementSummaryItem{Title: managementCopy("management.group.session.limit.per.user.limit"), Body: fmt.Sprintf("%d / %d", settings.MaxSessionsTotal, settings.MaxSessionsPerUser)}),
 		managementHintElement(managementCopy("management.saved.execution.options.apply.only.to.new.sessions.existing")),
+	}
+	if managementDefaultText(notice) != "" {
+		elements = append([]cardElement{managementHintElement(notice)}, elements...)
 	}
 	buttons := []managementButton{groupSettingsScopedButton(managementActionGroupSettingsEdit, managementCopy("management.edit.group.settings"), "primary", scope)}
 	if settings.InteractionMode == config.FeishuInteractionSingleton && settings.Version > 0 {

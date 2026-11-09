@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -34,7 +35,11 @@ func (b *bridgeDB) MarkTopicRootPromptDelivered(bridgeID, rootMsgID, targetID, s
 	return affected > 0, err
 }
 func (b *bridgeDB) FindByRootMsg(bridgeID, rootMsgID string) (*LarkChat, error) {
-	row := b.db.QueryRow(`
+	return b.FindByRootMsgContext(context.Background(), bridgeID, rootMsgID)
+}
+
+func (b *bridgeDB) FindByRootMsgContext(ctx context.Context, bridgeID, rootMsgID string) (*LarkChat, error) {
+	row := b.db.QueryRowContext(ctx, `
 		SELECT bridge_id, chat_id, root_msg_id, thread_id, open_id, target_id, target_name, session_name, agent_profile, agent_type, effective_model, display_title, status, last_activity_at
 		FROM lark_chats WHERE bridge_id = ? AND root_msg_id = ?`, bridgeID, rootMsgID)
 	return scanChat(row)

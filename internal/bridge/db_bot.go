@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -10,11 +11,15 @@ import (
 )
 
 func (b *bridgeDB) ProfileDefaultAgent(bridgeID string) (string, error) {
+	return b.ProfileDefaultAgentContext(context.Background(), bridgeID)
+}
+
+func (b *bridgeDB) ProfileDefaultAgentContext(ctx context.Context, bridgeID string) (string, error) {
 	if strings.TrimSpace(bridgeID) == "" {
 		return "", fmt.Errorf("profile default bridge_id is required")
 	}
 	var agent string
-	err := b.db.QueryRow(`SELECT default_agent FROM feishu_profile_defaults WHERE bridge_id=?`, bridgeID).Scan(&agent)
+	err := b.db.QueryRowContext(ctx, `SELECT default_agent FROM feishu_profile_defaults WHERE bridge_id=?`, bridgeID).Scan(&agent)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
@@ -179,6 +184,10 @@ func (b *bridgeDB) GetBotProfileState(bridgeID, fallbackMode string) (BotProfile
 }
 
 func (b *bridgeDB) ReadBotProfileState(bridgeID, fallbackMode string) (BotProfileState, error) {
+	return b.ReadBotProfileStateContext(context.Background(), bridgeID, fallbackMode)
+}
+
+func (b *bridgeDB) ReadBotProfileStateContext(ctx context.Context, bridgeID, fallbackMode string) (BotProfileState, error) {
 	bridgeID = strings.TrimSpace(bridgeID)
 	fallbackMode = strings.TrimSpace(fallbackMode)
 	if bridgeID == "" {
@@ -189,7 +198,7 @@ func (b *bridgeDB) ReadBotProfileState(bridgeID, fallbackMode string) (BotProfil
 	}
 	var state BotProfileState
 	var isolationRequired int
-	err := b.db.QueryRow(`
+	err := b.db.QueryRowContext(ctx, `
 		SELECT bridge_id, interaction_mode, default_agent_profile, default_runtime_ref,
 			default_model_ref, default_reasoning_effort, isolation_required, state_version
 		FROM feishu_bot_profiles
@@ -199,7 +208,7 @@ func (b *bridgeDB) ReadBotProfileState(bridgeID, fallbackMode string) (BotProfil
 	state.IsolationRequired = isolationRequired != 0
 	if errors.Is(err, sql.ErrNoRows) {
 		state = BotProfileState{BridgeID: bridgeID, InteractionMode: fallbackMode}
-		err = b.db.QueryRow(`SELECT default_agent FROM feishu_profile_defaults WHERE bridge_id=?`, bridgeID).Scan(&state.DefaultAgent)
+		err = b.db.QueryRowContext(ctx, `SELECT default_agent FROM feishu_profile_defaults WHERE bridge_id=?`, bridgeID).Scan(&state.DefaultAgent)
 		if errors.Is(err, sql.ErrNoRows) {
 			return state, nil
 		}

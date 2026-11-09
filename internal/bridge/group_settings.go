@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/amuxos/amux/internal/config"
 )
@@ -23,6 +25,13 @@ func requireGroupSettingsExperiment() error {
 // Empty runtime/model/effort in a saved record mean the selected Profile's
 // defaults, not a live inheritance from the Bot's execution settings.
 func (b *Bridge) groupSettingsDraft(chatID string) (*GroupSettings, error) {
+	return b.groupSettingsDraftContext(context.Background(), chatID)
+}
+
+func (b *Bridge) groupSettingsDraftContext(ctx context.Context, chatID string) (*GroupSettings, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if err := requireGroupSettingsExperiment(); err != nil {
 		return nil, err
 	}
@@ -30,14 +39,14 @@ func (b *Bridge) groupSettingsDraft(chatID string) (*GroupSettings, error) {
 	if b == nil || b.db == nil || chatID == "" {
 		return nil, fmt.Errorf("group settings require a bridge and chat_id")
 	}
-	if saved, err := b.db.ReadGroupSettings(b.currentBridgeId(), chatID); err != nil || saved != nil {
+	if saved, err := b.db.ReadGroupSettingsContext(ctx, b.currentBridgeId(), chatID); err != nil || saved != nil {
 		return saved, err
 	}
-	state, err := b.currentBotProfileStateReadOnly()
+	state, err := b.groupSettingsBotProfileStateContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ws, err := b.db.ReadWorkspace(b.currentBridgeId(), chatID)
+	ws, err := b.db.ReadWorkspaceContext(ctx, b.currentBridgeId(), chatID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,11 +69,26 @@ func (b *Bridge) groupSettingsDraft(chatID string) (*GroupSettings, error) {
 	}, nil
 }
 
+func (b *Bridge) groupSettingsBotProfileStateContext(ctx context.Context) (BotProfileState, error) {
+	fallback := config.FeishuInteractionThread
+	if mode, err := b.legacyInteractionMode(); err == nil && managementValidInteraction(mode) {
+		fallback = mode
+	}
+	if b == nil || b.db == nil {
+		return BotProfileState{InteractionMode: fallback}, ctx.Err()
+	}
+	return b.db.ReadBotProfileStateContext(ctx, b.currentBridgeId(), fallback)
+}
+
 func (b *Bridge) groupSettingsAgent(settings *GroupSettings) (string, error) {
+	return b.groupSettingsAgentContext(context.Background(), settings)
+}
+
+func (b *Bridge) groupSettingsAgentContext(ctx context.Context, settings *GroupSettings) (string, error) {
 	if ref := strings.TrimSpace(settings.DefaultAgent); ref != "" {
 		return ref, nil
 	}
-	state, err := b.currentBotProfileStateReadOnly()
+	state, err := b.groupSettingsBotProfileStateContext(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -90,20 +114,27 @@ func validateGroupSettingsValues(settings *GroupSettings) error {
 }
 
 func (b *Bridge) validateGroupSettings(settings *GroupSettings) error {
+	return b.validateGroupSettingsContext(context.Background(), settings)
+}
+
+func (b *Bridge) validateGroupSettingsContext(ctx context.Context, settings *GroupSettings) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := validateGroupSettingsValues(settings); err != nil {
 		return err
 	}
 	if settings.BridgeID != b.currentBridgeId() {
 		return fmt.Errorf("群设置不属于当前智能体")
 	}
-	ws, err := b.db.ReadWorkspace(settings.BridgeID, settings.ChatID)
+	ws, err := b.db.ReadWorkspaceContext(ctx, settings.BridgeID, settings.ChatID)
 	if err != nil {
 		return err
 	}
 	if ws.Kind == WorkspaceKindPrivate {
 		return fmt.Errorf("私聊不支持群独立设置")
 	}
-	agent, err := b.groupSettingsAgent(settings)
+	agent, err := b.groupSettingsAgentContext(ctx, settings)
 	if err != nil {
 		return err
 	}
@@ -133,6 +164,52 @@ func groupSettingsRouteKey(bridgeID, chatID string) string {
 	return "group-settings:" + bridgeID + ":" + chatID
 }
 
+// lockGroupSettingsMutexContext waits without leaving a goroutine that could
+// acquire the mutex after the caller has canceled the save.
+func lockGroupSettingsMutexContext(ctx context.Context, mu *sync.Mutex) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if mu.TryLock() {
+		return nil
+	}
+	retry := time.NewTicker(5 * time.Millisecond)
+	defer retry.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-retry.C:
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if mu.TryLock() {
+				return nil
+			}
+		}
+	}
+}
+
+func (b *Bridge) lockGroupSettingsRouteContext(ctx context.Context, key string) (func(), error) {
+	if err := lockGroupSettingsMutexContext(ctx, &b.routeMu); err != nil {
+		return nil, err
+	}
+	// Share the same per-key mutex as lockRoute and its existing callers.
+	if b.routeLocks == nil {
+		b.routeLocks = make(map[string]*sync.Mutex)
+	}
+	mu := b.routeLocks[key]
+	if mu == nil {
+		mu = &sync.Mutex{}
+		b.routeLocks[key] = mu
+	}
+	b.routeMu.Unlock()
+	if err := lockGroupSettingsMutexContext(ctx, mu); err != nil {
+		return nil, err
+	}
+	return mu.Unlock, nil
+}
+
 func (b *Bridge) applyGroupSettings(ctx context.Context, settings *GroupSettings, expectedVersion int64, openID string) (*GroupSettings, error) {
 	if !b.isBotOwner(openID) {
 		return nil, fmt.Errorf("只有负责人可以修改群设置")
@@ -145,25 +222,29 @@ func (b *Bridge) applyGroupSettings(ctx context.Context, settings *GroupSettings
 	}
 	var saved *GroupSettings
 	commit := func() error {
-		b.groupWatchSettingsMu.Lock()
-		defer b.groupWatchSettingsMu.Unlock()
-		unlock := b.lockRoute(groupSettingsRouteKey(b.currentBridgeId(), settings.ChatID))
-		defer unlock()
-		if err := ctx.Err(); err != nil {
+		if err := lockGroupSettingsMutexContext(ctx, &b.groupWatchSettingsMu); err != nil {
 			return err
 		}
-		if err := b.validateGroupSettings(settings); err != nil {
+		defer b.groupWatchSettingsMu.Unlock()
+		unlock, err := b.lockGroupSettingsRouteContext(ctx, groupSettingsRouteKey(b.currentBridgeId(), settings.ChatID))
+		if err != nil {
+			return err
+		}
+		defer unlock()
+		if err := b.validateGroupSettingsContext(ctx, settings); err != nil {
+			return err
+		}
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 		copy := *settings
 		copy.UpdatedBy = openID
-		var err error
-		saved, err = b.db.SaveGroupSettings(copy, expectedVersion)
+		saved, err = b.db.SaveGroupSettingsContext(ctx, copy, expectedVersion)
 		return err
 	}
 	var err error
 	if b.managementPackActions != nil {
-		err = b.managementPackActions.WithRegistryStable(commit)
+		err = b.managementPackActions.WithRegistryStableContext(ctx, commit)
 	} else {
 		err = commit()
 	}

@@ -1,12 +1,14 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/amuxos/amux/internal/amuxhome"
 	"github.com/pelletier/go-toml/v2"
@@ -292,12 +294,56 @@ func SetBridgeFeishuGroupWatchExecution(profile, agentProfileRef, runtimeRef, mo
 // UpdateConfigFile serializes a complete config read-modify-write transaction
 // across goroutines and amux processes that share the same config path.
 func UpdateConfigFile(path string, mutate func(map[string]any) error) error {
-	configWriteMu.Lock()
+	return UpdateConfigFileContext(context.Background(), path, mutate)
+}
+
+// UpdateConfigFileContext is UpdateConfigFile with cancellable lock acquisition.
+// Cancellation is also checked before mutation and before committing the file.
+func UpdateConfigFileContext(ctx context.Context, path string, mutate func(map[string]any) error) error {
+	if err := lockConfigWriteContext(ctx); err != nil {
+		return err
+	}
 	defer configWriteMu.Unlock()
-	return updateConfigFileWithLock(path, mutate)
+	return updateConfigFileWithLockContext(ctx, path, mutate)
+}
+
+func lockConfigWriteContext(ctx context.Context) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if configWriteMu.TryLock() {
+			if err := ctx.Err(); err != nil {
+				configWriteMu.Unlock()
+				return err
+			}
+			return nil
+		}
+		if err := waitConfigLockRetry(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+func waitConfigLockRetry(ctx context.Context) error {
+	timer := time.NewTimer(10 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func updateConfigFileWithLock(path string, mutate func(map[string]any) error) error {
+	return updateConfigFileWithLockContext(context.Background(), path, mutate)
+}
+
+func updateConfigFileWithLockContext(ctx context.Context, path string, mutate func(map[string]any) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return fmt.Errorf("config path is required")
@@ -316,7 +362,7 @@ func updateConfigFileWithLock(path string, mutate func(map[string]any) error) er
 	if err := lock.Chmod(0600); err != nil {
 		return err
 	}
-	if err := lockConfigFile(lock); err != nil {
+	if err := lockConfigFileContext(ctx, lock); err != nil {
 		return err
 	}
 	defer unlockConfigFile(lock) //nolint:errcheck
@@ -325,10 +371,13 @@ func updateConfigFileWithLock(path string, mutate func(map[string]any) error) er
 	if err != nil {
 		return err
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := mutate(cfg); err != nil {
 		return err
 	}
-	return writeConfigFileForWrite(path, cfg)
+	return writeConfigFileForWriteContext(ctx, path, cfg)
 }
 
 func readConfigFileForWrite(path string) (map[string]any, error) {
@@ -350,6 +399,13 @@ func readConfigFileForWrite(path string) (map[string]any, error) {
 }
 
 func writeConfigFileForWrite(path string, cfg map[string]any) error {
+	return writeConfigFileForWriteContext(context.Background(), path, cfg)
+}
+
+func writeConfigFileForWriteContext(ctx context.Context, path string, cfg map[string]any) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
@@ -368,6 +424,10 @@ func writeConfigFileForWrite(path string, cfg map[string]any) error {
 		_ = tmp.Close()
 		return err
 	}
+	if err := ctx.Err(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
 		return err
@@ -377,6 +437,9 @@ func writeConfigFileForWrite(path string, cfg map[string]any) error {
 		return err
 	}
 	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	return os.Rename(tmpPath, path)

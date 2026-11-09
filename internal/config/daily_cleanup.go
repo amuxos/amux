@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -40,10 +41,20 @@ func dailyCleanupSettings(v *viper.Viper) (DailyCleanupSettings, error) {
 // ReadDailyCleanupSettings uses a fresh parser so saving the switch takes effect
 // without mutating Viper's global state while background readers are running.
 func ReadDailyCleanupSettings() (DailyCleanupSettings, error) {
-	configWriteMu.Lock()
+	return ReadDailyCleanupSettingsContext(context.Background())
+}
+
+// ReadDailyCleanupSettingsContext reads fresh settings with cancellable lock acquisition.
+func ReadDailyCleanupSettingsContext(ctx context.Context) (DailyCleanupSettings, error) {
+	if err := lockConfigWriteContext(ctx); err != nil {
+		return DailyCleanupSettings{}, err
+	}
 	defer configWriteMu.Unlock()
 	raw, err := readConfigFileForWrite(experimentsConfigPath())
 	if err != nil {
+		return DailyCleanupSettings{}, err
+	}
+	if err := ctx.Err(); err != nil {
 		return DailyCleanupSettings{}, err
 	}
 	v := viper.New()
@@ -52,8 +63,14 @@ func ReadDailyCleanupSettings() (DailyCleanupSettings, error) {
 	}
 	return dailyCleanupSettings(v)
 }
+
 func SaveDailyCleanupEnabled(enabled bool) error {
-	return UpdateConfigFile(experimentsConfigPath(), func(raw map[string]any) error {
+	return SaveDailyCleanupEnabledContext(context.Background(), enabled)
+}
+
+// SaveDailyCleanupEnabledContext saves the switch with cancellable lock acquisition.
+func SaveDailyCleanupEnabledContext(ctx context.Context, enabled bool) error {
+	return UpdateConfigFileContext(ctx, experimentsConfigPath(), func(raw map[string]any) error {
 		setNestedConfigValue(raw, strings.Split(DailyCleanupEnabledKey, "."), enabled)
 		return nil
 	})

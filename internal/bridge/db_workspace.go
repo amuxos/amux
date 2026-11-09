@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -63,22 +64,26 @@ func (b *bridgeDB) GetWorkspace(bridgeID, chatID string) (*FeishuWorkspace, erro
 }
 
 func (b *bridgeDB) ReadWorkspace(bridgeID, chatID string) (*FeishuWorkspace, error) {
+	return b.ReadWorkspaceContext(context.Background(), bridgeID, chatID)
+}
+
+func (b *bridgeDB) ReadWorkspaceContext(ctx context.Context, bridgeID, chatID string) (*FeishuWorkspace, error) {
 	bridgeID = strings.TrimSpace(bridgeID)
 	chatID = strings.TrimSpace(chatID)
 	if bridgeID == "" {
 		return nil, fmt.Errorf("workspace bridge_id is required")
 	}
 	if chatID == "" {
-		return b.defaultWorkspace(bridgeID, chatID)
+		return b.defaultWorkspaceContext(ctx, bridgeID, chatID)
 	}
-	row := b.db.QueryRow(`
+	row := b.db.QueryRowContext(ctx, `
 		SELECT bridge_id, chat_id, kind, mode, default_agent, default_target, default_cwd, default_model, default_args_json, thread_context_limit, max_sessions_total, max_sessions_per_user, idle_timeout_seconds
 		FROM feishu_workspaces WHERE bridge_id=? AND chat_id=?`, bridgeID, chatID)
 	var ws FeishuWorkspace
 	var defaultArgsJSON string
 	if err := row.Scan(&ws.BridgeId, &ws.ChatID, &ws.Kind, &ws.Mode, &ws.DefaultAgent, &ws.DefaultTarget, &ws.DefaultCwd, &ws.DefaultModel, &defaultArgsJSON, &ws.ThreadContextLimit, &ws.MaxSessionsTotal, &ws.MaxSessionsPerUser, &ws.IdleTimeoutSeconds); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return b.defaultWorkspace(bridgeID, chatID)
+			return b.defaultWorkspaceContext(ctx, bridgeID, chatID)
 		}
 		return nil, err
 	}
@@ -117,8 +122,12 @@ func (b *bridgeDB) ListGroupWorkspaceChatIDs(bridgeID string) ([]string, error) 
 	return chatIDs, rows.Err()
 }
 func (b *bridgeDB) defaultWorkspace(bridgeID, chatID string) (*FeishuWorkspace, error) {
+	return b.defaultWorkspaceContext(context.Background(), bridgeID, chatID)
+}
+
+func (b *bridgeDB) defaultWorkspaceContext(ctx context.Context, bridgeID, chatID string) (*FeishuWorkspace, error) {
 	defaults := b.workspaceDefaults
-	if agent, err := b.ProfileDefaultAgent(bridgeID); err != nil {
+	if agent, err := b.ProfileDefaultAgentContext(ctx, bridgeID); err != nil {
 		return nil, err
 	} else if strings.TrimSpace(agent) != "" {
 		defaults.Agent = agent

@@ -33,12 +33,19 @@ func groupSettingsCardTestBridge(t *testing.T) (*Bridge, <-chan string) {
 
 func groupSettingsTestCard(t *testing.T, cards <-chan string) string {
 	t.Helper()
-	select {
-	case card := <-cards:
-		return card
-	case <-time.After(5 * time.Second):
-		t.Fatal("group settings card was not delivered")
-		return ""
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	for {
+		select {
+		case card := <-cards:
+			if strings.Contains(card, managementDefaultText(managementCopy("management.group_settings.saving"))) {
+				continue
+			}
+			return card
+		case <-timer.C:
+			t.Fatal("group settings card was not delivered")
+			return ""
+		}
 	}
 }
 
@@ -208,7 +215,16 @@ func TestGroupSettingsCardRejectsUnauthorizedAndForgedScope(t *testing.T) {
 			for _, action := range []string{managementActionGroupSettingsOpen, managementActionGroupSettingsEdit, managementActionGroupSettingsSave, managementActionGroupSettingsWatch, managementActionGroupConversationNew} {
 				event := groupSettingsTestAction(b, settings, action, nil)
 				test.mutate(b, event)
-				groupSettingsTestCallback(t, b, event, "error")
+				if test.name == "private chat" && action == managementActionGroupSettingsSave {
+					cards := make(chan string, 2)
+					b.managementCardPatch = func(_ context.Context, _, card string) error { cards <- card; return nil }
+					groupSettingsTestCallback(t, b, event, "success")
+					if card := groupSettingsTestCard(t, cards); !strings.Contains(card, managementDefaultText(managementCopy("management.group_settings.save_failed"))) {
+						t.Fatalf("private save result = %s", card)
+					}
+				} else {
+					groupSettingsTestCallback(t, b, event, "error")
+				}
 			}
 			if saved, err := b.db.ReadGroupSettings(b.currentBridgeId(), "group-a"); err != nil || saved != nil {
 				t.Fatalf("rejected card wrote settings: %+v %v", saved, err)
@@ -250,13 +266,16 @@ func TestGroupSettingsCardSaveRejectsInvalidWholeTuple(t *testing.T) {
 		{"native empty", "group_model", managementGroupNativeModel},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			b, _ := groupSettingsCardTestBridge(t)
+			b, cards := groupSettingsCardTestBridge(t)
 			settings := groupSettingsTestDraft(t, b, "group-a")
 			fields := map[string]any{"group_access": WorkspaceModeShared, "group_runtime": "codex", test.key: test.value}
 			if test.key == "group_reasoning" {
 				fields["group_runtime"] = "claude"
 			}
-			groupSettingsTestCallback(t, b, groupSettingsTestAction(b, settings, managementActionGroupSettingsSave, fields), "error")
+			groupSettingsTestCallback(t, b, groupSettingsTestAction(b, settings, managementActionGroupSettingsSave, fields), "success")
+			if card := groupSettingsTestCard(t, cards); !strings.Contains(card, managementDefaultText(managementCopy("management.group_settings.save_failed"))) {
+				t.Fatalf("invalid save result = %s", card)
+			}
 			if saved, err := b.db.ReadGroupSettings(b.currentBridgeId(), "group-a"); err != nil || saved != nil {
 				t.Fatalf("invalid tuple partly saved: %+v %v", saved, err)
 			}
@@ -288,7 +307,10 @@ func TestGroupSettingsCardStaleSaveAndReset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	groupSettingsTestCallback(t, b, staleSave, "warning")
+	groupSettingsTestCallback(t, b, staleSave, "success")
+	if card := groupSettingsTestCard(t, cards); !strings.Contains(card, managementDefaultText(managementCopy("management.group.settings.changed.send.amux.again.in.the.target"))) {
+		t.Fatalf("stale save result = %s", card)
+	}
 	groupSettingsTestCallback(t, b, staleReset, "warning")
 	if root, err := b.db.GetGroupSessionRoot(saved.BridgeID, saved.ChatID); err != nil || root != "first-root" {
 		t.Fatalf("stale callback reset root: %q %v", root, err)

@@ -314,7 +314,11 @@ func (b *Bridge) writeManagementCardFromCallback(ctx context.Context, openID, me
 
 func (b *Bridge) writeManagementCardFromCallbackIf(ctx context.Context, openID, messageID, cardJSON string, current func() bool) {
 	queued := time.Now()
-	unlock := b.lockRoute("management-card\x00" + strings.TrimSpace(messageID))
+	unlock, err := b.lockGroupSettingsRouteContext(ctx, "management-card\x00"+strings.TrimSpace(messageID))
+	if err != nil {
+		log.Warn().Err(err).Str("message_id", messageID).Msg("bridge: management card delivery lock timed out")
+		return
+	}
 	defer unlock()
 	waited := time.Since(queued)
 	if current != nil && !current() {

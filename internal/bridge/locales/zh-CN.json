@@ -587,6 +587,27 @@
   "management.current.group.settings.opened": {
     "other": "已打开当前群设置"
   },
+  "management.group_settings.saving": {
+    "other": "正在保存本群设置，请等待结果卡片"
+  },
+  "management.group_settings.save_pending": {
+    "other": "本群设置正在保存，请等待结果，不要重复提交"
+  },
+  "management.group_settings.save_failed": {
+    "other": "本群设置未保存，已保留提交的草稿，可修改后重试"
+  },
+  "management.group_settings.save_timeout": {
+    "other": "保存超时，本群设置未变更，该次等待不会在稍后继续提交"
+  },
+  "management.group_settings.retry_after_timeout": {
+    "other": "共享配置资源繁忙，请重新打开草稿后重试"
+  },
+  "management.group_settings.cleanup_partial": {
+    "other": "本群设置已保存，但每日清理开关未保存。请重新打开群设置核对并重试该开关"
+  },
+  "management.group_settings.saved_refresh_failed": {
+    "other": "本群设置已保存，但摘要刷新失败。请在目标群重新发送 /amux 查看已保存设置"
+  },
   "management.group.settings.saved.new.execution.options.apply.only.to": {
     "other": "本群设置已保存，仅新会话采用新的执行参数"
   },
