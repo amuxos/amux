@@ -315,10 +315,11 @@ func (b *Bridge) reattachSingletonStreamIfBoundLocked(targetID, sessionName stri
 	return true
 }
 
-// startStream atomically reuses a live attachment to the same session launch,
-// or launches one that forwards agent output to rootMsgID. All startup paths
-// share this check so a delayed session-added callback cannot split a turn's
-// waiting/activity card from its result by replacing the reply sender.
+// startStream atomically reuses a live attachment to the same Session timeline,
+// or launches one that forwards agent output to rootMsgID. Attach subscriptions
+// survive process launches within a Session, including wake from sleep. All
+// startup paths share this check so a session-added callback cannot split a
+// turn's waiting/activity card from its result by replacing the reply sender.
 func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, agentType, effectiveModel, openID string) {
 	bridgeID := b.currentBridgeId()
 	streamChat := &LarkChat{
@@ -371,15 +372,22 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 	// snapshot also prevents a delayed callback from restoring an older launch.
 	session := b.boundSession(targetID, sessionName)
 	if previous, ok := b.streamSessions[sessionKey]; ok {
+		// Explicit reconfiguration still needs fresh presentation closures. A
+		// provider confirming metadata within the same launch does not.
+		samePresentation := previous.launchID == "" || session.GetLaunchId() == "" || previous.launchID == session.GetLaunchId() ||
+			(previous.agentType == streamChat.AgentType && previous.agentProfile == streamChat.AgentProfile &&
+				(previous.effectiveModel == "" || streamChat.EffectiveModel == "" || previous.effectiveModel == streamChat.EffectiveModel))
 		if previous.rootMsgID == rootMsgID && previous.ctx.Err() == nil &&
-			(previous.sessionID == "" || session.GetId() == "" || previous.sessionID == session.GetId()) &&
-			(previous.launchID == "" || session.GetLaunchId() == "" || previous.launchID == session.GetLaunchId()) {
+			(previous.sessionID == "" || session.GetId() == "" || previous.sessionID == session.GetId()) && samePresentation {
 			// Run can return before the first session snapshot arrives. Fill in
 			// its identity without discarding the card already opened by input.
 			if previous.sessionID == "" {
 				previous.sessionID = session.GetId()
 			}
-			if previous.launchID == "" {
+			// Launch identity is process metadata, not the identity of the
+			// Session timeline to which RouteStream is subscribed. In particular,
+			// a wake callback may arrive after turn_started opened a waiting card.
+			if session.GetLaunchId() != "" {
 				previous.launchID = session.GetLaunchId()
 			}
 			b.streamSessions[sessionKey] = previous
@@ -415,6 +423,8 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 	b.streamSessions[sessionKey] = sessionStreamRegistration{
 		rootMsgID: rootMsgID, token: token, ctx: ctx,
 		sessionID: session.GetId(), launchID: session.GetLaunchId(),
+		agentType: streamChat.AgentType, agentProfile: streamChat.AgentProfile,
+		effectiveModel: streamChat.EffectiveModel,
 	}
 	b.streamSessionID[rootMsgID] = sessionKey
 	b.streamMu.Unlock()

@@ -277,11 +277,14 @@ type streamFreezeHandler struct {
 }
 
 type sessionStreamRegistration struct {
-	rootMsgID string
-	token     uint64
-	ctx       context.Context
-	sessionID string
-	launchID  string
+	rootMsgID      string
+	token          uint64
+	ctx            context.Context
+	sessionID      string
+	launchID       string
+	agentType      string
+	agentProfile   string
+	effectiveModel string
 }
 
 type managementPackLibraryCardState struct {
