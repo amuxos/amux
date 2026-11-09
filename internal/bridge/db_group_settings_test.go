@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"path/filepath"
@@ -481,5 +482,157 @@ func TestBridgeDBGroupDefaultAgentReferences(t *testing.T) {
 	want := []string{"feishu:bot-default", "feishu:group-test/oc-group"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Pack references = %v; want %v", got, want)
+	}
+}
+
+func TestBridgeDBGroupSettingsContextBoundsConnectionWait(t *testing.T) {
+	for _, update := range []bool{false, true} {
+		for _, cancellation := range []string{"cancel", "deadline"} {
+			name := "create/" + cancellation
+			if update {
+				name = "update/" + cancellation
+			}
+			t.Run(name, func(t *testing.T) {
+				db := openGroupSettingsTestDB(t, filepath.Join(t.TempDir(), "bridge.db"))
+				settings := testGroupSettings()
+				var before *GroupSettings
+				var version int64
+				if update {
+					var err error
+					before, err = db.SaveGroupSettings(settings, 0)
+					if err != nil {
+						t.Fatal(err)
+					}
+					version = before.Version
+				}
+				settings.Mode = WorkspaceModeOwnerOnly
+				settings.DefaultAgent = "changed/profile"
+				conn, err := db.db.Conn(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer conn.Close()
+				var ctx context.Context
+				var cancel context.CancelFunc
+				if cancellation == "deadline" {
+					ctx, cancel = context.WithTimeout(context.Background(), 30*time.Millisecond)
+				} else {
+					ctx, cancel = context.WithCancel(context.Background())
+				}
+				defer cancel()
+				waits := db.db.Stats().WaitCount
+				done := make(chan error, 1)
+				go func() {
+					saved, err := db.SaveGroupSettingsContext(ctx, settings, version)
+					if saved != nil {
+						err = errors.New("canceled save returned settings")
+					}
+					done <- err
+				}()
+				if cancellation == "cancel" {
+					retry := time.NewTicker(time.Millisecond)
+					defer retry.Stop()
+					limit := time.NewTimer(2 * time.Second)
+					defer limit.Stop()
+					for db.db.Stats().WaitCount == waits {
+						select {
+						case <-retry.C:
+						case <-limit.C:
+							t.Fatal("save did not wait for the occupied connection")
+						}
+					}
+					cancel()
+				}
+				wantErr := context.Canceled
+				if cancellation == "deadline" {
+					wantErr = context.DeadlineExceeded
+				}
+				select {
+				case err := <-done:
+					if !errors.Is(err, wantErr) {
+						t.Fatalf("connection wait error = %v; want %v", err, wantErr)
+					}
+				case <-time.After(2 * time.Second):
+					t.Fatal("save did not return while the connection remained occupied")
+				}
+				if err := conn.Close(); err != nil {
+					t.Fatal(err)
+				}
+				got, err := db.ReadGroupSettings(settings.BridgeID, settings.ChatID)
+				if err != nil || !reflect.DeepEqual(got, before) {
+					t.Fatalf("canceled save changed settings: %+v, %v; want %+v", got, err, before)
+				}
+				if before != nil {
+					requireGroupWorkspaceProjection(t, db, before)
+				} else {
+					var count int
+					if err := db.db.QueryRow("SELECT COUNT(*) FROM feishu_workspaces").Scan(&count); err != nil || count != 0 {
+						t.Fatalf("canceled save wrote workspace: count=%d err=%v", count, err)
+					}
+				}
+				if saved, err := db.SaveGroupSettingsContext(context.Background(), settings, version); err != nil || saved.Version != version+1 {
+					t.Fatalf("save after cancellation = %+v, %v", saved, err)
+				}
+			})
+		}
+	}
+}
+
+func TestBridgeDBGroupSettingsContextReadsBoundConnectionWait(t *testing.T) {
+	for name, read := range map[string]func(context.Context, *bridgeDB) error{
+		"group settings": func(ctx context.Context, db *bridgeDB) error {
+			_, err := db.ReadGroupSettingsContext(ctx, "feishu:test", "group-a")
+			return err
+		},
+		"workspace": func(ctx context.Context, db *bridgeDB) error {
+			_, err := db.ReadWorkspaceContext(ctx, "feishu:test", "group-a")
+			return err
+		},
+		"default workspace": func(ctx context.Context, db *bridgeDB) error {
+			_, err := db.ReadWorkspaceContext(ctx, "feishu:test", "")
+			return err
+		},
+		"bot profile": func(ctx context.Context, db *bridgeDB) error {
+			_, err := db.ReadBotProfileStateContext(ctx, "feishu:test", config.FeishuInteractionThread)
+			return err
+		},
+		"default agent": func(ctx context.Context, db *bridgeDB) error {
+			_, err := db.ProfileDefaultAgentContext(ctx, "feishu:test")
+			return err
+		},
+		"group session root": func(ctx context.Context, db *bridgeDB) error {
+			_, err := db.GetGroupSessionRootContext(ctx, "feishu:test", "group-a")
+			return err
+		},
+		"topic binding": func(ctx context.Context, db *bridgeDB) error {
+			_, err := db.FindByRootMsgContext(ctx, "feishu:test", "root-a")
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			db := openGroupSettingsTestDB(t, filepath.Join(t.TempDir(), "bridge.db"))
+			conn, err := db.db.Conn(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+			defer cancel()
+			if err := read(ctx, db); !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("read connection wait error = %v", err)
+			}
+			if err := conn.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if err := read(context.Background(), db); err != nil {
+				t.Fatalf("read after cancellation: %v", err)
+			}
+			for _, table := range []string{"feishu_group_settings", "feishu_workspaces", "feishu_bot_profiles", "feishu_profile_defaults", "lark_chats"} {
+				var count int
+				if err := db.db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil || count != 0 {
+					t.Fatalf("read created rows in %s: count=%d err=%v", table, count, err)
+				}
+			}
+		})
 	}
 }

@@ -594,6 +594,27 @@
   "management.current.group.settings.opened": {
     "other": "Current group settings opened"
   },
+  "management.group_settings.saving": {
+    "other": "Saving group settings. Please wait for the result card."
+  },
+  "management.group_settings.save_pending": {
+    "other": "This group already has a save in progress. Please wait for its result."
+  },
+  "management.group_settings.save_failed": {
+    "other": "Group settings were not saved. Your submitted draft is retained for editing and retry."
+  },
+  "management.group_settings.save_timeout": {
+    "other": "Saving timed out. Group settings were not changed; the pending save will not commit later."
+  },
+  "management.group_settings.retry_after_timeout": {
+    "other": "Shared settings resources are busy. Reopen the draft and try again."
+  },
+  "management.group_settings.cleanup_partial": {
+    "other": "Group settings were saved, but the daily-cleanup switch was not saved. Reopen group settings to check and retry that switch."
+  },
+  "management.group_settings.saved_refresh_failed": {
+    "other": "Group settings were saved, but the summary could not be refreshed. Send /amux again in the target group to view the saved settings."
+  },
   "management.group.settings.saved.new.execution.options.apply.only.to": {
     "other": "Group settings saved. New execution options apply only to new sessions."
   },

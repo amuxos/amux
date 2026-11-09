@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -79,6 +80,10 @@ func (b *bridgeDB) migrateGroupSettings() error {
 // ReadGroupSettings never seeds a row. Nil means the group still follows the
 // legacy Bot-wide policy.
 func (b *bridgeDB) ReadGroupSettings(bridgeID, chatID string) (*GroupSettings, error) {
+	return b.ReadGroupSettingsContext(context.Background(), bridgeID, chatID)
+}
+
+func (b *bridgeDB) ReadGroupSettingsContext(ctx context.Context, bridgeID, chatID string) (*GroupSettings, error) {
 	bridgeID, chatID = strings.TrimSpace(bridgeID), strings.TrimSpace(chatID)
 	if err := validateGroupSettingsScope(bridgeID, chatID); err != nil {
 		return nil, err
@@ -86,7 +91,7 @@ func (b *bridgeDB) ReadGroupSettings(bridgeID, chatID string) (*GroupSettings, e
 	var settings GroupSettings
 	var argsJSON string
 	var updatedAt int64
-	err := b.db.QueryRow(`
+	err := b.db.QueryRowContext(ctx, `
 		SELECT bridge_id, chat_id, interaction_mode, isolation_required,
 			default_agent, default_runtime_ref, default_model_ref, default_reasoning_effort,
 			thinking_process, mode, default_target, default_cwd, default_args_json,
@@ -116,6 +121,14 @@ func (b *bridgeDB) ReadGroupSettings(bridgeID, chatID string) (*GroupSettings, e
 // workspace fields for existing access, context and capacity queries. The group
 // snapshot remains the authority for saved defaults.
 func (b *bridgeDB) SaveGroupSettings(settings GroupSettings, expectedVersion int64) (*GroupSettings, error) {
+	return b.SaveGroupSettingsContext(context.Background(), settings, expectedVersion)
+}
+
+// SaveGroupSettingsContext cancels connection-pool and transaction waits with ctx.
+func (b *bridgeDB) SaveGroupSettingsContext(ctx context.Context, settings GroupSettings, expectedVersion int64) (*GroupSettings, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	settings = normalizeGroupSettings(settings)
 	if err := validateGroupSettings(settings); err != nil {
 		return nil, err
@@ -127,7 +140,7 @@ func (b *bridgeDB) SaveGroupSettings(settings GroupSettings, expectedVersion int
 	if err != nil {
 		return nil, err
 	}
-	tx, err := b.db.Begin()
+	tx, err := b.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +156,7 @@ func (b *bridgeDB) SaveGroupSettings(settings GroupSettings, expectedVersion int
 		settings.MaxSessionsPerUser, settings.Version, settings.UpdatedBy, settings.UpdatedAt.Unix(),
 	}
 	if expectedVersion == 0 {
-		result, err = tx.Exec(`
+		result, err = tx.ExecContext(ctx, `
 			INSERT INTO feishu_group_settings (
 				interaction_mode, isolation_required, default_agent, default_runtime_ref,
 				default_model_ref, default_reasoning_effort, thinking_process, mode,
@@ -153,7 +166,7 @@ func (b *bridgeDB) SaveGroupSettings(settings GroupSettings, expectedVersion int
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(bridge_id, chat_id) DO NOTHING`, append(args, settings.BridgeID, settings.ChatID)...)
 	} else {
-		result, err = tx.Exec(`
+		result, err = tx.ExecContext(ctx, `
 			UPDATE feishu_group_settings SET
 				session_root_msg_id=CASE WHEN interaction_mode<>? THEN '' ELSE session_root_msg_id END,
 				interaction_mode=?, isolation_required=?, default_agent=?, default_runtime_ref=?,
@@ -170,7 +183,7 @@ func (b *bridgeDB) SaveGroupSettings(settings GroupSettings, expectedVersion int
 	if err := requireGroupSettingsUpdate(result); err != nil {
 		return nil, err
 	}
-	result, err = tx.Exec(`
+	result, err = tx.ExecContext(ctx, `
 		INSERT INTO feishu_workspaces (
 			bridge_id, chat_id, kind, mode, default_agent, default_target, default_cwd,
 			default_model, default_args_json, idle_timeout_seconds, thread_context_limit,
@@ -196,6 +209,9 @@ func (b *bridgeDB) SaveGroupSettings(settings GroupSettings, expectedVersion int
 		return nil, err
 	} else if affected != 1 {
 		return nil, fmt.Errorf("group settings require a group workspace")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -264,12 +280,16 @@ func requireGroupSettingsUpdate(result sql.Result) error {
 }
 
 func (b *bridgeDB) GetGroupSessionRoot(bridgeID, chatID string) (string, error) {
+	return b.GetGroupSessionRootContext(context.Background(), bridgeID, chatID)
+}
+
+func (b *bridgeDB) GetGroupSessionRootContext(ctx context.Context, bridgeID, chatID string) (string, error) {
 	bridgeID, chatID = strings.TrimSpace(bridgeID), strings.TrimSpace(chatID)
 	if err := validateGroupSettingsScope(bridgeID, chatID); err != nil {
 		return "", err
 	}
 	var root string
-	err := b.db.QueryRow(`SELECT session_root_msg_id FROM feishu_group_settings
+	err := b.db.QueryRowContext(ctx, `SELECT session_root_msg_id FROM feishu_group_settings
 		WHERE bridge_id=? AND chat_id=?`, bridgeID, chatID).Scan(&root)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil

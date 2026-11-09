@@ -26,6 +26,7 @@ type managementSettingsState struct {
 	documentSettingsActive    bool
 	botToBotSettingsActive    bool
 	groupWatchExecutionActive bool
+	groupSettingsSaves        map[string]bool
 	permissionRecheckActive   bool
 	permissionRecheckMessage  string
 	permissionRecheckVersion  uint64
