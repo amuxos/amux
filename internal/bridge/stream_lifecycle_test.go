@@ -170,15 +170,16 @@ func TestStreamStartupReusesConcurrentBindingAndSessionAdded(t *testing.T) {
 }
 
 func TestStreamStartupReattachesChangedOrEndedSession(t *testing.T) {
-	for _, reason := range []string{"launch", "session", "root", "target", "ended", "cancelled"} {
+	for _, reason := range []string{"session", "root", "target", "agent", "profile", "model", "ended", "cancelled"} {
 		t.Run(reason, func(t *testing.T) {
 			b, hub, chat := newStreamLifecycleBridge(t)
+			chat.AgentProfile, chat.EffectiveModel = "builtin/codex", "model-1"
+			if err := b.db.UpsertChat(*chat); err != nil {
+				t.Fatal(err)
+			}
 			b.startThreadStream(chat, "")
 			first := waitLifecycleSignal(t, hub.started)
 			switch reason {
-			case "launch":
-				session := hub.setSession(chat, "session-id-1", "launch-2")
-				b.OnSessionAdded(chat.TargetID, "target", session)
 			case "session":
 				session := hub.setSession(chat, "session-id-2", "launch-2")
 				b.OnSessionAdded(chat.TargetID, "target", session)
@@ -193,6 +194,19 @@ func TestStreamStartupReattachesChangedOrEndedSession(t *testing.T) {
 					t.Fatal(err)
 				}
 				hub.setSession(chat, "session-id-2", "launch-2")
+			case "agent", "profile", "model":
+				switch reason {
+				case "agent":
+					chat.AgentType = "pi"
+				case "profile":
+					chat.AgentProfile = "builtin/pi"
+				case "model":
+					chat.EffectiveModel = "model-2"
+				}
+				if err := b.db.UpsertChat(*chat); err != nil {
+					t.Fatal(err)
+				}
+				hub.setSession(chat, "session-id-1", "launch-2")
 			case "ended":
 				close(first.end)
 				waitLifecycleSignal(t, first.ctx.Done())
@@ -230,13 +244,26 @@ func TestStreamStartupLearnsInitialIdentityWithoutReplacing(t *testing.T) {
 	if first.ctx.Err() != nil {
 		t.Fatal("initial identity discovery replaced the live stream")
 	}
-	// Learned identity must still detect a later real restart.
+	// A process restart keeps the Session timeline and its presentation.
 	latest := hub.setSession(chat, "session-id-1", "launch-2")
 	b.OnSessionAdded(chat.TargetID, "target", latest)
-	second := waitLifecycleSignal(t, hub.started)
 	b.OnSessionAdded(chat.TargetID, "target", session) // Delayed old callback.
+	if first.ctx.Err() != nil {
+		t.Fatal("launch metadata refresh replaced the live Session timeline")
+	}
+	b.streamMu.Lock()
+	registration := b.streamSessions[chat.TargetID+"\x00"+chat.SessionName]
+	b.streamMu.Unlock()
+	if registration.launchID != "launch-2" {
+		t.Fatalf("launch metadata = %q, want current Hub launch", registration.launchID)
+	}
+	// Replacing the actual Session still replaces the subscription.
+	latest = hub.setSession(chat, "session-id-2", "launch-3")
+	b.OnSessionAdded(chat.TargetID, "target", latest)
+	second := waitLifecycleSignal(t, hub.started)
+	waitLifecycleSignal(t, first.ctx.Done())
 	if second.ctx.Err() != nil {
-		t.Fatal("stale session-added callback replaced the current launch")
+		t.Fatal("replacement Session stream was cancelled")
 	}
 }
 
@@ -244,11 +271,16 @@ func TestSessionAddedKeepsWaitingCardThroughResult(t *testing.T) {
 	// Provider presentation hooks are immutable. Isolate a generic extension
 	// to exercise the real waiting-card path without a distribution dependency.
 	const childEnv = "AMUX_TEST_WAITING_CARD_CHILD"
+	const launchChangeEnv = "AMUX_TEST_WAITING_CARD_LAUNCH_CHANGE"
 	if os.Getenv(childEnv) != "1" {
-		cmd := exec.Command(os.Args[0], "-test.run=^TestSessionAddedKeepsWaitingCardThroughResult$")
-		cmd.Env = append(os.Environ(), childEnv+"=1")
-		if output, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("isolated waiting-card test: %v\n%s", err, output)
+		for _, change := range []string{"duplicate", "before-input", "after-placeholder"} {
+			t.Run(change, func(t *testing.T) {
+				cmd := exec.Command(os.Args[0], "-test.run=^TestSessionAddedKeepsWaitingCardThroughResult$")
+				cmd.Env = append(os.Environ(), childEnv+"=1", launchChangeEnv+"="+change)
+				if output, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("isolated waiting-card test: %v\n%s", err, output)
+				}
+			})
 		}
 		return
 	}
@@ -307,6 +339,13 @@ func TestSessionAddedKeepsWaitingCardThroughResult(t *testing.T) {
 	session := hub.setSession(chat, "session-id-1", "launch-1")
 	b.startThreadStream(chat, "")
 	stream := waitLifecycleSignal(t, hub.started)
+	if os.Getenv(launchChangeEnv) == "before-input" {
+		session = hub.setSession(chat, "session-id-1", "launch-2")
+		b.OnSessionAdded(chat.TargetID, "target", session)
+		if stream.ctx.Err() != nil {
+			t.Fatal("wake notification cancelled the session timeline before input")
+		}
+	}
 	var seq uint64
 	emit := func(channel string, body agentstream.Body) {
 		t.Helper()
@@ -326,8 +365,11 @@ func TestSessionAddedKeepsWaitingCardThroughResult(t *testing.T) {
 	if got := waitLifecycleSignal(t, created); !strings.Contains(got, "card-1") {
 		t.Fatalf("waiting message = %s", got)
 	}
-	// The exact incident order: input opens a waiting card, then the Hub's
-	// asynchronous Added callback arrives before the first provider response.
+	// A wake notification may race either side of turn_started. Once a card
+	// exists, changing only the launch must preserve its timeline consumer.
+	if os.Getenv(launchChangeEnv) == "after-placeholder" {
+		session = hub.setSession(chat, "session-id-1", "launch-2")
+	}
 	b.OnSessionAdded(chat.TargetID, "target", session)
 	b.startThreadStream(chat, "")
 	if stream.ctx.Err() != nil {

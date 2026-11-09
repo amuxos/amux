@@ -97,13 +97,16 @@ part of that presentation. Provider startup output without an accepted input
 remains suppressed. A schedule's `ok` status confirms successful submission;
 the Turn's terminal event and result establish its execution outcome.
 
-Each bound session launch has one live output stream. Concurrent binding,
+Each bound Session has one live timeline output stream. Concurrent binding,
 input routing and session-added notifications reuse that stream, including its
-readiness, turn state and card handles. A duplicate startup notification must
-not freeze an existing progress card or put the same turn's result on a new
-card. Session or launch identity changes, binding transfers and ended streams
-still establish a new attachment. A newly created session may acquire its
-identity from the first Hub snapshot without replacing its live stream.
+readiness, turn state and card handles. A duplicate startup notification or a
+new process launch in the same Session (including wake from sleep) must not
+freeze an existing progress card or put the same turn's result on a new card.
+Launch metadata is refreshed without replacing a live Session subscription;
+new-launch command discovery continues through timeline events. Session identity
+changes, binding transfers, explicit engine/profile/model reconfiguration and
+ended or cancelled streams still establish a new attachment. A newly created Session may acquire its identity from the first Hub
+snapshot without replacing its live stream.
 
 Agent reply cards keep status, agent/model identity, timing and usage in the
 collapsible execution summary, without a separate root title bar. This layout

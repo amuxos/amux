@@ -74,10 +74,13 @@ Bridge 不从展示文本推断 Provider 语义。
 错误和最终结果。prompt 回显只是展示流程的一部分。没有已接受输入的 Provider 启动
 输出仍被屏蔽。Schedule 的 `ok` 表示提交成功；实际执行结果以 Turn 终态事件和结果为准。
 
-每个绑定的 Session launch 只有一条活动输出流。并发绑定、输入路由和 Session-added
-通知复用该流及其 readiness、turn 状态和卡片句柄。重复启动通知不能冻结已有进度卡，
-也不能把同一 turn 的结果放到新卡片。Session 或 launch 身份变化、binding 迁移以及
-流已结束时仍会建立新 attachment。新建 Session 可从首次 Hub 快照补齐身份而不替换活动流。
+每个绑定的 Session 只有一条活动时间线输出流。并发绑定、输入路由和 Session-added
+通知复用该流及其 readiness、turn 状态和卡片句柄。重复启动通知或同一 Session 的新进程
+launch（包括休眠唤醒）不能冻结已有进度卡，也不能把同一 turn 的结果放到新卡片。
+活动 Session 订阅不因 launch 元数据刷新而替换；新 launch 的命令发现继续通过时间线事件
+更新。Session 身份变化、binding 迁移、显式更换引擎/专家/模型以及流已结束或取消时
+仍会建立新 attachment。
+新建 Session 可从首次 Hub 快照补齐身份而不替换活动流。
 
 Agent 回复卡片将状态、专家/模型、耗时与用量集中在可折叠的执行摘要中，不增加独立
 标题栏；流式输出、完成和紧凑降级均沿用这一布局。模型使用可读的目录名称，
