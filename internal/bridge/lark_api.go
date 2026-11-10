@@ -132,6 +132,24 @@ func (b *Bridge) fetchChatName(ctx context.Context, chatID string) (string, erro
 	return strings.TrimSpace(stringPtr(resp.Data.Name)), nil
 }
 
+func (b *Bridge) fetchSourceMessage(ctx context.Context, messageID string) (*larkim.Message, error) {
+	if b.client == nil {
+		return nil, fmt.Errorf("nil lark client")
+	}
+	req := larkim.NewGetMessageReqBuilder().MessageId(messageID).UserIdType("open_id").Build()
+	resp, err := b.client.Im.Message.Get(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("lark get source message: %w", err)
+	}
+	if !resp.Success() {
+		return nil, fmt.Errorf("lark get source message: code=%d msg=%s", resp.Code, resp.Msg)
+	}
+	if resp.Data == nil || len(resp.Data.Items) == 0 || resp.Data.Items[0] == nil {
+		return nil, fmt.Errorf("lark get source message: empty message")
+	}
+	return resp.Data.Items[0], nil
+}
+
 func (b *Bridge) fetchTopicRootMessage(ctx context.Context, rootMsgID string) (topicRootMessage, error) {
 	rootMsgID = strings.TrimSpace(rootMsgID)
 	if rootMsgID == "" {

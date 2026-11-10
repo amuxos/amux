@@ -57,6 +57,7 @@ func (c *turnCoalescer) busyInputSteers() bool {
 const defaultCoalesceDelay = 2 * time.Second
 
 type coalescedInput struct {
+	source               feishuSource
 	chat                 *LarkChat
 	inputs               []string
 	turnInputs           []turnInputRef
@@ -100,14 +101,14 @@ func (c *turnCoalescer) shouldCoalesceInput(rootMsgID string) bool {
 // enqueueCoalescedInput buffers an input for rootMsgID and arms the flush
 // timer on the first buffered input of a window.
 func (b *Bridge) enqueueCoalescedInput(chat *LarkChat, input string) {
-	b.enqueueCoalescedInputForMessage(chat, input, "", "", nil)
+	b.enqueueCoalescedInputForMessage(context.Background(), chat, input, "", "", nil)
 }
 
 func (b *Bridge) enqueueCoalescedInputWithFailure(chat *LarkChat, input string, notifyFailure func(context.Context, error) error) {
-	b.enqueueCoalescedInputForMessage(chat, input, "", "", notifyFailure)
+	b.enqueueCoalescedInputForMessage(context.Background(), chat, input, "", "", notifyFailure)
 }
 
-func (b *Bridge) enqueueCoalescedInputForMessage(chat *LarkChat, input, messageID, openID string, notifyFailure func(context.Context, error) error) {
+func (b *Bridge) enqueueCoalescedInputForMessage(ctx context.Context, chat *LarkChat, input, messageID, openID string, notifyFailure func(context.Context, error) error) {
 	b.coalesceMu.Lock()
 	if b.coalesced == nil {
 		b.coalesced = make(map[string]*coalescedInput)
@@ -123,6 +124,7 @@ func (b *Bridge) enqueueCoalescedInputForMessage(chat *LarkChat, input, messageI
 		return
 	}
 	pending := &coalescedInput{
+		source:               feishuSourceForInput(ctx, chat),
 		chat:                 chat,
 		inputs:               []string{input},
 		turnInputs:           compactTurnInputRefs(openID, messageID),
@@ -178,6 +180,7 @@ func (b *Bridge) flushCoalescedInput(rootMsgID string) {
 	pending.chat.localExpertAuthoring = pending.localExpertAuthoring
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	ctx = withFeishuSource(ctx, pending.source)
 	var err error
 	if pending.steer {
 		var receipt submitReceipt

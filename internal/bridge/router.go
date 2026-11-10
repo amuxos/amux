@@ -59,6 +59,9 @@ func inputRouterWorkspaceMode(mode string) inputrouter.WorkspaceMode {
 }
 
 func (b *Bridge) routeToSessionInChatWithMentionOptions(ctx context.Context, chatID, rootMsgID, msgID, openID, text string, mention botMentionInfo, opts routeInputOptions) error {
+	if !opts.groupRouted {
+		ctx = withFeishuSource(ctx, feishuSource{ChatID: chatID, RootMessageID: rootMsgID})
+	}
 	if handled, err := b.routeGroupSessionInput(ctx, chatID, rootMsgID, msgID, openID, text, mention, opts); handled {
 		return err
 	}
@@ -341,7 +344,7 @@ func (b *Bridge) routeToSessionInChatWithMentionOptions(ctx context.Context, cha
 	}
 	b.recordThreadContextDecision(ctx, contextPackage, input)
 	if !hasFeishuMaterials(ctx) && b.shouldCoalesceInput(chat.RootMsgID) {
-		b.enqueueCoalescedInputForMessage(chat, input, msgID, notificationOpenID, nil)
+		b.enqueueCoalescedInputForMessage(ctx, chat, input, msgID, notificationOpenID, nil)
 		unlock()
 		return nil
 	}

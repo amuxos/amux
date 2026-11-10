@@ -410,6 +410,16 @@ re-route it, update assembled thread context, or refresh a cached quote.
 
 Prompts must clearly separate background context from the current request.
 
+Each message-backed submission also includes an `amux-source-context` block for
+that input. It describes the Bot, Session and original Feishu message, chat and
+thread; it is metadata, not an authorization grant or task instructions. The
+Bridge checks the exact message, chat, root and deletion state through its Bot
+API with a two-second timeout before exposing a conversation URL. It preserves a
+valid official message link, or constructs a standard entry from verified chat
+and thread IDs. A failed lookup or mismatch leaves an error code instead of a
+guessed URL. Coalesced inputs retain the first input's source, and singleton
+routing never borrows a conversation entry from another input or binding.
+
 An explicit quoted reply is independent of topic roots and shared history. The
 Bridge wraps the existing topic/shared Prompt with:
 

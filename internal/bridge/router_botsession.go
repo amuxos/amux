@@ -11,6 +11,7 @@ import (
 )
 
 func (b *Bridge) routeBotSessionInput(ctx context.Context, in botSessionInput) (bool, error) {
+	ctx = withFeishuSource(ctx, feishuSource{ChatID: in.ChatID})
 	if in.ReplyKind == botSessionReplyGroup && b != nil && b.db != nil {
 		settings, err := b.db.ReadGroupSettings(b.currentBridgeId(), in.ChatID)
 		if err != nil {
@@ -92,7 +93,7 @@ func (b *Bridge) routeBotSessionInput(ctx context.Context, in botSessionInput) (
 		b.addReactionAsync(in.MessageID, "OneSecond")
 	}
 	if !hasFeishuMaterials(ctx) && b.shouldCoalesceInput(chat.RootMsgID) {
-		b.enqueueCoalescedInputForMessage(chat, routedText, in.MessageID, in.OpenID, func(notifyCtx context.Context, err error) error {
+		b.enqueueCoalescedInputForMessage(ctx, chat, routedText, in.MessageID, in.OpenID, func(notifyCtx context.Context, err error) error {
 			return b.notifyBotSession(notifyCtx, in.ReplyKind, in.ChatID, in.OpenID, botSessionSubmitFailureText(err))
 		})
 		return true, nil

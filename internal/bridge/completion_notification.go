@@ -139,11 +139,15 @@ func (b *Bridge) completionNotificationURL(ctx context.Context, chat *LarkChat) 
 		}
 		threadID = root.ThreadID
 	}
+	return feishuConversationURL(chatID, threadID), nil
+}
+
+func feishuConversationURL(chatID, threadID string) string {
 	if threadID != "" {
 		query := url.Values{"open_chat_id": {chatID}, "openchatid": {chatID}, "open_thread_id": {threadID}, "openthreadid": {threadID}, "thread_position": {"-1"}}
-		return "https://applink.feishu.cn/client/thread/open?" + query.Encode(), nil
+		return "https://applink.feishu.cn/client/thread/open?" + query.Encode()
 	}
-	return "https://applink.feishu.cn/client/chat/open?" + url.Values{"openChatId": {chatID}}.Encode(), nil
+	return "https://applink.feishu.cn/client/chat/open?" + url.Values{"openChatId": {chatID}}.Encode()
 }
 
 func turnCompletionNotificationKind(status string) string {

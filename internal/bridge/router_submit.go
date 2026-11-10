@@ -101,8 +101,11 @@ func (b *Bridge) submitToSessionMode(ctx context.Context, chat *LarkChat, text s
 	// not carry them. With steer_foreground off the file-delivery note keeps
 	// its earlier per-turn inline delivery and no protocol is sent.
 	systemInstructions := b.sessionSystemInstructions(chat)
+	guidance := b.sourceContextInstructions(ctx, chat, inputs)
 	if systemInstructions == "" {
-		guidance := artifactInstructions
+		guidance += artifactInstructions
+	}
+	if guidance != "" {
 		if len(parts) == 0 {
 			parts = []*pb.InputPart{{Value: &pb.InputPart_Text{Text: text + guidance}}}
 		} else if first, ok := parts[0].Value.(*pb.InputPart_Text); ok {

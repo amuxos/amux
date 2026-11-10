@@ -31,6 +31,7 @@ type messagingPort struct {
 
 // lookupPort is the read-only Feishu lookup surface.
 type lookupPort struct {
+	sourceMessageLookup func(context.Context, string) (*larkim.Message, error)
 	topicRootLookup     func(context.Context, string) (topicRootMessage, error)
 	quotedMessageLookup func(context.Context, string) (feishuQuotedMessage, error)
 	chatNameLookup      func(context.Context, string) (string, error)

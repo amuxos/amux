@@ -65,8 +65,8 @@ func TestCoalescedInputPersistsEveryMessageToOneTurn(t *testing.T) {
 	}
 	chat := &LarkChat{BridgeId: "feishu:test", RootMsgID: "root1", TargetID: "t1", SessionName: "s1"}
 	b.setTurnActive("root1", true)
-	b.enqueueCoalescedInputForMessage(chat, "first", "message-1", "ou_first", nil)
-	b.enqueueCoalescedInputForMessage(chat, "second", "message-2", "ou_second", nil)
+	b.enqueueCoalescedInputForMessage(context.Background(), chat, "first", "message-1", "ou_first", nil)
+	b.enqueueCoalescedInputForMessage(context.Background(), chat, "second", "message-2", "ou_second", nil)
 
 	waitForBridgeTest(t, time.Second, func() bool {
 		links, lookupErr := LookupTurnLinks(path, TurnLinkQuery{TurnID: "turn-1"})
@@ -325,8 +325,8 @@ func TestBusyInputSteersByDefaultWithoutInterrupt(t *testing.T) {
 	b.setTurnActive("root1", true)
 	ownTurn(b, "root1", "turn-1", "ou-a")
 
-	b.enqueueCoalescedInputForMessage(chat, "改成用 Python", "om-1", "ou-a", nil)
-	b.enqueueCoalescedInputForMessage(chat, "并且加上测试", "om-2", "ou-a", nil)
+	b.enqueueCoalescedInputForMessage(context.Background(), chat, "改成用 Python", "om-1", "ou-a", nil)
+	b.enqueueCoalescedInputForMessage(context.Background(), chat, "并且加上测试", "om-2", "ou-a", nil)
 	waitForBridgeTest(t, time.Second, func() bool { return len(hub.snapshot()) == 1 })
 	time.Sleep(20 * time.Millisecond)
 	if n := hub.interruptCount(); n != 0 {
