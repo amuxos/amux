@@ -4,7 +4,34 @@
 
 [English](cli-product-model.md) | [简体中文](cli-product-model.zh-CN.md)
 
-主要命令组为 `setup`、`session`、`task`、`agent`、`schedule`、`memory`、`isolation` 和 `system`。
+主要命令组为 `setup`、`session`、`task`、`agent`、`schedule`、`memory`、`isolation`、`console` 和 `system`。
+
+负责人私聊 `/amux` → Web 管理后台页负责开启、关闭系统级临时后台。缺省关闭，
+开启后监听 `0.0.0.0:<console.port>`（默认 7892），30 分钟后自动关闭；重复开启不续期。
+到期、手动关闭或 Hub 退出都会关闭监听并使所有浏览器会话失效，所有助手共用同一个管理器。
+仅向已确认负责人的私聊卡显示服务器访问地址、剩余时间和每次新生成的 32 字符临时密码。
+密码仅通过 stdin 传入子进程，不进入命令参数、URL、环境、日志或应用持久化；重新开启轮换密码。
+`console.public_url` 可覆盖对外访问 origin，否则使用 Hub 主机 IP 和系统端口。
+非回环 HTTP 可用于可信网络，但不加密；公网部署应使用 HTTPS。
+
+`amux console` 保留为运维诊断命令，默认本机监听和 30 分钟寿命；非回环监听必须同时提供
+`--password-stdin` 和非回环 `--public-url`。`--duration` 可以缩短但不能超过 30 分钟。
+本机未提供密码时兼容五分钟有效的一次性 fragment 配对。临时密码换取 HttpOnly、
+SameSite=Strict Cookie，会话有效期不会晚于后台关闭时间。退出登录只撤销当前浏览器会话，
+不关闭后台。业务读取和事件流均需认证，写操作还要求精确 Host/Origin 和会话 CSRF token。
+浏览器不将秘密写入 localStorage。Agent 和 enrollment actor 凭据不能启动此运维入口。
+托管子进程先核对直接父进程、已记录的 Hub PID 及同安装目录的 Hub 可执行文件，
+再建立回环运维连接。宿主 HOME 遗留的 enrollment 文件不改变该托管子进程的身份；
+显式 Agent/Session 身份仍拒绝启动，单独传入私有托管 flag 不授予权限。
+这不表示已有多用户浏览器 RBAC。
+托管后台只列出宿主凭据名称及字段名称，不冒用 enrollment 所属 Principal，也不返回凭据值或文件内容。
+
+控制台包含总览、Session/Timeline、TaskRun/持久实例、Schedule、助手/群设置、专家内容/Pack、
+凭据元数据以及显式白名单的本地设置。不提供运行节点管理页、宿主 Shell 或任意命令接口。
+后端能力列表决定可用操作；助手和群修改复用 Hub 内正在运行的 Bridge 状态切换和版本检查，
+包括确认和恢复选择。浏览器不能把模型或权限字段写入仅包含内容的 Profile。
+已有 Session 保留执行快照。暂停 Schedule 不取消已接纳工作；接纳与最终执行结果分开显示。
+现有桌面 Gateway 和只读 viewer 保留独立的认证与分享契约。
 Session、Task 和 Schedule 使用 Hub 控制面。每个 Runtime 在本机执行工作，并通过
 出站 tunnel 连接 Hub。本地使用需要 Hub，但不要求飞书 Bridge。
 `local` Target 别名标识配置的本地 Runtime，也适用于 `session list` 过滤，

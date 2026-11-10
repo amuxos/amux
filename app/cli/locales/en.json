@@ -298,5 +298,50 @@
   },
   "mcp.call.continuation_cursor": {
     "other": "Invalid MCP continuation cursor"
+  },
+  "console.short": {
+    "other": "Open the operator web management console"
+  },
+  "console.addr": {
+    "other": "listen IP and port (non-loopback requires temporary-password authentication)"
+  },
+  "console.operator_required": {
+    "other": "The management console requires host-operator access; agent or enrollment credentials are not accepted."
+  },
+  "console.loopback_required": {
+    "other": "The management console only listens on a numeric loopback address. Use an SSH tunnel for remote access."
+  },
+  "console.ready": {
+    "other": "Open this one-time pairing link within five minutes: %s\nThis is a host-operator console. Keep the pairing link private; restart the command to pair a new browser."
+  },
+  "console.public_url": {
+    "other": "browser-facing HTTP(S) origin; no credentials, query or fragment"
+  },
+  "console.duration": {
+    "other": "maximum open duration; automatically closes on expiry (up to 30m)"
+  },
+  "console.password_stdin": {
+    "other": "read a temporary password from stdin (required for non-loopback listening)"
+  },
+  "console.listen_invalid": {
+    "other": "The console listen address must use a numeric IP and port."
+  },
+  "console.duration_invalid": {
+    "other": "The console open duration must be positive and no more than 30 minutes."
+  },
+  "console.invalid_public_url": {
+    "other": "The console URL must be a bare HTTP(S) origin without credentials, query or fragment."
+  },
+  "console.invalid_port": {
+    "other": "The console port must be an integer from 1 to 65535."
+  },
+  "console.remote_auth_required": {
+    "other": "Remote console listening requires --password-stdin and a non-loopback --public-url."
+  },
+  "console.password_invalid": {
+    "other": "The temporary password must contain 16 to 256 non-whitespace characters."
+  },
+  "console.password_ready": {
+    "other": "Temporary management console: %s\nUse the temporary password from the owner’s private /amux card. The listener closes automatically; use HTTPS or a trusted network."
   }
 }

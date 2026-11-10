@@ -2750,7 +2750,7 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 		if strings.HasPrefix(element.ElementID, "amux_overview_actions") {
 			row := foundActionRows
 			foundActionRows++
-			wantActions := []string{managementActionSystemMaintenance, managementActionSettingsOpen, managementActionPackLibraryOpen, managementActionExperimentsOpen, managementActionGuideOpen, managementActionHelpOpen, capabilityAction + "open"}
+			wantActions := []string{managementActionSystemMaintenance, managementActionSettingsOpen, managementActionPackLibraryOpen, managementActionExperimentsOpen, managementActionGuideOpen, managementActionHelpOpen, capabilityAction + "open", managementActionConsoleOpen}
 			if index != 7+row || element.FlexMode != "none" || len(element.Columns) != min(3, len(wantActions)-row*3) {
 				t.Fatal("overview rows must contain at most three actions")
 			}

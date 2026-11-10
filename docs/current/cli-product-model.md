@@ -3,7 +3,50 @@
 [English](cli-product-model.md) | [简体中文](cli-product-model.zh-CN.md)
 
 The primary command groups are `setup`, `session`, `task`, `agent`, `schedule`,
-`memory`, `isolation` and `system`. Sessions, tasks and schedules use the hub
+`memory`, `isolation`, `console` and `system`.
+
+The owner's private `/amux` → Web management console page opens and closes one
+installation-wide temporary browser console. It is off by default. Opening binds
+`0.0.0.0:<console.port>` (7892 by default) for 30 minutes; reopening an active
+window does not extend it. Expiry, explicit close, or Hub shutdown stops the
+listener and invalidates all browser sessions. All Bots share this same manager.
+The card displays a reachable server URL, remaining time and a newly generated
+32-character temporary password only in the confirmed owner's private card.
+Passwords are passed to the child over stdin, never command arguments, URL,
+environment, logs or application persistence. Each new window rotates the password.
+`console.public_url` overrides the advertised origin; otherwise the Hub host IP
+and global port are used. Non-loopback HTTP is supported for trusted networks;
+it is not encrypted and public deployments should use HTTPS.
+
+`amux console` remains available for operator diagnostics. It defaults to a local
+listener and a 30-minute lifetime. `--password-stdin` and a non-loopback
+`--public-url` are required to expose a non-loopback listener. `--duration` can
+shorten, but not extend beyond, 30 minutes. A local invocation without a password
+retains five-minute single-use fragment pairing. Password login exchanges the
+password for an HttpOnly, SameSite=Strict cookie whose lifetime cannot exceed the
+open window. Logout revokes one browser session without stopping the console.
+All business reads and event streams require authentication; writes also require
+the exact Host/Origin and a session CSRF token. Browser secrets are not stored in
+localStorage. Agent and enrollment actor credentials cannot start this operator
+surface. A managed child verifies its direct parent against the recorded Hub PID
+and installed sibling Hub executable before using a loopback operator connection.
+An enrollment file left in the host HOME does not change that managed child's
+identity; explicit Agent/session identity still rejects startup. The private
+managed flag alone grants no authority. This does not establish multi-user browser RBAC.
+The managed console lists host credential names and field names only; it does not
+impersonate an enrolled Principal or expose credential values and file contents.
+
+The console covers overview, Sessions and Timeline, TaskRuns and persistent
+instances, Schedules, Bot/group settings, expert content/Packs, credential metadata
+and an explicitly allowlisted local settings surface. There is no Runtime-node
+management page, host shell or arbitrary command endpoint. Backend capability
+lists determine available actions. Bot and group changes use the live Hub Bridge
+transition and version checks, including confirmation and recovery choices.
+The browser cannot replace a Profile's content-only contract with model or
+permission fields. Existing Sessions keep their execution snapshots. Pausing a
+Schedule does not cancel admitted work; admission and final execution outcomes
+remain distinct. The existing desktop Gateway and read-only viewer retain their
+separate authentication and sharing contracts. Sessions, tasks and schedules use the hub
 control plane. Each runtime executes work locally and connects to the hub
 through an outbound tunnel.
 Local operation requires a hub, but does not require the Feishu bridge.

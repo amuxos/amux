@@ -17,6 +17,13 @@ amux system config unset <key>
 
 “CLI-managed” specifically means the generic `amux system config set/get/unset` commands. Keys marked “No” may have dedicated commands listed in their descriptions; otherwise edit TOML directly. Replace `<profile>` with the actual Feishu Bot Profile name. `<provider>` supports only `codex`. This reference does not include example sensitive values.
 
+## Web management console
+
+| Configuration key | Type | Default | Constraints | CLI-managed | Description |
+| --- | --- | --- | --- | --- | --- |
+| `console.port` | integer | 7892 | 1–65535 | Yes | Installation-wide temporary Web console port shared by all Bots. The owner enables all-interface IPv4 listening from private /amux; it closes after 30 minutes by default. |
+| `console.public_url` | URL | Empty (use Hub host IP and port) | bare HTTP(S) origin; no credentials/query/fragment | Yes | Console origin shown in the private management card, used only while temporarily enabled. Empty selects the host IP. HTTP is for trusted networks; use HTTPS for public access. |
+
 ## Agent
 
 | Configuration key | Type | Default | Constraints | CLI-managed | Description |

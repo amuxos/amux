@@ -37,6 +37,8 @@ service Amuxlet {
 service Amuxd {
   // Host-operator maintenance, never available to Agent credentials.
   rpc Cleanup(CleanupRequest) returns (CleanupResponse);
+  // Operator-only, bounded typed Bot/group management; never a generic RPC proxy.
+  rpc ConsoleManagement(ConsoleManagementRequest) returns (ConsoleManagementResponse);
   // Model services reuse the authenticated actor; no upstream credentials leave the Hub.
   rpc ProxyModel(ProxyModelRequest) returns (stream ProxyModelChunk);
   rpc Run(AmuxdRunRequest) returns (RunResponse);
@@ -1761,4 +1763,19 @@ message SendFeishuMessageResponse {
   string thread_id = 3;
   string bot_profile = 4;
   string uuid = 5;
+}
+
+// JSON is only an encoding boundary. The Hub decodes a closed DTO per action,
+// rejects unknown fields, and delegates to the owning live Bridge.
+message ConsoleManagementRequest {
+  string resource = 1; // bots | groups
+  string action = 2; // list | get | save
+  bytes payload_json = 3; // one JSON object, at most 64 KiB
+}
+message ConsoleManagementResponse {
+  // success | needs_confirmation | needs_recovery_choice | state_changed
+  string status = 1;
+  // Complete JSON response object, including status; clients must not infer
+  // success merely from an OK gRPC status.
+  bytes payload_json = 2;
 }

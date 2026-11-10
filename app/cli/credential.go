@@ -417,6 +417,10 @@ func listCredentialMetadata(ctx context.Context) ([]credentialProfileMetadata, e
 		}
 		return out, nil
 	}
+	return listLocalCredentialMetadata()
+}
+
+func listLocalCredentialMetadata() ([]credentialProfileMetadata, error) {
 	profiles, err := listCredentialProfiles()
 	if err != nil {
 		return nil, err

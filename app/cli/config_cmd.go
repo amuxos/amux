@@ -14,6 +14,7 @@ import (
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/consoleentry"
 	"github.com/amuxos/amux/internal/i18n"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/pelletier/go-toml/v2"
@@ -311,6 +312,18 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 			}
 		}
 		value = paths
+	}
+	if key == "console.public_url" && raw != "" {
+		if _, err := consoleentry.ValidateURL(raw); err != nil {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "console.invalid_public_url")))
+		}
+	}
+	if key == "console.port" {
+		port, err := strconv.Atoi(raw)
+		if err != nil || port < 1 || port > 65535 {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "console.invalid_port")))
+		}
+		value = port
 	}
 	if key == "hub.addr" {
 		if err := validateHubAddress(raw); err != nil {

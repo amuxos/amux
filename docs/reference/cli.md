@@ -41,6 +41,7 @@ After changing public command names, hierarchy, visibility, descriptions, argume
 | `amux completion fish` | Generate the autocompletion script for fish |
 | `amux completion powershell` | Generate the autocompletion script for powershell |
 | `amux completion zsh` | Generate the autocompletion script for zsh |
+| `amux console` | Open the operator web management console |
 | `amux help` | Help about any command |
 | `amux isolation` | Manage identified principals and Linux UID/DAC isolation |
 | `amux isolation account` | Inspect target-local principal account mappings |
@@ -154,6 +155,7 @@ amux [flags]
 | --- | --- |
 | `amux agent` | Manage agent profiles |
 | `amux completion` | Generate the autocompletion script for the specified shell |
+| `amux console` | Open the operator web management console |
 | `amux help` | Help about any command |
 | `amux isolation` | Manage identified principals and Linux UID/DAC isolation |
 | `amux memory` | Manage shared Markdown memory through the Hub |
@@ -779,6 +781,26 @@ amux completion zsh [flags]
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | help for zsh |
 | `--no-descriptions` | `bool` | `false` | disable completion descriptions |
+
+## `amux console`
+
+Open the operator web management console
+
+**Usage**
+
+```text
+amux console [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--addr` | `string` | `127.0.0.1:7892` | listen IP and port (non-loopback requires temporary-password authentication) |
+| `--duration` | `duration` | `30m0s` | maximum open duration; automatically closes on expiry (up to 30m) |
+| `-h, --help` | `bool` | `false` | help for console |
+| `--password-stdin` | `bool` | `false` | read a temporary password from stdin (required for non-loopback listening) |
+| `--public-url` | `string` | `""` | browser-facing HTTP(S) origin; no credentials, query or fragment |
 
 ## `amux help`
 

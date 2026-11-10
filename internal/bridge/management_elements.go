@@ -229,6 +229,7 @@ func managementOverviewActionElements(state managementState) []cardElement {
 		{Text: guideCopy("title"), Type: "default", Action: managementActionGuideOpen, Name: "amux.overview.guide", Icon: managementIconPtr("info_outlined", "grey")},
 		{Text: managementCopy("management.help"), Type: "default", Action: managementActionHelpOpen, Name: "amux.overview.help", Icon: managementIconPtr("info_outlined", "grey")},
 		{Text: discoveryCopy("title"), Type: "default", Action: capabilityAction + "open", Name: "amux.overview.discovery", Icon: managementIconPtr("info_outlined", "grey")},
+		{Text: managementCopy("management.console.title"), Type: "default", Action: managementActionConsoleOpen, Name: "amux.overview.console", Icon: managementIconPtr("setting_outlined", "grey")},
 	}
 	if state.SystemStatus != managementSystemHealthy || state.Update.ShouldPrompt {
 		items[0].Type = "primary"

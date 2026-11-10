@@ -1,4 +1,55 @@
 {
+  "management.console.title": {
+    "other": "Web管理后台"
+  },
+  "management.console.owner_private_required": {
+    "other": "仅智能体负责人可以在私聊管理卡中控制后台。"
+  },
+  "management.console.status": {
+    "other": "状态"
+  },
+  "management.console.off": {
+    "other": "已关闭"
+  },
+  "management.console.on": {
+    "other": "已开启"
+  },
+  "management.console.address": {
+    "other": "访问地址"
+  },
+  "management.console.remaining": {
+    "other": "剩余时间（分:秒）"
+  },
+  "management.console.password": {
+    "other": "临时密码"
+  },
+  "management.console.explanation": {
+    "other": "开启系统级后台后，其他机器可通过该地址和临时密码访问，有效期为30分钟。重复开启不会延长时间；关闭或到期后所有浏览器会话失效。请勿泄露密码。"
+  },
+  "management.console.enable": {
+    "other": "开启30分钟"
+  },
+  "management.console.close": {
+    "other": "关闭后台"
+  },
+  "management.console.refresh": {
+    "other": "刷新"
+  },
+  "management.console.refreshed": {
+    "other": "后台状态已刷新"
+  },
+  "management.console.updating": {
+    "other": "正在更新后台状态"
+  },
+  "management.console.working": {
+    "other": "正在更新后台状态…"
+  },
+  "management.console.failed": {
+    "other": "后台操作失败，请刷新状态并检查访问地址、端口和已安装的CLI。"
+  },
+  "management.console.unavailable": {
+    "other": "当前Hub暂不支持控制后台。"
+  },
   "provision.app.description": {
     "other": "Powered by amux"
   },
@@ -3769,5 +3820,11 @@
   },
   "discovery.maintenance.guidance": {
     "other": "准确入口为负责人私聊 /amux → 系统状态，不是另一个“系统维护”页面。展示版本、Hub/Runtime/Bridge 连接、数量及部署信息；操作是检查更新与重启，异常时可重新检查。不会执行完整健康巡检或逐个测试引擎/模型登录，也没有通用 Target 身份/目录面板。full_system_health=not_checked 仍是未知。检查更新只读；有更新时对页面展示的目标版本确认升级，会安装并重启，不能编造安装后还必须另问一次重启，也不保证运行工作完全不受影响。会话记录保留；短暂离线/恢复或工作中断以实际维护流程为准。介绍时不安装/重启/改配置/停会话。"
+  },
+  "management.console.visit": {
+    "other": "打开后台"
+  },
+  "management.console.http_warning": {
+    "other": "HTTP 会明文传输密码和内容。请仅在可信网络使用，公网访问请配置 HTTPS。"
   }
 }

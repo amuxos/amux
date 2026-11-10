@@ -3374,5 +3374,65 @@
   "Enable daily discovery when sending the capability plaza": {
     "en": "Enable daily discovery when sending the capability plaza",
     "zh-CN": "发送能力广场时开启每日能力推荐"
+  },
+  "Open the operator web management console": {
+    "en": "Open the operator web management console",
+    "zh-CN": "打开运维 Web 管理控制台"
+  },
+  "help for console": {
+    "en": "help for console",
+    "zh-CN": "console 的帮助信息"
+  },
+  "loopback listen address (port 0 selects an available port)": {
+    "en": "loopback listen address (port 0 selects an available port)",
+    "zh-CN": "本机回环监听地址（端口 0 自动选择可用端口）"
+  },
+  "browser-facing HTTP(S) origin; no credentials, query or fragment": {
+    "en": "browser-facing HTTP(S) origin; no credentials, query or fragment",
+    "zh-CN": "浏览器访问的 HTTP(S) origin；不包含凭据、查询参数或片段"
+  },
+  "maximum open duration; automatically closes on expiry (up to 30m)": {
+    "en": "maximum open duration; automatically closes on expiry (up to 30m)",
+    "zh-CN": "最长开放时间；到期自动关闭（不超过 30m）"
+  },
+  "read a temporary password from stdin (required for non-loopback listening)": {
+    "en": "read a temporary password from stdin (required for non-loopback listening)",
+    "zh-CN": "从标准输入读取临时密码（非回环监听时必需）"
+  },
+  "Web 管理后台": {
+    "en": "Web management console",
+    "zh-CN": "Web 管理后台"
+  },
+  "系统级临时 Web 管理后台端口，所有助手共用；负责人在私聊 /amux 开启后监听全部 IPv4 接口，默认 30 分钟后关闭。": {
+    "en": "Installation-wide temporary Web console port shared by all Bots. The owner enables all-interface IPv4 listening from private /amux; it closes after 30 minutes by default.",
+    "zh-CN": "系统级临时 Web 管理后台端口，所有助手共用；负责人在私聊 /amux 开启后监听全部 IPv4 接口，默认 30 分钟后关闭。"
+  },
+  "空（自动使用 Hub 主机 IP 和端口）": {
+    "en": "Empty (use Hub host IP and port)",
+    "zh-CN": "空（自动使用 Hub 主机 IP 和端口）"
+  },
+  "私聊管理卡显示的后台访问地址；仅在临时开启时使用，留空自动选择主机 IP。HTTP 仅适用于可信网络，公网应使用 HTTPS。": {
+    "en": "Console origin shown in the private management card, used only while temporarily enabled. Empty selects the host IP. HTTP is for trusted networks; use HTTPS for public access.",
+    "zh-CN": "私聊管理卡显示的后台访问地址；仅在临时开启时使用，留空自动选择主机 IP。HTTP 仅适用于可信网络，公网应使用 HTTPS。"
+  },
+  "bare HTTP(S) origin; no credentials/query/fragment": {
+    "en": "bare HTTP(S) origin; no credentials/query/fragment",
+    "zh-CN": "bare HTTP(S) origin; no credentials/query/fragment"
+  },
+  "1–65535": {
+    "en": "1–65535",
+    "zh-CN": "1–65535"
+  },
+  "## Web 管理后台": {
+    "en": "## Web management console",
+    "zh-CN": "## Web 管理后台"
+  },
+  "URL": {
+    "en": "URL",
+    "zh-CN": "URL"
+  },
+  "listen IP and port (non-loopback requires temporary-password authentication)": {
+    "en": "listen IP and port (non-loopback requires temporary-password authentication)",
+    "zh-CN": "监听 IP 和端口（非回环地址要求临时密码认证）"
   }
 }

@@ -465,6 +465,25 @@ has moved the running Hub executable into a removed backup directory. The
 installation metadata and default binary directory provide fallback paths.
 Failures retain a bounded tail of CLI stderr in the operator log for diagnosis.
 
+## Temporary Web management console
+
+The owner's private `/amux` overview includes Web management console. Opening the
+control page does not start a server. Enable starts one system-wide listener on
+`0.0.0.0:<console.port>` for 30 minutes (default port 7892); Close, expiry or Hub
+shutdown stops it and invalidates browser sessions. All Bots share the same
+window, and repeated Enable does not renew an active window. Only the confirmed
+owner acting on a server-recorded private management card can view credentials or
+change the listener. Group/shared/unknown cards and non-owner callbacks are denied.
+
+The private control page shows the reachable URL, remaining time, a random
+32-character temporary password, refresh and close. Overview, callback values,
+URLs and application logs/persistence do not contain that password. A new window
+rotates it. Browser authentication and CSRF remain mandatory. The origin defaults
+to the Hub host IP/global port or `console.public_url`; HTTP is explicitly marked
+as unencrypted and suitable only for trusted networks. Use HTTPS for public access.
+Lifecycle work is asynchronous so callbacks acknowledge without waiting for process
+startup, and stale completion cannot replace newer navigation.
+
 ## Management interface language
 
 Every subpage reached from `/amux`, including editors, confirmations, loading,
@@ -474,7 +493,8 @@ expert library, or schedule details). Returning is navigation only: it never
 submits an unsaved form or repeats a task. Surface metadata survives every
 callback and asynchronous refresh so later pages keep the same navigation.
 
-The overview shows seven management actions, including the capability plaza,
+The overview shows eight management actions, including the capability plaza and
+Web management console,
 with at most three actions per row. The language
 selector keeps the bilingual label `界面语言 (Language)` in both languages so a
 viewer can find it after choosing an unfamiliar interface language.

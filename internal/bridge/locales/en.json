@@ -1,4 +1,55 @@
 {
+  "management.console.title": {
+    "other": "Web management console"
+  },
+  "management.console.owner_private_required": {
+    "other": "Only the assistant owner can control the console from a private management card."
+  },
+  "management.console.status": {
+    "other": "Status"
+  },
+  "management.console.off": {
+    "other": "Off"
+  },
+  "management.console.on": {
+    "other": "On"
+  },
+  "management.console.address": {
+    "other": "Address"
+  },
+  "management.console.remaining": {
+    "other": "Time remaining (minutes:seconds)"
+  },
+  "management.console.password": {
+    "other": "Temporary password"
+  },
+  "management.console.explanation": {
+    "other": "Enable the system-wide console for 30 minutes. Other machines can connect using this address and temporary password. Reopening does not extend the timer. Closing or expiry revokes all browser sessions. Keep the password private."
+  },
+  "management.console.enable": {
+    "other": "Enable for 30 minutes"
+  },
+  "management.console.close": {
+    "other": "Close console"
+  },
+  "management.console.refresh": {
+    "other": "Refresh"
+  },
+  "management.console.refreshed": {
+    "other": "Console status refreshed"
+  },
+  "management.console.updating": {
+    "other": "Updating console status"
+  },
+  "management.console.working": {
+    "other": "Updating console status…"
+  },
+  "management.console.failed": {
+    "other": "The console operation failed. Refresh the status and check the console address, port, and installed CLI."
+  },
+  "management.console.unavailable": {
+    "other": "Console control is unavailable on this Hub."
+  },
   "provision.app.description": {
     "other": "Powered by amux"
   },
@@ -3787,5 +3838,11 @@
   },
   "discovery.maintenance.guidance": {
     "other": "The exact private management entry is /amux → System status (not a separate System maintenance page). It shows version, Hub/runtime/bridge connectivity, counts and deployment details. Its controls are Check for updates and Restart, with refresh on unhealthy status. It does not run a full health sweep or test every engine/model login, and has no generic Target identity/catalog panel. full_system_health=not_checked stays unknown. Check for updates is read-only. When an update exists, selecting the displayed target version requires a confirmation that installs AND restarts; do not invent a separate mandatory post-install restart question or guarantee running work is unaffected. Existing session records are retained; offline/recovery or work interruption depends on the actual maintenance flow. Do not install, restart, edit config or stop sessions for this explanation."
+  },
+  "management.console.visit": {
+    "other": "Open console"
+  },
+  "management.console.http_warning": {
+    "other": "HTTP sends the password and content without encryption. Use only on a trusted network; configure HTTPS for public access."
   }
 }

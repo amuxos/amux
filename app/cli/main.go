@@ -182,6 +182,8 @@ func newRootCmdForPlatform(goos string) *cobra.Command {
 	bridgeCmd.Hidden = true
 	guiCmd := newGuiCmd()
 	guiCmd.Hidden = true
+	consoleCmd := newConsoleCmd()
+	consoleCmd.GroupID = "control"
 	taskCmd := newTaskCmd()
 	taskCmd.GroupID = "work"
 	memoryCmd := newMemoryCmd()
@@ -205,6 +207,7 @@ func newRootCmdForPlatform(goos string) *cobra.Command {
 		isolationCmd,
 		bridgeCmd,
 		guiCmd,
+		consoleCmd,
 	)
 	root.InitDefaultCompletionCmd()
 	installCommandValidation(root)

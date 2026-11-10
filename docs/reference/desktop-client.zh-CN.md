@@ -43,6 +43,21 @@ REST 请求携带 `Authorization: Bearer <token>`；Attach 使用 query token。
 默认地址是 loopback；`--addr` 可以显式覆盖，桌面发行版应固定传入 loopback 地址。
 Gateway 允许跨源请求，访问控制依赖监听地址和 token，不依赖浏览器 Origin。
 
+## 浏览器运维控制台
+
+`amux console` 是独立的同源浏览器入口，不是把桌面 Gateway 直接部署到公网。
+它内嵌无外部依赖的 Web 资源，采用临时密码、HttpOnly 会话、CSRF 保护、精确
+Host/Origin 检查和后端操作白名单。负责人私聊 `/amux` 可开启、关闭同一个系统级后台：
+全 IPv4 接口固定端口（`console.port` 默认 7892），默认 30 分钟后停止监听并撤销会话。
+卡片显示服务器地址和临时密码；`console.public_url` 可指定对外 origin。
+HTTP 仅适用于可信网络，公网应使用 HTTPS。CLI 本机诊断保留一次性配对。
+`/api/console/bootstrap` 返回浏览器能力；`/api/console/<resource>` 查询快照或接受
+类型化控制操作；`/api/console/events` 通过已认证 SSE 转发 canonical Attach 事件。
+重连复用既有重放，客户端按 canonical cursor/event ID 去重，不重放控制请求。
+会话拥有宿主运维权限，不代表独立终端用户角色。管理快照不返回凭据值或原始启动环境。
+助手/群写入使用仅运维可用的 Hub `ConsoleManagement` RPC 和 live Bridge 状态切换。
+不提供运行节点管理页或原始终端接口。
+
 ## API
 
 | 路径 | 作用 |

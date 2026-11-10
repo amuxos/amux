@@ -41,6 +41,7 @@
 | `amux completion fish` | 为 fish 生成自动补全脚本 |
 | `amux completion powershell` | 为 powershell 生成自动补全脚本 |
 | `amux completion zsh` | 为 zsh 生成自动补全脚本 |
+| `amux console` | 打开运维 Web 管理控制台 |
 | `amux help` | 查看任意命令的帮助 |
 | `amux isolation` | 管理 identified Principal 和 Linux UID/DAC 隔离 |
 | `amux isolation account` | 检查目标 Runtime 本地的 Principal 账号映射 |
@@ -154,6 +155,7 @@ amux [flags]
 | --- | --- |
 | `amux agent` | 管理 Agent Profile |
 | `amux completion` | 为指定 Shell 生成自动补全脚本 |
+| `amux console` | 打开运维 Web 管理控制台 |
 | `amux help` | 查看任意命令的帮助 |
 | `amux isolation` | 管理 identified Principal 和 Linux UID/DAC 隔离 |
 | `amux memory` | 通过 Hub 管理共享 Markdown 记忆 |
@@ -779,6 +781,26 @@ amux completion zsh [flags]
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | zsh 帮助 |
 | `--no-descriptions` | `bool` | `false` | 禁用补全说明 |
+
+## `amux console`
+
+打开运维 Web 管理控制台
+
+**用法**
+
+```text
+amux console [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `--addr` | `string` | `127.0.0.1:7892` | 监听 IP 和端口（非回环地址要求临时密码认证） |
+| `--duration` | `duration` | `30m0s` | 最长开放时间；到期自动关闭（不超过 30m） |
+| `-h, --help` | `bool` | `false` | console 的帮助信息 |
+| `--password-stdin` | `bool` | `false` | 从标准输入读取临时密码（非回环监听时必需） |
+| `--public-url` | `string` | `""` | 浏览器访问的 HTTP(S) origin；不包含凭据、查询参数或片段 |
 
 ## `amux help`
 

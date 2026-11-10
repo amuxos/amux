@@ -15758,6 +15758,123 @@ func (x *SendFeishuMessageResponse) GetUuid() string {
 	return ""
 }
 
+// JSON is only an encoding boundary. The Hub decodes a closed DTO per action,
+// rejects unknown fields, and delegates to the owning live Bridge.
+type ConsoleManagementRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Resource      string                 `protobuf:"bytes,1,opt,name=resource,proto3" json:"resource,omitempty"`                          // bots | groups
+	Action        string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`                              // list | get | save
+	PayloadJson   []byte                 `protobuf:"bytes,3,opt,name=payload_json,json=payloadJson,proto3" json:"payload_json,omitempty"` // one JSON object, at most 64 KiB
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConsoleManagementRequest) Reset() {
+	*x = ConsoleManagementRequest{}
+	mi := &file_amux_v1_amux_proto_msgTypes[229]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsoleManagementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsoleManagementRequest) ProtoMessage() {}
+
+func (x *ConsoleManagementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[229]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsoleManagementRequest.ProtoReflect.Descriptor instead.
+func (*ConsoleManagementRequest) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{229}
+}
+
+func (x *ConsoleManagementRequest) GetResource() string {
+	if x != nil {
+		return x.Resource
+	}
+	return ""
+}
+
+func (x *ConsoleManagementRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *ConsoleManagementRequest) GetPayloadJson() []byte {
+	if x != nil {
+		return x.PayloadJson
+	}
+	return nil
+}
+
+type ConsoleManagementResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// success | needs_confirmation | needs_recovery_choice | state_changed
+	Status string `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	// Complete JSON response object, including status; clients must not infer
+	// success merely from an OK gRPC status.
+	PayloadJson   []byte `protobuf:"bytes,2,opt,name=payload_json,json=payloadJson,proto3" json:"payload_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConsoleManagementResponse) Reset() {
+	*x = ConsoleManagementResponse{}
+	mi := &file_amux_v1_amux_proto_msgTypes[230]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsoleManagementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsoleManagementResponse) ProtoMessage() {}
+
+func (x *ConsoleManagementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[230]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsoleManagementResponse.ProtoReflect.Descriptor instead.
+func (*ConsoleManagementResponse) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{230}
+}
+
+func (x *ConsoleManagementResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ConsoleManagementResponse) GetPayloadJson() []byte {
+	if x != nil {
+		return x.PayloadJson
+	}
+	return nil
+}
+
 var File_amux_v1_amux_proto protoreflect.FileDescriptor
 
 const file_amux_v1_amux_proto_rawDesc = "" +
@@ -17094,7 +17211,14 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\tthread_id\x18\x03 \x01(\tR\bthreadId\x12\x1f\n" +
 	"\vbot_profile\x18\x04 \x01(\tR\n" +
 	"botProfile\x12\x12\n" +
-	"\x04uuid\x18\x05 \x01(\tR\x04uuid2\xb7\f\n" +
+	"\x04uuid\x18\x05 \x01(\tR\x04uuid\"q\n" +
+	"\x18ConsoleManagementRequest\x12\x1a\n" +
+	"\bresource\x18\x01 \x01(\tR\bresource\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12!\n" +
+	"\fpayload_json\x18\x03 \x01(\fR\vpayloadJson\"V\n" +
+	"\x19ConsoleManagementResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12!\n" +
+	"\fpayload_json\x18\x02 \x01(\fR\vpayloadJson2\xb7\f\n" +
 	"\aAmuxlet\x12<\n" +
 	"\aCleanup\x12\x17.amux.v1.CleanupRequest\x1a\x18.amux.v1.CleanupResponse\x12W\n" +
 	"\x10ListNativeModels\x12 .amux.v1.ListNativeModelsRequest\x1a!.amux.v1.ListNativeModelsResponse\x12K\n" +
@@ -17119,9 +17243,10 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\vQueueCancel\x12\x1b.amux.v1.QueueCancelRequest\x1a\x1c.amux.v1.QueueCancelResponse\x12Z\n" +
 	"\x11RespondPermission\x12!.amux.v1.RespondPermissionRequest\x1a\".amux.v1.RespondPermissionResponse\x12r\n" +
 	"\x1bGetLocalExpertAuthoringTurn\x12(.amux.v1.LocalExpertAuthoringTurnRequest\x1a).amux.v1.LocalExpertAuthoringTurnResponse\x12l\n" +
-	"\x17RevokePrincipalLaunches\x12'.amux.v1.RevokePrincipalLaunchesRequest\x1a(.amux.v1.RevokePrincipalLaunchesResponse2\xe5$\n" +
+	"\x17RevokePrincipalLaunches\x12'.amux.v1.RevokePrincipalLaunchesRequest\x1a(.amux.v1.RevokePrincipalLaunchesResponse2\xc1%\n" +
 	"\x05Amuxd\x12<\n" +
-	"\aCleanup\x12\x17.amux.v1.CleanupRequest\x1a\x18.amux.v1.CleanupResponse\x12D\n" +
+	"\aCleanup\x12\x17.amux.v1.CleanupRequest\x1a\x18.amux.v1.CleanupResponse\x12Z\n" +
+	"\x11ConsoleManagement\x12!.amux.v1.ConsoleManagementRequest\x1a\".amux.v1.ConsoleManagementResponse\x12D\n" +
 	"\n" +
 	"ProxyModel\x12\x1a.amux.v1.ProxyModelRequest\x1a\x18.amux.v1.ProxyModelChunk0\x01\x125\n" +
 	"\x03Run\x12\x18.amux.v1.AmuxdRunRequest\x1a\x14.amux.v1.RunResponse\x129\n" +
@@ -17223,7 +17348,7 @@ func file_amux_v1_amux_proto_rawDescGZIP() []byte {
 }
 
 var file_amux_v1_amux_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_amux_v1_amux_proto_msgTypes = make([]protoimpl.MessageInfo, 240)
+var file_amux_v1_amux_proto_msgTypes = make([]protoimpl.MessageInfo, 242)
 var file_amux_v1_amux_proto_goTypes = []any{
 	(AttachRequest_TimelineMode)(0),           // 0: amux.v1.AttachRequest.TimelineMode
 	(AttachEvent_Kind)(0),                     // 1: amux.v1.AttachEvent.Kind
@@ -17456,17 +17581,19 @@ var file_amux_v1_amux_proto_goTypes = []any{
 	(*CleanupResponse)(nil),                   // 228: amux.v1.CleanupResponse
 	(*SendFeishuMessageRequest)(nil),          // 229: amux.v1.SendFeishuMessageRequest
 	(*SendFeishuMessageResponse)(nil),         // 230: amux.v1.SendFeishuMessageResponse
-	nil,                                       // 231: amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
-	nil,                                       // 232: amux.v1.AgentProfileProvider.ThinkingEntry
-	nil,                                       // 233: amux.v1.MaterializeCredentialResponse.FilesEntry
-	nil,                                       // 234: amux.v1.TargetCapabilities.LabelsEntry
-	nil,                                       // 235: amux.v1.TargetCapabilities.CredentialProfilesEntry
-	nil,                                       // 236: amux.v1.RuntimeLoad.PerAgentRunningEntry
-	nil,                                       // 237: amux.v1.RuntimeLoad.PerAgentReservedEntry
-	nil,                                       // 238: amux.v1.Principal.MetadataEntry
-	nil,                                       // 239: amux.v1.CreatePrincipalRequest.MetadataEntry
-	nil,                                       // 240: amux.v1.ProxyModelRequest.HeadersEntry
-	nil,                                       // 241: amux.v1.ProxyModelChunk.HeadersEntry
+	(*ConsoleManagementRequest)(nil),          // 231: amux.v1.ConsoleManagementRequest
+	(*ConsoleManagementResponse)(nil),         // 232: amux.v1.ConsoleManagementResponse
+	nil,                                       // 233: amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
+	nil,                                       // 234: amux.v1.AgentProfileProvider.ThinkingEntry
+	nil,                                       // 235: amux.v1.MaterializeCredentialResponse.FilesEntry
+	nil,                                       // 236: amux.v1.TargetCapabilities.LabelsEntry
+	nil,                                       // 237: amux.v1.TargetCapabilities.CredentialProfilesEntry
+	nil,                                       // 238: amux.v1.RuntimeLoad.PerAgentRunningEntry
+	nil,                                       // 239: amux.v1.RuntimeLoad.PerAgentReservedEntry
+	nil,                                       // 240: amux.v1.Principal.MetadataEntry
+	nil,                                       // 241: amux.v1.CreatePrincipalRequest.MetadataEntry
+	nil,                                       // 242: amux.v1.ProxyModelRequest.HeadersEntry
+	nil,                                       // 243: amux.v1.ProxyModelChunk.HeadersEntry
 }
 var file_amux_v1_amux_proto_depIdxs = []int32{
 	5,   // 0: amux.v1.MemorySearchResponse.matches:type_name -> amux.v1.MemoryMatch
@@ -17474,9 +17601,9 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	18,  // 2: amux.v1.AgentProfilePlacement.requires:type_name -> amux.v1.AgentProfileRequirements
 	19,  // 3: amux.v1.AgentProfileSpec.placement:type_name -> amux.v1.AgentProfilePlacement
 	22,  // 4: amux.v1.AgentProfileSpec.provider:type_name -> amux.v1.AgentProfileProvider
-	231, // 5: amux.v1.AgentProfileSpec.credential_env_suggestions:type_name -> amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
+	233, // 5: amux.v1.AgentProfileSpec.credential_env_suggestions:type_name -> amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
 	21,  // 6: amux.v1.AgentProfileSpec.snapshot_skill_files:type_name -> amux.v1.AgentProfileSkillFile
-	232, // 7: amux.v1.AgentProfileProvider.thinking:type_name -> amux.v1.AgentProfileProvider.ThinkingEntry
+	234, // 7: amux.v1.AgentProfileProvider.thinking:type_name -> amux.v1.AgentProfileProvider.ThinkingEntry
 	20,  // 8: amux.v1.AgentProfileInfo.profile:type_name -> amux.v1.AgentProfileSpec
 	23,  // 9: amux.v1.AgentProfileInfo.skills:type_name -> amux.v1.AgentProfileSkillInfo
 	24,  // 10: amux.v1.ListAgentProfilesResponse.profiles:type_name -> amux.v1.AgentProfileInfo
@@ -17484,13 +17611,13 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	20,  // 12: amux.v1.RunRequest.profile_spec:type_name -> amux.v1.AgentProfileSpec
 	17,  // 13: amux.v1.RunRequest.execution_identity:type_name -> amux.v1.ExecutionIdentity
 	13,  // 14: amux.v1.RunResponse.session:type_name -> amux.v1.Session
-	233, // 15: amux.v1.MaterializeCredentialResponse.files:type_name -> amux.v1.MaterializeCredentialResponse.FilesEntry
+	235, // 15: amux.v1.MaterializeCredentialResponse.files:type_name -> amux.v1.MaterializeCredentialResponse.FilesEntry
 	36,  // 16: amux.v1.ListCredentialsResponse.profiles:type_name -> amux.v1.CredentialProfileMetadata
-	234, // 17: amux.v1.TargetCapabilities.labels:type_name -> amux.v1.TargetCapabilities.LabelsEntry
+	236, // 17: amux.v1.TargetCapabilities.labels:type_name -> amux.v1.TargetCapabilities.LabelsEntry
 	39,  // 18: amux.v1.TargetCapabilities.agents:type_name -> amux.v1.AgentCapacity
-	235, // 19: amux.v1.TargetCapabilities.credential_profiles:type_name -> amux.v1.TargetCapabilities.CredentialProfilesEntry
-	236, // 20: amux.v1.RuntimeLoad.per_agent_running:type_name -> amux.v1.RuntimeLoad.PerAgentRunningEntry
-	237, // 21: amux.v1.RuntimeLoad.per_agent_reserved:type_name -> amux.v1.RuntimeLoad.PerAgentReservedEntry
+	237, // 19: amux.v1.TargetCapabilities.credential_profiles:type_name -> amux.v1.TargetCapabilities.CredentialProfilesEntry
+	238, // 20: amux.v1.RuntimeLoad.per_agent_running:type_name -> amux.v1.RuntimeLoad.PerAgentRunningEntry
+	239, // 21: amux.v1.RuntimeLoad.per_agent_reserved:type_name -> amux.v1.RuntimeLoad.PerAgentReservedEntry
 	38,  // 22: amux.v1.Target.capabilities:type_name -> amux.v1.TargetCapabilities
 	13,  // 23: amux.v1.Target.sessions:type_name -> amux.v1.Session
 	41,  // 24: amux.v1.Target.load:type_name -> amux.v1.RuntimeLoad
@@ -17533,8 +17660,8 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	156, // 61: amux.v1.PruneSubtasksResponse.tasks:type_name -> amux.v1.PrunedSubtask
 	157, // 62: amux.v1.PruneSubtasksResponse.skipped:type_name -> amux.v1.SkippedSubtask
 	17,  // 63: amux.v1.AgentInstance.execution_identity:type_name -> amux.v1.ExecutionIdentity
-	238, // 64: amux.v1.Principal.metadata:type_name -> amux.v1.Principal.MetadataEntry
-	239, // 65: amux.v1.CreatePrincipalRequest.metadata:type_name -> amux.v1.CreatePrincipalRequest.MetadataEntry
+	240, // 64: amux.v1.Principal.metadata:type_name -> amux.v1.Principal.MetadataEntry
+	241, // 65: amux.v1.CreatePrincipalRequest.metadata:type_name -> amux.v1.CreatePrincipalRequest.MetadataEntry
 	166, // 66: amux.v1.PrincipalResponse.principal:type_name -> amux.v1.Principal
 	171, // 67: amux.v1.ListPrincipalAliasesResponse.aliases:type_name -> amux.v1.PrincipalAlias
 	166, // 68: amux.v1.ListPrincipalsResponse.principals:type_name -> amux.v1.Principal
@@ -17545,8 +17672,8 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	201, // 73: amux.v1.ListSchedulesResponse.schedules:type_name -> amux.v1.ScheduleItem
 	201, // 74: amux.v1.GetScheduleResponse.schedule:type_name -> amux.v1.ScheduleItem
 	201, // 75: amux.v1.UpdateScheduleResponse.schedule:type_name -> amux.v1.ScheduleItem
-	240, // 76: amux.v1.ProxyModelRequest.headers:type_name -> amux.v1.ProxyModelRequest.HeadersEntry
-	241, // 77: amux.v1.ProxyModelChunk.headers:type_name -> amux.v1.ProxyModelChunk.HeadersEntry
+	242, // 76: amux.v1.ProxyModelRequest.headers:type_name -> amux.v1.ProxyModelRequest.HeadersEntry
+	243, // 77: amux.v1.ProxyModelChunk.headers:type_name -> amux.v1.ProxyModelChunk.HeadersEntry
 	17,  // 78: amux.v1.ListNativeModelsRequest.execution_identity:type_name -> amux.v1.ExecutionIdentity
 	221, // 79: amux.v1.NativeModel.variants:type_name -> amux.v1.NativeModelVariant
 	220, // 80: amux.v1.ListNativeModelsResponse.models:type_name -> amux.v1.NativeModel
@@ -17577,190 +17704,192 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	72,  // 105: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:input_type -> amux.v1.LocalExpertAuthoringTurnRequest
 	185, // 106: amux.v1.Amuxlet.RevokePrincipalLaunches:input_type -> amux.v1.RevokePrincipalLaunchesRequest
 	225, // 107: amux.v1.Amuxd.Cleanup:input_type -> amux.v1.CleanupRequest
-	217, // 108: amux.v1.Amuxd.ProxyModel:input_type -> amux.v1.ProxyModelRequest
-	116, // 109: amux.v1.Amuxd.Run:input_type -> amux.v1.AmuxdRunRequest
-	47,  // 110: amux.v1.Amuxd.Info:input_type -> amux.v1.HubInfoRequest
-	97,  // 111: amux.v1.Amuxd.ListTargets:input_type -> amux.v1.ListTargetsRequest
-	99,  // 112: amux.v1.Amuxd.FeishuStatus:input_type -> amux.v1.FeishuStatusRequest
-	102, // 113: amux.v1.Amuxd.FeishuBindings:input_type -> amux.v1.FeishuBindingsRequest
-	105, // 114: amux.v1.Amuxd.FeishuBots:input_type -> amux.v1.FeishuBotsRequest
-	229, // 115: amux.v1.Amuxd.SendFeishuMessage:input_type -> amux.v1.SendFeishuMessageRequest
-	108, // 116: amux.v1.Amuxd.FeishuBotSessionStatus:input_type -> amux.v1.FeishuBotSessionStatusRequest
-	109, // 117: amux.v1.Amuxd.FeishuBotSessionBind:input_type -> amux.v1.FeishuBotSessionBindRequest
-	110, // 118: amux.v1.Amuxd.FeishuBotSessionOff:input_type -> amux.v1.FeishuBotSessionOffRequest
-	112, // 119: amux.v1.Amuxd.FeishuContextExplain:input_type -> amux.v1.FeishuContextExplainRequest
-	117, // 120: amux.v1.Amuxd.Kill:input_type -> amux.v1.AmuxdKillRequest
-	118, // 121: amux.v1.Amuxd.Restart:input_type -> amux.v1.AmuxdRestartRequest
-	119, // 122: amux.v1.Amuxd.ChangeCwd:input_type -> amux.v1.AmuxdChangeCwdRequest
-	120, // 123: amux.v1.Amuxd.Sleep:input_type -> amux.v1.AmuxdSleepRequest
-	121, // 124: amux.v1.Amuxd.Resume:input_type -> amux.v1.AmuxdResumeRequest
-	122, // 125: amux.v1.Amuxd.Prune:input_type -> amux.v1.AmuxdPruneRequest
-	123, // 126: amux.v1.Amuxd.Interrupt:input_type -> amux.v1.AmuxdInterruptRequest
-	124, // 127: amux.v1.Amuxd.Attach:input_type -> amux.v1.AmuxdAttachRequest
-	125, // 128: amux.v1.Amuxd.Submit:input_type -> amux.v1.AmuxdSubmitRequest
-	15,  // 129: amux.v1.Amuxd.Goal:input_type -> amux.v1.AmuxdGoalRequest
-	126, // 130: amux.v1.Amuxd.QueueList:input_type -> amux.v1.AmuxdQueueListRequest
-	127, // 131: amux.v1.Amuxd.QueueClear:input_type -> amux.v1.AmuxdQueueClearRequest
-	128, // 132: amux.v1.Amuxd.QueueCancel:input_type -> amux.v1.AmuxdQueueCancelRequest
-	129, // 133: amux.v1.Amuxd.RespondPermission:input_type -> amux.v1.AmuxdRespondPermissionRequest
-	203, // 134: amux.v1.Amuxd.CreateSchedule:input_type -> amux.v1.CreateScheduleRequest
-	205, // 135: amux.v1.Amuxd.ListSchedules:input_type -> amux.v1.ListSchedulesRequest
-	207, // 136: amux.v1.Amuxd.GetSchedule:input_type -> amux.v1.GetScheduleRequest
-	209, // 137: amux.v1.Amuxd.DeleteSchedule:input_type -> amux.v1.DeleteScheduleRequest
-	211, // 138: amux.v1.Amuxd.UpdateSchedule:input_type -> amux.v1.UpdateScheduleRequest
-	213, // 139: amux.v1.Amuxd.SetScheduleEnabled:input_type -> amux.v1.SetScheduleEnabledRequest
-	31,  // 140: amux.v1.Amuxd.MaterializeCredential:input_type -> amux.v1.MaterializeCredentialRequest
-	33,  // 141: amux.v1.Amuxd.SetCredential:input_type -> amux.v1.SetCredentialRequest
-	34,  // 142: amux.v1.Amuxd.GetCredential:input_type -> amux.v1.GetCredentialRequest
-	35,  // 143: amux.v1.Amuxd.ListCredentials:input_type -> amux.v1.ListCredentialsRequest
-	167, // 144: amux.v1.Amuxd.CreatePrincipal:input_type -> amux.v1.CreatePrincipalRequest
-	169, // 145: amux.v1.Amuxd.ListPrincipals:input_type -> amux.v1.ListPrincipalsRequest
-	170, // 146: amux.v1.Amuxd.ListPrincipalAliases:input_type -> amux.v1.ListPrincipalAliasesRequest
-	174, // 147: amux.v1.Amuxd.DisablePrincipal:input_type -> amux.v1.DisablePrincipalRequest
-	175, // 148: amux.v1.Amuxd.BindPrincipalAlias:input_type -> amux.v1.BindPrincipalAliasRequest
-	176, // 149: amux.v1.Amuxd.GrantPrincipalDelegation:input_type -> amux.v1.GrantPrincipalDelegationRequest
-	178, // 150: amux.v1.Amuxd.RevokePrincipalDelegation:input_type -> amux.v1.RevokePrincipalDelegationRequest
-	179, // 151: amux.v1.Amuxd.GrantServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
-	179, // 152: amux.v1.Amuxd.RevokeServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
-	181, // 153: amux.v1.Amuxd.CreatePrincipalEnrollment:input_type -> amux.v1.CreatePrincipalEnrollmentRequest
-	183, // 154: amux.v1.Amuxd.GetIsolationStatus:input_type -> amux.v1.GetIsolationStatusRequest
-	25,  // 155: amux.v1.Amuxd.ListAgentProfiles:input_type -> amux.v1.ListAgentProfilesRequest
-	27,  // 156: amux.v1.Amuxd.GetAgentProfile:input_type -> amux.v1.GetAgentProfileRequest
-	75,  // 157: amux.v1.Amuxd.ReadLocalExpert:input_type -> amux.v1.ReadLocalExpertRequest
-	77,  // 158: amux.v1.Amuxd.ChangeLocalExpert:input_type -> amux.v1.ChangeLocalExpertRequest
-	2,   // 159: amux.v1.Amuxd.GetMemoryBinding:input_type -> amux.v1.MemoryBindingRequest
-	4,   // 160: amux.v1.Amuxd.MemorySearch:input_type -> amux.v1.MemorySearchRequest
-	7,   // 161: amux.v1.Amuxd.MemoryGet:input_type -> amux.v1.MemoryGetRequest
-	9,   // 162: amux.v1.Amuxd.MemoryUpsert:input_type -> amux.v1.MemoryUpsertRequest
-	11,  // 163: amux.v1.Amuxd.MemoryForget:input_type -> amux.v1.MemoryForgetRequest
-	87,  // 164: amux.v1.Amuxd.Tunnel:input_type -> amux.v1.TunnelMsg
-	67,  // 165: amux.v1.AmuxTask.ResolveParentTurn:input_type -> amux.v1.ActiveTurnRequest
-	149, // 166: amux.v1.AmuxTask.SubmitSubtask:input_type -> amux.v1.SubmitSubtaskRequest
-	151, // 167: amux.v1.AmuxTask.GetSubtask:input_type -> amux.v1.GetSubtaskRequest
-	153, // 168: amux.v1.AmuxTask.ListSubtasks:input_type -> amux.v1.ListSubtasksRequest
-	155, // 169: amux.v1.AmuxTask.PruneSubtasks:input_type -> amux.v1.PruneSubtasksRequest
-	159, // 170: amux.v1.AmuxTask.CancelSubtask:input_type -> amux.v1.CancelSubtaskRequest
-	161, // 171: amux.v1.AmuxTask.RespondSubtaskPermission:input_type -> amux.v1.RespondSubtaskPermissionRequest
-	163, // 172: amux.v1.AmuxTask.StreamSubtask:input_type -> amux.v1.StreamSubtaskRequest
-	187, // 173: amux.v1.AmuxTask.ListAgentInstances:input_type -> amux.v1.ListAgentInstancesRequest
-	189, // 174: amux.v1.AmuxTask.GetAgentInstance:input_type -> amux.v1.GetAgentInstanceRequest
-	191, // 175: amux.v1.AmuxTask.SendAgentMessage:input_type -> amux.v1.SendAgentMessageRequest
-	193, // 176: amux.v1.AmuxTask.InterruptAgentInstance:input_type -> amux.v1.InterruptAgentInstanceRequest
-	195, // 177: amux.v1.AmuxTask.WaitAgentInstance:input_type -> amux.v1.WaitAgentInstanceRequest
-	197, // 178: amux.v1.AmuxTask.DescribeAgentInstance:input_type -> amux.v1.DescribeAgentInstanceRequest
-	199, // 179: amux.v1.AmuxTask.CleanupAgentInstance:input_type -> amux.v1.CleanupAgentInstanceRequest
-	130, // 180: amux.v1.CoordinationService.ListCollaborators:input_type -> amux.v1.ListCollaboratorsRequest
-	139, // 181: amux.v1.CoordinationService.Delegate:input_type -> amux.v1.DelegateRequest
-	141, // 182: amux.v1.CoordinationService.GetDelegation:input_type -> amux.v1.GetDelegationRequest
-	143, // 183: amux.v1.CoordinationService.WaitDelegation:input_type -> amux.v1.WaitDelegationRequest
-	145, // 184: amux.v1.CoordinationService.InterveneDelegation:input_type -> amux.v1.InterveneDelegationRequest
-	147, // 185: amux.v1.CoordinationService.CancelDelegation:input_type -> amux.v1.CancelDelegationRequest
-	223, // 186: amux.v1.RuntimeMaintenance.Maintain:input_type -> amux.v1.MaintenanceRequest
-	228, // 187: amux.v1.Amuxlet.Cleanup:output_type -> amux.v1.CleanupResponse
-	222, // 188: amux.v1.Amuxlet.ListNativeModels:output_type -> amux.v1.ListNativeModelsResponse
-	216, // 189: amux.v1.Amuxlet.PutSessionFile:output_type -> amux.v1.SessionFileResponse
-	216, // 190: amux.v1.Amuxlet.ReadSessionArtifact:output_type -> amux.v1.SessionFileResponse
-	30,  // 191: amux.v1.Amuxlet.Run:output_type -> amux.v1.RunResponse
-	46,  // 192: amux.v1.Amuxlet.Info:output_type -> amux.v1.InfoResponse
-	44,  // 193: amux.v1.Amuxlet.List:output_type -> amux.v1.ListResponse
-	50,  // 194: amux.v1.Amuxlet.Kill:output_type -> amux.v1.KillResponse
-	30,  // 195: amux.v1.Amuxlet.Restart:output_type -> amux.v1.RunResponse
-	53,  // 196: amux.v1.Amuxlet.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
-	55,  // 197: amux.v1.Amuxlet.Sleep:output_type -> amux.v1.SleepResponse
-	30,  // 198: amux.v1.Amuxlet.Resume:output_type -> amux.v1.RunResponse
-	58,  // 199: amux.v1.Amuxlet.Prune:output_type -> amux.v1.PruneResponse
-	60,  // 200: amux.v1.Amuxlet.Interrupt:output_type -> amux.v1.InterruptResponse
-	62,  // 201: amux.v1.Amuxlet.Attach:output_type -> amux.v1.AttachEvent
-	66,  // 202: amux.v1.Amuxlet.Submit:output_type -> amux.v1.SubmitResponse
-	16,  // 203: amux.v1.Amuxlet.Goal:output_type -> amux.v1.GoalResponse
-	81,  // 204: amux.v1.Amuxlet.QueueList:output_type -> amux.v1.QueueListResponse
-	83,  // 205: amux.v1.Amuxlet.QueueClear:output_type -> amux.v1.QueueClearResponse
-	85,  // 206: amux.v1.Amuxlet.QueueCancel:output_type -> amux.v1.QueueCancelResponse
-	64,  // 207: amux.v1.Amuxlet.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
-	73,  // 208: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:output_type -> amux.v1.LocalExpertAuthoringTurnResponse
-	186, // 209: amux.v1.Amuxlet.RevokePrincipalLaunches:output_type -> amux.v1.RevokePrincipalLaunchesResponse
-	228, // 210: amux.v1.Amuxd.Cleanup:output_type -> amux.v1.CleanupResponse
-	218, // 211: amux.v1.Amuxd.ProxyModel:output_type -> amux.v1.ProxyModelChunk
-	30,  // 212: amux.v1.Amuxd.Run:output_type -> amux.v1.RunResponse
-	48,  // 213: amux.v1.Amuxd.Info:output_type -> amux.v1.HubInfoResponse
-	98,  // 214: amux.v1.Amuxd.ListTargets:output_type -> amux.v1.ListTargetsResponse
-	100, // 215: amux.v1.Amuxd.FeishuStatus:output_type -> amux.v1.FeishuStatusResponse
-	103, // 216: amux.v1.Amuxd.FeishuBindings:output_type -> amux.v1.FeishuBindingsResponse
-	106, // 217: amux.v1.Amuxd.FeishuBots:output_type -> amux.v1.FeishuBotsResponse
-	230, // 218: amux.v1.Amuxd.SendFeishuMessage:output_type -> amux.v1.SendFeishuMessageResponse
-	111, // 219: amux.v1.Amuxd.FeishuBotSessionStatus:output_type -> amux.v1.FeishuBotSessionStatusResponse
-	111, // 220: amux.v1.Amuxd.FeishuBotSessionBind:output_type -> amux.v1.FeishuBotSessionStatusResponse
-	111, // 221: amux.v1.Amuxd.FeishuBotSessionOff:output_type -> amux.v1.FeishuBotSessionStatusResponse
-	115, // 222: amux.v1.Amuxd.FeishuContextExplain:output_type -> amux.v1.FeishuContextExplainResponse
-	50,  // 223: amux.v1.Amuxd.Kill:output_type -> amux.v1.KillResponse
-	30,  // 224: amux.v1.Amuxd.Restart:output_type -> amux.v1.RunResponse
-	53,  // 225: amux.v1.Amuxd.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
-	55,  // 226: amux.v1.Amuxd.Sleep:output_type -> amux.v1.SleepResponse
-	30,  // 227: amux.v1.Amuxd.Resume:output_type -> amux.v1.RunResponse
-	58,  // 228: amux.v1.Amuxd.Prune:output_type -> amux.v1.PruneResponse
-	60,  // 229: amux.v1.Amuxd.Interrupt:output_type -> amux.v1.InterruptResponse
-	62,  // 230: amux.v1.Amuxd.Attach:output_type -> amux.v1.AttachEvent
-	66,  // 231: amux.v1.Amuxd.Submit:output_type -> amux.v1.SubmitResponse
-	16,  // 232: amux.v1.Amuxd.Goal:output_type -> amux.v1.GoalResponse
-	81,  // 233: amux.v1.Amuxd.QueueList:output_type -> amux.v1.QueueListResponse
-	83,  // 234: amux.v1.Amuxd.QueueClear:output_type -> amux.v1.QueueClearResponse
-	85,  // 235: amux.v1.Amuxd.QueueCancel:output_type -> amux.v1.QueueCancelResponse
-	64,  // 236: amux.v1.Amuxd.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
-	204, // 237: amux.v1.Amuxd.CreateSchedule:output_type -> amux.v1.CreateScheduleResponse
-	206, // 238: amux.v1.Amuxd.ListSchedules:output_type -> amux.v1.ListSchedulesResponse
-	208, // 239: amux.v1.Amuxd.GetSchedule:output_type -> amux.v1.GetScheduleResponse
-	210, // 240: amux.v1.Amuxd.DeleteSchedule:output_type -> amux.v1.DeleteScheduleResponse
-	212, // 241: amux.v1.Amuxd.UpdateSchedule:output_type -> amux.v1.UpdateScheduleResponse
-	214, // 242: amux.v1.Amuxd.SetScheduleEnabled:output_type -> amux.v1.SetScheduleEnabledResponse
-	32,  // 243: amux.v1.Amuxd.MaterializeCredential:output_type -> amux.v1.MaterializeCredentialResponse
-	36,  // 244: amux.v1.Amuxd.SetCredential:output_type -> amux.v1.CredentialProfileMetadata
-	36,  // 245: amux.v1.Amuxd.GetCredential:output_type -> amux.v1.CredentialProfileMetadata
-	37,  // 246: amux.v1.Amuxd.ListCredentials:output_type -> amux.v1.ListCredentialsResponse
-	168, // 247: amux.v1.Amuxd.CreatePrincipal:output_type -> amux.v1.PrincipalResponse
-	173, // 248: amux.v1.Amuxd.ListPrincipals:output_type -> amux.v1.ListPrincipalsResponse
-	172, // 249: amux.v1.Amuxd.ListPrincipalAliases:output_type -> amux.v1.ListPrincipalAliasesResponse
-	168, // 250: amux.v1.Amuxd.DisablePrincipal:output_type -> amux.v1.PrincipalResponse
-	168, // 251: amux.v1.Amuxd.BindPrincipalAlias:output_type -> amux.v1.PrincipalResponse
-	177, // 252: amux.v1.Amuxd.GrantPrincipalDelegation:output_type -> amux.v1.GrantPrincipalDelegationResponse
-	180, // 253: amux.v1.Amuxd.RevokePrincipalDelegation:output_type -> amux.v1.EmptyResponse
-	180, // 254: amux.v1.Amuxd.GrantServicePrincipalMember:output_type -> amux.v1.EmptyResponse
-	180, // 255: amux.v1.Amuxd.RevokeServicePrincipalMember:output_type -> amux.v1.EmptyResponse
-	182, // 256: amux.v1.Amuxd.CreatePrincipalEnrollment:output_type -> amux.v1.CreatePrincipalEnrollmentResponse
-	184, // 257: amux.v1.Amuxd.GetIsolationStatus:output_type -> amux.v1.GetIsolationStatusResponse
-	26,  // 258: amux.v1.Amuxd.ListAgentProfiles:output_type -> amux.v1.ListAgentProfilesResponse
-	28,  // 259: amux.v1.Amuxd.GetAgentProfile:output_type -> amux.v1.GetAgentProfileResponse
-	76,  // 260: amux.v1.Amuxd.ReadLocalExpert:output_type -> amux.v1.ReadLocalExpertResponse
-	78,  // 261: amux.v1.Amuxd.ChangeLocalExpert:output_type -> amux.v1.ChangeLocalExpertResponse
-	3,   // 262: amux.v1.Amuxd.GetMemoryBinding:output_type -> amux.v1.MemoryBindingResponse
-	6,   // 263: amux.v1.Amuxd.MemorySearch:output_type -> amux.v1.MemorySearchResponse
-	8,   // 264: amux.v1.Amuxd.MemoryGet:output_type -> amux.v1.MemoryDocument
-	10,  // 265: amux.v1.Amuxd.MemoryUpsert:output_type -> amux.v1.MemoryWriteResponse
-	12,  // 266: amux.v1.Amuxd.MemoryForget:output_type -> amux.v1.MemoryForgetResponse
-	87,  // 267: amux.v1.Amuxd.Tunnel:output_type -> amux.v1.TunnelMsg
-	68,  // 268: amux.v1.AmuxTask.ResolveParentTurn:output_type -> amux.v1.ActiveTurnResponse
-	150, // 269: amux.v1.AmuxTask.SubmitSubtask:output_type -> amux.v1.SubmitSubtaskResponse
-	152, // 270: amux.v1.AmuxTask.GetSubtask:output_type -> amux.v1.GetSubtaskResponse
-	154, // 271: amux.v1.AmuxTask.ListSubtasks:output_type -> amux.v1.ListSubtasksResponse
-	158, // 272: amux.v1.AmuxTask.PruneSubtasks:output_type -> amux.v1.PruneSubtasksResponse
-	160, // 273: amux.v1.AmuxTask.CancelSubtask:output_type -> amux.v1.CancelSubtaskResponse
-	162, // 274: amux.v1.AmuxTask.RespondSubtaskPermission:output_type -> amux.v1.RespondSubtaskPermissionResponse
-	164, // 275: amux.v1.AmuxTask.StreamSubtask:output_type -> amux.v1.SubtaskEvent
-	188, // 276: amux.v1.AmuxTask.ListAgentInstances:output_type -> amux.v1.ListAgentInstancesResponse
-	190, // 277: amux.v1.AmuxTask.GetAgentInstance:output_type -> amux.v1.GetAgentInstanceResponse
-	192, // 278: amux.v1.AmuxTask.SendAgentMessage:output_type -> amux.v1.SendAgentMessageResponse
-	194, // 279: amux.v1.AmuxTask.InterruptAgentInstance:output_type -> amux.v1.InterruptAgentInstanceResponse
-	196, // 280: amux.v1.AmuxTask.WaitAgentInstance:output_type -> amux.v1.WaitAgentInstanceResponse
-	198, // 281: amux.v1.AmuxTask.DescribeAgentInstance:output_type -> amux.v1.DescribeAgentInstanceResponse
-	200, // 282: amux.v1.AmuxTask.CleanupAgentInstance:output_type -> amux.v1.CleanupAgentInstanceResponse
-	132, // 283: amux.v1.CoordinationService.ListCollaborators:output_type -> amux.v1.ListCollaboratorsResponse
-	140, // 284: amux.v1.CoordinationService.Delegate:output_type -> amux.v1.DelegateResponse
-	142, // 285: amux.v1.CoordinationService.GetDelegation:output_type -> amux.v1.GetDelegationResponse
-	144, // 286: amux.v1.CoordinationService.WaitDelegation:output_type -> amux.v1.WaitDelegationResponse
-	146, // 287: amux.v1.CoordinationService.InterveneDelegation:output_type -> amux.v1.InterveneDelegationResponse
-	148, // 288: amux.v1.CoordinationService.CancelDelegation:output_type -> amux.v1.CancelDelegationResponse
-	224, // 289: amux.v1.RuntimeMaintenance.Maintain:output_type -> amux.v1.MaintenanceResponse
-	187, // [187:290] is the sub-list for method output_type
-	84,  // [84:187] is the sub-list for method input_type
+	231, // 108: amux.v1.Amuxd.ConsoleManagement:input_type -> amux.v1.ConsoleManagementRequest
+	217, // 109: amux.v1.Amuxd.ProxyModel:input_type -> amux.v1.ProxyModelRequest
+	116, // 110: amux.v1.Amuxd.Run:input_type -> amux.v1.AmuxdRunRequest
+	47,  // 111: amux.v1.Amuxd.Info:input_type -> amux.v1.HubInfoRequest
+	97,  // 112: amux.v1.Amuxd.ListTargets:input_type -> amux.v1.ListTargetsRequest
+	99,  // 113: amux.v1.Amuxd.FeishuStatus:input_type -> amux.v1.FeishuStatusRequest
+	102, // 114: amux.v1.Amuxd.FeishuBindings:input_type -> amux.v1.FeishuBindingsRequest
+	105, // 115: amux.v1.Amuxd.FeishuBots:input_type -> amux.v1.FeishuBotsRequest
+	229, // 116: amux.v1.Amuxd.SendFeishuMessage:input_type -> amux.v1.SendFeishuMessageRequest
+	108, // 117: amux.v1.Amuxd.FeishuBotSessionStatus:input_type -> amux.v1.FeishuBotSessionStatusRequest
+	109, // 118: amux.v1.Amuxd.FeishuBotSessionBind:input_type -> amux.v1.FeishuBotSessionBindRequest
+	110, // 119: amux.v1.Amuxd.FeishuBotSessionOff:input_type -> amux.v1.FeishuBotSessionOffRequest
+	112, // 120: amux.v1.Amuxd.FeishuContextExplain:input_type -> amux.v1.FeishuContextExplainRequest
+	117, // 121: amux.v1.Amuxd.Kill:input_type -> amux.v1.AmuxdKillRequest
+	118, // 122: amux.v1.Amuxd.Restart:input_type -> amux.v1.AmuxdRestartRequest
+	119, // 123: amux.v1.Amuxd.ChangeCwd:input_type -> amux.v1.AmuxdChangeCwdRequest
+	120, // 124: amux.v1.Amuxd.Sleep:input_type -> amux.v1.AmuxdSleepRequest
+	121, // 125: amux.v1.Amuxd.Resume:input_type -> amux.v1.AmuxdResumeRequest
+	122, // 126: amux.v1.Amuxd.Prune:input_type -> amux.v1.AmuxdPruneRequest
+	123, // 127: amux.v1.Amuxd.Interrupt:input_type -> amux.v1.AmuxdInterruptRequest
+	124, // 128: amux.v1.Amuxd.Attach:input_type -> amux.v1.AmuxdAttachRequest
+	125, // 129: amux.v1.Amuxd.Submit:input_type -> amux.v1.AmuxdSubmitRequest
+	15,  // 130: amux.v1.Amuxd.Goal:input_type -> amux.v1.AmuxdGoalRequest
+	126, // 131: amux.v1.Amuxd.QueueList:input_type -> amux.v1.AmuxdQueueListRequest
+	127, // 132: amux.v1.Amuxd.QueueClear:input_type -> amux.v1.AmuxdQueueClearRequest
+	128, // 133: amux.v1.Amuxd.QueueCancel:input_type -> amux.v1.AmuxdQueueCancelRequest
+	129, // 134: amux.v1.Amuxd.RespondPermission:input_type -> amux.v1.AmuxdRespondPermissionRequest
+	203, // 135: amux.v1.Amuxd.CreateSchedule:input_type -> amux.v1.CreateScheduleRequest
+	205, // 136: amux.v1.Amuxd.ListSchedules:input_type -> amux.v1.ListSchedulesRequest
+	207, // 137: amux.v1.Amuxd.GetSchedule:input_type -> amux.v1.GetScheduleRequest
+	209, // 138: amux.v1.Amuxd.DeleteSchedule:input_type -> amux.v1.DeleteScheduleRequest
+	211, // 139: amux.v1.Amuxd.UpdateSchedule:input_type -> amux.v1.UpdateScheduleRequest
+	213, // 140: amux.v1.Amuxd.SetScheduleEnabled:input_type -> amux.v1.SetScheduleEnabledRequest
+	31,  // 141: amux.v1.Amuxd.MaterializeCredential:input_type -> amux.v1.MaterializeCredentialRequest
+	33,  // 142: amux.v1.Amuxd.SetCredential:input_type -> amux.v1.SetCredentialRequest
+	34,  // 143: amux.v1.Amuxd.GetCredential:input_type -> amux.v1.GetCredentialRequest
+	35,  // 144: amux.v1.Amuxd.ListCredentials:input_type -> amux.v1.ListCredentialsRequest
+	167, // 145: amux.v1.Amuxd.CreatePrincipal:input_type -> amux.v1.CreatePrincipalRequest
+	169, // 146: amux.v1.Amuxd.ListPrincipals:input_type -> amux.v1.ListPrincipalsRequest
+	170, // 147: amux.v1.Amuxd.ListPrincipalAliases:input_type -> amux.v1.ListPrincipalAliasesRequest
+	174, // 148: amux.v1.Amuxd.DisablePrincipal:input_type -> amux.v1.DisablePrincipalRequest
+	175, // 149: amux.v1.Amuxd.BindPrincipalAlias:input_type -> amux.v1.BindPrincipalAliasRequest
+	176, // 150: amux.v1.Amuxd.GrantPrincipalDelegation:input_type -> amux.v1.GrantPrincipalDelegationRequest
+	178, // 151: amux.v1.Amuxd.RevokePrincipalDelegation:input_type -> amux.v1.RevokePrincipalDelegationRequest
+	179, // 152: amux.v1.Amuxd.GrantServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
+	179, // 153: amux.v1.Amuxd.RevokeServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
+	181, // 154: amux.v1.Amuxd.CreatePrincipalEnrollment:input_type -> amux.v1.CreatePrincipalEnrollmentRequest
+	183, // 155: amux.v1.Amuxd.GetIsolationStatus:input_type -> amux.v1.GetIsolationStatusRequest
+	25,  // 156: amux.v1.Amuxd.ListAgentProfiles:input_type -> amux.v1.ListAgentProfilesRequest
+	27,  // 157: amux.v1.Amuxd.GetAgentProfile:input_type -> amux.v1.GetAgentProfileRequest
+	75,  // 158: amux.v1.Amuxd.ReadLocalExpert:input_type -> amux.v1.ReadLocalExpertRequest
+	77,  // 159: amux.v1.Amuxd.ChangeLocalExpert:input_type -> amux.v1.ChangeLocalExpertRequest
+	2,   // 160: amux.v1.Amuxd.GetMemoryBinding:input_type -> amux.v1.MemoryBindingRequest
+	4,   // 161: amux.v1.Amuxd.MemorySearch:input_type -> amux.v1.MemorySearchRequest
+	7,   // 162: amux.v1.Amuxd.MemoryGet:input_type -> amux.v1.MemoryGetRequest
+	9,   // 163: amux.v1.Amuxd.MemoryUpsert:input_type -> amux.v1.MemoryUpsertRequest
+	11,  // 164: amux.v1.Amuxd.MemoryForget:input_type -> amux.v1.MemoryForgetRequest
+	87,  // 165: amux.v1.Amuxd.Tunnel:input_type -> amux.v1.TunnelMsg
+	67,  // 166: amux.v1.AmuxTask.ResolveParentTurn:input_type -> amux.v1.ActiveTurnRequest
+	149, // 167: amux.v1.AmuxTask.SubmitSubtask:input_type -> amux.v1.SubmitSubtaskRequest
+	151, // 168: amux.v1.AmuxTask.GetSubtask:input_type -> amux.v1.GetSubtaskRequest
+	153, // 169: amux.v1.AmuxTask.ListSubtasks:input_type -> amux.v1.ListSubtasksRequest
+	155, // 170: amux.v1.AmuxTask.PruneSubtasks:input_type -> amux.v1.PruneSubtasksRequest
+	159, // 171: amux.v1.AmuxTask.CancelSubtask:input_type -> amux.v1.CancelSubtaskRequest
+	161, // 172: amux.v1.AmuxTask.RespondSubtaskPermission:input_type -> amux.v1.RespondSubtaskPermissionRequest
+	163, // 173: amux.v1.AmuxTask.StreamSubtask:input_type -> amux.v1.StreamSubtaskRequest
+	187, // 174: amux.v1.AmuxTask.ListAgentInstances:input_type -> amux.v1.ListAgentInstancesRequest
+	189, // 175: amux.v1.AmuxTask.GetAgentInstance:input_type -> amux.v1.GetAgentInstanceRequest
+	191, // 176: amux.v1.AmuxTask.SendAgentMessage:input_type -> amux.v1.SendAgentMessageRequest
+	193, // 177: amux.v1.AmuxTask.InterruptAgentInstance:input_type -> amux.v1.InterruptAgentInstanceRequest
+	195, // 178: amux.v1.AmuxTask.WaitAgentInstance:input_type -> amux.v1.WaitAgentInstanceRequest
+	197, // 179: amux.v1.AmuxTask.DescribeAgentInstance:input_type -> amux.v1.DescribeAgentInstanceRequest
+	199, // 180: amux.v1.AmuxTask.CleanupAgentInstance:input_type -> amux.v1.CleanupAgentInstanceRequest
+	130, // 181: amux.v1.CoordinationService.ListCollaborators:input_type -> amux.v1.ListCollaboratorsRequest
+	139, // 182: amux.v1.CoordinationService.Delegate:input_type -> amux.v1.DelegateRequest
+	141, // 183: amux.v1.CoordinationService.GetDelegation:input_type -> amux.v1.GetDelegationRequest
+	143, // 184: amux.v1.CoordinationService.WaitDelegation:input_type -> amux.v1.WaitDelegationRequest
+	145, // 185: amux.v1.CoordinationService.InterveneDelegation:input_type -> amux.v1.InterveneDelegationRequest
+	147, // 186: amux.v1.CoordinationService.CancelDelegation:input_type -> amux.v1.CancelDelegationRequest
+	223, // 187: amux.v1.RuntimeMaintenance.Maintain:input_type -> amux.v1.MaintenanceRequest
+	228, // 188: amux.v1.Amuxlet.Cleanup:output_type -> amux.v1.CleanupResponse
+	222, // 189: amux.v1.Amuxlet.ListNativeModels:output_type -> amux.v1.ListNativeModelsResponse
+	216, // 190: amux.v1.Amuxlet.PutSessionFile:output_type -> amux.v1.SessionFileResponse
+	216, // 191: amux.v1.Amuxlet.ReadSessionArtifact:output_type -> amux.v1.SessionFileResponse
+	30,  // 192: amux.v1.Amuxlet.Run:output_type -> amux.v1.RunResponse
+	46,  // 193: amux.v1.Amuxlet.Info:output_type -> amux.v1.InfoResponse
+	44,  // 194: amux.v1.Amuxlet.List:output_type -> amux.v1.ListResponse
+	50,  // 195: amux.v1.Amuxlet.Kill:output_type -> amux.v1.KillResponse
+	30,  // 196: amux.v1.Amuxlet.Restart:output_type -> amux.v1.RunResponse
+	53,  // 197: amux.v1.Amuxlet.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
+	55,  // 198: amux.v1.Amuxlet.Sleep:output_type -> amux.v1.SleepResponse
+	30,  // 199: amux.v1.Amuxlet.Resume:output_type -> amux.v1.RunResponse
+	58,  // 200: amux.v1.Amuxlet.Prune:output_type -> amux.v1.PruneResponse
+	60,  // 201: amux.v1.Amuxlet.Interrupt:output_type -> amux.v1.InterruptResponse
+	62,  // 202: amux.v1.Amuxlet.Attach:output_type -> amux.v1.AttachEvent
+	66,  // 203: amux.v1.Amuxlet.Submit:output_type -> amux.v1.SubmitResponse
+	16,  // 204: amux.v1.Amuxlet.Goal:output_type -> amux.v1.GoalResponse
+	81,  // 205: amux.v1.Amuxlet.QueueList:output_type -> amux.v1.QueueListResponse
+	83,  // 206: amux.v1.Amuxlet.QueueClear:output_type -> amux.v1.QueueClearResponse
+	85,  // 207: amux.v1.Amuxlet.QueueCancel:output_type -> amux.v1.QueueCancelResponse
+	64,  // 208: amux.v1.Amuxlet.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
+	73,  // 209: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:output_type -> amux.v1.LocalExpertAuthoringTurnResponse
+	186, // 210: amux.v1.Amuxlet.RevokePrincipalLaunches:output_type -> amux.v1.RevokePrincipalLaunchesResponse
+	228, // 211: amux.v1.Amuxd.Cleanup:output_type -> amux.v1.CleanupResponse
+	232, // 212: amux.v1.Amuxd.ConsoleManagement:output_type -> amux.v1.ConsoleManagementResponse
+	218, // 213: amux.v1.Amuxd.ProxyModel:output_type -> amux.v1.ProxyModelChunk
+	30,  // 214: amux.v1.Amuxd.Run:output_type -> amux.v1.RunResponse
+	48,  // 215: amux.v1.Amuxd.Info:output_type -> amux.v1.HubInfoResponse
+	98,  // 216: amux.v1.Amuxd.ListTargets:output_type -> amux.v1.ListTargetsResponse
+	100, // 217: amux.v1.Amuxd.FeishuStatus:output_type -> amux.v1.FeishuStatusResponse
+	103, // 218: amux.v1.Amuxd.FeishuBindings:output_type -> amux.v1.FeishuBindingsResponse
+	106, // 219: amux.v1.Amuxd.FeishuBots:output_type -> amux.v1.FeishuBotsResponse
+	230, // 220: amux.v1.Amuxd.SendFeishuMessage:output_type -> amux.v1.SendFeishuMessageResponse
+	111, // 221: amux.v1.Amuxd.FeishuBotSessionStatus:output_type -> amux.v1.FeishuBotSessionStatusResponse
+	111, // 222: amux.v1.Amuxd.FeishuBotSessionBind:output_type -> amux.v1.FeishuBotSessionStatusResponse
+	111, // 223: amux.v1.Amuxd.FeishuBotSessionOff:output_type -> amux.v1.FeishuBotSessionStatusResponse
+	115, // 224: amux.v1.Amuxd.FeishuContextExplain:output_type -> amux.v1.FeishuContextExplainResponse
+	50,  // 225: amux.v1.Amuxd.Kill:output_type -> amux.v1.KillResponse
+	30,  // 226: amux.v1.Amuxd.Restart:output_type -> amux.v1.RunResponse
+	53,  // 227: amux.v1.Amuxd.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
+	55,  // 228: amux.v1.Amuxd.Sleep:output_type -> amux.v1.SleepResponse
+	30,  // 229: amux.v1.Amuxd.Resume:output_type -> amux.v1.RunResponse
+	58,  // 230: amux.v1.Amuxd.Prune:output_type -> amux.v1.PruneResponse
+	60,  // 231: amux.v1.Amuxd.Interrupt:output_type -> amux.v1.InterruptResponse
+	62,  // 232: amux.v1.Amuxd.Attach:output_type -> amux.v1.AttachEvent
+	66,  // 233: amux.v1.Amuxd.Submit:output_type -> amux.v1.SubmitResponse
+	16,  // 234: amux.v1.Amuxd.Goal:output_type -> amux.v1.GoalResponse
+	81,  // 235: amux.v1.Amuxd.QueueList:output_type -> amux.v1.QueueListResponse
+	83,  // 236: amux.v1.Amuxd.QueueClear:output_type -> amux.v1.QueueClearResponse
+	85,  // 237: amux.v1.Amuxd.QueueCancel:output_type -> amux.v1.QueueCancelResponse
+	64,  // 238: amux.v1.Amuxd.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
+	204, // 239: amux.v1.Amuxd.CreateSchedule:output_type -> amux.v1.CreateScheduleResponse
+	206, // 240: amux.v1.Amuxd.ListSchedules:output_type -> amux.v1.ListSchedulesResponse
+	208, // 241: amux.v1.Amuxd.GetSchedule:output_type -> amux.v1.GetScheduleResponse
+	210, // 242: amux.v1.Amuxd.DeleteSchedule:output_type -> amux.v1.DeleteScheduleResponse
+	212, // 243: amux.v1.Amuxd.UpdateSchedule:output_type -> amux.v1.UpdateScheduleResponse
+	214, // 244: amux.v1.Amuxd.SetScheduleEnabled:output_type -> amux.v1.SetScheduleEnabledResponse
+	32,  // 245: amux.v1.Amuxd.MaterializeCredential:output_type -> amux.v1.MaterializeCredentialResponse
+	36,  // 246: amux.v1.Amuxd.SetCredential:output_type -> amux.v1.CredentialProfileMetadata
+	36,  // 247: amux.v1.Amuxd.GetCredential:output_type -> amux.v1.CredentialProfileMetadata
+	37,  // 248: amux.v1.Amuxd.ListCredentials:output_type -> amux.v1.ListCredentialsResponse
+	168, // 249: amux.v1.Amuxd.CreatePrincipal:output_type -> amux.v1.PrincipalResponse
+	173, // 250: amux.v1.Amuxd.ListPrincipals:output_type -> amux.v1.ListPrincipalsResponse
+	172, // 251: amux.v1.Amuxd.ListPrincipalAliases:output_type -> amux.v1.ListPrincipalAliasesResponse
+	168, // 252: amux.v1.Amuxd.DisablePrincipal:output_type -> amux.v1.PrincipalResponse
+	168, // 253: amux.v1.Amuxd.BindPrincipalAlias:output_type -> amux.v1.PrincipalResponse
+	177, // 254: amux.v1.Amuxd.GrantPrincipalDelegation:output_type -> amux.v1.GrantPrincipalDelegationResponse
+	180, // 255: amux.v1.Amuxd.RevokePrincipalDelegation:output_type -> amux.v1.EmptyResponse
+	180, // 256: amux.v1.Amuxd.GrantServicePrincipalMember:output_type -> amux.v1.EmptyResponse
+	180, // 257: amux.v1.Amuxd.RevokeServicePrincipalMember:output_type -> amux.v1.EmptyResponse
+	182, // 258: amux.v1.Amuxd.CreatePrincipalEnrollment:output_type -> amux.v1.CreatePrincipalEnrollmentResponse
+	184, // 259: amux.v1.Amuxd.GetIsolationStatus:output_type -> amux.v1.GetIsolationStatusResponse
+	26,  // 260: amux.v1.Amuxd.ListAgentProfiles:output_type -> amux.v1.ListAgentProfilesResponse
+	28,  // 261: amux.v1.Amuxd.GetAgentProfile:output_type -> amux.v1.GetAgentProfileResponse
+	76,  // 262: amux.v1.Amuxd.ReadLocalExpert:output_type -> amux.v1.ReadLocalExpertResponse
+	78,  // 263: amux.v1.Amuxd.ChangeLocalExpert:output_type -> amux.v1.ChangeLocalExpertResponse
+	3,   // 264: amux.v1.Amuxd.GetMemoryBinding:output_type -> amux.v1.MemoryBindingResponse
+	6,   // 265: amux.v1.Amuxd.MemorySearch:output_type -> amux.v1.MemorySearchResponse
+	8,   // 266: amux.v1.Amuxd.MemoryGet:output_type -> amux.v1.MemoryDocument
+	10,  // 267: amux.v1.Amuxd.MemoryUpsert:output_type -> amux.v1.MemoryWriteResponse
+	12,  // 268: amux.v1.Amuxd.MemoryForget:output_type -> amux.v1.MemoryForgetResponse
+	87,  // 269: amux.v1.Amuxd.Tunnel:output_type -> amux.v1.TunnelMsg
+	68,  // 270: amux.v1.AmuxTask.ResolveParentTurn:output_type -> amux.v1.ActiveTurnResponse
+	150, // 271: amux.v1.AmuxTask.SubmitSubtask:output_type -> amux.v1.SubmitSubtaskResponse
+	152, // 272: amux.v1.AmuxTask.GetSubtask:output_type -> amux.v1.GetSubtaskResponse
+	154, // 273: amux.v1.AmuxTask.ListSubtasks:output_type -> amux.v1.ListSubtasksResponse
+	158, // 274: amux.v1.AmuxTask.PruneSubtasks:output_type -> amux.v1.PruneSubtasksResponse
+	160, // 275: amux.v1.AmuxTask.CancelSubtask:output_type -> amux.v1.CancelSubtaskResponse
+	162, // 276: amux.v1.AmuxTask.RespondSubtaskPermission:output_type -> amux.v1.RespondSubtaskPermissionResponse
+	164, // 277: amux.v1.AmuxTask.StreamSubtask:output_type -> amux.v1.SubtaskEvent
+	188, // 278: amux.v1.AmuxTask.ListAgentInstances:output_type -> amux.v1.ListAgentInstancesResponse
+	190, // 279: amux.v1.AmuxTask.GetAgentInstance:output_type -> amux.v1.GetAgentInstanceResponse
+	192, // 280: amux.v1.AmuxTask.SendAgentMessage:output_type -> amux.v1.SendAgentMessageResponse
+	194, // 281: amux.v1.AmuxTask.InterruptAgentInstance:output_type -> amux.v1.InterruptAgentInstanceResponse
+	196, // 282: amux.v1.AmuxTask.WaitAgentInstance:output_type -> amux.v1.WaitAgentInstanceResponse
+	198, // 283: amux.v1.AmuxTask.DescribeAgentInstance:output_type -> amux.v1.DescribeAgentInstanceResponse
+	200, // 284: amux.v1.AmuxTask.CleanupAgentInstance:output_type -> amux.v1.CleanupAgentInstanceResponse
+	132, // 285: amux.v1.CoordinationService.ListCollaborators:output_type -> amux.v1.ListCollaboratorsResponse
+	140, // 286: amux.v1.CoordinationService.Delegate:output_type -> amux.v1.DelegateResponse
+	142, // 287: amux.v1.CoordinationService.GetDelegation:output_type -> amux.v1.GetDelegationResponse
+	144, // 288: amux.v1.CoordinationService.WaitDelegation:output_type -> amux.v1.WaitDelegationResponse
+	146, // 289: amux.v1.CoordinationService.InterveneDelegation:output_type -> amux.v1.InterveneDelegationResponse
+	148, // 290: amux.v1.CoordinationService.CancelDelegation:output_type -> amux.v1.CancelDelegationResponse
+	224, // 291: amux.v1.RuntimeMaintenance.Maintain:output_type -> amux.v1.MaintenanceResponse
+	188, // [188:292] is the sub-list for method output_type
+	84,  // [84:188] is the sub-list for method input_type
 	84,  // [84:84] is the sub-list for extension type_name
 	84,  // [84:84] is the sub-list for extension extendee
 	0,   // [0:84] is the sub-list for field type_name
@@ -17785,7 +17914,7 @@ func file_amux_v1_amux_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_amux_v1_amux_proto_rawDesc), len(file_amux_v1_amux_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   240,
+			NumMessages:   242,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

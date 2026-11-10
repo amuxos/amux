@@ -196,8 +196,10 @@ func newStartCmd() *cobra.Command {
 			go localExpertAuthoring.runEvaluationReconciler(ctx)
 			managementActions := newLocalManagementSystemActions()
 			go managementActions.RunUpdateMonitor(ctx)
+			consoleActions := newLocalManagementConsoleActions(ctx, detectHubIP(lis.Addr()))
+			defer consoleActions.Close(context.Background())
 			scheduleControl := &bridgeSchedules{server: &hubServer{hub: hub, listTargets: hub.ListTargets, schedule: scheduleStore, principals: principalStore, scheduleRuntime: hub, scheduleTasks: subtaskReader, isolationConfig: config.GetIsolation}, reader: subtaskReader}
-			bridges := tryStartBridges(ctx, hub, sessionStarter, subtaskReader, principalStore, scheduleControl, webBaseURL, webToken, managementActions, bridge.ManagementSystemInfo{
+			bridges := tryStartBridges(ctx, hub, sessionStarter, subtaskReader, principalStore, scheduleControl, webBaseURL, webToken, managementActions, consoleActions, bridge.ManagementSystemInfo{
 				Version:   version,
 				StartedAt: startedAt,
 				HubIP:     detectHubIP(lis.Addr()),
@@ -210,9 +212,11 @@ func newStartCmd() *cobra.Command {
 				defer runtime.Close()
 			}
 			feishuBotSessionControllers := make(map[string]feishuBotSessionController, len(bridges))
+			consoleManagementControllers := make(map[string]consoleManagementController, len(bridges))
 			var feishuMessageSenders []feishuMessageSender
 			for _, b := range bridges {
 				feishuBotSessionControllers[b.ProfileName()] = b
+				consoleManagementControllers[b.ProfileName()] = b
 				feishuMessageSenders = append(feishuMessageSenders, b)
 			}
 			// Register a session event handler that (1) reclaims persistent agent
@@ -236,20 +240,21 @@ func newStartCmd() *cobra.Command {
 				grpc.StreamInterceptor(hubStreamAuthInterceptor(auth.SharedToken)),
 			)
 			hubRPC := &hubServer{
-				hub:                         hub,
-				listTargets:                 hub.ListTargets,
-				feishuBotSessionControllers: feishuBotSessionControllers,
-				feishuMessageSenders:        feishuMessageSenders,
-				schedule:                    scheduleStore,
-				scheduleRuntime:             hub,
-				scheduleTasks:               subtaskReader,
-				principals:                  principalStore,
-				memory:                      memoryStore,
-				memoryConfig:                config.GetMemory,
-				version:                     version,
-				startedAt:                   startedAt,
-				localExpertAuthoring:        localExpertAuthoring,
-				isolationConfig:             config.GetIsolation,
+				hub:                          hub,
+				listTargets:                  hub.ListTargets,
+				feishuBotSessionControllers:  feishuBotSessionControllers,
+				consoleManagementControllers: consoleManagementControllers,
+				feishuMessageSenders:         feishuMessageSenders,
+				schedule:                     scheduleStore,
+				scheduleRuntime:              hub,
+				scheduleTasks:                subtaskReader,
+				principals:                   principalStore,
+				memory:                       memoryStore,
+				memoryConfig:                 config.GetMemory,
+				version:                      version,
+				startedAt:                    startedAt,
+				localExpertAuthoring:         localExpertAuthoring,
+				isolationConfig:              config.GetIsolation,
 			}
 			hubRPC.dailyCleaner = newDailyCleaner(hubRPC, bridges)
 			go hubRPC.dailyCleaner.Run(ctx)
@@ -382,6 +387,7 @@ func tryStartBridges(
 	webBaseURL,
 	webToken string,
 	managementActions bridge.ManagementSystemActions,
+	consoleActions bridge.ManagementConsoleActions,
 	systemInfo bridge.ManagementSystemInfo,
 ) []*bridge.Bridge {
 	profiles, err := bridge.ListSecretProfiles()
@@ -434,6 +440,7 @@ func tryStartBridges(
 		}
 		b.SetSessionViewer(webBaseURL, webToken)
 		b.SetManagementSystemActions(managementActions)
+		b.SetManagementConsoleActions(consoleActions)
 		pending = append(pending, pendingBridge{profile: profile, appID: secrets.AppId, bridge: b})
 	}
 	if len(pending) > 0 {
