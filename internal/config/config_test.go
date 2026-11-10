@@ -600,7 +600,7 @@ idle_timeout_seconds = 180
 
 func TestGetBridgeFeishuWorkspaceDefaultsForProfileOverridesGlobal(t *testing.T) {
 	path := writeConfig(t, `[bridge.feishu.workspace_defaults]
-agent = "coco"
+agent = "demo-agent"
 target = "local"
 cwd = "/repo/global"
 model = "global-model"

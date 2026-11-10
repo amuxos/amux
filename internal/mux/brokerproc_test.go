@@ -72,7 +72,7 @@ func TestListBrokerProcesses(t *testing.T) {
 	writeFakeProc(t, procRoot, 5002, []string{
 		"/home/u/.amux/bin/amuxlet", "_acp_broker",
 		"--socket", acpSock, "--pid-file", filepath.Join(sessDir, sidACP+".pid"),
-		"--cwd", "/tmp", "--", "/usr/bin/coco", "acp", "serve",
+		"--cwd", "/tmp", "--", "/usr/bin/demo-agent", "acp", "serve",
 	}, "/home/u/.amux/bin/.amux-backup-123/amuxlet (deleted)", 1, 223456)
 
 	// A non-broker process (the amuxlet main itself) — must be skipped.

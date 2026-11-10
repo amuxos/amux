@@ -1182,7 +1182,7 @@ func TestHelperReclaimHomeHonoursSizeThreshold(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cacheDir := filepath.Join(paths.Home, ".trae", "cli")
+	cacheDir := filepath.Join(paths.Home, ".example-agent", "cli")
 	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -1194,9 +1194,9 @@ func TestHelperReclaimHomeHonoursSizeThreshold(t *testing.T) {
 		}
 	}
 	spec := []HomeCacheSpec{{
-		Path:     ".trae/cli/logs_2.sqlite",
+		Path:     ".example-agent/cli/logs_2.sqlite",
 		MaxBytes: 1024,
-		Remove:   []string{".trae/cli/logs_2.sqlite", ".trae/cli/logs_2.sqlite-wal"},
+		Remove:   []string{".example-agent/cli/logs_2.sqlite", ".example-agent/cli/logs_2.sqlite-wal"},
 	}}
 
 	if err := client.ReclaimHome(context.Background(), mapping, spec); err != nil {

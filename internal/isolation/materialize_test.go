@@ -157,10 +157,10 @@ func TestApplyMaterializeBundleRejectsTraversalAndSymlinkTarget(t *testing.T) {
 func TestMaterializeBundleWritesHomePrefix(t *testing.T) {
 	sourceRoot := t.TempDir()
 	homeSource := filepath.Join(sourceRoot, "home")
-	if err := os.MkdirAll(filepath.Join(homeSource, ".trae", "cli"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(homeSource, ".example-agent", "cli"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(homeSource, ".trae", "cli", "auth.json"), []byte("token"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(homeSource, ".example-agent", "cli", "auth.json"), []byte("token"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	var bundle bytes.Buffer
@@ -172,7 +172,7 @@ func TestMaterializeBundleWritesHomePrefix(t *testing.T) {
 	if err := ApplyMaterializeBundle(bytes.NewReader(bundle.Bytes()), workspace, run, home); err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(home, ".trae", "cli", "auth.json")
+	target := filepath.Join(home, ".example-agent", "cli", "auth.json")
 	data, err := os.ReadFile(target)
 	if err != nil || string(data) != "token" {
 		t.Fatalf("data=%q err=%v", data, err)

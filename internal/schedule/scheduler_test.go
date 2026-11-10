@@ -418,7 +418,7 @@ func waitForRuns(t *testing.T, s *Store, scheduleID int64, want int) []Run {
 func onlineTarget() []*pb.Target {
 	return []*pb.Target{{Id: "local", Name: "local", Sessions: []*pb.Session{{
 		Name:            "c1",
-		AgentType:       "coco",
+		AgentType:       "demo-agent",
 		State:           "running",
 		Cwd:             "/repo",
 		ExtraArgs:       []string{"--debug"},
@@ -883,7 +883,7 @@ func TestSchedulerNewSessionPerRun(t *testing.T) {
 	if run.Name == "" || submit.Name != "resolved-session" {
 		t.Fatalf("run name = %q submit name = %q, want resolved response name", run.Name, submit.Name)
 	}
-	if run.AgentType != "coco" || run.Cwd != "/repo" || run.WorkspaceSource != "cli" || run.WorkspaceScope != "local" {
+	if run.AgentType != "demo-agent" || run.Cwd != "/repo" || run.WorkspaceSource != "cli" || run.WorkspaceScope != "local" {
 		t.Fatalf("run request did not clone template: %+v", run)
 	}
 	if len(run.ExtraArgs) != 1 || run.ExtraArgs[0] != "--debug" || len(run.Env) != 1 || run.Env[0] != "A=B" {
