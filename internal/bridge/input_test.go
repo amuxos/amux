@@ -6181,7 +6181,7 @@ func TestFreshThreadRunWarningReachesThread(t *testing.T) {
 	b, hub := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open", NotifyChatId: "oc-topic", BotName: "planner"}
 	hub.targets = []*pb.Target{{Id: "target-1", Name: "local"}}
-	hub.runWarns = []string{"provider credential .trae/cli/auth.json expired at 2026-08-08T15:21:56Z"}
+	hub.runWarns = []string{"provider credential .example-agent/cli/auth.json expired at 2026-08-08T15:21:56Z"}
 	setBridgeTestBotDefaultAgent(t, b, "builtin/codex")
 	var notices []string
 	b.threadNotice = func(_ context.Context, rootMsgID, text string) error {
@@ -6203,7 +6203,7 @@ func TestFreshThreadRunWarningReachesThread(t *testing.T) {
 	if found == "" {
 		t.Fatalf("notices = %q, want one carrying the credential warning", notices)
 	}
-	for _, want := range []string{"om-root:", "⚠️", ".trae/cli/auth.json"} {
+	for _, want := range []string{"om-root:", "⚠️", ".example-agent/cli/auth.json"} {
 		if !strings.Contains(found, want) {
 			t.Fatalf("notice %q does not contain %q", found, want)
 		}

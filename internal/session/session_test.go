@@ -491,7 +491,7 @@ func TestProviderFixturesConvergeOnCanonicalTurnSequence(t *testing.T) {
 	}{
 		{name: "claude", provider: "claude", terminal: testSuccess()},
 		{name: "codex", provider: "codex", terminal: testSuccess()},
-		{name: "acp", provider: "coco", terminal: testSuccess()},
+		{name: "acp", provider: "demo-agent", terminal: testSuccess()},
 		{name: "pi", provider: "pi", terminal: testSuccess()},
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
@@ -1309,7 +1309,7 @@ func TestAutoSleepEligibleRequiresResumableSessionIdleAndNoQueue(t *testing.T) {
 func TestAutoSleepEligibleIsFalseWhileQueueBusy(t *testing.T) {
 	now := time.Unix(2000, 0)
 	s := &Session{
-		AgentType:          "coco",
+		AgentType:          "demo-agent",
 		State:              StateRunning,
 		IdleTimeoutSeconds: 60,
 		AgentSessionID:     "native-session",

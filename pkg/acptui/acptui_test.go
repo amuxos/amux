@@ -440,7 +440,7 @@ func TestDelayedTimerFiresAfterQuietPeriod(t *testing.T) {
 
 func TestPanelSnapshotShowsInputAndStatus(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "mycoco", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "mydemo", AgentType: "demo-agent"}, editor)
 	panel.SetSize(60, 12)
 	editor.Write([]byte("abc"))
 	panel.SetStatus("waiting")
@@ -524,7 +524,7 @@ func TestTimelineEventsFromOutputKeepsAgentChunkTogether(t *testing.T) {
 
 func TestPanelPreservesStreamingAgentMarkdownNewlines(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "demo-agent"}, editor)
 	panel.SetSize(100, 18)
 
 	chunks := []string{
@@ -565,7 +565,7 @@ func TestPanelPreservesStreamingAgentMarkdownNewlines(t *testing.T) {
 
 func TestPanelMergesAgentChunksWithoutDroppingSpaces(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "demo-agent"}, editor)
 	panel.SetSize(80, 12)
 
 	panel.AddTimelineEvent(TimelineEvent{Time: "10:48", Source: "agent", Text: "I'll start "})
@@ -579,7 +579,7 @@ func TestPanelMergesAgentChunksWithoutDroppingSpaces(t *testing.T) {
 
 func TestPanelMergesAgentChunksAfterMultilineChunk(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "demo-agent"}, editor)
 	panel.SetSize(100, 12)
 
 	panel.AddTimelineEvent(TimelineEvent{Time: "12:03", Source: "agent", Text: "## 当前代码库分析\n### 项目概览\n"})
@@ -602,7 +602,7 @@ func TestPanelMergesAgentChunksAfterMultilineChunk(t *testing.T) {
 
 func TestPanelFormatsLongMarkdownAgentContentBelowHeader(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "demo-agent"}, editor)
 	panel.SetSize(100, 16)
 
 	panel.AddTimelineEvent(TimelineEvent{Time: "12:43", Source: "agent", Text: "## 代码库分析：amux\n\n### 项目概述\n\n**amux** 是一个跨沙箱 Agent 管理器。\n\n| 二进制 | 入口 | 职责 |\n|---|---|---|\n| amux | cmd/amux/main.go | 用户 CLI |\n"})
@@ -623,7 +623,7 @@ func TestPanelFormatsLongMarkdownAgentContentBelowHeader(t *testing.T) {
 
 func TestPanelReformatsAgentHeaderWhenMarkdownArrivesAfterPlainChunk(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "demo-agent"}, editor)
 	panel.SetSize(100, 16)
 
 	panel.AddTimelineEvent(TimelineEvent{Time: "12:56", Source: "agent", Text: "Now I have a complete picture of the codebase. "})
@@ -642,7 +642,7 @@ func TestPanelReformatsAgentHeaderWhenMarkdownArrivesAfterPlainChunk(t *testing.
 
 func TestPanelRepairsJoinedMarkdownBoundariesBeforeRendering(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "demo-agent"}, editor)
 	panel.SetSize(120, 18)
 
 	panel.AddTimelineEvent(TimelineEvent{Time: "13:29", Source: "agent", Text: "以下是总结：  ##总览分支相对 main 改动。 ---## 一、Bridge 层重构 |提交 | 改动 ||---|---|| a37b565 | Refactor attach metadata || 9cd6643 | Split bridge routing | ## 二、消息展示优化"})
@@ -662,7 +662,7 @@ func TestPanelRepairsJoinedMarkdownBoundariesBeforeRendering(t *testing.T) {
 
 func TestPanelSummarizesConsecutiveToolEvents(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "demo-agent"}, editor)
 	panel.SetSize(100, 12)
 
 	panel.AddTimelineEvent(TimelineEvent{Time: "12:03", Source: "tool", Text: "bash"})
@@ -734,7 +734,7 @@ func TestFormatStructuredToolEventShortensPathAndStatus(t *testing.T) {
 
 func TestPanelMergesConsecutiveAgentChunks(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "demo-agent"}, editor)
 	panel.SetSize(80, 12)
 
 	panel.AddTimelineEvent(TimelineEvent{Time: "10:47", Source: "agent", Text: "你好"})
@@ -760,7 +760,7 @@ func TestClearPreviousPanelStartsFromLineBelowPrompt(t *testing.T) {
 
 func TestPanelPlaceholderIsDimAndCursorStaysAtPrompt(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "impl", AgentType: "demo-agent"}, editor)
 	panel.SetSize(80, 12)
 
 	got := string(panel.RenderPanel())
@@ -856,7 +856,7 @@ func TestPanelSnapshotShowsContextUsageWithoutWindow(t *testing.T) {
 
 func TestPanelSnapshotOmitsContextWithoutUsage(t *testing.T) {
 	editor := NewLineEditor(func([]byte) {})
-	panel := NewPanel(PanelConfig{SessionName: "work", AgentType: "coco"}, editor)
+	panel := NewPanel(PanelConfig{SessionName: "work", AgentType: "demo-agent"}, editor)
 	panel.SetSize(80, 14)
 
 	got := string(panel.RenderPanel())

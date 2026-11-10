@@ -105,7 +105,7 @@ func TestFormatTrackedProcesses(t *testing.T) {
 
 func TestRestartableTrackedProcessesExcludeSessionOwned(t *testing.T) {
 	got := restartableTrackedProcesses([]trackedProcess{
-		{Role: trackedProcessRoleMCP, PID: 12, SessionID: "sess-coco"},
+		{Role: trackedProcessRoleMCP, PID: 12, SessionID: "sess-demo-agent"},
 		{Role: trackedProcessRoleGUI, PID: 34},
 	})
 	if len(got) != 1 || got[0].Role != trackedProcessRoleGUI || got[0].PID != 34 {

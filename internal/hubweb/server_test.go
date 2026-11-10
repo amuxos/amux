@@ -332,7 +332,7 @@ func TestSignedParentSessionTokenCanViewTaskChildSession(t *testing.T) {
 				Sessions: []*pb.Session{{
 					Id:          "sess-child",
 					Name:        "child-1",
-					AgentType:   "coco",
+					AgentType:   "demo-agent",
 					State:       "running",
 					OwnerTaskId: "task-child",
 				}},
