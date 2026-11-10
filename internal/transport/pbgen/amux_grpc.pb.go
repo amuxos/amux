@@ -968,6 +968,7 @@ var Amuxlet_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	Amuxd_Cleanup_FullMethodName                      = "/amux.v1.Amuxd/Cleanup"
+	Amuxd_ConsoleManagement_FullMethodName            = "/amux.v1.Amuxd/ConsoleManagement"
 	Amuxd_ProxyModel_FullMethodName                   = "/amux.v1.Amuxd/ProxyModel"
 	Amuxd_Run_FullMethodName                          = "/amux.v1.Amuxd/Run"
 	Amuxd_Info_FullMethodName                         = "/amux.v1.Amuxd/Info"
@@ -1033,6 +1034,8 @@ const (
 type AmuxdClient interface {
 	// Host-operator maintenance, never available to Agent credentials.
 	Cleanup(ctx context.Context, in *CleanupRequest, opts ...grpc.CallOption) (*CleanupResponse, error)
+	// Operator-only, bounded typed Bot/group management; never a generic RPC proxy.
+	ConsoleManagement(ctx context.Context, in *ConsoleManagementRequest, opts ...grpc.CallOption) (*ConsoleManagementResponse, error)
 	// Model services reuse the authenticated actor; no upstream credentials leave the Hub.
 	ProxyModel(ctx context.Context, in *ProxyModelRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyModelChunk], error)
 	Run(ctx context.Context, in *AmuxdRunRequest, opts ...grpc.CallOption) (*RunResponse, error)
@@ -1109,6 +1112,16 @@ func (c *amuxdClient) Cleanup(ctx context.Context, in *CleanupRequest, opts ...g
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CleanupResponse)
 	err := c.cc.Invoke(ctx, Amuxd_Cleanup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *amuxdClient) ConsoleManagement(ctx context.Context, in *ConsoleManagementRequest, opts ...grpc.CallOption) (*ConsoleManagementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConsoleManagementResponse)
+	err := c.cc.Invoke(ctx, Amuxd_ConsoleManagement_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1712,6 +1725,8 @@ type Amuxd_TunnelClient = grpc.BidiStreamingClient[TunnelMsg, TunnelMsg]
 type AmuxdServer interface {
 	// Host-operator maintenance, never available to Agent credentials.
 	Cleanup(context.Context, *CleanupRequest) (*CleanupResponse, error)
+	// Operator-only, bounded typed Bot/group management; never a generic RPC proxy.
+	ConsoleManagement(context.Context, *ConsoleManagementRequest) (*ConsoleManagementResponse, error)
 	// Model services reuse the authenticated actor; no upstream credentials leave the Hub.
 	ProxyModel(*ProxyModelRequest, grpc.ServerStreamingServer[ProxyModelChunk]) error
 	Run(context.Context, *AmuxdRunRequest) (*RunResponse, error)
@@ -1785,6 +1800,9 @@ type UnimplementedAmuxdServer struct{}
 
 func (UnimplementedAmuxdServer) Cleanup(context.Context, *CleanupRequest) (*CleanupResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Cleanup not implemented")
+}
+func (UnimplementedAmuxdServer) ConsoleManagement(context.Context, *ConsoleManagementRequest) (*ConsoleManagementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConsoleManagement not implemented")
 }
 func (UnimplementedAmuxdServer) ProxyModel(*ProxyModelRequest, grpc.ServerStreamingServer[ProxyModelChunk]) error {
 	return status.Error(codes.Unimplemented, "method ProxyModel not implemented")
@@ -1991,6 +2009,24 @@ func _Amuxd_Cleanup_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AmuxdServer).Cleanup(ctx, req.(*CleanupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Amuxd_ConsoleManagement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConsoleManagementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).ConsoleManagement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_ConsoleManagement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).ConsoleManagement(ctx, req.(*ConsoleManagementRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3006,6 +3042,10 @@ var Amuxd_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Cleanup",
 			Handler:    _Amuxd_Cleanup_Handler,
+		},
+		{
+			MethodName: "ConsoleManagement",
+			Handler:    _Amuxd_ConsoleManagement_Handler,
 		},
 		{
 			MethodName: "Run",

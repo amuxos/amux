@@ -55,6 +55,26 @@ distributions should pass a fixed loopback address. The Gateway permits
 cross-origin requests: access control depends on its listening address and token,
 not the browser Origin.
 
+## Browser operator console
+
+`amux console` is a separate same-origin browser surface, not a public deployment
+of this desktop Gateway. It embeds its own dependency-free web assets and uses
+temporary-password authentication, HttpOnly sessions, CSRF protection, exact
+Host/Origin checks and backend action allowlists. The owner's private `/amux`
+page opens/closes one installation-wide listener on all IPv4 interfaces at
+`console.port` (7892 by default). It closes and revokes sessions after 30 minutes.
+The card gives the server URL and temporary password; `console.public_url` may
+override the advertised origin. HTTP is only for trusted networks; public access
+should use HTTPS. Local CLI diagnostics retain one-time pairing. `/api/console/bootstrap` supplies browser capabilities;
+`/api/console/<resource>` reads snapshots or accepts typed control operations;
+`/api/console/events` streams authenticated canonical Attach events over SSE.
+Reconnect replays the existing stream and the client deduplicates canonical
+cursors/event IDs; it never replays control requests. These sessions have host
+operator authority, not independent end-user roles. Credential values and raw
+launch environments are excluded from management snapshots. Bot/group writes
+use the operator-only Hub `ConsoleManagement` RPC and the live Bridge transition.
+There is no Runtime-node management page or raw terminal endpoint.
+
 ## API
 
 | Path | Purpose |

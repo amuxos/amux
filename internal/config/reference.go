@@ -42,6 +42,8 @@ func ManagedConfigKeys() []string {
 }
 
 var configOptions = distributionConfigOptions([]ConfigOption{
+	{Section: "Web 管理后台", Key: "console.port", Type: "integer", Default: "7892", Constraints: "1–65535", Description: "系统级临时 Web 管理后台端口，所有助手共用；负责人在私聊 /amux 开启后监听全部 IPv4 接口，默认 30 分钟后关闭。", Managed: true},
+	{Section: "Web 管理后台", Key: "console.public_url", Type: "URL", Default: "空（自动使用 Hub 主机 IP 和端口）", Constraints: "bare HTTP(S) origin; no credentials/query/fragment", Description: "私聊管理卡显示的后台访问地址；仅在临时开启时使用，留空自动选择主机 IP。HTTP 仅适用于可信网络，公网应使用 HTTPS。", Managed: true},
 	{Section: "Agent", Key: CodexExecutableKey, Type: "string", Default: "codex", Description: "Codex 启动程序；留空使用 codex。在执行节点解析，保存并重启后用于新会话及模型发现。", Constraints: "程序名称、绝对路径或 ~/ 路径；不是 shell 命令", Managed: true},
 	{Section: "Runtime 清理", Key: "maintenance.daily_cleanup.enabled", Type: "boolean", Default: "true", Description: "每日自动清理普通话题和用户隔离话题的运行数据，并向 Bot 管理员私聊报告结果；系统级开关，保存后即时生效。", Managed: true},
 	{Section: "Runtime 清理", Key: "maintenance.daily_cleanup.at", Type: "string", Default: "06:17", Constraints: "HH:MM", Description: "每日清理时间，使用 Hub 本地时区；错过时间后在恢复运行时补一次。", Managed: true},

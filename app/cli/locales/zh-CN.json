@@ -298,5 +298,50 @@
   },
   "mcp.call.continuation_cursor": {
     "other": "MCP 续传游标无效"
+  },
+  "console.short": {
+    "other": "打开运维 Web 管理控制台"
+  },
+  "console.addr": {
+    "other": "监听 IP 和端口（非回环地址要求临时密码认证）"
+  },
+  "console.operator_required": {
+    "other": "管理控制台要求宿主运维权限；不接受 Agent 或 enrollment 凭据。"
+  },
+  "console.loopback_required": {
+    "other": "管理控制台只监听数字回环地址。远程访问请使用 SSH 隧道。"
+  },
+  "console.ready": {
+    "other": "请在五分钟内打开此一次性配对链接：%s\n此入口具有宿主运维权限。请勿分享配对链接；新浏览器配对需重新启动命令。"
+  },
+  "console.public_url": {
+    "other": "浏览器访问的 HTTP(S) origin；不包含凭据、查询参数或片段"
+  },
+  "console.duration": {
+    "other": "最长开放时间；到期自动关闭（不超过 30m）"
+  },
+  "console.password_stdin": {
+    "other": "从标准输入读取临时密码（非回环监听时必需）"
+  },
+  "console.listen_invalid": {
+    "other": "后台监听地址必须使用数字 IP 和端口。"
+  },
+  "console.duration_invalid": {
+    "other": "后台开放时间必须大于零且不超过 30 分钟。"
+  },
+  "console.invalid_public_url": {
+    "other": "后台地址必须是裸 HTTP(S) origin，不包含凭据、查询参数或片段。"
+  },
+  "console.invalid_port": {
+    "other": "后台端口必须是 1 到 65535 之间的整数。"
+  },
+  "console.remote_auth_required": {
+    "other": "远程监听要求 --password-stdin 和非回环的 --public-url。"
+  },
+  "console.password_invalid": {
+    "other": "临时密码必须为 16 到 256 个非空白字符。"
+  },
+  "console.password_ready": {
+    "other": "临时管理后台：%s\n请使用负责人私聊 /amux 卡片中的临时密码。监听会自动到期关闭；请使用 HTTPS 或可信网络。"
   }
 }

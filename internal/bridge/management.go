@@ -176,6 +176,9 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			b.localizeManagementToast(response, event.Event.Operator.OpenID)
 		}
 	}()
+	if isManagementConsoleAction(action) {
+		return b.handleManagementConsoleAction(ctx, event, action), true, nil
+	}
 	if response, handled, err := b.scheduleCardAction(ctx, event, action); handled {
 		return response, true, err
 	}

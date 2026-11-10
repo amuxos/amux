@@ -17,6 +17,13 @@ amux system config unset <key>
 
 “CLI 可管理”专指通用 `amux system config set/get/unset`；标为“否”的键可能由说明中列出的专用命令管理，否则需要直接编辑 TOML。Profile 键中的 `<profile>` 替换为实际飞书智能体 Profile 名；Provider 键中的 `<provider>` 只支持 `codex`。敏感值不会在本文档中给出示例。
 
+## Web 管理后台
+
+| 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `console.port` | 整数 | 7892 | 1–65535 | 是 | 系统级临时 Web 管理后台端口，所有助手共用；负责人在私聊 /amux 开启后监听全部 IPv4 接口，默认 30 分钟后关闭。 |
+| `console.public_url` | URL | 空（自动使用 Hub 主机 IP 和端口） | bare HTTP(S) origin; no credentials/query/fragment | 是 | 私聊管理卡显示的后台访问地址；仅在临时开启时使用，留空自动选择主机 IP。HTTP 仅适用于可信网络，公网应使用 HTTPS。 |
+
 ## Agent
 
 | 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |

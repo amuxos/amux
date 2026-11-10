@@ -35,24 +35,25 @@ import (
 type hubServer struct {
 	dailyCleaner *dailyCleaner
 	pb.UnimplementedAmuxdServer
-	hub                         *tunnel.Hub
-	listTargets                 func() []*pb.Target
-	feishuBotSessionControllers map[string]feishuBotSessionController
-	feishuMessageSenders        []feishuMessageSender
-	schedule                    *schedule.Store
-	scheduleRuntime             taskRouterHub
-	scheduleTasks               *bridgeSubtaskReader
-	creds                       task.CredentialProvider
-	principals                  *principal.Store
-	memory                      *memory.Store
-	memoryConfig                func() config.MemoryConfig
-	version                     string
-	startedAt                   time.Time
-	credentialRotationHook      func(principalID, reason string) error
-	listAgentProfiles           func() ([]agentprofile.Profile, error)
-	resolveAgentProfile         func(ref string) (agentprofile.Profile, error)
-	localExpertAuthoring        *localExpertAuthoringControl
-	getLocalExpertAuthoringTurn func(context.Context, string, string) (*pb.LocalExpertAuthoringTurnResponse, error)
+	hub                          *tunnel.Hub
+	listTargets                  func() []*pb.Target
+	feishuBotSessionControllers  map[string]feishuBotSessionController
+	consoleManagementControllers map[string]consoleManagementController
+	feishuMessageSenders         []feishuMessageSender
+	schedule                     *schedule.Store
+	scheduleRuntime              taskRouterHub
+	scheduleTasks                *bridgeSubtaskReader
+	creds                        task.CredentialProvider
+	principals                   *principal.Store
+	memory                       *memory.Store
+	memoryConfig                 func() config.MemoryConfig
+	version                      string
+	startedAt                    time.Time
+	credentialRotationHook       func(principalID, reason string) error
+	listAgentProfiles            func() ([]agentprofile.Profile, error)
+	resolveAgentProfile          func(ref string) (agentprofile.Profile, error)
+	localExpertAuthoring         *localExpertAuthoringControl
+	getLocalExpertAuthoringTurn  func(context.Context, string, string) (*pb.LocalExpertAuthoringTurnResponse, error)
 	// isolationConfig reads the hub host's isolation section for credential
 	// store selection; nil defaults to config.GetIsolation. Tests override.
 	isolationConfig func() (config.IsolationConfig, error)
