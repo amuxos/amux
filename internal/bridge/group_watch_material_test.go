@@ -86,9 +86,8 @@ func TestGroupWatchAdmittedInputUsesSharedMaterials(t *testing.T) {
 						t.Fatal("bridge submit must manage session instructions")
 					}
 					if steer {
-						// Out of band: protocol + file note as session instructions,
-						// nothing appended to the user text.
-						if len(request.Parts) > 0 || strings.Contains(request.Text, "amux 文件交付说明") ||
+						// Source context is per-input; file guidance stays out of band.
+						if len(request.Parts) != 1 || stripAmuxGuidance(request.Parts[0].GetText()) != request.Text || strings.Contains(request.Text, "amux 文件交付说明") ||
 							!strings.Contains(request.SystemInstructions, "amux 文件交付说明") ||
 							!strings.Contains(request.SystemInstructions, foregroundInstructions) {
 							t.Fatalf("steer on: parts=%v text=%q system=%q", request.Parts, request.Text, request.SystemInstructions)

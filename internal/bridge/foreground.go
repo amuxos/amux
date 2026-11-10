@@ -67,11 +67,13 @@ func (b *Bridge) runningExperimentsSettings() config.ExperimentsSettings {
 // appends to model input (current and older wordings).
 var amuxGuidancePattern = regexp.MustCompile(`\s*\[amux (?:文件交付|前台协调)说明：[^\]]*\]`)
 var amuxCapabilityGuidancePattern = regexp.MustCompile(regexp.QuoteMeta(discoveryContextStart) + `(?s:.*?)` + regexp.QuoteMeta(discoveryContextEnd))
+var amuxSourceGuidancePattern = regexp.MustCompile(regexp.QuoteMeta(sourceContextStart) + `(?s:.*?)` + regexp.QuoteMeta(sourceContextEnd))
 
 // stripAmuxGuidance removes bridge-appended protocol text so user-visible
 // surfaces (card question header, queue listing, echoes) show only what the
 // user typed.
 func stripAmuxGuidance(text string) string {
+	text = amuxSourceGuidancePattern.ReplaceAllString(text, "")
 	text = amuxCapabilityGuidancePattern.ReplaceAllString(text, "")
 	text = strings.ReplaceAll(text, artifactInstructions, "")
 	text = strings.ReplaceAll(text, "\n\n"+strings.TrimSpace(artifactInstructions)+"\n\n"+foregroundInstructions, "")
