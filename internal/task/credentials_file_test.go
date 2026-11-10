@@ -93,7 +93,7 @@ func TestFileCredentialsMaterializeEnvByNameFindsGlobalEnv(t *testing.T) {
 	}`)
 	fc := FileCredentials{Dir: dir}
 
-	mat, err := fc.MaterializeEnvByName(context.Background(), "coco", []string{"DEMOTION_TOKEN"})
+	mat, err := fc.MaterializeEnvByName(context.Background(), "demo-agent", []string{"DEMOTION_TOKEN"})
 	if err != nil {
 		t.Fatalf("MaterializeEnvByName: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestFileCredentialsMaterializeEnvByNameRequiresEnv(t *testing.T) {
 	}`)
 	fc := FileCredentials{Dir: dir}
 
-	_, err := fc.MaterializeEnvByName(context.Background(), "coco", []string{"DEMOTION_TOKEN"})
+	_, err := fc.MaterializeEnvByName(context.Background(), "demo-agent", []string{"DEMOTION_TOKEN"})
 	if err == nil || !strings.Contains(err.Error(), "credential store does not define env DEMOTION_TOKEN") {
 		t.Fatalf("error = %v, want missing env", err)
 	}
@@ -134,7 +134,7 @@ func TestFileCredentialsMaterializeEnvByNameRejectsDuplicateEnv(t *testing.T) {
 	}`)
 	fc := FileCredentials{Dir: dir}
 
-	_, err := fc.MaterializeEnvByName(context.Background(), "coco", []string{"DEMOTION_TOKEN"})
+	_, err := fc.MaterializeEnvByName(context.Background(), "demo-agent", []string{"DEMOTION_TOKEN"})
 	if err == nil || !strings.Contains(err.Error(), `credential env DEMOTION_TOKEN is provided by multiple profiles`) {
 		t.Fatalf("error = %v, want duplicate env conflict", err)
 	}

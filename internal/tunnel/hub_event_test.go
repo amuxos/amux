@@ -48,10 +48,10 @@ func TestFireSessionEvent_RunningTransitionIsAdded(t *testing.T) {
 	h.SetSessionEventHandler(func(ev SessionEvent) { ch <- ev })
 
 	prev := []*pb.Session{
-		{Id: "s1", Name: "impl", AgentType: "coco", State: "created"},
+		{Id: "s1", Name: "impl", AgentType: "demo-agent", State: "created"},
 	}
 	next := []*pb.Session{
-		{Id: "s1", Name: "impl", AgentType: "coco", State: "running"},
+		{Id: "s1", Name: "impl", AgentType: "demo-agent", State: "running"},
 	}
 	h.fireSessionEvent("sb-1", "mybox", prev, next)
 

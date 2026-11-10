@@ -14,8 +14,8 @@ func TestHelperProtocolFrameRoundTrip(t *testing.T) {
 		LaunchID:        "launch-1",
 		Signal:          "TERM",
 		HomeCaches: []HomeCacheSpec{{
-			Path: ".trae/cli/logs_2.sqlite", MaxBytes: 1 << 30,
-			Remove: []string{".trae/cli/logs_2.sqlite"},
+			Path: ".example-agent/cli/logs_2.sqlite", MaxBytes: 1 << 30,
+			Remove: []string{".example-agent/cli/logs_2.sqlite"},
 		}},
 	}
 	frame, err := encodeHelperFrame(want)

@@ -70,15 +70,15 @@ func TestMaterializeLinuxDACTaskLaunchCopiesAndRewritesRunArtifacts(t *testing.T
 
 func TestStageIsolatedHomeFilesCopiesExistingOnly(t *testing.T) {
 	sourceHome := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(sourceHome, ".trae", "cli"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(sourceHome, ".example-agent", "cli"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(sourceHome, ".trae", "cli", "auth.json"), []byte("token"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(sourceHome, ".example-agent", "cli", "auth.json"), []byte("token"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
 	staged, err := stageIsolatedHomeFiles(isolatedHomeProjection{
-		SourceHome: sourceHome, Files: []string{".trae/cli/auth.json", ".codex/auth.json"},
+		SourceHome: sourceHome, Files: []string{".example-agent/cli/auth.json", ".codex/auth.json"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestStageIsolatedHomeFilesCopiesExistingOnly(t *testing.T) {
 	}
 	defer os.RemoveAll(staged)
 
-	data, err := os.ReadFile(filepath.Join(staged, ".trae", "cli", "auth.json"))
+	data, err := os.ReadFile(filepath.Join(staged, ".example-agent", "cli", "auth.json"))
 	if err != nil || string(data) != "token" {
 		t.Fatalf("data=%q err=%v", data, err)
 	}
@@ -99,7 +99,7 @@ func TestStageIsolatedHomeFilesCopiesExistingOnly(t *testing.T) {
 
 func TestStageIsolatedHomeFilesSkipsWhenNothingExists(t *testing.T) {
 	staged, err := stageIsolatedHomeFiles(isolatedHomeProjection{
-		SourceHome: t.TempDir(), Files: []string{".trae/cli/auth.json"},
+		SourceHome: t.TempDir(), Files: []string{".example-agent/cli/auth.json"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -129,10 +129,10 @@ func TestMaterializeLinuxDACSessionLaunchProjectsHomeCredential(t *testing.T) {
 		t.Fatal(err)
 	}
 	sourceHome := filepath.Join(root, "service-home")
-	if err := os.MkdirAll(filepath.Join(sourceHome, ".trae", "cli"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(sourceHome, ".example-agent", "cli"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(sourceHome, ".trae", "cli", "auth.json"), []byte("token"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(sourceHome, ".example-agent", "cli", "auth.json"), []byte("token"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	paths := isolation.PrincipalPaths{
@@ -155,12 +155,12 @@ func TestMaterializeLinuxDACSessionLaunchProjectsHomeCredential(t *testing.T) {
 			return isolation.ApplyMaterializeBundle(bytes.NewReader(bundle.Bytes()), paths.Workspace, paths.Run, paths.Home)
 		},
 		workspace, "", "", paths,
-		isolatedHomeProjection{SourceHome: sourceHome, Files: []string{".trae/cli/auth.json"}}, nil, nil, nil,
+		isolatedHomeProjection{SourceHome: sourceHome, Files: []string{".example-agent/cli/auth.json"}}, nil, nil, nil,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(paths.Home, ".trae", "cli", "auth.json"))
+	data, err := os.ReadFile(filepath.Join(paths.Home, ".example-agent", "cli", "auth.json"))
 	if err != nil || string(data) != "token" {
 		t.Fatalf("principal home credential: data=%q err=%v", data, err)
 	}
@@ -175,10 +175,10 @@ func TestMaterializeLinuxDACTaskLaunchProjectsHomeCredential(t *testing.T) {
 		t.Fatal(err)
 	}
 	sourceHome := filepath.Join(root, "service-home")
-	if err := os.MkdirAll(filepath.Join(sourceHome, ".trae", "cli"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(sourceHome, ".example-agent", "cli"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(sourceHome, ".trae", "cli", "auth.json"), []byte("token"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(sourceHome, ".example-agent", "cli", "auth.json"), []byte("token"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	paths := isolation.PrincipalPaths{
@@ -201,12 +201,12 @@ func TestMaterializeLinuxDACTaskLaunchProjectsHomeCredential(t *testing.T) {
 			return isolation.ApplyMaterializeBundle(bytes.NewReader(bundle.Bytes()), paths.Workspace, paths.Run, paths.Home)
 		},
 		workspace, paths,
-		isolatedHomeProjection{SourceHome: sourceHome, Files: []string{".trae/cli/auth.json"}}, nil, nil, nil,
+		isolatedHomeProjection{SourceHome: sourceHome, Files: []string{".example-agent/cli/auth.json"}}, nil, nil, nil,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(paths.Home, ".trae", "cli", "auth.json"))
+	data, err := os.ReadFile(filepath.Join(paths.Home, ".example-agent", "cli", "auth.json"))
 	if err != nil || string(data) != "token" {
 		t.Fatalf("principal home credential: data=%q err=%v", data, err)
 	}
@@ -253,7 +253,7 @@ func TestPrincipalWorkspaceInUseIgnoresOtherPrincipals(t *testing.T) {
 // service copies.
 func TestStageIsolatedHomeFilesPrefersDerivedOverride(t *testing.T) {
 	sourceHome := t.TempDir()
-	for _, rel := range []string{".trae/cli/auth.json", ".codex/auth.json"} {
+	for _, rel := range []string{".example-agent/cli/auth.json", ".codex/auth.json"} {
 		if err := os.MkdirAll(filepath.Join(sourceHome, filepath.FromSlash(filepath.Dir(rel))), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -263,14 +263,14 @@ func TestStageIsolatedHomeFilesPrefersDerivedOverride(t *testing.T) {
 	}
 	staged, err := stageIsolatedHomeFiles(isolatedHomeProjection{
 		SourceHome: sourceHome,
-		Files:      []string{".trae/cli/auth.json", ".codex/auth.json"},
-		Override:   map[string][]byte{".trae/cli/auth.json": []byte("derived-credential")},
+		Files:      []string{".example-agent/cli/auth.json", ".codex/auth.json"},
+		Override:   map[string][]byte{".example-agent/cli/auth.json": []byte("derived-credential")},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(staged)
-	data, err := os.ReadFile(filepath.Join(staged, ".trae", "cli", "auth.json"))
+	data, err := os.ReadFile(filepath.Join(staged, ".example-agent", "cli", "auth.json"))
 	if err != nil || string(data) != "derived-credential" {
 		t.Fatalf("derived credential = %q, %v", data, err)
 	}
@@ -285,8 +285,8 @@ func TestStageIsolatedHomeFilesPrefersDerivedOverride(t *testing.T) {
 func TestStageIsolatedHomeFilesStagesOverrideWithoutServiceCopy(t *testing.T) {
 	staged, err := stageIsolatedHomeFiles(isolatedHomeProjection{
 		SourceHome: t.TempDir(),
-		Files:      []string{".trae/cli/auth.json"},
-		Override:   map[string][]byte{".trae/cli/auth.json": []byte("derived-credential")},
+		Files:      []string{".example-agent/cli/auth.json"},
+		Override:   map[string][]byte{".example-agent/cli/auth.json": []byte("derived-credential")},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -295,7 +295,7 @@ func TestStageIsolatedHomeFilesStagesOverrideWithoutServiceCopy(t *testing.T) {
 		t.Fatal("expected a staging directory")
 	}
 	defer os.RemoveAll(staged)
-	data, err := os.ReadFile(filepath.Join(staged, ".trae", "cli", "auth.json"))
+	data, err := os.ReadFile(filepath.Join(staged, ".example-agent", "cli", "auth.json"))
 	if err != nil || string(data) != "derived-credential" {
 		t.Fatalf("credential = %q, %v", data, err)
 	}

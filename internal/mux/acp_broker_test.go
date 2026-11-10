@@ -848,7 +848,7 @@ func TestLaunchACPContextSurfacesEarlyBrokerExit(t *testing.T) {
 
 	started := time.Now()
 	_, _, err := LaunchACPContext(context.Background(), fakeAmuxlet, "sess-early-exit", amuxDir,
-		ACPLaunchOptions{Cmd: exec.Command("coco", "acp", "serve"), Cwd: amuxDir})
+		ACPLaunchOptions{Cmd: exec.Command("demo-agent", "acp", "serve"), Cwd: amuxDir})
 	elapsed := time.Since(started)
 	if err == nil {
 		t.Fatal("expected the launch to fail")
