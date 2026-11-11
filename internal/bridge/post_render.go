@@ -56,8 +56,24 @@ type postElement struct {
 }
 
 func renderAgentReplyPost(text string) string {
+	return renderAgentReplyPostWithMentions(text, nil)
+}
+
+func renderAgentReplyPostWithMentions(text string, openIDs []string) string {
 	text = renderArtifactLinks(text)
-	doc := postDoc{ZhCN: postLang{Content: markdownLitePostBlocks(text)}}
+	blocks := markdownLitePostBlocks(text)
+	openIDs = uniqueOpenIDs(openIDs)
+	if len(openIDs) > 0 {
+		mention := make([]postElement, 0, len(openIDs)*2-1)
+		for i, openID := range openIDs {
+			if i > 0 {
+				mention = append(mention, postElement{Tag: "text", Text: " "})
+			}
+			mention = append(mention, postElement{Tag: "at", UserID: openID})
+		}
+		blocks = append([][]postElement{mention}, blocks...)
+	}
+	doc := postDoc{ZhCN: postLang{Content: blocks}}
 	if len(doc.ZhCN.Content) == 0 {
 		doc.ZhCN.Content = [][]postElement{{{Tag: "text", Text: strings.TrimSpace(text)}}}
 	}
@@ -103,8 +119,13 @@ func renderExternalBotDelegationCard(botOpenID, callbackBotOpenID, text string) 
 }
 
 func renderAgentReplyCard(text string) string {
+	return renderAgentReplyCardWithMentions(text, nil)
+}
+
+func renderAgentReplyCardWithMentions(text string, openIDs []string) string {
 	text = renderArtifactLinks(text)
-	elements := []cardElement{{Tag: "markdown", Content: normalizeAgentResultText(text)}}
+	elements := prependTurnInitiatorMentions(nil, openIDs)
+	elements = append(elements, cardElement{Tag: "markdown", Content: normalizeAgentResultText(text)})
 	elements = append(elements, renderAmuxBrandFooterElements()...)
 	doc := newCardDoc(elements)
 	bs, _ := json.Marshal(doc)
@@ -511,6 +532,10 @@ func permissionButtonType(opt permissionOption) string {
 }
 
 func renderToolActivityCard(meta toolActivityCardMeta, text string) string {
+	return renderToolActivityCardWithMentions(meta, text, nil)
+}
+
+func renderToolActivityCardWithMentions(meta toolActivityCardMeta, text string, openIDs []string) string {
 	activity := renderTurnActivity(meta)
 	if meta.Activity == nil {
 		content := i18n.Render(func(locale i18n.Locale) string {
@@ -521,8 +546,8 @@ func renderToolActivityCard(meta toolActivityCardMeta, text string) string {
 			activity.JSON, _ = json.Marshal(activity.Element)
 		}
 	}
-	doc := newCardDoc(activity.elements())
-	return marshalActivityCard(doc, meta)
+	doc := newCardDoc(wrapTurnCardElements(prependTurnInitiatorMentions(activity.contentElements(), openIDs)))
+	return marshalActivityCardWithMentions(doc, meta, openIDs)
 }
 
 func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
@@ -780,18 +805,22 @@ func isTerminalActivityItemStatus(status string) bool {
 }
 
 func marshalActivityCard(doc cardDoc, meta toolActivityCardMeta) string {
+	return marshalActivityCardWithMentions(doc, meta, nil)
+}
+
+func marshalActivityCardWithMentions(doc cardDoc, meta toolActivityCardMeta, openIDs []string) string {
 	bs, _ := json.Marshal(doc)
 	if len(bs) <= maxFeishuCardBytes {
 		return string(bs)
 	}
-	elements := []cardElement{renderCompactActivityElement(meta)}
+	elements := prependTurnInitiatorMentions([]cardElement{renderCompactActivityElement(meta)}, openIDs)
 	if viewer, ok := findCardElementByID(doc.Body.Elements, "viewer_action"); ok {
 		elements = append(elements, viewer)
 	}
 	doc.Body.Elements = wrapTurnCardElements(elements)
 	bs, _ = json.Marshal(doc)
 	if len(bs) > maxFeishuCardBytes {
-		doc.Body.Elements = []cardElement{managementContentElement(sessionMessage("details.viewer"), cardElement{Tag: "markdown"})}
+		doc.Body.Elements = prependTurnInitiatorMentions([]cardElement{managementContentElement(sessionMessage("details.viewer"), cardElement{Tag: "markdown"})}, openIDs)
 		bs, _ = json.Marshal(doc)
 	}
 	return string(bs)

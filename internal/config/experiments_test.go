@@ -154,6 +154,27 @@ func TestExperimentsShowBackgroundTasksDefaultOffAndPersists(t *testing.T) {
 	}
 }
 
+func TestExperimentsMentionTurnInitiatorDefaultOffPersistsAndOlderCardsPreserveIt(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	requireLoad(t, writeConfig(t, ""))
+	if got, err := config.ReadExperimentsSettings(); err != nil || got.MentionTurnInitiator {
+		t.Fatalf("default settings = %+v, %v", got, err)
+	}
+	on := true
+	if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{MentionTurnInitiator: &on}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{})
+	if err != nil || !got.MentionTurnInitiator {
+		t.Fatalf("older card update = %+v, %v", got, err)
+	}
+	got, err = config.ReadExperimentsSettings()
+	if err != nil || !got.MentionTurnInitiator {
+		t.Fatalf("saved settings = %+v, %v", got, err)
+	}
+}
+
 func TestLiveSteerForegroundOverridesConfig(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)

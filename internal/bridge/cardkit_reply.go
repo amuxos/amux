@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,6 +46,7 @@ type replyCardHandle struct {
 	deliveryPending     bool
 	pendingInsert       *pendingCardKitInsert
 	conversationSection bool
+	mentionOpenIDs      []string
 }
 
 type pendingCardKitInsertKind uint8
@@ -66,6 +68,11 @@ type replyCardBackend interface {
 	Update(context.Context, *replyCardHandle, string) error
 	Calibrate(context.Context, *replyCardHandle, string) error
 	Finish(context.Context, *replyCardHandle, string) error
+}
+
+type replyMentionCardBackend interface {
+	SetMentionTargets([]string)
+	MarkMentionDelivered()
 }
 
 type cardKitReplyUpdate struct {
@@ -108,16 +115,21 @@ type cardKitReplyAPI interface {
 }
 
 type bindingReplyCardBackend struct {
-	conversationSection bool
-	prepareDelivery     func() (replyCardDelivery, error)
-	cardKit             cardKitReplyAPI
-	sendCard            func(context.Context, string, string) (string, error)
-	createLegacy        func(context.Context, string) (string, error)
-	patchLegacy         func(context.Context, string, string) error
+	conversationSection      bool
+	prepareDelivery          func() (replyCardDelivery, error)
+	cardKit                  cardKitReplyAPI
+	sendCard                 func(context.Context, string, string) (string, error)
+	createLegacy             func(context.Context, string) (string, error)
+	patchLegacy              func(context.Context, string, string) error
+	createLegacyWithMentions func(context.Context, string, []string) (string, error)
+	patchLegacyWithMentions  func(context.Context, string, string, []string) error
+	mentionMu                sync.Mutex
+	mentionOpenIDs           []string
+	mentionDelivered         bool
 }
 
 func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
-	return &bindingReplyCardBackend{
+	backend := &bindingReplyCardBackend{
 		conversationSection: b.getConversationObserver() != nil,
 		prepareDelivery:     func() (replyCardDelivery, error) { return b.prepareSessionCardDelivery(chat) },
 		cardKit:             &larkCardKitReplyAPI{bridge: b},
@@ -133,6 +145,42 @@ func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
 			return b.patchAgentReplyBinding(ctx, chat, messageID, text)
 		},
 	}
+	backend.createLegacyWithMentions = func(ctx context.Context, text string, openIDs []string) (string, error) {
+		msgID, _, err := b.sendAgentReplyCardToBindingWithMentions(ctx, chat, text, openIDs)
+		return msgID, err
+	}
+	backend.patchLegacyWithMentions = func(ctx context.Context, messageID, text string, openIDs []string) error {
+		return b.patchAgentReplyBindingWithMentions(ctx, chat, messageID, text, openIDs)
+	}
+	return backend
+}
+
+func (b *bindingReplyCardBackend) SetMentionTargets(openIDs []string) {
+	if b == nil {
+		return
+	}
+	b.mentionMu.Lock()
+	b.mentionOpenIDs = uniqueOpenIDs(openIDs)
+	b.mentionDelivered = false
+	b.mentionMu.Unlock()
+}
+
+func (b *bindingReplyCardBackend) MarkMentionDelivered() {
+	if b == nil {
+		return
+	}
+	b.mentionMu.Lock()
+	b.mentionDelivered = true
+	b.mentionMu.Unlock()
+}
+
+func (b *bindingReplyCardBackend) pendingMentionTargets() []string {
+	b.mentionMu.Lock()
+	defer b.mentionMu.Unlock()
+	if b.mentionDelivered {
+		return nil
+	}
+	return append([]string(nil), b.mentionOpenIDs...)
 }
 
 func (b *Bridge) sendCardKitReplyToBinding(ctx context.Context, chat *LarkChat, content, requestUUID string) (string, string, error) {
@@ -153,7 +201,9 @@ func (b *bindingReplyCardBackend) Create(ctx context.Context, text string) (*rep
 	if err != nil {
 		return nil, err
 	}
-	raw := renderCardKitData(wrapTurnCardElements(renderCardKitAnswerElements(text, b.conversationSection)))
+	mentionOpenIDs := b.pendingMentionTargets()
+	elements := prependTurnInitiatorMentions(renderCardKitAnswerElements(text, b.conversationSection), mentionOpenIDs)
+	raw := renderCardKitData(wrapTurnCardElements(elements))
 	cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(raw, delivery.locale))
 	if err == nil {
 		var messageID string
@@ -167,6 +217,7 @@ func (b *bindingReplyCardBackend) Create(ctx context.Context, text string) (*rep
 			ambiguousSend = isAmbiguousCardKitSendError(err)
 		}
 		if err == nil {
+			b.MarkMentionDelivered()
 			return &replyCardHandle{
 				conversationSection: b.conversationSection,
 				delivery:            delivery,
@@ -176,9 +227,11 @@ func (b *bindingReplyCardBackend) Create(ctx context.Context, text string) (*rep
 				lastText:            text,
 				hasAnswer:           true,
 				messageUUID:         requestUUID,
+				mentionOpenIDs:      mentionOpenIDs,
 			}, nil
 		}
 		if ambiguousSend {
+			b.MarkMentionDelivered()
 			log.Warn().Err(err).Str("card_id", cardID).Msg("bridge: CardKit message delivery remains uncertain; preserving send identity")
 			return &replyCardHandle{
 				conversationSection: b.conversationSection,
@@ -189,6 +242,7 @@ func (b *bindingReplyCardBackend) Create(ctx context.Context, text string) (*rep
 				hasAnswer:           true,
 				messageUUID:         requestUUID,
 				deliveryPending:     true,
+				mentionOpenIDs:      mentionOpenIDs,
 			}, nil
 		}
 	}
@@ -203,15 +257,23 @@ func (b *bindingReplyCardBackend) Create(ctx context.Context, text string) (*rep
 }
 
 func (b *bindingReplyCardBackend) CreateLegacy(ctx context.Context, text string) (*replyCardHandle, error) {
-	if b.createLegacy == nil {
+	mentionOpenIDs := b.pendingMentionTargets()
+	if b.createLegacy == nil && b.createLegacyWithMentions == nil {
 		return nil, fmt.Errorf("legacy reply create is unavailable")
 	}
-	messageID, err := b.createLegacy(ctx, text)
+	var messageID string
+	var err error
+	if b.createLegacyWithMentions != nil {
+		messageID, err = b.createLegacyWithMentions(ctx, text, mentionOpenIDs)
+	} else {
+		messageID, err = b.createLegacy(ctx, text)
+	}
 	if err != nil {
 		return nil, err
 	}
+	b.MarkMentionDelivered()
 	return &replyCardHandle{
-		mode: replyCardModeLegacy, messageID: messageID, lastText: text, hasAnswer: true,
+		mode: replyCardModeLegacy, messageID: messageID, lastText: text, hasAnswer: true, mentionOpenIDs: mentionOpenIDs,
 	}, nil
 }
 
@@ -223,7 +285,8 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 	if err != nil {
 		return nil, err
 	}
-	raw := renderCardKitData(activity.elements())
+	mentionOpenIDs := b.pendingMentionTargets()
+	raw := renderCardKitData(wrapTurnCardElements(prependTurnInitiatorMentions(activity.contentElements(), mentionOpenIDs)))
 	cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(raw, delivery.locale))
 	if err != nil {
 		return nil, fmt.Errorf("create CardKit activity: %w", err)
@@ -238,6 +301,7 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 		ambiguousSend = isAmbiguousCardKitSendError(err)
 	}
 	if err == nil {
+		b.MarkMentionDelivered()
 		return &replyCardHandle{
 			conversationSection: b.conversationSection,
 			delivery:            delivery,
@@ -247,9 +311,11 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 			lastActivity:        selectManagementCardLocale(string(activity.JSON), delivery.locale),
 			hasActivity:         true,
 			messageUUID:         requestUUID,
+			mentionOpenIDs:      mentionOpenIDs,
 		}, nil
 	}
 	if ambiguousSend {
+		b.MarkMentionDelivered()
 		log.Warn().Err(err).Str("card_id", cardID).Msg("bridge: CardKit activity delivery remains uncertain; preserving send identity")
 		return &replyCardHandle{
 			conversationSection: b.conversationSection,
@@ -260,6 +326,7 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 			hasActivity:         true,
 			messageUUID:         requestUUID,
 			deliveryPending:     true,
+			mentionOpenIDs:      mentionOpenIDs,
 		}, nil
 	}
 	return nil, fmt.Errorf("send CardKit activity: %w", err)
@@ -281,10 +348,16 @@ func (b *bindingReplyCardBackend) update(ctx context.Context, handle *replyCardH
 		if text == handle.lastText {
 			return nil
 		}
-		if b.patchLegacy == nil {
+		if b.patchLegacy == nil && b.patchLegacyWithMentions == nil {
 			return fmt.Errorf("legacy reply patch is unavailable")
 		}
-		if err := b.patchLegacy(ctx, handle.messageID, text); err != nil {
+		var err error
+		if b.patchLegacyWithMentions != nil {
+			err = b.patchLegacyWithMentions(ctx, handle.messageID, text, handle.mentionOpenIDs)
+		} else {
+			err = b.patchLegacy(ctx, handle.messageID, text)
+		}
+		if err != nil {
 			return err
 		}
 		handle.lastText = text

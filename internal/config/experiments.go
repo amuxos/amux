@@ -22,6 +22,9 @@ type ExperimentsSettings struct {
 	// ShowBackgroundTasks mirrors bridge.feishu.experimental.show_background_tasks
 	// (applied live, like SteerForeground).
 	ShowBackgroundTasks bool
+	// MentionTurnInitiator mirrors
+	// bridge.feishu.experimental.mention_turn_initiator and applies live.
+	MentionTurnInitiator bool
 }
 
 // ExperimentsSettingsUpdate preserves the latest saved value for experiment
@@ -34,6 +37,7 @@ type ExperimentsSettingsUpdate struct {
 	MemoryEnabled          *bool
 	SteerForeground        *bool
 	ShowBackgroundTasks    *bool
+	MentionTurnInitiator   *bool
 }
 
 func experimentsConfigPath() string {
@@ -57,6 +61,7 @@ func GetExperimentsSettings() ExperimentsSettings {
 		MemoryEnabled:          GetMemory().Enabled,
 		SteerForeground:        GetBridgeFeishuSteerForeground(),
 		ShowBackgroundTasks:    GetBridgeFeishuShowBackgroundTasks(),
+		MentionTurnInitiator:   GetBridgeFeishuMentionTurnInitiator(),
 	}
 }
 
@@ -73,6 +78,7 @@ func experimentsSettingsFromConfig(raw map[string]any) (ExperimentsSettings, err
 		MemoryEnabled:          v.GetBool("memory.enabled"),
 		SteerForeground:        v.GetBool(FeishuSteerForegroundKey),
 		ShowBackgroundTasks:    v.GetBool(FeishuShowBackgroundTasksKey),
+		MentionTurnInitiator:   v.GetBool(FeishuMentionTurnInitiatorKey),
 	}, nil
 }
 
@@ -97,6 +103,7 @@ func SaveExperimentsSettings(settings ExperimentsSettings) error {
 		MemoryEnabled:          &settings.MemoryEnabled,
 		SteerForeground:        &settings.SteerForeground,
 		ShowBackgroundTasks:    &settings.ShowBackgroundTasks,
+		MentionTurnInitiator:   &settings.MentionTurnInitiator,
 	})
 	return err
 }
@@ -135,6 +142,9 @@ func UpdateExperimentsSettings(update ExperimentsSettingsUpdate) (ExperimentsSet
 		}
 		if update.ShowBackgroundTasks != nil {
 			setNestedConfigValue(raw, strings.Split(FeishuShowBackgroundTasksKey, "."), *update.ShowBackgroundTasks)
+		}
+		if update.MentionTurnInitiator != nil {
+			setNestedConfigValue(raw, strings.Split(FeishuMentionTurnInitiatorKey, "."), *update.MentionTurnInitiator)
 		}
 		var err error
 		saved, err = experimentsSettingsFromConfig(raw)

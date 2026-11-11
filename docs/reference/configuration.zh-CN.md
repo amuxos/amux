@@ -51,6 +51,7 @@ amux system config unset <key>
 | `bridge.feishu.presentation.completion_notification_enabled` | 布尔值 | false | — | 是 | 长会话完成通知实验总开关，影响本实例全部助手；关闭时不新增成功、等待补充或失败提醒。修改后重启生效。 |
 | `bridge.feishu.experimental.steer_foreground` | 布尔值 | false | — | 是 | 前台协调/忙时注入实验总开关：开启后，任务执行中同一发送者的追加消息注入当前回合（不再中断重来），单例和话题会话注入前台/后台协调说明（首轮及每 20 轮）；关闭时忙时消息沿用中断并重新提交。环境变量 AMUX_FEISHU_BUSY_INPUT=interrupt 可强制关闭注入。修改后重启生效。 |
 | `bridge.feishu.experimental.show_background_tasks` | 布尔值 | false | — | 是 | 后台任务进度卡片实验开关：开启后，飞书会话发起的每个后台任务（子任务 / 后台 Agent 实例）单独发送实时进度卡片；默认关闭，后台过程不发卡片，由前台 Agent 汇报结果。可在飞书实验功能卡片中切换，保存后立即生效。 |
+| `bridge.feishu.experimental.mention_turn_initiator` | 布尔值 | false | — | 是 | 群话题回复 @ 发起人实验开关：开启后，Agent 回复首次发送时会 @ 触发该 Turn 的不同人工用户；私聊、Bot 单例、群值守、App/Bot 输入和无人工发送者的 Turn 不添加。只改变飞书展示，不修改 Agent 原始输出或会话上下文；保存后立即生效。 |
 | `memory.enabled` | 布尔值 | false | — | 是 | Agent 记忆实验总开关，由 Hub 统一控制所有 Runtime，无需 Agent Profile；非隔离时全局共享，用户隔离时按有效 Principal 保存。关闭阻止读写并保留文件，已有会话保留原生记忆抑制。修改后重启生效。 |
 
 ## Hub 与调度

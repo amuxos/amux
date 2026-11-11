@@ -59,6 +59,7 @@ func (b *Bridge) runningExperimentsSettings() config.ExperimentsSettings {
 	if b != nil {
 		running.SteerForeground = b.steerForeground.Load()
 		running.ShowBackgroundTasks = b.showBackgroundTasks.Load()
+		running.MentionTurnInitiator = b.mentionTurnInitiator.Load()
 	}
 	return running
 }

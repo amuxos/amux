@@ -563,6 +563,17 @@ func GetBridgeFeishuShowBackgroundTasks() bool {
 	return viper.GetBool(FeishuShowBackgroundTasksKey)
 }
 
+// FeishuMentionTurnInitiatorKey is the experimental switch that prepends
+// native Feishu mentions for the human users whose input created an Agent Turn
+// in a group topic. Default off. Running bridges apply it live.
+const FeishuMentionTurnInitiatorKey = "bridge.feishu.experimental.mention_turn_initiator"
+
+// GetBridgeFeishuMentionTurnInitiator reports the startup value of the
+// mention_turn_initiator switch.
+func GetBridgeFeishuMentionTurnInitiator() bool {
+	return viper.GetBool(FeishuMentionTurnInitiatorKey)
+}
+
 // liveSteerForeground mirrors the steer_foreground switch for components
 // outside the bridge (the hub task router's parent-completion notifier).
 // 0 = not set by a bridge yet (fall back to the config value), 1 = off, 2 = on.

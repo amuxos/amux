@@ -35,6 +35,8 @@ const (
 	replyCommandFlush
 	replyCommandFinalizeForBot
 	replyCommandConversationCard
+	replyCommandSetMentionTargets
+	replyCommandMarkMentionDelivered
 	replyCommandReset
 	replyCommandClose
 )
@@ -45,6 +47,7 @@ type replyCommand struct {
 	activity               turnCardActivity
 	activityResult         chan replyActivityResult
 	botOpenID              string
+	mentionOpenIDs         []string
 	botFinalResult         chan bool
 	conversationCardResult chan *ConversationCard
 	done                   chan struct{}
@@ -184,6 +187,23 @@ func (s *streamingReplySender) Flush() {
 	s.runSync(replyCommandFlush)
 }
 
+func (s *streamingReplySender) SetMentionTargets(openIDs []string) {
+	done := make(chan struct{})
+	select {
+	case s.commands <- replyCommand{kind: replyCommandSetMentionTargets, mentionOpenIDs: uniqueOpenIDs(openIDs), done: done}:
+	case <-s.done:
+		return
+	}
+	select {
+	case <-done:
+	case <-s.done:
+	}
+}
+
+func (s *streamingReplySender) MarkMentionDelivered() {
+	s.runSync(replyCommandMarkMentionDelivered)
+}
+
 // ConversationCard transfers a reference only after all stream mutations have
 // finished. The actor keeps ownership of the mutable handle itself.
 func (s *streamingReplySender) ConversationCard() *ConversationCard {
@@ -281,6 +301,14 @@ func (s *replyStreamState) handleCommand(cmd replyCommand) bool {
 			card = &ConversationCard{MessageID: h.messageID, CardID: h.cardID, Sequence: h.sequence, Locale: string(h.delivery.locale)}
 		}
 		cmd.conversationCardResult <- card
+	case replyCommandSetMentionTargets:
+		if backend, ok := s.sender.backend.(replyMentionCardBackend); ok {
+			backend.SetMentionTargets(cmd.mentionOpenIDs)
+		}
+	case replyCommandMarkMentionDelivered:
+		if backend, ok := s.sender.backend.(replyMentionCardBackend); ok {
+			backend.MarkMentionDelivered()
+		}
 	case replyCommandReset:
 		s.finishAll()
 		s.notifyFinal()
