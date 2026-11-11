@@ -1278,3 +1278,73 @@ func TestHelperReclaimHomeRejectsEscapingPath(t *testing.T) {
 		t.Fatal("helper did not stop")
 	}
 }
+
+// A second helper connection used to fail the reaper's launch update and
+// RemoveRun's mapping update against each other with SQLITE_BUSY. Exit cleanup
+// ignores that error, so the run directory stayed behind. One connection makes
+// the second writer wait instead of failing.
+func TestHelperRegistrySerializesConcurrentWriters(t *testing.T) {
+	db, err := openHelperRegistry(filepath.Join(t.TempDir(), "launches.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if stats := db.Stats(); stats.MaxOpenConnections != 1 {
+		t.Fatalf("max open connections = %d, want 1", stats.MaxOpenConnections)
+	}
+	if _, err := db.Exec(`INSERT INTO helper_mappings(principal_id,account,uid,gid,created_at,last_used_at)
+VALUES('p','amux_0123456789ab',1,1,1,1)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO launches(launch_id,principal_id,account,uid,started_at,state)
+VALUES('launch-1','p','amux_0123456789ab',1,1,'running')`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec(`UPDATE launches SET state='exited' WHERE launch_id='launch-1'`); err != nil {
+		t.Fatal(err)
+	}
+	// A second connection returns SQLITE_BUSY immediately. One connection makes
+	// database/sql count a waiter instead, which is how RemoveRun survives the
+	// reaper's write.
+	waiting := db.Stats().WaitCount
+	done := make(chan error, 1)
+	go func() {
+		_, err := db.Exec(`UPDATE helper_mappings SET last_used_at=2 WHERE principal_id='p'`)
+		done <- err
+	}()
+	deadline := time.Now().Add(2 * time.Second)
+	for db.Stats().WaitCount == waiting {
+		select {
+		case err := <-done:
+			t.Fatalf("mapping update finished while the reaper held the write lock: %v", err)
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("mapping update did not wait for the single writer connection")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("mapping update: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("mapping update did not finish after the reaper released the database")
+	}
+	var used int
+	if err := db.QueryRow(`SELECT last_used_at FROM helper_mappings WHERE principal_id='p'`).Scan(&used); err != nil {
+		t.Fatal(err)
+	}
+	if used != 2 {
+		t.Fatalf("last_used_at = %d, want 2", used)
+	}
+}

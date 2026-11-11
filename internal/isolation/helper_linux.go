@@ -233,6 +233,12 @@ func openHelperRegistry(path string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	// SQLite allows one writer. Without a single connection, database/sql opens
+	// another for the launch reaper's row update while RemoveRun updates the
+	// mapping row. busy_timeout below applies only to the connection that
+	// executes it, so the other connection returns SQLITE_BUSY immediately.
+	// Process-exit cleanup ignores that error and leaves the run directory.
+	db.SetMaxOpenConns(1)
 	if _, err := db.Exec(`PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS helper_mappings (
   principal_id TEXT PRIMARY KEY,
