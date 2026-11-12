@@ -94,16 +94,11 @@ func TestDiscoverySnapshotSeparatesSavedRunningAndOmitsSensitiveState(t *testing
 	b.groupWatchConfig = config.BridgeFeishuGroupWatchConfig{ChatIDs: []string{"private-group-sentinel"}}
 	saved := config.GetExperimentsSettings()
 	saved.MemoryEnabled = true
-	saved.MentionTurnInitiator = true
 	if err := config.SaveExperimentsSettings(saved); err != nil {
 		t.Fatal(err)
 	}
 	snapshot := b.discoverySnapshot()
-	if snapshot["experiments_saved_status"] != "ok" ||
-		snapshot["experiments_saved"].(map[string]any)["memory"] != true ||
-		snapshot["experiments_running"].(map[string]any)["memory"] != false ||
-		snapshot["experiments_saved"].(map[string]any)["mention_turn_initiator"] != true ||
-		snapshot["experiments_running"].(map[string]any)["mention_turn_initiator"] != false {
+	if snapshot["experiments_saved_status"] != "ok" || snapshot["experiments_saved"].(map[string]any)["memory"] != true || snapshot["experiments_running"].(map[string]any)["memory"] != false {
 		t.Fatal("saved preferences were confused with active settings", snapshot)
 	}
 	if snapshot["full_system_health"] != "not_checked" || snapshot["current_work_session_goal_support"] != "unknown" {

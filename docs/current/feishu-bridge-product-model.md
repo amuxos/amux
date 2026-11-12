@@ -69,10 +69,8 @@ Personal and team governance control access independently of system hosting
 topology. Owner operations are distinct from ordinary conversation actions.
 
 The owner-only Experiments page contains separate switches for long-conversation
-completion notifications, per-group settings, Agent memory, foreground steering,
-background-task progress cards, and mentioning Turn initiators in group-topic
-replies. All are off by default. Agent memory uses the installation-wide
-`memory.enabled` key.
+completion notifications, per-group settings, and Agent memory. All three are
+off by default. Agent memory uses the installation-wide `memory.enabled` key.
 It works without an Agent Profile; memory is global across Runtimes unless user
 isolation selects a separate store for each effective Principal. The page shows saved values and a
 pending-restart indicator for each experiment whose running value differs.
@@ -85,19 +83,6 @@ After enabling and restarting, new conversations can use memory; old unmanaged
 conversations do not adopt it. Disabling retains memory files and cannot erase
 memory already present in a conversation's context. Card titles do not add a
 separate memory usage counter.
-
-The reply-mention experiment uses
-`bridge.feishu.experimental.mention_turn_initiator` and applies live on save.
-When enabled, the first presentation of each ordinary Agent reply in a group
-topic starts with native Feishu mentions for the distinct human users whose
-accepted messages created that Turn. A coalesced Turn may therefore mention
-more than one user. Private chats, Bot singleton output, group-watch automation,
-App/Bot-authored input, background completion turns and submissions without a
-human sender do not receive this decoration. The mention is present on the
-initial CardKit delivery, remains stable through card updates and split replies,
-and is also preserved by legacy presentation fallback. It is presentation-only:
-stored Agent output, thread context and provider conversation history retain the
-undecorated Agent answer.
 
 Accepted messages map to a workspace and session. Session input enters the queue;
 thread context is bounded and attached to the accepted submission. Agent progress,

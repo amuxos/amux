@@ -99,7 +99,7 @@ func TestManagementExperimentsCompactList(t *testing.T) {
 	saved := config.ExperimentsSettings{CompletionNotification: config.CompletionNotificationSettings{Enabled: true, AfterSeconds: 30}, MemoryEnabled: true}
 	running := saved
 	card := renderManagementExperimentsCard(saved, running)
-	for _, want := range []string{"长会话完成通知", "30 秒", "高级设置", "保存并重启", "对当前实例的全部助手生效", "completion_seconds", "群独立配置", "group_settings_enabled", "Agent 记忆", "无需 Agent Profile", "memory_enabled", "用户隔离", "关闭阻止读写并保留记忆文件", "支持 Codex、Claude、Pi", "新对话", "旧对话", "回复时 @ 本轮发起人", "mention_turn_initiator_enabled"} {
+	for _, want := range []string{"长会话完成通知", "30 秒", "高级设置", "保存并重启", "对当前实例的全部助手生效", "completion_seconds", "群独立配置", "group_settings_enabled", "Agent 记忆", "无需 Agent Profile", "memory_enabled", "用户隔离", "关闭阻止读写并保留记忆文件", "支持 Codex、Claude、Pi", "新对话", "旧对话"} {
 		if !strings.Contains(card, want) {
 			t.Fatalf("missing %q: %s", want, card)
 		}
@@ -130,7 +130,7 @@ func TestManagementExperimentsCompactList(t *testing.T) {
 		}
 	}
 	visit(doc.Body.Elements)
-	if panels != 6 {
+	if panels != 5 {
 		t.Fatalf("panels = %d", panels)
 	}
 	running.CompletionNotification.AfterSeconds = 60
@@ -140,7 +140,7 @@ func TestManagementExperimentsCompactList(t *testing.T) {
 }
 
 func TestManagementExperimentsInvalidSwitchRejectsWholeForm(t *testing.T) {
-	for _, field := range []string{"memory_enabled", "group_settings_enabled", "mention_turn_initiator_enabled"} {
+	for _, field := range []string{"memory_enabled", "group_settings_enabled"} {
 		for _, invalid := range []any{"", "yes", "TRUE", false, 1, nil} {
 			t.Run(fmt.Sprintf("%s_%T_%v", field, invalid, invalid), func(t *testing.T) {
 				loadBridgeTestConfig(t, "[memory]\nenabled = true\n[bridge.feishu.group_settings]\nenabled = true\n[hub]\naddr = \"localhost:7123\"\n")
@@ -192,20 +192,6 @@ func TestManagementExperimentsOldCardPreservesOmittedSwitches(t *testing.T) {
 				t.Fatal("explicit false switch was not preserved")
 			}
 		})
-	}
-}
-
-func TestManagementExperimentsMentionTurnInitiatorCallbackPreservesOmittedValue(t *testing.T) {
-	saved := config.ExperimentsSettings{MentionTurnInitiator: true}
-	action := &callback.CallBackAction{FormValue: map[string]any{"completion_enabled": "false"}}
-	update, err := managementExperimentsSettingsFromCallback(action, saved)
-	if err != nil || update.MentionTurnInitiator != nil {
-		t.Fatalf("older card update = %+v, %v", update, err)
-	}
-	action.FormValue["mention_turn_initiator_enabled"] = "false"
-	update, err = managementExperimentsSettingsFromCallback(action, saved)
-	if err != nil || update.MentionTurnInitiator == nil || *update.MentionTurnInitiator {
-		t.Fatalf("explicit off update = %+v, %v", update, err)
 	}
 }
 

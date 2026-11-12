@@ -289,7 +289,6 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			// steer_foreground is reloadable: apply the persisted value now.
 			b.setSteerForeground(saved.SteerForeground)
 			b.showBackgroundTasks.Store(saved.ShowBackgroundTasks)
-			b.mentionTurnInitiator.Store(saved.MentionTurnInitiator)
 		}
 		if action == managementActionExperimentsSaveRestart {
 			updateFocusedCard(renderManagementExperimentsRestartConfirmationCard(state))

@@ -2720,21 +2720,6 @@
   "management.choose.whether.to.show.background.tasks": {
     "other": "请选择是否显示后台任务进度卡片"
   },
-  "management.mention.turn.initiator": {
-    "other": "回复时 @ 本轮发起人（实验）"
-  },
-  "management.mention.turn.initiator.description": {
-    "other": "开启后，群话题中的每次 Agent 回复会先 @ 触发该回合的不同用户；私聊、群值守自动触发、App 和 Bot 不会被 @。"
-  },
-  "management.mention.turn.initiator.currently.on": {
-    "other": "当前状态：已开启"
-  },
-  "management.mention.turn.initiator.currently.off": {
-    "other": "当前状态：已关闭"
-  },
-  "management.choose.whether.to.mention.turn.initiators": {
-    "other": "请选择群话题回复是否 @ 本轮发起人"
-  },
   "session.queue.notice": {
     "other": "⏳ 已排队 %d 条消息，将在当前任务完成后处理"
   },
@@ -3792,7 +3777,7 @@
     "other": "先用以上能力说明与快照回答用户原始请求。空值、not_checked 和 unknown 不代表不存在或已支持。快照不授予操作权限，也不证明外部平台已连接。解释或准备草稿时，不修改设置、不启动目标、不建定时、不委派、不重启、不发布。实际操作使用当前真实暴露的工具，不编造 amux MCP 工具、命令、配置键或成功结果。不要为了介绍卡片而搜索安装源码或反复探索 help。受管设置通过对应的 /amux 管理页和确认流程更改，不直接改 TOML/SQLite。Agent 可能在另一台机器执行，本地 registry/配置不能证明 Hub 状态。缺少必要能力时说明具体限制并给出实际支持的管理入口。回答简洁，说明下一步操作和怎样核验结果。 功能介绍通常用一张小表或 3—6 条短说明回答，不复述内部 JSON 字段、Profile ref 或执行路径。只引用本指引已经给出的管理入口；不要发明 Target/Runtime 管理页、未暴露的模型查询工具，或提出自己无法执行的“我可以检查”。请求只要说明或草稿时直接交付，不以“要我继续吗”收尾。 方括号占位符（如 [任务]）表示用户尚未提供信息，不是实际材料；缺参先补充，不能把此能力指引当成用户文档。未检查平台授权时应说未知，不能说未连接或未授权。若引擎未展示 amux 工具，可通过终端调用：amux mcp call <工具名> --describe 只显示真实 Schema；将 JSON 对象通过标准输入传给 amux mcp call <工具名>，调用相同 Hub 工具并沿用当前身份和权限。输出是 MCP JSON 结果，先检查退出码和 isError，再读 content[].text。禁止用引擎的 CronCreate/CronList/CronDelete 或 GoalCreate/GoalUpdate 替代 amux 操作；禁止用本地 CLI 专家注册表替代 Hub 发现。"
   },
   "discovery.experiments.guidance": {
-    "other": "根据快照 experiments_saved 与 experiments_running 逐项解释群独立设置、记忆、前台追问、后台任务展示、回复 @ 发起人和完成通知。相同表示已生效，不同表示保存后尚未生效；experiments_saved_status 不是 ok 时不能断言保存值。steer_foreground、show_background_tasks 与 mention_turn_initiator 可在保存时即时应用，其余按管理页提示确认重启。入口为负责人私聊 /amux → 实验功能；不要让用户编辑文件或默认替用户打开开关。回复 @ 发起人只作用于普通群话题的 Agent 回复展示，不改动 Agent 原始输出或会话上下文。 前台追问表示用户可在执行中补充文字，由前台协调处理，不是助手主动盘问。完成通知在本轮完成时触发，条件是本轮耗时达到阈值；不是结束后等这么久，也不是未读提醒。完成通知设置需要按管理页确认重启，不要把所有开关说成立即生效。"
+    "other": "根据快照 experiments_saved 与 experiments_running 逐项解释群独立设置、记忆、前台追问、后台任务展示和完成通知。相同表示已生效，不同表示保存后尚未生效；experiments_saved_status 不是 ok 时不能断言保存值。steer_foreground 与 show_background_tasks 可在保存时即时应用，其余按管理页提示确认重启。入口为负责人私聊 /amux → 实验功能；不要让用户编辑文件或默认替用户打开开关。 前台追问表示用户可在执行中补充文字，由前台协调处理，不是助手主动盘问。完成通知在本轮完成时触发，条件是本轮耗时达到阈值；不是结束后等这么久，也不是未读提醒。完成通知设置需要按管理页确认重启，不要把所有开关说成立即生效。"
   },
   "discovery.group_agent.guidance": {
     "other": "先查看快照中群独立设置是否已生效；入口为私聊 /amux → 实验功能，按页面提示生效后，在目标群真正 @助手发送 /amux → 修改本群设置。群名不是群 ID，私聊不能证明某个群的当前配置。先确认目标群与专家需求，专家列表用 amux.profile_list/profile_get 分页核实。默认专家、运行引擎、模型和思考强度只作用于该群的新会话，不改其他群或迁移旧任务。 通过本群设置摘要和实际执行卡摘要核验运行配置，不靠询问模型自称是什么型号。"
@@ -3822,7 +3807,7 @@
     "other": "singleton 延续共享会话，thread 按话题保留各自聊天历史。不同话题仍可能共用文件、凭据和执行机器；执行隔离按实际 Principal/操作系统配置决定，不保证每个话题独立文件系统。/amux 没有通用话题目录列表，不编造入口。模式通过 /amux → 助手设置确认变更，不自行重置已有对话。"
   },
   "discovery.background.guidance": {
-    "other": "按快照说明 steer_foreground、show_background_tasks、mention_turn_initiator 与 completion_notification/after_seconds 的已保存和生效状态。前台追问、后台展示、回复 @ 与完成通知是四个独立功能；开关不保证每个引擎支持所有注入方式。入口为私聊 /amux → 实验功能，只要操作方案时不委派或改开关。 前台追问是用户在执行中补充，不是主动追问。后台展示使用进度卡，不存在通用浮窗面板。回复 @ 保存后即时生效，且只装饰普通群话题的展示。60 秒完成通知阈值表示本轮耗时至少 60 秒时，在完成当下通知，不是完成后再等 60 秒。另开话题可分开聊天历史，但不保证同会话并行执行。"
+    "other": "按快照说明 steer_foreground、show_background_tasks 与 completion_notification/after_seconds 的已保存和生效状态。前台追问、后台展示、完成通知是三个独立功能；开关不保证每个引擎支持所有注入方式。入口为私聊 /amux → 实验功能，只要操作方案时不委派或改开关。 前台追问是用户在执行中补充，不是主动追问。后台展示使用进度卡，不存在通用浮窗面板。60 秒完成通知阈值表示本轮耗时至少 60 秒时，在完成当下通知，不是完成后再等 60 秒。另开话题可分开聊天历史，但不保证同会话并行执行。"
   },
   "discovery.goals.guidance": {
     "other": "本卡只准备目标草稿。飞书正式消息为 goal <目标正文> 创建、goal 查询、goal pause 暂停、goal resume 恢复、goal clear 清除；没有 / 前缀。amux MCP 没有对应的目标管理工具，不编造 goal_create 或 amux goal CLI，不把你自身引擎的通用 goal 工具当作飞书会话目标。是否支持由目标会话真实探测；Codex 名称不能证明支持，Claude SDK/Pi 暂不支持。用户未给预算不编造预算。不要主动探测、创建、替换或恢复目标；根据用户场景拟定包含范围、允许操作和完成标准的纯文本消息。 这一草稿请求不访问文件系统、不调用工具。仓库或范围未知时保留清晰占位，不把测试沙箱当成用户仓库。目标消息只写任务、范围、允许操作和完成标准，不塞入问题清单、说明或当前沙箱路径。必要时在消息外合并询问一组关键信息。用户补充信息不等于授权启动，不能说“补充后立即开始”。 用户没有明确允许克隆、测试、改文件或发布时，草稿写 [允许操作：待确认]，不得替用户授予这些权限。"

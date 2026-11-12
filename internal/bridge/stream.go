@@ -489,15 +489,12 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 				Msg("bridge: suppressed Feishu stream output without input-started turn")
 		}
 
-		turnMentions := &replyMentionState{}
 		agg := NewAggregator(30*time.Second, 50000, func(text string) error {
 			_ = b.db.SetLatestAgentOutput(bridgeID, rootMsgID, text)
 			sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			mentionTurnID, mentionOpenIDs := turnMentions.claim()
-			msgID, _, err := b.sendAgentReplyToBindingWithMentions(sendCtx, streamChat, text, mentionOpenIDs)
+			msgID, _, err := b.sendAgentReplyToBinding(sendCtx, streamChat, text)
 			if err != nil {
-				turnMentions.release(mentionTurnID)
 				log.Warn().Err(err).Str("session", sessionName).Msg("bridge: sendAgentReplyToBinding error")
 			}
 			if err == nil {
@@ -602,31 +599,19 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			meta.Now = time.Now()
 			return meta
 		}
-		var replyStream *streamingReplySender
-		var legacyActivityMentions sync.Map
 		legacyActivitySend := func(text string) (string, error) {
 			sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			openIDs := turnMentions.current()
-			msgID, _, err := b.sendToolActivityToBindingWithMentions(sendCtx, streamChat, activityMeta(), text, openIDs)
+			msgID, _, err := b.sendToolActivityToBinding(sendCtx, streamChat, activityMeta(), text)
 			if err != nil {
 				log.Warn().Err(err).Str("session", sessionName).Msg("bridge: sendToolActivityToBinding error")
-			} else if len(openIDs) > 0 {
-				legacyActivityMentions.Store(msgID, openIDs)
-				if replyStream != nil {
-					replyStream.MarkMentionDelivered()
-				}
 			}
 			return msgID, err
 		}
 		legacyActivityPatch := func(msgID, text string) error {
 			sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			var openIDs []string
-			if value, ok := legacyActivityMentions.Load(msgID); ok {
-				openIDs, _ = value.([]string)
-			}
-			err := b.patchToolActivityBindingWithMentions(sendCtx, streamChat, msgID, activityMeta(), text, openIDs)
+			err := b.patchToolActivityBinding(sendCtx, streamChat, msgID, activityMeta(), text)
 			if err != nil {
 				log.Warn().Err(err).Str("session", sessionName).Str("msg_id", msgID).Msg("bridge: patch tool activity error")
 			}
@@ -645,7 +630,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			defer finalAnswerMu.Unlock()
 			return finalAnswer
 		}
-		replyStream = newStreamingReplySender(100*time.Millisecond,
+		replyStream := newStreamingReplySender(100*time.Millisecond,
 			newBindingReplyCardBackend(b, streamChat),
 			func(text string) {
 				_ = b.db.SetLatestAgentOutput(bridgeID, rootMsgID, text)
@@ -656,12 +641,6 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 				}
 			},
 		)
-		ensureTurnMentions := func(turnID string) {
-			openIDs := b.turnReplyMentionOpenIDs(streamChat, rootMsgID, turnID)
-			if turnMentions.set(turnID, openIDs) {
-				replyStream.SetMentionTargets(openIDs)
-			}
-		}
 		activitySender := newMainTurnActivitySender(
 			2*time.Second,
 			replyStream,
@@ -810,11 +789,6 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							Int64("turn_seq", action.Turn.Seq).
 							Msg("bridge: authorized first provider action from active Feishu submit")
 					}
-					if action.Kind != agentui.ActionTurnStarted && visibilityGate.Allow(action) {
-						// Providers may omit turn_started. Configure presentation before
-						// the first reply or activity action can create a card.
-						ensureTurnMentions(action.Turn.ID)
-					}
 					switch action.Kind {
 					case agentui.ActionTurnStarted:
 						b.observeTurnStarted(rootMsgID, action.Turn.ID)
@@ -873,7 +847,6 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							agg.Flush()
 							replyStream.Flush()
 							replyStream.Reset()
-							ensureTurnMentions(action.Turn.ID)
 							setFinalAnswer("")
 							activity.Reset()
 							assistantUpdates.Reset()
@@ -1654,50 +1627,34 @@ func (b *Bridge) sendTextToBinding(ctx context.Context, chat *LarkChat, text str
 }
 
 func (b *Bridge) sendAgentReplyToBinding(ctx context.Context, chat *LarkChat, text string) (string, string, error) {
-	return b.sendAgentReplyToBindingWithMentions(ctx, chat, text, nil)
-}
-
-func (b *Bridge) sendAgentReplyToBindingWithMentions(ctx context.Context, chat *LarkChat, text string, openIDs []string) (string, string, error) {
 	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return "", "", err
 		}
 		return b.sendAgentReplyCardToDirectTarget(ctx, bs, text)
 	}
-	return b.sendAgentReplyToThreadWithMentions(ctx, chat.RootMsgID, text, openIDs)
+	return b.sendAgentReplyToThread(ctx, chat.RootMsgID, text)
 }
 
 func (b *Bridge) sendToolActivityToBinding(ctx context.Context, chat *LarkChat, meta toolActivityCardMeta, text string) (string, string, error) {
-	return b.sendToolActivityToBindingWithMentions(ctx, chat, meta, text, nil)
-}
-
-func (b *Bridge) sendToolActivityToBindingWithMentions(ctx context.Context, chat *LarkChat, meta toolActivityCardMeta, text string, openIDs []string) (string, string, error) {
-	return b.sendInteractiveToBinding(ctx, chat, renderToolActivityCardWithMentions(meta, text, openIDs), "tool activity card")
+	return b.sendInteractiveToBinding(ctx, chat, renderToolActivityCard(meta, text), "tool activity card")
 }
 
 func (b *Bridge) patchToolActivityBinding(ctx context.Context, chat *LarkChat, msgID string, meta toolActivityCardMeta, text string) error {
-	return b.patchToolActivityBindingWithMentions(ctx, chat, msgID, meta, text, nil)
-}
-
-func (b *Bridge) patchToolActivityBindingWithMentions(ctx context.Context, chat *LarkChat, msgID string, meta toolActivityCardMeta, text string, openIDs []string) error {
 	if _, _, err := b.directReplyTargetForBinding(chat); err != nil {
 		return err
 	}
-	return b.patchInteractiveMessage(ctx, msgID, b.sessionCardForPatch(msgID, renderToolActivityCardWithMentions(meta, text, openIDs)), "tool activity card")
+	return b.patchInteractiveMessage(ctx, msgID, b.sessionCardForPatch(msgID, renderToolActivityCard(meta, text)), "tool activity card")
 }
 
 func (b *Bridge) sendAgentReplyCardToBinding(ctx context.Context, chat *LarkChat, text string) (string, string, error) {
-	return b.sendAgentReplyCardToBindingWithMentions(ctx, chat, text, nil)
-}
-
-func (b *Bridge) sendAgentReplyCardToBindingWithMentions(ctx context.Context, chat *LarkChat, text string, openIDs []string) (string, string, error) {
 	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return "", "", err
 		}
 		return b.sendAgentReplyCardToDirectTarget(ctx, bs, text)
 	}
-	return b.sendInteractiveToThread(ctx, chat.RootMsgID, renderAgentReplyCardWithMentions(text, openIDs), "agent reply card")
+	return b.sendAgentReplyCardToThread(ctx, chat.RootMsgID, text)
 }
 
 func (b *Bridge) sendInteractiveToBinding(ctx context.Context, chat *LarkChat, content, label string) (string, string, error) {
@@ -1720,17 +1677,13 @@ func (b *Bridge) sendInteractiveToBinding(ctx context.Context, chat *LarkChat, c
 }
 
 func (b *Bridge) patchAgentReplyBinding(ctx context.Context, chat *LarkChat, msgID, text string) error {
-	return b.patchAgentReplyBindingWithMentions(ctx, chat, msgID, text, nil)
-}
-
-func (b *Bridge) patchAgentReplyBindingWithMentions(ctx context.Context, chat *LarkChat, msgID, text string, openIDs []string) error {
 	if _, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return err
 		}
 		return b.patchAgentReplyCard(ctx, msgID, text)
 	}
-	return b.patchInteractiveMessage(ctx, msgID, renderAgentReplyCardWithMentions(text, openIDs), "agent reply card")
+	return b.patchAgentReplyCard(ctx, msgID, text)
 }
 
 func (b *Bridge) botSessionForBinding(chat *LarkChat) (*BotSession, bool, error) {

@@ -524,11 +524,7 @@ func (b *Bridge) sendTextToThread(ctx context.Context, rootMsgID, text string) (
 }
 
 func (b *Bridge) sendAgentReplyToThread(ctx context.Context, rootMsgID, text string) (string, string, error) {
-	return b.sendAgentReplyToThreadWithMentions(ctx, rootMsgID, text, nil)
-}
-
-func (b *Bridge) sendAgentReplyToThreadWithMentions(ctx context.Context, rootMsgID, text string, openIDs []string) (string, string, error) {
-	content := renderAgentReplyPostWithMentions(text, openIDs)
+	content := renderAgentReplyPost(text)
 	req := larkim.NewReplyMessageReqBuilder().
 		MessageId(rootMsgID).
 		Body(larkim.NewReplyMessageReqBodyBuilder().

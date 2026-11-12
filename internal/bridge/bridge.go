@@ -135,11 +135,8 @@ type Bridge struct {
 	// (default off): when off, background task progress cards are not posted.
 	// Applied live from the experiments card.
 	showBackgroundTasks atomic.Bool
-	// mentionTurnInitiator is the live experimental switch that decorates
-	// group-topic Agent replies with the human initiators of the current Turn.
-	mentionTurnInitiator atomic.Bool
-	queueNotice          queueNoticeState
-	steerObservers       steerObserverState
+	queueNotice         queueNoticeState
+	steerObservers      steerObserverState
 	subtaskCardController
 	subtaskCardPort
 
@@ -406,7 +403,6 @@ func NewWithProfile(hub Hub, profile string, secrets *Secrets, starter sessionla
 	b.steerForeground.Store(config.GetBridgeFeishuSteerForeground())
 	config.SetLiveSteerForeground(b.steerForeground.Load())
 	b.showBackgroundTasks.Store(config.GetBridgeFeishuShowBackgroundTasks())
-	b.mentionTurnInitiator.Store(config.GetBridgeFeishuMentionTurnInitiator())
 	return b, nil
 }
 

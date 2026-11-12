@@ -86,15 +86,6 @@ func managementExperimentsSettingsFromCallback(action *callback.CallBackAction, 
 		value := enabled == "true"
 		update.ShowBackgroundTasks = &value
 	}
-	if raw, present := managementExperimentCallbackValue(action, "mention_turn_initiator_enabled"); present {
-		enabled, _ := raw.(string)
-		enabled = strings.TrimSpace(enabled)
-		if enabled != "true" && enabled != "false" {
-			return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.choose.whether.to.mention.turn.initiators")
-		}
-		value := enabled == "true"
-		update.MentionTurnInitiator = &value
-	}
 	if raw, present := managementExperimentCallbackValue(action, "codex_executable"); present {
 		value, ok := raw.(string)
 		if !ok || !config.ValidAgentExecutable(value) {
@@ -177,18 +168,6 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		managementHintElement(bgStatus),
 		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
 	})
-	mentionEnabled := managementSelectStaticElement("mention_turn_initiator_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.MentionTurnInitiator), []cardOption{
-		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
-		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
-	})
-	mentionStatus := managementCopy("management.mention.turn.initiator.currently.off")
-	if running.MentionTurnInitiator {
-		mentionStatus = managementCopy("management.mention.turn.initiator.currently.on")
-	}
-	mentionItem := managementExperimentItemElement("mention_turn_initiator", managementCopy("management.mention.turn.initiator"), managementCopy("management.mention.turn.initiator.description"), mentionEnabled, saved.MentionTurnInitiator != running.MentionTurnInitiator, []cardElement{
-		managementHintElement(mentionStatus),
-		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
-	})
 	executable := cardElement{Tag: "input", Name: "codex_executable", DefaultValue: saved.CodexExecutable, Placeholder: managementStyledTextPtr(managementCopy("management.codex.executable.placeholder"), cardTitle{Tag: "plain_text"})}
 	executableItem := managementExperimentItemElement("codex_executable", managementCopy("management.codex.executable.title"), managementCopy("management.codex.executable.description"), cardElement{Tag: "div", Text: managementStyledTextPtr("Codex", cardTitle{Tag: "plain_text"})}, saved.CodexExecutable != running.CodexExecutable, []cardElement{executable, managementHintElement(managementCopy("management.codex.executable.scope"))})
 	elements := []cardElement{
@@ -199,7 +178,6 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 			memoryItem,
 			steerItem,
 			bgItem,
-			mentionItem,
 			executableItem,
 			managementFormButtonRowElement(managementFormSubmitButton(managementActionExperimentsSaveRestart, managementCopy("management.save.and.restart"))),
 		}},
