@@ -9,6 +9,7 @@ import (
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/agentui"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 )
 
 func TestRenderAgentReplyPostMarkdownLite(t *testing.T) {
@@ -133,42 +134,37 @@ func TestRenderAgentReplyCardUsesMarkdownElement(t *testing.T) {
 	markdown := "# 标题\n\n- item\n\n```go\nfmt.Println(1)\n```"
 	content := renderAgentReplyCard("\n" + markdown + "\n")
 
-	var got struct {
-		Schema string `json:"schema"`
-		Config struct {
-			WideScreenMode bool `json:"wide_screen_mode"`
-		} `json:"config"`
-		Body struct {
-			Elements []struct {
-				Tag     string `json:"tag"`
-				Content string `json:"content"`
-			} `json:"elements"`
-		} `json:"body"`
-		LegacyElements []any `json:"elements"`
-	}
+	var got cardDoc
 	if err := json.Unmarshal([]byte(content), &got); err != nil {
 		t.Fatalf("renderAgentReplyCard returned invalid JSON: %v\n%s", err, content)
 	}
 	if got.Schema != "2.0" {
 		t.Fatalf("schema = %q, want 2.0", got.Schema)
 	}
-	if !got.Config.WideScreenMode {
-		t.Fatalf("wide_screen_mode = false, want true")
+	if !got.Config.WideScreenMode || got.Config.WidthMode != "fill" {
+		t.Fatalf("config = %+v, want fill-width widescreen", got.Config)
 	}
-	if len(got.LegacyElements) != 0 {
-		t.Fatalf("top-level elements = %#v, want none for card json 2.0", got.LegacyElements)
+	if got.Body.Direction != "vertical" || got.Body.VerticalSpacing != "12px" || got.Body.Padding != "12px 16px 16px 16px" {
+		t.Fatalf("body = %+v, want original turn-card layout", got.Body)
 	}
-	if len(got.Body.Elements) != 3 {
-		t.Fatalf("body.elements = %#v, want answer and branded footer", got.Body.Elements)
+	assertTurnCardChildOrder(t, content, cardKitAnswerHeadingID, cardKitReplyElementID, amuxBrandDividerID, amuxBrandFooterID)
+	answer, ok := findCardElementByID(got.Body.Elements, cardKitReplyElementID)
+	if !ok {
+		t.Fatalf("body.elements = %#v, want answer text", got.Body.Elements)
 	}
-	if got.Body.Elements[0].Tag != "markdown" {
-		t.Fatalf("tag = %q, want markdown", got.Body.Elements[0].Tag)
+	heading, ok := findCardElementByID(got.Body.Elements, cardKitAnswerHeadingID)
+	if !ok || heading.Content != sessionMessage("result").For(i18n.Chinese) || heading.TextSize != "" {
+		t.Fatalf("answer heading = %#v, want normal final-result heading", heading)
 	}
-	if got.Body.Elements[0].Content != markdown {
-		t.Fatalf("content = %q, want %q", got.Body.Elements[0].Content, markdown)
+	if answer.Tag != "markdown" {
+		t.Fatalf("tag = %q, want markdown", answer.Tag)
 	}
-	if got.Body.Elements[1].Tag != "hr" || got.Body.Elements[2].Tag != "markdown" || got.Body.Elements[2].Content != amuxBrandFooterMarkdown() {
-		t.Fatalf("brand footer = %#v, want divider and %q", got.Body.Elements[1:], amuxBrandFooterMarkdown())
+	if answer.Content != markdown {
+		t.Fatalf("content = %q, want %q", answer.Content, markdown)
+	}
+	footer, ok := findCardElementByID(got.Body.Elements, amuxBrandFooterID)
+	if !ok || footer.Tag != "markdown" || footer.Content != amuxBrandFooterMarkdown() {
+		t.Fatalf("brand footer = %#v, want %q", footer, amuxBrandFooterMarkdown())
 	}
 }
 

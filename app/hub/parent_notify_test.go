@@ -31,9 +31,9 @@ func TestShouldNotifyParent(t *testing.T) {
 }
 
 func TestParentNotifyText(t *testing.T) {
-	run := &task.TaskRun{ID: "t1", AgentInstanceID: "agent-1", Status: task.StatusSucceeded, Result: &task.TaskResult{Summary: strings.Repeat("好", 900)}}
+	run := &task.TaskRun{ID: "t1", AgentInstanceID: "agent-1", ParentTurnID: "parent-turn", Status: task.StatusSucceeded, Result: &task.TaskResult{Summary: strings.Repeat("好", 900)}}
 	got := parentNotifyText(run)
-	if !strings.HasPrefix(got, "[后台任务完成] agent_instance_id=agent-1 task_id=t1 status=succeeded\n结论: ") || !strings.Contains(got, "已截断") {
+	if !strings.HasPrefix(got, "[后台任务完成] agent_instance_id=agent-1 task_id=t1 status=succeeded parent_turn_id=parent-turn\n结论: ") || !strings.Contains(got, "已截断") {
 		t.Fatalf("text = %q", got)
 	}
 }

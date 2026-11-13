@@ -35,6 +35,7 @@ const (
 	replyCommandFlush
 	replyCommandFinalizeForBot
 	replyCommandConversationCard
+	replyCommandCompleteTurn
 	replyCommandReset
 	replyCommandClose
 )
@@ -45,6 +46,7 @@ type replyCommand struct {
 	activity               turnCardActivity
 	activityResult         chan replyActivityResult
 	botOpenID              string
+	mentionOpenIDs         []string
 	botFinalResult         chan bool
 	conversationCardResult chan *ConversationCard
 	done                   chan struct{}
@@ -184,6 +186,24 @@ func (s *streamingReplySender) Flush() {
 	s.runSync(replyCommandFlush)
 }
 
+// CompleteTurn is Reset for a Turn that finished successfully. After every
+// answer card has finished, it publishes the final reply that natively mentions
+// openIDs and compacts the previous cards, then starts a fresh Turn. Flush,
+// Reset and Close never publish this final reply, so failed, cancelled,
+// superseded or disconnected Turns keep their existing cards unchanged.
+func (s *streamingReplySender) CompleteTurn(openIDs []string) {
+	done := make(chan struct{})
+	select {
+	case s.commands <- replyCommand{kind: replyCommandCompleteTurn, mentionOpenIDs: uniqueOpenIDs(openIDs), done: done}:
+	case <-s.done:
+		return
+	}
+	select {
+	case <-done:
+	case <-s.done:
+	}
+}
+
 // ConversationCard transfers a reference only after all stream mutations have
 // finished. The actor keeps ownership of the mutable handle itself.
 func (s *streamingReplySender) ConversationCard() *ConversationCard {
@@ -281,6 +301,12 @@ func (s *replyStreamState) handleCommand(cmd replyCommand) bool {
 			card = &ConversationCard{MessageID: h.messageID, CardID: h.cardID, Sequence: h.sequence, Locale: string(h.delivery.locale)}
 		}
 		cmd.conversationCardResult <- card
+	case replyCommandCompleteTurn:
+		if s.finishAll() && !s.superseded && s.allAnswerCardsFinished() {
+			s.notifyMentions(cmd.mentionOpenIDs)
+		}
+		s.notifyFinal()
+		s.resetTurn()
 	case replyCommandReset:
 		s.finishAll()
 		s.notifyFinal()
@@ -711,23 +737,105 @@ func (s *replyStreamState) send() {
 	s.dirty = false
 }
 
-func (s *replyStreamState) finishCurrent() {
+func (s *replyStreamState) finishCurrent() bool {
 	s.forceSend()
 	if s.handle == nil {
-		return
+		return strings.TrimSpace(s.current.String()) == ""
 	}
-	s.finishHandle(s.handle, strings.TrimRight(s.current.String(), "\n"))
+	return s.finishHandle(s.handle, strings.TrimRight(s.current.String(), "\n")) == nil
 }
 
-func (s *replyStreamState) finishAll() {
+// finishAll finishes every answer card of the current Turn and reports whether
+// all of them finished successfully.
+func (s *replyStreamState) finishAll() bool {
 	s.retryPendingActivity()
+	finished := true
 	for i := range s.finalized {
-		if s.finalized[i].handle == nil || s.finalized[i].handle.finished {
+		if s.finalized[i].handle == nil {
+			if strings.TrimSpace(s.finalized[i].text) != "" {
+				finished = false
+			}
 			continue
 		}
-		s.finishHandle(s.finalized[i].handle, s.finalized[i].text)
+		if s.finalized[i].handle.finished {
+			continue
+		}
+		if err := s.finishHandle(s.finalized[i].handle, s.finalized[i].text); err != nil {
+			finished = false
+		}
 	}
-	s.finishCurrent()
+	if !s.finishCurrent() {
+		finished = false
+	}
+	if s.primaryHandle != nil && s.primaryHandle != s.handle && !s.primaryHandle.finished {
+		if err := s.finishHandle(s.primaryHandle, s.primaryHandle.lastText); err != nil {
+			finished = false
+		}
+	}
+	return finished
+}
+
+func (s *replyStreamState) allAnswerCardsFinished() bool {
+	found := false
+	for i := range s.finalized {
+		handle := s.finalized[i].handle
+		if handle == nil || !handle.hasAnswer {
+			continue
+		}
+		found = true
+		if !handle.finished {
+			return false
+		}
+	}
+	if s.handle != nil && s.handle.hasAnswer {
+		found = true
+		if !s.handle.finished {
+			return false
+		}
+	}
+	return found
+}
+
+// replyMentionAttempts bounds how often one completion retries the mentioned
+// final reply. The backend keeps a stable request identity and skips parts that
+// already succeeded, so a retry neither duplicates the final card nor resends
+// it after only the compaction failed.
+const replyMentionAttempts = 2
+
+func (s *replyStreamState) notifyMentions(openIDs []string) {
+	backend, ok := s.sender.backend.(replyMentionCardBackend)
+	if !ok || len(openIDs) == 0 {
+		return
+	}
+	backend.SetMentionTargets(openIDs)
+	text := strings.TrimRight(s.full.String(), "\n")
+	handles := s.replyHandles()
+	var err error
+	for attempt := 0; attempt < replyMentionAttempts; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		err = backend.NotifyMentions(ctx, text, handles)
+		cancel()
+		if err == nil {
+			return
+		}
+	}
+	log.Warn().Err(err).Msg("bridge: publish mentioned final reply error")
+}
+
+func (s *replyStreamState) replyHandles() []*replyCardHandle {
+	handles := make([]*replyCardHandle, 0, len(s.finalized)+2)
+	for i := range s.finalized {
+		if s.finalized[i].handle != nil {
+			handles = append(handles, s.finalized[i].handle)
+		}
+	}
+	if s.handle != nil {
+		handles = append(handles, s.handle)
+	}
+	if s.primaryHandle != nil {
+		handles = append(handles, s.primaryHandle)
+	}
+	return uniqueReplyCardHandles(handles)
 }
 
 func (s *replyStreamState) createCard(ctx context.Context, text string) (*replyCardHandle, error) {

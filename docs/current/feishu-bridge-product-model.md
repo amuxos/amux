@@ -69,8 +69,14 @@ Personal and team governance control access independently of system hosting
 topology. Owner operations are distinct from ordinary conversation actions.
 
 The owner-only Experiments page contains separate switches for long-conversation
-completion notifications, per-group settings, and Agent memory. All three are
-off by default. Agent memory uses the installation-wide `memory.enabled` key.
+completion notifications, per-group settings, Agent memory, foreground steering,
+background-task progress cards, and mentioning Turn initiators after final replies
+complete. All are off by default. Agent memory uses the installation-wide
+`memory.enabled` key.
+Each enabled long-conversation completion, waiting or failure notification is
+rendered separately for its private-message recipient and includes one native
+mention of that recipient. Background child-Agent completion turns remain
+excluded from these additional notification cards.
 It works without an Agent Profile; memory is global across Runtimes unless user
 isolation selects a separate store for each effective Principal. The page shows saved values and a
 pending-restart indicator for each experiment whose running value differs.
@@ -83,6 +89,44 @@ After enabling and restarting, new conversations can use memory; old unmanaged
 conversations do not adopt it. Disabling retains memory files and cannot erase
 memory already present in a conversation's context. Card titles do not add a
 separate memory usage counter.
+
+The reply-mention experiment uses
+`bridge.feishu.experimental.mention_turn_initiator` and applies live on save.
+When enabled, the first final Agent reply for each ordinary group-topic or DM Turn
+mentions the distinct human users whose accepted messages created that Turn with
+native Feishu mentions. A coalesced Turn may therefore mention more than one user.
+When a background child Agent completes, the foreground Agent's resulting final
+reply resolves the child task's frozen parent Turn and notifies that Turn's exact
+initiators instead of guessing from the conversation's latest speaker.
+Waiting, progress, tool-activity and in-progress answer cards do not mention
+anyone. A non-streamed final post may carry the mentions on its initial delivery.
+For streamed CardKit or legacy-card replies, the answer remains in its existing
+progress/answer card or cards while work runs. Only when the Turn completes
+successfully and every card has finished does Bridge newly send the full final
+answer with native mentions; it then patches the old progress/answer messages so
+their primary content is a locale-aware completion summary of no more than ten
+characters. Failed, cancelled, interrupted or superseded Turns, Turns that report
+a provider failure, Bot-to-Bot handoffs and an output stream that ends before the
+Turn finishes keep their existing cards and send no mentioned final reply.
+Both messages keep the original fill-width, three-section turn-card layout. The
+old card keeps its execution summary, tool calls and processing history in
+collapsed panels, shows the compact completion state in the answer section and
+retains the Powered by footer and any conversation-extension section; it is not
+recalled. The new final card omits the activity section, renders the complete
+answer and appends the native initiator mentions to the footer line
+(`Powered by … | Sent to: @user`). An answer longer than one card is sent as
+consecutive final cards split at the same limits as the streamed answer; only
+the last one carries the mentions. Old cards are compacted only after every final
+card was sent. A failed send or compaction is retried once during completion with
+stable Feishu request identities, so it does not duplicate final cards; if it
+still fails, the old cards keep their last detailed state.
+A singleton DM sends the final card as a new DM, so it also receives the normal
+Feishu message notification.
+Direct singleton group output, group-watch automation, App/Bot-authored input,
+background completion turns without an exact parent-Turn link, submissions without
+a human sender and Turns without an Agent reply do not receive this decoration. It is presentation-only: stored Agent
+output, thread context and provider conversation history retain the undecorated
+Agent answer.
 
 Accepted messages map to a workspace and session. Session input enters the queue;
 thread context is bounded and attached to the accepted submission. Agent progress,
@@ -614,6 +658,8 @@ requests without replaying earlier output.
 Native questions use Card 2.0 forms with single or multiple selection and text
 input. When custom answers are allowed, a separate optional text field overrides
 the selected options; the server validates that at least one answer is present.
+Each answerable question card includes one native mention of its originating user
+in the footer so Feishu can notify the person who is authorized to answer it.
 Option descriptions and product labels are shown without changing answer values.
 Product text supports English and Simplified Chinese; model content stays literal.
 Secret questions are not collected in Feishu chat cards: they are cancelled with

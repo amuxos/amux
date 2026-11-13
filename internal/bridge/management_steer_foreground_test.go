@@ -95,3 +95,45 @@ func TestManagementExperimentsSteerForegroundAppliesLive(t *testing.T) {
 		t.Fatal("omitted field changed steer")
 	}
 }
+
+func TestManagementExperimentsMentionTurnInitiatorAppliesLive(t *testing.T) {
+	loadBridgeTestConfig(t, "[memory]\nenabled = false\n")
+	b, _ := newBridgeForInputTest(t)
+	b.secrets = &Secrets{OpenId: "owner-open"}
+	cards := make(chan string, 2)
+	b.managementCardPatch = func(_ context.Context, _ string, content string) error {
+		cards <- content
+		return nil
+	}
+
+	if b.mentionTurnInitiator.Load() {
+		t.Fatal("mention experiment must default off")
+	}
+	event := settingsCallback(managementActionExperimentsSaveRestart, nil)
+	event.Event.Operator.OpenID = "owner-open"
+	event.Event.Action.FormValue = map[string]interface{}{
+		"completion_enabled":             "false",
+		"mention_turn_initiator_enabled": "true",
+	}
+	resp, _, err := b.handleManagementCardAction(context.Background(), event)
+	if err != nil || resp.Toast.Type != "success" {
+		t.Fatalf("save = %+v %v", resp, err)
+	}
+	<-cards
+	if !b.mentionTurnInitiator.Load() {
+		t.Fatal("mention experiment did not apply live")
+	}
+	saved, err := config.ReadExperimentsSettings()
+	if err != nil || !saved.MentionTurnInitiator {
+		t.Fatalf("saved = %+v %v", saved, err)
+	}
+
+	event.Event.Action.FormValue["mention_turn_initiator_enabled"] = "false"
+	if resp, _, err = b.handleManagementCardAction(context.Background(), event); err != nil || resp.Toast.Type != "success" {
+		t.Fatalf("disable = %+v %v", resp, err)
+	}
+	<-cards
+	if b.mentionTurnInitiator.Load() {
+		t.Fatal("mention experiment did not disable live")
+	}
+}

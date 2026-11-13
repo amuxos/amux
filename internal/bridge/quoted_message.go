@@ -156,7 +156,9 @@ func extractInteractiveMessageText(content *string) string {
 }
 
 func appendQuotedCardElement(lines []string, element cardElement) []string {
-	if element.ElementID == amuxBrandFooterID || element.ElementID == amuxBrandDividerID {
+	switch element.ElementID {
+	case cardKitAnswerHeadingID, cardKitAnswerDividerElementID,
+		legacyTurnInitiatorMentionElementID, amuxBrandFooterID, amuxBrandDividerID:
 		return lines
 	}
 	lines = appendQuotedLine(lines, element.Content)

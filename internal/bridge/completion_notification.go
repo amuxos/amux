@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 )
 
 const (
@@ -92,7 +93,7 @@ func (b *Bridge) notifyTurnCompletionAt(ctx context.Context, chat *LarkChat, tur
 	if err != nil {
 		return err
 	}
-	card := renderTurnCompletionNotificationCard(kind, valueOrPlaceholder(chat.DisplayTitle, "任务结果"), jumpURL)
+	title := valueOrPlaceholder(chat.DisplayTitle, "任务结果")
 	var failures []error
 	for _, openID := range recipients {
 		// Keep the existing table while giving each DM its own delivery claim.
@@ -105,6 +106,7 @@ func (b *Bridge) notifyTurnCompletionAt(ctx context.Context, chat *LarkChat, tur
 		if !claimed {
 			continue
 		}
+		card := renderTurnCompletionNotificationCard(kind, title, jumpURL, openID)
 		if b.dmInteractive != nil {
 			_, _, err = b.dmInteractive(ctx, openID, card)
 		} else if b.client != nil {
@@ -172,7 +174,7 @@ func turnCompletionCancelled(stopReason string) bool {
 	}
 }
 
-func renderTurnCompletionNotificationCard(kind, title, jumpURL string) string {
+func renderTurnCompletionNotificationCard(kind, title, jumpURL, openID string) string {
 	heading, theme, button := "已完成", "green", "查看结果 →"
 	switch kind {
 	case turnNotificationWaiting:
@@ -184,10 +186,14 @@ func renderTurnCompletionNotificationCard(kind, title, jumpURL string) string {
 	if runes := []rune(title); len(runes) > 80 {
 		title = string(runes[:80]) + "…"
 	}
+	label := sessionMessage("notification.sent.to")
+	footer := managementContentElement(i18n.Render(func(locale i18n.Locale) string {
+		return "<font color='grey'>" + label.For(locale) + "</font> " + renderTurnInitiatorMentionsMarkdown([]string{openID})
+	}), cardElement{Tag: "markdown", ElementID: amuxBrandFooterID, TextSize: "notation"})
 	doc := newCardDoc([]cardElement{
 		{Tag: "div", Text: &cardTitle{Tag: "plain_text", Content: title, TextSize: "normal", Lines: 2}, Margin: "0px"},
 		{Tag: "button", Text: &cardTitle{Tag: "plain_text", Content: button}, Type: "primary", Size: "small", Behaviors: []cardBehavior{{Type: "open_url", DefaultURL: jumpURL, PCURL: jumpURL, IOSURL: jumpURL, AndroidURL: jumpURL}}},
-		{Tag: "div", Text: &cardTitle{Tag: "plain_text", Content: "来自 amux", TextSize: "notation", TextColor: "grey"}, Margin: "0px"},
+		footer,
 	})
 	doc.Config.WidthMode = "compact"
 	doc.Config.WideScreenMode = false

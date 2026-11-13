@@ -524,7 +524,11 @@ func (b *Bridge) sendTextToThread(ctx context.Context, rootMsgID, text string) (
 }
 
 func (b *Bridge) sendAgentReplyToThread(ctx context.Context, rootMsgID, text string) (string, string, error) {
-	content := renderAgentReplyPost(text)
+	return b.sendAgentReplyToThreadWithMentions(ctx, rootMsgID, text, nil)
+}
+
+func (b *Bridge) sendAgentReplyToThreadWithMentions(ctx context.Context, rootMsgID, text string, openIDs []string) (string, string, error) {
+	content := renderAgentReplyPostWithMentions(text, openIDs)
 	req := larkim.NewReplyMessageReqBuilder().
 		MessageId(rootMsgID).
 		Body(larkim.NewReplyMessageReqBodyBuilder().
@@ -571,7 +575,7 @@ func (b *Bridge) sendBotHandoffToThread(ctx context.Context, rootMsgID, botOpenI
 }
 
 func (b *Bridge) sendPermissionRequestCard(ctx context.Context, chat *LarkChat, permissionID string, payload permissionPayload) (string, string, error) {
-	content := renderPermissionRequestCard(chat.TargetID, chat.SessionName, permissionID, payload)
+	content := renderPermissionRequestCard(chat.TargetID, chat.SessionName, permissionID, payload, chat.OpenId)
 	return b.sendInteractiveToBinding(ctx, chat, content, "permission request card")
 }
 
@@ -591,13 +595,20 @@ func (b *Bridge) patchAgentReplyCard(ctx context.Context, msgID, text string) er
 }
 
 func (b *Bridge) sendInteractiveToThread(ctx context.Context, rootMsgID, content, label string) (string, string, error) {
+	return b.sendInteractiveToThreadWithUUID(ctx, rootMsgID, content, label, "")
+}
+
+func (b *Bridge) sendInteractiveToThreadWithUUID(ctx context.Context, rootMsgID, content, label, requestUUID string) (string, string, error) {
+	body := larkim.NewReplyMessageReqBodyBuilder().
+		MsgType("interactive").
+		Content(content).
+		ReplyInThread(true)
+	if requestUUID != "" {
+		body.Uuid(requestUUID)
+	}
 	req := larkim.NewReplyMessageReqBuilder().
 		MessageId(rootMsgID).
-		Body(larkim.NewReplyMessageReqBodyBuilder().
-			MsgType("interactive").
-			Content(content).
-			ReplyInThread(true).
-			Build()).
+		Body(body.Build()).
 		Build()
 	resp, err := b.client.Im.Message.Reply(ctx, req)
 	if err != nil {

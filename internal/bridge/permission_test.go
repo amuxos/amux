@@ -25,7 +25,7 @@ func TestRenderPermissionRequestCardUserInput(t *testing.T) {
 			{OptionId: "改 profile 配置本身", Name: "改 profile 配置本身"},
 		},
 	}
-	content := renderPermissionRequestCard("tgt", "sess", "9001:q1", payload)
+	content := renderPermissionRequestCard("tgt", "sess", "9001:q1", payload, "ou-asker")
 	if !strings.Contains(content, "Agent 需要你回答") {
 		t.Errorf("missing user-input card title; content=%s", content)
 	}
@@ -41,6 +41,7 @@ func TestRenderPermissionRequestCardUserInput(t *testing.T) {
 	if !strings.Contains(content, `"permission_id":"9001:q1"`) {
 		t.Errorf("missing permission_id in button value; content=%s", content)
 	}
+	requireCardMentions(t, content, "ou-asker")
 }
 
 func TestPermissionSummaryShowsOperationAndImpactScope(t *testing.T) {
@@ -56,13 +57,16 @@ func TestPermissionSummaryShowsOperationAndImpactScope(t *testing.T) {
 func TestPermissionApprovalCardUsesV2CallbackButtons(t *testing.T) {
 	card := renderPermissionRequestCard("target", "session", "0", permissionPayload{
 		Options: []permissionOption{{OptionId: "accept", Name: "Accept"}, {OptionId: "decline", Name: "Decline"}},
-	})
+	}, "ou-asker")
 	var doc cardDoc
 	if err := json.Unmarshal([]byte(card), &doc); err != nil {
 		t.Fatal(err)
 	}
 	if doc.Schema != "2.0" || strings.Contains(card, `"tag":"action"`) {
 		t.Fatalf("invalid Card 2.0 approval layout: %s", card)
+	}
+	if strings.Contains(card, "ou-asker") {
+		t.Fatalf("tool approval card unexpectedly mentioned the turn initiator: %s", card)
 	}
 	if len(doc.Body.Elements) != 2 || doc.Body.Elements[1].Tag != "column_set" || len(doc.Body.Elements[1].Columns) != 2 {
 		t.Fatalf("missing approval controls: %s", card)
@@ -105,7 +109,7 @@ func TestRenderPermissionRequestCardUserInputMultiSelectForm(t *testing.T) {
 			{OptionId: "B", Name: "B"},
 		},
 	}
-	content := renderPermissionRequestCard("tgt", "sess", "9001:q1", payload)
+	content := renderPermissionRequestCard("tgt", "sess", "9001:q1", payload, "ou-asker")
 	if !strings.Contains(content, `"tag":"multi_select_static"`) || !strings.Contains(content, `"action_type":"form_submit"`) {
 		t.Errorf("missing multi-select submit form; content=%s", content)
 	}
@@ -162,7 +166,7 @@ func TestPermissionAndActivityCardsStayUnderFeishuLimit(t *testing.T) {
 	for i := 0; i < 500; i++ {
 		payload.Options = append(payload.Options, permissionOption{OptionId: fmt.Sprintf("option-%d", i), Name: strings.Repeat("label", 100)})
 	}
-	permissionCard := renderPermissionRequestCard("target", "session", "permission", payload)
+	permissionCard := renderPermissionRequestCard("target", "session", "permission", payload, "")
 	if len(permissionCard) > maxFeishuCardBytes {
 		t.Fatalf("permission card bytes = %d, limit %d", len(permissionCard), maxFeishuCardBytes)
 	}
@@ -194,7 +198,7 @@ func TestPermissionCardBudgetHandlesLongWireOptionIDs(t *testing.T) {
 			Name:     fmt.Sprintf("Option %d", i),
 		})
 	}
-	card := renderPermissionRequestCard("target", "session", "permission", payload)
+	card := renderPermissionRequestCard("target", "session", "permission", payload, "")
 	if len(card) > maxFeishuCardBytes {
 		t.Fatalf("permission card bytes = %d, limit %d", len(card), maxFeishuCardBytes)
 	}

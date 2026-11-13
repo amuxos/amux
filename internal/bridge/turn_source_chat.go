@@ -10,10 +10,11 @@ import (
 // steered, coalesced or queued input joins a turn started elsewhere, so the
 // completion notification resolves its jump link from here.
 type turnSourceChats struct {
-	mu      sync.Mutex
-	chats   map[string]turnSourceChat
-	subtask map[string]bool
-	order   []string
+	mu             sync.Mutex
+	chats          map[string]turnSourceChat
+	subtask        map[string]bool
+	subtaskParents map[string]string
+	order          []string
 }
 
 type turnSourceChat struct {
@@ -34,6 +35,7 @@ func (t *turnSourceChats) remember(key string) {
 		t.order = t.order[1:]
 		delete(t.chats, drop)
 		delete(t.subtask, drop)
+		delete(t.subtaskParents, drop)
 	}
 }
 
@@ -69,8 +71,9 @@ func (b *Bridge) turnSourceChat(rootMsgID, turnID string) (turnSourceChat, bool)
 }
 
 // markSubtaskTurn records a turn started by a background-task completion
-// notice: it has no Feishu source chat by design.
-func (b *Bridge) markSubtaskTurn(rootMsgID, turnID string) {
+// notice: it has no Feishu source chat by design. parentTurnID, when present,
+// points back to the exact user-authored Turn that spawned the task.
+func (b *Bridge) markSubtaskTurn(rootMsgID, turnID, parentTurnID string) {
 	if b == nil || strings.TrimSpace(turnID) == "" {
 		return
 	}
@@ -80,6 +83,13 @@ func (b *Bridge) markSubtaskTurn(rootMsgID, turnID string) {
 	defer t.mu.Unlock()
 	if t.subtask == nil {
 		t.subtask = map[string]bool{}
+	}
+	parentTurnID = strings.TrimSpace(parentTurnID)
+	if parentTurnID != "" {
+		if t.subtaskParents == nil {
+			t.subtaskParents = map[string]string{}
+		}
+		t.subtaskParents[key] = parentTurnID
 	}
 	if !t.subtask[key] {
 		t.subtask[key] = true
@@ -95,4 +105,28 @@ func (b *Bridge) isSubtaskTurn(rootMsgID, turnID string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.subtask[turnSourceKey(rootMsgID, turnID)]
+}
+
+func (b *Bridge) subtaskParentTurn(rootMsgID, turnID string) (string, bool) {
+	if b == nil {
+		return "", false
+	}
+	t := &b.turnSources
+	key := turnSourceKey(rootMsgID, turnID)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if !t.subtask[key] {
+		return "", false
+	}
+	return t.subtaskParents[key], true
+}
+
+func subtaskNoticeParentTurnID(text string) string {
+	header, _, _ := strings.Cut(strings.TrimSpace(text), "\n")
+	for _, field := range strings.Fields(header) {
+		if value, ok := strings.CutPrefix(field, "parent_turn_id="); ok {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }

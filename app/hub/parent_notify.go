@@ -389,6 +389,9 @@ func parentNotifyText(run *task.TaskRun) string {
 		header += " agent_instance_id=" + run.AgentInstanceID
 	}
 	header += fmt.Sprintf(" task_id=%s status=%s", run.ID, run.Status)
+	if parentTurnID := strings.TrimSpace(run.ParentTurnID); parentTurnID != "" {
+		header += " parent_turn_id=" + parentTurnID
+	}
 	summary := ""
 	if run.Result != nil {
 		summary = noticeConclusion(run.Result.Summary)

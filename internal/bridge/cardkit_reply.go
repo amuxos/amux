@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,6 +39,7 @@ type replyCardHandle struct {
 	sequence            int
 	lastText            string
 	lastActivity        string
+	lastActivityCard    *turnCardActivity
 	hasAnswer           bool
 	hasActivity         bool
 	finished            bool
@@ -66,6 +68,16 @@ type replyCardBackend interface {
 	Update(context.Context, *replyCardHandle, string) error
 	Calibrate(context.Context, *replyCardHandle, string) error
 	Finish(context.Context, *replyCardHandle, string) error
+}
+
+type replyMentionCardBackend interface {
+	SetMentionTargets([]string)
+	NotifyMentions(context.Context, string, []*replyCardHandle) error
+}
+
+type replyMentionCompaction struct {
+	messageID string
+	content   string
 }
 
 type cardKitReplyUpdate struct {
@@ -108,12 +120,21 @@ type cardKitReplyAPI interface {
 }
 
 type bindingReplyCardBackend struct {
-	conversationSection bool
-	prepareDelivery     func() (replyCardDelivery, error)
-	cardKit             cardKitReplyAPI
-	sendCard            func(context.Context, string, string) (string, error)
-	createLegacy        func(context.Context, string) (string, error)
-	patchLegacy         func(context.Context, string, string) error
+	conversationSection   bool
+	prepareDelivery       func() (replyCardDelivery, error)
+	cardKit               cardKitReplyAPI
+	sendCard              func(context.Context, string, string) (string, error)
+	createLegacy          func(context.Context, string) (string, error)
+	patchLegacy           func(context.Context, string, string) error
+	sendMentionedFinal    func(context.Context, string, []string, string) (string, error)
+	compactMessage        func(context.Context, string, string) error
+	mentionMu             sync.Mutex
+	mentionOpenIDs        []string
+	mentionDelivered      bool
+	mentionRequestUUID    string
+	mentionFinalMsgIDs    []string
+	mentionFinalSent      bool
+	mentionPendingCompact []replyMentionCompaction
 }
 
 func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
@@ -132,7 +153,167 @@ func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
 		patchLegacy: func(ctx context.Context, messageID, text string) error {
 			return b.patchAgentReplyBinding(ctx, chat, messageID, text)
 		},
+		sendMentionedFinal: func(ctx context.Context, text string, openIDs []string, requestUUID string) (string, error) {
+			return b.sendTurnInitiatorMentionFinal(ctx, chat, text, openIDs, requestUUID)
+		},
+		compactMessage: func(ctx context.Context, messageID, content string) error {
+			content = b.sessionCardForPatch(messageID, content)
+			return b.patchInteractiveMessage(ctx, messageID, content, "completed progress card")
+		},
 	}
+}
+
+func (b *bindingReplyCardBackend) SetMentionTargets(openIDs []string) {
+	if b == nil {
+		return
+	}
+	b.mentionMu.Lock()
+	b.mentionOpenIDs = uniqueOpenIDs(openIDs)
+	b.mentionDelivered = false
+	b.mentionRequestUUID = ""
+	b.mentionFinalMsgIDs = nil
+	b.mentionFinalSent = false
+	b.mentionPendingCompact = nil
+	b.mentionMu.Unlock()
+}
+
+// splitMentionFinalAnswer splits the complete answer with the same byte and
+// table limits as streamed answer cards, so the final reply never exceeds what
+// a single Feishu card accepts.
+func splitMentionFinalAnswer(text string) []string {
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	return splitMarkdownCards(text, streamingReplyCardSoftLimit)
+}
+
+// mentionFinalRequestUUID derives a stable Feishu idempotency key for each part
+// of the final reply. The first part keeps the base identity.
+func mentionFinalRequestUUID(base string, index int) string {
+	if index == 0 {
+		return base
+	}
+	return fmt.Sprintf("%s-%d", base, index)
+}
+
+func (b *bindingReplyCardBackend) pendingMentionFinal() (openIDs []string, requestUUID string, sent int, finalSent bool, ok bool) {
+	b.mentionMu.Lock()
+	defer b.mentionMu.Unlock()
+	if b.mentionDelivered || len(b.mentionOpenIDs) == 0 {
+		return nil, "", 0, false, false
+	}
+	if b.mentionRequestUUID == "" {
+		b.mentionRequestUUID = uuid.NewString()
+	}
+	return append([]string(nil), b.mentionOpenIDs...), b.mentionRequestUUID, len(b.mentionFinalMsgIDs), b.mentionFinalSent, true
+}
+
+func (b *bindingReplyCardBackend) recordMentionFinalPart(messageID string) {
+	b.mentionMu.Lock()
+	defer b.mentionMu.Unlock()
+	b.mentionFinalMsgIDs = append(b.mentionFinalMsgIDs, strings.TrimSpace(messageID))
+}
+
+// recordMentionFinal marks the final reply as published and queues every older
+// progress/answer message for compaction exactly once.
+func (b *bindingReplyCardBackend) recordMentionFinal(oldHandles []*replyCardHandle) {
+	b.mentionMu.Lock()
+	defer b.mentionMu.Unlock()
+	if b.mentionFinalSent {
+		return
+	}
+	b.mentionFinalSent = true
+	finalIDs := make(map[string]struct{}, len(b.mentionFinalMsgIDs))
+	for _, id := range b.mentionFinalMsgIDs {
+		finalIDs[id] = struct{}{}
+	}
+	for _, handle := range uniqueReplyCardHandles(oldHandles) {
+		oldMessageID := strings.TrimSpace(handle.messageID)
+		if _, final := finalIDs[oldMessageID]; final {
+			continue
+		}
+		b.mentionPendingCompact = append(b.mentionPendingCompact, replyMentionCompaction{
+			messageID: oldMessageID,
+			content:   renderAgentReplyCompletionCard(handle.lastActivityCard, handle.conversationSection),
+		})
+	}
+	if len(b.mentionPendingCompact) == 0 {
+		b.mentionDelivered = true
+	}
+}
+
+func (b *bindingReplyCardBackend) pendingMentionCompactions() []replyMentionCompaction {
+	b.mentionMu.Lock()
+	defer b.mentionMu.Unlock()
+	return append([]replyMentionCompaction(nil), b.mentionPendingCompact...)
+}
+
+func (b *bindingReplyCardBackend) markMentionCompactComplete(messageID string) {
+	b.mentionMu.Lock()
+	defer b.mentionMu.Unlock()
+	for i, pending := range b.mentionPendingCompact {
+		if pending.messageID != messageID {
+			continue
+		}
+		b.mentionPendingCompact = append(b.mentionPendingCompact[:i], b.mentionPendingCompact[i+1:]...)
+		break
+	}
+	if b.mentionFinalSent && len(b.mentionPendingCompact) == 0 {
+		b.mentionDelivered = true
+	}
+}
+
+// NotifyMentions publishes the final reply for a completed Turn, mentioning the
+// initiators on its last card, and only then compacts the old cards. Parts that
+// already succeeded are skipped when called again for the same targets.
+func (b *bindingReplyCardBackend) NotifyMentions(ctx context.Context, text string, oldHandles []*replyCardHandle) error {
+	if b == nil {
+		return nil
+	}
+	openIDs, requestUUID, sent, finalSent, ok := b.pendingMentionFinal()
+	if !ok {
+		return nil
+	}
+	if !finalSent {
+		parts := splitMentionFinalAnswer(text)
+		if len(parts) == 0 {
+			return nil
+		}
+		if b.sendMentionedFinal == nil {
+			return fmt.Errorf("mentioned final reply is unavailable")
+		}
+		for i := sent; i < len(parts); i++ {
+			var mentions []string
+			if i == len(parts)-1 {
+				mentions = openIDs
+			}
+			messageID, err := b.sendMentionedFinal(ctx, parts[i], mentions, mentionFinalRequestUUID(requestUUID, i))
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(messageID) == "" {
+				return fmt.Errorf("mentioned final reply returned no message id")
+			}
+			b.recordMentionFinalPart(messageID)
+		}
+		b.recordMentionFinal(oldHandles)
+	}
+	pendingCompact := b.pendingMentionCompactions()
+	if len(pendingCompact) == 0 {
+		return nil
+	}
+	if b.compactMessage == nil {
+		return fmt.Errorf("progress card compression is unavailable")
+	}
+	errs := make([]error, 0)
+	for _, pending := range pendingCompact {
+		if err := b.compactMessage(ctx, pending.messageID, pending.content); err != nil {
+			errs = append(errs, fmt.Errorf("compress progress message %s: %w", pending.messageID, err))
+			continue
+		}
+		b.markMentionCompactComplete(pending.messageID)
+	}
+	return errors.Join(errs...)
 }
 
 func (b *Bridge) sendCardKitReplyToBinding(ctx context.Context, chat *LarkChat, content, requestUUID string) (string, string, error) {
@@ -238,6 +419,7 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 		ambiguousSend = isAmbiguousCardKitSendError(err)
 	}
 	if err == nil {
+		activityCard := activity
 		return &replyCardHandle{
 			conversationSection: b.conversationSection,
 			delivery:            delivery,
@@ -245,11 +427,13 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 			cardID:              cardID,
 			messageID:           messageID,
 			lastActivity:        selectManagementCardLocale(string(activity.JSON), delivery.locale),
+			lastActivityCard:    &activityCard,
 			hasActivity:         true,
 			messageUUID:         requestUUID,
 		}, nil
 	}
 	if ambiguousSend {
+		activityCard := activity
 		log.Warn().Err(err).Str("card_id", cardID).Msg("bridge: CardKit activity delivery remains uncertain; preserving send identity")
 		return &replyCardHandle{
 			conversationSection: b.conversationSection,
@@ -257,6 +441,7 @@ func (b *bindingReplyCardBackend) CreateActivity(ctx context.Context, activity t
 			mode:                replyCardModeCardKit,
 			cardID:              cardID,
 			lastActivity:        selectManagementCardLocale(string(activity.JSON), delivery.locale),
+			lastActivityCard:    &activityCard,
 			hasActivity:         true,
 			messageUUID:         requestUUID,
 			deliveryPending:     true,
@@ -379,6 +564,8 @@ func (b *bindingReplyCardBackend) UpdateActivity(ctx context.Context, handle *re
 		return err
 	}
 	handle.lastActivity = raw
+	activityCard := activity
+	handle.lastActivityCard = &activityCard
 	handle.hasActivity = true
 	return nil
 }
@@ -427,9 +614,31 @@ func (b *bindingReplyCardBackend) retryPendingInsert(ctx context.Context, handle
 		handle.hasAnswer = true
 	case pendingInsertActivity:
 		handle.lastActivity = selectManagementCardLocale(string(pending.activity.JSON), handle.delivery.locale)
+		activityCard := pending.activity
+		handle.lastActivityCard = &activityCard
 		handle.hasActivity = true
 	}
 	return nil
+}
+
+func uniqueReplyCardHandles(handles []*replyCardHandle) []*replyCardHandle {
+	seen := make(map[string]struct{}, len(handles))
+	result := make([]*replyCardHandle, 0, len(handles))
+	for _, handle := range handles {
+		if handle == nil {
+			continue
+		}
+		messageID := strings.TrimSpace(handle.messageID)
+		if messageID == "" {
+			continue
+		}
+		if _, ok := seen[messageID]; ok {
+			continue
+		}
+		seen[messageID] = struct{}{}
+		result = append(result, handle)
+	}
+	return result
 }
 
 func (b *bindingReplyCardBackend) ensureDelivered(ctx context.Context, handle *replyCardHandle) error {

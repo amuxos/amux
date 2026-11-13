@@ -78,6 +78,7 @@ func TestCompletionNotificationPartialDMFailureRetriesOnlyFailedRecipient(t *tes
 		if doc.Config.WidthMode != "compact" || len(doc.Body.Elements) != 3 {
 			t.Fatal("expected compact card with title, action and attribution")
 		}
+		requireCardMentions(t, card, id)
 		if id == "ou_b" && calls[id] == 1 {
 			return "", "", errors.New("temporary send failure")
 		}
@@ -173,7 +174,7 @@ func TestCompletionNotificationCardQuietVisualHierarchy(t *testing.T) {
 	for _, kind := range []string{turnNotificationCompleted, turnNotificationWaiting, turnNotificationFailed} {
 		t.Run(kind, func(t *testing.T) {
 			var doc cardDoc
-			if err := json.Unmarshal([]byte(renderTurnCompletionNotificationCard(kind, strings.Repeat("长任务", 50), "https://example.com/result")), &doc); err != nil {
+			if err := json.Unmarshal([]byte(renderTurnCompletionNotificationCard(kind, strings.Repeat("长任务", 50), "https://example.com/result", "ou_user")), &doc); err != nil {
 				t.Fatal(err)
 			}
 			if doc.Header.Icon != nil || len(doc.Body.Elements) != 3 {
@@ -186,8 +187,11 @@ func TestCompletionNotificationCardQuietVisualHierarchy(t *testing.T) {
 			if action.Type != "primary" || action.Width != "" || action.Size != "small" {
 				t.Fatal("expected small outline button at natural width")
 			}
-			if footer.Text.Content != "来自 amux" || footer.Text.TextColor != "grey" || footer.Text.TextSize != "notation" {
-				t.Fatal("expected subdued amux attribution")
+			wantChinese := `<font color='grey'>来自 amux | 发送给:</font> <at id="ou_user"></at>`
+			wantEnglish := `<font color='grey'>From amux | Sent to:</font> <at id="ou_user"></at>`
+			if footer.Tag != "markdown" || footer.TextSize != "notation" || footer.Content != wantChinese ||
+				footer.I18nContent["zh_cn"] != wantChinese || footer.I18nContent["en_us"] != wantEnglish {
+				t.Fatalf("expected localized attribution with recipient mention: %+v", footer)
 			}
 		})
 	}
@@ -266,8 +270,22 @@ completion_notification_after_seconds = 60
 				t.Fatalf("card missing %q: %s", want, card)
 			}
 		}
-		if strings.Contains(card, "<at ") {
-			t.Fatal("DM must not mention users")
+		openID := "ou_initiator"
+		if strings.Contains(card, "ou_collaborator") {
+			openID = "ou_collaborator"
+		}
+		jsonStart := strings.Index(card, "{")
+		if jsonStart < 0 {
+			t.Fatalf("DM for %q has no card payload: %s", openID, card)
+		}
+		raw := card[jsonStart:]
+		requireCardMentions(t, raw, openID)
+		otherOpenID := "ou_collaborator"
+		if openID == otherOpenID {
+			otherOpenID = "ou_initiator"
+		}
+		if strings.Contains(raw, otherOpenID) {
+			t.Fatalf("DM for %q unexpectedly mentions %q: %s", openID, otherOpenID, raw)
 		}
 	}
 	if err := b.notifyTurnCompletion(context.Background(), chat, "turn-1", "done", "end_turn", 62*time.Second); err != nil {
@@ -348,7 +366,7 @@ func TestCompletionNotificationZeroThresholdDisablesAllKinds(t *testing.T) {
 	}
 }
 
-func TestCompletionNotificationOmitsMentionInPrivateWorkspace(t *testing.T) {
+func TestCompletionNotificationMentionsRecipientInPrivateWorkspace(t *testing.T) {
 	loadBridgeTestConfig(t, `[bridge.feishu.presentation]
 completion_notification_enabled = true
 completion_notification_after_seconds = 1
@@ -380,9 +398,10 @@ completion_notification_after_seconds = 1
 	if err := b.notifyTurnCompletion(context.Background(), chat, "turn-private", "done", "end_turn", time.Second); err != nil {
 		t.Fatal(err)
 	}
-	if notice == "" || strings.Contains(notice, "<at ") {
-		t.Fatalf("private notice = %q, want non-empty text without mention", notice)
+	if notice == "" {
+		t.Fatal("private notice is empty")
 	}
+	requireCardMentions(t, notice, "ou_initiator")
 }
 
 func TestCompletionNotificationInheritsSourceChatOfFirstMessage(t *testing.T) {
@@ -418,7 +437,7 @@ func TestCompletionNotificationSkipsSubtaskTurnSilently(t *testing.T) {
 	if err := b.db.RecordTurnLinks([]TurnLink{{BridgeID: "feishu:test", RootMsgID: "root", MessageID: "m1", TurnID: "turn", OpenID: "ou_user"}}); err != nil {
 		t.Fatal(err)
 	}
-	b.markSubtaskTurn("root", "turn")
+	b.markSubtaskTurn("root", "turn", "")
 	b.dmInteractive = func(context.Context, string, string) (string, string, error) {
 		t.Fatal("subtask turn must not notify")
 		return "", "", nil

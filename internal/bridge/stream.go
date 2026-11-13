@@ -489,12 +489,17 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 				Msg("bridge: suppressed Feishu stream output without input-started turn")
 		}
 
+		turnMentions := &replyMentionState{}
 		agg := NewAggregator(30*time.Second, 50000, func(text string) error {
 			_ = b.db.SetLatestAgentOutput(bridgeID, rootMsgID, text)
 			sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			msgID, _, err := b.sendAgentReplyToBinding(sendCtx, streamChat, text)
+			mentionTurnID, mentionOpenIDs := turnMentions.claim(func(turnID string) []string {
+				return b.turnReplyMentionOpenIDs(streamChat, rootMsgID, turnID)
+			})
+			msgID, _, err := b.sendAgentReplyToBindingWithMentions(sendCtx, streamChat, text, mentionOpenIDs)
 			if err != nil {
+				turnMentions.release(mentionTurnID)
 				log.Warn().Err(err).Str("session", sessionName).Msg("bridge: sendAgentReplyToBinding error")
 			}
 			if err == nil {
@@ -771,6 +776,10 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 				return
 			}
 			for _, uiEvent := range agentui.FromAttachEvent(ev) {
+				subtaskParentTurnID := ""
+				if uiEvent.Kind == agentui.KindInputSubmitted && uiEvent.Source == agentui.SourceSubtask {
+					subtaskParentTurnID = subtaskNoticeParentTurnID(uiEvent.Text)
+				}
 				for _, action := range presenter.Consume(uiEvent) {
 					if action.Kind == agentui.ActionTurnStarted || action.Kind == agentui.ActionInputEcho {
 						// Bridge-appended protocol text is model input only.
@@ -789,11 +798,16 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							Int64("turn_seq", action.Turn.Seq).
 							Msg("bridge: authorized first provider action from active Feishu submit")
 					}
+					if action.Kind != agentui.ActionTurnStarted && visibilityGate.Allow(action) {
+						// Providers may omit turn_started. Track the Turn before the first
+						// standalone post can claim its initiators.
+						turnMentions.observe(action.Turn.ID)
+					}
 					switch action.Kind {
 					case agentui.ActionTurnStarted:
 						b.observeTurnStarted(rootMsgID, action.Turn.ID)
 						if action.Source == agentui.SourceSubtask {
-							b.markSubtaskTurn(rootMsgID, action.Turn.ID)
+							b.markSubtaskTurn(rootMsgID, action.Turn.ID, subtaskParentTurnID)
 						}
 						if action.Source == agentui.SourceGoal {
 							goalChat, err := b.goalChatForTurn(streamChat, canonical)
@@ -847,6 +861,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							agg.Flush()
 							replyStream.Flush()
 							replyStream.Reset()
+							turnMentions.observe(action.Turn.ID)
 							setFinalAnswer("")
 							activity.Reset()
 							assistantUpdates.Reset()
@@ -1184,7 +1199,15 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						completedCard := replyStream.ConversationCard()
 						if !superseded {
-							replyStream.Reset()
+							// Only a successfully completed Turn publishes the mentioned
+							// final reply; failed, cancelled, handed-off or errored Turns
+							// keep their existing cards.
+							if handoffEligible && pendingCardHandoff == nil && !failureNoticeDelivered &&
+								completionMeta.Status == "done" {
+								replyStream.CompleteTurn(b.turnReplyMentionOpenIDs(streamChat, rootMsgID, action.Turn.ID))
+							} else {
+								replyStream.Reset()
+							}
 						}
 						if handoffEligible {
 							b.dispatchArtifactDelivery(streamChat, action.Turn.ID, getFinalAnswer(), ev.CanonicalJson)
@@ -1627,13 +1650,17 @@ func (b *Bridge) sendTextToBinding(ctx context.Context, chat *LarkChat, text str
 }
 
 func (b *Bridge) sendAgentReplyToBinding(ctx context.Context, chat *LarkChat, text string) (string, string, error) {
+	return b.sendAgentReplyToBindingWithMentions(ctx, chat, text, nil)
+}
+
+func (b *Bridge) sendAgentReplyToBindingWithMentions(ctx context.Context, chat *LarkChat, text string, openIDs []string) (string, string, error) {
 	if bs, ok, err := b.directReplyTargetForBinding(chat); ok || err != nil {
 		if err != nil {
 			return "", "", err
 		}
 		return b.sendAgentReplyCardToDirectTarget(ctx, bs, text)
 	}
-	return b.sendAgentReplyToThread(ctx, chat.RootMsgID, text)
+	return b.sendAgentReplyToThreadWithMentions(ctx, chat.RootMsgID, text, openIDs)
 }
 
 func (b *Bridge) sendToolActivityToBinding(ctx context.Context, chat *LarkChat, meta toolActivityCardMeta, text string) (string, string, error) {
@@ -1655,6 +1682,34 @@ func (b *Bridge) sendAgentReplyCardToBinding(ctx context.Context, chat *LarkChat
 		return b.sendAgentReplyCardToDirectTarget(ctx, bs, text)
 	}
 	return b.sendAgentReplyCardToThread(ctx, chat.RootMsgID, text)
+}
+
+// sendTurnInitiatorMentionFinal sends one part of a completed Turn's final
+// reply. Only the last part carries openIDs; earlier parts of a long answer are
+// sent without mentions.
+func (b *Bridge) sendTurnInitiatorMentionFinal(ctx context.Context, chat *LarkChat, text string, openIDs []string, requestUUID string) (string, error) {
+	if chat == nil {
+		return "", fmt.Errorf("missing binding for mentioned final reply")
+	}
+	content := renderAgentReplyCardWithMentions(text, openIDs)
+	if target, direct, err := b.directReplyTargetForBinding(chat); err != nil {
+		return "", err
+	} else if direct {
+		if target == nil || strings.TrimSpace(target.Kind) != botSessionReplyDM || strings.TrimSpace(target.OpenID) == "" {
+			return "", fmt.Errorf("mentioned final reply is unavailable for direct output")
+		}
+		content = b.managementCardForRecipient(target.OpenID, content)
+		messageID, _, err := b.sendInteractiveToDMWithUUID(ctx, target.OpenID, content, "mentioned final reply card", requestUUID)
+		if err == nil {
+			b.rememberPrivateSessionCard(target.OpenID, messageID)
+		}
+		return messageID, err
+	}
+	if strings.TrimSpace(chat.RootMsgID) == "" {
+		return "", fmt.Errorf("missing topic root for mentioned final reply")
+	}
+	messageID, _, err := b.sendInteractiveToThreadWithUUID(ctx, chat.RootMsgID, content, "mentioned final reply card", requestUUID)
+	return messageID, err
 }
 
 func (b *Bridge) sendInteractiveToBinding(ctx context.Context, chat *LarkChat, content, label string) (string, string, error) {

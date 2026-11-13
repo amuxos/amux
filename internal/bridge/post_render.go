@@ -56,8 +56,24 @@ type postElement struct {
 }
 
 func renderAgentReplyPost(text string) string {
+	return renderAgentReplyPostWithMentions(text, nil)
+}
+
+func renderAgentReplyPostWithMentions(text string, openIDs []string) string {
 	text = renderArtifactLinks(text)
-	doc := postDoc{ZhCN: postLang{Content: markdownLitePostBlocks(text)}}
+	blocks := markdownLitePostBlocks(text)
+	openIDs = uniqueOpenIDs(openIDs)
+	if len(openIDs) > 0 {
+		mention := make([]postElement, 0, len(openIDs)*2-1)
+		for i, openID := range openIDs {
+			if i > 0 {
+				mention = append(mention, postElement{Tag: "text", Text: " "})
+			}
+			mention = append(mention, postElement{Tag: "at", UserID: openID})
+		}
+		blocks = append([][]postElement{mention}, blocks...)
+	}
+	doc := postDoc{ZhCN: postLang{Content: blocks}}
 	if len(doc.ZhCN.Content) == 0 {
 		doc.ZhCN.Content = [][]postElement{{{Tag: "text", Text: strings.TrimSpace(text)}}}
 	}
@@ -103,12 +119,91 @@ func renderExternalBotDelegationCard(botOpenID, callbackBotOpenID, text string) 
 }
 
 func renderAgentReplyCard(text string) string {
-	text = renderArtifactLinks(text)
-	elements := []cardElement{{Tag: "markdown", Content: normalizeAgentResultText(text)}}
+	elements := renderFinalResultElements(text)
 	elements = append(elements, renderAmuxBrandFooterElements()...)
-	doc := newCardDoc(elements)
+	doc := newTurnCardDoc(elements)
 	bs, _ := json.Marshal(doc)
 	return string(bs)
+}
+
+// renderAgentReplyCompletionCard is the compact form of a progress/answer card
+// after its mentioned final reply was published. It keeps the collapsed activity
+// and, when present, the empty conversation-extension section so extensions can
+// still update the completed card.
+func renderAgentReplyCompletionCard(activity *turnCardActivity, withConversationSection bool) string {
+	elements := make([]cardElement, 0, 7)
+	if activity != nil {
+		if activity.Element.Tag != "" {
+			elements = append(elements, collapsedCardElement(activity.Element))
+		}
+		for _, trailing := range activity.Trailing {
+			elements = append(elements, collapsedCardElement(trailing))
+		}
+	}
+	if len(elements) > 0 {
+		elements = append(elements, cardElement{Tag: "hr", ElementID: cardKitAnswerDividerElementID})
+	}
+	elements = append(elements,
+		managementContentElement(sessionMessage("status.done"), cardElement{Tag: "markdown", ElementID: cardKitReplyElementID}),
+	)
+	footer := renderAmuxBrandFooterElements()
+	elements = append(elements, footer[0])
+	if withConversationSection {
+		elements = append(elements, emptyConversationSection())
+	}
+	elements = append(elements, footer[1:]...)
+	doc := newTurnCardDoc(elements)
+	bs, _ := json.Marshal(doc)
+	return string(bs)
+}
+
+func collapsedCardElement(element cardElement) cardElement {
+	raw, err := json.Marshal(element)
+	if err != nil {
+		return element
+	}
+	var clone cardElement
+	if err := json.Unmarshal(raw, &clone); err != nil {
+		return element
+	}
+	collapseCardPanels(&clone)
+	return clone
+}
+
+func collapseCardPanels(element *cardElement) {
+	if element == nil {
+		return
+	}
+	if element.Tag == "collapsible_panel" {
+		element.Expanded = false
+	}
+	for i := range element.Elements {
+		collapseCardPanels(&element.Elements[i])
+	}
+	for i := range element.Columns {
+		for j := range element.Columns[i].Elements {
+			collapseCardPanels(&element.Columns[i].Elements[j])
+		}
+	}
+}
+
+func renderAgentReplyCardWithMentions(text string, openIDs []string) string {
+	elements := []cardElement{
+		{Tag: "markdown", Content: renderAgentResultBody(text), ElementID: cardKitReplyElementID},
+	}
+	elements = append(elements, renderAmuxBrandFooterElementsWithMentions(openIDs)...)
+	doc := newTurnCardDoc(elements)
+	bs, _ := json.Marshal(doc)
+	return string(bs)
+}
+
+func newTurnCardDoc(elements []cardElement) cardDoc {
+	doc := newCardDoc(wrapTurnCardElements(elements))
+	doc.Config.WidthMode = "fill"
+	doc.Body.Direction = "vertical"
+	doc.Body.VerticalSpacing = "12px"
+	doc.Body.Padding = "12px 16px 16px 16px"
+	return doc
 }
 
 func normalizeAgentResultText(text string) string {
@@ -124,9 +219,20 @@ func normalizeAgentResultText(text string) string {
 }
 
 func renderAmuxBrandFooterElements() []cardElement {
+	return renderAmuxBrandFooterElementsWithMentions(nil)
+}
+
+func renderAmuxBrandFooterElementsWithMentions(openIDs []string) []cardElement {
+	footer := cardElement{Tag: "markdown", ElementID: amuxBrandFooterID, Content: amuxBrandFooterMarkdown(), TextSize: "notation"}
+	if mentions := renderTurnInitiatorMentionsMarkdown(openIDs); mentions != "" {
+		label := sessionMessage("reply.sent.to")
+		footer = managementContentElement(i18n.Render(func(locale i18n.Locale) string {
+			return amuxBrandFooterMarkdown() + " <font color='grey'>| " + label.For(locale) + "</font> " + mentions
+		}), footer)
+	}
 	return []cardElement{
 		{Tag: "hr", ElementID: amuxBrandDividerID},
-		{Tag: "markdown", ElementID: amuxBrandFooterID, Content: amuxBrandFooterMarkdown(), TextSize: "notation"},
+		footer,
 	}
 }
 
@@ -338,9 +444,9 @@ func wrapTurnCardElements(elements []cardElement) []cardElement {
 	}}
 }
 
-func renderPermissionRequestCard(targetID, sessionName, permissionID string, payload permissionPayload) string {
+func renderPermissionRequestCard(targetID, sessionName, permissionID string, payload permissionPayload, openID string) string {
 	if strings.TrimSpace(payload.Tool.Question) != "" {
-		return renderQuestionCard(targetID, sessionName, permissionID, payload)
+		return renderQuestionCard(targetID, sessionName, permissionID, payload, openID)
 	}
 	payload = compactPermissionPayload(payload)
 	content := permissionSummary(payload)

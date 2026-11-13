@@ -31,7 +31,7 @@ func questionCardFits(payload permissionPayload) bool {
 	return len(encoded) < maxFeishuCardBytes/2 // reserve room for form labels, descriptions and identity
 }
 
-func renderQuestionCard(targetID, sessionName, permissionID string, payload permissionPayload) string {
+func renderQuestionCard(targetID, sessionName, permissionID string, payload permissionPayload, openID string) string {
 	if !questionCardFits(payload) || payload.Tool.Secret {
 		return renderPermissionResolvedCard(managementCopy("question.unavailable"))
 	}
@@ -51,12 +51,16 @@ func renderQuestionCard(targetID, sessionName, permissionID string, payload perm
 		}
 	}
 	metadata["cancel"] = "true"
-	doc := newCardDoc([]cardElement{
+	elements := []cardElement{
 		{Tag: "markdown", Content: content},
 		renderPermissionQuestionForm(payload, value),
 		managementFormButtonRowElement(cardAction{Tag: "button", Name: "question_cancel", Type: "default",
 			Text: managementPlainTextPtr(managementCopy("question.cancel")), Behaviors: []cardBehavior{{Type: "callback", Value: metadata}}}),
-	})
+	}
+	if openID = strings.TrimSpace(openID); openID != "" {
+		elements = append(elements, renderAmuxBrandFooterElementsWithMentions([]string{openID})...)
+	}
+	doc := newCardDoc(elements)
 	doc.Header = &cardHeader{Title: managementPlainText(managementCopy("question.title")), Template: "orange"}
 	encoded, _ := json.Marshal(doc)
 	return string(encoded)

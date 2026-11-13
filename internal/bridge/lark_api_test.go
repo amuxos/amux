@@ -197,3 +197,76 @@ func TestFetchQuotedMessageRejectsDeletedMessage(t *testing.T) {
 		t.Fatalf("fetchQuotedMessage error = %v, want deleted rejection", err)
 	}
 }
+
+func TestSendTurnInitiatorMentionFinalUsesNativeMentionAnswerAndUUID(t *testing.T) {
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/open-apis/auth/v3/tenant_access_token/internal":
+			_, _ = w.Write([]byte(`{"code":0,"tenant_access_token":"tenant-token","expire":7200}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/open-apis/im/v1/messages/om-root/reply":
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode final reply: %v", err)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]string{"message_id": "om-final"}})
+		default:
+			t.Fatalf("unexpected lark API call: %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+	b := &Bridge{client: lark.NewClient(
+		"app-id", "app-secret", lark.WithOpenBaseUrl(server.URL), lark.WithOAuthBaseUrl(server.URL),
+	)}
+	messageID, err := b.sendTurnInitiatorMentionFinal(
+		context.Background(), &LarkChat{RootMsgID: "om-root"}, "最终答案", []string{"ou-a", "ou-b"}, "stable-final-uuid",
+	)
+	if err != nil {
+		t.Fatalf("sendTurnInitiatorMentionFinal: %v", err)
+	}
+	if messageID != "om-final" || body["msg_type"] != "interactive" || body["reply_in_thread"] != true || body["uuid"] != "stable-final-uuid" {
+		t.Fatalf("message id = %q, final body = %+v", messageID, body)
+	}
+	content, _ := body["content"].(string)
+	requireCardMentions(t, content, "ou-a", "ou-b")
+	if !strings.Contains(content, "最终答案") {
+		t.Fatalf("final card content = %s", content)
+	}
+}
+
+func TestReplyMentionCompactionPatchesExistingMessageWithLocalizedCompletionCard(t *testing.T) {
+	var patchedContent string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/open-apis/auth/v3/tenant_access_token/internal":
+			_, _ = w.Write([]byte(`{"code":0,"tenant_access_token":"tenant-token","expire":7200}`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/open-apis/im/v1/messages/om-progress":
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode completion patch: %v", err)
+			}
+			patchedContent, _ = body["content"].(string)
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "msg": "ok"})
+		default:
+			t.Fatalf("unexpected lark API call: %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+	b := &Bridge{client: lark.NewClient(
+		"app-id", "app-secret", lark.WithOpenBaseUrl(server.URL), lark.WithOAuthBaseUrl(server.URL),
+	)}
+	backend, ok := newBindingReplyCardBackend(b, &LarkChat{RootMsgID: "om-root"}).(*bindingReplyCardBackend)
+	if !ok {
+		t.Fatal("binding reply backend type changed")
+	}
+	if err := backend.compactMessage(context.Background(), "om-progress", renderAgentReplyCompletionCard(nil, false)); err != nil {
+		t.Fatalf("compact progress message: %v", err)
+	}
+	if got := replyCompletionCardText(t, patchedContent, "zh-CN"); got != "已完成" {
+		t.Fatalf("Chinese completion = %q", got)
+	}
+	if got := replyCompletionCardText(t, patchedContent, "en"); got != "Completed" {
+		t.Fatalf("English completion = %q", got)
+	}
+}

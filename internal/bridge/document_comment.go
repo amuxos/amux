@@ -1372,7 +1372,7 @@ func (b *Bridge) handleDocumentPermission(delivery *documentTurnDelivery, permis
 		return
 	}
 	content := renderPermissionRequestCard(delivery.TargetID, delivery.SessionName,
-		permission.RequestID, permissionPayloadFromEvent(permission))
+		permission.RequestID, permissionPayloadFromEvent(permission), delivery.OpenID)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	var messageID string

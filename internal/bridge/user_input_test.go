@@ -82,7 +82,7 @@ func TestQuestionAnswerValidation(t *testing.T) {
 func TestQuestionCardPreservesMeaningAndLanguages(t *testing.T) {
 	p := permissionPayload{TurnID: "turn", Tool: permissionTool{Question: "Choose targets", AllowOther: true, MultiSelect: true}, Options: []permissionOption{{OptionId: "api", Name: "API", Description: "Public endpoint"}}}
 	var doc cardDoc
-	raw := renderQuestionCard("target", "session", "q", p)
+	raw := renderQuestionCard("target", "session", "q", p, "ou-asker")
 	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 		t.Fatal(err)
 	}
@@ -97,11 +97,12 @@ func TestQuestionCardPreservesMeaningAndLanguages(t *testing.T) {
 	if doc.Body.Elements[2].Tag == "form" {
 		t.Fatal("cancel must bypass form validation")
 	}
+	requireCardMentions(t, raw, "ou-asker")
 	p.Options[0].OptionId = strings.Repeat("x", 101)
 	if questionCardFits(p) {
 		t.Fatal("oversized option accepted")
 	}
-	raw = renderQuestionCard("target", "session", "q", p)
+	raw = renderQuestionCard("target", "session", "q", p, "ou-asker")
 	if strings.Contains(raw, `"tag":"form"`) {
 		t.Fatal("lossy question controls rendered")
 	}

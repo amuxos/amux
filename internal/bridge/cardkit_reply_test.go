@@ -18,6 +18,7 @@ import (
 
 type fakeCardKitReplyAPI struct {
 	cardID      string
+	cardIDs     []string
 	createErr   error
 	updateErr   error
 	insertErrs  []error
@@ -33,6 +34,11 @@ func (f *fakeCardKitReplyAPI) CreateCard(_ context.Context, data string) (string
 	f.createdData = append(f.createdData, data)
 	if f.createErr != nil {
 		return "", f.createErr
+	}
+	if len(f.cardIDs) > 0 {
+		cardID := f.cardIDs[0]
+		f.cardIDs = f.cardIDs[1:]
+		return cardID, nil
 	}
 	return f.cardID, nil
 }
