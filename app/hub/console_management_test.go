@@ -23,6 +23,7 @@ type consoleTestController struct {
 	save         bridge.ConsoleBotSave
 	err          error
 	resultStatus string
+	references   []bridge.ConsoleAgentReference
 }
 
 func (c *consoleTestController) ConsoleBot(context.Context) (bridge.ConsoleBot, error) {
@@ -49,6 +50,11 @@ func (c *consoleTestController) ConsoleGroupSettings(context.Context, string) (b
 func (c *consoleTestController) ConsoleSaveGroup(context.Context, string, *bridge.GroupSettings, int64) (bridge.ConsoleGroupsResult, error) {
 	c.calls++
 	return bridge.ConsoleGroupsResult{Status: "state_changed", Source: "known_bindings", Groups: []bridge.ConsoleGroup{}, Settings: &bridge.GroupSettings{Version: 4}}, c.err
+}
+
+func (c *consoleTestController) ConsoleAgentReferences(context.Context) ([]bridge.ConsoleAgentReference, error) {
+	c.calls++
+	return append([]bridge.ConsoleAgentReference(nil), c.references...), c.err
 }
 
 func consoleTestServer(c *consoleTestController) *hubServer {
@@ -171,5 +177,60 @@ func TestConsoleManagementGroupConflictAndSafeErrors(t *testing.T) {
 	_, err = consoleTestServer(c).ConsoleManagement(context.Background(), consoleTestRequest("bots", "list", "{}"))
 	if status.Convert(err).Message() != "console_management_failed" {
 		t.Fatalf("unsafe prefixed error: %v", err)
+	}
+}
+
+func TestConsoleManagementListsEveryDefaultExpertReference(t *testing.T) {
+	shared := []bridge.ConsoleAgentReference{{BridgeID: "feishu:a", Agent: "team/reviewer"}, {BridgeID: "feishu:a", ChatID: "oc_group", Agent: "team/other"}}
+	first := &consoleTestController{references: shared}
+	second := &consoleTestController{references: append([]bridge.ConsoleAgentReference{{BridgeID: "feishu:b", Agent: "solo/helper"}}, shared...)}
+	s := &hubServer{consoleManagementControllers: map[string]consoleManagementController{"default": first, "second": second}}
+	response, err := s.ConsoleManagement(context.Background(), consoleTestRequest("bots", "references", `{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got consoleReferencesResult
+	if err := json.Unmarshal(response.PayloadJson, &got); err != nil {
+		t.Fatal(err)
+	}
+	// Bridges share one database: each reference is reported once, group defaults included.
+	if response.Status != "success" || got.Status != "success" || len(got.References) != 3 {
+		t.Fatalf("references = %s", response.PayloadJson)
+	}
+	want := map[bridge.ConsoleAgentReference]bool{shared[0]: true, shared[1]: true, {BridgeID: "feishu:b", Agent: "solo/helper"}: true}
+	for _, reference := range got.References {
+		if !want[reference] {
+			t.Fatalf("unexpected reference %+v", reference)
+		}
+	}
+	// A stopped Bridge can leave stored references behind: absence is unknown.
+	_, err = (&hubServer{}).ConsoleManagement(context.Background(), consoleTestRequest("bots", "references", `{}`))
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("no bridge references = %v, want Unavailable", err)
+	}
+}
+
+func TestConsoleManagementReferencesStayNarrow(t *testing.T) {
+	c := &consoleTestController{references: []bridge.ConsoleAgentReference{{BridgeID: "feishu:a", Agent: "team/reviewer"}}}
+	s := consoleTestServer(c)
+	// Only the bots resource has references, and the request takes no fields.
+	for _, request := range []*pb.ConsoleManagementRequest{consoleTestRequest("groups", "references", `{}`), consoleTestRequest("bots", "references", `{"profile":"default"}`), consoleTestRequest("bots", "references", `{"x":`)} {
+		if _, err := s.ConsoleManagement(context.Background(), request); status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("%s/%s %s: err=%v", request.Resource, request.Action, request.PayloadJson, err)
+		}
+	}
+	if c.calls != 0 {
+		t.Fatalf("a rejected request reached the controller %d times", c.calls)
+	}
+	// A controller failure is an error, never an empty list that would look unused.
+	c.err = status.Error(codes.Unavailable, "console_bridge_unavailable")
+	if _, err := s.ConsoleManagement(context.Background(), consoleTestRequest("bots", "references", `{}`)); status.Code(err) != codes.Unavailable {
+		t.Fatalf("controller failure = %v", err)
+	}
+	// An operator-only protocol: an actor credential is refused before dispatch.
+	md := metadata.MD{"x-amux-actor-token": {"agent-credential"}}
+	c.err, c.calls = nil, 0
+	if _, err := s.ConsoleManagement(metadata.NewIncomingContext(context.Background(), md), consoleTestRequest("bots", "references", `{}`)); status.Code(err) != codes.PermissionDenied || c.calls != 0 {
+		t.Fatalf("actor token: err=%v calls=%d", err, c.calls)
 	}
 }

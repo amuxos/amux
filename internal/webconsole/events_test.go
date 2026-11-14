@@ -142,6 +142,10 @@ func TestEventsResumeAfterTheLastEventTheBrowserSaw(t *testing.T) {
 	if !strings.Contains(body, "id: c-8\n") || !strings.Contains(body, "id: c-9\n") || strings.Contains(body, "disconnected") {
 		t.Fatalf("resumed stream = %q", body)
 	}
+	// Resuming is cheap, so the browser is told to reconnect quickly.
+	if !strings.HasPrefix(body, "retry: 1000\n") {
+		t.Fatalf("no reconnect hint: %q", body)
+	}
 }
 
 func TestEventsWithoutACursorReplayFromTheStart(t *testing.T) {

@@ -222,38 +222,59 @@ func (b *bridgeDB) ReadBotProfileStateContext(ctx context.Context, bridgeID, fal
 	return state, nil
 }
 
-// BotDefaultAgentReferences includes explicit group defaults so a Pack used
-// only by a group cannot be removed. Group references include their chat ID.
+// BotDefaultAgentReferences includes effective Bot and explicit group defaults,
+// including legacy Bot rows, so a referenced Pack cannot be removed silently.
 func (b *bridgeDB) BotDefaultAgentReferences(namespace string) ([]string, error) {
 	namespace = strings.TrimSpace(namespace)
 	if namespace == "" {
 		return nil, fmt.Errorf("agent pack namespace is required")
 	}
-	rows, err := b.db.Query(`
-		SELECT bridge_id, default_agent_profile FROM feishu_bot_profiles
+	all, err := b.DefaultAgentReferences(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	var references []string
+	for _, entry := range all {
+		if !strings.HasPrefix(entry.Agent, namespace+"/") {
+			continue
+		}
+		name := entry.BridgeID
+		if entry.ChatID != "" {
+			name += "/" + entry.ChatID
+		}
+		references = append(references, name)
+	}
+	return references, nil
+}
+
+// DefaultAgentReferences lists every Bot default and explicit group default
+// expert, including Bots whose Bridge is not running. A group default overrides
+// its Bot's, so both count as references.
+func (b *bridgeDB) DefaultAgentReferences(ctx context.Context) ([]ConsoleAgentReference, error) {
+	rows, err := b.db.QueryContext(ctx, `
+		SELECT bridge_id, '', default_agent_profile FROM feishu_bot_profiles WHERE default_agent_profile <> ''
 		UNION ALL
-		SELECT bridge_id || '/' || chat_id, default_agent FROM feishu_group_settings
-		WHERE default_agent <> ''
-		ORDER BY 1`)
+		SELECT legacy.bridge_id, '', legacy.default_agent FROM feishu_profile_defaults AS legacy
+		WHERE legacy.default_agent <> '' AND NOT EXISTS (
+			SELECT 1 FROM feishu_bot_profiles AS current WHERE current.bridge_id = legacy.bridge_id
+		)
+		UNION ALL
+		SELECT bridge_id, chat_id, default_agent FROM feishu_group_settings WHERE default_agent <> ''
+		ORDER BY 1, 2`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	prefix := namespace + "/"
-	var references []string
+	var references []ConsoleAgentReference
 	for rows.Next() {
-		var reference, profile string
-		if err := rows.Scan(&reference, &profile); err != nil {
+		var reference ConsoleAgentReference
+		if err := rows.Scan(&reference.BridgeID, &reference.ChatID, &reference.Agent); err != nil {
 			return nil, err
 		}
-		if strings.HasPrefix(strings.TrimSpace(profile), prefix) {
-			references = append(references, strings.TrimSpace(reference))
-		}
+		reference.Agent = strings.TrimSpace(reference.Agent)
+		references = append(references, reference)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return references, nil
+	return references, rows.Err()
 }
 func (b *bridgeDB) CommitThreadBotSettings(bridgeID string, expectedVersion int64, defaultAgent string) (BotProfileState, error) {
 	current, err := b.GetBotProfileState(bridgeID, config.FeishuInteractionThread)

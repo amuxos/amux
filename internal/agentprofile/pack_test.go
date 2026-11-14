@@ -750,3 +750,92 @@ func packGitRev(t *testing.T, repo string) string {
 	}
 	return strings.TrimSpace(string(data))
 }
+
+func TestRemovePackIfAsksTheGuardInsideTheLockAndStopsWaitingWithTheContext(t *testing.T) {
+	root := t.TempDir()
+	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
+	teamRoot := filepath.Join(root, ".amux", "agent-packs", "team")
+	if err := os.MkdirAll(filepath.Join(teamRoot, "repo"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := SavePackRegistry(registryPath, PackRegistry{Packs: map[string]Pack{"team": {Namespace: "team", SourceKind: PackSourceGit, CurrentRevision: "abc", MaterializedPath: filepath.Join(teamRoot, "repo")}}}); err != nil {
+		t.Fatal(err)
+	}
+	registered := func() bool {
+		registry, err := LoadPackRegistry(registryPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, ok := registry.Packs["team"]
+		return ok
+	}
+
+	// A refusing guard sees the registered Pack and leaves the registry and files alone.
+	refused := errors.New("still referenced")
+	var seen Pack
+	if _, err := RemovePackIf(context.Background(), registryPath, "team", RemovePackOptions{}, func(pack Pack) error { seen = pack; return refused }); !errors.Is(err, refused) {
+		t.Fatalf("guard error = %v", err)
+	}
+	if seen.CurrentRevision != "abc" || !registered() {
+		t.Fatalf("guard saw %+v, registered=%v", seen, registered())
+	}
+	if _, err := os.Stat(teamRoot); err != nil {
+		t.Fatalf("a refused removal touched the files: %v", err)
+	}
+
+	// The guard runs while the registry lock is held, so nobody can change the registry meanwhile.
+	if _, err := RemovePackIf(context.Background(), registryPath, "team", RemovePackOptions{KeepFiles: true}, func(Pack) error {
+		short, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		if err := WithPackRegistryLockContext(short, registryPath, func() error { return nil }); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("the lock was not held while the guard ran: %v", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if registered() {
+		t.Fatal("an approved removal left the Pack registered")
+	}
+	if _, err := os.Stat(teamRoot); err != nil {
+		t.Fatalf("keep-files removal deleted the files: %v", err)
+	}
+
+	// Waiting for a lock held by someone else ends with the context; nothing is removed.
+	if err := SavePackRegistry(registryPath, PackRegistry{Packs: map[string]Pack{"team": {Namespace: "team", SourceKind: PackSourceGit}}}); err != nil {
+		t.Fatal(err)
+	}
+	holder := make(chan struct{})
+	held := make(chan struct{})
+	go func() {
+		_ = WithPackRegistryLock(registryPath, func() error { close(held); <-holder; return nil })
+	}()
+	<-held
+	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
+	defer cancel()
+	called := false
+	_, err := RemovePackIf(ctx, registryPath, "team", RemovePackOptions{}, func(Pack) error { called = true; return nil })
+	close(holder)
+	if !errors.Is(err, context.DeadlineExceeded) || called {
+		t.Fatalf("waiting for a held lock: err=%v guardCalled=%v", err, called)
+	}
+	if !registered() {
+		t.Fatal("a timed-out removal removed the Pack")
+	}
+
+	// Cancellation while the guard is running must not unregister the Pack.
+	guardCtx, cancelGuard := context.WithCancel(context.Background())
+	_, err = RemovePackIf(guardCtx, registryPath, "team", RemovePackOptions{}, func(Pack) error {
+		cancelGuard()
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) || !registered() {
+		t.Fatalf("cancelled guard: err=%v registered=%v", err, registered())
+	}
+
+	// An unknown namespace is still reported by the removal, without asking the guard.
+	called = false
+	if _, err := RemovePackIf(context.Background(), registryPath, "missing", RemovePackOptions{}, func(Pack) error { called = true; return nil }); err == nil || called {
+		t.Fatalf("unknown namespace: err=%v guardCalled=%v", err, called)
+	}
+}

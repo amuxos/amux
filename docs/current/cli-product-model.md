@@ -48,6 +48,28 @@ Schedule does not cancel admitted work; admission and final execution outcomes
 remain distinct. The existing desktop Gateway and read-only viewer retain their
 separate authentication and sharing contracts.
 
+The expert library page lists Profiles read-only; the browser never edits an
+expert's content, model or permission fields. Content authoring stays in the
+natural-language flow that previews a diff and asks for confirmation before
+publication. Each expert shows references from Bot and group defaults, Schedules,
+persistent instances, and unarchived Sessions. Missing or unreadable reference
+sources are reported as unknown, not as evidence that an expert is unused. This
+view does not inventory every possible reference: watch or document-comment
+configuration, external integrations, and offline Runtimes may also depend on a
+Pack. Operators must check those separately before removing it. The Packs page
+shows available expert counts, recorded revisions and per-revision
+rollback. A removal needs explicit confirmation and rejects managed, temporary,
+evaluation, builtin, and managed local Packs. It can keep downloaded files; if
+references or reference availability require attention, the operator must also
+explicitly confirm removal despite the risk. A Session's launch settings remain
+frozen, but after removal a restarted or resumed Session may no longer be able to
+re-project Pack assets or refresh its Profile. Removal checks are point-in-time:
+independent settings can change concurrently. A failure to remove downloaded
+files after unregistering the Pack is reported separately without exposing host
+paths. Rollback prompts identify the exact revision. Host diagnostics such as
+`agent doctor` stay in the CLI: they inspect the console host rather than the
+Runtime that runs Sessions.
+
 The overview reports Session lifecycle counts, Turn state, the most recent
 TaskRuns (with a 24-hour success and failure tally) and live Bot connections.
 Turn state comes from the canonical replay of at most 16 unarchived Sessions,
@@ -64,7 +86,8 @@ wakes or is archived elsewhere, so an open Session page re-reads the lifecycle
 (without the Turn replay) when the live stream ends and every 20 seconds while the
 tab is visible.
 A reconnecting Timeline stream resumes after the last event the browser received,
-so a long history that the Hub cuts off still completes.
+so a long history that the Hub cuts off still completes; while it loads, the
+Timeline says so instead of reporting a lost connection.
 Once its history is complete, the Timeline of a sleeping or archived Session is
 labelled history only and is not reconnected.
 The unencrypted-HTTP notice applies to non-loopback origins; a loopback origin

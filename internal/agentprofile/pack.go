@@ -585,6 +585,37 @@ func RemovePack(registryPath, namespace string, opts RemovePackOptions) (RemoveP
 	return result, err
 }
 
+// RemovePackIf waits for the registry lock until ctx ends and asks guard to
+// approve the current Pack while holding it. References in other stores can
+// still change independently after the guard returns.
+func RemovePackIf(ctx context.Context, registryPath, namespace string, opts RemovePackOptions, guard func(Pack) error) (RemovePackResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var result RemovePackResult
+	err := WithPackRegistryLockContext(ctx, registryPath, func() error {
+		if guard != nil {
+			registry, err := LoadPackRegistry(registryPath)
+			if err != nil {
+				return err
+			}
+			// An unknown namespace is reported by the removal itself.
+			if pack, ok := registry.Packs[strings.TrimSpace(namespace)]; ok {
+				if err := guard(pack); err != nil {
+					return err
+				}
+			}
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		var err error
+		result, err = removePackUnlocked(registryPath, namespace, opts)
+		return err
+	})
+	return result, err
+}
+
 func removePackUnlocked(registryPath, namespace string, opts RemovePackOptions) (RemovePackResult, error) {
 	namespace = strings.TrimSpace(namespace)
 	if err := validatePackNamespace(namespace); err != nil {

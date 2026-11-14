@@ -107,7 +107,7 @@ func consoleActions(resource string) []string {
 	case "schedules", "schedule":
 		return []string{"create", "update", "enable", "disable", "delete"}
 	case "packs":
-		return []string{"install", "sync", "rollback"}
+		return []string{"install", "sync", "rollback", "remove"}
 	default:
 		return []string{}
 	}
@@ -127,7 +127,7 @@ func consoleHasAction(resource, action string) bool {
 
 func (b *consoleBackend) snapshotResource(ctx context.Context, resource string, query url.Values) (any, error) {
 	switch resource {
-	case "overview", "sessions", "session", "tasks", "task", "instances", "instance", "schedules", "schedule", "profiles", "profile", "packs", "credentials", "catalogs":
+	case "overview", "sessions", "session", "tasks", "task", "instances", "instance", "schedules", "schedule", "profiles", "profile", "packs", "usage", "credentials", "catalogs":
 	default:
 		return nil, errConsoleResourceNotFound
 	}
@@ -150,7 +150,9 @@ func (b *consoleBackend) snapshotResource(ctx context.Context, resource string, 
 	case "profiles", "profile":
 		value, err = b.consoleProfiles(ctx, resource, query)
 	case "packs":
-		value, err = consolePacks()
+		value, err = b.consolePacksWithExperts(ctx)
+	case "usage":
+		value, err = b.consoleUsage(ctx, query)
 	case "credentials":
 		if b.managedOperator {
 			value, err = b.consoleOperatorCredentials(ctx)
@@ -194,7 +196,7 @@ func (b *consoleBackend) executeResource(ctx context.Context, resource, action s
 	case "schedules", "schedule":
 		value, err = b.consoleExecuteSchedule(ctx, action, data)
 	case "packs":
-		value, err = consoleExecutePack(ctx, action, data)
+		value, err = b.consoleExecutePack(ctx, action, data)
 	}
 	return value, consoleOperationError(err)
 }
@@ -348,7 +350,17 @@ func (b *consoleBackend) consoleProfiles(ctx context.Context, resource string, q
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"profile": consoleProfileView(profile)}, nil
+		value := map[string]any{"profile": consoleProfileView(profile)}
+		if pack := consoleProfilePack(profile.Ref()); pack != nil {
+			value["pack"] = pack
+		}
+		if consoleQueryFirst(query, "usage") == "1" {
+			index := b.consoleUsageIndex(ctx)
+			usage := index.forRef(profile.Ref())
+			usage["unavailable"] = nonNilStrings(index.unavailable)
+			value["usage"] = usage
+		}
+		return value, nil
 	}
 	resp, err := b.hub.ListAgentProfiles(ctx, &pb.ListAgentProfilesRequest{})
 	if err != nil {
@@ -370,7 +382,33 @@ func (b *consoleBackend) consoleProfiles(ctx context.Context, resource string, q
 		value["partial"] = true
 		value["warning_code"] = "profile_discovery_incomplete"
 	}
+	if consoleQueryFirst(query, "usage") == "1" {
+		index := b.consoleUsageIndex(ctx)
+		value["usage"] = index.counts()
+		value["usage_unavailable"] = nonNilStrings(index.unavailable)
+	}
 	return value, nil
+}
+
+// consoleProfilePack describes the Pack that provides an expert: its source, the
+// current revision and the last sync, never raw URLs or file locations.
+func consoleProfilePack(ref string) map[string]any {
+	namespace, _, found := strings.Cut(ref, "/")
+	if !found || namespace == "" {
+		return nil
+	}
+	if namespace == agentprofile.BuiltinNamespace {
+		return map[string]any{"namespace": namespace, "source_kind": "builtin"}
+	}
+	registry, err := agentprofile.LoadPackRegistry(defaultAgentPackRegistryPath())
+	if err != nil {
+		return nil
+	}
+	pack, ok := registry.Packs[namespace]
+	if !ok {
+		return nil
+	}
+	return consolePackView(pack)
 }
 func consoleCredentials(ctx context.Context) (map[string]any, error) {
 	profiles, err := listCredentialMetadata(ctx)

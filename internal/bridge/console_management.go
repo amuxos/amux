@@ -76,6 +76,28 @@ type ConsoleGroupsResult struct {
 	Actions        []string       `json:"actions"`
 }
 
+// ConsoleAgentReference is one place a Feishu Bot or group names a default
+// expert. A group default carries its chat ID.
+type ConsoleAgentReference struct {
+	BridgeID string `json:"bridge_id"`
+	ChatID   string `json:"chat_id,omitempty"`
+	Agent    string `json:"agent"`
+}
+
+// ConsoleAgentReferences answers "what would break if this expert's Pack went
+// away" from the Bridge database, the same source the Feishu Pack removal checks.
+// It reads stored settings only, so it also covers Bots that are not running.
+func (b *Bridge) ConsoleAgentReferences(ctx context.Context) ([]ConsoleAgentReference, error) {
+	if err := b.consoleAvailable(ctx); err != nil {
+		return nil, err
+	}
+	references, err := b.db.DefaultAgentReferences(ctx)
+	if err != nil {
+		return nil, consoleDBError(ctx, err)
+	}
+	return references, nil
+}
+
 func (b *Bridge) consoleAvailable(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return status.FromContextError(err).Err()
