@@ -28,10 +28,13 @@ test('assets are self-contained and never render user-controlled HTML', () => {
   assert.doesNotMatch(html, /https?:\/\//);
   assert.doesNotMatch(css, /@import|url\(https?:/);
   assert.doesNotMatch(js, /localStorage\.setItem\([^)]*(?:token|draft|code|message)/i);
-  assert.ok(css.includes('min-height:44px'));
-  assert.ok(css.includes('@media(max-width:540px)'));
+  // Touch targets stay at least 44px; a precise pointer may use denser controls.
+  assert.match(css, /button, input, select, \.ui-btn \{ min-height: 44px; \}/);
+  assert.match(css, /@media \(max-width: 540px\)/);
   assert.ok(css.includes('data-theme=dark'));
   assert.ok(css.includes('prefers-reduced-motion'));
+  // The content column must start at the top instead of centering vertically.
+  assert.match(css, /\.main \{[^}]*margin: 0 auto;/);
 });
 
 test('safe unicode base64 decoding and malformed payload handling', () => {
@@ -53,7 +56,9 @@ test('transport fields and capabilities are explicit and fail closed', () => {
 
 test('overview does not infer active turns from running lifecycle', () => {
   const counts = app.deriveCounts([{ state: 'running' }, { state: 'running', turn_state: 'running' }, { state: 'sleeping' }, { state: 'archived', turn_state: 'failed' }]);
-  assert.deepEqual(counts, { active: 3, working: 1, attention: 1, sleeping: 1 });
+  assert.deepEqual(counts, { active: 3, running: 2, sleeping: 1, archived: 1, working: 1, attention: 0 });
+  // A Turn waiting on the owner is one bucket: needs attention, not also working.
+  assert.deepEqual(app.deriveCounts([{ state: 'running', active_turn: true, pending_permissions: 1 }, { state: 'running', active_turn: true }]), { active: 2, running: 2, sleeping: 0, archived: 0, working: 1, attention: 1 });
 });
 
 test('route parser supports safe known routes only', () => {
@@ -89,4 +94,36 @@ test('SSE replay deduplicates per session, retains bounded history and resolves 
   assert.equal(app.timelineFor(ref).permissions.size, 0);
   for (let i = 0; i < 1700; i++) app.ingestEvent(ref, { kind: 1, event_id: 's' + i, state: 'idle' });
   assert.equal(app.timelineFor(ref).items.length, 1500);
+});
+
+test('schedule run status, refs and durations are rendered from exact wire values', () => {
+  assert.deepEqual(app.parseRunStatus('ok:task:task-1'), { status: 'ok', taskID: 'task-1', detail: '' });
+  assert.deepEqual(app.parseRunStatus('error: queue full'), { status: 'error', taskID: '', detail: 'queue full' });
+  assert.deepEqual(app.parseRunStatus('skipped:offline'), { status: 'skipped', taskID: '', detail: 'offline' });
+  assert.deepEqual(app.parseRunStatus('submitting'), { status: 'submitting', taskID: '', detail: '' });
+  assert.equal(app.shortRef('pack/agent@ea7ff4ebe870d9fdfbb9fc291f4bb1f034635b78'), 'pack/agent@ea7ff4e');
+  assert.equal(app.shortRef('builtin/claude'), 'builtin/claude');
+  assert.equal(app.shortID('task-30c274c1-2217-4725-8101-9ad35ebe6bbf'), 'task-30c274c1');
+  assert.equal(app.shortID('plain-name'), 'plain-name');
+  assert.equal(app.sessionKind({ owner_task_id: 't' }), 'task');
+  assert.equal(app.sessionKind({ agent_instance_id: 'i' }), 'instance');
+  assert.equal(app.sessionKind({ workspace_source: 'feishu' }), 'feishu');
+});
+
+test('timeline view hides metadata noise and repeated usage without dropping content', () => {
+  const items = [
+    { kind: 'commands_replaced', body: { commands: [] } },
+    { kind: 'goal_changed', body: { supported: true } },
+    { kind: 'turn_started', text: 'Hi' },
+    { kind: 'assistant_message', text: '' },
+    { kind: 'assistant_delta', text: 'Final answer' },
+    { kind: 'usage_observed', body: { usage: { input_tokens: 1 } } },
+    { kind: 'tool_changed', tool: { id: 't' } },
+    { kind: 'usage_observed', body: { usage: { input_tokens: 2 } } },
+    { kind: 'result_observed', text: 'Final answer' },
+    { kind: 'turn_finished', state: 'success' },
+    { kind: 'goal_changed', body: { supported: true, goal: { objective: 'ship' } } }
+  ];
+  const visible = app.visibleTimeline(items).map(item => item.kind + (item.body && item.body.usage ? ':' + item.body.usage.input_tokens : ''));
+  assert.deepEqual(visible, ['turn_started', 'assistant_delta', 'tool_changed', 'usage_observed:2', 'turn_finished', 'goal_changed']);
 });

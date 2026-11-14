@@ -32,6 +32,19 @@ SameSite=Strict Cookie，会话有效期不会晚于后台关闭时间。退出�
 包括确认和恢复选择。浏览器不能把模型或权限字段写入仅包含内容的 Profile。
 已有 Session 保留执行快照。暂停 Schedule 不取消已接纳工作；接纳与最终执行结果分开显示。
 现有桌面 Gateway 和只读 viewer 保留独立的认证与分享契约。
+
+总览展示 Session 生命周期计数、Turn 状态、最近的 TaskRun（含 24 小时成功与失败统计）
+和在线助手连接。Turn 状态来自对未归档 Session（至多 16 个，agent 进程在线的优先）的规范回放；
+休眠的 Session 没有进程，不会计为执行中或待处理，也不会使总数变为未知。
+无法确认 Turn 的在线 Session 在总览和其 Session 页面都显示为未知，已确认的子集不会被当作总数。
+每个 Session 只计入一个分类：等待负责人的 Turn 计为待处理，而不是执行中。
+任务摘要不含结果载荷并限制任务文本长度；任务索引不可用或超过五秒未响应、或未配置 Bridge 时，
+只省略对应区块。生命周期操作跟随 Session 状态和观察到的 Turn。Session 在别处休眠、唤醒或归档时 Hub 不发送事件，
+因此打开的 Session 页面会在实时流结束时、以及标签页可见期间每 20 秒重新读取生命周期（不含 Turn 回放）。
+重连的 Timeline 事件流从浏览器收到的最后一个事件之后继续，因此被 Hub 中途切断的长历史仍能完整加载。
+休眠或归档 Session 的 Timeline 在历史完整后标注为仅历史记录，不再自动重连。
+未加密 HTTP 提示适用于非回环 origin；回环 origin（本机使用或 SSH 隧道）不提示。
+
 Session、Task 和 Schedule 使用 Hub 控制面。每个 Runtime 在本机执行工作，并通过
 出站 tunnel 连接 Hub。本地使用需要 Hub，但不要求飞书 Bridge。
 `local` Target 别名标识配置的本地 Runtime，也适用于 `session list` 过滤，

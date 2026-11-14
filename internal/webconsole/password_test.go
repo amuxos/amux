@@ -2,6 +2,7 @@ package webconsole
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -16,11 +17,23 @@ func TestTemporaryPasswordLoginAndWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadata := request(s, "GET", "/auth/config", "", "", "", nil)
-	if metadata.Code != 200 || !strings.Contains(metadata.Body.String(), `"mode":"password"`) || !strings.Contains(metadata.Body.String(), `"insecure_transport":true`) {
+	// A loopback origin (local use or an SSH tunnel) never crosses a network.
+	if metadata.Code != 200 || !strings.Contains(metadata.Body.String(), `"mode":"password"`) || !strings.Contains(metadata.Body.String(), `"insecure_transport":false`) {
 		t.Fatalf("metadata: %d %s", metadata.Code, metadata.Body)
 	}
 	if strings.Contains(metadata.Body.String(), "test-temporary-password") {
 		t.Fatal("password metadata exposed")
+	}
+	for origin, insecure := range map[string]bool{"http://10.0.0.8:7892": true, "http://console.example:7892": true, "https://console.example": false, "http://localhost:7892": false, "http://[::1]:7892": false} {
+		remote, err := New(&testBackend{}, Options{Origin: origin, Password: "test-temporary-password-32", ExpiresAt: deadline, Now: func() time.Time { return now }})
+		if err != nil {
+			t.Fatal(err)
+		}
+		host := strings.TrimPrefix(strings.TrimPrefix(origin, "http://"), "https://")
+		config := requestHost(remote, "GET", "/auth/config", host)
+		if want := fmt.Sprintf(`"insecure_transport":%t`, insecure); config.Code != 200 || !strings.Contains(config.Body.String(), want) {
+			t.Fatalf("%s metadata: %d %s", origin, config.Code, config.Body)
+		}
 	}
 	wrong := request(s, "POST", "/auth/login", `{"password":"wrong"}`, "http://127.0.0.1:7892", "", nil)
 	if wrong.Code != 401 {

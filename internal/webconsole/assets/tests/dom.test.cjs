@@ -205,8 +205,8 @@ test('overview does not present a known activity subset as complete totals', () 
     ], activity_coverage: { known: 1, unknown: 1 }
   });
   const values = env.document.querySelectorAll('.stat strong').map(node => node.textContent);
-  assert.deepEqual(values, ['2', 'Unknown', 'Unknown', '0']);
-  assert.ok(env.document.getElementById('page').textContent.includes('1 active sessions known, 1 unknown'));
+  assert.deepEqual(values, ['2', '—', '—', '0']);
+  assert.ok(env.document.getElementById('page').textContent.includes('confirmed for 1 of 2 live sessions; the other 1 could not be read'));
   assert.ok(env.document.getElementById('page').textContent.includes('Observed work'));
 });
 
@@ -219,8 +219,36 @@ test('archived unknown activity does not invalidate current active-session total
     ], activity_coverage: { known: 1, unknown: 1 }
   });
   const values = env.document.querySelectorAll('.stat strong').map(node => node.textContent);
-  assert.deepEqual(values, ['1', '1', '1', '0']);
-  assert.equal(env.document.getElementById('page').textContent.includes('Partial activity coverage'), false);
+  // The waiting Turn counts once, under "needs your input", like the lists below.
+  assert.deepEqual(values, ['1', '0', '1', '0']);
+  assert.equal(env.document.getElementById('page').textContent.includes('others are unknown'), false);
+});
+
+test('sleeping sessions have no process: they are never unknown, working or waiting', () => {
+  const env = environment();
+  mount(env, 'overview', {
+    sessions: [
+      { id: 'live', name: 'Live', state: 'running', activity_status: 'known', active_turn: true, turn_state: 'running', pending_permissions: 0 },
+      { id: 'nap-1', name: 'Nap one', state: 'sleeping', activity_status: 'unknown' },
+      { id: 'nap-2', name: 'Nap two', state: 'sleeping', activity_status: 'unknown' },
+      // Replay left open by a stop: stale facts must not count as work or a question.
+      { id: 'nap-3', name: 'Nap three', state: 'sleeping', activity_status: 'known', active_turn: true, turn_state: 'waiting_permission', pending_permissions: 1 }
+    ]
+  });
+  const page = env.document.getElementById('page');
+  assert.deepEqual(env.document.querySelectorAll('.stat strong').map(node => node.textContent), ['1', '1', '0', '3']);
+  assert.equal(page.textContent.includes('could not be read'), false);
+  const panels = page.querySelectorAll('section');
+  const panel = title => panels.find(p => p.querySelector('h2') && p.querySelector('h2').textContent === title).textContent;
+  assert.equal(panel('Needs attention').includes('Nap three'), false);
+  assert.ok(panel('Ongoing work').includes('Live'));
+  // Process-alive Sessions beyond the inspected budget still make totals unknown.
+  mount(env, 'overview', { sessions: [
+    { id: 'seen', name: 'Seen', state: 'running', activity_status: 'known', active_turn: false, turn_state: 'idle' },
+    { id: 'starting', name: 'Starting', state: 'created', activity_status: 'unknown' }
+  ] });
+  assert.deepEqual(env.document.querySelectorAll('.stat strong').map(node => node.textContent), ['2', '—', '—', '0']);
+  assert.ok(env.document.getElementById('page').textContent.includes('confirmed for 1 of 2 live sessions'));
 });
 
 function passwordEnvironment(language = 'en-US', insecure = true) {
@@ -288,8 +316,10 @@ test('password sign-in posts once to same origin and clears the field before net
   assert.equal(JSON.stringify(env.logs).includes(secret), false);
   assert.equal(JSON.stringify(env.calls.filter(c => c.history)).includes(secret), false);
   assert.equal(JSON.stringify(env.window.location).includes(secret), false);
-  assert.ok(env.document.getElementById('main').textContent.includes('Automatically closes at'));
-  assert.ok(env.document.getElementById('main').textContent.includes('transmitted in plaintext'));
+  const header = env.document.querySelector('.app-top');
+  assert.ok(header.textContent.includes('Closes in 30 min'));
+  assert.ok(header.textContent.includes('Unencrypted HTTP'));
+  assert.ok(header.querySelector('.chip.warn').getAttribute('title').includes('transmitted in plaintext'));
 });
 
 test('auth-config failure or malformed metadata fails closed before business requests', async () => {
@@ -344,14 +374,16 @@ test('password login, deadline and transport notices render in both languages wi
     const before = env.document.querySelector('.login-card .banner').textContent;
     assert.ok(before.includes(language === 'zh-CN' ? '到期自动关闭' : 'Automatically closes at'));
     await submitPassword(env);
-    assert.ok(env.document.getElementById('main').textContent.includes(before));
-    assert.ok(env.document.getElementById('main').textContent.includes(env.window.ConsoleI18n.t('insecureTransportWarning', language)));
+    const header = env.document.querySelector('.app-top');
+    assert.ok(header.textContent.includes(env.window.ConsoleI18n.t('closesIn', language, { minutes: 30 })));
+    assert.ok(header.textContent.includes(env.window.ConsoleI18n.t('insecureShort', language)));
+    assert.equal(env.document.getElementById('session-clock').getAttribute('title'), before);
   }
   const secure = passwordEnvironment('en-US', false);
   await secure.app.start();
   assert.equal(secure.document.textContent.includes('transmitted in plaintext'), false);
   await submitPassword(secure);
-  assert.equal(secure.document.textContent.includes('transmitted in plaintext'), false);
+  assert.equal(secure.document.textContent.includes('Unencrypted HTTP'), false);
 });
 
 test('sign-out retains password mode and allows the same temporary password until expiry', async () => {
@@ -436,7 +468,8 @@ test('bootstrap metadata refreshes auth notices and can shorten but not extend t
   await env.app.start(); await submitPassword(env);
   assert.equal(env.app.state.authConfig.expires_at, env.fixture.bootstrap.expires_at);
   assert.equal(env.app.state.authConfig.mode, 'password');
-  assert.ok(env.document.textContent.includes('transmitted in plaintext'));
+  assert.ok(env.document.textContent.includes('Unencrypted HTTP'));
+  assert.ok(env.document.textContent.includes('Closes in 10 min'));
   env.advance(601000);
   assert.equal(env.app.state.authenticated, false);
   const extended = passwordEnvironment();
@@ -445,4 +478,271 @@ test('bootstrap metadata refreshes auth notices and can shorten but not extend t
   assert.equal(extended.app.state.authConfig.expires_at, extended.fixture.config.expires_at);
   extended.advance(1801000);
   assert.equal(extended.app.state.authenticated, false);
+});
+
+const buttonTexts = env => env.document.getElementById('page').querySelectorAll('button').map(b => b.textContent);
+
+test('session lists default to unarchived, newest first, and paginate large fleets', async () => {
+  const env = environment();
+  const sessions = Array.from({ length: 120 }, (_, i) => ({ id: 'id-' + i, name: 'session-' + i, state: i % 3 === 0 ? 'archived' : 'sleeping', target_id: 'r', last_activity_at: 1794500000 + i }));
+  mount(env, 'sessions', { sessions, actions: [] });
+  const page = env.document.getElementById('page');
+  const names = () => page.querySelectorAll('tbody tr').map(row => row.querySelector('.link-button').textContent);
+  assert.equal(names().length, 50);
+  assert.equal(names()[0], 'session-119');
+  assert.ok(names().every(name => Number(name.split('-')[1]) % 3 !== 0));
+  assert.ok(page.textContent.includes('80 records') && page.textContent.includes('Page 1 of 2'));
+  await page.querySelectorAll('button').find(b => b.getAttribute('aria-label') === 'Next page').click();
+  assert.equal(names().length, 30);
+  assert.ok(env.document.getElementById('page').textContent.includes('Page 2 of 2'));
+  await env.document.getElementById('page').querySelectorAll('.tab').find(tab => tab.textContent.startsWith('Archived')).click();
+  assert.equal(names().length, 40);
+  assert.ok(env.document.getElementById('page').textContent.includes('Page 1 of 1') === false);
+});
+
+test('session controls follow lifecycle and the observed Turn', () => {
+  const env = environment();
+  const actions = ['submit', 'interrupt', 'restart', 'archive', 'sleep', 'resume'];
+  const show = (session, extra = {}) => { env.app.state.timeline.clear(); mount(env, 'session', Object.assign({ session, queue: [], actions }, extra), { name: session.name, target: 'r' }); return buttonTexts(env); };
+  let texts = show({ id: 's1', name: 'sleepy', state: 'sleeping', target_id: 'r' });
+  assert.ok(texts.includes('Resume session') && texts.includes('Archive session'));
+  assert.equal(texts.includes('Interrupt turn') || texts.includes('Sleep session'), false);
+  assert.ok(env.document.querySelector('.composer'));
+  texts = show({ id: 's2', name: 'done', state: 'archived', target_id: 'r' });
+  assert.equal(['Resume session', 'Archive session', 'Restart session', 'Interrupt turn'].some(text => texts.includes(text)), false);
+  assert.equal(env.document.querySelector('.composer'), null);
+  texts = show({ id: 's3', name: 'idle', state: 'running', target_id: 'r' }, { activity: { active_turn: false, turn_state: 'succeeded' } });
+  assert.ok(texts.includes('Sleep session') && texts.includes('Restart session'));
+  assert.equal(texts.includes('Interrupt turn'), false);
+  assert.ok(env.document.getElementById('turn-state').textContent.includes('Succeeded'));
+  texts = show({ id: 's4', name: 'busy', state: 'running', target_id: 'r' }, { activity: { active_turn: true, turn_state: 'running' } });
+  assert.ok(texts.includes('Interrupt turn'));
+});
+
+test('terminal task runs never offer cancellation and tasks sort by request time', () => {
+  const env = environment();
+  mount(env, 'tasks', { tasks: [
+    { task_id: 'task-old', status: 'running', task: 'Old but running', requested_at: '2026-11-01T00:00:00Z', started_at: '2026-11-01T00:00:00Z' },
+    { task_id: 'task-new', status: 'succeeded', task: 'Newest done\nsecond line', requested_at: '2026-11-13T00:00:00Z', started_at: '2026-11-13T00:00:00Z', finished_at: '2026-11-13T00:02:05Z' }
+  ], actions: ['cancel'] });
+  const rows = env.document.getElementById('page').querySelectorAll('tbody tr');
+  assert.equal(rows[0].querySelector('.link-button').textContent, 'Newest done');
+  assert.ok(rows[0].textContent.includes('2m 5s'));
+  assert.equal(rows[0].querySelectorAll('button').some(b => b.textContent === 'Cancel task'), false);
+  assert.ok(rows[1].querySelectorAll('button').some(b => b.textContent === 'Cancel task'));
+});
+
+test('overview separates attention from ongoing work and shows tasks and bots', () => {
+  const env = environment();
+  mount(env, 'overview', {
+    sessions: [
+      { id: 'a', name: 'Needs answer', state: 'running', activity_status: 'known', active_turn: true, turn_state: 'waiting_permission', pending_permissions: 1 },
+      { id: 'b', name: 'Busy work', state: 'running', activity_status: 'known', active_turn: true, turn_state: 'running', pending_permissions: 0 }
+    ],
+    recent_tasks: [{ task_id: 'task-1', status: 'failed', task: 'Rebuild index', requested_at: '2026-11-13T00:00:00Z' }],
+    task_counts: { active: 2, succeeded_24h: 5, failed_24h: 1 },
+    bots: [{ name: 'Helper', status: 'running', settings: { default_agent: 'builtin/general@0123456789abcdef0123' } }]
+  });
+  const panels = env.document.getElementById('page').querySelectorAll('section');
+  const panel = title => panels.find(p => p.querySelector('h2') && p.querySelector('h2').textContent === title).textContent;
+  assert.ok(panel('Needs attention').includes('Needs answer'));
+  assert.equal(panel('Ongoing work').includes('Needs answer'), false);
+  assert.ok(panel('Ongoing work').includes('Busy work'));
+  assert.ok(panel('Recent task runs').includes('Rebuild index') && panel('Recent task runs').includes('1 failed in 24h') && panel('Recent task runs').includes('5 succeeded in 24h'));
+  // One bucket per Session: the totals equal the rows listed under each heading.
+  assert.deepEqual(env.document.querySelectorAll('.stat strong').map(node => node.textContent), ['2', '1', '1', '0']);
+  assert.ok(panel('Bot connections').includes('Helper') && panel('Bot connections').includes('builtin/general@0123456'));
+});
+
+test('settings use typed controls and still save changed values as strings', async () => {
+  const env = environment();
+  mount(env, 'settings', { settings: [
+    { key: 'bridge.feishu.group_settings.enabled', value: 'false', writable: true, inherited: true, restart_required: true },
+    { key: 'maintenance.daily_cleanup.at', value: '06:17', writable: true, restart_required: true }
+  ], version: 'v1', actions: ['save'] });
+  // The DOM double's selectors treat dots as classes; look controls up by name.
+  const control = key => env.document.querySelectorAll('select,input').find(node => node.name === key);
+  const toggle = control('bridge.feishu.group_settings.enabled');
+  assert.equal(toggle.tagName, 'SELECT');
+  assert.equal(control('maintenance.daily_cleanup.at').type, 'time');
+  const page = env.document.getElementById('page').textContent;
+  assert.ok(page.includes('Chat-specific settings') && page.includes('Default') && page.includes('take effect after the system restarts'));
+  toggle.value = 'true'; await toggle.fire('change');
+  await findButton(env, 'Save changes').click();
+  const payload = JSON.parse(env.calls.find(c => c.url === '/api/console/settings' && c.options.method === 'POST').options.body).data;
+  assert.deepEqual(payload, { expected_version: 'v1', values: { 'bridge.feishu.group_settings.enabled': 'true' } });
+});
+
+test('local pairing deadline points to the CLI instead of the owner card', async () => {
+  for (const language of ['en-US', 'zh-CN']) {
+    const env = environment();
+    env.window.navigator.language = language;
+    env.fixture.config = { mode: 'pair', expires_at: Math.floor(Date.now() / 1000) + 1800, insecure_transport: false };
+    await env.app.start();
+    assert.equal(env.app.state.authenticated, true);
+    const deadline = env.document.querySelector('#session-clock').getAttribute('title');
+    assert.ok(deadline.includes('amux console'));
+    assert.equal(deadline.includes('/amux'), false);
+  }
+});
+
+test('profiles without a namespace get their own filter instead of aliasing All', async () => {
+  const env = environment();
+  mount(env, 'profiles', { profiles: [{ ref: 'team/reviewer', name: 'Reviewer' }, { name: 'orphan' }, { ref: 'builtin/general', name: 'General' }] });
+  const page = () => env.document.getElementById('page');
+  const cards = () => page().querySelectorAll('.profile-card').length;
+  assert.equal(cards(), 3);
+  const tab = label => page().querySelectorAll('.tab').find(item => item.textContent.startsWith(label));
+  await tab('Unknown').click();
+  assert.equal(cards(), 1);
+  assert.ok(page().textContent.includes('orphan'));
+  assert.equal(tab('All').getAttribute('aria-pressed') === 'true', false);
+  await tab('team').click();
+  assert.equal(cards(), 1);
+  await tab('All').click();
+  assert.equal(cards(), 3);
+});
+
+test('answering a permission keeps the strong confirmation warning', async () => {
+  const env = environment();
+  const permission = { id: 'perm-1', turn_id: 't1', question: 'Run migration?', tool: { title: 'Bash' }, options: [{ id: 'allow', name: 'Allow once', kind: 'allow_once' }, { id: 'deny', name: 'Deny', kind: 'reject_once' }] };
+  mount(env, 'session', { session: { id: 's1', name: 'chat', state: 'running', target_id: 'r' }, queue: [], permissions: [permission], actions: ['submit', 'respond-permission'] }, { name: 'chat', target: 'r' });
+  const callsBefore = env.calls.length;
+  const pending = findButton(env, 'Allow once').click();
+  const dialog = env.document.getElementById('dialogs').textContent;
+  assert.ok(dialog.includes('This may affect ongoing work'), dialog);
+  await env.document.getElementById('dialogs').querySelectorAll('button').find(b => b.textContent === 'Cancel').click(); await pending;
+  assert.equal(env.calls.length, callsBefore);
+});
+
+test('a closed stream re-reads the Session so lifecycle controls follow the Hub', async () => {
+  const env = environment('#session?name=chat&target=r');
+  const streams = []; const Base = env.window.EventSource;
+  env.window.EventSource = class extends Base { constructor(url) { super(url); streams.push(this); } };
+  const actions = ['submit', 'interrupt', 'restart', 'archive', 'sleep', 'resume'];
+  const snapshot = state => ({ session: { id: 's1', name: 'chat', state, target_id: 'r' }, queue: [], actions, activity: { active_turn: false, turn_state: 'succeeded' } });
+  env.fixture.session = snapshot('running');
+  env.app.state.authenticated = true; env.app.state.bootstrap = env.fixture.bootstrap; env.app.state.route = { page: 'session', params: { name: 'chat', target: 'r' } };
+  await env.app.loadRoute();
+  assert.equal(streams.length, 1);
+  assert.ok(buttonTexts(env).includes('Sleep session') && !buttonTexts(env).includes('Resume session'));
+  const sessionReads = () => env.calls.filter(call => /\/session\?/.test(call.url)).length;
+  const before = sessionReads();
+  env.fixture.session = snapshot('sleeping');   // slept elsewhere (idle reclaim, another tab)
+  await streams[0].listeners.disconnected();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sessionReads(), before + 1);
+  assert.ok(buttonTexts(env).includes('Resume session') && !buttonTexts(env).includes('Sleep session'));
+  assert.ok(env.document.getElementById('stream-status').textContent.includes('Reconnecting'));
+  // Later stream events redraw the controls from the refreshed state, not the load-time one.
+  await streams[0].onmessage({ data: JSON.stringify({ cursor: 'c-1', kind: 'OUTPUT', text: 'late output' }) });
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.ok(buttonTexts(env).includes('Resume session') && !buttonTexts(env).includes('Sleep session'));
+  // Repeated stream errors do not hammer the Hub.
+  await streams[0].onerror(); await streams[0].onerror();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sessionReads(), before + 1);
+  // A Session that is no longer open on this page is never re-read.
+  env.app.state.streams = null;
+  env.advance(60000); await streams[0].onerror(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sessionReads(), before + 1);
+});
+
+test('leaving a Session page clears its stream-only reconnecting indicator', async () => {
+  const env = environment('#session?name=chat&target=r');
+  const streams = []; const Base = env.window.EventSource;
+  env.window.EventSource = class extends Base { constructor(url) { super(url); streams.push(this); } };
+  env.fixture.session = { session: { id: 's1', name: 'chat', state: 'running', target_id: 'r' }, queue: [], actions: ['submit'], activity: { active_turn: false, turn_state: 'idle' } };
+  env.app.state.authenticated = true; env.app.state.bootstrap = env.fixture.bootstrap; env.app.state.route = { page: 'session', params: { name: 'chat', target: 'r' } };
+  await env.app.loadRoute();
+  await streams[0].onerror();
+  assert.equal(env.app.state.connection, 'reconnecting');
+  assert.ok(env.document.getElementById('connection').textContent.includes('Reconnecting'));
+  env.app.state.route = { page: 'sessions', params: {} };
+  await env.app.loadRoute();
+  assert.equal(streams[0].closed, true);
+  assert.equal(env.app.state.connection, 'connected');
+  assert.equal(env.document.getElementById('connection').textContent.includes('Reconnecting'), false);
+});
+
+test('a stopped Session settles into history instead of reconnecting forever', async () => {
+  const setup = state => {
+    const env = environment('#session?name=chat&target=r');
+    const streams = []; const Base = env.window.EventSource;
+    env.window.EventSource = class extends Base { constructor(url) { super(url); streams.push(this); } };
+    const actions = ['submit', 'interrupt', 'restart', 'archive', 'sleep', 'resume'];
+    const snapshot = value => ({ session: { id: 's1', name: 'chat', state: value, target_id: 'r' }, queue: [], actions, activity: { active_turn: false, turn_state: 'succeeded' } });
+    env.fixture.session = snapshot(state);
+    env.app.state.authenticated = true; env.app.state.bootstrap = env.fixture.bootstrap; env.app.state.route = { page: 'session', params: { name: 'chat', target: 'r' } };
+    return { env, streams, snapshot, caughtUp: stream => stream.onmessage({ data: JSON.stringify({ cursor: 'c-0', caught_up: true }) }) };
+  };
+  const reads = env => env.calls.filter(call => /\/session\?/.test(call.url)).length;
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+
+  // A sleeping Session ends its stream once the history is delivered: stop retrying.
+  let { env, streams, snapshot, caughtUp } = setup('sleeping');
+  await env.app.loadRoute();
+  await caughtUp(streams[0]);
+  await streams[0].listeners.disconnected(); await streams[0].onerror();
+  assert.equal(streams[0].closed, true);
+  assert.ok(env.document.getElementById('stream-status').textContent.includes('History only'));
+  assert.equal(env.app.state.connection, 'connected');
+  assert.equal(reads(env), 1);
+
+  // An interrupted replay is not complete history: keep the browser's retry.
+  ({ env, streams } = setup('sleeping'));
+  await env.app.loadRoute();
+  await streams[0].listeners.disconnected();
+  assert.notEqual(streams[0].closed, true);
+  assert.ok(env.document.getElementById('stream-status').textContent.includes('Reconnecting'));
+
+  // A running Session that goes to sleep elsewhere settles as soon as that is observed.
+  ({ env, streams, snapshot, caughtUp } = setup('running'));
+  await env.app.loadRoute();
+  await caughtUp(streams[0]);
+  env.fixture.session = snapshot('sleeping');
+  await streams[0].listeners.disconnected(); await settle();
+  assert.equal(streams[0].closed, true);
+  assert.ok(env.document.getElementById('stream-status').textContent.includes('History only'));
+  assert.ok(buttonTexts(env).includes('Resume session') && !buttonTexts(env).includes('Sleep session'));
+  assert.equal(env.app.state.connection, 'connected');
+});
+
+test('an open Session page polls the lifecycle and follows changes made elsewhere', async () => {
+  const env = environment('#session?name=chat&target=r');
+  const actions = ['submit', 'interrupt', 'restart', 'archive', 'sleep', 'resume'];
+  const snapshot = state => ({ session: { id: 's1', name: 'chat', state, target_id: 'r' }, queue: [], actions, activity: { active_turn: false, turn_state: 'succeeded' } });
+  env.fixture.session = snapshot('running');
+  env.app.state.authenticated = true; env.app.state.bootstrap = env.fixture.bootstrap; env.app.state.route = { page: 'session', params: { name: 'chat', target: 'r' } };
+  await env.app.loadRoute();
+  const reads = () => env.calls.filter(call => /\/session\?/.test(call.url));
+  const tick = async ms => { env.advance(ms); await new Promise(resolve => setImmediate(resolve)); };
+  assert.equal(reads().length, 1);
+  assert.ok(buttonTexts(env).includes('Sleep session'));
+
+  // Nothing changed: the poll is a light read and leaves the page alone.
+  const composer = env.document.querySelector('.composer');
+  await tick(20000);
+  assert.equal(reads().length, 2);
+  assert.ok(reads()[1].url.includes('activity=0'), reads()[1].url);
+  assert.equal(env.document.querySelector('.composer'), composer);
+
+  // A hidden tab does not poll.
+  env.document.hidden = true; await tick(20000);
+  assert.equal(reads().length, 2);
+  env.document.hidden = false;
+
+  // Slept elsewhere: the next poll updates the controls and drops stale Turn facts.
+  env.fixture.session = snapshot('sleeping');
+  await tick(20000);
+  assert.equal(reads().length, 3);
+  assert.ok(buttonTexts(env).includes('Resume session') && !buttonTexts(env).includes('Sleep session'));
+  assert.equal(env.app.state.cache.get('session?name=chat&target=r').activity, undefined);
+
+  // Leaving the page ends the polling.
+  env.app.state.route = { page: 'sessions', params: {} };
+  await env.app.loadRoute();
+  const before = env.calls.length;
+  await tick(60000);
+  assert.equal(env.calls.length, before);
 });

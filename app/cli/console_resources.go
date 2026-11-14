@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/clientop"
@@ -136,7 +137,9 @@ func (b *consoleBackend) snapshotResource(ctx context.Context, resource string, 
 	var value map[string]any
 	var err error
 	switch resource {
-	case "overview", "sessions", "session":
+	case "overview":
+		value, err = b.consoleOverview(ctx)
+	case "sessions", "session":
 		value, err = b.consoleSessions(ctx, resource, query)
 	case "tasks", "task":
 		value, err = b.consoleTasks(ctx, resource, query)
@@ -291,7 +294,20 @@ func (b *consoleBackend) consoleSessions(ctx context.Context, resource string, q
 	if err != nil {
 		return nil, err
 	}
+	// The canonical replay is the slow read; run it beside the queue lookup so
+	// the detail page waits for the slower of the two, not their sum.
+	var facts *consoleActivityFacts
+	var replay sync.WaitGroup
+	// activity=0 asks for the lifecycle only: an open page polls it cheaply.
+	if entry.GetState() != "archived" && b.hub != nil && consoleQueryFirst(query, "activity") != "0" {
+		replay.Add(1)
+		go func() {
+			defer replay.Done()
+			facts = b.consoleReadActivity(ctx, entry)
+		}()
+	}
 	queue, err := clientop.SessionQueueList(ctx, b.hub, clientop.SessionRef{Name: entry.GetName(), Target: entry.TargetID})
+	replay.Wait()
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +318,14 @@ func (b *consoleBackend) consoleSessions(ctx context.Context, resource string, q
 	if items == nil {
 		items = []*pb.QueueItem{}
 	}
-	return map[string]any{"session": entry, "queue": items}, nil
+	value := map[string]any{"session": entry, "queue": items, "activity_status": "unknown"}
+	// Only a complete canonical replay establishes the current Turn; otherwise
+	// the browser keeps lifecycle-only controls and labels the Turn unknown.
+	if facts != nil {
+		value["activity"] = facts
+		value["activity_status"] = "known"
+	}
+	return value, nil
 }
 func consoleProfileView(profile agentprofile.Profile) map[string]any {
 	view := profileCLIView(profile)

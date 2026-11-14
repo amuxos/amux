@@ -24,7 +24,7 @@ import (
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
-//go:embed assets/index.html assets/app.js assets/styles.css assets/i18n.js
+//go:embed assets/index.html assets/app.js assets/styles.css assets/i18n.js assets/favicon.svg
 var assets embed.FS
 
 var (
@@ -36,7 +36,9 @@ var (
 type Backend interface {
 	Snapshot(context.Context, string, url.Values) (any, error)
 	Execute(context.Context, string, string, json.RawMessage) (any, error)
-	Attach(context.Context, string, string) (pb.Amuxlet_AttachClient, error)
+	// Attach follows a Session Timeline. A non-empty cursor is exclusive: the
+	// stream continues after the last event a reconnecting browser received.
+	Attach(ctx context.Context, target, name, afterCursor string) (pb.Amuxlet_AttachClient, error)
 }
 
 type Options struct {
@@ -153,7 +155,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		if !s.method(w, r, http.MethodGet) {
 			return
 		}
-		s.json(w, map[string]any{"mode": s.authMode(), "expires_at": s.expiration(), "insecure_transport": s.origin.Scheme != "https"})
+		s.json(w, map[string]any{"mode": s.authMode(), "expires_at": s.expiration(), "insecure_transport": s.insecureTransport()})
 		return
 	}
 	if r.URL.Path == "/auth/pair" {
@@ -193,7 +195,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			if !s.method(w, r, http.MethodGet) {
 				return
 			}
-			s.json(w, map[string]any{"version": s.options.Version, "csrf_token": session.csrf, "authenticated": true, "operator": true, "expires_at": s.expiration(), "auth_mode": s.authMode(), "insecure_transport": s.origin.Scheme != "https", "resources": []string{"overview", "sessions", "tasks", "instances", "schedules", "profiles", "packs", "credentials", "settings", "bots", "groups", "catalogs"}})
+			s.json(w, map[string]any{"version": s.options.Version, "csrf_token": session.csrf, "authenticated": true, "operator": true, "expires_at": s.expiration(), "auth_mode": s.authMode(), "insecure_transport": s.insecureTransport(), "resources": []string{"overview", "sessions", "tasks", "instances", "schedules", "profiles", "packs", "credentials", "settings", "bots", "groups", "catalogs"}})
 			return
 		}
 		if r.URL.Path == "/api/console/events" {
@@ -251,7 +253,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/":
 		r.URL.Path = "/index.html"
-	case "/index.html", "/app.js", "/styles.css", "/i18n.js":
+	case "/index.html", "/app.js", "/styles.css", "/i18n.js", "/favicon.svg":
 	default:
 		s.error(w, http.StatusNotFound, "not_found")
 		return
@@ -268,6 +270,8 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 	case strings.HasSuffix(r.URL.Path, ".css"):
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	case strings.HasSuffix(r.URL.Path, ".svg"):
+		w.Header().Set("Content-Type", "image/svg+xml")
 	}
 	if r.Method != http.MethodHead {
 		_, _ = w.Write(data)
@@ -322,6 +326,21 @@ func (s *Server) pair(w http.ResponseWriter, r *http.Request) {
 	s.sessions[sha256.Sum256([]byte(token))] = browserSession{csrf: csrf, expires: expires}
 	s.cookie(w, token, expires, int(s.options.SessionTTL.Seconds()))
 	s.json(w, map[string]any{"authenticated": true, "csrf_token": csrf, "expires_at": expires.Unix()})
+}
+
+// insecureTransport reports whether browser traffic can cross a network in
+// plaintext. Loopback origins (local use or an SSH tunnel) never leave the host
+// and browsers treat them as potentially trustworthy, so they are not flagged.
+func (s *Server) insecureTransport() bool {
+	if s.origin.Scheme == "https" {
+		return false
+	}
+	host := s.origin.Hostname()
+	if strings.EqualFold(host, "localhost") {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip == nil || !ip.IsLoopback()
 }
 func (s *Server) authMode() string {
 	if s.passwordAuth {
@@ -497,6 +516,16 @@ func (s *Server) backendError(w http.ResponseWriter, err error) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": code, "code": code})
 }
 
+// resumeCursor returns the cursor a reconnecting browser last saw (EventSource
+// sends it as Last-Event-ID). It is opaque and untrusted: the Hub validates it.
+func resumeCursor(r *http.Request) string {
+	id := r.Header.Get("Last-Event-ID")
+	if len(id) > 512 || strings.ContainsAny(id, "\r\n\x00") {
+		return ""
+	}
+	return id
+}
+
 func (s *Server) events(w http.ResponseWriter, r *http.Request, session browserSession) {
 	name, target := r.URL.Query().Get("name"), r.URL.Query().Get("target_id")
 	if name == "" {
@@ -509,7 +538,14 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, session browserS
 	}
 	ctx, cancel := context.WithDeadline(r.Context(), expires)
 	defer cancel()
-	stream, err := s.backend.Attach(ctx, target, name)
+	after := resumeCursor(r)
+	stream, err := s.backend.Attach(ctx, target, name, after)
+	if err != nil && after != "" {
+		// An unusable cursor must not strand the browser: replay everything and
+		// let it de-duplicate.
+		after = ""
+		stream, err = s.backend.Attach(ctx, target, name, "")
+	}
 	if err != nil {
 		s.backendError(w, err)
 		return
@@ -527,15 +563,26 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, session browserS
 	events := make(chan *pb.AttachEvent, 8)
 	errs := make(chan error, 1)
 	go func() {
+		resumed, received := after != "", false
 		for {
 			event, err := stream.Recv()
 			if err != nil {
+				if resumed && !received && err != io.EOF {
+					// The Hub rejected the cursor (new epoch, rotated journal):
+					// replay everything instead of failing every reconnect.
+					resumed = false
+					if next, attachErr := s.backend.Attach(ctx, target, name, ""); attachErr == nil {
+						stream = next
+						continue
+					}
+				}
 				select {
 				case errs <- err:
 				case <-ctx.Done():
 				}
 				return
 			}
+			received = true
 			select {
 			case events <- event:
 			case <-ctx.Done():
