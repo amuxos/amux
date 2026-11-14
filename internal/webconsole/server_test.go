@@ -26,7 +26,7 @@ func (b *testBackend) Execute(context.Context, string, string, json.RawMessage) 
 	b.writes.Add(1)
 	return map[string]bool{"ok": true}, nil
 }
-func (b *testBackend) Attach(context.Context, string, string) (pb.Amuxlet_AttachClient, error) {
+func (b *testBackend) Attach(context.Context, string, string, string) (pb.Amuxlet_AttachClient, error) {
 	return nil, errors.New("unavailable")
 }
 func testServer(t *testing.T) (*Server, *testBackend) {
@@ -50,6 +50,12 @@ func request(s *Server, method, path, body, origin, csrf string, cookie *http.Co
 	if cookie != nil {
 		r.AddCookie(cookie)
 	}
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+	return w
+}
+func requestHost(s *Server, method, path, host string) *httptest.ResponseRecorder {
+	r := httptest.NewRequest(method, "http://"+host+path, nil)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
 	return w
@@ -125,10 +131,13 @@ func TestConsolePairExpirationAndEntropyFailure(t *testing.T) {
 func TestConsoleOriginHostAndPayloadBoundaries(t *testing.T) {
 	s, b := testServer(t)
 	cookie, csrf := pairSession(t, s)
-	for _, path := range []string{"/", "/app.js", "/styles.css", "/i18n.js"} {
+	for _, path := range []string{"/", "/app.js", "/styles.css", "/i18n.js", "/favicon.svg"} {
 		w := request(s, "GET", path, "", "", "", nil)
 		if w.Code != 200 {
 			t.Fatalf("asset %s: %d", path, w.Code)
+		}
+		if path == "/favicon.svg" && w.Header().Get("Content-Type") != "image/svg+xml" {
+			t.Fatalf("favicon content type: %q", w.Header().Get("Content-Type"))
 		}
 		if w.Header().Get("Content-Security-Policy") == "" || w.Header().Get("Referrer-Policy") != "no-referrer" {
 			t.Fatal("security headers missing")

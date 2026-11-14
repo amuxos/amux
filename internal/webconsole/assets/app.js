@@ -3,6 +3,11 @@
   'use strict';
   const I18n = root.ConsoleI18n;
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o || {}, k);
+
+  // ---------------------------------------------------------------------------
+  // Transport normalization. The server keeps established snake_case shapes;
+  // camelCase variants are accepted so protobuf JSON and Go maps both work.
+  // ---------------------------------------------------------------------------
   function field(object, name, fallback) {
     if (!object) return fallback;
     const camel = name.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
@@ -50,6 +55,7 @@
         permission: canonical.kind === 'permission_requested' ? normalizePermission(b.request, null, canonical.turn && canonical.turn.id) : null,
         resolved: canonical.kind === 'permission_resolved' ? b.request_id : '',
         state: b.terminal && b.terminal.outcome, body: b, at: canonical.at || '',
+        origin: canonical.origin || null, turn: canonical.turn || null,
         historical: Boolean(event.historical), raw: event
       };
     }
@@ -62,7 +68,7 @@
       text: event.text || field(event, 'error_message') || (kind === 'OUTPUT' ? decodeBase64(event.data) : '') || '',
       decodeError: kind === 'OUTPUT' && event.data && decodeBase64(event.data) === null,
       tool: toolID || field(event, 'tool_name') ? { id: toolID, name: field(event, 'tool_title') || field(event, 'tool_name'), status: field(event, 'tool_status'), input: decodeJSON(field(event, 'tool_input_json')), output: field(event, 'tool_output_preview') } : null,
-      permission, state: event.state || '', body: decodeJSON(field(event, 'structured_json')) || decodeJSON(field(event, 'usage_json')), at: '', historical: Boolean(event.historical), raw: event
+      permission, state: event.state || '', body: decodeJSON(field(event, 'structured_json')) || decodeJSON(field(event, 'usage_json')), at: '', origin: null, turn: null, historical: Boolean(event.historical), raw: event
     };
   }
   function supports(snapshot, action, item) {
@@ -70,12 +76,23 @@
     if (snapshot && Array.isArray(snapshot.actions)) return snapshot.actions.includes(action);
     return Boolean(snapshot && snapshot.capabilities && snapshot.capabilities[action] === true);
   }
+  const terminalTaskStates = ['succeeded', 'failed', 'cancelled', 'canceled', 'timed_out'];
+  const isTerminalTask = status => terminalTaskStates.includes(status);
+  const isArchived = s => s.state === 'archived';
+  const isWorking = s => Boolean(field(s, 'active_turn', false)) || ['running', 'in_progress'].includes(field(s, 'turn_state'));
+  const needsAttention = s => Number(field(s, 'pending_permissions', 0)) > 0 || ['waiting_permission', 'failed', 'error'].includes(field(s, 'turn_state'));
+  // Turn facts only count for unarchived sessions; an archived failure is history.
   function deriveCounts(sessions) {
+    const current = sessions.filter(s => !isArchived(s));
     return {
-      active: sessions.filter(s => s.state !== 'archived').length,
-      working: sessions.filter(s => Boolean(field(s, 'active_turn', false)) || ['running', 'in_progress'].includes(field(s, 'turn_state'))).length,
-      attention: sessions.filter(s => Number(field(s, 'pending_permissions', 0)) > 0 || ['waiting_permission', 'failed', 'error'].includes(field(s, 'turn_state'))).length,
-      sleeping: sessions.filter(s => s.state === 'sleeping').length
+      active: current.length,
+      running: sessions.filter(s => s.state === 'running').length,
+      sleeping: sessions.filter(s => s.state === 'sleeping').length,
+      archived: sessions.length - current.length,
+      // Each Session sits in one bucket: a Turn waiting on the owner counts as
+      // needing attention, not as working, so totals match the lists they head.
+      working: current.filter(s => isWorking(s) && !needsAttention(s)).length,
+      attention: current.filter(needsAttention).length
     };
   }
   function routeFromHash(hash) {
@@ -87,21 +104,28 @@
   class APIError extends Error {
     constructor(message, status, payload) { super(message); this.status = status || 0; this.payload = payload; }
   }
+
+  // ---------------------------------------------------------------------------
+  // State and static presentation tables.
+  // ---------------------------------------------------------------------------
   const state = {
     language: 'auto', theme: 'auto', bootstrap: null, authenticated: false, loading: false,
     authConfig: null, authConfigLoading: false, authConfigError: '', consoleExpired: false,
     route: routeFromHash(root.location && root.location.hash), cache: new Map(), filters: new Map(), drafts: new Map(), scroll: new Map(),
     online: !root.navigator || root.navigator.onLine !== false, connection: 'connected', lastSync: null,
-    routeError: null, busy: false, generation: 0, timeline: new Map(), streams: null, modal: null, navOpen: false
+    routeError: null, busy: false, generation: 0, timeline: new Map(), streams: null, modal: null, navOpen: false,
+    expiryTimer: null, tickTimer: null
   };
   const navGroups = [['operations', ['overview', 'sessions', 'tasks', 'instances', 'schedules']], ['resources', ['bots', 'groups', 'profiles', 'packs', 'credentials']], ['system', ['settings']]];
   const pageKeys = { task: 'tasks', instance: 'instances', profile: 'profiles', session: 'sessions', schedule: 'schedules' };
+  const detailKeys = { task: 'taskDetail', instance: 'instanceDetail', profile: 'profileDetail', session: 'session', schedule: 'schedule' };
   const icons = {
     overview: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
     sessions: 'M4 4h16v12H9l-5 4z M8 8h8 M8 12h5', tasks: 'm12 3 10 5-10 5L2 8z M3 13l9 5 9-5 M3 18l9 5 9-5',
     instances: 'M8 3h8v7H8z M3 16h7v5H3z M14 16h7v5h-7z M12 10v3 M6 16v-3h12v3',
     schedules: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M12 7v6l4 2',
     bots: 'M5 7h14a2 2 0 0 1 2 2v10H3V9a2 2 0 0 1 2-2 M12 7V3 M9 3h6 M8 12v3 M16 12v3',
+    groups: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M2 20v-1a6 6 0 0 1 12 0v1 M16 11a3 3 0 1 0 0-6 M18 20v-1a6 6 0 0 0-3-5.2',
     profiles: 'M4 3h16v18H4z M8 8h8 M8 12h8 M8 16h5', packs: 'm12 3 9 5v9l-9 5-9-5V8z M3 8l9 5 9-5 M12 13v9',
     credentials: 'M13 8a5 5 0 1 0-5 5 M12 12l8 8 M16 16l3-3 M18 18l3-3',
     settings: 'M4 6h16 M4 12h16 M4 18h16 M9 4v4 M15 10v4 M8 16v4',
@@ -109,10 +133,27 @@
     refresh: 'M20 7v5h-5 M4 17v-5h5 M6 7a7 7 0 0 1 12-2l2 3 M4 16l2 3a7 7 0 0 0 12-2',
     close: 'm5 5 14 14 M5 19 19 5', plus: 'M12 5v14 M5 12h14', alert: 'm12 3 10 18H2z M12 8v5 M12 17v1',
     shield: 'm12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z M8 12l3 3 5-6', user: 'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M4 22v-3a8 8 0 0 1 16 0v3',
-    tool: 'm4 6 6 6-6 6 M13 18h7', logout: 'M9 3H3v18h6 M9 12h12 M16 7l5 5-5 5', arrow: 'M5 12h14 M14 7l5 5-5 5'
+    tool: 'm4 6 6 6-6 6 M13 18h7', logout: 'M9 3H3v18h6 M9 12h12 M16 7l5 5-5 5', arrow: 'M5 12h14 M14 7l5 5-5 5',
+    globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M3 12h18 M12 3a14 14 0 0 1 0 18 M12 3a14 14 0 0 0 0 18',
+    contrast: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M12 3v18', chevronLeft: 'm15 6-6 6 6 6', chevronRight: 'm9 6 6 6-6 6',
+    check: 'm5 12 5 5 9-10', circle: 'M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12', half: 'M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12 M12 6v12',
+    thinking: 'M9 18h6 M10 21h4 M12 3a6 6 0 0 0-4 10.5V16h8v-2.5A6 6 0 0 0 12 3'
   };
+  // Status values come from many backends; each maps to one visual tone.
+  const tones = {
+    good: ['success', 'succeeded', 'completed', 'connected', 'enabled', 'ok', 'running_ok'],
+    warn: ['waiting_permission', 'pending', 'waiting', 'reconnecting', 'paused', 'skipped', 'submitting', 'interrupted', 'cancelling'],
+    bad: ['error', 'failed', 'offline', 'timed_out'],
+    blue: ['running', 'in_progress', 'active', 'scheduled', 'reserving', 'preparing', 'collecting', 'reconciling', 'queued']
+  };
+  const PAGE_SIZE = 50;
+
+  // ---------------------------------------------------------------------------
+  // Formatting and DOM helpers. Every value is inserted as text.
+  // ---------------------------------------------------------------------------
   function language() { return I18n.normalize(state.language === 'auto' ? root.navigator.language : state.language); }
   const t = (key, params) => I18n.t(key, language(), params);
+  const has = key => own(I18n.messages, key);
   function e(tag, attrs, ...children) {
     const node = document.createElement(tag);
     for (const [name, value] of Object.entries(attrs || {})) {
@@ -142,31 +183,101 @@
     return e('button', { type: 'button', class: 'ui-btn ' + (tone || ''), onclick }, glyph ? icon(glyph, 14) : null, t(key));
   }
   function iconButton(key, glyph, onclick) { return e('button', { type: 'button', class: 'icon-button', 'aria-label': t(key), title: t(key), onclick }, icon(glyph)); }
-  function labelState(value) { return own(I18n.messages, String(value)) ? t(String(value)) : (value || t('unknown')); }
-  function badge(value) {
-    const good = ['success', 'succeeded', 'completed', 'connected', 'enabled'];
-    const warn = ['waiting_permission', 'pending', 'waiting', 'reconnecting', 'paused'];
-    const bad = ['error', 'failed', 'offline'];
-    const tone = good.includes(value) ? 'good' : warn.includes(value) ? 'warn' : bad.includes(value) ? 'bad' : ['running', 'in_progress', 'active'].includes(value) ? 'blue' : '';
-    return e('span', { class: 'badge ' + tone }, e('span', { class: 'dot', 'aria-hidden': true }), labelState(value));
+  const dash = () => e('span', { class: 'muted', text: '—' });
+  function stateLabel(value) {
+    const text = value === undefined || value === null ? '' : String(value);
+    if (!text) return t('unknown');
+    return has('state.' + text) ? t('state.' + text) : text;
   }
+  function toneOf(value) {
+    for (const [tone, values] of Object.entries(tones)) if (values.includes(value)) return tone;
+    return '';
+  }
+  function badge(value) {
+    if (value === undefined || value === null || value === '') return dash();
+    return e('span', { class: 'badge ' + toneOf(String(value)) }, e('span', { class: 'dot', 'aria-hidden': true }), stateLabel(value));
+  }
+  function chip(text, tone, title) { return e('span', { class: 'chip ' + (tone || ''), title: title || null, text }); }
+  function optionLabel(value) { return has(String(value)) ? t(String(value)) : String(value); }
   function pretty(value) { return typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
   function code(value) { return e('pre', { class: 'code', text: pretty(value) ?? '' }); }
-  function date(value) {
-    if (!value) return t('unknown');
+  function toDate(value) {
+    if (value === undefined || value === null || value === '' || value === 0 || value === '0') return null;
     const number = Number(value);
     const d = new Date(Number.isFinite(number) ? (number < 1e12 ? number * 1000 : number) : value);
-    return Number.isNaN(d.valueOf()) ? String(value) : new Intl.DateTimeFormat(language(), { dateStyle: 'medium', timeStyle: 'short' }).format(d);
+    // Go zero times ("0001-01-01T00:00:00Z") mean "not set".
+    return Number.isNaN(d.valueOf()) || d.getUTCFullYear() < 2000 ? null : d;
   }
-  function display(item) { return item.title || item.name || item.display_name || item.profile || item.ref || item.namespace || item.task_id || item.id || t('unknown'); }
+  function date(value) {
+    const d = toDate(value);
+    return d ? new Intl.DateTimeFormat(language(), { dateStyle: 'medium', timeStyle: 'short' }).format(d) : t('unknown');
+  }
+  function clockTime(value) {
+    const d = toDate(value);
+    return d ? new Intl.DateTimeFormat(language(), { hour: '2-digit', minute: '2-digit' }).format(d) : '';
+  }
+  function relative(value) {
+    const d = toDate(value);
+    if (!d) return '—';
+    const seconds = Math.round((d.valueOf() - Date.now()) / 1000);
+    const abs = Math.abs(seconds);
+    if (abs < 45) return t(seconds <= 0 ? 'justNow' : 'inMoments');
+    for (const [unit, size, limit] of [['minute', 60, 3600], ['hour', 3600, 86400], ['day', 86400, 86400 * 30]]) {
+      if (abs < limit) return new Intl.RelativeTimeFormat(language(), { numeric: 'auto' }).format(Math.round(seconds / size), unit);
+    }
+    return date(value);
+  }
+  function timeCell(value) {
+    const d = toDate(value);
+    return d ? e('time', { datetime: d.toISOString(), title: date(value), text: relative(value) }) : dash();
+  }
+  function durationText(start, end, running) {
+    const from = toDate(start);
+    const to = toDate(end) || (running ? new Date(Date.now()) : null);
+    if (!from || !to) return '';
+    const total = Math.max(0, Math.round((to.valueOf() - from.valueOf()) / 1000));
+    if (total < 60) return t('durationSeconds', { seconds: total });
+    if (total < 3600) return t('durationMinutes', { minutes: Math.floor(total / 60), seconds: total % 60 });
+    return t('durationHours', { hours: Math.floor(total / 3600), minutes: Math.floor(total % 3600 / 60) });
+  }
+  // Content-addressed refs end with a full commit hash; keep the readable part.
+  const shortRef = ref => String(ref || '').replace(/@([0-9a-f]{12,})$/i, (_, hash) => '@' + hash.slice(0, 7));
+  function refText(ref) { return ref ? e('span', { class: 'mono ref', title: String(ref), text: shortRef(ref) }) : dash(); }
+  // Dense tables drop the content hash and the model binding; titles keep the full ref.
+  function compactRef(ref) { return ref ? e('span', { class: 'mono ref', title: String(ref), text: String(ref).replace(/@[0-9a-f]{12,}$/i, '') }) : dash(); }
+  function modelText(ref) { return ref ? e('span', { class: 'mono ref', title: String(ref), text: String(ref).split('/').pop() }) : dash(); }
+  function shortID(id) {
+    const text = String(id || '');
+    const match = text.match(/^(.*?)([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    return match ? match[1] + match[2] : text;
+  }
+  function idText(id) { return id ? e('span', { class: 'mono', title: String(id), text: shortID(id) }) : null; }
+  const firstLine = text => String(text || '').split('\n').map(line => line.trim()).find(Boolean) || '';
+  function truncate(text, size) {
+    const chars = [...String(text || '')];
+    return chars.length > size ? chars.slice(0, size).join('') + '…' : chars.join('');
+  }
+  function display(item) { return item.title || item.name || item.display_name || item.profile || item.ref || item.namespace || item.task_id || item.agent_instance_id || item.id || t('unknown'); }
   function ident(item) { return item.id ?? item.task_id ?? item.agent_instance_id ?? item.ref ?? item.namespace ?? item.profile ?? item.name ?? ''; }
+  function linkTo(text, page, params) { return e('a', { href: '#' + page + '?' + new URLSearchParams(params), text }); }
+  // Row clicks open details unless the click landed on a nested control.
+  function interactive(node) {
+    for (let n = node; n && n.tagName !== 'TR' && n.tagName !== 'SECTION'; n = n.parentNode) {
+      if (['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY', 'LABEL'].includes(n.tagName)) return true;
+    }
+    return false;
+  }
+  function rowClick(open) { return ev => { if (!interactive(ev.target)) open(); }; }
   function section(key, body, right, extraClass) {
     return e('section', { class: 'panel ' + (extraClass || '') }, e('div', { class: 'panel-head' }, e('h2', { text: t(key) }), right), body);
   }
   function definition(entries) {
-    return e('dl', {}, entries.map(([key, value]) => e('div', { class: 'definition' }, e('dt', { text: t(key) }), e('dd', {}, value && typeof value === 'object' && value.nodeType ? value : String(value ?? t('unknown'))))));
+    return e('dl', { class: 'definitions' }, entries.filter(Boolean).map(([key, value]) => e('div', { class: 'definition' }, e('dt', { text: t(key) }),
+      e('dd', {}, value && typeof value === 'object' && value.nodeType ? value : value === undefined || value === null || value === '' ? dash() : String(value)))));
   }
-  function empty(key, hint) { return e('div', { class: 'empty' }, icon('sessions', 30), e('h2', { text: t(key || 'empty') }), e('p', { text: t(hint || 'emptyHint') })); }
+  function empty(key, hint, compact) {
+    return e('div', { class: 'empty' + (compact ? ' compact' : '') }, compact ? null : icon('sessions', 30), e('h2', { text: t(key || 'empty') }), hint === false ? null : e('p', { text: t(hint || 'emptyHint') }));
+  }
   function notify(message, bad) {
     const host = document.getElementById('notifications');
     host.replaceChildren(e('div', { class: 'toast ' + (bad ? 'bad' : ''), text: message }));
@@ -182,17 +293,23 @@
     return e('select', Object.assign({ value, onchange: ev => onchange(ev.target.value) }, attrs), values.map(option => e('option', { value: option.value, selected: String(option.value) === String(value), text: option.label })));
   }
   function preferenceControls() {
-    return [selectOptions([{ value: 'auto', label: t('auto') }, { value: 'en', label: 'English' }, { value: 'zh-CN', label: '简体中文' }], state.language, value => {
+    const languageSelect = selectOptions([{ value: 'auto', label: t('auto') }, { value: 'en', label: 'English' }, { value: 'zh-CN', label: '简体中文' }], state.language, value => {
       const modal = captureModal(); state.language = value; storageSet('language', value); applyPreferences(); render(); restoreModal(modal);
-    }, { class: 'top-select', 'aria-label': t('language') }),
-    selectOptions(['auto', 'light', 'dark'].map(value => ({ value, label: t(value) })), state.theme, value => { state.theme = value; storageSet('theme', value); applyPreferences(); }, { class: 'top-select', 'aria-label': t('theme') })];
+    }, { class: 'top-select', 'aria-label': t('language') });
+    const themeSelect = selectOptions(['auto', 'light', 'dark'].map(value => ({ value, label: t(value) })), state.theme, value => { state.theme = value; storageSet('theme', value); applyPreferences(); }, { class: 'top-select', 'aria-label': t('theme') });
+    return e('div', { class: 'prefs' }, e('label', { class: 'pref', title: t('language') }, icon('globe', 15), languageSelect), e('label', { class: 'pref', title: t('theme') }, icon('contrast', 15), themeSelect));
   }
+
+  // ---------------------------------------------------------------------------
+  // Requests, errors and the opening window.
+  // ---------------------------------------------------------------------------
   function errorMessage(error, write) {
     const machineCode = error.payload && (error.payload.code || error.payload.error);
-    const known = typeof machineCode === 'string' && own(I18n.messages, machineCode) ? t(machineCode) : '';
+    const known = typeof machineCode === 'string' && has(machineCode) ? t(machineCode) : '';
     if (error.status === 403) return known || t('forbidden');
     if (error.status === 409) return t('conflict') + (known ? '\n' + known : '');
     if (error.status === 401) return known || t('loginExpired');
+    if (error.status === 404) return known || t('not_found');
     return (write && !error.status ? t('writeUncertain') : t('requestFailed')) + (known ? '\n' + known : !machineCode && error.message ? '\n' + error.message : '');
   }
   function windowExpired() {
@@ -205,10 +322,43 @@
     if (windowExpired()) { expire(true); return; }
     state.expiryTimer = root.setTimeout(scheduleExpiry, Math.min(expiresAt * 1000 - Date.now(), 2147483647));
     if (state.expiryTimer && state.expiryTimer.unref) state.expiryTimer.unref();
+    scheduleTick();
+  }
+  // Refreshes the header countdown; the expiry timer above owns closing.
+  function scheduleTick() {
+    root.clearTimeout(state.tickTimer); state.tickTimer = null;
+    updateClock();
+    if (!state.authConfig || !(state.authConfig.expires_at > 0) || state.consoleExpired) return;
+    state.tickTimer = root.setTimeout(scheduleTick, 30000);
+    if (state.tickTimer && state.tickTimer.unref) state.tickTimer.unref();
+  }
+  function remainingMinutes() {
+    const at = state.authConfig && state.authConfig.expires_at;
+    return at > 0 ? Math.max(0, Math.ceil((at * 1000 - Date.now()) / 60000)) : null;
+  }
+  function expiryCopy() {
+    const config = state.authConfig || {};
+    return t(config.mode === 'password' ? 'consoleExpiry' : 'consoleExpiryLocal', { time: date(config.expires_at) });
+  }
+  function updateClock() {
+    if (typeof document === 'undefined') return;
+    const minutes = remainingMinutes();
+    const chipHost = document.getElementById('session-clock');
+    if (chipHost) {
+      chipHost.hidden = minutes === null;
+      if (minutes !== null) { chipHost.textContent = t('closesIn', { minutes }); chipHost.setAttribute('title', expiryCopy()); chipHost.className = 'chip ' + (minutes <= 5 ? 'warn' : ''); }
+    }
+    const banner = document.getElementById('expiry-banner');
+    if (banner) {
+      const soon = minutes !== null && minutes <= 5;
+      banner.hidden = !soon;
+      if (soon) banner.textContent = t('closingSoon', { minutes }) + ' ' + expiryCopy();
+    }
   }
   function expire(closed, messageKey) {
     state.consoleExpired = Boolean(closed || windowExpired());
     if (state.consoleExpired) { root.clearTimeout(state.expiryTimer); state.expiryTimer = null; }
+    root.clearTimeout(state.tickTimer); state.tickTimer = null;
     state.loginErrorKey = state.consoleExpired ? 'console_expired' : messageKey || ''; state.loginError = '';
     state.authenticated = false; state.bootstrap = null; state.loading = false; state.busy = false;
     state.routeError = null; state.cache.clear(); state.timeline.clear(); state.drafts.clear(); state.filters.clear(); state.scroll.clear();
@@ -256,39 +406,60 @@
   }
   function warnings(snapshot) {
     const messages = [];
-    if (snapshot && (snapshot.partial || snapshot.warning_code)) messages.push(t('partial'));
+    if (snapshot && snapshot.warning_code && has(snapshot.warning_code)) messages.push(t(snapshot.warning_code));
     for (const key of ['errors', 'unavailable', 'warnings']) {
       const raw = snapshot && snapshot[key];
       if (!raw || Array.isArray(raw) && !raw.length) continue;
       const values = Array.isArray(raw) ? raw : typeof raw === 'object' ? Object.entries(raw).map(([k, v]) => k + ': ' + pretty(v)) : [raw];
-      for (const value of values) messages.push(typeof value === 'string' ? value : pretty(value));
+      for (const value of values) messages.push(typeof value === 'string' ? (has('unavailable.' + value) ? t('unavailable.' + value) : value) : pretty(value));
     }
-    return messages.length ? e('div', { class: 'banner warn', role: 'status' }, icon('alert'), e('div', {}, e('strong', { text: t('partial') }), messages.map(text => e('p', { text })))) : null;
+    if (!messages.length && !(snapshot && snapshot.partial)) return null;
+    return e('div', { class: 'banner warn', role: 'status' }, icon('alert'), e('div', {}, e('strong', { text: t('partial') }), messages.map(text => e('p', { text }))));
   }
   function updateConnection() {
+    if (typeof document === 'undefined') return;
     const host = document.getElementById('connection');
-    if (host) host.replaceChildren(badge(!state.online ? 'offline' : state.connection), e('span', { class: 'connection-text', text: state.lastSync ? t('lastSync', { time: date(state.lastSync) }) : '' }));
+    if (host) host.replaceChildren(badge(!state.online ? 'offline' : state.connection), e('span', { class: 'connection-text', text: state.lastSync ? t('lastSync', { time: clockTime(state.lastSync) }) : '' }));
     const offline = document.getElementById('offline-banner');
     if (offline) { offline.hidden = state.online && state.connection !== 'offline'; offline.textContent = t('offline') + ' · ' + t('writeUncertain'); }
   }
+
+  // ---------------------------------------------------------------------------
+  // Shell and routing.
+  // ---------------------------------------------------------------------------
   function render() {
     const oldTimeline = document.getElementById('timeline');
     if (oldTimeline && state.activeStreamRef) timelineFor(state.activeStreamRef).scrollTop = oldTimeline.scrollTop;
     const app = document.getElementById('app');
     if (!state.authenticated) { renderLogin(app); return; }
     const activePage = pageKeys[state.route.page] || state.route.page;
-    const nav = e('aside', { class: 'sidebar ' + (state.navOpen ? 'expanded' : ''), id: 'navigation', 'aria-label': t('menu') }, navGroups.map(([group, pages], index) => [index ? e('div', { class: 'nav-group', text: t(group) }) : null, pages.map(page => e('button', { type: 'button', class: 'nav-item ' + (activePage === page ? 'active' : ''), 'aria-current': activePage === page ? 'page' : null, onclick: () => navigate(page) }, icon(page, 16), t(page)))]),
-      e('div', { class: 'sidebar-bottom' }, badge('authenticated'), e('p', { text: t('singleHub') }), e('p', { text: state.bootstrap.version || t('unknown') })));
-    const header = e('header', { class: 'app-top' }, e('button', { type: 'button', class: 'icon-button mobile-menu', 'aria-label': t('menu'), 'aria-controls': 'navigation', 'aria-expanded': String(state.navOpen), onclick: () => { state.navOpen = !state.navOpen; render(); } }, icon('menu')),
-      e('div', { class: 'app-logo' }, icon('tasks', 24), 'amux', e('small', { text: 'Console' })),
+    const config = state.authConfig || {};
+    const nav = e('aside', { class: 'sidebar ' + (state.navOpen ? 'expanded' : ''), id: 'navigation', 'aria-label': t('menu') },
+      navGroups.map(([group, pages], index) => [index ? e('div', { class: 'nav-group', text: t(group) }) : null, pages.map(page => e('button', { type: 'button', class: 'nav-item ' + (activePage === page ? 'active' : ''), 'aria-current': activePage === page ? 'page' : null, onclick: () => navigate(page) }, icon(page, 16), t(page)))]),
+      e('div', { class: 'sidebar-bottom' }, chip(t('authenticated'), 'good'), e('p', { class: 'mono', text: t('version') + ' ' + (state.bootstrap.version || t('unknown')) }), e('div', { class: 'sidebar-prefs' }, preferenceControls())));
+    const header = e('header', { class: 'app-top' },
+      e('button', { type: 'button', class: 'icon-button mobile-menu', 'aria-label': t('menu'), 'aria-controls': 'navigation', 'aria-expanded': String(state.navOpen), onclick: () => { state.navOpen = !state.navOpen; render(); } }, icon('menu')),
+      e('a', { class: 'app-logo', href: '#overview', 'aria-label': t('overview') }, icon('tasks', 24), 'amux', e('small', { text: 'Console' })),
       e('button', { type: 'button', class: 'app-search', 'aria-label': t('search'), onclick: openSearch }, icon('search'), e('span', { text: t('search') }), e('kbd', { text: '⌘ K' })),
-      e('div', { class: 'app-top-right' }, e('div', { id: 'connection', class: 'actions' }), preferenceControls(), iconButton('logout', 'logout', logout)));
-    const main = e('main', { class: 'main', id: 'main', tabindex: '-1' }, e('div', { class: 'scope', text: 'amux / ' + t(activePage) }), authNotices(), e('div', { id: 'offline-banner', class: 'banner warn', role: 'status', hidden: state.online }), e('div', { id: 'page' }));
+      e('div', { class: 'app-top-right' }, e('div', { id: 'connection', class: 'connection' }),
+        e('span', { id: 'session-clock', class: 'chip', hidden: true }),
+        config.insecure_transport ? chip(t('insecureShort'), 'warn', t('insecureTransportWarning')) : null,
+        e('div', { class: 'header-prefs' }, preferenceControls()), iconButton('logout', 'logout', logout)));
+    const main = e('main', { class: 'main', id: 'main', tabindex: '-1' }, breadcrumb(activePage),
+      e('div', { id: 'expiry-banner', class: 'banner warn', role: 'status', hidden: true }),
+      e('div', { id: 'offline-banner', class: 'banner warn', role: 'status', hidden: state.online }), e('div', { id: 'page' }));
     app.replaceChildren(header, e('div', { class: 'app-body' }, e('div', { class: 'mobile-shade ' + (state.navOpen ? 'expanded' : ''), onclick: () => { state.navOpen = false; render(); } }), nav, main));
-    updateConnection(); renderPage();
+    updateConnection(); updateClock(); renderPage();
+  }
+  function breadcrumb(activePage) {
+    const detail = state.route.page !== activePage;
+    return e('nav', { class: 'scope', 'aria-label': t('breadcrumb') }, e('span', { text: 'amux' }), ' / ',
+      detail ? [e('a', { href: '#' + activePage, text: t(activePage) }), ' / ', e('span', { text: t(detailKeys[state.route.page]) })] : e('span', { text: t(activePage) }));
   }
   function title(key, description, actions, literal) {
-    return e('div', { class: 'page-title' }, e('div', {}, e('h1', { text: !literal && own(I18n.messages, key) ? t(key) : key }), description ? e('p', { text: own(I18n.messages, description) ? t(description) : description }) : null), e('div', { class: 'actions' }, actions));
+    const heading = !literal && has(key) ? t(key) : key;
+    const subtitle = description && typeof description === 'object' ? description : description ? (has(description) ? t(description) : description) : null;
+    return e('div', { class: 'page-title' }, e('div', { class: 'grow' }, e('h1', { text: heading }), subtitle ? e('p', {}, subtitle) : null), e('div', { class: 'actions' }, actions));
   }
   function literalTitle(key, description, actions) { return title(key, description, actions, true); }
   function renderPage() {
@@ -319,7 +490,7 @@
     try {
       const snapshot = await get(state.route.page, state.route.params);
       if (generation !== state.generation || !state.authenticated) return;
-      state.cache.set(cacheKey(), snapshot); state.loading = false; state.lastSync = Date.now(); renderPage();
+      state.cache.set(cacheKey(), Object.assign(snapshot, { loaded_at: Date.now() })); state.loading = false; state.lastSync = Date.now(); renderPage();
       if (state.route.page === 'session') openStream(snapshot);
       const y = state.scroll.get(cacheKey()); if (y !== undefined) root.scrollTo(0, y);
     } catch (error) {
@@ -329,84 +500,238 @@
   }
   function refreshButton() { const b = button('refresh', () => loadRoute(), '', 'refresh'); b.disabled = state.loading; return b; }
   function target(item) { return field(item, 'target', field(item, 'target_id', '')); }
+  function targetLabel(item) { return field(item, 'target_name', '') || target(item) || ''; }
   function sessionRef(item) { return { name: item.name || item.session_name, target: target(item) || state.route.params.target || state.route.params.target_id || '' }; }
   function capability(snapshot, action, item) {
     return state.bootstrap && state.bootstrap.operator !== false && supports(snapshot, action, item);
   }
-  function actionButton(snapshot, resource, action, data, key, item, danger) {
-    if (!capability(snapshot, action, item)) return null;
-    const b = button(key || action, async () => {
-      if (danger && !await confirmAction(key || action, display(item || data))) return;
+  // Writes require a confirmation unless explicitly reversible and harmless.
+  function actionButton(snapshot, resource, action, data, options) {
+    const o = options || {};
+    if (!capability(snapshot, action, o.item)) return null;
+    const key = o.key || action;
+    const danger = String(o.tone || '').includes('danger');
+    const b = button(key, async () => {
+      if (o.confirm !== false && !await confirmAction(key, o.name || display(o.item || data), danger)) return;
       b.disabled = true;
       try { await write(resource, action, data); notify(t('saved')); await loadRoute(); }
       catch (error) { notify(errorMessage(error, true), true); }
-      finally { if (b.isConnected) b.disabled = false; }
-    }, danger ? 'danger' : '');
+      finally { if (b.isConnected) b.disabled = !state.online; }
+    }, o.tone || '', o.glyph);
     b.disabled = !state.online || state.busy; return b;
   }
-  function table(columns, rows) {
-    return e('div', { class: 'panel' }, rows.length ? e('table', { class: 'table' }, e('thead', {}, e('tr', {}, columns.map(c => e('th', { scope: 'col', text: t(c.key) })))), e('tbody', {}, rows.map(row => e('tr', {}, columns.map(c => e('td', { 'data-label': t(c.key) }, c.render(row))))))) : empty(), e('div', { class: 'pagination', text: t('count', { count: rows.length }) }));
+
+  // ---------------------------------------------------------------------------
+  // Lists: filtering, sorting and client-side pagination.
+  // ---------------------------------------------------------------------------
+  function filterState(page) {
+    if (!state.filters.has(page)) state.filters.set(page, { query: '', state: '', target: '', group: page === 'sessions' ? 'active' : '', kind: '', namespace: '', page: 1 });
+    return state.filters.get(page);
   }
-  function rowName(item, page, params) {
-    return e('div', {}, e('button', { type: 'button', class: 'link-button', onclick: () => navigate(page, params), text: display(item) }), e('p', { class: 'mono', text: String(ident(item)) }));
-  }
-  function filterState(page) { if (!state.filters.has(page)) state.filters.set(page, { query: '', state: '', target: '', group: '' }); return state.filters.get(page); }
-  function filtered(rows, page) {
-    const f = filterState(page || state.route.page);
-    return rows.filter(row => (!f.query || JSON.stringify(row).toLocaleLowerCase().includes(f.query.toLocaleLowerCase())) && (!f.state || (row.state || row.status || field(row, 'turn_state')) === f.state) && (!f.target || String(target(row)) === f.target) && (!f.group || (f.group === 'archived' ? row.state === 'archived' : row.state !== 'archived')));
+  const defaultStateOf = row => row.state || row.status || field(row, 'turn_state');
+  function filtered(rows, options) {
+    const o = options || {}; const f = filterState(o.page || state.route.page);
+    const stateOf = o.stateOf || defaultStateOf;
+    const query = f.query.toLocaleLowerCase();
+    return rows.filter(row => (!query || JSON.stringify(row).toLocaleLowerCase().includes(query))
+      && (!f.state || String(stateOf(row)) === f.state)
+      && (!f.target || String(target(row)) === f.target)
+      && (!f.kind || !o.kindOf || o.kindOf(row) === f.kind)
+      && (!f.group || (f.group === 'archived' ? isArchived(row) : !isArchived(row))));
   }
   function filters(rows, options) {
-    const page = state.route.page; const f = filterState(page);
-    const query = e('input', { type: 'search', value: f.query, placeholder: t('filter'), 'aria-label': t('filter'), oninput: ev => { f.query = ev.target.value; const cursor = ev.target.selectionStart; renderPage(); const input = document.querySelector('.filterbar input'); input.focus(); input.setSelectionRange(cursor, cursor); } });
-    const states = [...new Set(rows.map(r => r.state || r.status || field(r, 'turn_state')).filter(Boolean))];
-    const targets = [...new Map(rows.filter(r => target(r)).map(r => [String(target(r)), field(r, 'target_name', target(r))])).entries()];
+    const o = options || {}; const f = filterState(state.route.page);
+    const stateOf = o.stateOf || defaultStateOf;
+    const reset = () => { f.page = 1; renderPage(); };
+    const query = e('input', { type: 'search', value: f.query, placeholder: t('filter'), 'aria-label': t('filter'), oninput: ev => {
+      f.query = ev.target.value; f.page = 1; const cursor = ev.target.selectionStart; renderPage();
+      const input = document.querySelector('.filterbar input'); if (input) { input.focus(); input.setSelectionRange(cursor, cursor); }
+    } });
+    const states = o.noState ? [] : [...new Set(rows.map(stateOf).filter(Boolean).map(String))].sort();
+    const kinds = o.kindOf ? [...new Set(rows.map(o.kindOf).filter(Boolean))].sort() : [];
+    const targets = [...new Map(rows.filter(r => target(r)).map(r => [String(target(r)), targetLabel(r)])).entries()];
     return e('div', { class: 'filterbar' }, query,
-      states.length && options !== 'no-state' ? selectOptions([{ value: '', label: t('all') + ' · ' + t('status') }, ...states.map(value => ({ value, label: labelState(value) }))], f.state, v => { f.state = v; renderPage(); }, { 'aria-label': t('status') }) : null,
-      targets.length ? selectOptions([{ value: '', label: t('all') + ' · ' + t('target') }, ...targets.map(([value, label]) => ({ value, label }))], f.target, v => { f.target = v; renderPage(); }, { 'aria-label': t('target') }) : null);
+      states.length ? selectOptions([{ value: '', label: t('allStatuses') }, ...states.map(value => ({ value, label: stateLabel(value) }))], f.state, v => { f.state = v; reset(); }, { 'aria-label': t('status') }) : null,
+      kinds.length > 1 ? selectOptions([{ value: '', label: t('allSources') }, ...kinds.map(value => ({ value, label: kindLabel(value) }))], f.kind, v => { f.kind = v; reset(); }, { 'aria-label': t('source') }) : null,
+      targets.length > 1 || f.target ? selectOptions([{ value: '', label: t('allTargets') }, ...targets.map(([value, label]) => ({ value, label }))], f.target, v => { f.target = v; reset(); }, { 'aria-label': t('target') }) : null);
+  }
+  function timeValue(row, names) {
+    for (const name of names) { const d = toDate(field(row, name)); if (d) return d.valueOf(); }
+    return 0;
+  }
+  function sortByTime(rows, ...names) { return rows.slice().sort((a, b) => timeValue(b, names) - timeValue(a, names)); }
+  function pager(f, pages) {
+    const go = page => { f.page = page; renderPage(); const table = document.querySelector('.table-panel'); if (table && table.scrollIntoView) table.scrollIntoView({ block: 'start' }); };
+    return e('div', { class: 'pager' },
+      e('button', { type: 'button', class: 'ui-btn small', 'aria-label': t('previousPage'), title: t('previousPage'), disabled: f.page <= 1, onclick: () => go(f.page - 1) }, icon('chevronLeft', 14)),
+      e('span', { text: t('pageOf', { page: f.page, pages }) }),
+      e('button', { type: 'button', class: 'ui-btn small', 'aria-label': t('nextPage'), title: t('nextPage'), disabled: f.page >= pages, onclick: () => go(f.page + 1) }, icon('chevronRight', 14)));
+  }
+  function dataTable(columns, rows, options) {
+    const o = options || {}; const f = filterState(o.pageKey || state.route.page);
+    const size = o.pageSize || PAGE_SIZE;
+    const pages = Math.max(1, Math.ceil(rows.length / size));
+    f.page = Math.min(Math.max(1, f.page || 1), pages);
+    const visible = rows.slice((f.page - 1) * size, f.page * size);
+    const body = visible.map(row => {
+      const open = o.rowLink && o.rowLink(row);
+      return e('tr', { class: open ? 'clickable' : null, onclick: open ? rowClick(open) : null }, columns.map(c => e('td', { 'data-label': t(c.key), class: c.class || null }, c.render(row))));
+    });
+    const table = e('div', { class: 'table-scroll' }, e('table', { class: 'table' }, e('thead', {}, e('tr', {}, columns.map(c => e('th', { scope: 'col', class: c.class || null, text: t(c.key) })))), e('tbody', {}, body)));
+    return e('div', { class: 'panel table-panel' }, rows.length ? table : empty(o.emptyKey, o.emptyHint), e('div', { class: 'table-footer' }, e('span', { text: t('count', { count: rows.length }) }), pages > 1 ? pager(f, pages) : null));
+  }
+  function cellTitle(text, sub, onclick) {
+    const parts = (sub || []).filter(part => part !== null && part !== undefined && part !== '');
+    return e('div', { class: 'cell-title' }, onclick ? e('button', { type: 'button', class: 'link-button', text, onclick }) : e('strong', { text }),
+      parts.length ? e('p', { class: 'cell-sub' }, parts.map((part, index) => [index ? ' · ' : '', part])) : null);
+  }
+  function tabs(entries, current, onselect) {
+    return e('div', { class: 'tabs' }, entries.map(([value, label, count]) => e('button', { type: 'button', class: 'tab ' + (current === value ? 'active' : ''), 'aria-pressed': String(current === value), onclick: () => onselect(value) }, label, count === undefined ? null : e('span', { class: 'tab-count', text: String(count) }))));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Overview.
+  // ---------------------------------------------------------------------------
+  function sessionKind(s) {
+    if (field(s, 'owner_task_id')) return 'task';
+    if (field(s, 'agent_instance_id')) return 'instance';
+    return field(s, 'workspace_source', '') || 'other';
+  }
+  function kindLabel(kind) { return has('kind.' + kind) ? t('kind.' + kind) : kind; }
+  const activityKnown = s => field(s, 'activity_status') === 'known' || !field(s, 'activity_status') && (own(s, 'turn_state') || own(s, 'turnState') || own(s, 'active_turn') || own(s, 'pending_permissions'));
+  function sessionRow(item, status) {
+    const open = () => navigate('session', sessionRef(item));
+    return e('div', { class: 'run-row clickable', onclick: rowClick(open) },
+      e('div', { class: 'grow' }, e('h3', { text: display(item) }), e('p', { class: 'row-sub', text: [kindLabel(sessionKind(item)), shortRef(field(item, 'agent_profile', '')), targetLabel(item)].filter(Boolean).join(' · ') })),
+      badge(status), button('open', open, 'small'));
+  }
+  function taskTitle(row) { return truncate(firstLine(row.task), 80) || row.task_id || row.id || t('unknown'); }
+  const taskID = row => row.task_id || row.id;
+  function taskRow(item) {
+    const open = () => navigate('task', { task_id: taskID(item) });
+    return e('div', { class: 'run-row clickable', onclick: rowClick(open) },
+      e('div', { class: 'grow' }, e('h3', { class: 'one-line', title: firstLine(item.task), text: taskTitle(item) }), e('p', { class: 'row-sub' }, timeCell(item.requested_at), ' · ', String(item.agent_profile || '').replace(/@[0-9a-f]{12,}$/i, '') || item.agent_type || shortID(taskID(item)))),
+      badge(item.status || item.state));
   }
   function renderOverview(snapshot) {
     const sessions = list(snapshot, 'sessions'); const counts = deriveCounts(sessions);
-    const active = sessions.filter(s => s.state !== 'archived');
-    const activityKnown = s => field(s, 'activity_status') === 'known' || !field(s, 'activity_status') && (own(s, 'turn_state') || own(s, 'turnState') || own(s, 'active_turn') || own(s, 'pending_permissions'));
-    const known = active.filter(activityKnown);
-    const unknown = active.length - known.length;
+    const current = sessions.filter(s => !isArchived(s));
+    // A sleeping Session has no process and cannot be mid-Turn, so only live
+    // Sessions need confirmed Turn facts before the totals can be trusted.
+    const live = current.filter(s => s.state !== 'sleeping');
+    const known = live.filter(activityKnown);
+    const unknown = live.length - known.length;
+    const coverage = { known: known.length, total: live.length, unknown };
     const knownCounts = deriveCounts(known);
-    counts.working = unknown ? t('unknown') : knownCounts.working;
-    counts.attention = unknown ? t('unknown') : knownCounts.attention;
-    const hasTurnFacts = known.length > 0 || !active.length;
-    const coverage = unknown ? e('p', { class: 'banner warn', role: 'status', text: t('activityCoverage', { known: known.length, unknown }) }) : null;
-    const attention = known.filter(s => Number(field(s, 'pending_permissions', 0)) > 0 || ['waiting_permission', 'failed', 'error'].includes(field(s, 'turn_state')));
-    const working = known.filter(s => field(s, 'active_turn') || ['running', 'in_progress'].includes(field(s, 'turn_state')));
-    const visibleWork = hasTurnFacts ? working : active.filter(s => s.state === 'running');
-    const sorted = sessions.slice().sort((a, b) => Number(field(b, 'last_activity_at', field(b, 'updated_at', 0))) - Number(field(a, 'last_activity_at', field(a, 'updated_at', 0))));
-    const sessionRow = item => e('div', { class: 'run-row' }, e('div', { class: 'grow' }, e('h3', { text: display(item) }), e('p', { class: 'row-sub', text: [item.name, field(item, 'target_name', target(item))].filter(Boolean).join(' · ') })), badge(field(item, 'turn_state', item.state)), button('open', () => navigate('session', sessionRef(item))));
+    const hasTurnFacts = known.length > 0 || !live.length;
+    const attention = known.filter(needsAttention);
+    const working = known.filter(s => isWorking(s) && !needsAttention(s));
+    const visibleWork = hasTurnFacts ? working : current.filter(s => s.state === 'running');
+    const turnScope = unknown ? t('coverageShort', coverage) : t('turnScopeAll');
+    const stats = [
+      ['liveSessions', live.length, t('unarchivedTotal', { count: counts.active })],
+      ['working', unknown ? '—' : knownCounts.working, turnScope],
+      ['needsYou', unknown ? '—' : knownCounts.attention, turnScope],
+      ['sleepingSessions', counts.sleeping, t('archivedTotal', { count: counts.archived })]
+    ];
+    const recent = sortByTime(current, 'last_activity_at', 'updated_at').slice(0, 8);
     const bots = list(snapshot, 'bots');
-    return [title('overview', 'overviewDesc', refreshButton()), coverage, e('div', { class: 'stats' }, [['activeSessions', counts.active], ['working', counts.working], ['needsYou', counts.attention], ['sleepingSessions', counts.sleeping]].map(([key, count]) => e('div', { class: 'stat' }, e('label', { text: t(key) }), e('strong', { text: count }), e('p', { text: t('fromSessions') })))),
-      e('div', { class: 'overview-grid' }, e('div', { class: 'stack' }, section('attention', attention.length ? attention.map(sessionRow) : !hasTurnFacts && sessions.length ? empty('unknown', 'turnUnknown') : empty()), section(hasTurnFacts ? 'currentWork' : 'runningSessions', [!hasTurnFacts && sessions.length ? e('p', { class: 'panel-body help', text: t('turnUnknown') }) : null, visibleWork.length ? visibleWork.map(sessionRow) : empty()], button('viewAll', () => navigate('sessions'), 'quiet'))), e('div', { class: 'stack' }, section('recentActivity', sorted.length ? sorted.slice(0, 8).map(item => e('div', { class: 'run-row' }, e('div', { class: 'grow' }, e('button', { type: 'button', class: 'link-button', text: display(item), onclick: () => navigate('session', sessionRef(item)) }), e('p', { class: 'row-sub', text: date(field(item, 'last_activity_at', field(item, 'updated_at'))) })), badge(item.state))) : empty()), bots.length ? section('botConnections', bots.map(bot => e('div', { class: 'run-row' }, e('div', { class: 'avatar', text: display(bot).slice(0, 1) }), e('strong', { class: 'grow', text: display(bot) }), badge(bot.status)))) : null))];
+    const tasks = list(snapshot, 'recent_tasks');
+    const taskCounts = snapshot.task_counts || null;
+    const tasksUnavailable = list(snapshot, 'unavailable').includes('tasks');
+    const taskHead = e('div', { class: 'actions' }, taskCounts && taskCounts.active ? chip(t('tasksActive', { count: taskCounts.active }), 'blue') : null, taskCounts && taskCounts.succeeded_24h ? chip(t('tasksSucceeded24h', { count: taskCounts.succeeded_24h }), 'good') : null, taskCounts && taskCounts.failed_24h ? chip(t('tasksFailed24h', { count: taskCounts.failed_24h }), 'bad') : null, button('viewAll', () => navigate('tasks'), 'quiet small'));
+    return [title('overview', 'overviewDesc', refreshButton()),
+      unknown ? e('p', { class: 'banner', role: 'status', text: t('activityCoverage', coverage) }) : null,
+      e('div', { class: 'stats' }, stats.map(([key, value, sub]) => e('div', { class: 'stat' }, e('label', { text: t(key) }), e('strong', { text: String(value) }), e('p', { text: sub })))),
+      e('div', { class: 'overview-grid' },
+        e('div', { class: 'stack' },
+          section('attention', attention.length ? attention.map(s => sessionRow(s, field(s, 'turn_state'))) : !hasTurnFacts ? empty('unknown', 'turnUnknown', true) : empty('nothingNeedsYou', false, true), null, attention.length ? 'attention-panel' : ''),
+          section(hasTurnFacts ? 'currentWork' : 'runningSessions', visibleWork.length ? visibleWork.map(s => sessionRow(s, hasTurnFacts ? field(s, 'turn_state', s.state) : s.state)) : empty('noWorkInProgress', false, true), button('viewAll', () => navigate('sessions'), 'quiet small')),
+          tasksUnavailable ? null : section('recentTasks', tasks.length ? tasks.map(taskRow) : empty('empty', false, true), taskHead)),
+        e('div', { class: 'stack' },
+          bots.length ? section('botConnections', bots.map(bot => e('div', { class: 'run-row' }, e('div', { class: 'avatar', 'aria-hidden': 'true' }, icon('bots', 16)), e('div', { class: 'grow' }, e('h3', { text: display(bot) }), e('p', { class: 'row-sub', text: shortRef(field(bot.settings, 'default_agent', '')) })), badge(bot.status)))) : null,
+          section('recentActivity', recent.length ? recent.map(item => e('div', { class: 'run-row compact clickable', onclick: rowClick(() => navigate('session', sessionRef(item))) },
+            e('div', { class: 'grow' }, e('button', { type: 'button', class: 'link-button', text: display(item), onclick: () => navigate('session', sessionRef(item)) }), e('p', { class: 'row-sub' }, kindLabel(sessionKind(item)), ' · ', timeCell(field(item, 'last_activity_at', field(item, 'updated_at'))))), badge(item.state))) : empty('empty', false, true))))];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sessions and the live Timeline.
+  // ---------------------------------------------------------------------------
+  function sessionStatus(s) {
+    const turn = activityKnown(s) ? field(s, 'turn_state') : '';
+    return e('div', { class: 'badges' }, badge(s.state), turn && turn !== 'idle' && !isArchived(s) ? badge(turn) : null);
   }
   function renderSessions(snapshot) {
-    const rows = list(snapshot, 'sessions'); const f = filterState('sessions');
+    const all = sortByTime(list(snapshot, 'sessions'), 'last_activity_at', 'updated_at', 'created_at');
+    const f = filterState('sessions');
+    const inGroup = all.filter(s => !f.group || (f.group === 'archived' ? isArchived(s) : !isArchived(s)));
+    const options = { stateOf: s => s.state, kindOf: sessionKind };
+    const archivedCount = all.filter(isArchived).length;
     return [title('sessions', 'sessionsDesc', [refreshButton(), capability(snapshot, 'create') ? button('newSession', openNewSession, 'primary', 'plus') : null]),
-      e('div', { class: 'tabs' }, ['', 'active', 'archived'].map(value => e('button', { type: 'button', class: 'tab ' + (f.group === value ? 'active' : ''), 'aria-pressed': String(f.group === value), onclick: () => { f.group = value; renderPage(); }, text: t(value || 'all') }))), filters(rows),
-      table([{ key: 'sessions', render: s => rowName(s, 'session', sessionRef(s)) }, { key: 'turn', render: s => badge(field(s, 'turn_state', 'unknown')) }, { key: 'lifecycle', render: s => badge(s.state) }, { key: 'agentType', render: s => field(s, 'agent_type', t('unknown')) }, { key: 'target', render: s => field(s, 'target_name', target(s)) || t('unknown') }, { key: 'updated', render: s => date(field(s, 'last_activity_at', field(s, 'updated_at'))) }, { key: 'actions', render: s => button('open', () => navigate('session', sessionRef(s))) }], filtered(rows))];
+      tabs([['active', t('unarchived'), all.length - archivedCount], ['archived', t('archived'), archivedCount], ['', t('all'), all.length]], f.group, value => { f.group = value; f.state = ''; f.page = 1; renderPage(); }),
+      filters(inGroup, options),
+      dataTable([
+        { key: 'sessions', render: s => cellTitle(display(s), [kindLabel(sessionKind(s)), idText(s.id)], () => navigate('session', sessionRef(s))) },
+        { key: 'status', render: sessionStatus },
+        { key: 'profile', render: s => e('div', {}, compactRef(field(s, 'agent_profile')), e('p', { class: 'cell-sub', text: field(s, 'agent_type', '') })) },
+        { key: 'model', class: 'wide-only', render: s => modelText(field(s, 'effective_model')) },
+        { key: 'target', class: 'nowrap', render: s => targetLabel(s) || dash() },
+        { key: 'updated', class: 'nowrap', render: s => timeCell(field(s, 'last_activity_at', field(s, 'updated_at'))) }
+      ], filtered(all, options), { rowLink: s => () => navigate('session', sessionRef(s)) })];
+  }
+  // A live Timeline is the freshest source; the snapshot replay covers reloads.
+  function timelineTurn(timeline) {
+    for (let i = timeline.items.length - 1; i >= 0; i--) {
+      const item = timeline.items[i];
+      if (item.kind === 'turn_finished') return { active: false, state: item.state || 'completed' };
+      if (item.kind === 'turn_started') return { active: true, state: timeline.permissions.size ? 'waiting_permission' : 'running' };
+    }
+    return null;
+  }
+  function currentTurn(snapshot, timeline) {
+    const live = timelineTurn(timeline);
+    if (live) return live;
+    const facts = snapshot.activity;
+    return facts ? { active: Boolean(facts.active_turn), state: facts.turn_state || '' } : null;
+  }
+  function sessionActionButtons(caps, session, ref, turn) {
+    const plan = {
+      running: [turn && turn.active === false ? null : ['interrupt', ''], ['restart', ''], ['sleep', ''], ['archive', 'danger']],
+      sleeping: [['resume', 'primary'], ['archive', 'danger']],
+      archived: []
+    }[session.state] || [['restart', ''], ['archive', 'danger']];
+    return plan.filter(Boolean).map(([action, tone]) => actionButton(caps, 'sessions', action, ref, { key: action, item: session, tone, confirm: action !== 'resume' }));
   }
   function renderSession(snapshot) {
     const session = snapshot.session;
     if (!session) return [title('session'), empty('unavailable')];
     const ref = sessionRef(session); const caps = snapshot.actions ? snapshot : (state.cache.get('sessions?') || snapshot);
-    const stream = timelineFor(ref); const identity = field(session, 'execution_identity', {});
+    const stream = timelineFor(ref);
+    const turn = currentTurn(snapshot, stream);
     const perms = [...stream.permissions.values()];
     for (const permission of list(snapshot, 'permissions')) {
       const normalized = normalizePermission(permission, permission.id || permission.permission_id);
       if (!perms.some(p => p.id === normalized.id)) perms.push(normalized);
     }
     const queue = Array.isArray(snapshot.queue) ? snapshot.queue : list(snapshot.queue, 'items');
-    return [literalTitle(display(session), session.id || '', [button('back', () => navigate('sessions')), refreshButton(), ...['interrupt', 'restart', 'archive', 'sleep', 'resume'].map(action => actionButton(caps, 'sessions', action, ref, action, session, action !== 'resume'))]),
-      e('div', { class: 'context-strip' }, [['profile', field(session, 'agent_profile')], ['model', field(session, 'effective_model')], ['target', field(session, 'target_name', target(session))], ['principal', field(identity, 'effective_principal_id')]].map(([key, value]) => e('div', {}, e('label', { text: t(key) }), e('strong', { class: 'mono', text: value || t('unknown') })))),
-      e('div', { class: 'detail-grid' }, e('div', {}, section('timeline', e('div', { id: 'timeline', class: 'timeline', role: 'log', 'aria-label': t('timeline'), 'aria-live': 'off' }), e('span', { class: 'badge', id: 'stream-status', text: t('live') })),
-        capability(caps, 'submit', session) ? composer(ref) : null, e('p', { class: 'note', text: t('reconnectHint') })),
-      e('aside', { class: 'stack', id: 'session-aside' }, perms.map(p => permissionPanel(p, ref, caps)), section('details', e('div', { class: 'panel-body' }, definition([['lifecycle', badge(session.state)], ['agentType', field(session, 'agent_type')], ['cwd', session.cwd], ['principal', field(identity, 'effective_principal_id')], ['id', session.id]]))),
-        section('queue', e('div', { class: 'panel-body' }, queue.length ? queue.map(item => e('div', { class: 'stack' }, code(item.text || item.prompt || ''), e('div', { class: 'actions' }, actionButton(caps, 'sessions', 'queue-cancel', Object.assign({}, ref, { queue_id: item.id }), 'queue_cancel', session, true)))) : empty(), actionButton(caps, 'sessions', 'queue-clear', ref, 'queue_clear', session, true)))))];
+    const kind = sessionKind(session);
+    const ownerTask = field(session, 'owner_task_id'); const instance = field(session, 'agent_instance_id');
+    const idle = Number(field(session, 'idle_timeout_seconds', 0));
+    return [literalTitle(display(session), e('span', { class: 'title-meta' }, chip(kindLabel(kind)), e('span', { class: 'mono', text: session.id || '' })), [refreshButton(), e('div', { id: 'session-actions', class: 'actions' }, sessionActionButtons(caps, session, ref, turn))]),
+      e('div', { class: 'context-strip' }, [['profile', refText(field(session, 'agent_profile'))], ['agentType', field(session, 'agent_type')], ['model', refText(field(session, 'effective_model'))], ['target', targetLabel(session)]].map(([key, value]) => e('div', {}, e('label', { text: t(key) }), e('strong', {}, value && value.nodeType ? value : value || '—')))),
+      e('div', { class: 'detail-grid' },
+        e('div', { class: 'stack' }, section('timeline', e('div', { id: 'timeline', class: 'timeline', role: 'log', 'aria-label': t('timeline'), 'aria-live': 'off' }), e('span', { class: 'badge blue', id: 'stream-status' }, e('span', { class: 'dot', 'aria-hidden': true }), t('live'))),
+          !isArchived(session) && capability(caps, 'submit', session) ? composer(ref) : null),
+        e('aside', { class: 'stack', id: 'session-aside' }, perms.map(p => permissionPanel(p, ref, caps)),
+          section('details', e('div', { class: 'panel-body' }, definition([
+            ['lifecycle', badge(session.state)], ['turn', e('span', { id: 'turn-state' }, turn ? badge(turn.state) : dash())], ['source', kindLabel(kind)],
+            ['createdAt', timeCell(field(session, 'created_at'))], ['updated', timeCell(field(session, 'last_activity_at', field(session, 'updated_at')))],
+            ['idleTimeout', idle > 0 ? String(idle) : ''], ['sleepReason', field(session, 'last_sleep_reason', '')],
+            ownerTask ? ['ownerTask', linkTo(shortID(ownerTask), 'task', { task_id: ownerTask })] : null,
+            instance ? ['instances', linkTo(shortID(instance), 'instance', { agent_instance_id: instance })] : null,
+            ['cwd', session.cwd ? e('span', { class: 'mono path', text: session.cwd }) : ''], ['id', e('span', { class: 'mono path', text: session.id || '' })]]))),
+          section('queue', e('div', { class: 'panel-body stack' }, queue.length ? queue.map(item => e('div', { class: 'queue-item' }, code(item.text || item.prompt || ''), e('div', { class: 'actions' }, actionButton(caps, 'sessions', 'queue-cancel', Object.assign({}, ref, { queue_id: item.id }), { key: 'queue_cancel', item: session, tone: 'danger small' })))) : e('p', { class: 'muted small', text: t('queueEmpty') })),
+            queue.length ? actionButton(caps, 'sessions', 'queue-clear', ref, { key: 'queue_clear', item: session, tone: 'danger small' }) : null)))];
   }
   function composer(ref) {
     const key = 'composer:' + JSON.stringify(ref); const value = state.drafts.get(key) || '';
@@ -419,7 +744,7 @@
       try { await write('sessions', 'submit', Object.assign({}, ref, { text })); if (textarea.value === text) { textarea.value = ''; state.drafts.delete(key); } notify(t('saved')); }
       catch (error) { notify(errorMessage(error, true), true); }
       finally { send.disabled = !state.online; }
-    } }, textarea, e('div', { class: 'actions' }, send));
+    } }, textarea, e('div', { class: 'composer-foot' }, e('span', { class: 'help', text: t('sendHint') }), send));
     textarea.addEventListener('keydown', event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); form.requestSubmit(); } });
     return form;
   }
@@ -428,7 +753,8 @@
     const controls = e('div', { class: 'actions' });
     const canAnswer = capability(caps, 'respond-permission');
     const respond = async data => {
-      if (!await confirmAction('respond', permission.question || tool.title || permission.id)) return;
+      // Answering a permission lets or stops agent work, so keep the strong warning.
+      if (!await confirmAction('respond', permission.question || tool.title || permission.id, true)) return;
       for (const b of controls.querySelectorAll('button')) b.disabled = true;
       try {
         await write('sessions', 'respond-permission', Object.assign({}, ref, { permission_id: permission.id, turn_id: permission.turn_id }, data));
@@ -442,13 +768,13 @@
         const b = button('respond', () => selected.size && respond({ option_ids: [...selected], option_id: [...selected][0] }), 'primary'); b.disabled = !state.online;
         controls.append(...choices, b);
       } else for (const option of permission.options) {
-        const b = e('button', { type: 'button', class: 'ui-btn ' + (/reject|deny/.test(option.kind) ? 'danger' : ''), text: option.name, title: option.description || option.kind, disabled: !state.online, onclick: () => respond({ option_id: option.id }) });
-        controls.appendChild(b);
+        const tone = /reject|deny/.test(option.kind) ? 'danger' : /allow/.test(option.kind) && !/always/.test(option.kind) ? 'primary' : '';
+        controls.appendChild(e('button', { type: 'button', class: 'ui-btn ' + tone, text: option.name, title: option.description || option.kind, disabled: !state.online, onclick: () => respond({ option_id: option.id }) }));
       }
     }
-    return section('permission', e('div', { class: 'panel-body' }, e('p', { text: t('permissionHelp') }), permission.question ? e('p', { text: permission.question }) : null,
-      definition([['id', permission.id], ['tool', tool.title || tool.name || t('unknown')]]), field(tool, 'raw_input') ? code(field(tool, 'raw_input')) : null,
-      controls.childElementCount ? controls : e('p', { class: 'note', text: t('permissionUnavailable') })), icon('shield'), 'permission');
+    return section('permission', e('div', { class: 'panel-body' }, permission.question ? e('p', { class: 'prose', text: permission.question }) : null,
+      definition([['tool', tool.title || tool.name || t('unknown')], ['id', e('span', { class: 'mono', text: permission.id })]]), field(tool, 'raw_input') ? code(field(tool, 'raw_input')) : null,
+      controls.childElementCount ? controls : e('p', { class: 'note', text: t('permissionUnavailable') }), e('p', { class: 'help', text: t('permissionHelp') })), icon('shield'), 'permission');
   }
   function timelineFor(ref) {
     const key = JSON.stringify(ref);
@@ -457,6 +783,7 @@
   }
   function ingestEvent(ref, event) {
     const timeline = timelineFor(ref); const normalized = normalizeEvent(event);
+    if (event.caught_up) timeline.caughtUp = true;
     if (normalized.id && timeline.seen.has(normalized.id)) return false;
     if (normalized.id) timeline.seen.add(normalized.id);
     if (event.cursor) timeline.cursor = event.cursor;
@@ -465,6 +792,7 @@
     if (['heartbeat', 'session_metadata_changed'].includes(normalized.kind) || event.caught_up && !field(event, 'canonical_json')) return true;
     const last = timeline.items[timeline.items.length - 1];
     if (normalized.kind === 'assistant_delta' && last && last.kind === 'assistant_delta' && !last.decodeError && !normalized.decodeError && last.text.length + normalized.text.length < 100000) last.text += normalized.text;
+    else if (normalized.kind === 'thinking_delta' && last && last.kind === 'thinking_delta' && last.text.length + normalized.text.length < 100000) last.text += normalized.text;
     else if (normalized.tool && normalized.tool.id) {
       const prior = timeline.items.findIndex(item => item.tool && item.tool.id === normalized.tool.id);
       if (prior >= 0) timeline.items[prior] = Object.assign({}, timeline.items[prior], normalized, { tool: Object.assign({}, timeline.items[prior].tool, normalized.tool) });
@@ -474,35 +802,157 @@
     if (timeline.seen.size > 10000) timeline.seen = new Set([...timeline.seen].slice(-5000));
     return true;
   }
+  // The Timeline shows conversation content. Session metadata (command lists,
+  // goal capability), empty messages, repeated usage snapshots and a result
+  // that repeats the streamed reply of the same Turn add no content.
+  const metadataKinds = ['commands_replaced', 'session_metadata_changed', 'heartbeat'];
+  function hiddenEvent(item) {
+    if (metadataKinds.includes(item.kind)) return true;
+    if ((item.kind === 'goal_changed' || item.kind === 'structured') && item.body && !item.body.goal && Object.keys(item.body).every(key => key === 'supported')) return true;
+    return ['assistant_delta', 'assistant_message', 'thinking_delta'].includes(item.kind) && !item.decodeError && !String(item.text || '').trim();
+  }
+  function visibleTimeline(items) {
+    const out = []; let reply = ''; let usageIndex = -1;
+    for (const item of items) {
+      if (hiddenEvent(item)) continue;
+      if (item.kind === 'turn_started' || item.kind === 'user_message') { reply = ''; usageIndex = -1; }
+      if (item.kind === 'assistant_delta' || item.kind === 'assistant_message') reply += item.text || '';
+      if (item.kind === 'result_observed' && item.text && reply.trim() && reply.trim().endsWith(item.text.trim())) continue;
+      if (item.kind === 'usage' || item.kind === 'usage_observed') {
+        if (usageIndex >= 0) out.splice(usageIndex, 1);
+        usageIndex = out.length;
+      }
+      out.push(item);
+    }
+    return out;
+  }
   function drawTimeline() {
     if (state.route.page !== 'session') return;
     const snapshot = state.cache.get(cacheKey()); if (!snapshot || !snapshot.session) return;
     const timeline = timelineFor(sessionRef(snapshot.session)); const host = document.getElementById('timeline'); if (!host) return;
     const atBottom = host.scrollHeight - host.scrollTop - host.clientHeight < 70;
     const y = host.scrollTop;
-    replace(host, timeline.items.length ? timeline.items.map(eventNode) : empty('noEvents'));
+    const items = visibleTimeline(timeline.items);
+    replace(host, items.length ? items.map(eventNode) : empty('noEvents', false, true));
     if (timeline.items.length >= 1500) host.prepend(e('p', { class: 'note', text: t('eventLimit', { count: 1500 }) }));
     host.scrollTop = timeline.scrollTop !== null ? timeline.scrollTop : atBottom ? host.scrollHeight : y;
     timeline.scrollTop = null;
   }
+  const eventLabels = { assistant_delta: 'agent', assistant_message: 'agent', result_observed: 'result', user_message: 'user', turn_started: 'user', permission_requested: 'permission', permission_request: 'permission', permission_resolved: 'permissionResolved', usage: 'usage', usage_observed: 'usage', thinking_delta: 'thinking', plan_replaced: 'plan', diagnostic: 'diagnostic', session_diagnostic: 'diagnostic', state_change: 'sessionState', error: 'error' };
+  function eventTime(item) { return item.at ? e('time', { datetime: item.at, title: date(item.at), text: clockTime(item.at) }) : null; }
+  function planNode(body) {
+    const entries = list(body, 'entries').length ? list(body, 'entries') : list(body && body.plan, 'entries');
+    if (!entries.length) return code(body);
+    return e('ul', { class: 'plan-list' }, entries.map(entry => {
+      const status = entry.status || 'pending';
+      return e('li', { class: 'plan-' + status }, icon(status === 'completed' ? 'check' : status === 'in_progress' ? 'half' : 'circle', 14), e('span', { text: entry.content || entry.title || '' }));
+    }));
+  }
+  function usageText(body) {
+    const usage = body && (body.usage || body);
+    const input = usage && (usage.input_tokens ?? usage.inputTokens ?? usage.prompt_tokens);
+    const output = usage && (usage.output_tokens ?? usage.outputTokens ?? usage.completion_tokens);
+    return Number.isFinite(input) || Number.isFinite(output) ? t('usageLine', { input: Number(input || 0).toLocaleString(language()), output: Number(output || 0).toLocaleString(language()) }) : '';
+  }
   function eventNode(item) {
-    const labels = { assistant_delta: 'agent', assistant_message: 'agent', result_observed: 'result', user_message: 'user', turn_started: 'turnStarted', turn_finished: 'turnFinished', permission_requested: 'permission', permission_request: 'permission', permission_resolved: 'permissionResolved', usage: 'usage', usage_observed: 'usage', thinking_delta: 'thinking', plan_replaced: 'plan', diagnostic: 'diagnostic', session_diagnostic: 'diagnostic', state_change: 'sessionState', error: 'error' };
-    const label = item.tool ? 'tool' : labels[item.kind] || 'details';
+    if (item.kind === 'turn_finished') return e('div', { class: 'turn-divider' }, e('span', {}, t('turnFinished'), ' · ', stateLabel(item.state || 'completed')), eventTime(item));
+    if (item.kind === 'permission_resolved') return e('div', { class: 'turn-divider subtle' }, e('span', { text: t('permissionResolved') }), eventTime(item));
+    const label = item.tool ? 'tool' : eventLabels[item.kind] || 'details';
     let content;
-    if (item.tool) content = e('details', { open: item.tool.status === 'error' }, e('summary', {}, item.tool.name || t('tool'), ' · ', labelState(item.tool.status)), item.tool.input ? code(item.tool.input) : null, item.tool.output ? code(item.tool.output) : null);
-    else if (item.kind === 'permission_requested' || item.kind === 'permission_request') content = e('p', { class: 'content', text: item.permission && (item.permission.question || item.permission.tool.title || item.permission.id) || t('permission') });
-    else if (item.kind === 'thinking_delta') content = e('details', {}, e('summary', { text: t('thinking') }), e('p', { class: 'content', text: item.text }));
-    else if (item.text || item.decodeError) content = e('p', { class: 'content', text: item.decodeError ? t('invalidEncoding') : item.text });
-    else if (item.state) content = badge(item.state);
+    let heading = [t(label)];
+    let variant = '';
+    if (item.tool) {
+      variant = 'tool';
+      heading = [item.tool.name || t('tool'), ' ', badge(item.tool.status)];
+      content = item.tool.input || item.tool.output ? e('details', { open: item.tool.status === 'error' || item.tool.status === 'failed' }, e('summary', { text: t('toolDetails') }), item.tool.input ? code(item.tool.input) : null, item.tool.output ? code(item.tool.output) : null) : null;
+    } else if (item.kind === 'turn_started' || item.kind === 'user_message') {
+      variant = 'user';
+      const channel = item.origin && item.origin.channel;
+      if (channel) heading = [t('user'), ' · ', has('kind.' + channel) ? t('kind.' + channel) : channel];
+      content = e('p', { class: 'content', text: item.text || '—' });
+    } else if (item.kind === 'permission_requested' || item.kind === 'permission_request') {
+      variant = 'permission';
+      content = e('p', { class: 'content', text: item.permission && (item.permission.question || item.permission.tool.title || item.permission.id) || t('permission') });
+    } else if (item.kind === 'thinking_delta') {
+      variant = 'thinking';
+      return e('article', { class: 'timeline-item thinking' }, e('div', { class: 'timeline-glyph' }, icon('thinking', 15)), e('details', {}, e('summary', {}, t('thinking'), eventTime(item)), e('p', { class: 'content', text: item.text })));
+    } else if (item.kind === 'plan_replaced') {
+      content = planNode(item.body);
+    } else if (item.kind === 'usage' || item.kind === 'usage_observed') {
+      const text = usageText(item.body);
+      if (text) return e('div', { class: 'turn-divider subtle' }, e('span', { text }), eventTime(item));
+      content = code(item.body || {});
+    } else if (item.text || item.decodeError) {
+      content = e('p', { class: 'content', text: item.decodeError ? t('invalidEncoding') : item.text });
+      if (item.kind === 'result_observed') variant = 'result';
+      if (item.kind === 'assistant_delta' || item.kind === 'assistant_message') variant = 'agent';
+      if (['error', 'diagnostic', 'session_diagnostic'].includes(item.kind)) variant = 'bad';
+    } else if (item.state) content = badge(item.state);
     else content = item.body ? code(item.body) : e('span', { class: 'muted', text: item.kind });
-    return e('article', { class: 'timeline-item ' + (['turn_started', 'user_message'].includes(item.kind) ? 'user' : '') }, e('div', { class: 'timeline-glyph' }, icon(item.tool ? 'tool' : label === 'permission' ? 'shield' : label === 'user' || item.kind === 'turn_started' ? 'user' : 'bots', 15)), e('div', {}, e('h3', {}, t(label), item.at ? e('time', { datetime: item.at, text: date(item.at) }) : null), content));
+    const glyph = item.tool ? 'tool' : variant === 'permission' ? 'shield' : variant === 'user' ? 'user' : variant === 'bad' ? 'alert' : 'bots';
+    return e('article', { class: 'timeline-item ' + variant }, e('div', { class: 'timeline-glyph' }, icon(glyph, 15)), e('div', { class: 'timeline-body' }, e('h3', {}, e('span', { class: 'event-title' }, heading), eventTime(item)), content));
   }
   function closeStream() {
+    root.clearTimeout(state.lifecycleTimer); state.lifecycleTimer = null;
     if (state.streams) { state.streams.close(); state.streams = null; }
     if (state.drawTimer) { clearTimeout(state.drawTimer); state.drawTimer = null; }
-    const timelineHost = document.getElementById('timeline');
+    const timelineHost = typeof document !== 'undefined' ? document.getElementById('timeline') : null;
     if (timelineHost && state.activeStreamRef) timelineFor(state.activeStreamRef).scrollTop = timelineHost.scrollTop;
     state.activeStreamRef = null;
+    // "Reconnecting" describes the live stream that just closed; reachability is
+    // reported again by the requests that follow.
+    if (state.connection === 'reconnecting' && state.online) { state.connection = 'connected'; updateConnection(); }
+  }
+  function setStreamStatus(key) {
+    state.streamStatus = key;
+    const status = document.getElementById('stream-status');
+    if (status) { status.className = 'badge ' + (key === 'live' ? 'blue' : key === 'historyOnly' ? '' : 'warn'); replace(status, e('span', { class: 'dot', 'aria-hidden': true }), t(key)); }
+  }
+  // A sleeping or archived Session has no live events. Once its history replay is
+  // complete and the server ends the stream, stop the browser's automatic
+  // reconnects (each would replay the whole history) and say so, instead of
+  // showing "reconnecting" for a Session that is simply not running.
+  function settleStream(stream) {
+    const cached = state.cache.get(cacheKey());
+    const lifecycle = cached && cached.session && cached.session.state;
+    if (state.activeStreamRef === null || !timelineFor(state.activeStreamRef).caughtUp || (lifecycle !== 'sleeping' && lifecycle !== 'archived')) return false;
+    stream.close();
+    if (state.connection === 'reconnecting') { state.connection = 'connected'; updateConnection(); }
+    setStreamStatus('historyOnly');
+    return true;
+  }
+  // The Hub sends no event when a Session sleeps, wakes or is archived elsewhere
+  // (idle reclaim, another operator, Feishu), so lifecycle controls would keep the
+  // state seen at page load. Re-read the lifecycle when the stream ends and every
+  // 20 s while the tab is visible; the light read skips the Turn replay. Never once
+  // archived, and a page rebuild only happens when the lifecycle actually changed.
+  const lifecyclePollMs = 20000;
+  async function syncSessionLifecycle(stream, polled) {
+    const key = cacheKey(); const generation = state.generation;
+    const cached = state.cache.get(key);
+    if (!cached || !cached.session || isArchived(cached.session)) return;
+    const now = Date.now();
+    if (!polled && state.lifecycleSyncAt && now - state.lifecycleSyncAt < 10000) return;
+    state.lifecycleSyncAt = now;
+    try {
+      const fresh = await get(state.route.page, Object.assign({}, state.route.params, { activity: '0' }));
+      if (state.streams !== stream || generation !== state.generation || !fresh.session || fresh.session.state === cached.session.state) return;
+      // Turn facts belong to the previous lifecycle; the live Timeline supplies the Turn.
+      const merged = Object.assign({}, cached, fresh, { loaded_at: Date.now(), activity_status: 'unknown' });
+      delete merged.activity;
+      state.cache.set(key, merged);
+      renderPage();
+      if (!settleStream(stream)) setStreamStatus(state.streamStatus || 'live');
+    } catch (_) { /* The connection indicator already reports reachability. */ }
+  }
+  function scheduleLifecyclePoll(stream) {
+    root.clearTimeout(state.lifecycleTimer);
+    state.lifecycleTimer = root.setTimeout(async () => {
+      if (state.streams !== stream) return;
+      if (!document.hidden && !state.modal) await syncSessionLifecycle(stream, true);
+      if (state.streams === stream) scheduleLifecyclePoll(stream);
+    }, lifecyclePollMs);
+    if (state.lifecycleTimer && state.lifecycleTimer.unref) state.lifecycleTimer.unref();
   }
   function openStream(snapshot) {
     const session = snapshot.session; if (!session) return;
@@ -513,8 +963,10 @@
     const query = new URLSearchParams({ target_id: ref.target || '', name: ref.name });
     // Attach replays on reconnect; deduplication is scoped to this exact session.
     const stream = new root.EventSource('/api/console/events?' + query, { withCredentials: true });
-    state.streams = stream; state.activeStreamRef = ref;
-    stream.onopen = () => { if (state.streams !== stream) return; state.connection = 'connected'; updateConnection(); const status = document.getElementById('stream-status'); if (status) status.textContent = t('live'); };
+    state.streams = stream; state.activeStreamRef = ref; state.streamStatus = 'live'; state.lifecycleSyncAt = 0; timeline.caughtUp = false;
+    scheduleLifecyclePoll(stream);
+    const caps = snapshot.actions ? snapshot : state.cache.get('sessions?') || snapshot;
+    stream.onopen = () => { if (state.streams !== stream) return; state.connection = 'connected'; updateConnection(); setStreamStatus('live'); };
     stream.onmessage = message => {
       if (state.streams !== stream) return;
       let event;
@@ -527,126 +979,299 @@
         const aside = document.getElementById('session-aside');
         if (aside) {
           const previous = [...aside.querySelectorAll('.permission')]; previous.forEach(p => p.remove());
-          const caps = snapshot.actions ? snapshot : state.cache.get('sessions?') || snapshot;
           for (const permission of timeline.permissions.values()) aside.prepend(permissionPanel(permission, ref, caps));
         }
+        // Keep lifecycle controls and the Turn badge in step without
+        // re-rendering the composer, which may hold focus and a draft.
+        const current = state.cache.get(cacheKey()) || snapshot;
+        const turn = currentTurn(current, timeline);
+        const actions = document.getElementById('session-actions'); if (actions) replace(actions, sessionActionButtons(caps, current.session || session, ref, turn));
+        const turnHost = document.getElementById('turn-state'); if (turnHost) replace(turnHost, turn ? badge(turn.state) : dash());
       }, 80);
     };
     stream.addEventListener('disconnected', () => {
-      if (state.streams !== stream) return;
-      state.connection = 'reconnecting'; updateConnection();
+      if (state.streams !== stream || settleStream(stream)) return;
+      state.connection = 'reconnecting'; updateConnection(); setStreamStatus('reconnecting');
       get('bootstrap').catch(() => {});
+      syncSessionLifecycle(stream);
     });
     stream.onerror = () => {
-      if (state.streams !== stream) return;
-      state.connection = state.online ? 'reconnecting' : 'offline'; updateConnection();
-      const status = document.getElementById('stream-status'); if (status) status.textContent = t('reconnecting');
+      if (state.streams !== stream || settleStream(stream)) return;
+      state.connection = state.online ? 'reconnecting' : 'offline'; updateConnection(); setStreamStatus('reconnecting');
       // Native EventSource retries only GET. An auth check redirects expired sessions.
       get('bootstrap').catch(() => {});
+      syncSessionLifecycle(stream);
     };
   }
+
+  // ---------------------------------------------------------------------------
+  // Tasks and persistent instances.
+  // ---------------------------------------------------------------------------
+  function modeLabel(mode) { return mode ? (has('mode.' + mode) ? t('mode.' + mode) : mode) : ''; }
   function renderTasks(snapshot) {
-    const rows = list(snapshot, 'tasks');
-    return [title('tasks', 'tasksDesc', refreshButton()), filters(rows), table([
-      { key: 'tasks', render: row => rowName(row, 'task', { task_id: row.task_id || row.id }) }, { key: 'result', render: row => badge(row.status || row.state) },
-      { key: 'profile', render: row => row.agent || row.agent_profile || row.profile || t('unknown') }, { key: 'target', render: row => row.target_name || row.target_id || t('unknown') },
-      { key: 'instances', render: row => row.agent_instance_id || t('unknown') }, { key: 'actions', render: row => e('div', { class: 'actions' }, button('open', () => navigate('task', { task_id: row.task_id || row.id })), actionButton(snapshot, 'tasks', 'cancel', { task_id: row.task_id || row.id }, 'cancelTask', row, true)) }
-    ], filtered(rows))];
+    const rows = sortByTime(list(snapshot, 'tasks'), 'requested_at', 'started_at');
+    const options = { stateOf: r => r.status || r.state };
+    return [title('tasks', 'tasksDesc', refreshButton()), filters(rows, options), dataTable([
+      { key: 'tasks', render: r => cellTitle(taskTitle(r), [idText(taskID(r)), modeLabel(r.mode)], () => navigate('task', { task_id: taskID(r) })) },
+      { key: 'result', render: r => badge(r.status || r.state) },
+      { key: 'profile', render: r => e('div', {}, r.agent_profile || r.agent ? compactRef(r.agent_profile || r.agent) : dash(), e('p', { class: 'cell-sub', text: r.agent_type || '' })) },
+      { key: 'target', class: 'wide-only nowrap', render: r => r.target_name || r.target_id || dash() },
+      { key: 'requestedAt', class: 'nowrap', render: r => timeCell(r.requested_at) },
+      { key: 'duration', class: 'nowrap', render: r => durationText(r.started_at, r.finished_at, !isTerminalTask(r.status)) || dash() },
+      { key: 'actions', render: r => isTerminalTask(r.status) ? null : actionButton(snapshot, 'tasks', 'cancel', { task_id: taskID(r) }, { key: 'cancelTask', item: r, name: taskTitle(r), tone: 'danger small' }) }
+    ], filtered(rows, options), { rowLink: r => () => navigate('task', { task_id: taskID(r) }) })];
+  }
+  function valueList(values) {
+    const items = values.map(value => typeof value === 'string' ? value : pretty(value)).filter(Boolean);
+    return items.length ? e('ul', { class: 'value-list' }, items.map(text => e('li', { class: 'mono', text }))) : '';
   }
   function renderTask(snapshot) {
     const item = snapshot.task; if (!item) return [title('tasks'), empty('unavailable')];
-    const child = item.session_ref || {};
-    return [literalTitle(display(item), 'tasksDesc', [button('back', () => navigate('tasks')), refreshButton(), child.child_session_id ? button('session', () => navigate('session', { name: child.child_session_id, target: child.target_id || '' })) : null, actionButton(snapshot, 'tasks', 'cancel', { task_id: item.task_id || item.id }, 'cancelTask', item, true)]),
-      section('details', e('div', { class: 'panel-body' }, definition([['id', item.task_id || item.id], ['result', badge(item.status || item.state)], ['profile', item.agent || item.agent_profile || item.profile], ['target', item.target_name || item.target_id], ['ownerSession', item.parent_session_id || item.owner_session_id], ['instances', item.agent_instance_id]]), item.result ? code(item.result) : null, item.error ? code(item.error) : null,
-        e('details', {}, e('summary', { text: t('details') }), code(item))))];
+    const id = taskID(item); const child = item.session_ref || {}; const terminal = isTerminalTask(item.status);
+    const result = item.result && typeof item.result === 'object' ? item.result : null;
+    return [literalTitle(taskTitle(item), e('span', { class: 'mono', text: id || '' }), [refreshButton(),
+        child.child_session_id ? button('openSession', () => navigate('session', { name: child.child_session_id, target: child.target_id || '' })) : null,
+        item.parent_session_id ? button('openParentSession', () => navigate('session', { name: item.parent_session_id })) : null,
+        terminal ? null : actionButton(snapshot, 'tasks', 'cancel', { task_id: id }, { key: 'cancelTask', item, name: taskTitle(item), tone: 'danger' })]),
+      item.error_code ? e('div', { class: 'banner bad', role: 'alert', text: has(item.error_code) ? t(item.error_code) : t('requestFailed') }) : null,
+      e('div', { class: 'detail-grid' },
+        e('div', { class: 'stack' },
+          section('taskInstruction', e('div', { class: 'panel-body' }, item.task ? e('p', { class: 'prose', text: item.task }) : dash())),
+          section('resultSummary', e('div', { class: 'panel-body stack' }, item.summary ? e('p', { class: 'prose', text: item.summary }) : e('p', { class: 'muted', text: t(terminal ? 'noSummary' : 'taskStillRunning') }),
+            result ? definition([['result', badge(result.status)], ['changedFiles', valueList(list(result, 'changed_files'))], ['artifacts', valueList(list(result, 'artifacts'))], result.details_ref ? ['details', e('span', { class: 'mono', text: result.details_ref })] : null]) : null,
+            result && result.diagnostics ? e('details', {}, e('summary', { text: t('diagnostics') }), code(result.diagnostics)) : null,
+            result && result.full_transcript ? e('details', {}, e('summary', { text: t('fullTranscript') }), code(result.full_transcript)) : null,
+            e('details', {}, e('summary', { text: t('rawRecord') }), code(item))))),
+        e('aside', { class: 'stack' }, section('details', e('div', { class: 'panel-body' }, definition([
+          ['status', badge(item.status)], ['mode', modeLabel(item.mode)], ['agentType', item.agent_type], ['profile', refText(item.agent_profile || item.agent)],
+          ['permissionPolicy', item.permission_policy], ['target', item.target_name || item.target_id],
+          ['requestedAt', timeCell(item.requested_at)], ['startedAt', timeCell(item.started_at)], ['finishedAt', timeCell(item.finished_at)],
+          ['duration', durationText(item.started_at, item.finished_at, !terminal)],
+          item.agent_instance_id ? ['instances', linkTo(shortID(item.agent_instance_id), 'instance', { agent_instance_id: item.agent_instance_id })] : null,
+          child.child_session_id ? ['childSession', linkTo(shortID(child.child_session_id), 'session', { name: child.child_session_id, target: child.target_id || '' })] : null,
+          item.parent_session_id ? ['ownerSession', linkTo(shortID(item.parent_session_id), 'session', { name: item.parent_session_id })] : null])))))];
+  }
+  const instanceID = row => row.agent_instance_id || row.id;
+  function instanceName(row) { return row.name || shortID(instanceID(row)) || t('unknown'); }
+  function instanceActions(snapshot, row, small) {
+    const id = instanceID(row); const archived = row.status === 'archived'; const active = row.status === 'active';
+    const tone = small ? ' small' : '';
+    return [
+      !archived && capability(snapshot, 'followup', row) ? button('followup', () => openInstanceTask(row), tone) : null,
+      !archived && capability(snapshot, 'send', row) ? button('sendMessage', () => openInstanceMessage(row, 'send'), tone) : null,
+      active && capability(snapshot, 'steer', row) ? button('steer', () => openInstanceMessage(row, 'steer'), tone) : null,
+      active ? actionButton(snapshot, 'instances', 'interrupt', { agent_instance_id: id }, { key: 'interrupt', item: row, name: instanceName(row), tone: 'danger' + tone }) : null];
   }
   function renderInstances(snapshot) {
-    const rows = list(snapshot, 'instances');
-    return [title('instances', 'instancesDesc', [refreshButton(), capability(snapshot, 'spawn') ? button('spawn', () => openInstanceTask(), 'primary', 'plus') : null]), filters(rows), table([
-      { key: 'instances', render: row => rowName(row, 'instance', { agent_instance_id: row.id || row.agent_instance_id }) }, { key: 'status', render: row => badge(row.status) },
-      { key: 'sessionState', render: row => badge(field(row, 'child_session_state')) }, { key: 'profile', render: row => field(row, 'agent_profile', t('unknown')) },
-      { key: 'target', render: row => field(row, 'target_name', target(row)) || t('unknown') }, { key: 'actions', render: row => instanceActions(snapshot, row) }
-    ], filtered(rows))];
-  }
-  function instanceActions(snapshot, row) {
-    return e('div', { class: 'actions' }, button('open', () => navigate('instance', { agent_instance_id: row.id || row.agent_instance_id })), capability(snapshot, 'followup', row) ? button('followup', () => openInstanceTask(row)) : null, actionButton(snapshot, 'instances', 'interrupt', { agent_instance_id: row.id || row.agent_instance_id }, 'interrupt', row, true), ['send', 'steer'].map(action => capability(snapshot, action, row) ? button(action === 'steer' ? 'respond' : 'send', () => openInstanceMessage(row, action)) : null));
+    const rows = sortByTime(list(snapshot, 'instances'), 'last_used_at', 'created_at');
+    const options = { stateOf: r => r.status };
+    const open = r => () => navigate('instance', { agent_instance_id: instanceID(r) });
+    return [title('instances', 'instancesDesc', [refreshButton(), capability(snapshot, 'spawn') ? button('spawn', () => openInstanceTask(), 'primary', 'plus') : null]), filters(rows, options), dataTable([
+      { key: 'instances', render: r => cellTitle(instanceName(r), [r.name ? idText(instanceID(r)) : null], open(r)) },
+      { key: 'status', render: r => e('div', { class: 'badges' }, badge(r.status), field(r, 'child_session_state') ? badge(field(r, 'child_session_state')) : null) },
+      { key: 'profile', render: r => e('div', {}, compactRef(field(r, 'agent_profile')), e('p', { class: 'cell-sub', text: field(r, 'agent_type', '') })) },
+      { key: 'model', class: 'wide-only', render: r => modelText(field(r, 'model_ref')) },
+      { key: 'lastUsed', class: 'nowrap', render: r => timeCell(field(r, 'last_used_at', field(r, 'created_at'))) },
+      { key: 'actions', render: r => e('div', { class: 'actions' }, r.status !== 'archived' && capability(snapshot, 'followup', r) ? button('followup', () => openInstanceTask(r), 'small') : null) }
+    ], filtered(rows, options), { rowLink: open })];
   }
   function renderInstance(snapshot) {
     const item = snapshot.instance; if (!item) return [title('instances'), empty('unavailable')];
-    return [literalTitle(display(item), 'instancesDesc', [button('back', () => navigate('instances')), refreshButton()]), section('details', e('div', { class: 'panel-body' }, definition([['id', item.id], ['status', badge(item.status)], ['sessionState', badge(field(item, 'child_session_state'))], ['ownerSession', field(item, 'owner_session_id')], ['profile', field(item, 'agent_profile')], ['target', field(item, 'target_name', target(item))]]), instanceActions(snapshot, item), e('details', {}, e('summary', { text: t('details') }), code(item))))];
+    const childSession = field(item, 'child_session_id'); const owner = field(item, 'owner_session_id');
+    return [literalTitle(instanceName(item), e('span', { class: 'title-meta' }, e('span', { class: 'mono', text: instanceID(item) || '' }), e('span', { text: t('instancesDesc') })), [refreshButton(), ...instanceActions(snapshot, item)]),
+      e('div', { class: 'stack narrow' }, section('details', e('div', { class: 'panel-body' }, definition([
+          ['status', badge(item.status)], ['sessionState', badge(field(item, 'child_session_state'))], ['profile', refText(field(item, 'agent_profile'))],
+          ['agentType', field(item, 'agent_type')], ['model', refText(field(item, 'model_ref'))], ['permissionPolicy', field(item, 'permission_policy')],
+          ['target', targetLabel(item)], ['createdAt', timeCell(field(item, 'created_at'))], ['lastUsed', timeCell(field(item, 'last_used_at'))],
+          childSession ? ['childSession', linkTo(shortID(childSession), 'session', { name: childSession, target: target(item) })] : null,
+          owner ? ['ownerSession', linkTo(shortID(owner), 'session', { name: owner })] : null]), e('details', {}, e('summary', { text: t('rawRecord') }), code(item)))))];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Schedules.
+  // ---------------------------------------------------------------------------
+  // last_status is "ok:task:<id>", "skipped:<why>", "error: <detail>" or a state.
+  function parseRunStatus(raw) {
+    const text = String(raw || '');
+    const match = text.match(/^(ok|error|skipped|submitting|failed)(?::\s*([\s\S]*))?$/);
+    if (!match) return { status: text, taskID: '', detail: '' };
+    const rest = match[2] || '';
+    const task = rest.match(/^task:(\S+)$/);
+    return { status: match[1], taskID: task ? task[1] : '', detail: task ? '' : rest };
+  }
+  function scheduleTypeLabel(type) { return type === 'session-prompt' ? t('sessionPrompt') : type === 'subtask' ? t('subtask') : type || t('unknown'); }
+  const scheduleID = row => row.id || row.schedule_id;
+  function scheduleToggle(snapshot, row, small) {
+    const action = row.enabled ? 'disable' : 'enable';
+    return actionButton(snapshot, 'schedules', action, { schedule_id: scheduleID(row) }, { key: action, item: row, name: row.name || '#' + scheduleID(row), tone: small ? 'small' : '' });
   }
   function renderSchedules(snapshot) {
-    const rows = list(snapshot, 'schedules');
-    return [title('schedules', 'schedulesDesc', [refreshButton(), capability(snapshot, 'create') ? button('newSchedule', () => openScheduleForm(), 'primary', 'plus') : null]), filters(rows), table([
-      { key: 'schedules', render: row => rowName(row, 'schedule', { schedule_id: row.id }) }, { key: 'scheduleType', render: row => row.schedule_type === 'session-prompt' ? t('sessionPrompt') : row.schedule_type === 'subtask' ? t('subtask') : row.schedule_type || t('unknown') },
-      { key: 'spec', render: row => e('code', { text: row.spec || '' }) }, { key: 'status', render: row => badge(row.enabled ? 'enabled' : 'paused') }, { key: 'nextRun', render: row => date(row.next_run_at) },
-      { key: 'actions', render: row => scheduleActions(snapshot, row) }
-    ], filtered(rows)), e('p', { class: 'note', text: t('schedulePauseNote') })];
-  }
-  function scheduleActions(snapshot, row) {
-    const id = row.id || row.schedule_id;
-    return e('div', { class: 'actions' }, button('open', () => navigate('schedule', { schedule_id: id })), capability(snapshot, 'update', row) ? button('edit', () => openScheduleForm(row)) : null,
-      actionButton(snapshot, 'schedules', row.enabled ? 'disable' : 'enable', { schedule_id: id }, row.enabled ? 'disable' : 'enable', row, true), actionButton(snapshot, 'schedules', 'delete', { schedule_id: id }, 'delete', row, true));
+    const next = row => { const d = row.enabled && toDate(row.next_run_at); return d ? d.valueOf() : Infinity; };
+    const rows = list(snapshot, 'schedules').slice().sort((a, b) => (b.enabled === true) - (a.enabled === true) || (next(a) === next(b) ? 0 : next(a) - next(b)) || scheduleID(a) - scheduleID(b));
+    const options = { stateOf: r => r.enabled ? 'enabled' : 'paused' };
+    const open = r => () => navigate('schedule', { schedule_id: scheduleID(r) });
+    return [title('schedules', 'schedulesDesc', [refreshButton(), capability(snapshot, 'create') ? button('newSchedule', () => openScheduleForm(), 'primary', 'plus') : null]), filters(rows, options), dataTable([
+      { key: 'schedules', render: r => cellTitle(r.name || '#' + scheduleID(r), ['#' + scheduleID(r), scheduleTypeLabel(r.schedule_type)], open(r)) },
+      { key: 'spec', render: r => e('code', { class: 'spec', text: r.spec || '' }) },
+      { key: 'status', render: r => badge(r.enabled ? 'enabled' : 'paused') },
+      { key: 'nextRun', class: 'nowrap', render: r => r.enabled ? timeCell(r.next_run_at) : dash() },
+      { key: 'lastRun', render: r => { const last = parseRunStatus(r.last_status); return e('div', { class: 'badges' }, timeCell(r.last_run_at), last.status ? badge(last.status) : null); } },
+      { key: 'actions', render: r => e('div', { class: 'actions' }, capability(snapshot, 'update', r) ? button('edit', () => openScheduleForm(r), 'small') : null, scheduleToggle(snapshot, r, true)) }
+    ], filtered(rows, options), { rowLink: open }), e('p', { class: 'note', text: t('schedulePauseNote') })];
   }
   function renderSchedule(snapshot) {
     const item = snapshot.schedule; if (!item) return [title('schedule'), empty('unavailable')];
-    const history = list(snapshot, 'runs').length ? list(snapshot, 'runs') : list(item, 'runs');
-    return [literalTitle(display(item), 'schedulesDesc', [button('back', () => navigate('schedules')), refreshButton()]),
-      section('details', e('div', { class: 'panel-body' }, definition([['id', item.id], ['scheduleType', item.schedule_type], ['status', badge(item.enabled ? 'enabled' : 'paused')], ['spec', item.spec], ['target', item.target_name || item.target_id], ['sessionName', item.session_name], ['nextRun', date(item.next_run_at)], ['lastRun', date(item.last_run_at)], ['result', item.last_status || t('unknown')]]), item.prompt ? code(item.prompt) : null, scheduleActions(snapshot, item))),
-      e('div', { class: 'stack spaced' }, section('history', table([{ key: 'firedAt', render: row => date(row.fired_at) }, { key: 'status', render: row => badge(row.status) }, { key: 'taskID', render: row => row.task_id ? e('button', { type: 'button', class: 'link-button', text: row.task_id, onclick: () => navigate('task', { task_id: row.task_id }) }) : t('unknown') }], history))), e('p', { class: 'note', text: t('schedulePauseNote') })];
+    const id = scheduleID(item);
+    const task = snapshot.task || item.task || null;
+    const last = parseRunStatus(item.last_status);
+    const runs = (list(snapshot, 'runs').length ? list(snapshot, 'runs') : list(item, 'runs')).slice().sort((a, b) => Number(b.fired_at || 0) - Number(a.fired_at || 0));
+    const content = item.schedule_type === 'subtask' && task
+      ? [definition([['taskProfile', refText(task.agent)], ['agentType', task.runtime], ['model', refText(task.model)], ['reasoningEffort', task.reasoning_effort]]), task.task ? e('p', { class: 'prose', text: task.task }) : null]
+      : item.prompt ? e('p', { class: 'prose', text: item.prompt }) : dash();
+    return [literalTitle(item.name || '#' + id, scheduleTypeLabel(item.schedule_type), [refreshButton(), capability(snapshot, 'update', item) ? button('edit', () => openScheduleForm(item)) : null, scheduleToggle(snapshot, item), actionButton(snapshot, 'schedules', 'delete', { schedule_id: id }, { key: 'delete', item, name: item.name || '#' + id, tone: 'danger' })]),
+      e('div', { class: 'detail-grid' },
+        e('div', { class: 'stack' },
+          section('scheduleContent', e('div', { class: 'panel-body stack' }, content)),
+          section('history', dataTable([
+            { key: 'firedAt', render: row => timeCell(row.fired_at) },
+            { key: 'status', render: row => { const parsed = parseRunStatus(row.status); return e('div', {}, badge(parsed.status), parsed.detail ? e('p', { class: 'cell-sub', text: parsed.detail }) : null); } },
+            { key: 'taskID', render: row => { const tid = row.task_id || parseRunStatus(row.status).taskID; return tid ? linkTo(shortID(tid), 'task', { task_id: tid }) : dash(); } }
+          ], runs, { pageSize: 20, emptyKey: 'noRuns', emptyHint: false }))),
+        e('aside', { class: 'stack' }, section('details', e('div', { class: 'panel-body' }, definition([
+          ['id', '#' + id], ['status', badge(item.enabled ? 'enabled' : 'paused')], ['spec', e('code', { class: 'spec', text: item.spec || '' })],
+          ['target', item.target_name || item.target_id], ['sessionName', item.session_name], ['runMode', item.run_mode],
+          ['nextRun', item.enabled ? timeCell(item.next_run_at) : ''], ['lastRun', timeCell(item.last_run_at)],
+          ['lastResult', last.status ? e('div', { class: 'stack tight' }, e('div', { class: 'badges' }, badge(last.status), last.taskID ? linkTo(shortID(last.taskID), 'task', { task_id: last.taskID }) : null), last.detail ? e('p', { class: 'cell-sub', text: last.detail }) : null) : '']]))),
+          e('p', { class: 'note', text: t('schedulePauseNote') })))];
   }
+
+  // ---------------------------------------------------------------------------
+  // Bots, chats, profiles, packs, credentials and settings.
+  // ---------------------------------------------------------------------------
   function renderBots(snapshot) {
     const rows = list(snapshot, 'bots');
-    return [title('bots', 'botsDesc', refreshButton()), filters(rows, 'no-state'), table([
-      { key: 'bots', render: row => e('div', {}, e('strong', { text: display(row) }), e('p', { class: 'mono', text: row.profile || row.id || '' })) }, { key: 'status', render: row => badge(row.status) }, { key: 'version', render: row => String(row.version ?? t('unknown')) },
-      { key: 'profile', render: row => row.settings && (row.settings.default_agent || row.settings.agent_profile || row.settings.profile) || t('unknown') }, { key: 'actions', render: row => e('div', { class: 'actions' }, button('open', () => openBotForm(row, false)), capability(snapshot, 'save', row) ? button('edit', () => openBotForm(row, true)) : null, button('groups', () => navigate('groups', { profile: row.profile || row.id }))) }
-    ], filtered(rows))];
+    const settings = row => row.settings || {};
+    return [title('bots', 'botsDesc', refreshButton()), filters(rows, { noState: true }), dataTable([
+      { key: 'bots', render: row => cellTitle(display(row), [e('span', { class: 'mono', text: row.profile || row.id || '' })]) },
+      { key: 'status', render: row => badge(row.status) },
+      { key: 'profile', render: row => refText(settings(row).default_agent || settings(row).agent_profile || settings(row).profile) },
+      { key: 'agentType', render: row => e('div', {}, settings(row).default_runtime_ref || dash(), e('p', { class: 'cell-sub' }, settings(row).default_model_ref ? refText(settings(row).default_model_ref) : null)) },
+      { key: 'interactionMode', class: 'wide-only', render: row => settings(row).interaction_mode ? optionLabel(settings(row).interaction_mode) : dash() },
+      { key: 'version', class: 'wide-only', render: row => String(row.version ?? '—') },
+      { key: 'actions', render: row => e('div', { class: 'actions' }, button('open', () => openBotForm(row, false), 'small'), capability(snapshot, 'save', row) ? button('edit', () => openBotForm(row, true), 'small') : null, button('groups', () => navigate('groups', { profile: row.profile || row.id }), 'small quiet')) }
+    ], filtered(rows), { emptyKey: 'noBots', emptyHint: 'noBotsHint' })];
   }
+  function groupTitle(row) { return [row.name, row.title, row.chat_name].find(value => value && value !== (row.chat_id || row.id)) || row.chat_id || row.id || t('unknown'); }
   function renderGroups(snapshot) {
     const rows = list(snapshot, 'groups');
-    return [title('groups', 'groupsDesc', refreshButton()), e('p', { class: 'rail group-note', text: t('knownBindings') }), filters(rows, 'no-state'), table([
-      { key: 'groups', render: row => e('div', {}, e('strong', { text: row.name || row.chat_name || row.chat_id || row.id }), e('p', { class: 'mono', text: row.chat_id || row.id || '' })) },
-      { key: 'bots', render: row => row.profile || snapshot.profile || t('unknown') }, { key: 'source', render: row => row.source || snapshot.source || t('unknown') },
-      { key: 'actions', render: row => e('div', { class: 'actions' }, button('open', () => openGroupForm(row, snapshot))) }
-    ], filtered(rows)), snapshot.settings && state.route.params.chat_id ? section('settings', e('div', { class: 'panel-body' }, definition([['source', snapshot.source], ['profile', snapshot.profile]]), code(snapshot.settings), capability(snapshot, 'save') ? button('edit', () => editGroupSettings(snapshot, snapshot.settings)) : null)) : null];
+    return [title('groups', 'groupsDesc', refreshButton()), e('p', { class: 'rail group-note', text: t('knownBindings') }), filters(rows, { noState: true }), dataTable([
+      { key: 'groups', render: row => { const name = groupTitle(row); const id = row.chat_id || row.id || ''; return cellTitle(name, [name !== id ? e('span', { class: 'mono', text: id }) : null], () => openGroupForm(row, snapshot)); } },
+      { key: 'bots', render: row => row.profile || snapshot.profile || dash() },
+      { key: 'source', render: row => stateLabel(row.source || snapshot.source) },
+      { key: 'actions', render: row => button('open', () => openGroupForm(row, snapshot), 'small') }
+    ], filtered(rows), { rowLink: row => () => openGroupForm(row, snapshot) }), snapshot.settings && state.route.params.chat_id ? section('settings', e('div', { class: 'panel-body' }, definition([['source', snapshot.source], ['profile', snapshot.profile]]), code(snapshot.settings), capability(snapshot, 'save') ? button('edit', () => editGroupSettings(snapshot, snapshot.settings)) : null)) : null];
   }
+  const profileRef = row => row.ref || row.profile || row.name || '';
+  function profileNamespace(row) { const ref = profileRef(row); return ref.includes('/') ? ref.split('/')[0] : row.namespace || row.source || ''; }
+  // Namespaces are identifiers, so a value with parentheses cannot collide with
+  // one; it keeps "no namespace" distinct from the empty "all" filter value.
+  const noNamespace = '(none)';
+  function skillNames(row) { return list(row, 'skills').map(skill => typeof skill === 'string' ? skill : skill.name || skill.ref || '').filter(Boolean); }
   function renderProfiles(snapshot) {
-    const rows = list(snapshot, 'profiles');
-    const cards = filtered(rows).map(row => e('section', { class: 'panel profile-card' },
-      e('div', { class: 'avatar', text: display(row).slice(0, 1) }), e('h2', { text: display(row) }),
-      e('code', { class: 'muted', text: row.ref || row.profile || '' }), e('p', { text: row.description || '' }),
-      definition([['source', row.namespace || row.pack || row.source], ['skills', Array.isArray(row.skills) ? row.skills.map(skill => typeof skill === 'string' ? skill : skill.name).join(' · ') : t('unknown')]]),
-      e('footer', {}, e('span', { class: 'muted', text: row.version || row.revision || '' }), button('definition', () => navigate('profile', { ref: row.ref || row.profile || row.name })))));
-    return [title('profiles', 'profilesDesc', refreshButton()), filters(rows, 'no-state'), e('div', { class: 'profile-grid' }, cards), !rows.length ? empty() : null];
+    const rows = list(snapshot, 'profiles').slice().sort((a, b) => profileRef(a).localeCompare(profileRef(b)));
+    const f = filterState('profiles');
+    const namespaces = [...rows.reduce((map, row) => map.set(profileNamespace(row), (map.get(profileNamespace(row)) || 0) + 1), new Map()).entries()];
+    const wanted = f.namespace === noNamespace ? '' : f.namespace;
+    const visible = filtered(rows).filter(row => !f.namespace || profileNamespace(row) === wanted);
+    const cards = visible.map(row => {
+      const ref = profileRef(row); const open = () => navigate('profile', { ref });
+      const name = row.name || row.display_name || ref.split('/').slice(1).join('/') || ref;
+      const skills = skillNames(row);
+      return e('section', { class: 'panel profile-card clickable', onclick: rowClick(open) },
+        e('header', {}, e('h2', { text: name }), chip(profileNamespace(row) || t('unknown'), 'blue')),
+        e('code', { class: 'muted ref', title: ref, text: shortRef(ref) }),
+        row.description ? e('p', { class: 'clamp', text: row.description }) : e('p', { class: 'muted', text: t('noDescription') }),
+        skills.length ? e('div', { class: 'chips' }, skills.slice(0, 6).map(skill => chip(skill)), skills.length > 6 ? chip('+' + (skills.length - 6), 'quiet') : null) : null,
+        e('footer', {}, e('span', { class: 'muted', text: row.version || row.revision || t('skillCount', { count: skills.length }) }), button('definition', open, 'small')));
+    });
+    return [title('profiles', 'profilesDesc', refreshButton()),
+      namespaces.length > 1 ? tabs([['', t('all'), rows.length], ...namespaces.map(([ns, count]) => [ns || noNamespace, ns || t('unknown'), count])], f.namespace, value => { f.namespace = value; renderPage(); }) : null,
+      filters(rows, { noState: true }), visible.length ? e('div', { class: 'profile-grid' }, cards) : empty()];
   }
   function renderProfile(snapshot) {
     const item = snapshot.profile; if (!item) return [title('profiles'), empty('unavailable')];
     const skills = list(item, 'skills');
-    return [literalTitle(display(item), 'profilesDesc', [button('back', () => navigate('profiles')), refreshButton()]),
-      section('definition', e('div', { class: 'panel-body' }, definition([['profile', item.ref || item.profile || item.name], ['description', item.description], ['source', item.namespace || item.source || item.pack], ['version', item.version || item.revision]]),
-        item.instructions || item.system_prompt || item.prompt ? code(item.instructions || item.system_prompt || item.prompt) : null,
-        skills.length ? e('div', { class: 'stack' }, e('h3', { text: t('skills') }), skills.map(skill => typeof skill === 'string' ? e('div', { class: 'rail', text: skill }) : e('div', { class: 'rail' }, e('div', {}, e('strong', { text: skill.name || skill.ref || '' }), e('p', { class: 'help', text: skill.description || skill.source || '' }))))) : null,
-        e('details', {}, e('summary', { text: t('advanced') }), code(item))))];
+    const placement = item.placement || {}; const requires = placement.requires || {};
+    const joined = values => values.filter(Boolean).join(', ');
+    return [literalTitle(item.name || profileRef(item), e('span', { class: 'mono', text: profileRef(item) }), refreshButton()),
+      e('div', { class: 'detail-grid' },
+        e('div', { class: 'stack' },
+          item.description ? section('description', e('div', { class: 'panel-body' }, e('p', { class: 'prose', text: item.description }))) : null,
+          item.instructions || item.system_prompt || item.prompt ? section('instructions', e('div', { class: 'panel-body' }, code(item.instructions || item.system_prompt || item.prompt))) : null,
+          section('skills', skills.length ? e('div', { class: 'skill-list' }, skills.map(skill => typeof skill === 'string' ? e('div', { class: 'skill' }, e('strong', { text: skill })) : e('div', { class: 'skill' }, e('strong', { text: skill.name || skill.ref || '' }), skill.description || skill.source ? e('p', { class: 'help', text: skill.description || skill.source }) : null))) : empty('noSkills', false, true), chip(String(skills.length)))),
+        e('aside', { class: 'stack' }, section('details', e('div', { class: 'panel-body' }, definition([
+          ['profile', e('span', { class: 'mono path', text: profileRef(item) })], ['source', item.namespace || item.source || item.pack], ['version', item.version || item.revision],
+          ['instructionFiles', item.agents], ['preferredTargets', joined(list(placement, 'preferred_targets'))],
+          ['requiredCredentials', joined(list(requires, 'credentials'))], ['requiredAgentTypes', joined(list(requires, 'agent_types'))]]),
+          e('details', {}, e('summary', { text: t('rawRecord') }), code(item))))))];
   }
+  function packFlags(row) {
+    return e('div', { class: 'chips' }, row.temporary ? chip(t('temporaryPack'), 'warn') : null, row.development_of ? chip(t('developmentPack'), 'blue', row.development_of) : null,
+      row.auto_sync ? chip(t('autoSync'), 'good', row.sync_interval || null) : null, row.error_code ? chip(t('syncFailed'), 'bad') : null, row.managed_by ? chip(t('managedPack'), '', row.managed_by) : null);
+  }
+  const revisionText = rev => rev ? e('span', { class: 'mono', title: String(rev), text: String(rev).slice(0, 12) }) : dash();
   function renderPacks(snapshot) {
-    const rows = list(snapshot, 'packs');
-    return [title('packs', 'packsDesc', [refreshButton(), capability(snapshot, 'install') ? button('install', openInstallPack, 'primary', 'plus') : null]), filters(rows, 'no-state'), table([
-      { key: 'packs', render: row => e('div', {}, e('strong', { text: row.namespace || row.name || row.id || '' }), e('p', { text: row.source_host || row.source_kind || row.url || row.source || '' })) }, { key: 'revision', render: row => row.revision || row.current_revision || row.ref || row.version || t('unknown') },
-      { key: 'actions', render: row => e('div', { class: 'actions' }, button('definition', () => showObject('packs', row)), actionButton(snapshot, 'packs', 'sync', { namespace: row.namespace || row.name }, 'sync', row, true), capability(snapshot, 'rollback', row) ? button('rollback', () => openRollbackPack(row), 'danger') : null) }
-    ], filtered(rows))];
+    const rows = list(snapshot, 'packs').slice().sort((a, b) => String(a.namespace || '').localeCompare(String(b.namespace || '')));
+    return [title('packs', 'packsDesc', [refreshButton(), capability(snapshot, 'install') ? button('install', openInstallPack, 'primary', 'plus') : null]), filters(rows, { noState: true }), dataTable([
+      { key: 'packs', render: row => cellTitle(row.namespace || row.name || row.id || '', [row.display_name, row.source_host || row.source_kind]) },
+      { key: 'ref', class: 'wide-only', render: row => row.ref ? e('span', { class: 'mono', text: row.ref }) : dash() },
+      { key: 'currentRevision', render: row => revisionText(row.current_revision || row.revision) },
+      { key: 'lastSynced', render: row => timeCell(row.last_synced_at) },
+      { key: 'flags', render: packFlags },
+      { key: 'actions', render: row => e('div', { class: 'actions' }, button('details', () => showPack(row), 'small'), actionButton(snapshot, 'packs', 'sync', { namespace: row.namespace || row.name }, { key: 'sync', item: row, name: row.namespace, tone: 'small' }), capability(snapshot, 'rollback', row) && list(row, 'versions').length > 1 ? button('rollback', () => openRollbackPack(row), 'danger small') : null) }
+    ], filtered(rows), { emptyKey: 'noPacks', emptyHint: 'noPacksHint' })];
   }
+  function showPack(pack) {
+    modal('details', body => body.append(definition([['namespace', pack.namespace], ['source', pack.source_host || pack.source_kind], ['ref', pack.ref], ['currentRevision', e('span', { class: 'mono path', text: pack.current_revision || '' })], ['lastSynced', timeCell(pack.last_synced_at)], ['flags', packFlags(pack)]]),
+      e('h3', { class: 'subhead', text: t('versions') }),
+      list(pack, 'versions').length ? e('table', { class: 'table compact' }, e('thead', {}, e('tr', {}, ['revision', 'ref', 'lastSynced'].map(key => e('th', { text: t(key) })))), e('tbody', {}, list(pack, 'versions').map(v => e('tr', {}, e('td', {}, revisionText(v.revision)), e('td', { text: v.ref || '—' }), e('td', {}, timeCell(v.synced_at)))))) : dash(),
+      e('div', { class: 'form-actions' }, button('close', () => closeModal()))));
+  }
+  function nameChips(values) { return values.length ? e('div', { class: 'chips' }, values.map(name => chip(name, 'mono'))) : dash(); }
   function renderCredentials(snapshot) {
     const rows = list(snapshot, 'profiles').length ? list(snapshot, 'profiles') : list(snapshot, 'credentials');
-    return [title('credentials', 'credentialsDesc', refreshButton()), e('div', { class: 'rail secret-note' }, icon('shield'), t('secretHidden')), filters(rows, 'no-state'), table([
-      { key: 'credentialProfile', render: row => row.profile || row.name || '' }, { key: 'kind', render: row => row.kind || t('unknown') },
-      { key: 'envNames', render: row => list(row, 'env_names').join(', ') || '—' }, { key: 'fileNames', render: row => list(row, 'file_names').join(', ') || '—' }
+    return [title('credentials', 'credentialsDesc', refreshButton()), e('div', { class: 'rail secret-note' }, icon('shield'), t('secretHidden')), filters(rows, { noState: true }), dataTable([
+      { key: 'credentialProfile', render: row => e('strong', { class: 'mono', text: row.profile || row.name || '' }) }, { key: 'kind', render: row => stateLabel(row.kind) },
+      { key: 'envNames', render: row => nameChips(list(row, 'env_names')) }, { key: 'fileNames', render: row => nameChips(list(row, 'file_names')) }
     ], filtered(rows))];
+  }
+  // Server keys stay authoritative; this table only supplies labels and controls.
+  const settingMeta = {
+    'bridge.feishu.group_settings.enabled': { section: 'settingsFeishu', label: 'setting.groupSettings', help: 'setting.groupSettingsHelp', type: 'boolean' },
+    'bridge.feishu.presentation.thinking_process': { section: 'settingsFeishu', label: 'setting.thinking', help: 'setting.thinkingHelp', type: ['collapsed', 'expanded'] },
+    'bridge.feishu.presentation.completion_notification_enabled': { section: 'settingsFeishu', label: 'setting.completion', help: 'setting.completionHelp', type: 'boolean' },
+    'bridge.feishu.presentation.completion_notification_after_seconds': { section: 'settingsFeishu', label: 'setting.completionAfter', help: 'setting.completionAfterHelp', type: 'number' },
+    'maintenance.daily_cleanup.enabled': { section: 'settingsMaintenance', label: 'setting.cleanup', help: 'setting.cleanupHelp', type: 'boolean' },
+    'maintenance.daily_cleanup.at': { section: 'settingsMaintenance', label: 'setting.cleanupAt', help: 'setting.cleanupAtHelp', type: 'time' }
+  };
+  function settingControl(row, value, writable, onchange) {
+    const meta = settingMeta[row.key] || {};
+    const attrs = { id: 'setting-' + row.key, name: row.key, disabled: !writable };
+    if (meta.type === 'boolean' || Array.isArray(meta.type)) {
+      const options = meta.type === 'boolean' ? [{ value: 'true', label: t('booleanTrue') }, { value: 'false', label: t('booleanFalse') }] : meta.type.map(v => ({ value: v, label: optionLabel(v) }));
+      if (!options.some(o => o.value === value)) options.push({ value, label: value });
+      return selectOptions(options, value, onchange, attrs);
+    }
+    const input = e('input', Object.assign(attrs, { value, type: meta.type === 'number' ? 'number' : meta.type === 'time' ? 'time' : 'text', min: meta.type === 'number' ? '0' : null, oninput: ev => onchange(ev.target.value) }));
+    return input;
   }
   function renderSettings(snapshot) {
     const rows = list(snapshot, 'settings');
     const key = 'settings-draft:' + snapshot.version;
     const draft = state.drafts.get(key) || {};
-    const dirty = () => Object.keys(draft).filter(k => String(rows.find(r => r.key === k).value) !== draft[k]);
+    const canSave = capability(snapshot, 'save');
+    const dirty = () => Object.keys(draft).filter(k => { const row = rows.find(r => r.key === k); return row && String(row.value) !== draft[k]; });
+    const changeNote = e('span', { class: 'chip warn', hidden: !dirty().length, text: t('dirty') });
     const save = button('save', async () => {
       const values = Object.fromEntries(dirty().map(k => [k, draft[k]]));
       if (!Object.keys(values).length) return;
@@ -654,21 +1279,29 @@
       try { const response = await write('settings', 'save', { expected_version: snapshot.version, values }); state.drafts.delete(key); notify(t(response.restart_required ? 'restartRequired' : 'saved')); await loadRoute(); }
       catch (error) { notify(errorMessage(error, true), true); save.disabled = !state.online; }
     }, 'primary');
-    const changeNote = e('span', { class: 'muted', text: dirty().length ? t('dirty') : '' });
+    const refreshDirty = () => { const changed = dirty().length; save.disabled = !state.online || !changed; changeNote.hidden = !changed; };
     save.disabled = !state.online || !dirty().length;
-    const panels = rows.map(row => {
-      const control = capability(snapshot, 'save') && row.writable === true ? e('input', {
-        id: 'setting-' + row.key, value: own(draft, row.key) ? draft[row.key] : String(row.value ?? ''),
-        oninput: event => { draft[row.key] = event.target.value; state.drafts.set(key, draft); save.disabled = !state.online || !dirty().length; changeNote.textContent = dirty().length ? t('dirty') : ''; }
-      }) : e('span', { text: String(row.value ?? '') });
-      return e('section', { class: 'panel panel-body' }, e('div', { class: 'form-row' },
-        e('label', { for: 'setting-' + row.key, class: 'mono', text: row.key }),
-        e('div', { class: 'form-field' }, control, row.description ? e('p', { class: 'help', text: row.description }) : null, row.restart_required ? e('p', { class: 'help', text: t('restartRequired') }) : null)));
-    });
-    return [title('settings', 'settingsDesc', [refreshButton(), capability(snapshot, 'save') ? save : null]), changeNote,
-      e('div', { class: 'stack' }, panels), !rows.length ? empty() : null];
+    const sections = new Map();
+    for (const row of rows) {
+      const meta = settingMeta[row.key] || { section: 'settingsOther' };
+      const value = own(draft, row.key) ? draft[row.key] : String(row.value ?? '');
+      const control = settingControl(row, value, canSave && row.writable === true, next => { draft[row.key] = next; state.drafts.set(key, draft); refreshDirty(); });
+      const label = meta.label ? t(meta.label) : row.key;
+      const node = e('div', { class: 'setting-row' },
+        e('div', { class: 'setting-label' }, e('label', { for: 'setting-' + row.key, text: label }), e('code', { class: 'muted', text: row.key }), meta.help ? e('p', { class: 'help', text: t(meta.help) }) : row.description ? e('p', { class: 'help', text: row.description }) : null),
+        e('div', { class: 'setting-control' }, control, row.inherited ? chip(t('defaultValue'), 'quiet') : null));
+      if (!sections.has(meta.section)) sections.set(meta.section, []);
+      sections.get(meta.section).push(node);
+    }
+    return [title('settings', 'settingsDesc', [refreshButton(), changeNote, canSave ? save : null]),
+      rows.some(row => row.restart_required) ? e('div', { class: 'banner', role: 'note' }, icon('alert'), t('restartNotice')) : null,
+      rows.length ? e('div', { class: 'stack' }, [...sections.entries()].map(([name, nodes]) => section(name, e('div', { class: 'setting-list' }, nodes)))) : empty()];
   }
-  // Dialogs retain drafts in memory only. No messages, credentials or tokens enter storage.
+
+  // ---------------------------------------------------------------------------
+  // Dialogs. Drafts stay in memory only: no messages, credentials or tokens
+  // enter storage.
+  // ---------------------------------------------------------------------------
   function captureModal() {
     if (!state.modal) return null;
     const values = {};
@@ -689,7 +1322,7 @@
     const previousFocus = document.activeElement;
     const body = e('div', { class: 'modal-body' });
     const panel = e('section', { class: 'modal ' + (options && options.small ? 'small' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'modal-title', tabindex: '-1' }, e('div', { class: 'modal-head' }, e('h2', { id: 'modal-title', text: t(key) }), iconButton('close', 'close', () => closeModal())), body);
-    const backdrop = e('div', { class: 'backdrop' }, panel);
+    const backdrop = e('div', { class: 'backdrop', onclick: ev => { if (ev.target === backdrop) closeModal(); } }, panel);
     const current = { key, previousFocus, pending: false, rebuild: options && options.rebuild };
     state.modal = current;
     panel.addEventListener('keydown', event => {
@@ -739,13 +1372,13 @@
     }, { rebuild: opts.rebuild });
   }
   function showObject(key, object) { modal(key, body => body.append(code(object), e('div', { class: 'form-actions' }, button('close', () => closeModal())))); }
-  function confirmAction(action, name) {
+  function confirmAction(action, name, danger) {
     return new Promise(resolve => {
       modal('confirm', (body, current) => {
-        body.appendChild(e('p', { text: t('confirmDanger', { action: t(action), name: name || t('unknown') }) }));
+        body.appendChild(e('p', { class: 'prose', text: t(danger ? 'confirmDanger' : 'confirmAction', { action: t(action), name: name || t('unknown') }) }));
         const finish = value => { current.resolved = true; closeModal(true); resolve(value); };
         current.onClose = () => { if (!current.resolved) resolve(false); };
-        body.appendChild(e('div', { class: 'form-actions' }, button('cancel', () => finish(false)), button('confirm', () => finish(true), 'danger')));
+        body.appendChild(e('div', { class: 'form-actions' }, button('cancel', () => finish(false)), button('confirm', () => finish(true), danger ? 'danger solid' : 'primary')));
       }, { small: true });
     });
   }
@@ -783,7 +1416,7 @@
     runtime.addEventListener('change', () => { model.value = ''; update(); }); update(); if (previous) model.value = previous;
   }
   function openInstanceMessage(row, action) {
-    formDialog('send', [formField('text', 'text', 'textarea', '', { required: true })], data => write('instances', action, { agent_instance_id: row.id || row.agent_instance_id, text: data.text }), { submitKey: 'send' });
+    formDialog(action === 'steer' ? 'steer' : 'sendMessage', [formField('text', 'text', 'textarea', '', { required: true })], data => write('instances', action, { agent_instance_id: instanceID(row), text: data.text }), { submitKey: 'send', help: action === 'steer' ? 'steerHelp' : 'sendMessageHelp' });
   }
   function taskFields(task) {
     const value = task || {};
@@ -804,15 +1437,15 @@
       if (data.timeout_seconds) { payload.timeout_seconds = Number(data.timeout_seconds); if (!Number.isInteger(payload.timeout_seconds) || payload.timeout_seconds < 0) throw new APIError(t('invalidField', { field: t('timeout') })); }
       if (data.workspace) payload.workspace = safeSettings(data.workspace);
       if (data.extra_args) payload.extra_args = data.extra_args.split('\n').filter(Boolean);
-      if (item) payload.agent_instance_id = item.id || item.agent_instance_id;
+      if (item) payload.agent_instance_id = instanceID(item);
       await write('instances', item ? 'followup' : 'spawn', payload);
-    }, { submitKey: 'create', draftKey: 'instance-task:' + (item ? item.id : 'new'), rebuild: saved => openInstanceTask(item, saved) });
+    }, { submitKey: 'create', draftKey: 'instance-task:' + (item ? instanceID(item) : 'new'), rebuild: saved => openInstanceTask(item, saved) });
   }
   async function openScheduleForm(item, values) {
     try {
       const edit = Boolean(item);
       if (edit && item.schedule_type === 'subtask' && !item.task) {
-        const detail = await get('schedule', { schedule_id: item.id || item.schedule_id });
+        const detail = await get('schedule', { schedule_id: scheduleID(item) });
         item = Object.assign({}, detail.schedule || item, { task: detail.task });
       }
       const p = Object.assign({}, item || {}, values || {});
@@ -823,7 +1456,7 @@
       if (!edit || item.schedule_type === 'subtask') fields.push(e('div', { id: 'task-schedule-fields', class: 'form' }, taskFields(task)));
       formDialog(edit ? 'edit' : 'newSchedule', fields, async data => {
         const payload = { name: data.name, spec: data.spec };
-        if (edit) payload.schedule_id = item.id || item.schedule_id;
+        if (edit) payload.schedule_id = scheduleID(item);
         else payload.schedule_type = data.schedule_type;
         if ((!edit && data.schedule_type === 'subtask') || edit && item.schedule_type === 'subtask') {
           payload.task = taskData(data, item && item.task);
@@ -833,7 +1466,7 @@
           if (!payload.target_id || !payload.session_name || !payload.prompt) throw new APIError(t('required'));
         }
         await write('schedules', edit ? 'update' : 'create', payload);
-      }, { submitKey: edit ? 'save' : 'create', draftKey: 'schedule:' + (item ? item.id : 'new'), rebuild: saved => openScheduleForm(item, saved) });
+      }, { submitKey: edit ? 'save' : 'create', draftKey: 'schedule:' + (item ? scheduleID(item) : 'new'), rebuild: saved => openScheduleForm(item, saved) });
       if (!edit) {
         const type = document.querySelector('#dialogs [name=schedule_type]');
         const update = () => {
@@ -857,7 +1490,7 @@
   ];
   function editableSettingFields(settings, definitions) {
     return definitions.map(([key, label, type]) => formField(key, label, type === 'number' ? 'number' : 'text', type === 'boolean' ? String(Boolean(settings[key])) : settings[key] ?? '', {
-      options: type === 'boolean' ? [{ value: 'true', label: t('booleanTrue') }, { value: 'false', label: t('booleanFalse') }] : Array.isArray(type) ? type.map(value => ({ value, label: labelState(value) })) : null
+      options: type === 'boolean' ? [{ value: 'true', label: t('booleanTrue') }, { value: 'false', label: t('booleanFalse') }] : Array.isArray(type) ? type.map(value => ({ value, label: optionLabel(value) })) : null
     }));
   }
   function readSettingFields(data, definitions) {
@@ -889,7 +1522,8 @@
   }
   function openBotForm(bot, editable, values) {
     if (!editable) {
-      modal('bots', body => body.append(definition([['profile', bot.profile], ['version', bot.version], ...botFieldDefinitions.map(([key, label]) => [label, typeof (bot.settings || {})[key] === 'boolean' ? t(bot.settings[key] ? 'booleanTrue' : 'booleanFalse') : (bot.settings || {})[key]])]), e('div', { class: 'form-actions' }, button('close', () => closeModal()))));
+      const settings = bot.settings || {};
+      modal('bots', body => body.append(definition([['bots', display(bot)], ['status', badge(bot.status)], ['version', String(bot.version ?? '')], ...botFieldDefinitions.map(([key, label, type]) => [label, typeof settings[key] === 'boolean' ? t(settings[key] ? 'booleanTrue' : 'booleanFalse') : Array.isArray(type) && settings[key] ? optionLabel(settings[key]) : settings[key]])]), e('div', { class: 'form-actions' }, button('close', () => closeModal()))));
       return;
     }
     const initial = Object.assign({}, bot.settings || {}, values || {});
@@ -909,7 +1543,7 @@
     const groupDefinitions = [...botFieldDefinitions, ['mode', 'governance', ['owner_only', 'shared']], ['thinking_process', 'thinkingProcess', ['collapsed', 'expanded']], ['default_target', 'defaultTarget'], ['default_cwd', 'cwd'], ['idle_timeout_seconds', 'idleTimeout', 'number'], ['thread_context_limit', 'threadContextLimit', 'number'], ['max_sessions_total', 'maxSessions', 'number'], ['max_sessions_per_user', 'maxSessionsPerUser', 'number']];
     const initial = Object.assign({}, settings, values || {});
     const advanced = e('details', {}, e('summary', { text: t('advanced') }), ...editableSettingFields(initial, groupDefinitions.slice(6)), formField('default_args', 'nativeArgs', 'textarea', values && values.default_args !== undefined ? values.default_args : list(settings, 'default_args').join('\n')));
-    formDialog('groups', [formField('profile', 'profile', 'text', snapshot.profile, { readonly: true }), formField('chat_id', 'chatID', 'text', snapshot.chat_id || state.route.params.chat_id, { readonly: true }), e('p', { class: 'rail', text: t('source') + ': ' + labelState(snapshot.settings_source === 'bot_defaults' ? 'botDefaults' : 'savedSettings') }), ...editableSettingFields(initial, groupDefinitions.slice(0, 6)), advanced], data => {
+    formDialog('groups', [formField('profile', 'profile', 'text', snapshot.profile, { readonly: true }), formField('chat_id', 'chatID', 'text', snapshot.chat_id || state.route.params.chat_id, { readonly: true }), e('p', { class: 'rail', text: t('source') + ': ' + t(snapshot.settings_source === 'bot_defaults' ? 'botDefaults' : 'savedSettings') }), ...editableSettingFields(initial, groupDefinitions.slice(0, 6)), advanced], data => {
       const next = Object.assign({}, settings, readSettingFields(data, groupDefinitions), { default_args: String(data.default_args || '').split('\n').filter(Boolean) });
       return write('groups', 'save', { profile: snapshot.profile, chat_id: snapshot.chat_id || state.route.params.chat_id, expected_version: settings.version || 0, settings: next });
     }, { draftKey: 'group:' + snapshot.profile + ':' + (snapshot.chat_id || state.route.params.chat_id) + ':' + settings.version, rebuild: saved => editGroupSettings(snapshot, settings, saved) });
@@ -919,42 +1553,99 @@
   }
   function openRollbackPack(pack) {
     const revisions = list(pack, 'versions').length ? list(pack, 'versions') : list(pack, 'revisions');
-    formDialog('rollback', [formField('namespace', 'namespace', 'text', pack.namespace || pack.name, { readonly: true }), formField('revision', 'revision', 'text', '', { required: true, options: revisions.length ? [{ value: '', label: t('unknown') }, ...revisions.map(r => ({ value: typeof r === 'string' ? r : r.revision || r.id, label: typeof r === 'string' ? r : r.revision || r.id }))] : null })], data => write('packs', 'rollback', Object.assign(data, { confirm: true })), { submitKey: 'rollback', confirm: pack.namespace || pack.name });
+    formDialog('rollback', [formField('namespace', 'namespace', 'text', pack.namespace || pack.name, { readonly: true }), formField('revision', 'revision', 'text', '', { required: true, options: revisions.length ? [{ value: '', label: t('selectRevision') }, ...revisions.map(r => ({ value: typeof r === 'string' ? r : r.revision || r.id, label: typeof r === 'string' ? r : [String(r.revision || r.id).slice(0, 12), r.synced_at ? date(r.synced_at) : ''].filter(Boolean).join(' · ') }))] : null })], data => write('packs', 'rollback', Object.assign(data, { confirm: true })), { submitKey: 'rollback', confirm: pack.namespace || pack.name });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Global search ranks identity matches above incidental content matches.
+  // ---------------------------------------------------------------------------
+  const searchResources = ['sessions', 'tasks', 'instances', 'schedules', 'bots', 'groups', 'profiles', 'packs'];
+  function searchKeys(resource, item) {
+    if (resource === 'tasks') return [taskTitle(item), taskID(item), item.summary];
+    if (resource === 'instances') return [item.name, instanceID(item), item.agent_profile];
+    return [display(item), String(ident(item)), field(item, 'agent_profile', ''), item.chat_id, item.ref];
+  }
+  function searchScore(resource, item, query) {
+    if (!query) return 1;
+    const keys = searchKeys(resource, item).filter(Boolean).map(value => String(value).toLocaleLowerCase());
+    if (keys.some(key => key === query)) return 100;
+    if (keys.some(key => key.startsWith(query))) return 80;
+    if (keys.some(key => key.split(/[\s/_.:-]+/).some(word => word.startsWith(query)))) return 70;
+    if (keys.some(key => key.includes(query))) return 60;
+    return JSON.stringify(item).toLocaleLowerCase().includes(query) ? 10 : 0;
+  }
+  // Equal scores prefer live objects, then the most recent activity.
+  function searchRank(record) {
+    const item = record.item;
+    return [record.score, isArchived(item) || isTerminalTask(item.status) ? 0 : 1, timeValue(item, ['last_activity_at', 'requested_at', 'last_used_at', 'updated_at'])];
+  }
+  function compareSearch(a, b) {
+    const left = searchRank(a); const right = searchRank(b);
+    for (let i = 0; i < left.length; i++) if (left[i] !== right[i]) return right[i] - left[i];
+    return 0;
+  }
+  function searchTarget(resource, item) {
+    const map = { sessions: ['session', sessionRef(item)], tasks: ['task', { task_id: taskID(item) }], instances: ['instance', { agent_instance_id: instanceID(item) }], schedules: ['schedule', { schedule_id: scheduleID(item) }], profiles: ['profile', { ref: profileRef(item) }] };
+    return map[resource] || null;
+  }
+  function searchLabel(resource, item) {
+    if (resource === 'tasks') return taskTitle(item);
+    if (resource === 'instances') return instanceName(item);
+    if (resource === 'groups') return groupTitle(item);
+    return display(item);
   }
   async function openSearch() {
-    const resources = ['sessions', 'tasks', 'instances', 'schedules', 'bots', 'groups', 'profiles', 'packs'];
     let records = []; let current = null; let query = '';
     modal('searchTitle', (body, modalState) => {
       current = modalState;
-      const resultHost = e('div', { class: 'search-results' });
-      const errors = e('div');
+      const resultHost = e('div', { class: 'search-results', role: 'listbox', 'aria-label': t('searchTitle') });
+      const status = e('div');
+      const results = () => [...resultHost.querySelectorAll('.search-result')];
       const input = e('input', { type: 'search', placeholder: t('search'), 'aria-label': t('search'), class: 'full-width', oninput: event => { query = event.target.value; draw(); } });
+      input.addEventListener('keydown', event => {
+        if (event.key === 'ArrowDown') { event.preventDefault(); const first = results()[0]; if (first) first.focus(); }
+        if (event.key === 'Enter') { event.preventDefault(); const first = results()[0]; if (first) first.click(); }
+      });
+      resultHost.addEventListener('keydown', event => {
+        const all = results(); const index = all.indexOf(document.activeElement);
+        if (event.key === 'ArrowDown' && index >= 0) { event.preventDefault(); (all[index + 1] || all[index]).focus(); }
+        if (event.key === 'ArrowUp' && index >= 0) { event.preventDefault(); (all[index - 1] || input).focus(); }
+      });
       function draw() {
-        const matches = records.filter(record => !query || JSON.stringify(record.item).toLocaleLowerCase().includes(query.toLocaleLowerCase())).slice(0, 100);
-        replace(resultHost, matches.length ? matches.map(({ resource, item }) => e('button', { type: 'button', class: 'search-result', onclick: () => {
+        const normalized = query.trim().toLocaleLowerCase();
+        const matches = records.map(record => Object.assign({ score: searchScore(record.resource, record.item, normalized) }, record)).filter(record => record.score > 0).sort(compareSearch).slice(0, 60);
+        replace(resultHost, matches.length ? matches.map(({ resource, item }) => e('button', { type: 'button', class: 'search-result', role: 'option', onclick: () => {
           closeModal();
-          const map = { sessions: ['session', sessionRef(item)], tasks: ['task', { task_id: item.task_id || item.id }], instances: ['instance', { agent_instance_id: item.id || item.agent_instance_id }], schedules: ['schedule', { schedule_id: item.id }], profiles: ['profile', { ref: item.ref || item.profile || item.name }] };
-          if (map[resource]) navigate(...map[resource]); else { filterState(resource).query = String(ident(item)); navigate(resource); }
-        } }, icon(resource), e('div', {}, e('strong', { text: display(item) }), e('small', { text: t(resource) + ' · ' + ident(item) })))) : empty('noResults'));
+          const destination = searchTarget(resource, item);
+          if (destination) navigate(...destination); else { filterState(resource).query = String(ident(item)); filterState(resource).page = 1; navigate(resource); }
+        } }, icon(resource), e('div', { class: 'grow' }, e('strong', { text: searchLabel(resource, item) }), e('small', { text: t(resource) + ' · ' + shortID(ident(item)) })), resource === 'sessions' || resource === 'tasks' ? badge(item.state || item.status) : null)) : empty('noResults', false, true));
       }
-      body.append(input, e('p', { class: 'note', text: t('searchHint') }), errors, resultHost); resultHost.appendChild(e('p', { text: t('loading') }));
-      Promise.allSettled(resources.map(async resource => ({ resource, snapshot: await get(resource) }))).then(results => {
+      body.append(input, e('p', { class: 'note', text: t('searchHint') }), status, resultHost); resultHost.appendChild(e('p', { class: 'muted', text: t('loading') }));
+      // Reuse snapshots loaded in the last minute instead of re-reading the fleet.
+      Promise.allSettled(searchResources.map(async resource => {
+        const cached = state.cache.get(resource + '?');
+        return { resource, snapshot: cached && Date.now() - (cached.loaded_at || 0) < 60000 ? cached : await get(resource) };
+      })).then(settled => {
         if (state.modal !== current || !state.authenticated) return;
-        records = results.filter(r => r.status === 'fulfilled').flatMap(r => list(r.value.snapshot, r.value.resource).map(item => ({ resource: r.value.resource, item })));
-        const failures = results.map((r, i) => r.status === 'rejected' ? resources[i] + ': ' + r.reason.message : '').filter(Boolean);
-        errors.replaceChildren(failures.length ? e('div', { class: 'banner warn', text: t('partial') + '\n' + failures.join('\n') }) : e('p', { class: 'note', text: t('searchScope', { count: results.filter(r => r.status === 'fulfilled').length }) })); draw();
+        records = settled.filter(r => r.status === 'fulfilled').flatMap(r => list(r.value.snapshot, r.value.resource).map(item => ({ resource: r.value.resource, item })));
+        const failures = settled.map((r, i) => r.status === 'rejected' ? t(searchResources[i]) : '').filter(Boolean);
+        status.replaceChildren(failures.length ? e('div', { class: 'banner warn', text: t('searchPartial', { resources: failures.join(', ') }) }) : e('p', { class: 'note', text: t('searchScope', { count: settled.filter(r => r.status === 'fulfilled').length }) })); draw();
       });
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Authentication.
+  // ---------------------------------------------------------------------------
   function authNotices() {
     const config = state.authConfig;
     if (!config) return [];
-    return [config.expires_at > 0 ? e('div', { class: 'banner', role: 'status', text: t('consoleExpiry', { time: date(config.expires_at) }) }) : null,
+    return [config.expires_at > 0 ? e('div', { class: 'banner', role: 'status', text: expiryCopy() }) : null,
       config.insecure_transport ? e('div', { class: 'banner warn', role: 'note', text: t('insecureTransportWarning') }) : null];
   }
   function loginFailure(error) {
     const machineCode = error.payload && (error.payload.code || error.payload.error);
-    state.loginErrorKey = windowExpired() ? 'console_expired' : typeof machineCode === 'string' && own(I18n.messages, machineCode) ? machineCode : error.status === 401 ? 'consoleClosedOrExpired' : 'loginFailed';
+    state.loginErrorKey = windowExpired() ? 'console_expired' : typeof machineCode === 'string' && has(machineCode) ? machineCode : error.status === 401 ? 'consoleClosedOrExpired' : 'loginFailed';
     state.loginError = '';
   }
   function renderLogin(app) {
@@ -1044,7 +1735,7 @@
       else await bootstrap();
     } catch (error) { if (error.status !== 401 || state.consoleExpired) loginFailure(error); render(); }
   }
-  const api = { start, state, field, list, decodeBase64, decodeJSON, normalizeEvent, normalizePermission, deriveCounts, supports, routeFromHash, ingestEvent, request, write, navigate, loadRoute, render, renderPage, openNewSession, openScheduleForm, openBotForm, openSearch, closeModal, timelineFor, e };
+  const api = { start, state, field, list, decodeBase64, decodeJSON, normalizeEvent, normalizePermission, deriveCounts, supports, routeFromHash, ingestEvent, request, write, navigate, loadRoute, render, renderPage, openNewSession, openScheduleForm, openBotForm, openSearch, closeModal, timelineFor, e, parseRunStatus, shortRef, shortID, durationText, visibleTimeline, sessionKind };
   root.ConsoleApp = api;
   if (typeof module !== 'undefined') module.exports = api;
   if (typeof document !== 'undefined' && !root.AMUX_CONSOLE_TEST) api.ready = start();

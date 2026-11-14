@@ -46,7 +46,31 @@ The browser cannot replace a Profile's content-only contract with model or
 permission fields. Existing Sessions keep their execution snapshots. Pausing a
 Schedule does not cancel admitted work; admission and final execution outcomes
 remain distinct. The existing desktop Gateway and read-only viewer retain their
-separate authentication and sharing contracts. Sessions, tasks and schedules use the hub
+separate authentication and sharing contracts.
+
+The overview reports Session lifecycle counts, Turn state, the most recent
+TaskRuns (with a 24-hour success and failure tally) and live Bot connections.
+Turn state comes from the canonical replay of at most 16 unarchived Sessions,
+those with a live agent process first. A sleeping Session has no process, so it is
+never counted as working or waiting and never makes the totals unknown. A live
+Session whose Turn cannot be confirmed is shown as unknown, on the overview and on
+its Session page, and a confirmed subset is never presented as a total. Each
+Session is counted once: a Turn waiting on the owner counts as needing input, not
+as in progress. Task summaries omit result payloads and bound
+task text. A task index that is unavailable or slower than five seconds, or an
+unconfigured Bridge, omits only its own section. Lifecycle controls follow the
+Session state and the observed Turn. The Hub sends no event when a Session sleeps,
+wakes or is archived elsewhere, so an open Session page re-reads the lifecycle
+(without the Turn replay) when the live stream ends and every 20 seconds while the
+tab is visible.
+A reconnecting Timeline stream resumes after the last event the browser received,
+so a long history that the Hub cuts off still completes.
+Once its history is complete, the Timeline of a sleeping or archived Session is
+labelled history only and is not reconnected.
+The unencrypted-HTTP notice applies to non-loopback origins; a loopback origin
+(local use or an SSH tunnel) is not flagged.
+
+Sessions, tasks and schedules use the hub
 control plane. Each runtime executes work locally and connects to the hub
 through an outbound tunnel.
 Local operation requires a hub, but does not require the Feishu bridge.

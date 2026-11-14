@@ -203,7 +203,12 @@ func (b *consoleBackend) Execute(ctx context.Context, resource, action string, d
 	}
 	return b.executeResource(ctx, resource, action, data)
 }
-func (b *consoleBackend) Attach(ctx context.Context, target, name string) (pb.Amuxlet_AttachClient, error) {
+func (b *consoleBackend) Attach(ctx context.Context, target, name, afterCursor string) (pb.Amuxlet_AttachClient, error) {
+	if afterCursor != "" && b.hub != nil {
+		// A reconnecting browser continues after the last event it received; a long
+		// history replayed from the start can be cut off before it completes.
+		return b.hub.Attach(ctx, &pb.AmuxdAttachRequest{TargetId: target, Name: name, TimelineMode: pb.AttachRequest_FOLLOW, AfterCursor: afterCursor})
+	}
 	return b.sessions.Attach(ctx, target, name)
 }
 

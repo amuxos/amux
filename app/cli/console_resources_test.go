@@ -60,6 +60,16 @@ type consoleResourceHub struct {
 	schedule       *pb.ScheduleItem
 	scheduleError  string
 	rejected       bool
+	botsPayload    string
+}
+
+// ConsoleManagement answers the overview's best-effort bot summary. Without a
+// configured payload it behaves like a Hub that has no bot bridge.
+func (f *consoleResourceHub) ConsoleManagement(_ context.Context, req *pb.ConsoleManagementRequest, _ ...grpc.CallOption) (*pb.ConsoleManagementResponse, error) {
+	if f.botsPayload == "" || req.GetResource() != "bots" || req.GetAction() != "list" {
+		return nil, status.Error(codes.Unavailable, "bridge unavailable")
+	}
+	return &pb.ConsoleManagementResponse{PayloadJson: []byte(f.botsPayload)}, nil
 }
 
 func (f *consoleResourceHub) ListTargets(context.Context, *pb.ListTargetsRequest, ...grpc.CallOption) (*pb.ListTargetsResponse, error) {

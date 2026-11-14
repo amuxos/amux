@@ -176,10 +176,15 @@ func (b *consoleBackend) consoleEnrichActivity(ctx context.Context, entries []*g
 			candidates = append(candidates, index)
 		}
 	}
-	// Bound cost independently of fleet size, prioritizing recently active
-	// Sessions. Uninspected objects explicitly remain unknown.
+	// Bound cost independently of fleet size. A sleeping Session was stopped and
+	// cannot be mid-Turn, so Sessions with a live process are inspected first and
+	// recently active sleeping ones only use the remaining budget (they still show
+	// their last Turn result). Uninspected objects explicitly remain unknown.
 	sort.SliceStable(candidates, func(i, j int) bool {
 		left, right := entries[candidates[i]], entries[candidates[j]]
+		if leftLive, rightLive := left.GetState() != "sleeping", right.GetState() != "sleeping"; leftLive != rightLive {
+			return leftLive
+		}
 		if left.GetLastActivityAt() != right.GetLastActivityAt() {
 			return left.GetLastActivityAt() > right.GetLastActivityAt()
 		}

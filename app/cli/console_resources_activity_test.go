@@ -214,6 +214,33 @@ func TestConsoleResourceActivityBoundedConcurrencyFleetAndTimeout(t *testing.T) 
 		t.Fatalf("started requests after deadline: %d", hub.calls)
 	}
 }
+func TestConsoleResourceActivityInspectsLiveSessionsBeforeRecentSleepingOnes(t *testing.T) {
+	hub := &consoleActivityHub{events: []*pb.AttachEvent{consoleActivityCaughtUp("epoch-1", 0)}}
+	backend := &consoleBackend{hub: hub}
+	entries := make([]*gateway.SessionEntry, 2*consoleActivityMaxSessions)
+	for index := range entries {
+		entry := consoleActivityEntry()
+		entry.Session.State = "sleeping"
+		entry.Session.UpdatedAt = int64(1000 + index) // newer sleeping Sessions outrank by recency alone
+		entries[index] = entry
+	}
+	// The only Sessions that can be mid-Turn are also the least recently active.
+	entries[0].Session.State = "running"
+	entries[1].Session.State = "created"
+	views := backend.consoleEnrichActivity(context.Background(), entries)
+	if views[0].ActivityStatus != "known" || views[1].ActivityStatus != "known" {
+		t.Fatal("a live Session was starved by newer sleeping Sessions")
+	}
+	known := 0
+	for _, view := range views {
+		if view.ActivityStatus == "known" {
+			known++
+		}
+	}
+	if known != consoleActivityMaxSessions || hub.calls != consoleActivityMaxSessions {
+		t.Fatalf("budget not spent on recent sleeping Sessions: known=%d calls=%d", known, hub.calls)
+	}
+}
 func TestConsoleResourceActivityEmptyJournalAndError(t *testing.T) {
 	hub := &consoleActivityHub{events: []*pb.AttachEvent{consoleActivityCaughtUp("epoch-1", 0)}}
 	backend := &consoleBackend{hub: hub}
@@ -240,5 +267,20 @@ func TestConsoleResourceActivitySnapshotsKeepGatewayShape(t *testing.T) {
 				t.Fatalf("missing %s in %s", expected, raw)
 			}
 		}
+	}
+}
+
+func TestConsoleBackendAttachResumesAfterTheBrowserCursor(t *testing.T) {
+	hub := &consoleActivityHub{events: []*pb.AttachEvent{consoleActivityCaughtUp("epoch-1", 0)}}
+	backend := &consoleBackend{hub: hub}
+	if _, err := backend.Attach(context.Background(), "runtime-a", "chat", "epoch-1:7"); err != nil {
+		t.Fatal(err)
+	}
+	if len(hub.requests) != 1 {
+		t.Fatalf("attach requests = %d", len(hub.requests))
+	}
+	request := hub.requests[0]
+	if request.GetAfterCursor() != "epoch-1:7" || request.GetTimelineMode() != pb.AttachRequest_FOLLOW || request.GetTargetId() != "runtime-a" || request.GetName() != "chat" {
+		t.Fatalf("attach request = %+v", request)
 	}
 }

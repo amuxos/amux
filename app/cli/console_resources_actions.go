@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/amuxos/amux/internal/agentprofile"
@@ -340,6 +341,22 @@ func (b *consoleBackend) consoleTasks(ctx context.Context, resource string, quer
 		}
 		return map[string]any{"task": consoleTaskView(run)}, nil
 	}
+	runs, err := b.consoleTaskRuns(ctx)
+	if err != nil {
+		return nil, err
+	}
+	views := make([]map[string]any, 0, len(runs))
+	for _, run := range runs {
+		views = append(views, consoleTaskView(run))
+	}
+	return map[string]any{"tasks": views}, nil
+}
+
+// consoleTaskRuns lists every TaskRun, newest request first.
+func (b *consoleBackend) consoleTaskRuns(ctx context.Context) ([]*task.TaskRun, error) {
+	if b.tasks == nil {
+		return nil, consoleInvalid("backend_unavailable", "")
+	}
 	resp, err := b.tasks.ListSubtasks(ctx, &pb.ListSubtasksRequest{})
 	if err != nil {
 		return nil, err
@@ -347,15 +364,16 @@ func (b *consoleBackend) consoleTasks(ctx context.Context, resource string, quer
 	if resp == nil {
 		return nil, consoleInvalid("backend_response_invalid", "")
 	}
-	views := make([]map[string]any, 0, len(resp.GetTasksJson()))
+	runs := make([]*task.TaskRun, 0, len(resp.GetTasksJson()))
 	for _, raw := range resp.GetTasksJson() {
 		run, err := decodeTask(raw)
 		if err != nil || run.ID == "" {
 			return nil, consoleInvalid("backend_response_invalid", "")
 		}
-		views = append(views, consoleTaskView(run))
+		runs = append(runs, run)
 	}
-	return map[string]any{"tasks": views}, nil
+	sort.SliceStable(runs, func(i, j int) bool { return runs[i].RequestedAt.After(runs[j].RequestedAt) })
+	return runs, nil
 }
 func (b *consoleBackend) consoleExecuteTask(ctx context.Context, action string, data json.RawMessage) (any, error) {
 	var req struct {
