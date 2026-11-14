@@ -483,12 +483,15 @@
     state.scroll.set(cacheKey(), root.scrollY || 0);
     root.location.hash = route;
   }
+  // The expert pages also ask what refers to each expert; the option lists that
+  // read the same resources do not pay for it.
+  const routeQueries = { profiles: { usage: '1' }, profile: { usage: '1' } };
   async function loadRoute() {
     if (!state.authenticated) return;
     closeStream(); const generation = ++state.generation;
     state.loading = true; state.routeError = null; render();
     try {
-      const snapshot = await get(state.route.page, state.route.params);
+      const snapshot = await get(state.route.page, Object.assign({}, state.route.params, routeQueries[state.route.page]));
       if (generation !== state.generation || !state.authenticated) return;
       state.cache.set(cacheKey(), Object.assign(snapshot, { loaded_at: Date.now() })); state.loading = false; state.lastSync = Date.now(); renderPage();
       if (state.route.page === 'session') openStream(snapshot);
@@ -525,7 +528,7 @@
   // Lists: filtering, sorting and client-side pagination.
   // ---------------------------------------------------------------------------
   function filterState(page) {
-    if (!state.filters.has(page)) state.filters.set(page, { query: '', state: '', target: '', group: page === 'sessions' ? 'active' : '', kind: '', namespace: '', page: 1 });
+    if (!state.filters.has(page)) state.filters.set(page, { query: '', state: '', target: '', group: page === 'sessions' ? 'active' : '', kind: '', namespace: '', use: '', page: 1 });
     return state.filters.get(page);
   }
   const defaultStateOf = row => row.state || row.status || field(row, 'turn_state');
@@ -553,7 +556,8 @@
     return e('div', { class: 'filterbar' }, query,
       states.length ? selectOptions([{ value: '', label: t('allStatuses') }, ...states.map(value => ({ value, label: stateLabel(value) }))], f.state, v => { f.state = v; reset(); }, { 'aria-label': t('status') }) : null,
       kinds.length > 1 ? selectOptions([{ value: '', label: t('allSources') }, ...kinds.map(value => ({ value, label: kindLabel(value) }))], f.kind, v => { f.kind = v; reset(); }, { 'aria-label': t('source') }) : null,
-      targets.length > 1 || f.target ? selectOptions([{ value: '', label: t('allTargets') }, ...targets.map(([value, label]) => ({ value, label }))], f.target, v => { f.target = v; reset(); }, { 'aria-label': t('target') }) : null);
+      targets.length > 1 || f.target ? selectOptions([{ value: '', label: t('allTargets') }, ...targets.map(([value, label]) => ({ value, label }))], f.target, v => { f.target = v; reset(); }, { 'aria-label': t('target') }) : null,
+      ...(o.extra || []));
   }
   function timeValue(row, names) {
     for (const name of names) { const d = toDate(field(row, name)); if (d) return d.valueOf(); }
@@ -906,7 +910,7 @@
   function setStreamStatus(key) {
     state.streamStatus = key;
     const status = document.getElementById('stream-status');
-    if (status) { status.className = 'badge ' + (key === 'live' ? 'blue' : key === 'historyOnly' ? '' : 'warn'); replace(status, e('span', { class: 'dot', 'aria-hidden': true }), t(key)); }
+    if (status) { status.className = 'badge ' + (key === 'live' || key === 'loadingHistory' ? 'blue' : key === 'historyOnly' ? '' : 'warn'); replace(status, e('span', { class: 'dot', 'aria-hidden': true }), t(key)); }
   }
   // A sleeping or archived Session has no live events. Once its history replay is
   // complete and the server ends the stream, stop the browser's automatic
@@ -963,16 +967,21 @@
     const query = new URLSearchParams({ target_id: ref.target || '', name: ref.name });
     // Attach replays on reconnect; deduplication is scoped to this exact session.
     const stream = new root.EventSource('/api/console/events?' + query, { withCredentials: true });
-    state.streams = stream; state.activeStreamRef = ref; state.streamStatus = 'live'; state.lifecycleSyncAt = 0; timeline.caughtUp = false;
+    state.streams = stream; state.activeStreamRef = ref; state.lifecycleSyncAt = 0; timeline.caughtUp = false;
+    state.streamEvents = 0; state.streamMark = 0; state.streamLostAt = 0;
+    setStreamStatus('loadingHistory');
     scheduleLifecyclePoll(stream);
     const caps = snapshot.actions ? snapshot : state.cache.get('sessions?') || snapshot;
-    stream.onopen = () => { if (state.streams !== stream) return; state.connection = 'connected'; updateConnection(); setStreamStatus('live'); };
+    stream.onopen = () => { if (state.streams !== stream) return; state.connection = 'connected'; updateConnection(); setStreamStatus(timeline.caughtUp ? 'live' : 'loadingHistory'); };
     stream.onmessage = message => {
       if (state.streams !== stream) return;
       let event;
       try { event = JSON.parse(message.data); } catch (_) { notify(t('invalidResponse'), true); return; }
       if (event.error && !own(event, 'kind')) { notify(String(event.error), true); return; }
-      if (!ingestEvent(ref, event)) return;
+      const fresh = ingestEvent(ref, event);
+      if (fresh) state.streamEvents = (state.streamEvents || 0) + 1;
+      if (timeline.caughtUp && state.streamStatus === 'loadingHistory') setStreamStatus('live');
+      if (!fresh) return;
       state.lastSync = Date.now();
       if (!state.drawTimer) state.drawTimer = setTimeout(() => {
         state.drawTimer = null; drawTimeline();
@@ -989,19 +998,25 @@
         const turnHost = document.getElementById('turn-state'); if (turnHost) replace(turnHost, turn ? badge(turn.state) : dash());
       }, 80);
     };
-    stream.addEventListener('disconnected', () => {
+    // The server's "disconnected" event and the browser's own error both report one
+    // interruption; handle it once. A replay that cut off after making progress is the
+    // Hub limiting a long history, not a lost connection: the browser resumes after the
+    // last event it saw, so say that instead of "reconnecting".
+    const lost = () => {
       if (state.streams !== stream || settleStream(stream)) return;
-      state.connection = 'reconnecting'; updateConnection(); setStreamStatus('reconnecting');
-      get('bootstrap').catch(() => {});
-      syncSessionLifecycle(stream);
-    });
-    stream.onerror = () => {
-      if (state.streams !== stream || settleStream(stream)) return;
-      state.connection = state.online ? 'reconnecting' : 'offline'; updateConnection(); setStreamStatus('reconnecting');
+      const now = Date.now();
+      if (state.streamLostAt && now - state.streamLostAt < 500) return;
+      state.streamLostAt = now;
+      const progressed = (state.streamEvents || 0) !== (state.streamMark || 0);
+      state.streamMark = state.streamEvents || 0;
+      if (!timeline.caughtUp && progressed) setStreamStatus('loadingHistory');
+      else { state.connection = state.online ? 'reconnecting' : 'offline'; updateConnection(); setStreamStatus('reconnecting'); }
       // Native EventSource retries only GET. An auth check redirects expired sessions.
       get('bootstrap').catch(() => {});
       syncSessionLifecycle(stream);
     };
+    stream.addEventListener('disconnected', lost);
+    stream.onerror = lost;
   }
 
   // ---------------------------------------------------------------------------
@@ -1177,12 +1192,46 @@
   // one; it keeps "no namespace" distinct from the empty "all" filter value.
   const noNamespace = '(none)';
   function skillNames(row) { return list(row, 'skills').map(skill => typeof skill === 'string' ? skill : skill.name || skill.ref || '').filter(Boolean); }
+  // Bot and group defaults, Schedules, persistent instances and Sessions can
+  // refer to an expert; a Session restart may still require Pack assets.
+  const usageKinds = [['bots', 'usageBots'], ['groups', 'usageGroups'], ['schedules', 'schedules'], ['instances', 'instances'], ['sessions', 'sessions']];
+  const usageTotal = counts => usageKinds.reduce((sum, [kind]) => sum + Number(counts && counts[kind] || 0), 0);
+  const usageBreakdown = counts => usageKinds.filter(([kind]) => Number(counts && counts[kind] || 0)).map(([kind, label]) => t(label) + ' ' + counts[kind]).join(' · ');
+  const usageSourceNames = sources => sources.map(source => t(usageKinds.some(([kind]) => kind === source) ? usageKinds.find(([kind]) => kind === source)[1] : source)).join(', ');
+  function usageChip(counts, incomplete) {
+    if (usageTotal(counts)) return chip(t('usedBy', { count: usageTotal(counts) }), 'blue', usageBreakdown(counts));
+    return chip(t(incomplete ? 'usageUnknown' : 'unusedExpert'), incomplete ? 'warn' : 'quiet');
+  }
+  function usageItemLink(kind, item) {
+    if (kind === 'sessions') return linkTo(item.name || item.id, 'session', { name: item.name, target: item.target });
+    if (kind === 'schedules') return linkTo(item.name || item.id, 'schedule', { schedule_id: item.id });
+    if (kind === 'instances') return linkTo(item.name || item.id, 'instance', { agent_instance_id: item.id });
+    if (kind === 'groups') return linkTo(item.name || item.id, 'groups', {});
+    return linkTo(item.name || item.id, 'bots', {});
+  }
+  function usageList(kind, items, count) {
+    return e('ul', { class: 'usage-list' }, items.map(item => e('li', {}, usageItemLink(kind, item), item.state ? badge(item.state) : null)), count > items.length ? e('li', { class: 'muted', text: t('andMore', { count: count - items.length }) }) : null);
+  }
+  function usageSection(usage) {
+    if (!usage || typeof usage !== 'object') return null;
+    const counts = usage.counts || {}; const items = usage.items || {}; const missing = list(usage, 'unavailable');
+    const total = usageTotal(counts);
+    return section('usageTitle', e('div', { class: 'panel-body stack' },
+      missing.length ? e('p', { class: 'banner', role: 'status', text: t('usageIncomplete', { sources: usageSourceNames(missing) }) }) : null,
+      total ? usageKinds.filter(([kind]) => Number(counts[kind] || 0)).map(([kind, label]) => e('div', {}, e('h3', { class: 'subhead' }, t(label), ' ', chip(String(counts[kind]))), usageList(kind, list(items, kind), Number(counts[kind])))) : missing.length ? null : empty('noUsage', false, true),
+      e('p', { class: 'help', text: t('usageCoverageNote') }), e('p', { class: 'help', text: t('usageSessionsNote') })), chip(String(total)));
+  }
   function renderProfiles(snapshot) {
     const rows = list(snapshot, 'profiles').slice().sort((a, b) => profileRef(a).localeCompare(profileRef(b)));
     const f = filterState('profiles');
+    const usage = snapshot.usage && typeof snapshot.usage === 'object' ? snapshot.usage : null;
+    const unavailable = list(snapshot, 'usage_unavailable');
+    const incomplete = unavailable.length > 0;
+    if (incomplete && f.use === 'unused') f.use = '';
+    const inUse = row => usageTotal(usage && usage[profileRef(row)]) > 0;
     const namespaces = [...rows.reduce((map, row) => map.set(profileNamespace(row), (map.get(profileNamespace(row)) || 0) + 1), new Map()).entries()];
     const wanted = f.namespace === noNamespace ? '' : f.namespace;
-    const visible = filtered(rows).filter(row => !f.namespace || profileNamespace(row) === wanted);
+    const visible = filtered(rows).filter(row => !f.namespace || profileNamespace(row) === wanted).filter(row => !usage || !f.use || inUse(row) === (f.use === 'used'));
     const cards = visible.map(row => {
       const ref = profileRef(row); const open = () => navigate('profile', { ref });
       const name = row.name || row.display_name || ref.split('/').slice(1).join('/') || ref;
@@ -1192,27 +1241,37 @@
         e('code', { class: 'muted ref', title: ref, text: shortRef(ref) }),
         row.description ? e('p', { class: 'clamp', text: row.description }) : e('p', { class: 'muted', text: t('noDescription') }),
         skills.length ? e('div', { class: 'chips' }, skills.slice(0, 6).map(skill => chip(skill)), skills.length > 6 ? chip('+' + (skills.length - 6), 'quiet') : null) : null,
-        e('footer', {}, e('span', { class: 'muted', text: row.version || row.revision || t('skillCount', { count: skills.length }) }), button('definition', open, 'small')));
+        e('footer', {}, e('span', { class: 'muted', text: row.version || row.revision || t('skillCount', { count: skills.length }) }), usage ? usageChip(usage[ref], incomplete) : null, button('definition', open, 'small')));
     });
     return [title('profiles', 'profilesDesc', refreshButton()),
-      namespaces.length > 1 ? tabs([['', t('all'), rows.length], ...namespaces.map(([ns, count]) => [ns || noNamespace, ns || t('unknown'), count])], f.namespace, value => { f.namespace = value; renderPage(); }) : null,
-      filters(rows, { noState: true }), visible.length ? e('div', { class: 'profile-grid' }, cards) : empty()];
+      namespaces.length > 1 || f.namespace ? tabs([['', t('all'), rows.length], ...namespaces.map(([ns, count]) => [ns || noNamespace, ns || t('unknown'), count])], f.namespace, value => { f.namespace = value; renderPage(); }) : null,
+      usage && unavailable.length ? e('p', { class: 'banner', role: 'status', text: t('usageIncomplete', { sources: usageSourceNames(unavailable) }) }) : null,
+      usage ? e('p', { class: 'help', text: t('usageCoverageNote') }) : null,
+      filters(rows, { noState: true, extra: usage ? [selectOptions([{ value: '', label: t('allExperts') }, { value: 'used', label: t('inUse') + ' (' + rows.filter(inUse).length + ')' }, ...(!incomplete ? [{ value: 'unused', label: t('unusedExpert') + ' (' + rows.filter(row => !inUse(row)).length + ')' }] : [])], f.use, v => { f.use = v; f.page = 1; renderPage(); }, { 'aria-label': t('usageFilter') })] : [] }),
+      visible.length ? e('div', { class: 'profile-grid' }, cards) : empty()];
   }
   function renderProfile(snapshot) {
     const item = snapshot.profile; if (!item) return [title('profiles'), empty('unavailable')];
     const skills = list(item, 'skills');
     const placement = item.placement || {}; const requires = placement.requires || {};
     const joined = values => values.filter(Boolean).join(', ');
+    const pack = snapshot.pack && snapshot.pack.source_kind !== 'builtin' ? snapshot.pack : null;
     return [literalTitle(item.name || profileRef(item), e('span', { class: 'mono', text: profileRef(item) }), refreshButton()),
       e('div', { class: 'detail-grid' },
         e('div', { class: 'stack' },
           item.description ? section('description', e('div', { class: 'panel-body' }, e('p', { class: 'prose', text: item.description }))) : null,
           item.instructions || item.system_prompt || item.prompt ? section('instructions', e('div', { class: 'panel-body' }, code(item.instructions || item.system_prompt || item.prompt))) : null,
-          section('skills', skills.length ? e('div', { class: 'skill-list' }, skills.map(skill => typeof skill === 'string' ? e('div', { class: 'skill' }, e('strong', { text: skill })) : e('div', { class: 'skill' }, e('strong', { text: skill.name || skill.ref || '' }), skill.description || skill.source ? e('p', { class: 'help', text: skill.description || skill.source }) : null))) : empty('noSkills', false, true), chip(String(skills.length)))),
+          section('skills', skills.length ? e('div', { class: 'skill-list' }, skills.map(skill => typeof skill === 'string' ? e('div', { class: 'skill' }, e('strong', { text: skill })) : e('div', { class: 'skill' }, e('strong', { text: skill.name || skill.ref || '' }), skill.description || skill.source ? e('p', { class: 'help', text: skill.description || skill.source }) : null))) : empty('noSkills', false, true), chip(String(skills.length))),
+          usageSection(snapshot.usage)),
         e('aside', { class: 'stack' }, section('details', e('div', { class: 'panel-body' }, definition([
           ['profile', e('span', { class: 'mono path', text: profileRef(item) })], ['source', item.namespace || item.source || item.pack], ['version', item.version || item.revision],
+          pack ? ['providedBy', linkTo(pack.namespace, 'packs', {})] : null,
+          pack ? ['packSource', pack.source_host || pack.source_kind] : null,
+          pack ? ['currentRevision', revisionText(pack.current_revision)] : null,
+          pack ? ['lastSynced', timeCell(pack.last_synced_at)] : null,
+          pack && (pack.auto_sync || pack.error_code || pack.managed_by) ? ['flags', packFlags(pack)] : null,
           ['instructionFiles', item.agents], ['preferredTargets', joined(list(placement, 'preferred_targets'))],
-          ['requiredCredentials', joined(list(requires, 'credentials'))], ['requiredAgentTypes', joined(list(requires, 'agent_types'))]]),
+          ['requiredCredentials', joined(list(requires, 'credentials'))], ['requiredAgentTypes', joined(list(requires, 'agent_types'))]].filter(Boolean)),
           e('details', {}, e('summary', { text: t('rawRecord') }), code(item))))))];
   }
   function packFlags(row) {
@@ -1224,17 +1283,25 @@
     const rows = list(snapshot, 'packs').slice().sort((a, b) => String(a.namespace || '').localeCompare(String(b.namespace || '')));
     return [title('packs', 'packsDesc', [refreshButton(), capability(snapshot, 'install') ? button('install', openInstallPack, 'primary', 'plus') : null]), filters(rows, { noState: true }), dataTable([
       { key: 'packs', render: row => cellTitle(row.namespace || row.name || row.id || '', [row.display_name, row.source_host || row.source_kind]) },
+      { key: 'experts', render: row => own(row, 'profile_count') ? e('button', { type: 'button', class: 'link-button', title: t('viewExperts'), 'aria-label': t('viewPackExperts', { count: row.profile_count, name: row.namespace }), text: String(row.profile_count), onclick: () => viewPackExperts(row.namespace) }) : dash() },
       { key: 'ref', class: 'wide-only', render: row => row.ref ? e('span', { class: 'mono', text: row.ref }) : dash() },
       { key: 'currentRevision', render: row => revisionText(row.current_revision || row.revision) },
       { key: 'lastSynced', render: row => timeCell(row.last_synced_at) },
       { key: 'flags', render: packFlags },
-      { key: 'actions', render: row => e('div', { class: 'actions' }, button('details', () => showPack(row), 'small'), actionButton(snapshot, 'packs', 'sync', { namespace: row.namespace || row.name }, { key: 'sync', item: row, name: row.namespace, tone: 'small' }), capability(snapshot, 'rollback', row) && list(row, 'versions').length > 1 ? button('rollback', () => openRollbackPack(row), 'danger small') : null) }
+      { key: 'actions', render: row => e('div', { class: 'actions' }, button('details', () => showPack(row, snapshot), 'small'), actionButton(snapshot, 'packs', 'sync', { namespace: row.namespace || row.name }, { key: 'sync', item: row, name: row.namespace, tone: 'small' }), capability(snapshot, 'rollback', row) && list(row, 'versions').length > 1 ? button('rollback', () => openRollbackPack(row), 'danger small') : null, capability(snapshot, 'remove', row) && removablePack(row) ? button('removePack', () => openRemovePack(row), 'danger small') : null) }
     ], filtered(rows), { emptyKey: 'noPacks', emptyHint: 'noPacksHint' })];
   }
-  function showPack(pack) {
-    modal('details', body => body.append(definition([['namespace', pack.namespace], ['source', pack.source_host || pack.source_kind], ['ref', pack.ref], ['currentRevision', e('span', { class: 'mono path', text: pack.current_revision || '' })], ['lastSynced', timeCell(pack.last_synced_at)], ['flags', packFlags(pack)]]),
+  // Managed, temporary and evaluation packs belong to amux: the console never removes or rolls them back.
+  const removablePack = pack => !pack.managed_by && !pack.temporary && !pack.evaluation;
+  function viewPackExperts(namespace) {
+    const f = filterState('profiles'); f.namespace = namespace; f.use = ''; f.page = 1; navigate('profiles');
+  }
+  function showPack(pack, snapshot) {
+    const canRollBack = removablePack(pack) && capability(snapshot || {}, 'rollback', pack);
+    const current = pack.current_revision || '';
+    modal('details', body => body.append(definition([['namespace', pack.namespace], ['experts', own(pack, 'profile_count') ? String(pack.profile_count) : ''], ['source', pack.source_host || pack.source_kind], ['ref', pack.ref], ['currentRevision', e('span', { class: 'mono path', text: current })], ['lastSynced', timeCell(pack.last_synced_at)], ['flags', packFlags(pack)]]),
       e('h3', { class: 'subhead', text: t('versions') }),
-      list(pack, 'versions').length ? e('table', { class: 'table compact' }, e('thead', {}, e('tr', {}, ['revision', 'ref', 'lastSynced'].map(key => e('th', { text: t(key) })))), e('tbody', {}, list(pack, 'versions').map(v => e('tr', {}, e('td', {}, revisionText(v.revision)), e('td', { text: v.ref || '—' }), e('td', {}, timeCell(v.synced_at)))))) : dash(),
+      list(pack, 'versions').length ? e('table', { class: 'table compact' }, e('thead', {}, e('tr', {}, ['revision', 'ref', 'lastSynced', 'actions'].map(key => e('th', { text: t(key) })))), e('tbody', {}, list(pack, 'versions').map(v => e('tr', {}, e('td', {}, revisionText(v.revision), v.revision && v.revision === current ? chip(t('currentMark'), 'good') : null), e('td', { text: v.ref || '—' }), e('td', {}, timeCell(v.synced_at)), e('td', {}, canRollBack && v.revision && v.revision !== current ? button('rollbackTo', () => openRollbackPack(pack, v.revision), 'danger small') : null))))) : dash(),
       e('div', { class: 'form-actions' }, button('close', () => closeModal()))));
   }
   function nameChips(values) { return values.length ? e('div', { class: 'chips' }, values.map(name => chip(name, 'mono'))) : dash(); }
@@ -1355,7 +1422,7 @@
       const form = e('form', { class: 'form', onsubmit: async event => {
         event.preventDefault(); if (current.pending || !form.reportValidity()) return;
         const data = Object.fromEntries(new FormData(form));
-        if (opts.confirm && !root.confirm(t('confirmDanger', { action: t(key), name: opts.confirm }))) return;
+        if (opts.confirm && !root.confirm(typeof opts.confirm === 'function' ? opts.confirm(data) : t('confirmDanger', { action: t(key), name: opts.confirm }))) return;
         current.pending = true; save.disabled = true; save.textContent = t('saving'); errorHost.replaceChildren();
         try {
           await submit(data); state.drafts.delete(draftKey); if (state.modal === current) closeModal(true); notify(t('saved')); await loadRoute();
@@ -1551,9 +1618,73 @@
   function openInstallPack() {
     formDialog('install', [formField('namespace', 'namespace', 'text', '', { required: true }), formField('url', 'source', 'text', '', { required: true }), formField('ref', 'revision', 'text', '')], data => write('packs', 'install', Object.assign(data, { confirm: true })), { submitKey: 'install', confirm: t('packs') });
   }
-  function openRollbackPack(pack) {
+  function openRollbackPack(pack, revision) {
     const revisions = list(pack, 'versions').length ? list(pack, 'versions') : list(pack, 'revisions');
-    formDialog('rollback', [formField('namespace', 'namespace', 'text', pack.namespace || pack.name, { readonly: true }), formField('revision', 'revision', 'text', '', { required: true, options: revisions.length ? [{ value: '', label: t('selectRevision') }, ...revisions.map(r => ({ value: typeof r === 'string' ? r : r.revision || r.id, label: typeof r === 'string' ? r : [String(r.revision || r.id).slice(0, 12), r.synced_at ? date(r.synced_at) : ''].filter(Boolean).join(' · ') }))] : null })], data => write('packs', 'rollback', Object.assign(data, { confirm: true })), { submitKey: 'rollback', confirm: pack.namespace || pack.name });
+    const namespace = pack.namespace || pack.name;
+    // An explicit row selection must never be replaced by an older draft.
+    const draftKey = 'pack-rollback:' + namespace + ':' + (revision || 'choose');
+    if (revision) state.drafts.delete(draftKey);
+    formDialog('rollback', [formField('namespace', 'namespace', 'text', namespace, { readonly: true }), formField('revision', 'revision', 'text', revision || '', { required: true, options: revisions.length ? [{ value: '', label: t('selectRevision') }, ...revisions.map(r => ({ value: typeof r === 'string' ? r : r.revision || r.id, label: typeof r === 'string' ? r : [String(r.revision || r.id).slice(0, 12), r.synced_at ? date(r.synced_at) : ''].filter(Boolean).join(' · ') }))] : null })], data => write('packs', 'rollback', Object.assign(data, { confirm: true })), { draftKey, submitKey: 'rollback', confirm: data => t('rollbackConfirm', { name: namespace, revision: data.revision }) });
+  }
+
+  // Removing a pack stops its experts being available for new work. Bots, Schedules
+  // and persistent instances that name them would fail, so the dialog shows what
+  // refers to the pack first and asks for an explicit "remove anyway" when anything does.
+  function openRemovePack(pack) {
+    const namespace = pack.namespace || pack.name;
+    modal('removePack', (body, current) => {
+      const errorHost = e('div', { class: 'modal-error banner bad', role: 'alert' });
+      const usageHost = e('div', { class: 'stack' }, e('div', { class: 'rail', role: 'status' }, e('span', { class: 'loading-mark' }), t('loading')));
+      const keepFiles = e('input', { type: 'checkbox', id: 'remove-keep-files' });
+      const force = e('input', { type: 'checkbox', id: 'remove-force' });
+      const forceRow = e('label', { class: 'checkbox-label', hidden: true }, force, e('span', { text: t('removeAnyway') }));
+      const submit = e('button', { type: 'button', class: 'ui-btn danger solid', text: t('removePack'), disabled: true });
+      let guarded = true; // usage still loading, or something refers to the pack
+      const refresh = () => { submit.disabled = !state.online || current.pending || guarded && !force.checked; };
+      const guard = () => { guarded = true; forceRow.hidden = false; refresh(); };
+      force.addEventListener('change', refresh);
+      get('usage', { namespace }).then(usage => {
+        if (state.modal !== current) return;
+        const counts = usage.counts || {}; const refs = usage.refs || {}; const items = usage.items || {}; const missing = list(usage, 'unavailable');
+        const starting = Number(counts.bots || 0) + Number(counts.groups || 0) + Number(counts.schedules || 0) + Number(counts.instances || 0);
+        const unreadable = missing.filter(source => source !== 'sessions');
+        guarded = starting > 0 || unreadable.length > 0; forceRow.hidden = !guarded;
+        replace(usageHost,
+          Object.keys(refs).length ? e('div', {}, e('h3', { class: 'subhead' }, t('experts'), ' ', chip(String(Object.keys(refs).length))), e('ul', { class: 'usage-list' }, Object.keys(refs).sort().map(ref => e('li', {}, e('span', { class: 'mono', text: ref }), usageChip(refs[ref], missing.length > 0))))) : null,
+          starting ? e('p', { class: 'banner bad', role: 'alert', text: t('packInUseWarning') }) : null,
+          ['bots', 'groups', 'schedules', 'instances'].filter(kind => Number(counts[kind] || 0)).map(kind => e('div', {}, e('h3', { class: 'subhead' }, t(kind === 'bots' ? 'usageBots' : kind === 'groups' ? 'usageGroups' : kind), ' ', chip(String(counts[kind]))), usageList(kind, list(items, kind), Number(counts[kind])))),
+          missing.length ? e('p', { class: 'banner', role: 'status', text: t('usageIncomplete', { sources: usageSourceNames(missing) }) }) : null,
+          e('p', { class: 'help', text: t('usageCoverageNote') }),
+          e('p', { class: 'help', text: t('usageSessionsNote') }));
+        refresh();
+      }, error => {
+        if (state.modal !== current) return;
+        replace(usageHost, e('p', { class: 'banner bad', role: 'alert', text: errorMessage(error) }));
+        guard();
+      });
+      submit.addEventListener('click', async () => {
+        if (current.pending || submit.disabled) return;
+        current.pending = true; refresh(); errorHost.replaceChildren();
+        try {
+          const data = { namespace, confirm: true };
+          if (keepFiles.checked) data.keep_files = true;
+          if (force.checked) data.force = true;
+          const result = await write('packs', 'remove', data);
+          if (state.modal === current) closeModal(true);
+          if (result && result.warning_code && has(result.warning_code)) notify(t(result.warning_code), true);
+          else notify(t('saved'));
+          await loadRoute();
+        } catch (error) {
+          const code = error.payload && (error.payload.code || error.payload.error);
+          if (code === 'pack_in_use' || code === 'usage_unavailable') guard();
+          if (state.modal === current) errorHost.textContent = errorMessage(error, true); else notify(errorMessage(error, true), true);
+        } finally { current.pending = false; if (submit.isConnected) refresh(); }
+      });
+      // The decision stays in view while a long usage list scrolls beneath it.
+      body.append(e('p', { class: 'prose', text: t('removePackLead', { name: namespace }) }), usageHost,
+        e('div', { class: 'modal-foot' }, e('label', { class: 'checkbox-label' }, keepFiles, e('span', { text: t('keepFiles') })), forceRow, errorHost,
+          e('div', { class: 'form-actions' }, button('cancel', () => closeModal()), submit)));
+    });
   }
 
   // ---------------------------------------------------------------------------

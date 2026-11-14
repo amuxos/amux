@@ -485,6 +485,60 @@ func TestBridgeDBGroupDefaultAgentReferences(t *testing.T) {
 	}
 }
 
+func TestBridgeDBListsEveryDefaultAgentReferenceIncludingStoppedBots(t *testing.T) {
+	db := openGroupSettingsTestDB(t, filepath.Join(t.TempDir(), "bridge.db"))
+	if _, err := db.ConfigureThreadBotDefaultAgent("feishu:bot-default", "review/bot"); err != nil {
+		t.Fatal(err)
+	}
+	// A Bot whose Bridge is not running still has stored settings.
+	if _, err := db.ConfigureThreadBotDefaultAgent("feishu:bot-stopped", "other/helper"); err != nil {
+		t.Fatal(err)
+	}
+	// Older installations can have a default only in the legacy table. A
+	// current Bot row takes precedence over its stale legacy value.
+	if _, err := db.db.Exec(`INSERT INTO feishu_profile_defaults (bridge_id, default_agent) VALUES ('feishu:legacy', 'review/legacy')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.Exec(`UPDATE feishu_profile_defaults SET default_agent='review/stale' WHERE bridge_id='feishu:bot-stopped'`); err != nil {
+		t.Fatal(err)
+	}
+	settings := testGroupSettings()
+	if _, err := db.SaveGroupSettings(settings, 0); err != nil {
+		t.Fatal(err)
+	}
+	// A group that inherits its Bot's default names nothing itself.
+	settings.ChatID, settings.DefaultAgent = "oc-inherited", ""
+	if _, err := db.SaveGroupSettings(settings, 0); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.DefaultAgentReferences(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ConsoleAgentReference{
+		{BridgeID: "feishu:bot-default", Agent: "review/bot"},
+		{BridgeID: "feishu:bot-stopped", Agent: "other/helper"},
+		{BridgeID: "feishu:group-test", ChatID: "oc-group", Agent: "review/reviewer"},
+		{BridgeID: "feishu:legacy", Agent: "review/legacy"},
+	}
+	sort.Slice(got, func(i, j int) bool { return got[i].BridgeID+"/"+got[i].ChatID < got[j].BridgeID+"/"+got[j].ChatID })
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("references = %+v; want %+v", got, want)
+	}
+	blocked, err := db.BotDefaultAgentReferences("review")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(blocked, []string{"feishu:bot-default", "feishu:group-test/oc-group", "feishu:legacy"}) {
+		t.Fatalf("Pack removal references = %v", blocked)
+	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := db.DefaultAgentReferences(cancelled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled query = %v", err)
+	}
+}
+
 func TestBridgeDBGroupSettingsContextBoundsConnectionWait(t *testing.T) {
 	for _, update := range []bool{false, true} {
 		for _, cancellation := range []string{"cancel", "deadline"} {

@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 class Node {
-  constructor(tag = '', text = '') { this.tagName = tag.toUpperCase(); this.nodeType = tag ? 1 : 3; this.children = []; this.attrs = {}; this.listeners = {}; this._text = String(text); this.value = ''; this.parentNode = null; this.dataset = {}; this.scrollTop = 0; this.scrollHeight = 300; this.clientHeight = 300; this.offsetParent = {}; }
+  constructor(tag = '', text = '') { this.tagName = tag.toUpperCase(); this.nodeType = tag ? 1 : 3; this.children = []; this.attrs = {}; this.listeners = {}; this._text = String(text); this.value = ''; this.checked = false; this.parentNode = null; this.dataset = {}; this.scrollTop = 0; this.scrollHeight = 300; this.clientHeight = 300; this.offsetParent = {}; }
   get className() { return this.attrs.class || ''; }
   set className(v) { this.attrs.class = v; }
   setAttribute(k, v) { this.attrs[k] = String(v); if (k === 'name' || k === 'id' || k === 'type') this[k] = String(v); }
@@ -745,4 +745,331 @@ test('an open Session page polls the lifecycle and follows changes made elsewher
   const before = env.calls.length;
   await tick(60000);
   assert.equal(env.calls.length, before);
+});
+
+// ---------------------------------------------------------------------------
+// Expert library: packs, removal and what refers to an expert.
+// ---------------------------------------------------------------------------
+const tick = () => new Promise(resolve => setImmediate(resolve));
+const dialogs = env => env.document.getElementById('dialogs');
+const dialogButton = (env, text) => dialogs(env).querySelectorAll('button').find(b => b.textContent === text);
+const lastWrite = env => { const call = [...env.calls].reverse().find(c => c.options && c.options.method === 'POST'); return call && JSON.parse(call.options.body); };
+const usageFixture = (extra = {}) => Object.assign({
+  namespace: 'team', counts: { sessions: 3, bots: 1, schedules: 2, instances: 0 }, unavailable: [],
+  refs: { 'team/a': { sessions: 2, bots: 1, schedules: 1, instances: 0 }, 'team/b': { sessions: 1, bots: 0, schedules: 1, instances: 0 } },
+  items: { sessions: [{ id: 's1', name: 'review-1', state: 'running', target: 'r' }], bots: [{ id: 'default', name: 'Helper', state: 'running' }], schedules: [{ id: '1', name: 'nightly', state: 'enabled' }, { id: '2', name: 'weekly', state: 'disabled' }], instances: [] }
+}, extra);
+async function openRemove(env, usage, pack = { namespace: 'team', source_kind: 'git', source_host: 'example.com', profile_count: 2 }, label = 'Remove pack') {
+  env.fixture.usage = usage;
+  mount(env, 'packs', { packs: [pack], actions: ['install', 'sync', 'rollback', 'remove'] });
+  await env.document.getElementById('page').querySelectorAll('button').find(b => b.textContent === label).click();
+  await tick(); await tick();
+  return { submit: dialogButton(env, label), force: dialogs(env).querySelector('#remove-force'), keep: dialogs(env).querySelector('#remove-keep-files') };
+}
+const unusedUsage = () => usageFixture({ counts: { sessions: 3, bots: 0, schedules: 0, instances: 0 }, refs: { 'team/a': { sessions: 2, bots: 0, schedules: 0, instances: 0 }, 'team/b': { sessions: 1, bots: 0, schedules: 0, instances: 0 } }, items: { sessions: [{ id: 's1', name: 'review-1', state: 'running', target: 'r' }], bots: [], schedules: [], instances: [] } });
+
+test('packs show how many experts each provides and offer removal only where the console may', async () => {
+  const env = environment();
+  mount(env, 'packs', { packs: [
+    { namespace: 'team', source_kind: 'git', source_host: 'example.com', current_revision: 'abc', profile_count: 3, versions: [] },
+    { namespace: 'owned', source_kind: 'git', managed_by: 'amux', profile_count: 1 },
+    { namespace: 'scratch', source_kind: 'git', temporary: true },
+    { namespace: 'nocount', source_kind: 'git' }
+  ], actions: ['install', 'sync', 'rollback', 'remove'] });
+  const rows = env.document.getElementById('page').querySelectorAll('tbody tr');
+  const row = ns => rows.find(r => r.querySelector('.link-button, td') && r.textContent.includes(ns));
+  const labels = r => r.querySelectorAll('button').map(b => b.textContent);
+  assert.ok(labels(row('team')).includes('Remove pack'));
+  for (const ns of ['owned', 'scratch']) assert.equal(labels(row(ns)).includes('Remove pack'), false, ns);
+  assert.ok(labels(row('team')).includes('3'));
+  assert.equal(labels(row('nocount')).some(text => /^\d+$/.test(text)), false);
+  // The count leads to that pack's experts.
+  await row('team').querySelectorAll('button').find(b => b.textContent === '3').click();
+  assert.equal(env.window.location.hash, '#profiles');
+  assert.equal(env.app.state.filters.get('profiles').namespace, 'team');
+  // Without the capability nothing offers removal.
+  mount(env, 'packs', { packs: [{ namespace: 'team', source_kind: 'git' }], actions: ['install', 'sync'] });
+  assert.equal(buttonTexts(env).includes('Remove pack'), false);
+});
+
+test('removing an unused pack asks once and sends exactly what was chosen', async () => {
+  const env = environment();
+  const { submit, force } = await openRemove(env, unusedUsage());
+  const text = dialogs(env).textContent;
+  assert.ok(text.includes('Remove “team” from this host') && text.includes('team/a') && text.includes('Used by 2') && text.includes('Used by 1'), text);
+  assert.ok(text.includes('restart or resume may need pack files'));
+  assert.equal(text.includes('These will fail to start new work'), false);
+  assert.notEqual(force.parentNode.hidden, false, 'no "remove anyway" for an unused pack');
+  assert.equal(submit.disabled, false);
+  env.fixture.packs = { packs: [], actions: ['remove'] };
+  await submit.click(); await tick(); await tick();
+  assert.deepEqual(lastWrite(env), { action: 'remove', data: { namespace: 'team', confirm: true } });
+  assert.equal(dialogs(env).querySelector('.modal'), null, 'the dialog closes after removal');
+
+  // Keeping the files is a separate, explicit choice.
+  const again = await openRemove(env, usageFixture({ counts: { sessions: 0, bots: 0, schedules: 0, instances: 0 }, refs: {}, items: { sessions: [], bots: [], schedules: [], instances: [] } }));
+  again.keep.checked = true;
+  await again.submit.click(); await tick();
+  assert.deepEqual(lastWrite(env), { action: 'remove', data: { namespace: 'team', confirm: true, keep_files: true } });
+});
+
+test('a pack that Bots, Schedules or instances use needs an explicit "remove anyway"', async () => {
+  const env = environment();
+  const { submit, force } = await openRemove(env, usageFixture());
+  const text = dialogs(env).textContent;
+  assert.ok(text.includes('These will fail to start new work once the pack is removed.'), text);
+  assert.ok(text.includes('Bot default experts') && text.includes('Helper') && text.includes('nightly') && text.includes('weekly'));
+  assert.equal(force.parentNode.hidden, false);
+  assert.equal(submit.disabled, true);
+  const callsBefore = env.calls.length;
+  await submit.click();
+  assert.equal(env.calls.length, callsBefore, 'a blocked removal sent nothing');
+  force.checked = true; await force.fire('change');
+  assert.equal(submit.disabled, false);
+  env.fixture.packs = { packs: [], actions: ['remove'] };
+  await submit.click(); await tick(); await tick();
+  assert.deepEqual(lastWrite(env), { action: 'remove', data: { namespace: 'team', confirm: true, force: true } });
+  // Cancel never removes.
+  const second = environment();
+  await openRemove(second, usageFixture());
+  const writes = second.calls.length;
+  await dialogButton(second, 'Cancel').click();
+  assert.equal(second.calls.length, writes);
+  assert.equal(dialogs(second).querySelector('.modal'), null);
+});
+
+test('use that cannot be read blocks removal, including Bot references', async () => {
+  let env = environment();
+  let r = await openRemove(env, usageFixture({ counts: { sessions: 0, bots: 0, schedules: 0, instances: 0 }, refs: {}, items: { sessions: [], bots: [], schedules: [], instances: [] }, unavailable: ['schedules'] }));
+  assert.ok(dialogs(env).textContent.includes('Some usage could not be read (Schedules)'));
+  assert.equal(r.force.parentNode.hidden, false); assert.equal(r.submit.disabled, true);
+
+  env = environment();
+  r = await openRemove(env, usageFixture({ counts: { sessions: 0, bots: 0, schedules: 0, instances: 0 }, refs: {}, items: { sessions: [], bots: [], schedules: [], instances: [] }, unavailable: ['bots', 'groups'] }));
+  assert.equal(r.force.parentNode.hidden, false);
+  assert.equal(r.submit.disabled, true);
+
+  // When the usage request itself fails the dialog stays safe and says why.
+  env = environment();
+  const baseFetch = env.window.fetch;
+  env.window.fetch = async (url, options) => url.includes('/api/console/usage') ? { ok: false, status: 503, json: async () => ({ error: 'backend_unavailable' }) } : baseFetch(url, options);
+  mount(env, 'packs', { packs: [{ namespace: 'team', source_kind: 'git' }], actions: ['remove'] });
+  await env.document.getElementById('page').querySelectorAll('button').find(b => b.textContent === 'Remove pack').click();
+  await tick(); await tick();
+  assert.equal(dialogs(env).querySelector('#remove-force').parentNode.hidden, false);
+  assert.equal(dialogButton(env, 'Remove pack').disabled, true);
+  assert.ok(dialogs(env).querySelector('.banner.bad'));
+});
+
+test('a removal the backend refuses explains itself and then offers the explicit choice', async () => {
+  const env = environment();
+  const { submit, force } = await openRemove(env, usageFixture({ counts: { sessions: 0, bots: 0, schedules: 0, instances: 0 }, refs: {}, items: { sessions: [], bots: [], schedules: [], instances: [] } }));
+  assert.notEqual(force.parentNode.hidden, false);
+  const baseFetch = env.window.fetch;
+  env.window.fetch = async (url, options) => options && options.method === 'POST' ? { ok: false, status: 409, json: async () => ({ code: 'pack_in_use', error: 'pack_in_use' }) } : baseFetch(url, options);
+  await submit.click(); await tick(); await tick();
+  assert.ok(dialogs(env).textContent.includes('still referenced by a Bot, group, Schedule or persistent instance'), dialogs(env).textContent);
+  assert.equal(force.parentNode.hidden, false);
+  assert.equal(submit.disabled, true);
+});
+
+test('pack revisions can be rolled back one by one and managed packs cannot', async () => {
+  const env = environment();
+  const pack = { namespace: 'team', source_kind: 'git', current_revision: 'bbb222', versions: [{ revision: 'aaa111', synced_at: 1794000000 }, { revision: 'bbb222', synced_at: 1794100000 }] };
+  mount(env, 'packs', { packs: [pack], actions: ['rollback', 'remove'] });
+  await findButton(env, 'Details').click();
+  assert.deepEqual(dialogs(env).querySelectorAll('button').map(b => b.textContent).filter(text => text === 'Roll back to this'), ['Roll back to this']);
+  assert.ok(dialogs(env).textContent.includes('Current'));
+  await dialogButton(env, 'Roll back to this').click();
+  assert.equal(dialogs(env).querySelector('#field-revision').value, 'aaa111');
+  env.fixture.packs = { packs: [pack], actions: ['rollback'] };
+  await dialogs(env).querySelector('form').fire('submit'); await tick(); await tick();
+  assert.deepEqual(lastWrite(env), { action: 'rollback', data: { namespace: 'team', revision: 'aaa111', confirm: true } });
+
+  mount(env, 'packs', { packs: [Object.assign({}, pack, { managed_by: 'amux' })], actions: ['rollback', 'remove'] });
+  await findButton(env, 'Details').click();
+  assert.equal(dialogs(env).querySelectorAll('button').some(b => b.textContent === 'Roll back to this'), false);
+});
+
+test('the profiles page shows what each expert is used by and filters used from unused', async () => {
+  const env = environment();
+  mount(env, 'profiles', {
+    profiles: [{ ref: 'team/a', name: 'alpha' }, { ref: 'team/b', name: 'beta' }, { ref: 'builtin/c', name: 'gamma' }],
+    usage: { 'team/a': { sessions: 2, bots: 1, schedules: 0, instances: 0 }, 'team/b': { sessions: 0, bots: 0, schedules: 0, instances: 0 } }, usage_unavailable: []
+  });
+  const page = () => env.document.getElementById('page');
+  const names = () => page().querySelectorAll('.profile-card h2').map(h => h.textContent).sort();
+  assert.deepEqual(names(), ['alpha', 'beta', 'gamma']);
+  assert.ok(page().textContent.includes('Used by 3'));
+  const chipTitle = page().querySelectorAll('.chip').find(c => c.textContent === 'Used by 3').getAttribute('title');
+  assert.equal(chipTitle, 'Bot default experts 1 · Sessions 2');
+  const select = () => page().querySelectorAll('select').find(item => item.getAttribute('aria-label') === 'Usage');
+  assert.deepEqual(select().querySelectorAll('option').map(o => o.textContent), ['All experts', 'In use (1)', 'Unused (2)']);
+  select().value = 'unused'; await select().fire('change');
+  assert.deepEqual(names(), ['beta', 'gamma']);
+  select().value = 'used'; await select().fire('change');
+  assert.deepEqual(names(), ['alpha']);
+  select().value = ''; await select().fire('change');
+  assert.equal(names().length, 3);
+  // Without usage data there is no claim about use and no usage filter.
+  mount(env, 'profiles', { profiles: [{ ref: 'team/a', name: 'alpha' }] });
+  assert.equal(page().textContent.includes('Unused'), false);
+  assert.equal(select(), undefined);
+});
+
+test('only the expert pages ask for usage; option lists read profiles without it', async () => {
+  const env = environment();
+  env.app.state.authenticated = true; env.app.state.bootstrap = env.fixture.bootstrap;
+  env.app.state.route = { page: 'profiles', params: {} };
+  await env.app.loadRoute();
+  env.app.state.route = { page: 'profile', params: { ref: 'team/a' } };
+  await env.app.loadRoute();
+  const urls = env.calls.map(call => call.url);
+  assert.ok(urls.includes('/api/console/profiles?usage=1') && urls.includes('/api/console/profile?ref=team%2Fa&usage=1'), urls.join(' '));
+  env.calls.length = 0;
+  await env.app.openNewSession();
+  assert.ok(env.calls.map(call => call.url).includes('/api/console/profiles'));
+  assert.equal(env.calls.some(call => call.url.includes('usage=1')), false);
+});
+
+test('an expert page lists where it is used, with links, and which pack provides it', () => {
+  const env = environment();
+  const usage = { ref: 'team/a', counts: { sessions: 25, bots: 1, schedules: 1, instances: 0 }, unavailable: [], items: {
+    sessions: Array.from({ length: 20 }, (_, i) => ({ id: 's' + i, name: 'review-' + i, state: 'running', target: 'r' })),
+    bots: [{ id: 'default', name: 'Helper', state: 'running' }], schedules: [{ id: '7', name: 'nightly', state: 'enabled' }], instances: [] } };
+  mount(env, 'profile', { profile: { ref: 'team/a', name: 'alpha', skills: [] }, usage, pack: { namespace: 'team', source_kind: 'git', source_host: 'example.com', current_revision: 'abcdef1234567890', auto_sync: true, sync_interval: '30s' } }, { ref: 'team/a' });
+  const page = env.document.getElementById('page');
+  const text = page.textContent;
+  for (const expected of ['Where this expert is used', 'Bot default experts', 'Helper', 'nightly', 'review-0', '+5 more', 'Provided by', 'team', 'example.com', 'abcdef123456', 'Auto sync']) assert.ok(text.includes(expected), expected);
+  assert.equal(text.includes('Persistent instances'), false, 'an empty source is not listed');
+  const hrefs = page.querySelectorAll('a').map(a => a.getAttribute('href'));
+  assert.ok(hrefs.includes('#session?name=review-0&target=r') && hrefs.includes('#schedule?schedule_id=7') && hrefs.includes('#bots?') && hrefs.includes('#packs?'), hrefs.join(' '));
+  // Nothing refers to it, and the builtin pack has no source to show.
+  mount(env, 'profile', { profile: { ref: 'builtin/codex', name: 'codex' }, usage: { ref: 'builtin/codex', counts: { sessions: 0, bots: 0, schedules: 0, instances: 0 }, items: {}, unavailable: [] }, pack: { namespace: 'builtin', source_kind: 'builtin' } }, { ref: 'builtin/codex' });
+  assert.ok(env.document.getElementById('page').textContent.includes('No references found in the checked sources.'));
+  assert.equal(env.document.getElementById('page').textContent.includes('Provided by'), false);
+  // Unreadable sources are named, never counted as zero use.
+  mount(env, 'profile', { profile: { ref: 'team/a', name: 'alpha' }, usage: { ref: 'team/a', counts: { sessions: 0, bots: 0, schedules: 0, instances: 0 }, items: {}, unavailable: ['schedules', 'bots'] } }, { ref: 'team/a' });
+  const incomplete = env.document.getElementById('page').textContent;
+  assert.ok(incomplete.includes('Some usage could not be read (Schedules, Bot default experts)') && !incomplete.includes('No references found in the checked sources.'));
+});
+
+test('group defaults block removal and appear as usage', async () => {
+  const env = environment();
+  const usage = usageFixture({ counts: { sessions: 0, bots: 0, groups: 1, schedules: 0, instances: 0 }, refs: { 'team/a': { groups: 1 } }, items: { groups: [{ id: 'oc-group', name: 'Operations' }] } });
+  const { submit, force } = await openRemove(env, usage);
+  assert.ok(dialogs(env).textContent.includes('Group default experts'));
+  assert.ok(dialogs(env).textContent.includes('Operations'));
+  assert.equal(force.parentNode.hidden, false);
+  assert.equal(submit.disabled, true);
+});
+
+test('incomplete usage never labels an expert unused', () => {
+  const env = environment();
+  mount(env, 'profiles', { profiles: [{ ref: 'team/a', name: 'alpha' }], usage: {}, usage_unavailable: ['bots', 'groups'] });
+  const page = env.document.getElementById('page');
+  assert.ok(page.textContent.includes('Usage unknown'));
+  assert.equal(page.textContent.includes('Unused'), false);
+  const options = page.querySelectorAll('select').find(item => item.getAttribute('aria-label') === 'Usage').querySelectorAll('option').map(o => o.textContent);
+  assert.equal(options.some(text => text.startsWith('Unused')), false);
+});
+
+test('an empty filtered namespace still exposes the All tab', async () => {
+  const env = environment();
+  env.app.state.filters.set('profiles', { query: '', state: '', target: '', group: '', kind: '', namespace: 'absent', use: '', page: 1 });
+  mount(env, 'profiles', { profiles: [{ ref: 'team/a', name: 'alpha' }] });
+  const page = () => env.document.getElementById('page');
+  assert.equal(page().querySelectorAll('.profile-card').length, 0);
+  await page().querySelectorAll('.tab').find(tab => tab.textContent.startsWith('All')).click();
+  assert.equal(page().querySelectorAll('.profile-card').length, 1);
+});
+
+test('rollback row selection supersedes a previous draft and names the revision', async () => {
+  const env = environment();
+  let confirmation = '';
+  env.window.confirm = text => { confirmation = text; return true; };
+  const pack = { namespace: 'team', current_revision: 'ccc333', versions: [{ revision: 'aaa111' }, { revision: 'bbb222' }, { revision: 'ccc333' }] };
+  mount(env, 'packs', { packs: [pack], actions: ['rollback'] });
+  await findButton(env, 'Roll back pack').click();
+  const select = dialogs(env).querySelector('#field-revision');
+  select.value = 'bbb222'; await dialogs(env).querySelector('form').fire('change');
+  await dialogButton(env, 'Cancel').click();
+  await findButton(env, 'Details').click();
+  const first = dialogs(env).querySelectorAll('tbody tr')[0];
+  await first.querySelectorAll('button').find(b => b.textContent === 'Roll back to this').click();
+  assert.equal(dialogs(env).querySelector('#field-revision').value, 'aaa111');
+  env.fixture.packs = { packs: [pack], actions: ['rollback'] };
+  await dialogs(env).querySelector('form').fire('submit'); await tick();
+  assert.ok(confirmation.includes('team') && confirmation.includes('aaa111'), confirmation);
+  assert.equal(lastWrite(env).data.revision, 'aaa111');
+});
+
+test('partial Pack removal displays a warning and refreshes the list', async () => {
+  const env = environment();
+  const { submit } = await openRemove(env, unusedUsage());
+  const baseFetch = env.window.fetch;
+  env.window.fetch = async (url, options) => {
+    if (url === '/api/console/packs' && options.method === 'POST') {
+      env.calls.push({ url, options });
+      return { ok: true, status: 200, json: async () => ({ ok: true, warning_code: 'pack_files_not_removed' }) };
+    }
+    return baseFetch(url, options);
+  };
+  env.fixture.packs = { packs: [], actions: ['remove'] };
+  await submit.click(); await tick(); await tick();
+  assert.ok(env.document.getElementById('notifications').textContent.includes('unregistered, but its downloaded files could not be removed'));
+  assert.equal(dialogs(env).querySelector('.modal'), null);
+  assert.ok(env.calls.some(call => call.url.startsWith('/api/console/packs') && (!call.options.method || call.options.method === 'GET')));
+});
+
+test('expert library screens read naturally in Chinese with no raw keys', async () => {
+  const env = environment();
+  env.window.navigator.language = 'zh-CN';
+  const { submit } = await openRemove(env, usageFixture(), undefined, '移除 Pack');
+  const dialog = dialogs(env).textContent;
+  for (const expected of ['移除 Pack', '从本机移除“team”', '助手默认专家', '移除后，它们将无法再启动新的工作。', '我已了解，仍然移除', '保留已下载的文件']) assert.ok(dialog.includes(expected), expected);
+  assert.ok(submit);
+  mount(env, 'profile', { profile: { ref: 'team/a', name: 'alpha' }, usage: { ref: 'team/a', counts: { sessions: 1, bots: 0, schedules: 0, instances: 0 }, items: { sessions: [{ id: 's', name: 'one', state: 'running', target: 'r' }] }, unavailable: [] }, pack: { namespace: 'team', source_kind: 'git', source_host: 'example.com' } }, { ref: 'team/a' });
+  const page = env.document.getElementById('page').textContent;
+  for (const expected of ['使用情况', '来源 Pack', '重启或恢复时可能需要 Pack 文件']) assert.ok(page.includes(expected), expected);
+  for (const key of ['usageTitle', 'removePackLead', 'providedBy', 'usageSessionsNote', 'pack_in_use']) assert.equal((page + dialog).includes(key), false, key);
+});
+
+test('a long replay the Hub cuts off is shown as loading history, not as a lost connection', async () => {
+  const env = environment('#session?name=chat&target=r');
+  const streams = []; const Base = env.window.EventSource;
+  env.window.EventSource = class extends Base { constructor(url) { super(url); streams.push(this); } };
+  env.fixture.session = { session: { id: 's1', name: 'chat', state: 'running', target_id: 'r' }, queue: [], actions: ['submit'], activity: { active_turn: false, turn_state: 'idle' } };
+  env.app.state.authenticated = true; env.app.state.bootstrap = env.fixture.bootstrap; env.app.state.route = { page: 'session', params: { name: 'chat', target: 'r' } };
+  await env.app.loadRoute();
+  const status = () => env.document.getElementById('stream-status').textContent;
+  const connection = () => env.document.getElementById('connection').textContent;
+  assert.ok(status().includes('Loading history…'), status());
+  // Some history arrives, then the Hub cuts the stream: the browser will resume from the last event.
+  await streams[0].onopen();
+  await streams[0].onmessage({ data: JSON.stringify({ cursor: 'c-1', kind: 'OUTPUT', text: 'one' }) });
+  await streams[0].listeners.disconnected();
+  assert.ok(status().includes('Loading history…'), status());
+  assert.equal(env.app.state.connection, 'connected');
+  assert.equal(connection().includes('Reconnecting'), false);
+  // Reconnected and still replaying; then the replay completes and the stream is live.
+  await streams[0].onopen();
+  assert.ok(status().includes('Loading history…'));
+  await streams[0].onmessage({ data: JSON.stringify({ cursor: 'c-2', caught_up: true }) });
+  assert.ok(status().includes('Live events'), status());
+  // Losing the live stream afterwards is a real reconnect.
+  env.advance(1000);
+  await streams[0].onerror();
+  assert.ok(status().includes('Reconnecting'), status());
+  assert.equal(env.app.state.connection, 'reconnecting');
+  assert.ok(connection().includes('Reconnecting'));
+  // A stream that fails before delivering anything is a reconnect too, not loading.
+  const fresh = environment('#session?name=chat&target=r');
+  const second = []; const FreshBase = fresh.window.EventSource;
+  fresh.window.EventSource = class extends FreshBase { constructor(url) { super(url); second.push(this); } };
+  fresh.fixture.session = env.fixture.session;
+  fresh.app.state.authenticated = true; fresh.app.state.bootstrap = fresh.fixture.bootstrap; fresh.app.state.route = { page: 'session', params: { name: 'chat', target: 'r' } };
+  await fresh.app.loadRoute();
+  await second[0].onerror();
+  assert.ok(fresh.document.getElementById('stream-status').textContent.includes('Reconnecting'));
 });

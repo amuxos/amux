@@ -3,13 +3,16 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/amuxos/amux/internal/agentprofile"
+	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/amuxos/amux/internal/webconsole"
 )
 
@@ -18,6 +21,7 @@ var (
 	consoleInstallPack  = agentprofile.AddGitPackWithOptions
 	consoleSyncPack     = agentprofile.SyncPack
 	consoleRollbackPack = agentprofile.RollbackPack
+	consoleRemovePack   = agentprofile.RemovePackIf
 )
 
 func consolePackView(pack agentprofile.Pack) map[string]any {
@@ -47,6 +51,87 @@ func consolePacks() (map[string]any, error) {
 		views = append(views, consolePackView(pack))
 	}
 	return map[string]any{"packs": views}, nil
+}
+
+// consolePacksWithExperts adds how many experts each Pack provides. The count
+// comes from the Hub's discovered Profiles; when they cannot be listed the Packs
+// are still returned, without counts.
+func (b *consoleBackend) consolePacksWithExperts(ctx context.Context) (map[string]any, error) {
+	value, err := consolePacks()
+	if err != nil || b.hub == nil {
+		return value, err
+	}
+	listCtx, cancel := context.WithTimeout(ctx, consoleUsageTimeout)
+	defer cancel()
+	resp, listErr := b.hub.ListAgentProfiles(listCtx, &pb.ListAgentProfilesRequest{})
+	if listErr != nil || resp == nil || resp.GetProfilesError() != "" {
+		return value, nil
+	}
+	profiles, decodeErr := discoveredAgentProfilesFromPB(resp.GetProfiles())
+	if decodeErr != nil {
+		return value, nil
+	}
+	counts := map[string]int{}
+	for _, profile := range profiles {
+		if namespace, _, found := strings.Cut(profile.Profile.Ref(), "/"); found {
+			counts[namespace]++
+		}
+	}
+	for _, view := range value["packs"].([]map[string]any) {
+		namespace, _ := view["namespace"].(string)
+		view["profile_count"] = counts[namespace]
+	}
+	return value, nil
+}
+
+// consolePackExperts lists the refs of the experts a Pack provides, for the removal
+// dialog. When the Hub cannot enumerate Profiles it falls back to the experts that
+// something refers to.
+func (b *consoleBackend) consolePackExperts(ctx context.Context, namespace string, referenced map[string]consoleUsageCounts) []string {
+	refs := map[string]bool{}
+	for ref := range referenced {
+		refs[ref] = true
+	}
+	if b.hub != nil {
+		listCtx, cancel := context.WithTimeout(ctx, consoleUsageTimeout)
+		defer cancel()
+		if resp, err := b.hub.ListAgentProfiles(listCtx, &pb.ListAgentProfilesRequest{}); err == nil && resp != nil && resp.GetProfilesError() == "" {
+			if profiles, decodeErr := discoveredAgentProfilesFromPB(resp.GetProfiles()); decodeErr == nil {
+				for _, profile := range profiles {
+					if ref := profile.Profile.Ref(); strings.HasPrefix(ref, namespace+"/") {
+						refs[ref] = true
+					}
+				}
+			}
+		}
+	}
+	out := make([]string, 0, len(refs))
+	for ref := range refs {
+		out = append(out, ref)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// consolePackRemovalGuard refuses to remove a Pack that something starts new work
+// from: a Bot or group default expert, a Schedule or a persistent instance would
+// fail once the Pack is gone. Sessions keep their frozen launch snapshot and do not
+// block. When use cannot be read the answer is unknown, which blocks as well; only
+// an explicit force passes.
+func (b *consoleBackend) consolePackRemovalGuard(ctx context.Context, namespace string, force bool) error {
+	if force {
+		return nil
+	}
+	index := b.consoleUsageIndex(ctx)
+	if counts, _, _ := index.forNamespace(namespace); counts.starting() > 0 {
+		return &consoleResourceError{code: "pack_in_use", field: "namespace", cause: webconsole.ErrConflict}
+	}
+	for _, source := range index.unavailable {
+		if source != "sessions" {
+			return &consoleResourceError{code: "usage_unavailable", field: "namespace", cause: webconsole.ErrConflict}
+		}
+	}
+	return nil
 }
 func consoleValidatePackNamespace(namespace string) error {
 	if !consolePackNamespace.MatchString(namespace) || namespace == "builtin" || namespace == agentprofile.ManagedLocalPackNamespace {
@@ -96,13 +181,15 @@ func consoleValidateRemotePackURL(raw string) error {
 	}
 	return nil
 }
-func consoleExecutePack(ctx context.Context, action string, data json.RawMessage) (any, error) {
+func (b *consoleBackend) consoleExecutePack(ctx context.Context, action string, data json.RawMessage) (any, error) {
 	var req struct {
 		Namespace string `json:"namespace"`
 		URL       string `json:"url,omitempty"`
 		Ref       string `json:"ref,omitempty"`
 		Revision  string `json:"revision,omitempty"`
 		Confirm   bool   `json:"confirm,omitempty"`
+		KeepFiles bool   `json:"keep_files,omitempty"`
+		Force     bool   `json:"force,omitempty"`
 	}
 	if err := consoleDecode(data, &req); err != nil {
 		return nil, err
@@ -111,7 +198,7 @@ func consoleExecutePack(ctx context.Context, action string, data json.RawMessage
 	if err := consoleValidatePackNamespace(req.Namespace); err != nil {
 		return nil, err
 	}
-	if action == "install" || action == "rollback" {
+	if action == "install" || action == "rollback" || action == "remove" {
 		if !req.Confirm {
 			return nil, consoleInvalid("confirmation_required", "confirm")
 		}
@@ -142,8 +229,19 @@ func consoleExecutePack(ctx context.Context, action string, data json.RawMessage
 		if pack.ManagedBy != "" || pack.Temporary || pack.Evaluation {
 			return nil, consoleInvalid("managed_pack_read_only", "namespace")
 		}
-		if err := consoleValidateRemotePackURL(pack.GitURL); err != nil {
-			return nil, err
+		// Removal runs no git command, so any registered Pack can be removed; only
+		// sync and rollback need a source the console accepts.
+		if action != "remove" {
+			if err := consoleValidateRemotePackURL(pack.GitURL); err != nil {
+				return nil, err
+			}
+		}
+		if action == "remove" {
+			// Fail fast, without waiting for the registry lock; the same check runs
+			// again under the lock before anything is removed.
+			if err := b.consolePackRemovalGuard(ctx, req.Namespace, req.Force); err != nil {
+				return nil, err
+			}
 		}
 		if action == "rollback" {
 			recorded := false
@@ -171,6 +269,31 @@ func consoleExecutePack(ctx context.Context, action string, data json.RawMessage
 		pack, err = consoleSyncPack(opCtx, registryPath, req.Namespace)
 	case "rollback":
 		pack, err = consoleRollbackPack(opCtx, registryPath, req.Namespace, req.Revision)
+	case "remove":
+		var result agentprofile.RemovePackResult
+		result, err = consoleRemovePack(opCtx, registryPath, req.Namespace, agentprofile.RemovePackOptions{KeepFiles: req.KeepFiles}, func(current agentprofile.Pack) error {
+			// Re-check after acquiring the Pack lock. References in other stores
+			// can still change concurrently; this is a point-in-time check.
+			if current.ManagedBy != "" || current.Temporary || current.Evaluation {
+				return consoleInvalid("managed_pack_read_only", "namespace")
+			}
+			return b.consolePackRemovalGuard(opCtx, req.Namespace, req.Force)
+		})
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				// Typically an auto-sync holding the registry lock.
+				return nil, &consoleResourceError{code: "pack_busy", cause: webconsole.ErrConflict}
+			}
+			// RemovePackIf returns a removal path only after successfully saving the
+			// unregistered state. Do not infer partial success from a later registry
+			// read, which could race with a different operator removing the Pack.
+			if result.RemovedPath != "" && !result.FilesRemoved {
+				return map[string]any{"ok": true, "removed": map[string]any{"namespace": req.Namespace, "files_removed": false}, "warning_code": "pack_files_not_removed"}, nil
+			}
+			return nil, err
+		}
+		// Never return the materialized path: it is a host filesystem location.
+		return map[string]any{"ok": true, "removed": map[string]any{"namespace": req.Namespace, "files_removed": result.FilesRemoved}}, nil
 	default:
 		return nil, consoleInvalid("unsupported_action", "")
 	}

@@ -91,6 +91,9 @@ func consoleValidateActionFields(resource, action string, data json.RawMessage) 
 		if action == "rollback" {
 			allowed = append(allowed, "revision", "confirm")
 		}
+		if action == "remove" {
+			allowed = append(allowed, "confirm", "keep_files", "force")
+		}
 	}
 	for key := range fields {
 		found := false

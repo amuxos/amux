@@ -195,7 +195,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			if !s.method(w, r, http.MethodGet) {
 				return
 			}
-			s.json(w, map[string]any{"version": s.options.Version, "csrf_token": session.csrf, "authenticated": true, "operator": true, "expires_at": s.expiration(), "auth_mode": s.authMode(), "insecure_transport": s.insecureTransport(), "resources": []string{"overview", "sessions", "tasks", "instances", "schedules", "profiles", "packs", "credentials", "settings", "bots", "groups", "catalogs"}})
+			s.json(w, map[string]any{"version": s.options.Version, "csrf_token": session.csrf, "authenticated": true, "operator": true, "expires_at": s.expiration(), "auth_mode": s.authMode(), "insecure_transport": s.insecureTransport(), "resources": []string{"overview", "sessions", "tasks", "instances", "schedules", "profiles", "packs", "usage", "credentials", "settings", "bots", "groups", "catalogs"}})
 			return
 		}
 		if r.URL.Path == "/api/console/events" {
@@ -558,7 +558,9 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, session browserS
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.Header().Set("Connection", "keep-alive")
-	_, _ = io.WriteString(w, ": connected\n\n")
+	// A long history is replayed in several connections (the Hub can cut one off), so
+	// ask the browser to resume after a second rather than its default.
+	_, _ = io.WriteString(w, "retry: 1000\n: connected\n\n")
 	flusher.Flush()
 	events := make(chan *pb.AttachEvent, 8)
 	errs := make(chan error, 1)

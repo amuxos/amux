@@ -28,6 +28,7 @@ type consoleManagementController interface {
 	ConsoleGroups(context.Context) ([]bridge.ConsoleGroup, error)
 	ConsoleGroupSettings(context.Context, string) (bridge.ConsoleGroupsResult, error)
 	ConsoleSaveGroup(context.Context, string, *bridge.GroupSettings, int64) (bridge.ConsoleGroupsResult, error)
+	ConsoleAgentReferences(context.Context) ([]bridge.ConsoleAgentReference, error)
 }
 
 type consoleRead struct {
@@ -48,6 +49,15 @@ type consoleBotsResult struct {
 	Bot    *bridge.ConsoleBot  `json:"bot,omitempty"`
 }
 
+// consoleReferencesResult lists every Bot and group default expert in the Bridge
+// database, running Bot or not, for the console's Pack usage and removal checks.
+type consoleReferencesResult struct {
+	Status     string                         `json:"status"`
+	References []bridge.ConsoleAgentReference `json:"references"`
+}
+
+const consoleMaxAgentReferences = 5000
+
 // ConsoleManagement is an operator-only protocol, not an arbitrary method or
 // config proxy. Shared-token access is still enforced by the Hub interceptor;
 // any actor credential is rejected before parsing or reaching a controller,
@@ -66,7 +76,10 @@ func (s *hubServer) ConsoleManagement(ctx context.Context, req *pb.ConsoleManage
 	if req.Resource != "bots" && req.Resource != "groups" {
 		return nil, status.Error(codes.InvalidArgument, "console_unknown_resource")
 	}
-	if req.Action != "list" && req.Action != "get" && req.Action != "save" {
+	if req.Action != "list" && req.Action != "get" && req.Action != "save" && req.Action != "references" {
+		return nil, status.Error(codes.InvalidArgument, "console_unknown_action")
+	}
+	if req.Action == "references" && req.Resource != "bots" {
 		return nil, status.Error(codes.InvalidArgument, "console_unknown_action")
 	}
 	body := req.PayloadJson
@@ -147,6 +160,45 @@ func (s *hubServer) consoleController(profile string) (consoleManagementControll
 }
 
 func (s *hubServer) consoleBots(ctx context.Context, action string, body []byte) (any, error) {
+	if action == "references" {
+		var input struct{}
+		if err := consoleDecode(body, &input); err != nil {
+			return nil, err
+		}
+		controllers := s.consoleControllers()
+		if len(controllers) == 0 {
+			// A stopped or disabled Bridge can leave persisted Bot and group
+			// defaults behind. No controller means the references are unknown.
+			return nil, status.Error(codes.Unavailable, "console_bridge_references_unavailable")
+		}
+		if len(controllers) > 256 {
+			return nil, status.Error(codes.ResourceExhausted, "console_too_many_bots")
+		}
+		profiles := make([]string, 0, len(controllers))
+		for profile := range controllers {
+			profiles = append(profiles, profile)
+		}
+		sort.Strings(profiles)
+		// Every Bridge reads the same stored settings, so the union is deduplicated.
+		out := consoleReferencesResult{Status: bridge.BotSettingsStatusSuccess, References: []bridge.ConsoleAgentReference{}}
+		seen := map[bridge.ConsoleAgentReference]bool{}
+		for _, profile := range profiles {
+			references, err := controllers[profile].ConsoleAgentReferences(ctx)
+			if err != nil {
+				return nil, err
+			}
+			for _, reference := range references {
+				if seen[reference] {
+					continue
+				}
+				if seen[reference] = true; len(out.References) >= consoleMaxAgentReferences {
+					return nil, status.Error(codes.ResourceExhausted, "console_too_many_references")
+				}
+				out.References = append(out.References, reference)
+			}
+		}
+		return out, nil
+	}
 	if action == "save" {
 		var input bridge.ConsoleBotSave
 		if err := consoleDecode(body, &input); err != nil {
