@@ -490,25 +490,27 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 		}
 
 		turnMentions := &replyMentionState{}
-		agg := NewAggregator(30*time.Second, 50000, func(text string) error {
-			_ = b.db.SetLatestAgentOutput(bridgeID, rootMsgID, text)
-			sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
+		agg := newPreparedAggregator(30*time.Second, 50000, func(text string) func() error {
 			mentionTurnID, mentionOpenIDs := turnMentions.claim(func(turnID string) []string {
 				return b.turnReplyMentionOpenIDs(streamChat, rootMsgID, turnID)
 			})
-			msgID, _, err := b.sendAgentReplyToBindingWithMentions(sendCtx, streamChat, text, mentionOpenIDs)
-			if err != nil {
-				turnMentions.release(mentionTurnID)
-				log.Warn().Err(err).Str("session", sessionName).Msg("bridge: sendAgentReplyToBinding error")
+			return func() error {
+				_ = b.db.SetLatestAgentOutput(bridgeID, rootMsgID, text)
+				sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cancel()
+				msgID, _, err := b.sendAgentReplyToBindingWithMentions(sendCtx, streamChat, text, mentionOpenIDs)
+				if err != nil {
+					turnMentions.release(mentionTurnID)
+					log.Warn().Err(err).Str("session", sessionName).Msg("bridge: sendAgentReplyToBinding error")
+				}
+				if err == nil {
+					b.recordAgentThreadContext(sendCtx, streamChat, msgID, text)
+				}
+				if err == nil && isFollowupPrompt(text) {
+					turn.MarkWaiting()
+				}
+				return err
 			}
-			if err == nil {
-				b.recordAgentThreadContext(sendCtx, streamChat, msgID, text)
-			}
-			if err == nil && isFollowupPrompt(text) {
-				turn.MarkWaiting()
-			}
-			return err
 		})
 		defer agg.Close()
 
@@ -1126,15 +1128,18 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 					case agentui.ActionTurnFinished:
 						b.retireQuestions(targetID, sessionName, rootMsgID, action.Turn.ID, "", false, action.Turn.State == "turn_done")
-						b.observeTurnFinished(rootMsgID, action.Turn.ID)
 						allowed := visibilityGate.Allow(action)
 						visibilityGate.Observe(action)
 						providerFailureNoticePending = false
 						if !allowed {
 							logSuppressedVisibleAction(action)
+							b.observeTurnFinished(rootMsgID, action.Turn.ID)
 							b.setTurnActive(rootMsgID, false)
 							continue
 						}
+						// Capture recipients before retiring the Turn's sender records.
+						// Flush prepares any non-streamed post synchronously as well.
+						mentionOpenIDs := b.turnReplyMentionOpenIDs(streamChat, rootMsgID, action.Turn.ID)
 						b.setTurnActive(rootMsgID, false)
 						// The finished card drops the queue line (terminal render);
 						// the next turn re-reads the queue when it starts.
@@ -1160,6 +1165,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							activitySender.Flush(activityViewFingerprint(view))
 						}
 						agg.Flush()
+						b.observeTurnFinished(rootMsgID, action.Turn.ID)
 						superseded := b.isTurnSuperseded(rootMsgID)
 						handoffEligible := !superseded && shouldUseAssistantResultFallback(action.Turn)
 						var pendingCardHandoff *PendingBotHandoff
@@ -1204,7 +1210,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							// keep their existing cards.
 							if handoffEligible && pendingCardHandoff == nil && !failureNoticeDelivered &&
 								completionMeta.Status == "done" {
-								replyStream.CompleteTurn(b.turnReplyMentionOpenIDs(streamChat, rootMsgID, action.Turn.ID))
+								replyStream.CompleteTurn(mentionOpenIDs)
 							} else {
 								replyStream.Reset()
 							}

@@ -100,7 +100,7 @@ func keepLines(text string) string {
 //     on flush dump the current visible screen.  Activated the first
 //     time cursor-positioning or clear-screen sequences are seen.
 type Aggregator struct {
-	flush    func(text string) error
+	prepare  func(text string) func() error
 	interval time.Duration
 	maxBytes int
 
@@ -114,8 +114,16 @@ type Aggregator struct {
 
 // NewAggregator creates a new Aggregator.
 func NewAggregator(interval time.Duration, maxBytes int, flush func(text string) error) *Aggregator {
+	return newPreparedAggregator(interval, maxBytes, func(text string) func() error {
+		return func() error { return flush(text) }
+	})
+}
+
+// newPreparedAggregator captures delivery context while the buffered text is
+// taken, before asynchronous delivery can race with a later Turn.
+func newPreparedAggregator(interval time.Duration, maxBytes int, prepare func(string) func() error) *Aggregator {
 	return &Aggregator{
-		flush:    flush,
+		prepare:  prepare,
 		interval: interval,
 		maxBytes: maxBytes,
 		term:     vt10x.New(vt10x.WithSize(vtCols, vtRows)),
@@ -185,8 +193,8 @@ func (a *Aggregator) doFlush() {
 	if text == "" {
 		return
 	}
-	fn := a.flush
-	go func() { _ = fn(text) }()
+	deliver := a.prepare(text)
+	go func() { _ = deliver() }()
 }
 
 func (a *Aggregator) textLocked() string {

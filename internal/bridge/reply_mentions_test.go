@@ -652,3 +652,33 @@ func requireCardMentions(t *testing.T, raw string, openIDs ...string) {
 		}
 	}
 }
+
+func TestAggregatorCapturesRecipientsBeforeTurnRetirement(t *testing.T) {
+	b, _ := newBridgeForInputTest(t)
+	b.mentionTurnInitiator.Store(true)
+	if err := b.db.EnsureWorkspaceKind(b.currentBridgeId(), "chat", WorkspaceKindPrivate); err != nil {
+		t.Fatal(err)
+	}
+	chat := &LarkChat{BridgeId: b.currentBridgeId(), ChatID: "chat", RootMsgID: "root"}
+	state := &replyMentionState{}
+	state.observe("first")
+	b.recordTurnSenders("root", "first", compactTurnInputRefs("ou-first", "m1"))
+	delivery := make(chan []string, 1)
+	allow := make(chan struct{})
+	agg := newPreparedAggregator(time.Hour, 50000, func(text string) func() error {
+		_, recipients := state.claim(func(turnID string) []string {
+			return b.turnReplyMentionOpenIDs(chat, "root", turnID)
+		})
+		return func() error { <-allow; delivery <- recipients; return nil }
+	})
+	agg.Add([]byte("answer"))
+	agg.Flush()
+	b.observeTurnFinished("root", "first")
+	state.observe("second")
+	b.recordTurnSenders("root", "second", compactTurnInputRefs("ou-second", "m2"))
+	close(allow)
+	if got := waitLifecycleSignal(t, delivery); strings.Join(got, ",") != "ou-first" {
+		t.Fatalf("asynchronous delivery recipients = %v, want original Turn initiator", got)
+	}
+	agg.Close()
+}
