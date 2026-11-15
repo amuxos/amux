@@ -92,7 +92,16 @@ func consoleValidateActionFields(resource, action string, data json.RawMessage) 
 			allowed = append(allowed, "revision", "confirm")
 		}
 		if action == "remove" {
-			allowed = append(allowed, "confirm", "keep_files", "force")
+			allowed = append(allowed, "confirm", "keep_files", "force", "keep_worktree")
+		}
+	case "credentials":
+		switch action {
+		case "set_env", "set_file":
+			allowed = []string{"profile", "name", "value"}
+		case "unset_env", "unset_file":
+			allowed = []string{"profile", "name"}
+		case "delete":
+			allowed = []string{"profile", "confirm"}
 		}
 	}
 	for key := range fields {
@@ -342,17 +351,33 @@ func (b *consoleBackend) consoleTasks(ctx context.Context, resource string, quer
 		if err != nil || run.ID == "" {
 			return nil, consoleInvalid("backend_response_invalid", "")
 		}
-		return map[string]any{"task": consoleTaskView(run)}, nil
+		view := consoleTaskView(run)
+		consoleAnnotateTask(view, run, b.consoleScheduleIndex(ctx))
+		return map[string]any{"task": view}, nil
+	}
+	var scheduleFilter int64
+	if raw := strings.TrimSpace(query.Get("schedule_id")); raw != "" {
+		id, err := consolePositiveID(raw)
+		if err != nil {
+			return nil, consoleInvalid("invalid_field", "schedule_id")
+		}
+		scheduleFilter = id
 	}
 	runs, err := b.consoleTaskRuns(ctx)
 	if err != nil {
 		return nil, err
 	}
+	index := b.consoleScheduleIndex(ctx)
 	views := make([]map[string]any, 0, len(runs))
 	for _, run := range runs {
-		views = append(views, consoleTaskView(run))
+		view := consoleTaskView(run)
+		consoleAnnotateTask(view, run, index)
+		if scheduleFilter != 0 && view["schedule_id"] != scheduleFilter {
+			continue
+		}
+		views = append(views, view)
 	}
-	return map[string]any{"tasks": views}, nil
+	return map[string]any{"tasks": views, "schedules": index.schedules, "schedule_index_complete": index.complete}, nil
 }
 
 // consoleTaskRuns lists every TaskRun, newest request first.
@@ -440,7 +465,9 @@ func (b *consoleBackend) consoleInstances(ctx context.Context, resource string, 
 		if resp.GetInstance() == nil {
 			return nil, consoleMissing()
 		}
-		return map[string]any{"instance": consoleInstanceView(resp.GetInstance())}, nil
+		view := consoleInstanceView(resp.GetInstance())
+		b.consoleInstanceLinks(ctx, []map[string]any{view}, true)
+		return map[string]any{"instance": view}, nil
 	}
 	resp, err := b.tasks.ListAgentInstances(ctx, &pb.ListAgentInstancesRequest{OwnerSessionId: query.Get("owner_session_id"), Status: query.Get("status")})
 	if err != nil {
@@ -455,6 +482,7 @@ func (b *consoleBackend) consoleInstances(ctx context.Context, resource string, 
 			views = append(views, consoleInstanceView(instance))
 		}
 	}
+	b.consoleInstanceLinks(ctx, views, false)
 	return map[string]any{"instances": views}, nil
 }
 func (b *consoleBackend) consoleExecuteInstance(ctx context.Context, action string, data json.RawMessage) (any, error) {

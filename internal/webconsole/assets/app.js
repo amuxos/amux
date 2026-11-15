@@ -303,9 +303,17 @@
   // ---------------------------------------------------------------------------
   // Requests, errors and the opening window.
   // ---------------------------------------------------------------------------
+  // A rejected field is named with its form label, or explained when it is a
+  // condition code (for example why a development worktree was kept).
+  function errorDetail(fieldName) {
+    if (typeof fieldName !== 'string' || !fieldName) return '';
+    if (has('reason.' + fieldName)) return t('reason.' + fieldName);
+    return t('invalidField', { field: has('field.' + fieldName) ? t('field.' + fieldName) : fieldName });
+  }
   function errorMessage(error, write) {
     const machineCode = error.payload && (error.payload.code || error.payload.error);
-    const known = typeof machineCode === 'string' && has(machineCode) ? t(machineCode) : '';
+    const detail = errorDetail(error.payload && error.payload.field);
+    const known = (typeof machineCode === 'string' && has(machineCode) ? t(machineCode) : '') + (detail ? (has(machineCode) ? '\n' : '') + detail : '');
     if (error.status === 403) return known || t('forbidden');
     if (error.status === 409) return t('conflict') + (known ? '\n' + known : '');
     if (error.status === 401) return known || t('loginExpired');
@@ -517,7 +525,7 @@
     const b = button(key, async () => {
       if (o.confirm !== false && !await confirmAction(key, o.name || display(o.item || data), danger)) return;
       b.disabled = true;
-      try { await write(resource, action, data); notify(t('saved')); await loadRoute(); }
+      try { await write(resource, action, data); notify(t(o.successKey || 'saved')); await loadRoute(); }
       catch (error) { notify(errorMessage(error, true), true); }
       finally { if (b.isConnected) b.disabled = !state.online; }
     }, o.tone || '', o.glyph);
@@ -1023,18 +1031,31 @@
   // Tasks and persistent instances.
   // ---------------------------------------------------------------------------
   function modeLabel(mode) { return mode ? (has('mode.' + mode) ? t('mode.' + mode) : mode) : ''; }
+  // Tasks name what started them; a Schedule's tasks come from its run history.
+  function scheduleLink(row) {
+    const id = row.schedule_id || row.schedule && row.schedule.id;
+    if (!id) return null;
+    const name = row.schedule_name || row.schedule && row.schedule.name || '#' + id;
+    return e('a', { class: 'chip blue', href: '#schedule?' + new URLSearchParams({ schedule_id: id }), title: t('openSchedule'), text: name });
+  }
   function renderTasks(snapshot) {
     const rows = sortByTime(list(snapshot, 'tasks'), 'requested_at', 'started_at');
-    const options = { stateOf: r => r.status || r.state };
-    return [title('tasks', 'tasksDesc', refreshButton()), filters(rows, options), dataTable([
+    const options = { stateOf: r => r.status || r.state, kindOf: r => r.source };
+    const schedules = list(snapshot, 'schedules');
+    const selected = state.route.params.schedule_id || '';
+    const scheduleFilter = schedules.length || selected ? selectOptions([{ value: '', label: t('allSchedules') }, ...schedules.map(row => ({ value: String(row.id), label: (row.name || '#' + row.id) + ' (' + Number(row.task_count || 0) + ')' }))], selected, value => navigate('tasks', value ? { schedule_id: value } : {}), { 'aria-label': t('schedules') }) : null;
+    return [title('tasks', 'tasksDesc', refreshButton()), filters(rows, Object.assign({ extra: [scheduleFilter] }, options)),
+      selected ? e('p', { class: 'help', text: t('scheduleTasksNote') }) : null,
+      dataTable([
       { key: 'tasks', render: r => cellTitle(taskTitle(r), [idText(taskID(r)), modeLabel(r.mode)], () => navigate('task', { task_id: taskID(r) })) },
+      { key: 'source', render: r => e('div', { class: 'badges' }, r.source ? chip(kindLabel(r.source), r.source === 'schedule' ? 'blue' : 'quiet') : null, scheduleLink(r)) },
       { key: 'result', render: r => badge(r.status || r.state) },
       { key: 'profile', render: r => e('div', {}, r.agent_profile || r.agent ? compactRef(r.agent_profile || r.agent) : dash(), e('p', { class: 'cell-sub', text: r.agent_type || '' })) },
       { key: 'target', class: 'wide-only nowrap', render: r => r.target_name || r.target_id || dash() },
       { key: 'requestedAt', class: 'nowrap', render: r => timeCell(r.requested_at) },
       { key: 'duration', class: 'nowrap', render: r => durationText(r.started_at, r.finished_at, !isTerminalTask(r.status)) || dash() },
       { key: 'actions', render: r => isTerminalTask(r.status) ? null : actionButton(snapshot, 'tasks', 'cancel', { task_id: taskID(r) }, { key: 'cancelTask', item: r, name: taskTitle(r), tone: 'danger small' }) }
-    ], filtered(rows, options), { rowLink: r => () => navigate('task', { task_id: taskID(r) }) })];
+    ], filtered(rows, options), { rowLink: r => () => navigate('task', { task_id: taskID(r) }), emptyKey: selected ? 'noScheduleTasks' : undefined, emptyHint: selected ? false : undefined })];
   }
   function valueList(values) {
     const items = values.map(value => typeof value === 'string' ? value : pretty(value)).filter(Boolean);
@@ -1062,12 +1083,31 @@
           ['permissionPolicy', item.permission_policy], ['target', item.target_name || item.target_id],
           ['requestedAt', timeCell(item.requested_at)], ['startedAt', timeCell(item.started_at)], ['finishedAt', timeCell(item.finished_at)],
           ['duration', durationText(item.started_at, item.finished_at, !terminal)],
+          item.source ? ['source', kindLabel(item.source)] : null,
+          item.schedule ? ['schedule', scheduleLink(item)] : null,
           item.agent_instance_id ? ['instances', linkTo(shortID(item.agent_instance_id), 'instance', { agent_instance_id: item.agent_instance_id })] : null,
           child.child_session_id ? ['childSession', linkTo(shortID(child.child_session_id), 'session', { name: child.child_session_id, target: child.target_id || '' })] : null,
           item.parent_session_id ? ['ownerSession', linkTo(shortID(item.parent_session_id), 'session', { name: item.parent_session_id })] : null])))))];
   }
   const instanceID = row => row.agent_instance_id || row.id;
-  function instanceName(row) { return row.name || shortID(instanceID(row)) || t('unknown'); }
+  // A generated name ("agent-…") says nothing; the task that created the
+  // instance says what it is for.
+  const generatedInstanceName = row => !row.name || row.name === instanceID(row) || /^agent-[0-9a-f-]+$/i.test(row.name);
+  function instanceName(row) { return !generatedInstanceName(row) ? row.name : truncate(row.purpose, 80) || row.name || shortID(instanceID(row)) || t('unknown'); }
+  function instanceOwner(row) {
+    const owner = row.owner;
+    if (!owner) return dash();
+    if (owner.missing) return e('div', {}, e('span', { class: 'muted', text: t('ownerSessionEnded') }), e('p', { class: 'cell-sub mono', text: shortID(owner.session_id) }));
+    const kind = owner.workspace_source ? kindLabel(owner.workspace_source) : '';
+    return e('div', {}, linkTo(owner.name || shortID(owner.session_id), 'session', { name: owner.name || owner.session_id, target: owner.target_id || '' }),
+      e('p', { class: 'cell-sub' }, [kind, owner.agent_profile ? shortRef(owner.agent_profile) : '', owner.target_name || ''].filter(Boolean).join(' · ')));
+  }
+  function latestInstanceTask(row) {
+    const latest = row.latest_task;
+    if (!latest) return row.tasks_unavailable ? dash() : e('span', { class: 'muted', text: t('noInstanceTasks') });
+    return e('div', {}, e('div', { class: 'badges' }, badge(latest.status), linkTo(shortID(latest.task_id), 'task', { task_id: latest.task_id })),
+      e('p', { class: 'cell-sub' }, timeCell(latest.requested_at), ' · ', t('taskCount', { count: Number(row.task_count || 0) })));
+  }
   function instanceActions(snapshot, row, small) {
     const id = instanceID(row); const archived = row.status === 'archived'; const active = row.status === 'active';
     const tone = small ? ' small' : '';
@@ -1082,24 +1122,34 @@
     const options = { stateOf: r => r.status };
     const open = r => () => navigate('instance', { agent_instance_id: instanceID(r) });
     return [title('instances', 'instancesDesc', [refreshButton(), capability(snapshot, 'spawn') ? button('spawn', () => openInstanceTask(), 'primary', 'plus') : null]), filters(rows, options), dataTable([
-      { key: 'instances', render: r => cellTitle(instanceName(r), [r.name ? idText(instanceID(r)) : null], open(r)) },
+      { key: 'instances', render: r => cellTitle(instanceName(r), [idText(instanceID(r)), !generatedInstanceName(r) && r.purpose ? truncate(r.purpose, 60) : null, field(r, 'agent_profile') ? compactRef(field(r, 'agent_profile')) : null], open(r)) },
+      { key: 'instanceOwner', render: instanceOwner },
       { key: 'status', render: r => e('div', { class: 'badges' }, badge(r.status), field(r, 'child_session_state') ? badge(field(r, 'child_session_state')) : null) },
-      { key: 'profile', render: r => e('div', {}, compactRef(field(r, 'agent_profile')), e('p', { class: 'cell-sub', text: field(r, 'agent_type', '') })) },
-      { key: 'model', class: 'wide-only', render: r => modelText(field(r, 'model_ref')) },
-      { key: 'lastUsed', class: 'nowrap', render: r => timeCell(field(r, 'last_used_at', field(r, 'created_at'))) },
+      { key: 'latestTask', render: latestInstanceTask },
+      { key: 'lastUsed', class: 'nowrap wide-only', render: r => timeCell(field(r, 'last_used_at', field(r, 'created_at'))) },
       { key: 'actions', render: r => e('div', { class: 'actions' }, r.status !== 'archived' && capability(snapshot, 'followup', r) ? button('followup', () => openInstanceTask(r), 'small') : null) }
-    ], filtered(rows, options), { rowLink: open })];
+    ], filtered(rows, options), { rowLink: open }), e('p', { class: 'note', text: t('instanceTitleNote') })];
   }
   function renderInstance(snapshot) {
     const item = snapshot.instance; if (!item) return [title('instances'), empty('unavailable')];
-    const childSession = field(item, 'child_session_id'); const owner = field(item, 'owner_session_id');
+    const childSession = field(item, 'child_session_id');
+    const tasks = list(item, 'tasks');
     return [literalTitle(instanceName(item), e('span', { class: 'title-meta' }, e('span', { class: 'mono', text: instanceID(item) || '' }), e('span', { text: t('instancesDesc') })), [refreshButton(), ...instanceActions(snapshot, item)]),
-      e('div', { class: 'stack narrow' }, section('details', e('div', { class: 'panel-body' }, definition([
+      e('div', { class: 'detail-grid' },
+        e('div', { class: 'stack' },
+          section('instancePurpose', e('div', { class: 'panel-body' }, item.purpose ? e('p', { class: 'prose', text: item.purpose }) : e('p', { class: 'muted', text: t('noPurpose') }))),
+          section('instanceTasks', dataTable([
+            { key: 'tasks', render: r => cellTitle(taskTitle(r), [idText(taskID(r))], () => navigate('task', { task_id: taskID(r) })) },
+            { key: 'source', render: r => e('div', { class: 'badges' }, r.source ? chip(kindLabel(r.source), 'quiet') : null, scheduleLink(r)) },
+            { key: 'result', render: r => badge(r.status) },
+            { key: 'requestedAt', class: 'nowrap', render: r => timeCell(r.requested_at) }
+          ], tasks, { pageKey: 'instance-tasks', pageSize: 20, emptyKey: 'noInstanceTasks', emptyHint: false, rowLink: r => () => navigate('task', { task_id: taskID(r) }) }), chip(String(Number(item.task_count || tasks.length))))),
+        e('aside', { class: 'stack' }, section('details', e('div', { class: 'panel-body' }, definition([
+          ['instanceOwner', instanceOwner(item)],
           ['status', badge(item.status)], ['sessionState', badge(field(item, 'child_session_state'))], ['profile', refText(field(item, 'agent_profile'))],
           ['agentType', field(item, 'agent_type')], ['model', refText(field(item, 'model_ref'))], ['permissionPolicy', field(item, 'permission_policy')],
           ['target', targetLabel(item)], ['createdAt', timeCell(field(item, 'created_at'))], ['lastUsed', timeCell(field(item, 'last_used_at'))],
-          childSession ? ['childSession', linkTo(shortID(childSession), 'session', { name: childSession, target: target(item) })] : null,
-          owner ? ['ownerSession', linkTo(shortID(owner), 'session', { name: owner })] : null]), e('details', {}, e('summary', { text: t('rawRecord') }), code(item)))))];
+          childSession ? ['childSession', linkTo(shortID(childSession), 'session', { name: childSession, target: target(item) })] : null]), e('details', {}, e('summary', { text: t('rawRecord') }), code(item))))))];
   }
 
   // ---------------------------------------------------------------------------
@@ -1143,7 +1193,7 @@
     const content = item.schedule_type === 'subtask' && task
       ? [definition([['taskProfile', refText(task.agent)], ['agentType', task.runtime], ['model', refText(task.model)], ['reasoningEffort', task.reasoning_effort]]), task.task ? e('p', { class: 'prose', text: task.task }) : null]
       : item.prompt ? e('p', { class: 'prose', text: item.prompt }) : dash();
-    return [literalTitle(item.name || '#' + id, scheduleTypeLabel(item.schedule_type), [refreshButton(), capability(snapshot, 'update', item) ? button('edit', () => openScheduleForm(item)) : null, scheduleToggle(snapshot, item), actionButton(snapshot, 'schedules', 'delete', { schedule_id: id }, { key: 'delete', item, name: item.name || '#' + id, tone: 'danger' })]),
+    return [literalTitle(item.name || '#' + id, scheduleTypeLabel(item.schedule_type), [refreshButton(), button('scheduleTaskRecords', () => navigate('tasks', { schedule_id: id })), capability(snapshot, 'update', item) ? button('edit', () => openScheduleForm(item)) : null, scheduleToggle(snapshot, item), actionButton(snapshot, 'schedules', 'delete', { schedule_id: id }, { key: 'delete', item, name: item.name || '#' + id, tone: 'danger' })]),
       e('div', { class: 'detail-grid' },
         e('div', { class: 'stack' },
           section('scheduleContent', e('div', { class: 'panel-body stack' }, content)),
@@ -1163,26 +1213,63 @@
   // ---------------------------------------------------------------------------
   // Bots, chats, profiles, packs, credentials and settings.
   // ---------------------------------------------------------------------------
+  const botRestartCommand = snapshot => snapshot.restart_command || 'amux system restart';
+  function restartBanner(snapshot, key) {
+    return e('div', { class: 'banner warn', role: 'status' }, icon('alert'), e('div', {}, e('p', { text: t(key) }), e('code', { class: 'mono', text: botRestartCommand(snapshot) })));
+  }
   function renderBots(snapshot) {
     const rows = list(snapshot, 'bots');
     const settings = row => row.settings || {};
-    return [title('bots', 'botsDesc', refreshButton()), filters(rows, { noState: true }), dataTable([
-      { key: 'bots', render: row => cellTitle(display(row), [e('span', { class: 'mono', text: row.profile || row.id || '' })]) },
-      { key: 'status', render: row => badge(row.status) },
-      { key: 'profile', render: row => refText(settings(row).default_agent || settings(row).agent_profile || settings(row).profile) },
-      { key: 'agentType', render: row => e('div', {}, settings(row).default_runtime_ref || dash(), e('p', { class: 'cell-sub' }, settings(row).default_model_ref ? refText(settings(row).default_model_ref) : null)) },
+    const running = row => row.status === 'running';
+    const pending = rows.filter(row => row.pending_restart === true);
+    return [title('bots', 'botsDesc', [refreshButton(), capability(snapshot, 'create') ? button('addBot', () => openAddBot(snapshot), 'primary', 'plus') : null]),
+      pending.length ? restartBanner(snapshot, 'botRestartPending') : null,
+      filters(rows, { noState: true }), dataTable([
+      { key: 'bots', render: row => cellTitle(display(row), [e('span', { class: 'mono', text: row.profile || row.id || '' }), row.app_id ? e('span', { class: 'mono', text: row.app_id }) : null]) },
+      { key: 'status', render: row => e('div', { class: 'badges' }, badge(row.status), row.pending_restart ? chip(t(row.configured === 'disabled' ? 'botStopsOnRestart' : 'botStartsOnRestart'), 'warn', botRestartCommand(snapshot)) : null, row.error ? chip(t('botCredentialsUnreadable'), 'bad') : null) },
+      { key: 'profile', render: row => running(row) ? refText(settings(row).default_agent || settings(row).agent_profile || settings(row).profile) : dash() },
+      { key: 'agentType', render: row => running(row) ? e('div', {}, settings(row).default_runtime_ref || dash(), e('p', { class: 'cell-sub' }, settings(row).default_model_ref ? refText(settings(row).default_model_ref) : null)) : dash() },
       { key: 'interactionMode', class: 'wide-only', render: row => settings(row).interaction_mode ? optionLabel(settings(row).interaction_mode) : dash() },
-      { key: 'version', class: 'wide-only', render: row => String(row.version ?? '—') },
-      { key: 'actions', render: row => e('div', { class: 'actions' }, button('open', () => openBotForm(row, false), 'small'), capability(snapshot, 'save', row) ? button('edit', () => openBotForm(row, true), 'small') : null, button('groups', () => navigate('groups', { profile: row.profile || row.id }), 'small quiet')) }
-    ], filtered(rows), { emptyKey: 'noBots', emptyHint: 'noBotsHint' })];
+      { key: 'actions', render: row => e('div', { class: 'actions' },
+        running(row) ? button('open', () => openBotForm(row, false), 'small') : null,
+        capability(snapshot, 'save', row) ? button('edit', () => openBotForm(row, true), 'small') : null,
+        running(row) ? button('groups', () => navigate('groups', { profile: row.profile || row.id }), 'small quiet') : null,
+        capability(snapshot, 'update_credentials', row) ? button('updateBotSecret', () => openBotSecret(row), 'small') : null,
+        actionButton(snapshot, 'bots', 'enable', { profile: row.profile }, { key: 'enableBot', item: row, name: display(row), tone: 'small', successKey: 'botSavedRestart' }),
+        capability(snapshot, 'disable', row) ? button('disableBot', () => openBotRemoval(row, 'disable'), 'danger small') : null,
+        capability(snapshot, 'delete', row) ? button('deleteBot', () => openBotRemoval(row, 'delete'), 'danger small') : null) }
+    ], filtered(rows), { emptyKey: 'noBots', emptyHint: 'noBotsHint' }), e('p', { class: 'note', text: t('botLifecycleNote') })];
   }
+  // Group names come from the Bridge's stored names; the chat ID is the fallback.
   function groupTitle(row) { return [row.name, row.title, row.chat_name].find(value => value && value !== (row.chat_id || row.id)) || row.chat_id || row.id || t('unknown'); }
+  const groupNamed = row => groupTitle(row) !== (row.chat_id || row.id || t('unknown'));
+  // Names are fetched from Feishu only by an explicit refresh, never by a read.
+  // A visit with unnamed groups refreshes once per console session.
+  async function refreshGroupNames(snapshot, automatic) {
+    const profile = state.route.params.profile || '';
+    const attempted = state.groupNameRefreshes || (state.groupNameRefreshes = new Set());
+    if (automatic && attempted.has(profile)) return;
+    attempted.add(profile);
+    try {
+      const result = await write('groups', 'refresh_names', profile ? { profile } : {});
+      if (!automatic) notify(t('groupNamesRefreshed', { resolved: Number(result.names_resolved || 0), missing: Number(result.names_missing || 0) }));
+      if (state.route.page === 'groups') await loadRoute();
+    } catch (error) { if (!automatic) notify(errorMessage(error, true), true); }
+  }
   function renderGroups(snapshot) {
     const rows = list(snapshot, 'groups');
-    return [title('groups', 'groupsDesc', refreshButton()), e('p', { class: 'rail group-note', text: t('knownBindings') }), filters(rows, { noState: true }), dataTable([
-      { key: 'groups', render: row => { const name = groupTitle(row); const id = row.chat_id || row.id || ''; return cellTitle(name, [name !== id ? e('span', { class: 'mono', text: id }) : null], () => openGroupForm(row, snapshot)); } },
+    const unnamed = rows.filter(row => !groupNamed(row)).length;
+    const canRefresh = capability(snapshot, 'refresh_names');
+    if (unnamed && canRefresh && state.online) root.setTimeout(() => refreshGroupNames(snapshot, true), 0);
+    const refresh = canRefresh ? button('refreshGroupNames', () => { refresh.disabled = true; refreshGroupNames(snapshot, false); }, '', 'refresh') : null;
+    if (refresh) refresh.disabled = !state.online;
+    return [title('groups', 'groupsDesc', [refreshButton(), refresh]), e('p', { class: 'rail group-note', text: t('knownBindings') }),
+      unnamed ? e('p', { class: 'help', text: t('groupNamesMissing', { count: unnamed }) }) : null,
+      filters(rows, { noState: true }), dataTable([
+      { key: 'groups', render: row => { const name = groupTitle(row); const id = row.chat_id || row.id || ''; return cellTitle(name, [name !== id ? e('span', { class: 'mono', text: id }) : chip(t('groupNameUnknown'), 'quiet')], () => openGroupForm(row, snapshot)); } },
       { key: 'bots', render: row => row.profile || snapshot.profile || dash() },
       { key: 'source', render: row => stateLabel(row.source || snapshot.source) },
+      { key: 'nameUpdated', class: 'wide-only nowrap', render: row => row.name_updated_at ? timeCell(row.name_updated_at) : dash() },
       { key: 'actions', render: row => button('open', () => openGroupForm(row, snapshot), 'small') }
     ], filtered(rows), { rowLink: row => () => openGroupForm(row, snapshot) }), snapshot.settings && state.route.params.chat_id ? section('settings', e('div', { class: 'panel-body' }, definition([['source', snapshot.source], ['profile', snapshot.profile]]), code(snapshot.settings), capability(snapshot, 'save') ? button('edit', () => editGroupSettings(snapshot, snapshot.settings)) : null)) : null];
   }
@@ -1275,7 +1362,10 @@
           e('details', {}, e('summary', { text: t('rawRecord') }), code(item))))))];
   }
   function packFlags(row) {
-    return e('div', { class: 'chips' }, row.temporary ? chip(t('temporaryPack'), 'warn') : null, row.development_of ? chip(t('developmentPack'), 'blue', row.development_of) : null,
+    const development = row.development || null;
+    return e('div', { class: 'chips' }, row.temporary ? chip(t('temporaryPack'), 'warn', development && development.expires_at ? t('expiresAt', { time: date(development.expires_at) }) : null) : null, row.development_of ? chip(t('developmentPack'), 'blue', row.development_of) : null,
+      development && development.branch ? chip(development.branch, 'mono', t('developmentBranch')) : null,
+      development && development.cleanup_error_code ? chip(t('cleanupBlocked'), 'bad', has('reason.' + development.cleanup_error_code) ? t('reason.' + development.cleanup_error_code) : null) : null,
       row.auto_sync ? chip(t('autoSync'), 'good', row.sync_interval || null) : null, row.error_code ? chip(t('syncFailed'), 'bad') : null, row.managed_by ? chip(t('managedPack'), '', row.managed_by) : null);
   }
   const revisionText = rev => rev ? e('span', { class: 'mono', title: String(rev), text: String(rev).slice(0, 12) }) : dash();
@@ -1288,16 +1378,18 @@
       { key: 'currentRevision', render: row => revisionText(row.current_revision || row.revision) },
       { key: 'lastSynced', render: row => timeCell(row.last_synced_at) },
       { key: 'flags', render: packFlags },
-      { key: 'actions', render: row => e('div', { class: 'actions' }, button('details', () => showPack(row, snapshot), 'small'), actionButton(snapshot, 'packs', 'sync', { namespace: row.namespace || row.name }, { key: 'sync', item: row, name: row.namespace, tone: 'small' }), capability(snapshot, 'rollback', row) && list(row, 'versions').length > 1 ? button('rollback', () => openRollbackPack(row), 'danger small') : null, capability(snapshot, 'remove', row) && removablePack(row) ? button('removePack', () => openRemovePack(row), 'danger small') : null) }
+      { key: 'actions', render: row => e('div', { class: 'actions' }, button('details', () => showPack(row, snapshot), 'small'), ownedPack(row) ? actionButton(snapshot, 'packs', 'sync', { namespace: row.namespace || row.name }, { key: 'sync', item: row, name: row.namespace, tone: 'small' }) : null, ownedPack(row) && capability(snapshot, 'rollback', row) && list(row, 'versions').length > 1 ? button('rollback', () => openRollbackPack(row), 'danger small') : null, capability(snapshot, 'remove', row) && removablePack(row) ? button('removePack', () => openRemovePack(row), 'danger small') : null) }
     ], filtered(rows), { emptyKey: 'noPacks', emptyHint: 'noPacksHint' })];
   }
-  // Managed, temporary and evaluation packs belong to amux: the console never removes or rolls them back.
-  const removablePack = pack => !pack.managed_by && !pack.temporary && !pack.evaluation;
+  // Managed and evaluation packs belong to amux: the console never syncs or rolls
+  // them back. Temporary development and evaluation packs can be removed.
+  const ownedPack = pack => !pack.managed_by && !pack.temporary && !pack.evaluation;
+  const removablePack = pack => ownedPack(pack) || pack.temporary === true;
   function viewPackExperts(namespace) {
     const f = filterState('profiles'); f.namespace = namespace; f.use = ''; f.page = 1; navigate('profiles');
   }
   function showPack(pack, snapshot) {
-    const canRollBack = removablePack(pack) && capability(snapshot || {}, 'rollback', pack);
+    const canRollBack = ownedPack(pack) && capability(snapshot || {}, 'rollback', pack);
     const current = pack.current_revision || '';
     modal('details', body => body.append(definition([['namespace', pack.namespace], ['experts', own(pack, 'profile_count') ? String(pack.profile_count) : ''], ['source', pack.source_host || pack.source_kind], ['ref', pack.ref], ['currentRevision', e('span', { class: 'mono path', text: current })], ['lastSynced', timeCell(pack.last_synced_at)], ['flags', packFlags(pack)]]),
       e('h3', { class: 'subhead', text: t('versions') }),
@@ -1305,64 +1397,128 @@
       e('div', { class: 'form-actions' }, button('close', () => closeModal()))));
   }
   function nameChips(values) { return values.length ? e('div', { class: 'chips' }, values.map(name => chip(name, 'mono'))) : dash(); }
+  // Credential values are write-only: the page lists names, and a value travels
+  // only from a password field to the server, never back and never into a draft.
+  function credentialNameChips(snapshot, row, names, action) {
+    if (!names.length) return dash();
+    const removable = capability(snapshot, action);
+    return e('div', { class: 'chips' }, names.map(name => e('span', { class: 'chip mono' }, name,
+      removable ? e('button', { type: 'button', class: 'chip-remove', 'aria-label': t(action === 'unset_env' ? 'removeEnv' : 'removeFile', { name }), title: t(action === 'unset_env' ? 'removeEnv' : 'removeFile', { name }), text: '×', onclick: () => removeCredentialEntry(row, action, name) }) : null)));
+  }
+  async function removeCredentialEntry(row, action, name) {
+    if (!await confirmAction(action === 'unset_env' ? 'removeEnvAction' : 'removeFileAction', row.profile + ' / ' + name, true)) return;
+    try { await write('credentials', action, { profile: row.profile, name }); notify(t('saved')); await loadRoute(); }
+    catch (error) { notify(errorMessage(error, true), true); }
+  }
   function renderCredentials(snapshot) {
     const rows = list(snapshot, 'profiles').length ? list(snapshot, 'profiles') : list(snapshot, 'credentials');
-    return [title('credentials', 'credentialsDesc', refreshButton()), e('div', { class: 'rail secret-note' }, icon('shield'), t('secretHidden')), filters(rows, { noState: true }), dataTable([
+    const canWrite = capability(snapshot, 'set_env');
+    return [title('credentials', 'credentialsDesc', [refreshButton(), canWrite ? button('newCredential', () => openCredentialValue(null, 'env'), 'primary', 'plus') : null]), e('div', { class: 'rail secret-note' }, icon('shield'), t('secretWriteOnly')), filters(rows, { noState: true }), dataTable([
       { key: 'credentialProfile', render: row => e('strong', { class: 'mono', text: row.profile || row.name || '' }) }, { key: 'kind', render: row => stateLabel(row.kind) },
-      { key: 'envNames', render: row => nameChips(list(row, 'env_names')) }, { key: 'fileNames', render: row => nameChips(list(row, 'file_names')) }
-    ], filtered(rows))];
+      { key: 'envNames', render: row => credentialNameChips(snapshot, row, list(row, 'env_names'), 'unset_env') }, { key: 'fileNames', render: row => credentialNameChips(snapshot, row, list(row, 'file_names'), 'unset_file') },
+      { key: 'actions', render: row => e('div', { class: 'actions' },
+        canWrite ? button('setEnv', () => openCredentialValue(row, 'env'), 'small') : null,
+        capability(snapshot, 'set_file') ? button('setFile', () => openCredentialValue(row, 'file'), 'small') : null,
+        capability(snapshot, 'delete') ? button('deleteCredential', () => openDeleteCredential(row), 'danger small') : null) }
+    ], filtered(rows), { emptyKey: 'noCredentials', emptyHint: 'noCredentialsHint' }), e('p', { class: 'note', text: t('credentialUseNote') })];
   }
-  // Server keys stay authoritative; this table only supplies labels and controls.
-  const settingMeta = {
-    'bridge.feishu.group_settings.enabled': { section: 'settingsFeishu', label: 'setting.groupSettings', help: 'setting.groupSettingsHelp', type: 'boolean' },
-    'bridge.feishu.presentation.thinking_process': { section: 'settingsFeishu', label: 'setting.thinking', help: 'setting.thinkingHelp', type: ['collapsed', 'expanded'] },
-    'bridge.feishu.presentation.completion_notification_enabled': { section: 'settingsFeishu', label: 'setting.completion', help: 'setting.completionHelp', type: 'boolean' },
-    'bridge.feishu.presentation.completion_notification_after_seconds': { section: 'settingsFeishu', label: 'setting.completionAfter', help: 'setting.completionAfterHelp', type: 'number' },
-    'maintenance.daily_cleanup.enabled': { section: 'settingsMaintenance', label: 'setting.cleanup', help: 'setting.cleanupHelp', type: 'boolean' },
-    'maintenance.daily_cleanup.at': { section: 'settingsMaintenance', label: 'setting.cleanupAt', help: 'setting.cleanupAtHelp', type: 'time' }
+  // Setting a name that exists replaces its value; any other name is added.
+  function openCredentialValue(row, kind) {
+    const file = kind === 'file';
+    formDialog(file ? 'setFile' : 'setEnv', [
+      formField('profile', 'credentialProfile', 'text', row ? row.profile : '', { required: true, readonly: Boolean(row), pattern: '[A-Za-z0-9_-]+', help: row ? null : 'credentialProfileHelp' }),
+      formField('name', file ? 'credentialFileName' : 'credentialEnvName', 'text', '', { required: true, pattern: file ? null : '[A-Za-z_][A-Za-z0-9_]*', help: file ? 'credentialFileNameHelp' : 'credentialEnvNameHelp' }),
+      formField('value', file ? 'credentialFileContent' : 'credentialValue', file ? 'textarea' : 'password', '', { required: true, help: 'credentialValueHelp' })
+    ], data => write('credentials', file ? 'set_file' : 'set_env', { profile: data.profile.trim(), name: data.name.trim(), value: data.value }), { noDraft: true });
+  }
+  function openDeleteCredential(row) {
+    formDialog('deleteCredential', [e('p', { class: 'prose', text: t('deleteCredentialLead', { profile: row.profile }) }), formField('confirm', 'typeProfileToConfirm', 'text', '', { required: true, help: 'typeProfileToConfirmHelp' })], data => {
+      if (data.confirm.trim() !== row.profile) throw new APIError(t('confirmationMismatch'));
+      return write('credentials', 'delete', { profile: row.profile, confirm: row.profile });
+    }, { submitKey: 'deleteCredential', noDraft: true });
+  }
+  // Settings come from the configuration reference: the server sends each key's
+  // section, bilingual description, default, constraints and control kind. A few
+  // common keys also get a short label here; every other key shows its own name.
+  const settingLabels = {
+    'bridge.feishu.group_settings.enabled': 'setting.groupSettings',
+    'bridge.feishu.presentation.thinking_process': 'setting.thinking',
+    'bridge.feishu.presentation.completion_notification_enabled': 'setting.completion',
+    'bridge.feishu.presentation.completion_notification_after_seconds': 'setting.completionAfter',
+    'maintenance.daily_cleanup.enabled': 'setting.cleanup',
+    'maintenance.daily_cleanup.at': 'setting.cleanupAt'
   };
+  const localized = value => value && typeof value === 'object' ? value[language()] || value.en || '' : String(value || '');
   function settingControl(row, value, writable, onchange) {
-    const meta = settingMeta[row.key] || {};
     const attrs = { id: 'setting-' + row.key, name: row.key, disabled: !writable };
-    if (meta.type === 'boolean' || Array.isArray(meta.type)) {
-      const options = meta.type === 'boolean' ? [{ value: 'true', label: t('booleanTrue') }, { value: 'false', label: t('booleanFalse') }] : meta.type.map(v => ({ value: v, label: optionLabel(v) }));
-      if (!options.some(o => o.value === value)) options.push({ value, label: value });
+    if (row.kind === 'boolean' || row.kind === 'enum') {
+      const options = row.kind === 'boolean' ? [{ value: 'true', label: t('booleanTrue') }, { value: 'false', label: t('booleanFalse') }] : list(row, 'choices').map(v => ({ value: v, label: optionLabel(v) }));
+      if (value === '') options.unshift({ value: '', label: t('notSet') });
+      else if (!options.some(o => o.value === value)) options.push({ value, label: value });
       return selectOptions(options, value, onchange, attrs);
     }
-    const input = e('input', Object.assign(attrs, { value, type: meta.type === 'number' ? 'number' : meta.type === 'time' ? 'time' : 'text', min: meta.type === 'number' ? '0' : null, oninput: ev => onchange(ev.target.value) }));
-    return input;
+    const type = row.kind === 'integer' ? 'number' : row.kind === 'time' ? 'time' : 'text';
+    return e('input', Object.assign(attrs, { value, type, step: type === 'number' ? '1' : null, placeholder: row.kind === 'list' ? t('listPlaceholder') : null, oninput: ev => onchange(ev.target.value) }));
   }
   function renderSettings(snapshot) {
     const rows = list(snapshot, 'settings');
     const key = 'settings-draft:' + snapshot.version;
-    const draft = state.drafts.get(key) || {};
+    const draft = state.drafts.get(key) || { values: {}, reset: {} };
+    const f = filterState('settings');
     const canSave = capability(snapshot, 'save');
-    const dirty = () => Object.keys(draft).filter(k => { const row = rows.find(r => r.key === k); return row && String(row.value) !== draft[k]; });
-    const changeNote = e('span', { class: 'chip warn', hidden: !dirty().length, text: t('dirty') });
+    const byKey = new Map(rows.map(row => [row.key, row]));
+    const changed = () => Object.keys(draft.values).filter(k => byKey.has(k) && String(byKey.get(k).value ?? '') !== draft.values[k]);
+    const resets = () => Object.keys(draft.reset).filter(k => draft.reset[k] && byKey.has(k) && !byKey.get(k).inherited);
+    const pending = () => changed().length + resets().length;
+    const changeNote = e('span', { class: 'chip warn', hidden: !pending(), text: t('dirty') });
     const save = button('save', async () => {
-      const values = Object.fromEntries(dirty().map(k => [k, draft[k]]));
-      if (!Object.keys(values).length) return;
+      const values = Object.fromEntries(changed().filter(k => !draft.reset[k]).map(k => [k, draft.values[k]]));
+      const reset = resets();
+      if (!Object.keys(values).length && !reset.length) return;
       save.disabled = true;
-      try { const response = await write('settings', 'save', { expected_version: snapshot.version, values }); state.drafts.delete(key); notify(t(response.restart_required ? 'restartRequired' : 'saved')); await loadRoute(); }
+      try { const response = await write('settings', 'save', { expected_version: snapshot.version, values, reset }); state.drafts.delete(key); notify(t(response.restart_required ? 'restartRequired' : 'saved')); await loadRoute(); }
       catch (error) { notify(errorMessage(error, true), true); save.disabled = !state.online; }
     }, 'primary');
-    const refreshDirty = () => { const changed = dirty().length; save.disabled = !state.online || !changed; changeNote.hidden = !changed; };
-    save.disabled = !state.online || !dirty().length;
+    const refreshDirty = () => { const count = pending(); save.disabled = !state.online || !count; changeNote.hidden = !count; };
+    save.disabled = !state.online || !pending();
+    const remember = () => state.drafts.set(key, draft);
+    const query = f.query.toLocaleLowerCase();
+    const matches = row => (!query || [row.key, localized(row.description), settingLabels[row.key] ? t(settingLabels[row.key]) : '', localized(row.section_label)].join(' ').toLocaleLowerCase().includes(query))
+      && (f.kind !== 'experimental' || row.experimental) && (f.kind !== 'customized' || !row.inherited) && (f.kind !== 'editable' || row.writable);
     const sections = new Map();
-    for (const row of rows) {
-      const meta = settingMeta[row.key] || { section: 'settingsOther' };
-      const value = own(draft, row.key) ? draft[row.key] : String(row.value ?? '');
-      const control = settingControl(row, value, canSave && row.writable === true, next => { draft[row.key] = next; state.drafts.set(key, draft); refreshDirty(); });
-      const label = meta.label ? t(meta.label) : row.key;
-      const node = e('div', { class: 'setting-row' },
-        e('div', { class: 'setting-label' }, e('label', { for: 'setting-' + row.key, text: label }), e('code', { class: 'muted', text: row.key }), meta.help ? e('p', { class: 'help', text: t(meta.help) }) : row.description ? e('p', { class: 'help', text: row.description }) : null),
-        e('div', { class: 'setting-control' }, control, row.inherited ? chip(t('defaultValue'), 'quiet') : null));
-      if (!sections.has(meta.section)) sections.set(meta.section, []);
-      sections.get(meta.section).push(node);
+    for (const row of rows.filter(matches)) {
+      const name = row.section || 'other';
+      const editable = canSave && row.writable === true;
+      const resetting = Boolean(draft.reset[row.key]);
+      const value = own(draft.values, row.key) ? draft.values[row.key] : String(row.value ?? '');
+      const control = settingControl(row, value, editable && !resetting, next => { draft.values[row.key] = next; remember(); refreshDirty(); });
+      const description = localized(row.description); const fallback = localized(row.default); const constraints = localized(row.constraints);
+      const resetButton = editable && !row.inherited ? e('button', { type: 'button', class: 'ui-btn small quiet', 'aria-pressed': String(resetting), text: t(resetting ? 'undoReset' : 'resetToDefault'), onclick: () => { draft.reset[row.key] = !resetting; delete draft.values[row.key]; remember(); renderPage(); } }) : null;
+      const node = e('div', { class: 'setting-row' + (resetting ? ' resetting' : '') },
+        e('div', { class: 'setting-label' }, e('label', { for: 'setting-' + row.key, text: settingLabels[row.key] ? t(settingLabels[row.key]) : row.key }), settingLabels[row.key] ? e('code', { class: 'muted', text: row.key }) : null,
+          description ? e('p', { class: 'help', text: description }) : null,
+          e('p', { class: 'help setting-meta' }, fallback ? t('settingDefault', { value: fallback }) : null, constraints ? [fallback ? ' · ' : '', t('settingConstraints', { value: constraints })] : null)),
+        e('div', { class: 'setting-control' }, control, e('div', { class: 'chips' }, row.inherited ? chip(t('defaultValue'), 'quiet') : chip(t('customized'), 'blue'), row.experimental ? chip(t('experimental'), 'warn') : null, row.writable === false ? chip(t('readOnlySetting'), 'quiet', t('readOnlySettingHelp')) : null), resetButton));
+      if (!sections.has(name)) sections.set(name, { label: localized(row.section_label) || row.section || t('settingsOther'), experimental: false, nodes: [] });
+      const entry = sections.get(name);
+      entry.experimental = entry.experimental || row.experimental === true;
+      entry.nodes.push(node);
     }
+    const kinds = [['', t('all'), rows.length], ['experimental', t('experimental'), rows.filter(r => r.experimental).length], ['customized', t('customized'), rows.filter(r => !r.inherited).length], ['editable', t('editableSettings'), rows.filter(r => r.writable).length]];
+    const search = e('input', { type: 'search', value: f.query, placeholder: t('filterSettings'), 'aria-label': t('filterSettings'), oninput: ev => {
+      f.query = ev.target.value; const cursor = ev.target.selectionStart; renderPage();
+      const input = document.querySelector('.filterbar input'); if (input) { input.focus(); input.setSelectionRange(cursor, cursor); }
+    } });
+    const open = Boolean(query || f.kind);
+    // Sections keep the operator's expand/collapse choice across re-renders.
+    const expanded = f.sections || (f.sections = {});
     return [title('settings', 'settingsDesc', [refreshButton(), changeNote, canSave ? save : null]),
-      rows.some(row => row.restart_required) ? e('div', { class: 'banner', role: 'note' }, icon('alert'), t('restartNotice')) : null,
-      rows.length ? e('div', { class: 'stack' }, [...sections.entries()].map(([name, nodes]) => section(name, e('div', { class: 'setting-list' }, nodes)))) : empty()];
+      e('div', { class: 'banner', role: 'note' }, icon('alert'), t('restartNotice')),
+      tabs(kinds.map(([value, label, count]) => [value, label, count]), f.kind, value => { f.kind = value; renderPage(); }),
+      e('div', { class: 'filterbar' }, search),
+      sections.size ? e('div', { class: 'stack' }, [...sections.entries()].map(([name, entry]) => e('details', { class: 'panel setting-section', open: (open || (own(expanded, name) ? expanded[name] : entry.experimental || entry.nodes.length <= 3)) || null, ontoggle: ev => { expanded[name] = ev.currentTarget.open; } },
+        e('summary', {}, e('span', { class: 'setting-section-title', text: entry.label }), entry.experimental ? chip(t('experimental'), 'warn') : null, chip(String(entry.nodes.length), 'quiet')),
+        e('div', { class: 'setting-list' }, entry.nodes)))) : empty()];
   }
 
   // ---------------------------------------------------------------------------
@@ -1410,7 +1566,7 @@
     const opts = options || {}; const id = 'field-' + name;
     let input;
     if (opts.options) input = selectOptions(opts.options, value ?? '', () => {}, { id, name, required: opts.required });
-    else input = e(type === 'textarea' ? 'textarea' : 'input', { id, name, type: type === 'textarea' ? null : type || 'text', value: value ?? '', required: opts.required, readonly: opts.readonly, autocomplete: 'off', spellcheck: 'false', rows: type === 'textarea' ? opts.rows || '5' : null, 'aria-describedby': opts.help ? id + '-help' : null });
+    else input = e(type === 'textarea' ? 'textarea' : 'input', { id, name, type: type === 'textarea' ? null : type || 'text', value: value ?? '', required: opts.required, readonly: opts.readonly, autocomplete: type === 'password' ? 'new-password' : 'off', spellcheck: 'false', rows: type === 'textarea' ? opts.rows || '5' : null, pattern: opts.pattern || null, 'aria-describedby': opts.help ? id + '-help' : null });
     return e('div', { class: 'form-row' }, e('label', { for: id, text: t(key) + (opts.required ? ' *' : '') }), e('div', { class: 'form-field' }, input, opts.help ? e('p', { id: id + '-help', class: 'help', text: t(opts.help) }) : null));
   }
   function formDialog(key, fields, submit, options) {
@@ -1425,16 +1581,17 @@
         if (opts.confirm && !root.confirm(typeof opts.confirm === 'function' ? opts.confirm(data) : t('confirmDanger', { action: t(key), name: opts.confirm }))) return;
         current.pending = true; save.disabled = true; save.textContent = t('saving'); errorHost.replaceChildren();
         try {
-          await submit(data); state.drafts.delete(draftKey); if (state.modal === current) closeModal(true); notify(t('saved')); await loadRoute();
+          const result = await submit(data); state.drafts.delete(draftKey); if (state.modal === current) closeModal(true); notify(t(opts.successKey && opts.successKey(result) || 'saved')); await loadRoute();
         } catch (error) {
           if (state.modal === current) errorHost.textContent = errorMessage(error, true);
           else notify(errorMessage(error, true), true);
         } finally { current.pending = false; if (save.isConnected) { save.disabled = !state.online; save.textContent = t(opts.submitKey || 'save'); } }
       } }, errorHost, opts.help ? e('p', { class: 'help', text: t(opts.help) }) : null, fields, e('div', { class: 'form-actions' }, button('cancel', () => closeModal()), save));
-      const draft = state.drafts.get(draftKey);
+      // Secret forms keep no draft: a value typed into them exists only in the field.
+      const draft = opts.noDraft ? null : state.drafts.get(draftKey);
       if (draft) for (const input of form.querySelectorAll('[name]')) if (own(draft, input.name) && !input.readOnly) input.value = draft[input.name];
       const capture = () => state.drafts.set(draftKey, Object.fromEntries(new FormData(form)));
-      form.addEventListener('input', capture); form.addEventListener('change', capture);
+      if (!opts.noDraft) { form.addEventListener('input', capture); form.addEventListener('change', capture); }
       body.appendChild(form);
     }, { rebuild: opts.rebuild });
   }
@@ -1597,6 +1754,32 @@
     const requestID = root.crypto.randomUUID();
     formDialog('bots', [formField('profile', 'profile', 'text', bot.profile || bot.id, { readonly: true }), formField('expected_version', 'expectedVersion', 'text', bot.version ?? '', { readonly: true }), ...editableSettingFields(initial, botFieldDefinitions)], data => saveBotTransition({ profile: bot.profile || bot.id, expected_version: bot.version, settings: readSettingFields(data, botFieldDefinitions), request_id: requestID }), { help: 'appliesNew', draftKey: 'bot:' + bot.profile + ':' + bot.version, rebuild: saved => openBotForm(bot, editable, saved) });
   }
+  // Bot credentials are write-only: the App Secret is sent once, checked with
+  // Feishu by the server, and never shown again or kept in a draft.
+  function openAddBot(snapshot) {
+    formDialog('addBot', [
+      formField('profile', 'botProfileName', 'text', '', { required: true, pattern: '[A-Za-z0-9_-]{1,64}', help: 'botProfileNameHelp' }),
+      formField('app_id', 'appID', 'text', '', { required: true, pattern: 'cli_[A-Za-z0-9]{1,124}', help: 'appIDHelp' }),
+      formField('app_secret', 'appSecret', 'password', '', { required: true }),
+      formField('interaction_mode', 'interactionMode', 'text', '', { options: [{ value: '', label: t('inherit') }, { value: 'thread', label: optionLabel('thread') }, { value: 'singleton', label: optionLabel('singleton') }] })
+    ], data => {
+      const payload = { profile: data.profile.trim(), app_id: data.app_id.trim(), app_secret: data.app_secret };
+      if (data.interaction_mode) payload.interaction_mode = data.interaction_mode;
+      return write('bots', 'create', payload);
+    }, { submitKey: 'addBot', help: 'addBotHelp', noDraft: true, successKey: () => 'botSavedRestart' });
+  }
+  function openBotSecret(bot) {
+    formDialog('updateBotSecret', [formField('profile', 'botProfileName', 'text', bot.profile, { readonly: true }), formField('app_id', 'appID', 'text', bot.app_id || '', { readonly: true }), formField('app_secret', 'appSecret', 'password', '', { required: true })],
+      data => write('bots', 'update_credentials', { profile: bot.profile, app_secret: data.app_secret }), { help: 'updateBotSecretHelp', noDraft: true, successKey: () => 'botSavedRestart' });
+  }
+  // Disabling and deleting name the Bot explicitly: the operator types its profile.
+  function openBotRemoval(bot, action) {
+    const key = action === 'delete' ? 'deleteBot' : 'disableBot';
+    formDialog(key, [e('p', { class: 'prose', text: t(action === 'delete' ? 'deleteBotLead' : 'disableBotLead', { name: display(bot), profile: bot.profile }) }), formField('confirm', 'typeProfileToConfirm', 'text', '', { required: true, help: 'typeProfileToConfirmHelp' })], data => {
+      if (data.confirm.trim() !== bot.profile) throw new APIError(t('confirmationMismatch'));
+      return write('bots', action, { profile: bot.profile, confirm: bot.profile });
+    }, { submitKey: key, noDraft: true, successKey: () => action === 'delete' ? 'saved' : 'botSavedRestart' });
+  }
   async function openGroupForm(row, snapshot) {
     try {
       const profile = row.profile || snapshot.profile || state.route.params.profile;
@@ -1632,10 +1815,14 @@
   // refers to the pack first and asks for an explicit "remove anyway" when anything does.
   function openRemovePack(pack) {
     const namespace = pack.namespace || pack.name;
+    const development = pack.temporary && pack.development ? pack.development : null;
     modal('removePack', (body, current) => {
       const errorHost = e('div', { class: 'modal-error banner bad', role: 'alert' });
       const usageHost = e('div', { class: 'stack' }, e('div', { class: 'rail', role: 'status' }, e('span', { class: 'loading-mark' }), t('loading')));
       const keepFiles = e('input', { type: 'checkbox', id: 'remove-keep-files' });
+      // A development Pack's worktree is removed only when it has no changes;
+      // keeping it unregisters the Pack and leaves the worktree and branch.
+      const keepWorktree = e('input', { type: 'checkbox', id: 'remove-keep-worktree' });
       const force = e('input', { type: 'checkbox', id: 'remove-force' });
       const forceRow = e('label', { class: 'checkbox-label', hidden: true }, force, e('span', { text: t('removeAnyway') }));
       const submit = e('button', { type: 'button', class: 'ui-btn danger solid', text: t('removePack'), disabled: true });
@@ -1667,7 +1854,8 @@
         current.pending = true; refresh(); errorHost.replaceChildren();
         try {
           const data = { namespace, confirm: true };
-          if (keepFiles.checked) data.keep_files = true;
+          if (keepFiles.checked && !development) data.keep_files = true;
+          if (development && keepWorktree.checked) data.keep_worktree = true;
           if (force.checked) data.force = true;
           const result = await write('packs', 'remove', data);
           if (state.modal === current) closeModal(true);
@@ -1681,8 +1869,9 @@
         } finally { current.pending = false; if (submit.isConnected) refresh(); }
       });
       // The decision stays in view while a long usage list scrolls beneath it.
-      body.append(e('p', { class: 'prose', text: t('removePackLead', { name: namespace }) }), usageHost,
-        e('div', { class: 'modal-foot' }, e('label', { class: 'checkbox-label' }, keepFiles, e('span', { text: t('keepFiles') })), forceRow, errorHost,
+      body.append(e('p', { class: 'prose', text: t('removePackLead', { name: namespace }) }),
+        e('p', { class: 'help', hidden: !pack.temporary, text: pack.temporary ? t(development ? 'removeDevelopmentPackLead' : 'removeTemporaryPackLead', { branch: development && development.branch || '' }) : '' }), usageHost,
+        e('div', { class: 'modal-foot' }, development ? e('label', { class: 'checkbox-label' }, keepWorktree, e('span', { text: t('keepWorktree') })) : e('label', { class: 'checkbox-label' }, keepFiles, e('span', { text: t('keepFiles') })), forceRow, errorHost,
           e('div', { class: 'form-actions' }, button('cancel', () => closeModal()), submit)));
     });
   }
@@ -1692,8 +1881,8 @@
   // ---------------------------------------------------------------------------
   const searchResources = ['sessions', 'tasks', 'instances', 'schedules', 'bots', 'groups', 'profiles', 'packs'];
   function searchKeys(resource, item) {
-    if (resource === 'tasks') return [taskTitle(item), taskID(item), item.summary];
-    if (resource === 'instances') return [item.name, instanceID(item), item.agent_profile];
+    if (resource === 'tasks') return [taskTitle(item), taskID(item), item.summary, item.schedule_name];
+    if (resource === 'instances') return [item.name, instanceID(item), item.agent_profile, item.purpose, item.owner && item.owner.name];
     return [display(item), String(ident(item)), field(item, 'agent_profile', ''), item.chat_id, item.ref];
   }
   function searchScore(resource, item, query) {

@@ -291,11 +291,7 @@ func (b *Bridge) handleGroupPublicCommand(ctx context.Context, chatID, rootMsgID
 		}
 		if b.canUseBridge(openID) {
 			chatName := ""
-			lookup := b.chatNameLookup
-			if lookup == nil {
-				lookup = b.fetchChatName
-			}
-			if name, lookupErr := lookup(ctx, chatID); lookupErr == nil {
+			if name, lookupErr := b.lookupChatName(ctx, chatID); lookupErr == nil {
 				chatName = name
 			} else {
 				log.Warn().Err(lookupErr).Str("chat_id", chatID).Msg("bridge: resolve group name for group watch management")
@@ -387,11 +383,7 @@ func (b *Bridge) handleGroupWatchCommand(ctx context.Context, chatID, rootMsgID,
 		return b.notifyRootCommand(ctx, chatID, rootMsgID, "当前群未加入群值守，无需关闭。")
 	}
 	chatName := ""
-	lookup := b.chatNameLookup
-	if lookup == nil {
-		lookup = b.fetchChatName
-	}
-	if name, err := lookup(ctx, chatID); err == nil {
+	if name, err := b.lookupChatName(ctx, chatID); err == nil {
 		chatName = strings.TrimSpace(name)
 	} else {
 		log.Warn().Err(err).Str("chat_id", chatID).Msg("bridge: resolve group name for group watch command")

@@ -33,15 +33,61 @@ and installed sibling Hub executable before using a loopback operator connection
 An enrollment file left in the host HOME does not change that managed child's
 identity; explicit Agent/session identity still rejects startup. The private
 managed flag alone grants no authority. This does not establish multi-user browser RBAC.
-The managed console lists host credential names and field names only; it does not
-impersonate an enrolled Principal or expose credential values and file contents.
+The managed console manages the host credential store; it does not impersonate an
+enrolled Principal. Credential values are write-only: the operator can create a
+profile, set or replace an environment variable or a credential file (a clean
+relative path inside the execution home), remove one entry, or delete a whole
+profile after typing its name. Responses and lists contain only profile, variable
+and file names; values and file contents are never returned and never kept in a
+browser draft. A secrets-store file that is not a credential profile is never
+overwritten or deleted.
 
 The console covers overview, Sessions and Timeline, TaskRuns and persistent
-instances, Schedules, Bot/group settings, expert content/Packs, credential metadata
-and an explicitly allowlisted local settings surface. There is no Runtime-node
-management page, host shell or arbitrary command endpoint. Backend capability
-lists determine available actions. Bot and group changes use the live Hub Bridge
-transition and version checks, including confirmation and recovery choices.
+instances, Schedules, Bots and groups, expert content/Packs, credentials and local
+settings. There is no Runtime-node management page, host shell or arbitrary
+command endpoint. Backend capability lists determine available actions. Bot and
+group settings changes use the live Hub Bridge transition and version checks,
+including confirmation and recovery choices.
+
+Bots can be added, disabled, re-enabled and deleted. Adding needs a profile name,
+App ID and App Secret; the server checks them with Feishu before saving and refuses
+an existing profile name or an App another profile uses. The App Secret is never
+returned. A running Bot can rotate its App Secret for the same App; using another
+App means adding a new Bot. Disabling keeps the credentials aside; only a
+disabled Bot can be deleted, which removes its credentials but keeps its chat
+bindings and settings. Bridges start with the Hub, so these changes take effect
+only after `amux system restart`; the list marks Bots that start or stop on the
+next restart and the console never restarts the Hub itself. Live settings stay
+editable only for running Bots.
+
+Groups are titled by their Feishu group name. Names are stored by the Bridge
+whenever it resolves one (group watch, cards, external Bot references) and when
+the operator refreshes names; a read never calls Feishu. Opening the page with
+unnamed groups triggers one refresh per browser session, and a refresh button is
+always available. A group whose name cannot be read (for example after the Bot
+left it) shows its chat ID.
+
+Settings are generated from the configuration reference, the same metadata as
+`amux system config` and the generated reference. Each key appears under its
+reference section with a bilingual description, default and allowed values,
+including system functions such as task cleanup, broker reaping, staged Session
+reclaim and structured-provider watchdogs, and every experimental feature. Keys
+can be filtered by experiment, customization and editability; a customized key
+can be reset to its default. Secrets, executable and file paths, map-valued keys
+and per-Bot or per-group keys are not shown; keys that change Hub identity,
+connectivity or admission are read-only. Saving uses the same validation as
+`amux system config set`, including cross-field Session reclaim checks, and
+applies all changes atomically against the version read. Most keys are read at
+startup, so the console asks for a restart after saving.
+
+Task records show what started each task: a Schedule, a persistent instance, an
+Agent Session (a subtask) or a direct request. Scheduled tasks link to their
+Schedule and can be filtered by it; the link comes from each Schedule's retained
+run history (its most recent 50 runs), and session-prompt Schedules create no
+task records. A Schedule page opens its task records. Persistent instances show
+their owner Session (name, source and expert), their purpose (the task that
+created the instance), their latest task and task count; an instance without its
+own name is titled by that purpose. An instance page lists its recent tasks.
 The browser cannot replace a Profile's content-only contract with model or
 permission fields. Existing Sessions keep their execution snapshots. Pausing a
 Schedule does not cancel admitted work; admission and final execution outcomes
@@ -58,8 +104,12 @@ view does not inventory every possible reference: watch or document-comment
 configuration, external integrations, and offline Runtimes may also depend on a
 Pack. Operators must check those separately before removing it. The Packs page
 shows available expert counts, recorded revisions and per-revision
-rollback. A removal needs explicit confirmation and rejects managed, temporary,
-evaluation, builtin, and managed local Packs. It can keep downloaded files; if
+rollback. A removal needs explicit confirmation and rejects managed, builtin, and
+managed local Packs. A temporary development or evaluation Pack can only be
+removed, never synced or rolled back. When a development lease backs it, removal
+also removes the development worktree if it has no uncommitted changes; otherwise
+nothing is removed and the console explains why, and the operator may remove the
+Pack while keeping the worktree and branch. The branch is always kept. It can keep downloaded files; if
 references or reference availability require attention, the operator must also
 explicitly confirm removal despite the risk. A Session's launch settings remain
 frozen, but after removal a restarted or resumed Session may no longer be able to

@@ -1004,6 +1004,22 @@ func validateReclaimStage(name string, s SessionReclaimStage) error {
 // GetSessionReclaim reads runtime.session_reclaim with defaults, validation, and
 // legacy runtime.idle_timeout_seconds compatibility mapping.
 func GetSessionReclaim() (SessionReclaimConfig, error) {
+	return sessionReclaimFrom(viper.GetViper())
+}
+
+// ValidateSessionReclaimSettings applies GetSessionReclaim's validation to a
+// configuration file map before it is saved, so a management surface cannot
+// write stage thresholds that would stop Session reclamation from loading.
+func ValidateSessionReclaimSettings(raw map[string]any) error {
+	v := viper.New()
+	if err := v.MergeConfigMap(raw); err != nil {
+		return err
+	}
+	_, err := sessionReclaimFrom(v)
+	return err
+}
+
+func sessionReclaimFrom(viper *viper.Viper) (SessionReclaimConfig, error) {
 	enabled := true
 	if viper.IsSet("runtime.session_reclaim.enabled") {
 		enabled = viper.GetBool("runtime.session_reclaim.enabled")

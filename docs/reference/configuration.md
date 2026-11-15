@@ -37,11 +37,11 @@ amux system config unset <key>
 | `maintenance.daily_cleanup.enabled` | boolean | true | — | Yes | Automatically clean up ordinary and user-isolated topic data daily and privately report results to Bot owners. Installation-wide switch; applies immediately. |
 | `maintenance.daily_cleanup.at` | string | 06:17 | HH:MM | Yes | Daily cleanup time in the Hub local timezone; a missed run is performed once when the system resumes. |
 | `maintenance.daily_cleanup.protected_paths` | string array | [] | absolute paths | Yes | Absolute paths of shared or long-lived workspaces always retained by daily cleanup, across all Runtimes. |
-| `runtime.task_cleanup.enabled` | boolean | true | — | No | Whether to clean up terminal task history automatically. |
-| `runtime.task_cleanup.terminal_history_ttl_seconds` | integer seconds | 604800 (7 days) | >0 | No | Retention period for terminal task history. |
-| `runtime.task_cleanup.sweep_interval_seconds` | integer seconds | 3600 | >0 | No | Sweep interval for terminal task cleanup. |
-| `runtime.broker_reap.enabled` | boolean | true | — | No | Whether to periodically reap orphaned Session broker processes and their files (deleted or stopped Sessions, or duplicate brokers). |
-| `runtime.broker_reap.sweep_interval_seconds` | integer seconds | 300 | >0 | No | Sweep interval for orphaned broker reaping. |
+| `runtime.task_cleanup.enabled` | boolean | true | — | Yes | Whether to clean up terminal task history automatically. |
+| `runtime.task_cleanup.terminal_history_ttl_seconds` | integer seconds | 604800 (7 days) | >0 | Yes | Retention period for terminal task history. |
+| `runtime.task_cleanup.sweep_interval_seconds` | integer seconds | 3600 | >0 | Yes | Sweep interval for terminal task cleanup. |
+| `runtime.broker_reap.enabled` | boolean | true | — | Yes | Whether to periodically reap orphaned Session broker processes and their files (deleted or stopped Sessions, or duplicate brokers). |
+| `runtime.broker_reap.sweep_interval_seconds` | integer seconds | 300 | >0 | Yes | Sweep interval for orphaned broker reaping. |
 
 ## Experimental Feishu features
 
@@ -78,14 +78,14 @@ amux system config unset <key>
 
 | Configuration key | Type | Default | Constraints | CLI-managed | Description |
 | --- | --- | --- | --- | --- | --- |
-| `runtime.session_reclaim.enabled` | boolean | true | — | No | Master switch for staged Session reclamation. |
-| `runtime.session_reclaim.sweep_interval_seconds` | integer seconds | 600 | >0 | No | Sweep interval for Session reclamation. |
-| `runtime.session_reclaim.local.sleep_after_seconds` | integer seconds | 0 | 0 or >=60 | No | Automatic sleep threshold for local Sessions. |
-| `runtime.session_reclaim.local.archive_after_seconds` | integer seconds | 0 | 0 or >=60 | No | Automatic archive threshold for local Sessions. |
-| `runtime.session_reclaim.local.prune_after_seconds` | integer seconds | 0 | 0 or >=60 | No | Automatic deletion threshold for local Sessions. |
-| `runtime.session_reclaim.feishu.sleep_after_seconds` | integer seconds | 172800 (48 hours) | 0 or >=60 | No | Automatic sleep threshold for Feishu Sessions. |
-| `runtime.session_reclaim.feishu.archive_after_seconds` | integer seconds | 0 | 0 or >=60 | No | Automatic archive threshold for Feishu Sessions; disabled by default, enabled by an explicit positive value. |
-| `runtime.session_reclaim.feishu.prune_after_seconds` | integer seconds | 0 | 0 or >=60 | No | Threshold for automatically deleting local Feishu Session records and replay; disabled by default, enabled by an explicit positive value. Feishu messages are preserved. |
+| `runtime.session_reclaim.enabled` | boolean | true | — | Yes | Master switch for staged Session reclamation. |
+| `runtime.session_reclaim.sweep_interval_seconds` | integer seconds | 600 | >0 | Yes | Sweep interval for Session reclamation. |
+| `runtime.session_reclaim.local.sleep_after_seconds` | integer seconds | 0 | 0 or >=60 | Yes | Automatic sleep threshold for local Sessions. |
+| `runtime.session_reclaim.local.archive_after_seconds` | integer seconds | 0 | 0 or >=60 | Yes | Automatic archive threshold for local Sessions. |
+| `runtime.session_reclaim.local.prune_after_seconds` | integer seconds | 0 | 0 or >=60 | Yes | Automatic deletion threshold for local Sessions. |
+| `runtime.session_reclaim.feishu.sleep_after_seconds` | integer seconds | 172800 (48 hours) | 0 or >=60 | Yes | Automatic sleep threshold for Feishu Sessions. |
+| `runtime.session_reclaim.feishu.archive_after_seconds` | integer seconds | 0 | 0 or >=60 | Yes | Automatic archive threshold for Feishu Sessions; disabled by default, enabled by an explicit positive value. |
+| `runtime.session_reclaim.feishu.prune_after_seconds` | integer seconds | 0 | 0 or >=60 | Yes | Threshold for automatically deleting local Feishu Session records and replay; disabled by default, enabled by an explicit positive value. Feishu messages are preserved. |
 
 ## CLI and MCP
 
@@ -199,10 +199,10 @@ amux system config unset <key>
 
 | Configuration key | Type | Default | Constraints | CLI-managed | Description |
 | --- | --- | --- | --- | --- | --- |
-| `provider.structured.turn_idle_timeout_seconds` | integer seconds | 900 | 0 disables; negative values use the default; maximum 604800 | No | Structured provider and ACP turn timeout when no meaningful activity occurs; paused while awaiting permission or an ACP tool without a progress contract. |
-| `provider.structured.turn_hard_cap_seconds` | integer seconds | 21600 | 0 disables; negative values use the default; maximum 604800 | No | Absolute duration limit for a structured provider or ACP turn, including time awaiting permission or tools. |
-| `provider.structured.tool_idle_timeout_seconds` | integer seconds | 3600 | 0 disables; negative values use the default; maximum 604800 | No | Structured provider tool timeout when no progress occurs. ACP has no verified tool progress contract and uses the turn hard cap. |
-| `provider.structured.repeat_tool_call_limit` | integer count | 50 | 0 disables; negative values use the default; maximum 1000 | No | Maximum consecutive identical tool calls in a structured provider or ACP turn. ACP counts only distinct call IDs with complete tool identity and input. |
+| `provider.structured.turn_idle_timeout_seconds` | integer seconds | 900 | 0 disables; negative values use the default; maximum 604800 | Yes | Structured provider and ACP turn timeout when no meaningful activity occurs; paused while awaiting permission or an ACP tool without a progress contract. |
+| `provider.structured.turn_hard_cap_seconds` | integer seconds | 21600 | 0 disables; negative values use the default; maximum 604800 | Yes | Absolute duration limit for a structured provider or ACP turn, including time awaiting permission or tools. |
+| `provider.structured.tool_idle_timeout_seconds` | integer seconds | 3600 | 0 disables; negative values use the default; maximum 604800 | Yes | Structured provider tool timeout when no progress occurs. ACP has no verified tool progress contract and uses the turn hard cap. |
+| `provider.structured.repeat_tool_call_limit` | integer count | 50 | 0 disables; negative values use the default; maximum 1000 | Yes | Maximum consecutive identical tool calls in a structured provider or ACP turn. ACP counts only distinct call IDs with complete tool identity and input. |
 | `provider.structured.<provider>.turn_idle_timeout_seconds` | integer seconds | Inherit global settings | Provider is codex; 0 disables; negative values use the provider default; maximum 604800 | No | Turn idle timeout override for the specified provider. |
 | `provider.structured.<provider>.turn_hard_cap_seconds` | integer seconds | Inherit global settings | Provider is codex | No | Turn hard cap override for the specified provider. |
 | `provider.structured.<provider>.tool_idle_timeout_seconds` | integer seconds | Inherit global settings | Provider is codex | No | Tool idle timeout override for the specified provider. |

@@ -160,3 +160,18 @@ func tableCells(line string) []string {
 	}
 	return append(cells, line[start:])
 }
+
+// Text returns the catalog translation of one documentation string, such as a
+// configuration description, for surfaces that render the same metadata as the
+// generated references. Section headings are catalogued with their "## " prefix.
+func Text(text, language string) (string, bool) {
+	entry, ok := catalog[strings.TrimSpace(text)]
+	if !ok {
+		return "", false
+	}
+	value := entry.English
+	if language == "zh-CN" {
+		value = entry.Chinese
+	}
+	return value, value != ""
+}

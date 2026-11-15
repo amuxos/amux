@@ -37,11 +37,11 @@ amux system config unset <key>
 | `maintenance.daily_cleanup.enabled` | 布尔值 | true | — | 是 | 每日自动清理普通话题和用户隔离话题的运行数据，并向 Bot 管理员私聊报告结果；系统级开关，保存后即时生效。 |
 | `maintenance.daily_cleanup.at` | 字符串 | 06:17 | HH:MM | 是 | 每日清理时间，使用 Hub 本地时区；错过时间后在恢复运行时补一次。 |
 | `maintenance.daily_cleanup.protected_paths` | 字符串数组 | [] | absolute paths | 是 | 每日清理始终保留的共享或长期工作区绝对路径，作用于所有 Runtime。 |
-| `runtime.task_cleanup.enabled` | 布尔值 | true | — | 否 | 是否自动清理终态 task 历史。 |
-| `runtime.task_cleanup.terminal_history_ttl_seconds` | 整数秒数 | 604800（7 天） | >0 | 否 | 终态 task 历史保留时间。 |
-| `runtime.task_cleanup.sweep_interval_seconds` | 整数秒数 | 3600 | >0 | 否 | 终态 task 清理扫描周期。 |
-| `runtime.broker_reap.enabled` | 布尔值 | true | — | 否 | 是否定期回收孤儿 session broker 进程及其文件（session 已删除或不再运行、或为重复 broker）。 |
-| `runtime.broker_reap.sweep_interval_seconds` | 整数秒数 | 300 | >0 | 否 | 孤儿 broker 回收扫描周期。 |
+| `runtime.task_cleanup.enabled` | 布尔值 | true | — | 是 | 是否自动清理终态 task 历史。 |
+| `runtime.task_cleanup.terminal_history_ttl_seconds` | 整数秒数 | 604800（7 天） | >0 | 是 | 终态 task 历史保留时间。 |
+| `runtime.task_cleanup.sweep_interval_seconds` | 整数秒数 | 3600 | >0 | 是 | 终态 task 清理扫描周期。 |
+| `runtime.broker_reap.enabled` | 布尔值 | true | — | 是 | 是否定期回收孤儿 session broker 进程及其文件（session 已删除或不再运行、或为重复 broker）。 |
+| `runtime.broker_reap.sweep_interval_seconds` | 整数秒数 | 300 | >0 | 是 | 孤儿 broker 回收扫描周期。 |
 
 ## 飞书实验功能
 
@@ -78,14 +78,14 @@ amux system config unset <key>
 
 | 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| `runtime.session_reclaim.enabled` | 布尔值 | true | — | 否 | Session 分阶段回收总开关。 |
-| `runtime.session_reclaim.sweep_interval_seconds` | 整数秒数 | 600 | >0 | 否 | Session 回收扫描周期。 |
-| `runtime.session_reclaim.local.sleep_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 否 | 本地 Session 自动休眠阈值。 |
-| `runtime.session_reclaim.local.archive_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 否 | 本地 Session 自动归档阈值。 |
-| `runtime.session_reclaim.local.prune_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 否 | 本地 Session 自动删除阈值。 |
-| `runtime.session_reclaim.feishu.sleep_after_seconds` | 整数秒数 | 172800（48 小时） | 0 或 >=60 | 否 | 飞书 Session 自动休眠阈值。 |
-| `runtime.session_reclaim.feishu.archive_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 否 | 飞书 Session 自动归档阈值；默认关闭，显式正值可开启。 |
-| `runtime.session_reclaim.feishu.prune_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 否 | 飞书 Session 自动删除本地记录与 replay 的阈值；默认关闭，显式正值可开启，不会删除飞书消息。 |
+| `runtime.session_reclaim.enabled` | 布尔值 | true | — | 是 | Session 分阶段回收总开关。 |
+| `runtime.session_reclaim.sweep_interval_seconds` | 整数秒数 | 600 | >0 | 是 | Session 回收扫描周期。 |
+| `runtime.session_reclaim.local.sleep_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 是 | 本地 Session 自动休眠阈值。 |
+| `runtime.session_reclaim.local.archive_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 是 | 本地 Session 自动归档阈值。 |
+| `runtime.session_reclaim.local.prune_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 是 | 本地 Session 自动删除阈值。 |
+| `runtime.session_reclaim.feishu.sleep_after_seconds` | 整数秒数 | 172800（48 小时） | 0 或 >=60 | 是 | 飞书 Session 自动休眠阈值。 |
+| `runtime.session_reclaim.feishu.archive_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 是 | 飞书 Session 自动归档阈值；默认关闭，显式正值可开启。 |
+| `runtime.session_reclaim.feishu.prune_after_seconds` | 整数秒数 | 0 | 0 或 >=60 | 是 | 飞书 Session 自动删除本地记录与 replay 的阈值；默认关闭，显式正值可开启，不会删除飞书消息。 |
 
 ## CLI 与 MCP
 
@@ -199,10 +199,10 @@ amux system config unset <key>
 
 | 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| `provider.structured.turn_idle_timeout_seconds` | 整数秒数 | 900 | 0 禁用，负数回默认，最大 604800 | 否 | Structured provider 与 ACP turn 无有效活动超时；等待权限及无进度契约的 ACP 工具期间暂停。 |
-| `provider.structured.turn_hard_cap_seconds` | 整数秒数 | 21600 | 0 禁用，负数回默认，最大 604800 | 否 | Structured provider 与 ACP 单 turn 绝对时长上限，包含等待权限及工具的时间。 |
-| `provider.structured.tool_idle_timeout_seconds` | 整数秒数 | 3600 | 0 禁用，负数回默认，最大 604800 | 否 | Structured provider 工具无进度超时；ACP 尚无可验证的工具进度契约，使用 turn hard cap。 |
-| `provider.structured.repeat_tool_call_limit` | 整数计数 | 50 | 0 禁用，负数回默认，最大 1000 | 否 | Structured provider 与 ACP 同一 turn 内连续相同工具调用次数上限；ACP 只计不同调用 ID 且具备完整工具身份和输入的调用。 |
+| `provider.structured.turn_idle_timeout_seconds` | 整数秒数 | 900 | 0 禁用，负数回默认，最大 604800 | 是 | Structured provider 与 ACP turn 无有效活动超时；等待权限及无进度契约的 ACP 工具期间暂停。 |
+| `provider.structured.turn_hard_cap_seconds` | 整数秒数 | 21600 | 0 禁用，负数回默认，最大 604800 | 是 | Structured provider 与 ACP 单 turn 绝对时长上限，包含等待权限及工具的时间。 |
+| `provider.structured.tool_idle_timeout_seconds` | 整数秒数 | 3600 | 0 禁用，负数回默认，最大 604800 | 是 | Structured provider 工具无进度超时；ACP 尚无可验证的工具进度契约，使用 turn hard cap。 |
+| `provider.structured.repeat_tool_call_limit` | 整数计数 | 50 | 0 禁用，负数回默认，最大 1000 | 是 | Structured provider 与 ACP 同一 turn 内连续相同工具调用次数上限；ACP 只计不同调用 ID 且具备完整工具身份和输入的调用。 |
 | `provider.structured.<provider>.turn_idle_timeout_seconds` | 整数秒数 | 继承全局 | provider 为 codex；0 禁用，负数回 provider 默认，最大 604800 | 否 | 指定 provider 的 turn idle 覆盖。 |
 | `provider.structured.<provider>.turn_hard_cap_seconds` | 整数秒数 | 继承全局 | provider 为 codex | 否 | 指定 provider 的 turn hard cap 覆盖。 |
 | `provider.structured.<provider>.tool_idle_timeout_seconds` | 整数秒数 | 继承全局 | provider 为 codex | 否 | 指定 provider 的 tool idle 覆盖。 |

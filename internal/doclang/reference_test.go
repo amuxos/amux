@@ -68,3 +68,15 @@ func TestReferenceRequiresExplicitCompleteLanguage(t *testing.T) {
 		t.Fatal("unsupported language accepted")
 	}
 }
+
+func TestTextLooksUpCatalogEntries(t *testing.T) {
+	if got, ok := doclang.Text("## 飞书实验功能", "en"); !ok || got != "## Experimental Feishu features" {
+		t.Fatalf("en heading = %q, %v", got, ok)
+	}
+	if got, ok := doclang.Text(" 0 或 >=60 ", "zh-CN"); !ok || got != "0 或 >=60" {
+		t.Fatalf("zh-CN = %q, %v", got, ok)
+	}
+	if _, ok := doclang.Text("not catalogued text", "en"); ok {
+		t.Fatal("unknown text reported as translated")
+	}
+}

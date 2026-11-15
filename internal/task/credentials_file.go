@@ -108,6 +108,178 @@ func (f FileCredentials) SetEnv(profile, envName, value string) (CredentialProfi
 	return credentialMetadata(profile, filepath.Join(f.Dir, profile+".json"), cf), nil
 }
 
+// PutEnv is SetEnv for management surfaces: it refuses to replace a store file
+// that exists but is not a credential profile.
+func (f FileCredentials) PutEnv(profile, envName, value string) (CredentialProfileMetadata, error) {
+	envName = strings.TrimSpace(envName)
+	if !fileCredentialEnvNamePattern.MatchString(envName) {
+		return CredentialProfileMetadata{}, fmt.Errorf("invalid credential env name %q", envName)
+	}
+	if value == "" {
+		return CredentialProfileMetadata{}, fmt.Errorf("credential env %s value must not be empty", envName)
+	}
+	return f.upsert(profile, func(cf *credentialFile) error {
+		if cf.Env == nil {
+			cf.Env = make(map[string]string)
+		}
+		cf.Env[envName] = value
+		return nil
+	})
+}
+
+// UnsetEnv removes one environment secret and keeps the profile's other env
+// and file entries. Removing a name the profile does not define is an error.
+func (f FileCredentials) UnsetEnv(profile, envName string) (CredentialProfileMetadata, error) {
+	envName = strings.TrimSpace(envName)
+	if !fileCredentialEnvNamePattern.MatchString(envName) {
+		return CredentialProfileMetadata{}, fmt.Errorf("invalid credential env name %q", envName)
+	}
+	return f.update(profile, func(cf *credentialFile) error {
+		if _, ok := cf.Env[envName]; !ok {
+			return fmt.Errorf("credential profile %q does not define env %s: %w", profile, envName, fs.ErrNotExist)
+		}
+		delete(cf.Env, envName)
+		return nil
+	})
+}
+
+// SetFile stores one credential file, addressed by a relative path inside the
+// execution home, while preserving the profile's other entries.
+func (f FileCredentials) SetFile(profile, name, content string) (CredentialProfileMetadata, error) {
+	name = strings.TrimSpace(name)
+	if !ValidCredentialFileName(name) {
+		return CredentialProfileMetadata{}, fmt.Errorf("invalid credential file name %q", name)
+	}
+	if content == "" {
+		return CredentialProfileMetadata{}, fmt.Errorf("credential file %s content must not be empty", name)
+	}
+	return f.upsert(profile, func(cf *credentialFile) error {
+		if cf.Files == nil {
+			cf.Files = make(map[string]string)
+		}
+		cf.Files[name] = content
+		return nil
+	})
+}
+
+// UnsetFile removes one credential file entry.
+func (f FileCredentials) UnsetFile(profile, name string) (CredentialProfileMetadata, error) {
+	name = strings.TrimSpace(name)
+	return f.update(profile, func(cf *credentialFile) error {
+		if _, ok := cf.Files[name]; !ok {
+			return fmt.Errorf("credential profile %q does not define file %s: %w", profile, name, fs.ErrNotExist)
+		}
+		delete(cf.Files, name)
+		return nil
+	})
+}
+
+// DeleteProfile removes a whole credential profile. Only files that parse as a
+// credential profile are removed; any other JSON in the store is left alone.
+func (f FileCredentials) DeleteProfile(profile string) error {
+	profile = strings.TrimSpace(profile)
+	if !fileCredentialProfileNamePattern.MatchString(profile) {
+		return fmt.Errorf("invalid credential profile %q", profile)
+	}
+	fileCredentialWriteMu.Lock()
+	defer fileCredentialWriteMu.Unlock()
+	cf, err := f.readProfile(profile)
+	if err != nil {
+		return err
+	}
+	if !cf.credentialProfile() {
+		return fmt.Errorf("%s is not a credential profile: %w", profile, ErrNotCredentialProfile)
+	}
+	if err := os.Remove(filepath.Join(f.Dir, profile+".json")); err != nil {
+		return fmt.Errorf("remove credential profile %q: %w", profile, err)
+	}
+	return nil
+}
+
+// ErrNotCredentialProfile marks a store file that exists but holds something
+// other than a credential profile. Writers refuse to replace it.
+var ErrNotCredentialProfile = errors.New("not a credential profile")
+
+// ValidCredentialFileName accepts a clean relative path that stays inside the
+// execution home: no absolute path, parent segment, or control character.
+func ValidCredentialFileName(name string) bool {
+	if name == "" || len(name) > 256 || filepath.IsAbs(name) || strings.HasPrefix(name, "~") {
+		return false
+	}
+	if filepath.Clean(name) != name || name == "." || strings.Contains(name, "\\") {
+		return false
+	}
+	for _, segment := range strings.Split(name, "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return false
+		}
+	}
+	for _, r := range name {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
+func (cf credentialFile) credentialProfile() bool {
+	return cf.Kind != "" || len(cf.Env) > 0 || len(cf.Files) > 0
+}
+
+// update edits an existing credential profile under the store lock.
+func (f FileCredentials) update(profile string, edit func(*credentialFile) error) (CredentialProfileMetadata, error) {
+	profile = strings.TrimSpace(profile)
+	if !fileCredentialProfileNamePattern.MatchString(profile) {
+		return CredentialProfileMetadata{}, fmt.Errorf("invalid credential profile %q", profile)
+	}
+	fileCredentialWriteMu.Lock()
+	defer fileCredentialWriteMu.Unlock()
+	cf, err := f.readProfile(profile)
+	if err != nil {
+		return CredentialProfileMetadata{}, err
+	}
+	if !cf.credentialProfile() {
+		return CredentialProfileMetadata{}, fmt.Errorf("%s is not a credential profile: %w", profile, ErrNotCredentialProfile)
+	}
+	if err := edit(&cf); err != nil {
+		return CredentialProfileMetadata{}, err
+	}
+	if err := f.writeProfile(profile, cf); err != nil {
+		return CredentialProfileMetadata{}, err
+	}
+	return credentialMetadata(profile, filepath.Join(f.Dir, profile+".json"), cf), nil
+}
+
+// upsert edits a credential profile, creating it when absent. A store file that
+// is not a credential profile is never overwritten.
+func (f FileCredentials) upsert(profile string, edit func(*credentialFile) error) (CredentialProfileMetadata, error) {
+	profile = strings.TrimSpace(profile)
+	if !fileCredentialProfileNamePattern.MatchString(profile) {
+		return CredentialProfileMetadata{}, fmt.Errorf("invalid credential profile %q", profile)
+	}
+	fileCredentialWriteMu.Lock()
+	defer fileCredentialWriteMu.Unlock()
+	cf, err := f.readProfile(profile)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		cf = credentialFile{}
+	case err != nil:
+		return CredentialProfileMetadata{}, err
+	case !cf.credentialProfile():
+		return CredentialProfileMetadata{}, fmt.Errorf("%s is not a credential profile: %w", profile, ErrNotCredentialProfile)
+	}
+	if cf.Kind == "" {
+		cf.Kind = "long-lived"
+	}
+	if err := edit(&cf); err != nil {
+		return CredentialProfileMetadata{}, err
+	}
+	if err := f.writeProfile(profile, cf); err != nil {
+		return CredentialProfileMetadata{}, err
+	}
+	return credentialMetadata(profile, filepath.Join(f.Dir, profile+".json"), cf), nil
+}
+
 // Metadata reads one profile without exposing any secret values.
 func (f FileCredentials) Metadata(profile string) (CredentialProfileMetadata, error) {
 	profile = strings.TrimSpace(profile)

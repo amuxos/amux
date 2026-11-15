@@ -1,6 +1,8 @@
 package agentprofile
 
 import (
+	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -246,4 +248,45 @@ func runDevelopmentLeaseGit(t *testing.T, dir string, args ...string) string {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
 	return string(out)
+}
+
+func TestDevelopmentLeaseOperatorCleanupAndRelease(t *testing.T) {
+	registryPath, repo, worktree, namespace, branch := setupDevelopmentLeaseTest(t)
+	register := func() {
+		t.Helper()
+		if _, err := RegisterDevelopmentLease(registryPath, RegisterDevelopmentLeaseOptions{
+			Namespace: namespace, DevelopmentOf: "team", RepositoryPath: repo, WorktreePath: worktree, Branch: branch, OwnerSessionID: "session-live", TTL: time.Hour,
+		}); err != nil {
+			t.Fatalf("RegisterDevelopmentLease: %v", err)
+		}
+	}
+	register()
+	// Uncommitted work keeps the lease: cleanup never discards a dirty worktree.
+	if err := os.WriteFile(filepath.Join(worktree, "draft.md"), []byte("wip\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	guardErr := errors.New("blocked")
+	if _, err := CleanupDevelopmentLeaseIf(context.Background(), registryPath, namespace, func(Pack) error { return guardErr }); !errors.Is(err, guardErr) {
+		t.Fatalf("guard not applied: %v", err)
+	}
+	result, err := CleanupDevelopmentLeaseIf(context.Background(), registryPath, namespace, nil)
+	if err != nil || result.Status != DevelopmentLeaseRetained || !strings.Contains(result.Reason, "uncommitted") {
+		t.Fatalf("dirty cleanup = %#v err=%v", result, err)
+	}
+	// Release unregisters the Pack and forgets the lease but keeps the worktree.
+	removed, err := ReleaseDevelopmentLeaseIf(context.Background(), registryPath, namespace, nil)
+	if err != nil || removed.Pack.Namespace != namespace {
+		t.Fatalf("release = %#v err=%v", removed, err)
+	}
+	if _, err := os.Stat(filepath.Join(worktree, "draft.md")); err != nil {
+		t.Fatalf("release touched the worktree: %v", err)
+	}
+	registry, _ := LoadPackRegistry(registryPath)
+	leases, _ := LoadDevelopmentLeaseRegistry(registryPath)
+	if _, ok := registry.Packs[namespace]; ok || len(leases.Leases) != 0 {
+		t.Fatalf("pack=%v leases=%v", registry.Packs, leases.Leases)
+	}
+	if _, err := ReleaseDevelopmentLeaseIf(context.Background(), registryPath, namespace, nil); err == nil {
+		t.Fatal("released an unknown lease")
+	}
 }

@@ -35,6 +35,7 @@ type lookupPort struct {
 	topicRootLookup     func(context.Context, string) (topicRootMessage, error)
 	quotedMessageLookup func(context.Context, string) (feishuQuotedMessage, error)
 	chatNameLookup      func(context.Context, string) (string, error)
+	chatListLookup      func(context.Context) (map[string]string, error)
 	chatBotCountLookup  func(context.Context, string) (int, error)
 	botIdentityLookup   func(context.Context) (BotIdentity, error)
 }

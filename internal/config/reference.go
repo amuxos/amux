@@ -66,20 +66,20 @@ var configOptions = distributionConfigOptions([]ConfigOption{
 	{Section: "Runtime", Key: "runtime.max_concurrency", Type: "integer", Default: "10（runtime 应用）", Constraints: ">=0", Description: "每种 Agent 的并发上限；0 由 runtime 使用默认值。", Managed: true},
 	{Section: "Runtime", Key: "runtime.labels.<label>", Type: "string map entry", Default: "无", Description: "调度标签，例如 pool、repo_cache。", Managed: true},
 
-	{Section: "Runtime 清理", Key: "runtime.task_cleanup.enabled", Type: "boolean", Default: "true", Description: "是否自动清理终态 task 历史。"},
-	{Section: "Runtime 清理", Key: "runtime.task_cleanup.terminal_history_ttl_seconds", Type: "integer seconds", Default: "604800（7 天）", Constraints: ">0", Description: "终态 task 历史保留时间。"},
-	{Section: "Runtime 清理", Key: "runtime.task_cleanup.sweep_interval_seconds", Type: "integer seconds", Default: "3600", Constraints: ">0", Description: "终态 task 清理扫描周期。"},
-	{Section: "Runtime 清理", Key: "runtime.broker_reap.enabled", Type: "boolean", Default: "true", Description: "是否定期回收孤儿 session broker 进程及其文件（session 已删除或不再运行、或为重复 broker）。"},
-	{Section: "Runtime 清理", Key: "runtime.broker_reap.sweep_interval_seconds", Type: "integer seconds", Default: "300", Constraints: ">0", Description: "孤儿 broker 回收扫描周期。"},
+	{Section: "Runtime 清理", Key: "runtime.task_cleanup.enabled", Type: "boolean", Default: "true", Description: "是否自动清理终态 task 历史。", Managed: true},
+	{Section: "Runtime 清理", Key: "runtime.task_cleanup.terminal_history_ttl_seconds", Type: "integer seconds", Default: "604800（7 天）", Constraints: ">0", Description: "终态 task 历史保留时间。", Managed: true},
+	{Section: "Runtime 清理", Key: "runtime.task_cleanup.sweep_interval_seconds", Type: "integer seconds", Default: "3600", Constraints: ">0", Description: "终态 task 清理扫描周期。", Managed: true},
+	{Section: "Runtime 清理", Key: "runtime.broker_reap.enabled", Type: "boolean", Default: "true", Description: "是否定期回收孤儿 session broker 进程及其文件（session 已删除或不再运行、或为重复 broker）。", Managed: true},
+	{Section: "Runtime 清理", Key: "runtime.broker_reap.sweep_interval_seconds", Type: "integer seconds", Default: "300", Constraints: ">0", Description: "孤儿 broker 回收扫描周期。", Managed: true},
 
-	{Section: "Session 回收", Key: "runtime.session_reclaim.enabled", Type: "boolean", Default: "true", Description: "Session 分阶段回收总开关。"},
-	{Section: "Session 回收", Key: "runtime.session_reclaim.sweep_interval_seconds", Type: "integer seconds", Default: "600", Constraints: ">0", Description: "Session 回收扫描周期。"},
-	{Section: "Session 回收", Key: "runtime.session_reclaim.local.sleep_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "本地 Session 自动休眠阈值。"},
-	{Section: "Session 回收", Key: "runtime.session_reclaim.local.archive_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "本地 Session 自动归档阈值。"},
-	{Section: "Session 回收", Key: "runtime.session_reclaim.local.prune_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "本地 Session 自动删除阈值。"},
-	{Section: "Session 回收", Key: "runtime.session_reclaim.feishu.sleep_after_seconds", Type: "integer seconds", Default: "172800（48 小时）", Constraints: "0 或 >=60", Description: "飞书 Session 自动休眠阈值。"},
-	{Section: "Session 回收", Key: "runtime.session_reclaim.feishu.archive_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "飞书 Session 自动归档阈值；默认关闭，显式正值可开启。"},
-	{Section: "Session 回收", Key: "runtime.session_reclaim.feishu.prune_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "飞书 Session 自动删除本地记录与 replay 的阈值；默认关闭，显式正值可开启，不会删除飞书消息。"},
+	{Section: "Session 回收", Key: "runtime.session_reclaim.enabled", Type: "boolean", Default: "true", Description: "Session 分阶段回收总开关。", Managed: true},
+	{Section: "Session 回收", Key: "runtime.session_reclaim.sweep_interval_seconds", Type: "integer seconds", Default: "600", Constraints: ">0", Description: "Session 回收扫描周期。", Managed: true},
+	{Section: "Session 回收", Key: "runtime.session_reclaim.local.sleep_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "本地 Session 自动休眠阈值。", Managed: true},
+	{Section: "Session 回收", Key: "runtime.session_reclaim.local.archive_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "本地 Session 自动归档阈值。", Managed: true},
+	{Section: "Session 回收", Key: "runtime.session_reclaim.local.prune_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "本地 Session 自动删除阈值。", Managed: true},
+	{Section: "Session 回收", Key: "runtime.session_reclaim.feishu.sleep_after_seconds", Type: "integer seconds", Default: "172800（48 小时）", Constraints: "0 或 >=60", Description: "飞书 Session 自动休眠阈值。", Managed: true},
+	{Section: "Session 回收", Key: "runtime.session_reclaim.feishu.archive_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "飞书 Session 自动归档阈值；默认关闭，显式正值可开启。", Managed: true},
+	{Section: "Session 回收", Key: "runtime.session_reclaim.feishu.prune_after_seconds", Type: "integer seconds", Default: "0", Constraints: "0 或 >=60", Description: "飞书 Session 自动删除本地记录与 replay 的阈值；默认关闭，显式正值可开启，不会删除飞书消息。", Managed: true},
 
 	{Section: "CLI 与 MCP", Key: "cli.default_target", Type: "string", Default: "local", Description: "CLI 默认 target。", Managed: true},
 	{Section: "CLI 与 MCP", Key: "mcp.enabled", Type: "boolean", Default: "true", Description: "是否启用内置 amux MCP。", Managed: true},
@@ -160,10 +160,10 @@ var configOptions = distributionConfigOptions([]ConfigOption{
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.reasoning_effort", Type: "string", Default: "空（运行引擎默认）", Description: "群值守新 Session 使用的思考强度，必须受所选运行引擎和模型支持。", Managed: true},
 	{Section: "飞书智能体 Profile", Key: "bridge.feishu.profiles.<profile>.group_watch.thinking_process", Type: "enum", Default: "继承安装级群值守（collapsed）", Constraints: "expanded、collapsed、hidden", Description: "当前助手群值守任务的处理过程展示方式，与普通任务独立配置。", Managed: true},
 
-	{Section: "Structured Provider", Key: "provider.structured.turn_idle_timeout_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultTurnIdleTimeoutSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 与 ACP turn 无有效活动超时；等待权限及无进度契约的 ACP 工具期间暂停。"},
-	{Section: "Structured Provider", Key: "provider.structured.turn_hard_cap_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultTurnHardCapSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 与 ACP 单 turn 绝对时长上限，包含等待权限及工具的时间。"},
-	{Section: "Structured Provider", Key: "provider.structured.tool_idle_timeout_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultToolIdleTimeoutSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 工具无进度超时；ACP 尚无可验证的工具进度契约，使用 turn hard cap。"},
-	{Section: "Structured Provider", Key: "provider.structured.repeat_tool_call_limit", Type: "integer count", Default: strconv.Itoa(defaultRepeatToolCallLimit), Constraints: "0 禁用，负数回默认，最大 1000", Description: "Structured provider 与 ACP 同一 turn 内连续相同工具调用次数上限；ACP 只计不同调用 ID 且具备完整工具身份和输入的调用。"},
+	{Section: "Structured Provider", Key: "provider.structured.turn_idle_timeout_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultTurnIdleTimeoutSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 与 ACP turn 无有效活动超时；等待权限及无进度契约的 ACP 工具期间暂停。", Managed: true},
+	{Section: "Structured Provider", Key: "provider.structured.turn_hard_cap_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultTurnHardCapSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 与 ACP 单 turn 绝对时长上限，包含等待权限及工具的时间。", Managed: true},
+	{Section: "Structured Provider", Key: "provider.structured.tool_idle_timeout_seconds", Type: "integer seconds", Default: strconv.Itoa(defaultToolIdleTimeoutSeconds), Constraints: "0 禁用，负数回默认，最大 604800", Description: "Structured provider 工具无进度超时；ACP 尚无可验证的工具进度契约，使用 turn hard cap。", Managed: true},
+	{Section: "Structured Provider", Key: "provider.structured.repeat_tool_call_limit", Type: "integer count", Default: strconv.Itoa(defaultRepeatToolCallLimit), Constraints: "0 禁用，负数回默认，最大 1000", Description: "Structured provider 与 ACP 同一 turn 内连续相同工具调用次数上限；ACP 只计不同调用 ID 且具备完整工具身份和输入的调用。", Managed: true},
 })
 
 // RenderConfigurationReference renders the checked-in configuration reference.

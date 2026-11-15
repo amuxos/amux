@@ -29,6 +29,7 @@ type consoleManagementController interface {
 	ConsoleGroupSettings(context.Context, string) (bridge.ConsoleGroupsResult, error)
 	ConsoleSaveGroup(context.Context, string, *bridge.GroupSettings, int64) (bridge.ConsoleGroupsResult, error)
 	ConsoleAgentReferences(context.Context) ([]bridge.ConsoleAgentReference, error)
+	ConsoleRefreshGroupNames(context.Context) (bridge.ConsoleGroupsResult, error)
 }
 
 type consoleRead struct {
@@ -76,10 +77,10 @@ func (s *hubServer) ConsoleManagement(ctx context.Context, req *pb.ConsoleManage
 	if req.Resource != "bots" && req.Resource != "groups" {
 		return nil, status.Error(codes.InvalidArgument, "console_unknown_resource")
 	}
-	if req.Action != "list" && req.Action != "get" && req.Action != "save" && req.Action != "references" {
+	if req.Action != "list" && req.Action != "get" && req.Action != "save" && req.Action != "references" && req.Action != "refresh_names" {
 		return nil, status.Error(codes.InvalidArgument, "console_unknown_action")
 	}
-	if req.Action == "references" && req.Resource != "bots" {
+	if req.Action == "references" && req.Resource != "bots" || req.Action == "refresh_names" && req.Resource != "groups" {
 		return nil, status.Error(codes.InvalidArgument, "console_unknown_action")
 	}
 	body := req.PayloadJson
@@ -95,6 +96,11 @@ func (s *hubServer) ConsoleManagement(ctx context.Context, req *pb.ConsoleManage
 	budget := 45 * time.Second
 	if req.Resource == "groups" {
 		budget = 15 * time.Second
+	}
+	if req.Action == "refresh_names" {
+		// The only action here that asks Feishu; it stays within the console's
+		// own request deadline.
+		budget = 25 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
@@ -294,6 +300,9 @@ func (s *hubServer) consoleGroups(ctx context.Context, action string, body []byt
 	if err := consoleDecode(body, &input); err != nil {
 		return nil, err
 	}
+	if action == "refresh_names" {
+		return s.consoleRefreshGroupNames(ctx, input)
+	}
 	if action == "get" || input.ChatID != "" {
 		if !consoleChatValid(input.ChatID) {
 			return nil, status.Error(codes.InvalidArgument, "console_invalid_chat_id")
@@ -306,6 +315,9 @@ func (s *hubServer) consoleGroups(ctx context.Context, action string, body []byt
 	}
 	out := bridge.ConsoleGroupsResult{Status: bridge.BotSettingsStatusSuccess, Groups: []bridge.ConsoleGroup{}, Profile: input.Profile, Source: "known_bindings", Actions: []string{}}
 	controllers := s.consoleControllers()
+	if len(controllers) > 0 {
+		out.Actions = []string{"refresh_names"}
+	}
 	if input.Profile != "" {
 		controller, err := s.consoleController(input.Profile)
 		if err != nil {
@@ -322,6 +334,55 @@ func (s *hubServer) consoleGroups(ctx context.Context, action string, body []byt
 			return nil, err
 		}
 		out.Groups = append(out.Groups, groups...)
+		if len(out.Groups) > 1000 {
+			return nil, status.Error(codes.ResourceExhausted, "console_too_many_groups")
+		}
+	}
+	sort.Slice(out.Groups, func(i, j int) bool {
+		a, b := out.Groups[i], out.Groups[j]
+		if a.Profile != b.Profile {
+			return a.Profile < b.Profile
+		}
+		return a.ChatID < b.ChatID
+	})
+	return out, nil
+}
+
+// consoleRefreshGroupNames asks each Bridge (or the named one) to resolve the
+// names of its known groups. Partial results are kept: a Bridge that fails
+// leaves its groups titled by chat ID.
+func (s *hubServer) consoleRefreshGroupNames(ctx context.Context, input consoleRead) (any, error) {
+	if input.ChatID != "" {
+		return nil, status.Error(codes.InvalidArgument, "console_invalid_payload")
+	}
+	controllers := s.consoleControllers()
+	if input.Profile != "" {
+		controller, err := s.consoleController(input.Profile)
+		if err != nil {
+			return nil, err
+		}
+		controllers = map[string]consoleManagementController{input.Profile: controller}
+	}
+	if len(controllers) == 0 {
+		return nil, status.Error(codes.Unavailable, "console_bridge_unavailable")
+	}
+	if len(controllers) > 256 {
+		return nil, status.Error(codes.ResourceExhausted, "console_too_many_bots")
+	}
+	profiles := make([]string, 0, len(controllers))
+	for profile := range controllers {
+		profiles = append(profiles, profile)
+	}
+	sort.Strings(profiles)
+	out := bridge.ConsoleGroupsResult{Status: bridge.BotSettingsStatusSuccess, Groups: []bridge.ConsoleGroup{}, Profile: input.Profile, Source: "known_bindings", Actions: []string{"refresh_names"}}
+	for _, profile := range profiles {
+		result, err := controllers[profile].ConsoleRefreshGroupNames(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out.Groups = append(out.Groups, result.Groups...)
+		out.NamesResolved += result.NamesResolved
+		out.NamesMissing += result.NamesMissing
 		if len(out.Groups) > 1000 {
 			return nil, status.Error(codes.ResourceExhausted, "console_too_many_groups")
 		}
