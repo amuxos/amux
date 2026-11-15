@@ -187,7 +187,9 @@ func (b *consoleBackend) Snapshot(ctx context.Context, resource string, query ur
 		query.Set("target", query.Get("target_id"))
 	}
 	switch resource {
-	case "bots", "groups":
+	case "bots":
+		return b.snapshotBots(ctx, query)
+	case "groups":
 		return b.snapshotBridge(ctx, resource, query)
 	case "settings":
 		return b.snapshotSettings()
@@ -197,6 +199,9 @@ func (b *consoleBackend) Snapshot(ctx context.Context, resource string, query ur
 func (b *consoleBackend) Execute(ctx context.Context, resource, action string, data json.RawMessage) (any, error) {
 	switch resource {
 	case "bots", "groups":
+		if resource == "bots" && consoleLocalBotAction(action) {
+			return b.executeLocalBot(ctx, action, data)
+		}
 		return b.executeBridge(ctx, resource, action, data)
 	case "settings":
 		return b.executeSettings(action, data)

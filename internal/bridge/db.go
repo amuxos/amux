@@ -785,6 +785,9 @@ func (b *bridgeDB) migrate() error {
 	if err := b.migrateGoals(); err != nil {
 		return err
 	}
+	if err := b.migrateChatNames(); err != nil {
+		return err
+	}
 	return b.migrateDistributionDefaults()
 }
 

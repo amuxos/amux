@@ -196,3 +196,32 @@ func TestConsoleNewRejectsUnsafeOrigin(t *testing.T) {
 		t.Fatal("short entropy accepted")
 	}
 }
+
+type fieldError struct{ code, field string }
+
+func (e fieldError) Error() string             { return e.code }
+func (e fieldError) Unwrap() error             { return ErrInvalid }
+func (e fieldError) ConsoleErrorCode() string  { return e.code }
+func (e fieldError) ConsoleErrorField() string { return e.field }
+
+type failingBackend struct{ testBackend }
+
+func (b *failingBackend) Execute(context.Context, string, string, json.RawMessage) (any, error) {
+	return nil, fieldError{code: "invalid_field", field: "app_secret"}
+}
+
+func TestConsoleErrorsNameTheRejectedField(t *testing.T) {
+	s, err := New(&failingBackend{}, Options{Origin: "http://127.0.0.1:7892", PairCode: "one-time-pair"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie, csrf := pairSession(t, s)
+	w := request(s, "POST", "/api/console/bots", `{"action":"create","data":{}}`, "http://127.0.0.1:7892", csrf, cookie)
+	var body map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != 400 || body["code"] != "invalid_field" || body["field"] != "app_secret" {
+		t.Fatalf("error = %d %v", w.Code, body)
+	}
+}

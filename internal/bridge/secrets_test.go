@@ -1,6 +1,8 @@
 package bridge
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -155,5 +157,50 @@ func TestCarrySecretsForApp(t *testing.T) {
 	legacy := CarrySecretsForApp(&Secrets{OpenId: "ou_owner", BotName: "b", BotOpenId: "ou_b"}, "cli_new")
 	if legacy.OpenId != "ou_owner" || legacy.BotName != "b" || legacy.BotOpenId != "ou_b" {
 		t.Fatalf("empty old app_id must keep identity fields, got %+v", legacy)
+	}
+}
+
+func TestProfileSecretsLifecycle(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("AMUX_HOME", "")
+	if err := CreateProfileSecrets("ops", &Secrets{AppId: "cli_ops", AppSecret: "secret"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := CreateProfileSecrets("ops", &Secrets{AppId: "cli_other", AppSecret: "secret"}); !errors.Is(err, fs.ErrExist) {
+		t.Fatalf("create over existing profile: %v", err)
+	}
+	if err := DeleteDisabledProfileSecrets("ops"); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("deleted an enabled profile: %v", err)
+	}
+	if _, err := DisableProfileSecrets("ops"); err != nil {
+		t.Fatal(err)
+	}
+	if disabled, err := ListDisabledSecretProfiles(); err != nil || len(disabled) != 1 || disabled[0] != "ops" {
+		t.Fatalf("disabled = %v, %v", disabled, err)
+	}
+	if enabled, _ := ListSecretProfiles(); len(enabled) != 0 {
+		t.Fatalf("disabled profile still listed: %v", enabled)
+	}
+	if err := CreateProfileSecrets("ops", &Secrets{AppId: "cli_ops"}); !errors.Is(err, fs.ErrExist) {
+		t.Fatalf("create over disabled profile: %v", err)
+	}
+	if err := EnableProfileSecrets("ops"); err != nil {
+		t.Fatal(err)
+	}
+	if loaded, err := LoadProfileSecrets("ops"); err != nil || loaded.AppId != "cli_ops" {
+		t.Fatalf("enabled = %#v, %v", loaded, err)
+	}
+	if err := EnableProfileSecrets("ops"); !errors.Is(err, fs.ErrExist) {
+		t.Fatalf("enable twice: %v", err)
+	}
+	if _, err := DisableProfileSecrets("ops"); err != nil {
+		t.Fatal(err)
+	}
+	if err := DeleteDisabledProfileSecrets("ops"); err != nil {
+		t.Fatal(err)
+	}
+	if disabled, _ := ListDisabledSecretProfiles(); len(disabled) != 0 {
+		t.Fatalf("deleted profile still listed: %v", disabled)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -403,10 +404,13 @@ func TestConsolePackRemoveRequiresConfirmationAndStaysInsideTheContract(t *testi
 	ctx := context.Background()
 	_, err := backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"solo"}`))
 	consoleTestCode(t, err, "confirmation_required")
-	for _, namespace := range []string{"managed", "temp"} {
-		_, err = backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"`+namespace+`","confirm":true}`))
-		consoleTestCode(t, err, "managed_pack_read_only")
-	}
+	_, err = backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"managed","confirm":true}`))
+	consoleTestCode(t, err, "managed_pack_read_only")
+	// Temporary Packs can be removed, never synced or rolled back.
+	_, err = backend.executeResource(ctx, "packs", "sync", json.RawMessage(`{"namespace":"temp"}`))
+	consoleTestCode(t, err, "managed_pack_read_only")
+	_, err = backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"solo","confirm":true,"keep_worktree":true}`))
+	consoleTestCode(t, err, "invalid_field")
 	for _, namespace := range []string{"builtin", "local", "../x"} {
 		_, err = backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"`+namespace+`","confirm":true}`))
 		consoleTestCode(t, err, "invalid_field")
@@ -549,5 +553,77 @@ func TestConsoleProfileKeyIgnoresRevisionPins(t *testing.T) {
 		if got := consoleProfileKey(ref); got != want {
 			t.Fatalf("consoleProfileKey(%q) = %q, want %q", ref, got, want)
 		}
+	}
+}
+
+func TestConsoleRemovesTemporaryDevelopmentPacks(t *testing.T) {
+	backend, _, _ := consoleUsageFixture(t)
+	consoleRemoveRegistry(t)
+	calls := consoleFakeRemove(t, agentprofile.RemovePackResult{FilesRemoved: true, RemovedPath: "/private/host/path"}, nil)
+	ctx := context.Background()
+	// Without a development lease a temporary Pack is unregistered like any other.
+	value, err := backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"temp","confirm":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw := consoleTestJSON(t, value); !strings.Contains(raw, `"namespace":"temp"`) || len(*calls) != 1 {
+		t.Fatalf("remove = %s calls=%+v", raw, *calls)
+	}
+	_, err = backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"temp","confirm":true,"keep_worktree":true}`))
+	consoleTestCode(t, err, "invalid_field")
+
+	// With a lease, removal cleans the development worktree up too.
+	consoleRemoveRegistry(t)
+	leasePath := agentprofile.DevelopmentLeaseRegistryPath(defaultAgentPackRegistryPath())
+	if err := os.WriteFile(leasePath, []byte(`{"leases":{"temp":{"namespace":"temp","branch":"dev/x","worktree_path":"/private/worktree"}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	listed, err := backend.snapshotResource(ctx, "packs", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw := consoleTestJSON(t, listed); !strings.Contains(raw, `"branch":"dev/x"`) || strings.Contains(raw, "/private/worktree") || !strings.Contains(raw, `"removable":true`) {
+		t.Fatalf("packs = %s", raw)
+	}
+	cleanup, release := consoleCleanupDevelopmentPack, consoleReleaseDevelopmentPack
+	t.Cleanup(func() { consoleCleanupDevelopmentPack, consoleReleaseDevelopmentPack = cleanup, release })
+	var cleaned, released []string
+	cleanupStatus := agentprofile.DevelopmentLeaseRetained
+	consoleCleanupDevelopmentPack = func(_ context.Context, _ string, namespace string, guard func(agentprofile.Pack) error) (agentprofile.DevelopmentLeaseCleanupResult, error) {
+		if err := guard(agentprofile.Pack{Namespace: namespace, Temporary: true}); err != nil {
+			return agentprofile.DevelopmentLeaseCleanupResult{}, err
+		}
+		cleaned = append(cleaned, namespace)
+		return agentprofile.DevelopmentLeaseCleanupResult{Status: cleanupStatus, Reason: "development worktree has uncommitted changes in /private/worktree"}, nil
+	}
+	consoleReleaseDevelopmentPack = func(_ context.Context, _ string, namespace string, guard func(agentprofile.Pack) error) (agentprofile.RemovePackResult, error) {
+		if err := guard(agentprofile.Pack{Namespace: namespace, Temporary: true}); err != nil {
+			return agentprofile.RemovePackResult{}, err
+		}
+		released = append(released, namespace)
+		return agentprofile.RemovePackResult{FilesRemoved: true}, nil
+	}
+	_, err = backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"temp","confirm":true}`))
+	consoleTestCode(t, err, "development_worktree_retained")
+	if strings.Contains(err.Error(), "/private") || !strings.Contains(err.Error(), "worktree_has_changes") {
+		t.Fatalf("retained error = %v", err)
+	}
+	value, err = backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"temp","confirm":true,"keep_worktree":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw := consoleTestJSON(t, value); !strings.Contains(raw, `"worktree_kept":true`) {
+		t.Fatalf("release = %s", raw)
+	}
+	cleanupStatus = agentprofile.DevelopmentLeaseCleaned
+	value, err = backend.executeResource(ctx, "packs", "remove", json.RawMessage(`{"namespace":"temp","confirm":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw := consoleTestJSON(t, value); !strings.Contains(raw, `"worktree_removed":true`) {
+		t.Fatalf("cleanup = %s", raw)
+	}
+	if strings.Join(cleaned, ",") != "temp,temp" || strings.Join(released, ",") != "temp" || len(*calls) != 1 {
+		t.Fatalf("cleaned=%v released=%v removed=%+v", cleaned, released, *calls)
 	}
 }

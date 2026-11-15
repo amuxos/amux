@@ -58,12 +58,15 @@ type ConsoleBotResult struct {
 	Impact            *ConsoleImpact `json:"impact,omitempty"`
 }
 
+// ConsoleGroup is a known group binding. Name is the remembered Feishu group
+// name, empty until the Bridge has resolved it; Title falls back to the chat ID.
 type ConsoleGroup struct {
-	Profile string   `json:"profile"`
-	ChatID  string   `json:"chat_id"`
-	Title   string   `json:"title"`
-	Name    string   `json:"name"`
-	Actions []string `json:"actions"`
+	Profile       string   `json:"profile"`
+	ChatID        string   `json:"chat_id"`
+	Title         string   `json:"title"`
+	Name          string   `json:"name"`
+	NameUpdatedAt int64    `json:"name_updated_at,omitempty"`
+	Actions       []string `json:"actions"`
 }
 
 type ConsoleGroupsResult struct {
@@ -74,6 +77,8 @@ type ConsoleGroupsResult struct {
 	Settings       *GroupSettings `json:"settings,omitempty"`
 	SettingsSource string         `json:"settings_source,omitempty"`
 	Actions        []string       `json:"actions"`
+	NamesResolved  int            `json:"names_resolved,omitempty"`
+	NamesMissing   int            `json:"names_missing,omitempty"`
 }
 
 // ConsoleAgentReference is one place a Feishu Bot or group names a default
@@ -200,11 +205,17 @@ func (b *Bridge) ConsoleSaveBot(ctx context.Context, input ConsoleBotSave) (Cons
 	return out, nil
 }
 
-// ConsoleGroups lists only locally known bindings, not the Feishu directory.
-// Titles are chat IDs: a stored binding's DisplayTitle names a topic, not a group.
+// ConsoleGroups lists only locally known bindings, not the Feishu directory,
+// and never calls Feishu. Names are the ones the Bridge remembered when it last
+// resolved them; a stored binding's DisplayTitle names a topic, not a group, so
+// a group without a remembered name is titled by its chat ID.
 func (b *Bridge) ConsoleGroups(ctx context.Context) ([]ConsoleGroup, error) {
 	if err := b.consoleAvailable(ctx); err != nil {
 		return nil, err
+	}
+	names, err := b.db.ChatNames(ctx, b.currentBridgeId())
+	if err != nil {
+		return nil, consoleDBError(ctx, err)
 	}
 	rows, err := b.db.db.QueryContext(ctx, `SELECT DISTINCT c.chat_id FROM lark_chats c
 		LEFT JOIN feishu_workspaces w ON w.bridge_id=c.bridge_id AND w.chat_id=c.chat_id
@@ -220,7 +231,12 @@ func (b *Bridge) ConsoleGroups(ctx context.Context) ([]ConsoleGroup, error) {
 		if err := rows.Scan(&chatID); err != nil {
 			return nil, consoleDBError(ctx, err)
 		}
-		out = append(out, ConsoleGroup{Profile: b.ProfileName(), ChatID: chatID, Title: chatID, Name: chatID, Actions: b.consoleGroupActions()})
+		name, updatedAt := chatNameFromRecord(names, chatID)
+		title := name
+		if title == "" {
+			title = chatID
+		}
+		out = append(out, ConsoleGroup{Profile: b.ProfileName(), ChatID: chatID, Title: title, Name: name, NameUpdatedAt: updatedAt, Actions: b.consoleGroupActions()})
 		if len(out) > 1000 {
 			return nil, status.Error(codes.ResourceExhausted, "console_too_many_groups")
 		}
@@ -229,6 +245,11 @@ func (b *Bridge) ConsoleGroups(ctx context.Context) ([]ConsoleGroup, error) {
 		return nil, consoleDBError(ctx, err)
 	}
 	return out, nil
+}
+
+// consoleGroupListActions are the list-level operator actions for groups.
+func (b *Bridge) consoleGroupListActions() []string {
+	return []string{"refresh_names"}
 }
 
 func (b *Bridge) consoleGroupActions() []string {

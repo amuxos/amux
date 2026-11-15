@@ -46,9 +46,23 @@ func consolePacks() (map[string]any, error) {
 		return nil, err
 	}
 	packs := agentprofile.ListPacks(registry)
+	// A missing or unreadable lease registry only hides development details.
+	leases, _ := agentprofile.LoadDevelopmentLeaseRegistry(defaultAgentPackRegistryPath())
 	views := make([]map[string]any, 0, len(packs))
 	for _, pack := range packs {
-		views = append(views, consolePackView(pack))
+		view := consolePackView(pack)
+		if pack.Temporary {
+			view["removable"] = true
+		}
+		if lease, ok := leases.Leases[pack.Namespace]; ok && pack.Temporary {
+			// Host paths stay out of the browser; the branch and lifetime identify it.
+			development := map[string]any{"branch": lease.Branch, "created_at": lease.CreatedAt, "expires_at": lease.ExpiresAt}
+			if lease.LastError != "" {
+				development["cleanup_error_code"] = consoleDevelopmentRetainCode(lease.LastError)
+			}
+			view["development"] = development
+		}
+		views = append(views, view)
 	}
 	return map[string]any{"packs": views}, nil
 }
@@ -190,6 +204,9 @@ func (b *consoleBackend) consoleExecutePack(ctx context.Context, action string, 
 		Confirm   bool   `json:"confirm,omitempty"`
 		KeepFiles bool   `json:"keep_files,omitempty"`
 		Force     bool   `json:"force,omitempty"`
+		// KeepWorktree removes a temporary development Pack while leaving its
+		// development worktree and branch, e.g. with uncommitted work.
+		KeepWorktree bool `json:"keep_worktree,omitempty"`
 	}
 	if err := consoleDecode(data, &req); err != nil {
 		return nil, err
@@ -226,8 +243,16 @@ func (b *consoleBackend) consoleExecutePack(ctx context.Context, action string, 
 		if !ok {
 			return nil, consoleMissing()
 		}
-		if pack.ManagedBy != "" || pack.Temporary || pack.Evaluation {
+		// Temporary development and evaluation Packs can only be removed; other
+		// amux-managed Packs are read-only.
+		if pack.Temporary && action != "remove" || !pack.Temporary && (pack.ManagedBy != "" || pack.Evaluation) {
 			return nil, consoleInvalid("managed_pack_read_only", "namespace")
+		}
+		if req.KeepWorktree && !pack.Temporary {
+			return nil, consoleInvalid("invalid_field", "keep_worktree")
+		}
+		if action == "remove" && pack.Temporary {
+			return b.consoleRemoveTemporaryPack(ctx, registryPath, req.Namespace, req.KeepFiles, req.KeepWorktree, req.Force)
 		}
 		// Removal runs no git command, so any registered Pack can be removed; only
 		// sync and rollback need a source the console accepts.
@@ -304,4 +329,79 @@ func (b *consoleBackend) consoleExecutePack(ctx context.Context, action string, 
 		return nil, err
 	}
 	return map[string]any{"ok": true, "pack": consolePackView(pack)}, nil
+}
+
+// consoleRemoveTemporaryPack removes a temporary development or evaluation Pack.
+// A Pack with a development lease is cleaned up like the lease's own cleanup: a
+// clean worktree is removed with the Pack. A worktree with changes is retained
+// and reported, unless the operator explicitly keeps the worktree.
+func (b *consoleBackend) consoleRemoveTemporaryPack(ctx context.Context, registryPath, namespace string, keepFiles, keepWorktree, force bool) (any, error) {
+	if err := b.consolePackRemovalGuard(ctx, namespace, force); err != nil {
+		return nil, err
+	}
+	opCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	guard := func(current agentprofile.Pack) error {
+		if !current.Temporary {
+			return consoleInvalid("managed_pack_read_only", "namespace")
+		}
+		return b.consolePackRemovalGuard(opCtx, namespace, force)
+	}
+	busy := func(err error) error {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return &consoleResourceError{code: "pack_busy", cause: webconsole.ErrConflict}
+		}
+		return err
+	}
+	leases, err := agentprofile.LoadDevelopmentLeaseRegistry(registryPath)
+	if err != nil {
+		return nil, err
+	}
+	if _, leased := leases.Leases[namespace]; !leased {
+		if keepWorktree {
+			return nil, consoleInvalid("invalid_field", "keep_worktree")
+		}
+		result, err := consoleRemovePack(opCtx, registryPath, namespace, agentprofile.RemovePackOptions{KeepFiles: keepFiles}, guard)
+		if err != nil {
+			if result.RemovedPath != "" && !result.FilesRemoved {
+				return map[string]any{"ok": true, "removed": map[string]any{"namespace": namespace, "files_removed": false}, "warning_code": "pack_files_not_removed"}, nil
+			}
+			return nil, busy(err)
+		}
+		return map[string]any{"ok": true, "removed": map[string]any{"namespace": namespace, "files_removed": result.FilesRemoved}}, nil
+	}
+	if keepWorktree {
+		result, err := consoleReleaseDevelopmentPack(opCtx, registryPath, namespace, guard)
+		if err != nil {
+			return nil, busy(err)
+		}
+		return map[string]any{"ok": true, "removed": map[string]any{"namespace": namespace, "files_removed": result.FilesRemoved, "worktree_kept": true}}, nil
+	}
+	result, err := consoleCleanupDevelopmentPack(opCtx, registryPath, namespace, guard)
+	if err != nil {
+		return nil, busy(err)
+	}
+	if result.Status != agentprofile.DevelopmentLeaseCleaned {
+		return nil, &consoleResourceError{code: "development_worktree_retained", field: consoleDevelopmentRetainCode(result.Reason), cause: webconsole.ErrConflict}
+	}
+	return map[string]any{"ok": true, "removed": map[string]any{"namespace": namespace, "files_removed": true, "worktree_removed": true}}, nil
+}
+
+var (
+	consoleCleanupDevelopmentPack = agentprofile.CleanupDevelopmentLeaseIf
+	consoleReleaseDevelopmentPack = agentprofile.ReleaseDevelopmentLeaseIf
+)
+
+// consoleDevelopmentRetainCode maps a lease cleanup diagnostic, which can name
+// host paths and Git remotes, to a stable code the console can explain.
+func consoleDevelopmentRetainCode(reason string) string {
+	switch {
+	case strings.Contains(reason, "uncommitted changes"):
+		return "worktree_has_changes"
+	case strings.Contains(reason, "does not match its development lease"):
+		return "pack_identity_changed"
+	case strings.Contains(reason, "origin"):
+		return "repository_origin_changed"
+	}
+	return "cleanup_blocked"
 }

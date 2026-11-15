@@ -520,6 +520,17 @@ textarea { resize: vertical; width: 100%; min-height: 110px; line-height: 1.6; }
 .setting-label code { display: block; font-size: 11px; margin: 2px 0 4px; overflow-wrap: anywhere; }
 .setting-control { display: flex; gap: 8px; align-items: center; }
 .setting-control input, .setting-control select { flex: 1; min-width: 0; }
+.setting-control { flex-wrap: wrap; }
+.setting-control .chips { flex: 0 0 auto; }
+.setting-label .setting-meta { margin-top: 2px; }
+.setting-row.resetting .setting-control input, .setting-row.resetting .setting-control select { text-decoration: line-through; opacity: .6; }
+.setting-section > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; font-weight: 600; }
+.setting-section > summary .setting-section-title { flex: 1; }
+.setting-section[open] > summary { border-bottom: 1px solid var(--line); }
+.chip-remove { min-height: 0; min-width: 0; padding: 0 0 0 4px; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; line-height: 1; }
+.chip-remove:hover { color: var(--bad); }
+@media (pointer: coarse) { .chip-remove { min-width: 32px; min-height: 32px; } }
+.setting-label label { overflow-wrap: anywhere; }
 
 /* Forms and dialogs ------------------------------------------------------ */
 .form { display: flex; flex-direction: column; gap: 14px; }

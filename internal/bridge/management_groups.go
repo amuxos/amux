@@ -153,16 +153,12 @@ func renderGroupWatchManagementCardWithNoticeAndNames(state managementState, not
 
 func (b *Bridge) resolveGroupWatchNames(ctx context.Context, chatIDs []string) map[string]string {
 	names := make(map[string]string, len(chatIDs))
-	lookup := b.chatNameLookup
-	if lookup == nil {
-		lookup = b.fetchChatName
-	}
 	for _, chatID := range chatIDs {
 		chatID = strings.TrimSpace(chatID)
 		if chatID == "" {
 			continue
 		}
-		name, err := lookup(ctx, chatID)
+		name, err := b.lookupChatName(ctx, chatID)
 		if err != nil {
 			log.Warn().Err(err).Str("chat_id", chatID).Msg("bridge: resolve group watch chat name")
 			continue

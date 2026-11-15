@@ -346,6 +346,11 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		key == "bridge.feishu.presentation.completion_notification_enabled" ||
 		key == "bridge.feishu.group_settings.enabled" ||
 		key == "bridge.feishu.experimental.steer_foreground" ||
+		key == config.FeishuShowBackgroundTasksKey ||
+		key == config.FeishuMentionTurnInitiatorKey ||
+		key == "runtime.task_cleanup.enabled" ||
+		key == "runtime.broker_reap.enabled" ||
+		key == "runtime.session_reclaim.enabled" ||
 		key == "mcp.auto_inject" {
 		parsed, err := strconv.ParseBool(raw)
 		if err != nil {
@@ -467,6 +472,26 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		}
 		value = mode
 	}
+	switch {
+	case positiveSecondsConfigKey(key):
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 {
+			return commandValidationError(fmt.Errorf("%s must be a positive integer number of seconds", key))
+		}
+		value = int64(parsed)
+	case sessionReclaimStageConfigKey(key):
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 {
+			return commandValidationError(fmt.Errorf("%s must be 0 or an integer number of seconds of at least 60", key))
+		}
+		value = int64(parsed)
+	case structuredProviderLimitConfigKey(key) != 0:
+		parsed, err := strconv.Atoi(raw)
+		if limit := structuredProviderLimitConfigKey(key); err != nil || parsed > limit {
+			return commandValidationError(fmt.Errorf("%s must be an integer no greater than %d (0 disables, negative restores the default)", key, limit))
+		}
+		value = int64(parsed)
+	}
 	m := map[string]any(cfg)
 	for _, part := range parts[:len(parts)-1] {
 		child, _ := m[part].(map[string]any)
@@ -477,6 +502,13 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		m = child
 	}
 	m[parts[len(parts)-1]] = value
+	if sessionReclaimStageConfigKey(key) || key == "runtime.idle_timeout_seconds" {
+		// Stage thresholds are validated together; an order that the Runtime
+		// would reject at startup is refused here instead.
+		if err := config.ValidateSessionReclaimSettings(map[string]any(cfg)); err != nil {
+			return commandValidationError(err)
+		}
+	}
 	if key == "runtime.id" {
 		runtime, _ := map[string]any(cfg)["runtime"].(map[string]any)
 		if runtime != nil {
@@ -486,6 +518,41 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		}
 	}
 	return nil
+}
+
+// positiveSecondsConfigKey reports cleanup and reclamation sweep settings that
+// must be a positive number of seconds.
+func positiveSecondsConfigKey(key string) bool {
+	switch key {
+	case "runtime.task_cleanup.terminal_history_ttl_seconds", "runtime.task_cleanup.sweep_interval_seconds",
+		"runtime.broker_reap.sweep_interval_seconds", "runtime.session_reclaim.sweep_interval_seconds":
+		return true
+	}
+	return false
+}
+
+// sessionReclaimStageConfigKey reports a Session reclamation stage threshold.
+func sessionReclaimStageConfigKey(key string) bool {
+	for _, scope := range []string{"local", "feishu"} {
+		for _, stage := range []string{"sleep", "archive", "prune"} {
+			if key == "runtime.session_reclaim."+scope+"."+stage+"_after_seconds" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// structuredProviderLimitConfigKey returns the upper bound of a global
+// structured provider watchdog setting, or 0 for other keys.
+func structuredProviderLimitConfigKey(key string) int {
+	switch key {
+	case "provider.structured.turn_idle_timeout_seconds", "provider.structured.turn_hard_cap_seconds", "provider.structured.tool_idle_timeout_seconds":
+		return 604800
+	case "provider.structured.repeat_tool_call_limit":
+		return 1000
+	}
+	return 0
 }
 
 func uniqueConfigFields(raw string) []string {
@@ -514,14 +581,21 @@ func unsetConfigValue(cfg cliConfigFile, key string) error {
 		}
 	}
 	m := map[string]any(cfg)
+	chain := []map[string]any{m}
 	for _, part := range parts[:len(parts)-1] {
 		child, _ := m[part].(map[string]any)
 		if child == nil {
 			return nil
 		}
 		m = child
+		chain = append(chain, m)
 	}
 	delete(m, parts[len(parts)-1])
+	// Drop tables left empty: an empty table still counts as set, which would
+	// hide defaults applied only when a section is absent.
+	for i := len(chain) - 1; i > 0 && len(chain[i]) == 0; i-- {
+		delete(chain[i-1], parts[i-1])
+	}
 	return nil
 }
 

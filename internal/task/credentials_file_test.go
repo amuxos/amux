@@ -2,7 +2,9 @@ package task
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -215,4 +217,67 @@ func equalCredentialStringSlices(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func TestFileCredentialsManagementEditsKeepOtherEntries(t *testing.T) {
+	dir := t.TempDir()
+	fc := FileCredentials{Dir: dir}
+	if _, err := fc.PutEnv("api", "TOKEN", "first"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fc.SetFile("api", ".config/agent/token.json", `{"t":1}`); err != nil {
+		t.Fatal(err)
+	}
+	meta, err := fc.PutEnv("api", "OTHER", "second")
+	if err != nil || strings.Join(meta.EnvNames, ",") != "OTHER,TOKEN" || strings.Join(meta.FileNames, ",") != ".config/agent/token.json" {
+		t.Fatalf("meta=%+v err=%v", meta, err)
+	}
+	if meta, err = fc.UnsetEnv("api", "TOKEN"); err != nil || strings.Join(meta.EnvNames, ",") != "OTHER" || len(meta.FileNames) != 1 {
+		t.Fatalf("unset env meta=%+v err=%v", meta, err)
+	}
+	if _, err := fc.UnsetEnv("api", "TOKEN"); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("unset missing env err=%v", err)
+	}
+	if meta, err = fc.UnsetFile("api", ".config/agent/token.json"); err != nil || len(meta.FileNames) != 0 || meta.Kind != "long-lived" {
+		t.Fatalf("unset file meta=%+v err=%v", meta, err)
+	}
+	mat, err := fc.Materialize(context.Background(), "api", "")
+	if err != nil || strings.Join(mat.Env, ",") != "OTHER=second" {
+		t.Fatalf("material=%+v err=%v", mat, err)
+	}
+	if err := fc.DeleteProfile("api"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "api.json")); !os.IsNotExist(err) {
+		t.Fatalf("profile still present: %v", err)
+	}
+}
+
+func TestFileCredentialsManagementRefusesForeignStoreFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeProfile(t, dir, "other", `{"app_id":"cli_x","app_secret":"keep"}`)
+	fc := FileCredentials{Dir: dir}
+	if _, err := fc.PutEnv("other", "TOKEN", "v"); !errors.Is(err, ErrNotCredentialProfile) {
+		t.Fatalf("put err=%v", err)
+	}
+	if err := fc.DeleteProfile("other"); !errors.Is(err, ErrNotCredentialProfile) {
+		t.Fatalf("delete err=%v", err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "other.json"))
+	if !strings.Contains(string(data), "keep") {
+		t.Fatalf("foreign file changed: %s", data)
+	}
+}
+
+func TestValidCredentialFileName(t *testing.T) {
+	for _, name := range []string{".config/agent/credentials.json", "token", "a/b.c"} {
+		if !ValidCredentialFileName(name) {
+			t.Errorf("%q rejected", name)
+		}
+	}
+	for _, name := range []string{"", "/etc/passwd", "../x", "a/../b", "./a", "a//b", "a/", "~/x", "a\\b", "a\nb", "."} {
+		if ValidCredentialFileName(name) {
+			t.Errorf("%q accepted", name)
+		}
+	}
 }

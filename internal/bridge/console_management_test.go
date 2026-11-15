@@ -198,3 +198,73 @@ func TestConsoleManagementGroupSharesLiveValidationAndCAS(t *testing.T) {
 		t.Fatalf("experiment bypassed: %v", err)
 	}
 }
+
+func TestConsoleGroupNamesAreRememberedAndRefreshedExplicitly(t *testing.T) {
+	b, _ := newBridgeForInputTest(t)
+	b.secrets = &Secrets{OpenId: "owner", AppId: "test-app", AppSecret: "secret"}
+	consoleTestBinding(t, b, "oc_alpha", "root-a")
+	consoleTestBinding(t, b, "oc_beta", "root-b")
+	consoleTestBinding(t, b, "oc_gone", "root-c")
+	feishuAllowed := false
+	lookups := map[string]int{}
+	b.chatNameLookup = func(_ context.Context, chatID string) (string, error) {
+		if !feishuAllowed {
+			t.Fatalf("read looked up %s through Feishu", chatID)
+		}
+		lookups[chatID]++
+		if chatID == "oc_beta" {
+			return "Beta team", nil
+		}
+		return "", status.Error(codes.NotFound, "bot not in chat")
+	}
+	b.chatListLookup = func(context.Context) (map[string]string, error) {
+		if !feishuAllowed {
+			t.Fatal("read listed chats through Feishu")
+		}
+		return map[string]string{"oc_alpha": "Alpha squad", "oc_unrelated": "Not bound"}, nil
+	}
+	groups, err := b.ConsoleGroups(context.Background())
+	if err != nil || len(groups) != 3 || groups[0].Name != "" || groups[0].Title != "oc_alpha" {
+		t.Fatalf("before refresh groups=%+v err=%v", groups, err)
+	}
+	feishuAllowed = true
+	out, err := b.ConsoleRefreshGroupNames(context.Background())
+	if err != nil || out.NamesResolved != 2 || out.NamesMissing != 1 || lookups["oc_alpha"] != 0 || lookups["oc_beta"] != 1 {
+		t.Fatalf("refresh=%+v lookups=%v err=%v", out, lookups, err)
+	}
+	feishuAllowed = false
+	groups, err = b.ConsoleGroups(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]string{}
+	for _, group := range groups {
+		names[group.ChatID] = group.Title
+		if group.Name != "" && group.NameUpdatedAt == 0 {
+			t.Fatalf("named group without timestamp: %+v", group)
+		}
+	}
+	if names["oc_alpha"] != "Alpha squad" || names["oc_beta"] != "Beta team" || names["oc_gone"] != "oc_gone" || len(names) != 3 {
+		t.Fatalf("titles=%v", names)
+	}
+	// A fresh name is not asked for again; only the unresolved group is.
+	feishuAllowed = true
+	if out, err = b.ConsoleRefreshGroupNames(context.Background()); err != nil || out.NamesResolved != 0 || out.NamesMissing != 1 || lookups["oc_beta"] != 1 || lookups["oc_gone"] != 2 {
+		t.Fatalf("second refresh=%+v lookups=%v err=%v", out, lookups, err)
+	}
+}
+
+func TestBridgeRemembersNamesResolvedForCards(t *testing.T) {
+	b, _ := newBridgeForInputTest(t)
+	b.secrets = &Secrets{OpenId: "owner", AppId: "test-app", AppSecret: "secret"}
+	consoleTestBinding(t, b, "oc_watch", "root-w")
+	b.chatNameLookup = func(context.Context, string) (string, error) { return "  Watch room  ", nil }
+	if names := b.resolveGroupWatchNames(context.Background(), []string{"oc_watch"}); names["oc_watch"] != "Watch room" {
+		t.Fatalf("names=%v", names)
+	}
+	b.chatNameLookup = func(context.Context, string) (string, error) { t.Fatal("console read called Feishu"); return "", nil }
+	groups, err := b.ConsoleGroups(context.Background())
+	if err != nil || len(groups) != 1 || groups[0].Name != "Watch room" {
+		t.Fatalf("groups=%+v err=%v", groups, err)
+	}
+}

@@ -1,6 +1,7 @@
 package agentprofile
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -240,6 +241,77 @@ func CleanupDevelopmentLease(packRegistryPath, namespace string) (DevelopmentLea
 		}
 		result, err = cleanupDevelopmentLeaseUnlocked(packRegistryPath, leases, lease, time.Now())
 		return err
+	})
+	return result, err
+}
+
+// CleanupDevelopmentLeaseIf is CleanupDevelopmentLease for an operator surface:
+// guard runs under the registry lock against the current Pack (when still
+// registered) so a check made before waiting for the lock is repeated.
+func CleanupDevelopmentLeaseIf(ctx context.Context, packRegistryPath, namespace string, guard func(Pack) error) (DevelopmentLeaseCleanupResult, error) {
+	var result DevelopmentLeaseCleanupResult
+	err := WithPackRegistryLockContext(ctx, packRegistryPath, func() error {
+		leases, err := LoadDevelopmentLeaseRegistry(packRegistryPath)
+		if err != nil {
+			return err
+		}
+		lease, ok := leases.Leases[strings.TrimSpace(namespace)]
+		if !ok {
+			return fmt.Errorf("unknown development lease namespace %q", namespace)
+		}
+		if guard != nil {
+			packs, err := LoadPackRegistry(packRegistryPath)
+			if err != nil {
+				return err
+			}
+			if pack, found := packs.Packs[lease.Namespace]; found {
+				if err := guard(pack); err != nil {
+					return err
+				}
+			}
+		}
+		result, err = cleanupDevelopmentLeaseUnlocked(packRegistryPath, leases, lease, time.Now())
+		return err
+	})
+	return result, err
+}
+
+// ReleaseDevelopmentLeaseIf unregisters a temporary development Pack and forgets
+// its lease without touching the development worktree or its branch. Cleanup
+// removes a clean worktree; release is the explicit choice to keep the worktree
+// (for example with uncommitted work) while the Pack stops being offered. Only a
+// temporary Pack that still matches its lease is unregistered.
+func ReleaseDevelopmentLeaseIf(ctx context.Context, packRegistryPath, namespace string, guard func(Pack) error) (RemovePackResult, error) {
+	var result RemovePackResult
+	err := WithPackRegistryLockContext(ctx, packRegistryPath, func() error {
+		namespace = strings.TrimSpace(namespace)
+		leases, err := LoadDevelopmentLeaseRegistry(packRegistryPath)
+		if err != nil {
+			return err
+		}
+		lease, ok := leases.Leases[namespace]
+		if !ok {
+			return fmt.Errorf("unknown development lease namespace %q", namespace)
+		}
+		packs, err := LoadPackRegistry(packRegistryPath)
+		if err != nil {
+			return err
+		}
+		if pack, found := packs.Packs[namespace]; found {
+			if err := validateDevelopmentLeasePack(pack, lease); err != nil {
+				return err
+			}
+			if guard != nil {
+				if err := guard(pack); err != nil {
+					return err
+				}
+			}
+			if result, err = removePackUnlocked(packRegistryPath, namespace, RemovePackOptions{}); err != nil {
+				return err
+			}
+		}
+		delete(leases.Leases, namespace)
+		return saveDevelopmentLeaseRegistryUnlocked(packRegistryPath, leases)
 	})
 	return result, err
 }

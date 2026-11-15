@@ -3,6 +3,7 @@ package bridge
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -102,6 +103,93 @@ func DisableProfileSecrets(profile string) (string, error) {
 		return disabledPath, err
 	}
 	return disabledPath, nil
+}
+
+const disabledSecretsSuffix = ".json.disabled"
+
+// DisabledProfileSecretsPath is where DisableProfileSecrets keeps credentials.
+func DisabledProfileSecretsPath(profile string) (string, error) {
+	path, err := ProfileSecretsPath(profile)
+	if err != nil {
+		return "", err
+	}
+	return path + ".disabled", nil
+}
+
+// CreateProfileSecrets writes credentials for a new profile and fails with
+// fs.ErrExist when the profile already has enabled or disabled credentials.
+func CreateProfileSecrets(profile string, s *Secrets) error {
+	path, err := ProfileSecretsPath(profile)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(path + ".disabled"); err == nil {
+		return fmt.Errorf("Feishu profile %s is disabled: %w", profile, fs.ErrExist)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		os.Remove(path)
+		return err
+	}
+	return file.Close()
+}
+
+// EnableProfileSecrets restores credentials moved aside by DisableProfileSecrets.
+// It never replaces credentials configured for the profile in the meantime.
+func EnableProfileSecrets(profile string) error {
+	path, err := ProfileSecretsPath(profile)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("Feishu profile %s is already enabled: %w", profile, fs.ErrExist)
+	}
+	if _, err := os.Stat(path + ".disabled"); err != nil {
+		return err
+	}
+	return os.Rename(path+".disabled", path)
+}
+
+// DeleteDisabledProfileSecrets permanently removes disabled credentials. An
+// enabled profile must be disabled first.
+func DeleteDisabledProfileSecrets(profile string) error {
+	path, err := DisabledProfileSecretsPath(profile)
+	if err != nil {
+		return err
+	}
+	return os.Remove(path)
+}
+
+// ListDisabledSecretProfiles lists Feishu bot profiles with disabled credentials.
+func ListDisabledSecretProfiles() ([]string, error) {
+	entries, err := os.ReadDir(DefaultSecretsDir())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var profiles []string
+	for _, entry := range entries {
+		profile, ok := strings.CutSuffix(entry.Name(), disabledSecretsSuffix)
+		if entry.IsDir() || !ok || !validProfileName.MatchString(profile) {
+			continue
+		}
+		profiles = append(profiles, profile)
+	}
+	sort.Strings(profiles)
+	return profiles, nil
 }
 
 // ListSecretProfiles lists configured Feishu bot profiles.

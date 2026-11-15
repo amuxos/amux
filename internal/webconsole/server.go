@@ -504,6 +504,7 @@ func (s *Server) backendError(w http.ResponseWriter, err error) {
 		status = http.StatusGatewayTimeout
 		code = "backend_timeout"
 	}
+	body := map[string]string{}
 	var coded interface{ ConsoleErrorCode() string }
 	if errors.As(err, &coded) {
 		code = coded.ConsoleErrorCode()
@@ -511,9 +512,16 @@ func (s *Server) backendError(w http.ResponseWriter, err error) {
 			status = http.StatusForbidden
 		}
 	}
+	// A field names which request value or condition was rejected, never a
+	// backend diagnostic.
+	var fielded interface{ ConsoleErrorField() string }
+	if errors.As(err, &fielded) && fielded.ConsoleErrorField() != "" {
+		body["field"] = fielded.ConsoleErrorField()
+	}
+	body["error"], body["code"] = code, code
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": code, "code": code})
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 // resumeCursor returns the cursor a reconnecting browser last saw (EventSource

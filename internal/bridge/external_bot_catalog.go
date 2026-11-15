@@ -157,6 +157,7 @@ func (b *Bridge) fetchExternalBotCatalog(ctx context.Context, chatID string) (ex
 	if err != nil {
 		return externalBotCatalogSnapshot{}, err
 	}
+	b.rememberChatName(ctx, chatID, chatName)
 	result := externalBotCatalogSnapshot{ChatDisplayName: chatName, Complete: true}
 	pageToken := ""
 	seenTokens := map[string]bool{}

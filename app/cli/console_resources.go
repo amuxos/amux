@@ -36,8 +36,9 @@ func (e *consoleResourceError) Error() string {
 	}
 	return e.code
 }
-func (e *consoleResourceError) Unwrap() error            { return e.cause }
-func (e *consoleResourceError) ConsoleErrorCode() string { return e.code }
+func (e *consoleResourceError) Unwrap() error             { return e.cause }
+func (e *consoleResourceError) ConsoleErrorCode() string  { return e.code }
+func (e *consoleResourceError) ConsoleErrorField() string { return e.field }
 func consoleInvalid(code, field string) error {
 	return &consoleResourceError{code: code, field: field, cause: webconsole.ErrInvalid}
 }
@@ -51,6 +52,9 @@ func consoleOperationError(err error) error {
 	var resourceErr *consoleResourceError
 	if errors.As(err, &resourceErr) {
 		return err
+	}
+	if errors.Is(err, webconsole.ErrConflict) {
+		return &consoleResourceError{code: "version_conflict", cause: err}
 	}
 	var fieldErr *clientop.FieldError
 	if errors.As(err, &fieldErr) {
@@ -108,6 +112,8 @@ func consoleActions(resource string) []string {
 		return []string{"create", "update", "enable", "disable", "delete"}
 	case "packs":
 		return []string{"install", "sync", "rollback", "remove"}
+	case "credentials":
+		return []string{"set_env", "unset_env", "set_file", "unset_file", "delete"}
 	default:
 		return []string{}
 	}
@@ -169,8 +175,8 @@ func (b *consoleBackend) snapshotResource(ctx context.Context, resource string, 
 }
 func (b *consoleBackend) executeResource(ctx context.Context, resource, action string, data json.RawMessage) (any, error) {
 	switch resource {
-	case "sessions", "session", "tasks", "task", "instances", "instance", "schedules", "schedule", "packs":
-	case "overview", "profiles", "profile", "credentials", "catalogs":
+	case "sessions", "session", "tasks", "task", "instances", "instance", "schedules", "schedule", "packs", "credentials":
+	case "overview", "profiles", "profile", "catalogs":
 		return nil, consoleInvalid("unsupported_action", "")
 	default:
 		return nil, errConsoleResourceNotFound
@@ -197,6 +203,8 @@ func (b *consoleBackend) executeResource(ctx context.Context, resource, action s
 		value, err = b.consoleExecuteSchedule(ctx, action, data)
 	case "packs":
 		value, err = b.consoleExecutePack(ctx, action, data)
+	case "credentials":
+		value, err = b.consoleExecuteCredential(ctx, action, data)
 	}
 	return value, consoleOperationError(err)
 }

@@ -57,6 +57,11 @@ func (c *consoleTestController) ConsoleAgentReferences(context.Context) ([]bridg
 	return append([]bridge.ConsoleAgentReference(nil), c.references...), c.err
 }
 
+func (c *consoleTestController) ConsoleRefreshGroupNames(context.Context) (bridge.ConsoleGroupsResult, error) {
+	c.calls++
+	return bridge.ConsoleGroupsResult{Status: "success", Source: "known_bindings", Groups: []bridge.ConsoleGroup{{Profile: "default", ChatID: "oc_known", Title: "Known group", Name: "Known group"}}, NamesResolved: 1, NamesMissing: 2}, c.err
+}
+
 func consoleTestServer(c *consoleTestController) *hubServer {
 	return &hubServer{consoleManagementControllers: map[string]consoleManagementController{"default": c}}
 }
@@ -232,5 +237,31 @@ func TestConsoleManagementReferencesStayNarrow(t *testing.T) {
 	c.err, c.calls = nil, 0
 	if _, err := s.ConsoleManagement(metadata.NewIncomingContext(context.Background(), md), consoleTestRequest("bots", "references", `{}`)); status.Code(err) != codes.PermissionDenied || c.calls != 0 {
 		t.Fatalf("actor token: err=%v calls=%d", err, c.calls)
+	}
+}
+
+func TestConsoleManagementRefreshGroupNames(t *testing.T) {
+	c := &consoleTestController{}
+	s := consoleTestServer(c)
+	out, err := s.ConsoleManagement(context.Background(), consoleTestRequest("groups", "refresh_names", "{}"))
+	if err != nil || out.Status != "success" {
+		t.Fatalf("refresh=%v err=%v", out, err)
+	}
+	var result bridge.ConsoleGroupsResult
+	if err := json.Unmarshal(out.PayloadJson, &result); err != nil || len(result.Groups) != 1 || result.Groups[0].Name != "Known group" || result.NamesResolved != 1 || result.NamesMissing != 2 {
+		t.Fatalf("payload=%s err=%v", out.PayloadJson, err)
+	}
+	list, err := s.ConsoleManagement(context.Background(), consoleTestRequest("groups", "list", "{}"))
+	if err != nil || !strings.Contains(string(list.PayloadJson), `"actions":["refresh_names"]`) {
+		t.Fatalf("list=%s err=%v", list.GetPayloadJson(), err)
+	}
+	for _, req := range []*pb.ConsoleManagementRequest{consoleTestRequest("bots", "refresh_names", "{}"), consoleTestRequest("groups", "refresh_names", `{"chat_id":"oc_known"}`)} {
+		if _, err := s.ConsoleManagement(context.Background(), req); status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("%s/%s: %v", req.Resource, req.PayloadJson, err)
+		}
+	}
+	empty := &hubServer{}
+	if _, err := empty.ConsoleManagement(context.Background(), consoleTestRequest("groups", "refresh_names", "{}")); status.Code(err) != codes.Unavailable {
+		t.Fatalf("no bridge: %v", err)
 	}
 }

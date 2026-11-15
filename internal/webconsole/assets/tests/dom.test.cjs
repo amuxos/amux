@@ -184,7 +184,7 @@ test('settings save batches dirty keys as strings with CAS and reports restart',
   for (const [key, value] of [['a', 'true'], ['b', '2']]) { const input = env.document.getElementById('setting-' + key); input.value = value; await input.fire('input'); }
   await findButton(env, 'Save changes').click();
   const payload = JSON.parse(env.calls.find(c => c.url === '/api/console/settings' && c.options.method === 'POST').options.body).data;
-  assert.deepEqual(payload, { expected_version: 'sha', values: { a: 'true', b: '2' } });
+  assert.deepEqual(payload, { expected_version: 'sha', values: { a: 'true', b: '2' }, reset: [] });
 });
 
 test('401 clears all private cache and returns to pairing', async () => {
@@ -557,8 +557,8 @@ test('overview separates attention from ongoing work and shows tasks and bots', 
 test('settings use typed controls and still save changed values as strings', async () => {
   const env = environment();
   mount(env, 'settings', { settings: [
-    { key: 'bridge.feishu.group_settings.enabled', value: 'false', writable: true, inherited: true, restart_required: true },
-    { key: 'maintenance.daily_cleanup.at', value: '06:17', writable: true, restart_required: true }
+    { key: 'bridge.feishu.group_settings.enabled', value: 'false', kind: 'boolean', writable: true, inherited: true, restart_required: true, section: '飞书实验功能', section_label: { en: 'Experimental Feishu features', 'zh-CN': '飞书实验功能' }, experimental: true },
+    { key: 'maintenance.daily_cleanup.at', value: '06:17', kind: 'time', writable: true, restart_required: true, section: '维护', section_label: { en: 'Maintenance', 'zh-CN': '维护' } }
   ], version: 'v1', actions: ['save'] });
   // The DOM double's selectors treat dots as classes; look controls up by name.
   const control = key => env.document.querySelectorAll('select,input').find(node => node.name === key);
@@ -570,7 +570,7 @@ test('settings use typed controls and still save changed values as strings', asy
   toggle.value = 'true'; await toggle.fire('change');
   await findButton(env, 'Save changes').click();
   const payload = JSON.parse(env.calls.find(c => c.url === '/api/console/settings' && c.options.method === 'POST').options.body).data;
-  assert.deepEqual(payload, { expected_version: 'v1', values: { 'bridge.feishu.group_settings.enabled': 'true' } });
+  assert.deepEqual(payload, { expected_version: 'v1', values: { 'bridge.feishu.group_settings.enabled': 'true' }, reset: [] });
 });
 
 test('local pairing deadline points to the CLI instead of the owner card', async () => {
@@ -780,7 +780,11 @@ test('packs show how many experts each provides and offer removal only where the
   const row = ns => rows.find(r => r.querySelector('.link-button, td') && r.textContent.includes(ns));
   const labels = r => r.querySelectorAll('button').map(b => b.textContent);
   assert.ok(labels(row('team')).includes('Remove pack'));
-  for (const ns of ['owned', 'scratch']) assert.equal(labels(row(ns)).includes('Remove pack'), false, ns);
+  assert.equal(labels(row('owned')).includes('Remove pack'), false);
+  // A temporary pack can be removed, never synced or rolled back.
+  assert.ok(labels(row('scratch')).includes('Remove pack'));
+  assert.equal(labels(row('scratch')).includes('Sync pack'), false);
+  assert.ok(labels(row('team')).includes('Sync pack'));
   assert.ok(labels(row('team')).includes('3'));
   assert.equal(labels(row('nocount')).some(text => /^\d+$/.test(text)), false);
   // The count leads to that pack's experts.
@@ -1072,4 +1076,176 @@ test('a long replay the Hub cuts off is shown as loading history, not as a lost 
   await fresh.app.loadRoute();
   await second[0].onerror();
   assert.ok(fresh.document.getElementById('stream-status').textContent.includes('Reconnecting'));
+});
+
+// ---------------------------------------------------------------------------
+// Console management: group names, temporary packs, credentials, settings,
+// bots, persistent instances and scheduled task records.
+// ---------------------------------------------------------------------------
+const postsTo = (env, resource) => env.calls.filter(c => c.url === '/api/console/' + resource && c.options && c.options.method === 'POST').map(c => JSON.parse(c.options.body));
+const fieldNamed = (env, name) => dialogs(env).querySelectorAll('input,textarea,select').find(n => n.name === name);
+async function submitDialog(env) { await dialogs(env).querySelector('form').fire('submit'); await tick(); }
+const draftsText = env => JSON.stringify([...env.app.state.drafts.entries()]);
+
+test('groups show stored names and refresh unknown names once, explicitly', async () => {
+  const env = environment();
+  const snapshot = { groups: [{ profile: 'bot1', chat_id: 'oc_named', name: 'Release crew', title: 'Release crew', name_updated_at: 1700000000 }, { profile: 'bot1', chat_id: 'oc_unknown', title: 'oc_unknown' }], actions: ['refresh_names'] };
+  env.fixture.groups = snapshot;
+  mount(env, 'groups', snapshot);
+  const page = env.document.getElementById('page').textContent;
+  assert.ok(page.includes('Release crew') && page.includes('oc_unknown') && page.includes('Name unknown') && page.includes('1 groups have no stored name yet'));
+  env.advance(1); await tick();
+  env.advance(1); await tick();
+  assert.equal(postsTo(env, 'groups').filter(p => p.action === 'refresh_names').length, 1, 'one automatic refresh per session');
+  await findButton(env, 'Refresh names').click(); await tick();
+  assert.equal(postsTo(env, 'groups').filter(p => p.action === 'refresh_names').length, 2);
+  // Without the capability nothing reaches Feishu.
+  const other = environment();
+  mount(other, 'groups', { groups: [{ profile: 'bot1', chat_id: 'oc_x', title: 'oc_x' }], actions: [] });
+  other.advance(1); await tick();
+  assert.equal(postsTo(other, 'groups').length, 0);
+  assert.equal(findButton(other, 'Refresh names'), undefined);
+});
+
+test('a temporary development pack is removable and can keep its worktree', async () => {
+  const env = environment();
+  const pack = { namespace: 'dev-x', source_kind: 'git', temporary: true, development_of: 'team', development: { branch: 'dev/x', expires_at: '2030-01-01T00:00:00Z' } };
+  const { submit } = await openRemove(env, unusedUsage(), pack);
+  const text = dialogs(env).textContent;
+  assert.ok(text.includes('dev/x') && text.includes('Keep the development worktree'), text);
+  assert.equal(dialogs(env).querySelector('#remove-keep-files'), null);
+  env.window.fetch = async (url, options) => { env.calls.push({ url, options }); return { ok: false, status: 409, json: async () => ({ code: 'development_worktree_retained', error: 'development_worktree_retained', field: 'worktree_has_changes' }) }; };
+  await submit.click(); await tick();
+  assert.ok(dialogs(env).textContent.includes('uncommitted changes'), dialogs(env).textContent);
+  const keep = dialogs(env).querySelector('#remove-keep-worktree'); keep.checked = true;
+  await submit.click(); await tick();
+  assert.deepEqual(lastWrite(env), { action: 'remove', data: { namespace: 'dev-x', confirm: true, keep_worktree: true } });
+});
+
+test('credentials are created, updated and deleted without values ever being kept', async () => {
+  const env = environment();
+  env.fixture.credentials = { profiles: [{ profile: 'team', kind: 'long-lived', env_names: ['API_TOKEN'], file_names: ['.config/tool/auth.json'] }], actions: ['set_env', 'unset_env', 'set_file', 'unset_file', 'delete'] };
+  mount(env, 'credentials', env.fixture.credentials);
+  await findButton(env, 'New credential').click();
+  const value = fieldNamed(env, 'value');
+  assert.equal(value.type, 'password');
+  fieldNamed(env, 'profile').value = 'ops'; fieldNamed(env, 'name').value = 'DEPLOY_KEY'; value.value = 'super-secret-value';
+  await value.fire('input');
+  await submitDialog(env);
+  assert.deepEqual(postsTo(env, 'credentials').at(-1), { action: 'set_env', data: { profile: 'ops', name: 'DEPLOY_KEY', value: 'super-secret-value' } });
+  assert.equal(draftsText(env).includes('super-secret-value'), false);
+  // Removing one name asks first.
+  const removing = env.document.getElementById('page').querySelectorAll('button').find(b => b.getAttribute('aria-label') === 'Remove variable API_TOKEN').click();
+  await dialogButton(env, 'Confirm').click(); await removing;
+  assert.deepEqual(postsTo(env, 'credentials').at(-1), { action: 'unset_env', data: { profile: 'team', name: 'API_TOKEN' } });
+  // Deleting a profile requires typing its name.
+  await findButton(env, 'Delete').click();
+  fieldNamed(env, 'confirm').value = 'wrong';
+  await submitDialog(env);
+  assert.ok(dialogs(env).textContent.includes('does not match'));
+  fieldNamed(env, 'confirm').value = 'team';
+  await submitDialog(env);
+  assert.deepEqual(postsTo(env, 'credentials').at(-1), { action: 'delete', data: { profile: 'team', confirm: 'team' } });
+});
+
+test('settings come from metadata, filter experiments and reset to defaults', async () => {
+  for (const language of ['en-US', 'zh-CN']) {
+    const env = environment();
+    env.window.navigator.language = language;
+    mount(env, 'settings', { settings: [
+      { key: 'bridge.feishu.experimental.steer_foreground', value: 'false', kind: 'boolean', writable: true, inherited: true, experimental: true, section: '飞书实验功能', section_label: { en: 'Experimental Feishu features', 'zh-CN': '飞书实验功能' }, description: { en: 'Inject follow-ups into the running turn.', 'zh-CN': '忙时追加消息注入当前回合。' }, default: { en: 'false', 'zh-CN': 'false' } },
+      { key: 'runtime.session_reclaim.local.sleep_after_seconds', value: '7200', kind: 'integer', writable: true, inherited: false, section: 'Runtime', section_label: { en: 'Runtime', 'zh-CN': '运行时' }, description: { en: 'Sleep idle sessions.', 'zh-CN': '休眠空闲会话。' }, default: { en: '0', 'zh-CN': '0' }, constraints: { en: '0 or >=60', 'zh-CN': '0 或 >=60' } },
+      { key: 'hub.addr', value: '127.0.0.1:7100', kind: 'text', writable: false, inherited: false, section: 'Hub', section_label: { en: 'Hub', 'zh-CN': 'Hub' }, description: { en: 'Hub address.', 'zh-CN': 'Hub 地址。' } }
+    ], version: 'v9', actions: ['save'] });
+    const page = env.document.getElementById('page').textContent;
+    const zh = language === 'zh-CN';
+    assert.ok(page.includes(zh ? '飞书实验功能' : 'Experimental Feishu features') && page.includes(zh ? '忙时追加消息注入当前回合。' : 'Inject follow-ups into the running turn.'));
+    assert.ok(page.includes(zh ? '取值：0 或 >=60' : 'Allowed: 0 or >=60'), page);
+    assert.doesNotMatch(page, /setting\.|reason\.|field\./);
+    const control = key => env.document.querySelectorAll('select,input').find(node => node.name === key);
+    assert.equal(control('hub.addr').disabled, true);
+    assert.equal(control('bridge.feishu.experimental.steer_foreground').tagName, 'SELECT');
+    // The experimental filter keeps only experiments.
+    await env.document.getElementById('page').querySelectorAll('button.tab').find(b => b.textContent.startsWith(zh ? '实验功能' : 'Experimental')).click();
+    assert.equal(control('hub.addr'), undefined);
+    await env.document.getElementById('page').querySelectorAll('button.tab')[0].click();
+    const toggle = control('bridge.feishu.experimental.steer_foreground'); toggle.value = 'true'; await toggle.fire('change');
+    await findButton(env, zh ? '恢复默认' : 'Reset to default').click();
+    await findButton(env, zh ? '保存变更' : 'Save changes').click();
+    assert.deepEqual(postsTo(env, 'settings').at(-1), { action: 'save', data: { expected_version: 'v9', values: { 'bridge.feishu.experimental.steer_foreground': 'true' }, reset: ['runtime.session_reclaim.local.sleep_after_seconds'] } });
+  }
+});
+
+test('bots can be added, disabled, enabled and deleted with restart guidance', async () => {
+  const env = environment();
+  env.fixture.bots = { bots: [
+    Object.assign({}, env.fixture.bots.bots[0], { app_id: 'cli_main', configured: 'enabled', actions: ['get', 'save', 'update_credentials', 'disable'] }),
+    { profile: 'ops', id: 'feishu:cli_ops', name: 'Ops Bot', app_id: 'cli_ops', status: 'stopped', configured: 'enabled', pending_restart: true, actions: ['update_credentials', 'disable'] },
+    { profile: 'old', id: 'feishu:cli_old', name: 'old', app_id: 'cli_old', status: 'disabled', configured: 'disabled', actions: ['enable', 'delete'] }
+  ], actions: ['create'], restart_command: 'amux system restart' };
+  mount(env, 'bots', env.fixture.bots);
+  const page = env.document.getElementById('page').textContent;
+  assert.ok(page.includes('amux system restart') && page.includes('Starts after restart') && page.includes('Not running') && page.includes('cli_ops'));
+  await findButton(env, 'Add bot').click();
+  assert.equal(fieldNamed(env, 'app_secret').type, 'password');
+  fieldNamed(env, 'profile').value = 'new'; fieldNamed(env, 'app_id').value = 'cli_new'; fieldNamed(env, 'app_secret').value = 'bot-secret'; fieldNamed(env, 'interaction_mode').value = 'thread';
+  await fieldNamed(env, 'app_secret').fire('input');
+  await submitDialog(env);
+  assert.deepEqual(postsTo(env, 'bots').at(-1), { action: 'create', data: { profile: 'new', app_id: 'cli_new', app_secret: 'bot-secret', interaction_mode: 'thread' } });
+  assert.equal(draftsText(env).includes('bot-secret'), false);
+  const row = name => env.document.getElementById('page').querySelectorAll('tbody tr').find(r => r.textContent.includes(name));
+  const rowButton = (name, label) => row(name).querySelectorAll('button').find(b => b.textContent === label);
+  assert.equal(rowButton('Ops Bot', 'Edit'), undefined, 'a stopped bot has no live settings');
+  await rowButton('Ops Bot', 'Disable').click();
+  fieldNamed(env, 'confirm').value = 'ops';
+  await submitDialog(env);
+  assert.deepEqual(postsTo(env, 'bots').at(-1), { action: 'disable', data: { profile: 'ops', confirm: 'ops' } });
+  const enabling = rowButton('old', 'Enable').click(); await dialogButton(env, 'Confirm').click(); await enabling;
+  assert.deepEqual(postsTo(env, 'bots').at(-1), { action: 'enable', data: { profile: 'old' } });
+  await rowButton('old', 'Delete').click();
+  fieldNamed(env, 'confirm').value = 'old';
+  await submitDialog(env);
+  assert.deepEqual(postsTo(env, 'bots').at(-1), { action: 'delete', data: { profile: 'old', confirm: 'old' } });
+});
+
+test('instances are titled by purpose and show their owner and latest task', () => {
+  for (const language of ['en-US', 'zh-CN']) {
+    const env = environment();
+    env.window.navigator.language = language;
+    mount(env, 'instances', { instances: [
+      { agent_instance_id: 'agent-1a2b', name: 'agent-1a2b', status: 'active', agent_profile: 'team/watcher', purpose: 'Watch the deploy pipeline and report regressions', task_count: 4,
+        owner: { session_id: 'owner-1', name: 'feishu-thread-7', workspace_source: 'feishu', agent_profile: 'team/lead' }, latest_task: { task_id: 'task-9', status: 'running', requested_at: '2026-11-01T00:00:00Z', task: 'check again' } },
+      { agent_instance_id: 'agent-ffff', name: 'Release helper', status: 'idle', owner: { session_id: 'gone', missing: true }, task_count: 0 }
+    ], actions: ['spawn', 'followup'] });
+    const page = env.document.getElementById('page').textContent;
+    const zh = language === 'zh-CN';
+    assert.ok(page.includes('Watch the deploy pipeline and report regressions') && page.includes('feishu-thread-7') && page.includes(zh ? '飞书' : 'Feishu'), page);
+    assert.ok(page.includes('Release helper') && page.includes(zh ? '归属会话已结束' : 'Owner session ended') && page.includes(zh ? '共 4 次' : '4 tasks'));
+    assert.doesNotMatch(page, /instanceOwner|latestTask|kind\./);
+    mount(env, 'instance', { instance: { agent_instance_id: 'agent-1a2b', name: 'agent-1a2b', status: 'active', purpose: 'Watch the deploy pipeline', task_count: 2,
+      tasks: [{ task_id: 'task-9', status: 'running', task: 'check again', source: 'instance' }, { task_id: 'task-1', status: 'succeeded', task: 'Watch the deploy pipeline', source: 'schedule', schedule_id: 3, schedule_name: 'nightly' }] } });
+    const detail = env.document.getElementById('page').textContent;
+    assert.ok(detail.includes(zh ? '用途' : 'Purpose') && detail.includes('check again') && detail.includes('nightly'), detail);
+  }
+});
+
+test('task records filter by schedule and link back to it', async () => {
+  const env = environment();
+  const snapshot = { tasks: [
+    { task_id: 'task-a', status: 'succeeded', task: 'nightly review', source: 'schedule', schedule_id: 1, schedule_name: 'nightly review', requested_at: '2026-11-01T00:00:00Z' },
+    { task_id: 'task-b', status: 'failed', task: 'adhoc', source: 'direct', requested_at: '2026-11-02T00:00:00Z' }
+  ], schedules: [{ id: 1, name: 'nightly review', kind: 'task', task_count: 1 }, { id: 2, name: '#2', kind: 'session-prompt', task_count: 0 }], actions: ['cancel'] };
+  mount(env, 'tasks', snapshot);
+  const page = env.document.getElementById('page');
+  assert.ok(page.textContent.includes('Schedule') && page.textContent.includes('Direct'));
+  const link = page.querySelectorAll('a').find(a => a.textContent === 'nightly review');
+  assert.equal(link.getAttribute('href'), '#schedule?schedule_id=1');
+  const select = page.querySelectorAll('select').find(node => node.getAttribute('aria-label') === 'Schedules');
+  assert.ok(select.textContent.includes('nightly review (1)'));
+  select.value = '1'; await select.fire('change');
+  assert.equal(env.window.location.hash, '#tasks?schedule_id=1');
+  // A schedule's own page leads to its task records.
+  mount(env, 'schedule', { schedule: { id: 1, name: 'nightly review', spec: '@daily', schedule_type: 'subtask', runs: [] } });
+  await findButton(env, 'Task records').click();
+  assert.equal(env.window.location.hash, '#tasks?schedule_id=1');
 });
