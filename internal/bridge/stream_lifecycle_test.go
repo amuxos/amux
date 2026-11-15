@@ -403,3 +403,68 @@ func TestSessionAddedKeepsWaitingCardThroughResult(t *testing.T) {
 		t.Fatal("final result did not update the original waiting card")
 	}
 }
+
+// Exercise the actual attach event processor: the sender must remain available
+// through TurnFinished, not merely when the backend is tested in isolation.
+func TestCompletedTurnSendsMentionToInitiator(t *testing.T) {
+	final := make(chan string, 4)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/open-apis/auth/v3/tenant_access_token/internal" {
+			_, _ = w.Write([]byte(`{"code":0,"tenant_access_token":"test-token","expire":7200}`))
+			return
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode API request: %v", err)
+		}
+		switch {
+		case r.URL.Path == "/open-apis/cardkit/v1/cards":
+			_, _ = w.Write([]byte(`{"code":0,"data":{"card_id":"card-1"}}`))
+		case strings.HasSuffix(r.URL.Path, "/reply"):
+			content, _ := body["content"].(string)
+			if strings.Contains(content, "ou-initiator") {
+				final <- content
+			}
+			_, _ = w.Write([]byte(`{"code":0,"data":{"message_id":"reply-1"}}`))
+		case strings.HasPrefix(r.URL.Path, "/open-apis/cardkit/v1/cards/"), strings.HasPrefix(r.URL.Path, "/open-apis/im/v1/messages/"):
+			_, _ = w.Write([]byte(`{"code":0}`))
+		default:
+			t.Errorf("unexpected API request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	b, hub, chat := newStreamLifecycleBridge(t)
+	b.client = lark.NewClient("test-mention-app", "test-secret", lark.WithOpenBaseUrl(server.URL), lark.WithOAuthBaseUrl(server.URL))
+	b.mentionTurnInitiator.Store(true)
+	if err := b.db.EnsureWorkspaceKind(b.currentBridgeId(), chat.ChatID, WorkspaceKindPrivate); err != nil {
+		t.Fatal(err)
+	}
+	b.recordTurnSenders(chat.RootMsgID, "turn-1", compactTurnInputRefs("ou-initiator", "input-1"))
+	session := hub.setSession(chat, "session-id-1", "launch-1")
+	b.startThreadStream(chat, "")
+	stream := waitLifecycleSignal(t, hub.started)
+	var seq uint64
+	emit := func(channel string, body agentstream.Body) {
+		t.Helper()
+		seq++
+		raw, err := agentstream.MarshalEvent(agentstream.Event{
+			SessionID: session.Id, Cursor: agentstream.Cursor{Epoch: "epoch-1", Seq: seq},
+			Turn: &agentstream.TurnRef{ID: "turn-1", Seq: 1}, At: time.Now(),
+			Origin: agentstream.Origin{Actor: agentstream.ActorAgent, Channel: channel, Provider: "codex", LaunchID: session.LaunchId}, Body: body,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		stream.events <- &pb.AttachEvent{CanonicalJson: raw}
+	}
+	emit("lark", agentstream.TurnStarted{InputSummary: "hello"})
+	emit("agent", agentstream.AssistantMessage{Text: "answer"})
+	emit("agent", agentstream.ResultObserved{Text: "answer"})
+	emit("agent", agentstream.TurnFinished{Terminal: agentstream.Terminal{Outcome: agentstream.OutcomeSuccess, Code: "completed"}})
+	got := waitLifecycleSignal(t, final)
+	if !strings.Contains(got, "answer") {
+		t.Fatalf("mentioned reply missing answer: %s", got)
+	}
+}
