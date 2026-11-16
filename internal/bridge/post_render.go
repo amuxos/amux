@@ -126,12 +126,11 @@ func renderAgentReplyCard(text string) string {
 	return string(bs)
 }
 
-// renderAgentReplyCompletionCard is the compact form of a progress/answer card
-// after its mentioned final reply was published. It keeps the collapsed activity
-// and, when present, the empty conversation-extension section so extensions can
-// still update the completed card.
-func renderAgentReplyCompletionCard(activity *turnCardActivity, withConversationSection bool) string {
-	elements := make([]cardElement, 0, 7)
+// renderAgentReplyCompletionCard retains the original activity only after a
+// mentioned final answer was delivered. The answer, feedback and brand belong
+// to the new final card, not to the completed progress card.
+func renderAgentReplyCompletionCard(activity *turnCardActivity) string {
+	elements := make([]cardElement, 0, 2)
 	if activity != nil {
 		if activity.Element.Tag != "" {
 			elements = append(elements, collapsedCardElement(activity.Element))
@@ -140,18 +139,9 @@ func renderAgentReplyCompletionCard(activity *turnCardActivity, withConversation
 			elements = append(elements, collapsedCardElement(trailing))
 		}
 	}
-	if len(elements) > 0 {
-		elements = append(elements, cardElement{Tag: "hr", ElementID: cardKitAnswerDividerElementID})
+	if len(elements) == 0 {
+		elements = append(elements, renderExecutionSummaryLine(toolActivityCardMeta{Status: "done"}))
 	}
-	elements = append(elements,
-		managementContentElement(sessionMessage("status.done"), cardElement{Tag: "markdown", ElementID: cardKitReplyElementID}),
-	)
-	footer := renderAmuxBrandFooterElements()
-	elements = append(elements, footer[0])
-	if withConversationSection {
-		elements = append(elements, emptyConversationSection())
-	}
-	elements = append(elements, footer[1:]...)
 	doc := newTurnCardDoc(elements)
 	bs, _ := json.Marshal(doc)
 	return string(bs)
@@ -188,13 +178,40 @@ func collapseCardPanels(element *cardElement) {
 }
 
 func renderAgentReplyCardWithMentions(text string, openIDs []string) string {
-	elements := []cardElement{
-		{Tag: "markdown", Content: renderAgentResultBody(text), ElementID: cardKitReplyElementID},
+	return renderMentionFinalCard(text, openIDs, false)
+}
+
+func renderMentionFinalCard(text string, openIDs []string, withConversationSection bool) string {
+	elements := []cardElement{{Tag: "markdown", Content: renderAgentResultBody(text), ElementID: cardKitReplyElementID},
+		{Tag: "hr", ElementID: amuxBrandDividerID}}
+	if withConversationSection {
+		elements = append(elements, mentionedConversationSection(openIDs))
+	} else {
+		elements = append(elements, renderMentionFooterRow(openIDs, nil))
 	}
-	elements = append(elements, renderAmuxBrandFooterElementsWithMentions(openIDs)...)
 	doc := newTurnCardDoc(elements)
+	updateMulti := true
+	doc.Config.UpdateMulti = &updateMulti
 	bs, _ := json.Marshal(doc)
 	return string(bs)
+}
+
+// The footer row is also the quoting boundary: labels, native mentions and
+// extension controls must never become quoted Agent answer text.
+func renderMentionFooterRow(openIDs []string, feedback []cardElement) cardElement {
+	columns := []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center",
+		Elements: []cardElement{{Tag: "markdown", Content: amuxBrandFooterMarkdown(), TextSize: "notation"}}}}
+	if mentions := renderTurnInitiatorMentionsMarkdown(openIDs); mentions != "" {
+		label := sessionMessage("reply.sent.to")
+		columns = append(columns, cardColumn{Tag: "column", Width: "auto", VerticalAlign: "center",
+			Elements: []cardElement{managementContentElement(i18n.Render(func(locale i18n.Locale) string {
+				return "<font color='grey'>" + label.For(locale) + "</font> " + mentions
+			}), cardElement{Tag: "markdown", TextSize: "notation"})}})
+	}
+	if len(feedback) > 0 {
+		columns = append(columns, cardColumn{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: feedback})
+	}
+	return cardElement{Tag: "column_set", ElementID: amuxBrandFooterID, FlexMode: "none", HorizontalSpacing: "8px", Columns: columns}
 }
 
 func newTurnCardDoc(elements []cardElement) cardDoc {

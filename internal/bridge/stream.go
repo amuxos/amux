@@ -1210,7 +1210,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							// keep their existing cards.
 							if handoffEligible && pendingCardHandoff == nil && !failureNoticeDelivered &&
 								completionMeta.Status == "done" {
-								replyStream.CompleteTurn(mentionOpenIDs)
+								completedCard = replyStream.CompleteTurn(mentionOpenIDs)
 							} else {
 								replyStream.Reset()
 							}

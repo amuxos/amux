@@ -73,6 +73,7 @@ type replyCardBackend interface {
 type replyMentionCardBackend interface {
 	SetMentionTargets([]string)
 	NotifyMentions(context.Context, string, []*replyCardHandle) error
+	FinalConversationCard() *ConversationCard
 }
 
 type replyMentionCompaction struct {
@@ -135,6 +136,8 @@ type bindingReplyCardBackend struct {
 	mentionFinalMsgIDs    []string
 	mentionFinalSent      bool
 	mentionPendingCompact []replyMentionCompaction
+	mentionFinalCard      *ConversationCard
+	mentionPendingCard    *replyCardHandle
 }
 
 func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
@@ -174,6 +177,8 @@ func (b *bindingReplyCardBackend) SetMentionTargets(openIDs []string) {
 	b.mentionFinalMsgIDs = nil
 	b.mentionFinalSent = false
 	b.mentionPendingCompact = nil
+	b.mentionFinalCard = nil
+	b.mentionPendingCard = nil
 	b.mentionMu.Unlock()
 }
 
@@ -234,7 +239,7 @@ func (b *bindingReplyCardBackend) recordMentionFinal(oldHandles []*replyCardHand
 		}
 		b.mentionPendingCompact = append(b.mentionPendingCompact, replyMentionCompaction{
 			messageID: oldMessageID,
-			content:   renderAgentReplyCompletionCard(handle.lastActivityCard, handle.conversationSection),
+			content:   renderAgentReplyCompletionCard(handle.lastActivityCard),
 		})
 	}
 	if len(b.mentionPendingCompact) == 0 {
@@ -287,7 +292,13 @@ func (b *bindingReplyCardBackend) NotifyMentions(ctx context.Context, text strin
 			if i == len(parts)-1 {
 				mentions = openIDs
 			}
-			messageID, err := b.sendMentionedFinal(ctx, parts[i], mentions, mentionFinalRequestUUID(requestUUID, i))
+			var messageID string
+			var err error
+			if b.conversationSection && len(mentions) > 0 {
+				messageID, err = b.sendMentionedConversationFinal(ctx, parts[i], mentions, mentionFinalRequestUUID(requestUUID, i))
+			} else {
+				messageID, err = b.sendMentionedFinal(ctx, parts[i], mentions, mentionFinalRequestUUID(requestUUID, i))
+			}
 			if err != nil {
 				return err
 			}
@@ -314,6 +325,49 @@ func (b *bindingReplyCardBackend) NotifyMentions(ctx context.Context, text strin
 		b.markMentionCompactComplete(pending.messageID)
 	}
 	return errors.Join(errs...)
+}
+
+// sendMentionedConversationFinal creates a static CardKit card so extensions
+// can mutate its reserved section after delivery. Both the CardID and message
+// UUID survive ambiguous send failures; no fallback can duplicate a notification.
+func (b *bindingReplyCardBackend) sendMentionedConversationFinal(ctx context.Context, text string, openIDs []string, requestUUID string) (string, error) {
+	handle := b.mentionPendingCard
+	if handle == nil {
+		delivery, err := b.delivery()
+		if err != nil {
+			return "", err
+		}
+		raw := renderMentionFinalCard(text, openIDs, true)
+		cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(raw, delivery.locale))
+		if err != nil {
+			return "", err
+		}
+		handle = &replyCardHandle{cardID: cardID, delivery: delivery, messageUUID: requestUUID}
+		b.mentionPendingCard = handle
+	}
+	messageID, err := handle.delivery.send(ctx, renderCardKitMessageContent(handle.cardID), handle.messageUUID)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(messageID) == "" {
+		return "", fmt.Errorf("mentioned final reply returned no message id")
+	}
+	b.mentionMu.Lock()
+	b.mentionFinalCard = &ConversationCard{MessageID: messageID, CardID: handle.cardID, Locale: string(handle.delivery.locale), MentionOpenIDs: append([]string(nil), openIDs...)}
+	b.mentionMu.Unlock()
+	b.mentionPendingCard = nil
+	return messageID, nil
+}
+
+func (b *bindingReplyCardBackend) FinalConversationCard() *ConversationCard {
+	b.mentionMu.Lock()
+	defer b.mentionMu.Unlock()
+	if b.mentionFinalCard == nil {
+		return nil
+	}
+	card := *b.mentionFinalCard
+	card.MentionOpenIDs = append([]string(nil), card.MentionOpenIDs...)
+	return &card
 }
 
 func (b *Bridge) sendCardKitReplyToBinding(ctx context.Context, chat *LarkChat, content, requestUUID string) (string, string, error) {

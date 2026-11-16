@@ -43,6 +43,9 @@ type ConversationCompletion struct {
 type ConversationCard struct {
 	BridgeID, MessageID, CardID, Locale string
 	Sequence                            int
+	// MentionOpenIDs identifies the split-final footer layout. Persist it with
+	// the reference so later section updates preserve its recipients and brand.
+	MentionOpenIDs []string `json:",omitempty"`
 }
 
 const conversationSectionID = "conversation_extra"
@@ -59,6 +62,40 @@ func conversationSection(elements []json.RawMessage) json.RawMessage {
 func emptyConversationSection() cardElement {
 	return cardElement{Tag: "column_set", ElementID: conversationSectionID, FlexMode: "none",
 		Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, Elements: []cardElement{}}}}
+}
+
+// mentionedConversationSection keeps a single outlined feedback action next
+// to the recipients. Rich extension states (drafts, errors and progress) use a
+// full-width block below that row instead of being squeezed into an auto column.
+func mentionedConversationSection(openIDs []string) cardElement {
+	return cardElement{Tag: "column_set", ElementID: conversationSectionID, FlexMode: "none",
+		Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, VerticalSpacing: "12px", Elements: []cardElement{renderMentionFooterRow(openIDs, nil)}}}}
+}
+
+func renderConversationSectionUpdate(card ConversationCard, elements []json.RawMessage) string {
+	if len(card.MentionOpenIDs) == 0 {
+		return string(conversationSection(elements))
+	}
+	row, _ := json.Marshal(renderMentionFooterRow(card.MentionOpenIDs, nil))
+	var action cardElement
+	if len(elements) == 1 && json.Unmarshal(elements[0], &action) == nil && action.Tag == "column_set" && len(action.Columns) == 1 &&
+		len(action.Columns[0].Elements) == 1 && action.Columns[0].Elements[0].Tag == "button" {
+		// Keep extension JSON opaque: decoding it into the renderer's limited
+		// schema would drop extension-owned attributes or localized content.
+		var footer map[string]any
+		_ = json.Unmarshal(row, &footer)
+		columns := footer["columns"].([]any)
+		footer["columns"] = append(columns, map[string]any{"tag": "column", "width": "auto", "vertical_align": "center", "elements": elements})
+		row, _ = json.Marshal(footer)
+		elements = nil
+	}
+	children := append([]json.RawMessage{row}, elements...)
+	var section map[string]any
+	_ = json.Unmarshal(conversationSection(children), &section)
+	columns := section["columns"].([]any)
+	columns[0].(map[string]any)["vertical_spacing"] = "12px"
+	raw, _ := json.Marshal(section)
+	return string(raw)
 }
 
 // ConversationObserver is installed per Bridge. Implementations must serialize
@@ -174,7 +211,7 @@ func (b *Bridge) startConversationObserver(ctx context.Context) error {
 			}
 			api := &larkCardKitReplyAPI{bridge: b}
 			return api.ReplaceElement(ctx, cardKitElementReplace{CardID: card.CardID, ElementID: conversationSectionID,
-				Element: selectManagementCardLocale(string(conversationSection(elements)), i18n.Locale(card.Locale)),
+				Element: selectManagementCardLocale(renderConversationSectionUpdate(card, elements), i18n.Locale(card.Locale)),
 				UUID:    uuid.NewString(), Sequence: card.Sequence})
 		},
 	}

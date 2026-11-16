@@ -103,18 +103,24 @@ anyone. A non-streamed final post may carry the mentions on its initial delivery
 For streamed CardKit or legacy-card replies, the answer remains in its existing
 progress/answer card or cards while work runs. Only when the Turn completes
 successfully and every card has finished does Bridge newly send the full final
-answer with native mentions; it then patches the old progress/answer messages so
-their primary content is a locale-aware completion summary of no more than ten
-characters. Failed, cancelled, interrupted or superseded Turns, Turns that report
-a provider failure, Bot-to-Bot handoffs and an output stream that ends before the
-Turn finishes keep their existing cards and send no mentioned final reply.
-Both messages keep the original fill-width, three-section turn-card layout. The
-old card keeps its execution summary, tool calls and processing history in
-collapsed panels, shows the compact completion state in the answer section and
-retains the Powered by footer and any conversation-extension section; it is not
-recalled. The new final card omits the activity section, renders the complete
-answer and appends the native initiator mentions to the footer line
-(`Powered by … | Sent to: @user`). An answer longer than one card is sent as
+answer with native mentions; it then patches the old progress/answer messages to
+retain only their execution summary, tool calls and processing history in the
+existing collapsed panels. The original status and model/usage summary stays
+visible; there is no separate completed-answer text, answer divider, brand footer
+or conversation-extension section on the old card. A card without activity keeps
+a minimal execution status instead of an empty card. Failed, cancelled,
+interrupted or superseded Turns, Turns that report a provider failure,
+Bot-to-Bot handoffs and an output stream that ends before the Turn finishes keep
+their existing cards and send no mentioned final reply.
+Both messages retain the original fill-width turn-card styling. The old card is
+not recalled. The new final card omits the activity section and renders the
+complete answer. Its footer keeps the brand on the left, with native initiator
+mentions on the right and any conversation feedback immediately after those
+mentions. When a conversation observer is installed, the last final card is a
+finalized CardKit card and owns the reserved conversation section and completion
+reference; feedback never targets a compacted progress card. Without a split or
+when final delivery fails, the existing completion-card binding is unchanged.
+An answer longer than one card is sent as
 consecutive final cards split at the same limits as the streamed answer; only
 the last one carries the mentions. Old cards are compacted only after every final
 card was sent. A failed send or compaction is retried once during completion with
@@ -698,7 +704,7 @@ experiment controls do not participate in the public save-and-restart form.
 
 Completed CardKit replies expose a serializable card reference for an optional extension section. The stream owns all mutations until completion; after that, the extension persists monotonically increasing mutation sequences and updates only its section. Answer and activity elements remain owned by the reply renderer. No additional message is sent for a section update; unsupported or undelivered cards have no reference.
 
-The optional conversation section appears after reply content and its footer divider, before the brand footer. The section and footer share the reply container, including when an activity card receives its answer later; the brand footer remains the final visible element. Section updates do not add another divider or change the answer or brand elements.
+On ordinary replies, the optional conversation section appears after reply content and its footer divider, before the final brand footer, including when an activity card receives its answer later. On a successfully split mentioned final reply, the reserved section owns the footer row: brand, recipients, then a single feedback action. Rich extension states use the full width below that row. The serialized reference preserves the mentioned recipients so section updates and restart recovery keep the original footer and native mentions. Section updates do not add another divider or change the Agent answer.
 
 ## Scheduled task visibility
 

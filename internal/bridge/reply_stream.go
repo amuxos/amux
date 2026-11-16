@@ -191,16 +191,18 @@ func (s *streamingReplySender) Flush() {
 // openIDs and compacts the previous cards, then starts a fresh Turn. Flush,
 // Reset and Close never publish this final reply, so failed, cancelled,
 // superseded or disconnected Turns keep their existing cards unchanged.
-func (s *streamingReplySender) CompleteTurn(openIDs []string) {
-	done := make(chan struct{})
+func (s *streamingReplySender) CompleteTurn(openIDs []string) *ConversationCard {
+	result := make(chan *ConversationCard, 1)
 	select {
-	case s.commands <- replyCommand{kind: replyCommandCompleteTurn, mentionOpenIDs: uniqueOpenIDs(openIDs), done: done}:
+	case s.commands <- replyCommand{kind: replyCommandCompleteTurn, mentionOpenIDs: uniqueOpenIDs(openIDs), conversationCardResult: result}:
 	case <-s.done:
-		return
+		return nil
 	}
 	select {
-	case <-done:
+	case card := <-result:
+		return card
 	case <-s.done:
+		return nil
 	}
 }
 
@@ -296,17 +298,20 @@ func (s *replyStreamState) handleCommand(cmd replyCommand) bool {
 			cmd.botFinalResult <- delivered
 		}
 	case replyCommandConversationCard:
-		var card *ConversationCard
-		if h := s.handle; h != nil && h.finished && h.hasAnswer && h.conversationSection && h.mode == replyCardModeCardKit && h.messageID != "" {
-			card = &ConversationCard{MessageID: h.messageID, CardID: h.cardID, Sequence: h.sequence, Locale: string(h.delivery.locale)}
-		}
-		cmd.conversationCardResult <- card
+		cmd.conversationCardResult <- s.conversationCard()
 	case replyCommandCompleteTurn:
-		if s.finishAll() && !s.superseded && s.allAnswerCardsFinished() {
-			s.notifyMentions(cmd.mentionOpenIDs)
+		finished := s.finishAll()
+		completed := s.conversationCard()
+		if finished && !s.superseded && s.allAnswerCardsFinished() {
+			if final := s.notifyMentions(cmd.mentionOpenIDs); final != nil {
+				completed = final
+			}
 		}
 		s.notifyFinal()
 		s.resetTurn()
+		if cmd.conversationCardResult != nil {
+			cmd.conversationCardResult <- completed
+		}
 	case replyCommandReset:
 		s.finishAll()
 		s.notifyFinal()
@@ -318,6 +323,13 @@ func (s *replyStreamState) handleCommand(cmd replyCommand) bool {
 		return true
 	}
 	return false
+}
+
+func (s *replyStreamState) conversationCard() *ConversationCard {
+	if h := s.handle; h != nil && h.finished && h.hasAnswer && h.conversationSection && h.mode == replyCardModeCardKit && h.messageID != "" {
+		return &ConversationCard{MessageID: h.messageID, CardID: h.cardID, Sequence: h.sequence, Locale: string(h.delivery.locale)}
+	}
+	return nil
 }
 
 func (s *replyStreamState) finalizeForBot(botOpenID string) bool {
@@ -802,10 +814,10 @@ func (s *replyStreamState) allAnswerCardsFinished() bool {
 // it after only the compaction failed.
 const replyMentionAttempts = 2
 
-func (s *replyStreamState) notifyMentions(openIDs []string) {
+func (s *replyStreamState) notifyMentions(openIDs []string) *ConversationCard {
 	backend, ok := s.sender.backend.(replyMentionCardBackend)
 	if !ok || len(openIDs) == 0 {
-		return
+		return nil
 	}
 	backend.SetMentionTargets(openIDs)
 	text := strings.TrimRight(s.full.String(), "\n")
@@ -816,10 +828,11 @@ func (s *replyStreamState) notifyMentions(openIDs []string) {
 		err = backend.NotifyMentions(ctx, text, handles)
 		cancel()
 		if err == nil {
-			return
+			return backend.FinalConversationCard()
 		}
 	}
 	log.Warn().Err(err).Msg("bridge: publish mentioned final reply error")
+	return backend.FinalConversationCard()
 }
 
 func (s *replyStreamState) replyHandles() []*replyCardHandle {
