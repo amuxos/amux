@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/amuxos/amux/internal/agentui"
 	"github.com/amuxos/amux/internal/i18n"
@@ -161,11 +160,19 @@ func TestReplyMentionRenderersUseNativeMentionsWithoutChangingAnswer(t *testing.
 		t.Fatalf("final card retained collapsible progress: %s", card)
 	}
 	footer, ok := findCardElementByID(decoded.Body.Elements, amuxBrandFooterID)
-	wantMentions := `<at id="ou-a"></at> <at id="ou-b"></at>`
-	wantChineseFooter := amuxBrandFooterMarkdown() + ` <font color='grey'>| 发送给:</font> ` + wantMentions
-	wantEnglishFooter := amuxBrandFooterMarkdown() + ` <font color='grey'>| Sent to:</font> ` + wantMentions
-	if !ok || footer.Content != wantChineseFooter || footer.I18nContent["zh_cn"] != wantChineseFooter || footer.I18nContent["en_us"] != wantEnglishFooter {
-		t.Fatalf("final card footer = %+v, want Powered by before recipients", footer)
+	if !ok || footer.Tag != "column_set" || len(footer.Columns) != 2 || footer.Columns[0].Elements[0].Content != amuxBrandFooterMarkdown() {
+		t.Fatalf("final footer = %+v", footer)
+	}
+	mentions := footer.Columns[1].Elements[0]
+	for _, locale := range []i18n.Locale{i18n.Chinese, i18n.English} {
+		var localized cardDoc
+		if err := json.Unmarshal([]byte(selectManagementCardLocale(card, locale)), &localized); err != nil {
+			t.Fatal(err)
+		}
+		localizedFooter, _ := findCardElementByID(localized.Body.Elements, amuxBrandFooterID)
+		if !strings.Contains(localizedFooter.Columns[1].Elements[0].Content, renderTurnInitiatorMentionsMarkdown([]string{"ou-a", "ou-b"})) {
+			t.Fatalf("footer lost mentions: %+v", mentions)
+		}
 	}
 	if _, ok := findCardElementByID(decoded.Body.Elements, cardKitActivityContentID); ok {
 		t.Fatalf("final card unexpectedly retained progress activity: %s", card)
@@ -183,12 +190,16 @@ func TestReplyMentionRenderersUseNativeMentionsWithoutChangingAnswer(t *testing.
 	}
 }
 
-func TestReplyMentionCompletionSummaryIsCompact(t *testing.T) {
-	card := renderAgentReplyCompletionCard(nil, false)
+func TestReplyMentionCompletionWithoutActivityRetainsExecutionStatus(t *testing.T) {
+	card := renderAgentReplyCompletionCard(nil)
 	for _, locale := range []i18n.Locale{i18n.Chinese, i18n.English} {
-		summary := replyCompletionCardText(t, card, locale)
-		if count := utf8.RuneCountInString(summary); count == 0 || count > 10 {
-			t.Fatalf("completion summary %q for %s has %d runes, want 1..10", summary, locale, count)
+		replyCompletionCardText(t, card, locale)
+		var doc cardDoc
+		if err := json.Unmarshal([]byte(selectManagementCardLocale(card, locale)), &doc); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := findCardElementByID(doc.Body.Elements, cardKitExecutionSummaryID); !ok {
+			t.Fatalf("empty progress card: %s", card)
 		}
 	}
 }
@@ -197,13 +208,14 @@ func replyCompletionCardText(t *testing.T, raw string, locale i18n.Locale) strin
 	t.Helper()
 	var card cardDoc
 	if err := json.Unmarshal([]byte(selectManagementCardLocale(raw, locale)), &card); err != nil {
-		t.Fatalf("decode completion card: %v", err)
+		t.Fatal(err)
 	}
-	element, ok := findCardElementByID(card.Body.Elements, cardKitReplyElementID)
-	if !ok {
-		t.Fatalf("completion card lacks %s: %+v", cardKitReplyElementID, card.Body.Elements)
+	for _, id := range []string{cardKitReplyElementID, cardKitAnswerDividerElementID, amuxBrandDividerID, amuxBrandFooterID, conversationSectionID} {
+		if _, ok := findCardElementByID(card.Body.Elements, id); ok {
+			t.Fatalf("compacted progress retained %s: %s", id, raw)
+		}
 	}
-	return strings.TrimSpace(element.Content)
+	return ""
 }
 
 func TestReplyMentionCompletionPreservesCollapsedActivity(t *testing.T) {
@@ -215,8 +227,8 @@ func TestReplyMentionCompletionPreservesCollapsedActivity(t *testing.T) {
 			Tools:       []agentui.ToolEvent{{ID: "tool-1", Title: "保留工具调用", Status: "completed"}},
 		},
 	})
-	card := renderAgentReplyCompletionCard(&activity, false)
-	if got := replyCompletionCardText(t, card, i18n.Chinese); got != "已完成" {
+	card := renderAgentReplyCompletionCard(&activity)
+	if got := replyCompletionCardText(t, card, i18n.Chinese); got != "" {
 		t.Fatalf("completion = %q", got)
 	}
 	decoded := decodeActivityCard(t, card)
@@ -226,8 +238,7 @@ func TestReplyMentionCompletionPreservesCollapsedActivity(t *testing.T) {
 	if decoded.Body.Direction != "vertical" || decoded.Body.VerticalSpacing != "12px" || decoded.Body.Padding != "12px 16px 16px 16px" {
 		t.Fatalf("completion card body = %+v, want original turn-card layout", decoded.Body)
 	}
-	assertTurnCardChildOrder(t, card, cardKitActivityContentID, cardKitAnswerDividerElementID,
-		cardKitReplyElementID, amuxBrandDividerID, amuxBrandFooterID)
+	assertTurnCardChildOrder(t, card, cardKitActivityContentID)
 	if _, ok := findCardElementByID(decoded.Body.Elements, cardKitAnswerHeadingID); ok {
 		t.Fatalf("completion card retained final-result heading: %s", card)
 	}
@@ -244,12 +255,11 @@ func TestReplyMentionCompletionPreservesCollapsedActivity(t *testing.T) {
 	}
 }
 
-func TestReplyMentionCompletionKeepsConversationSection(t *testing.T) {
-	card := renderAgentReplyCompletionCard(nil, true)
-	assertTurnCardChildOrder(t, card, cardKitReplyElementID, amuxBrandDividerID, conversationSectionID, amuxBrandFooterID)
-	if plain := renderAgentReplyCompletionCard(nil, false); strings.Contains(plain, conversationSectionID) {
-		t.Fatalf("completion card without extension gained a conversation section: %s", plain)
-	}
+func TestReplyMentionFinalOwnsConversationSection(t *testing.T) {
+	card := renderMentionFinalCard("answer", []string{"ou-a"}, true)
+	assertTurnCardChildOrder(t, card, cardKitReplyElementID, amuxBrandDividerID, conversationSectionID)
+	requireCardMentions(t, card, "ou-a")
+	replyCompletionCardText(t, renderAgentReplyCompletionCard(nil), i18n.Chinese)
 }
 
 func TestCardKitReplyMentionPublishesFinalCardThenCompactsProgress(t *testing.T) {
@@ -323,7 +333,7 @@ func TestCardKitReplyMentionPublishesFinalCardThenCompactsProgress(t *testing.T)
 	if !strings.Contains(finalCard, "原始回答") {
 		t.Fatalf("final card = %s", finalCard)
 	}
-	if strings.Join(events, ",") != "send-final,compact:message-activity:已完成" {
+	if strings.Join(events, ",") != "send-final,compact:message-activity:" {
 		t.Fatalf("events = %#v, want final send before progress compression", events)
 	}
 }
@@ -375,7 +385,7 @@ func TestCardKitReplyMentionWaitsForAllSplitCardsAndCompactsEachOldMessage(t *te
 		t.Fatalf("progress sends = %d, created cards = %d, compacted = %#v", progressSendCount, len(api.createdData), compacted)
 	}
 	for _, compact := range compacted {
-		if !strings.HasSuffix(compact, ":已完成") {
+		if !strings.HasSuffix(compact, ":") {
 			t.Fatalf("compacted cards = %#v", compacted)
 		}
 	}
@@ -443,7 +453,7 @@ func TestLegacyReplyMentionPublishesFinalCardThenCompactsPatchedAnswer(t *testin
 		}
 	}
 	requireCardMentions(t, finalCard, "ou-a")
-	if !strings.Contains(finalCard, "完整回答") || strings.Join(compacted, ",") != "legacy-message:已完成" {
+	if !strings.Contains(finalCard, "完整回答") || strings.Join(compacted, ",") != "legacy-message:" {
 		t.Fatalf("final card = %s, compacted = %#v", finalCard, compacted)
 	}
 }
@@ -476,7 +486,7 @@ func TestReplyMentionFinalSendRetriesWithStableUUIDAndDoesNotCompactOnFailure(t 
 	if len(requestUUIDs) != 2 || requestUUIDs[0] == "" || requestUUIDs[0] != requestUUIDs[1] {
 		t.Fatalf("final request UUIDs = %#v, want one stable non-empty identity", requestUUIDs)
 	}
-	if strings.Join(compacted, ",") != "message-retry:已完成" {
+	if strings.Join(compacted, ",") != "message-retry:" {
 		t.Fatalf("compacted = %#v, want compression only after successful final send", compacted)
 	}
 }
@@ -645,10 +655,11 @@ func requireCardMentions(t *testing.T, raw string, openIDs ...string) {
 	if !ok {
 		t.Fatalf("card lacks brand footer mention element: %s", raw)
 	}
+	footerText := activityElementText(element)
 	for _, openID := range openIDs {
 		mention := `<at id="` + openID + `"></at>`
-		if strings.Count(element.Content, mention) != 1 {
-			t.Fatalf("mention %q count = %d in %q", openID, strings.Count(element.Content, mention), element.Content)
+		if strings.Count(footerText, mention) != 1 {
+			t.Fatalf("mention %q count = %d in %q", openID, strings.Count(footerText, mention), footerText)
 		}
 	}
 }

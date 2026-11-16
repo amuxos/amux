@@ -260,13 +260,13 @@ func TestReplyMentionCompactionPatchesExistingMessageWithLocalizedCompletionCard
 	if !ok {
 		t.Fatal("binding reply backend type changed")
 	}
-	if err := backend.compactMessage(context.Background(), "om-progress", renderAgentReplyCompletionCard(nil, false)); err != nil {
+	if err := backend.compactMessage(context.Background(), "om-progress", renderAgentReplyCompletionCard(nil)); err != nil {
 		t.Fatalf("compact progress message: %v", err)
 	}
-	if got := replyCompletionCardText(t, patchedContent, "zh-CN"); got != "已完成" {
+	if got := replyCompletionCardText(t, patchedContent, "zh-CN"); got != "" {
 		t.Fatalf("Chinese completion = %q", got)
 	}
-	if got := replyCompletionCardText(t, patchedContent, "en"); got != "Completed" {
+	if got := replyCompletionCardText(t, patchedContent, "en"); got != "" {
 		t.Fatalf("English completion = %q", got)
 	}
 }
