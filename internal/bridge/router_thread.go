@@ -277,8 +277,6 @@ func resolveUniqueBridgeProfileShortName(name string) (agentprofile.Profile, err
 }
 
 func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, messageAuthorOpenID, executionActorOpenID, targetID, sessionName, cwd string, launch agentprofile.LaunchProjection, idleTimeoutSeconds int) (sessionlaunch.SessionRef, bool, error) {
-	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
 	var res sessionlaunch.SessionRef
 	policy, err := b.newSessionPolicy(ctx, chatID)
 	if err != nil {
@@ -299,7 +297,13 @@ func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, messag
 		pinned := proto.Clone(identity.Identity).(*pb.ExecutionIdentity)
 		pinned.IsolationBackend = principal.BackendLinuxDAC
 		identity.Identity = pinned
+		admitted, err := b.admitIsolatedFeishuSession(ctx, rootMsgID, chatID, executionActorOpenID, targetID, principal.FromProtoIdentity(pinned))
+		if err != nil || !admitted {
+			return res, false, err
+		}
 	}
+	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	idleTimeout := int64(idleTimeoutSeconds)
 	res, err = b.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{TargetID: targetID, Name: sessionName, Launch: launch, Workspace: sessionlaunch.WorkspaceRequest{Cwd: cwd, Source: "feishu", Scope: b.feishuWorkspaceScope(chatID, messageAuthorOpenID)}, IdleTimeoutSeconds: &idleTimeout, ExecutionIdentity: identity.Identity, LaunchID: identity.LaunchID, AgentActorToken: identity.ActorToken, AgentActorTokenExpiresAt: identity.ActorTokenExpiresAt, SystemInstructions: b.sessionStartInstructions()})
 	if err != nil {

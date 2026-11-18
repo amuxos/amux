@@ -65,7 +65,7 @@ func installedHelperIdentity(unit []byte) (string, int, error) {
 			rest = strings.TrimSpace(rest[end+1:])
 		}
 	}
-	if len(args) < 2 || args[0] != "/usr/local/libexec/amux/amux-isolation-helper" || args[1] != "serve" {
+	if len(args) < 2 || args[0] != isolationHelperDir+"/amux-isolation-helper" || args[1] != "serve" {
 		return "", 0, helperUpgradeProblem("invalid_unit")
 	}
 	values := map[string]string{}
@@ -84,7 +84,7 @@ func installedHelperIdentity(unit []byte) (string, int, error) {
 		values[key] = val
 	}
 	uid, err := strconv.Atoi(values["--service-uid"])
-	if err != nil || uid < 0 || !filepath.IsAbs(values["--socket"]) || values["--materializer-path"] != "/usr/local/libexec/amux/amuxlet-materializer" {
+	if err != nil || uid < 0 || !filepath.IsAbs(values["--socket"]) || values["--materializer-path"] != isolationHelperDir+"/amuxlet-materializer" {
 		return "", 0, helperUpgradeProblem("invalid_unit")
 	}
 	return values["--socket"], uid, nil
@@ -163,17 +163,9 @@ func runInstalledHelperUpgrade(ctx context.Context, source, socket string, uid i
 	if state != "active" && state != "inactive" && state != "failed" {
 		return fail(helperUpgradeProblem("service_transition"))
 	}
-	target := "/usr/local/libexec/amux"
-	real, err := filepath.EvalSymlinks(target)
-	if err != nil {
+	target := isolationHelperDir
+	if err := prepareIsolationHelperDir("/", false); err != nil {
 		return fail(err)
-	}
-	info, err = os.Stat(target)
-	if err != nil {
-		return fail(err)
-	}
-	if real != target || !info.IsDir() || info.Mode().Perm()&022 != 0 || info.Sys().(*syscall.Stat_t).Uid != 0 {
-		return fail(helperUpgradeProblem("invalid_target"))
 	}
 	lock, err := os.OpenFile(filepath.Join(target, ".upgrade.lock"), os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600)
 	if err != nil {

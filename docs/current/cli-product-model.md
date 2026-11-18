@@ -202,8 +202,10 @@ targets; `amux setup local` configures the local hub and runtime using native
 service supervision where supported. `amux install --source <directory>` installs local
 binaries. `amux update --source <directory> --restart` updates an existing
 installation without repeating setup. On Linux, updates also refresh an already
-installed isolation helper and its materializer from the same bundle. This uses
-root or noninteractive sudo, preserves the installed systemd unit and isolation
+installed isolation helper and its materializer from the same bundle. Helper
+installation and managed updates set the dedicated executable directory to `0755`
+so isolated users can run the helper. This uses root or noninteractive sudo,
+preserves the installed systemd unit and isolation
 settings, and refuses replacement while isolated launches are active. An idle
 helper holds an admission guard until the upgrade exits, preventing concurrent
 launches from racing the restart. Older helpers without this capability require

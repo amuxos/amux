@@ -22,8 +22,10 @@ sudo amux isolation helper install \
   --principal-root /var/lib/amux/principals
 ```
 
-它安装 helper、同版本 materializer 和 systemd unit。service user 的 `config.toml`
-应使用相同的 socket、UID 区间和 principal root：
+安装命令把 helper 和同版本 materializer 放入 root 所有的 `/usr/local/libexec/amux`，
+并注册 systemd unit。首次安装和托管更新都会将这个目录设为 `0755`，不受安装进程的
+umask 影响。隔离 UID 可以执行已安装的 helper，无需访问 service user 的 HOME。
+service user 的 `config.toml` 应使用相同的 socket、UID 区间和 principal root：
 
 ```toml
 [isolation]

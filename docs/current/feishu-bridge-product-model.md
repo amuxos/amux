@@ -21,6 +21,21 @@ user isolation are independent settings. Shared topic discussion without a bot
 mention can become bounded context without starting another response. Explicit
 commands still follow scope, Agent capability and binding-control checks.
 
+A distribution can require personal credential admission for a new Feishu
+Session when its conversation policy requires Linux user isolation. The Bridge
+checks the selected Runtime using the resolved execution identity and the
+actor identifiers provided by the incoming Feishu user event before starting
+the Session. A pending admission replies to the original conversation
+and retains the starting input in memory for a bounded time. Only the resolved
+Feishu actor can operate its card, and any authorization URL is delivered in
+that actor's exclusive card update. The callback acknowledges a click while
+the Runtime works. Checking progress while a browser action is pending prompts
+the current poll to run sooner. Credential tools run with temporary storage
+inside the isolated execution's private run directory. Once verified, the Bridge
+revalidates the original routing before continuing once. Existing Sessions and ordinary host
+launches do not enter this flow. The public distribution has no credential
+admission policy.
+
 The [Feishu command reference](../reference/feishu-commands.md) is generated from
 the command/help registry and its bilingual management catalogs. An advertised
 command is not an authorization grant. Natural-language requests for delegation

@@ -109,6 +109,7 @@ type ManagementAgentPackActions interface {
 
 // Bridge connects the hub to Lark.
 type Bridge struct {
+	credentialAdmissions credentialAdmissions
 	conversationMu       sync.RWMutex
 	conversationObserver ConversationObserver
 	// turnSources maps turns to the Feishu chat of their first input.
@@ -591,6 +592,7 @@ func (b *Bridge) newEventDispatcher() *dispatcher.EventDispatcher {
 
 // Start connects to Lark via WebSocket and blocks until ctx is cancelled.
 func (b *Bridge) Start(ctx context.Context) error {
+	defer b.stopCredentialAdmissions()
 	if err := b.startConversationObserver(ctx); err != nil {
 		return err
 	}
@@ -801,6 +803,9 @@ func (b *Bridge) handleMessage(ctx context.Context, event *larkim.P2MessageRecei
 		if handled, err := b.tryCompleteExternalBotExchange(msg, openID, text); handled || err != nil {
 			return err
 		}
+	}
+	if senderType == "user" && openID != "" {
+		ctx = withCredentialSender(ctx, openID, stringPtr(sender.TenantKey), stringPtr(sender.SenderId.UserId), stringPtr(sender.SenderId.UnionId))
 	}
 	ctx = withFeishuImages(ctx, feishuImageContext{
 		chatID: stringPtr(msg.ChatId), openID: openID,
