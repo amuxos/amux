@@ -123,8 +123,9 @@ Pack 不声明模型允许列表。
 `amux setup local` 配置本地 Hub 和 Runtime，在支持的宿主上使用原生服务管理。
 `amux install --source <directory>` 安装本地二进制。
 `amux update --source <directory> --restart` 更新已有安装，无需重复 setup。
-Linux 更新会同时从同一发行包刷新已安装的隔离 helper 和 materializer，通过 root
-或非交互 sudo 执行，保留原 systemd unit 与隔离配置；仍有活跃隔离 launch 时拒绝替换。
+Linux 更新会同时从同一发行包刷新已安装的隔离 helper 和 materializer。安装和托管更新
+将 helper 专用二进制目录设为 `0755`，使隔离用户可以执行 helper。更新通过 root 或
+非交互 sudo 执行，保留原 systemd unit 与隔离配置；仍有活跃隔离 launch 时拒绝替换。
 空闲 helper 会持有与更新器生命周期绑定的启动保护，避免新会话与重启发生竞态。
 不支持该能力的旧 helper 需要在维护窗口先停止后进行一次性迁移；已停止的服务保持停止。
 helper 更新失败会在普通服务重启前返回更新失败，消除原因后重试 `amux update` 即可。

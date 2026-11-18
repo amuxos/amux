@@ -485,6 +485,7 @@ func runServer(cmd *cobra.Command, _ []string) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	localSrv.credentialLifetime = ctx
 
 	// Drain any sessions LoadFromDB queued for restart (process died while
 	// amuxlet was down). Best-effort: log failures and move on.

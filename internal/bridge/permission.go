@@ -304,6 +304,9 @@ func (b *Bridge) handleCardAction(ctx context.Context, event *callback.CardActio
 	if event == nil || event.Event == nil || event.Event.Action == nil {
 		return cardToast("warning", managementCopy("permission.invalid")), nil
 	}
+	if resp, handled := b.handleCredentialAdmissionAction(event); handled {
+		return resp, nil
+	}
 	if resp, handled, err := b.handleSkillPickerCardAction(ctx, event); handled || err != nil {
 		return resp, err
 	}

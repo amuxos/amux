@@ -6,6 +6,7 @@ import (
 
 	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/extensionstate"
+	"github.com/amuxos/amux/internal/sessioncredential"
 	"github.com/spf13/cobra"
 )
 
@@ -23,14 +24,15 @@ type ArchivedSession struct {
 
 // Hooks are installed once by a distribution before starting the runtime.
 type Hooks struct {
-	AutoModelConfig        func(string) (adapter.AutoModelSelectionConfig, bool)
-	StartStateWatchers     func(context.Context)
-	CredentialLoginCommand func(string) string
-	AppendUserBinPaths     func(string, []string) []string
-	SessionArchived        func(ArchivedSession)
-	NewEndpointSelector    func() EndpointSelector
-	LogSelectedEndpoint    func(string, string, string)
-	AddCommands            func(*cobra.Command)
+	AutoModelConfig           func(string) (adapter.AutoModelSelectionConfig, bool)
+	StartStateWatchers        func(context.Context)
+	CredentialLoginCommand    func(string) string
+	AppendUserBinPaths        func(string, []string) []string
+	SessionArchived           func(ArchivedSession)
+	NewEndpointSelector       func() EndpointSelector
+	LogSelectedEndpoint       func(string, string, string)
+	AddCommands               func(*cobra.Command)
+	IsolatedSessionCredential sessioncredential.Policy
 }
 
 var distributionHooks Hooks

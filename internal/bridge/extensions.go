@@ -26,6 +26,7 @@ type OnboardingOptions struct {
 
 type Extension struct {
 	Onboarding             OnboardingOptions
+	SessionCredential      *CredentialAdmissionOptions
 	ObserveConversations   func(context.Context, ConversationServices) (ConversationObserver, error)
 	ExperimentEntries      func() []json.RawMessage
 	ActivityPossiblyQueued func(string, *agentui.ActivityView) bool

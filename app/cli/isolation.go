@@ -21,6 +21,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const isolationHelperDir = "/usr/local/libexec/amux"
+
 func newIsolationCmd() *cobra.Command {
 	return newIsolationCmdForPlatform(runtime.GOOS)
 }
@@ -602,7 +604,11 @@ func newIsolationHelperInstallCmd() *cobra.Command {
 					exe, opts.ServiceUID, opts.ServiceGID, opts.AmuxHome, opts.Socket)
 				return fmt.Errorf("helper installation requires root")
 			}
-			return installIsolationHelper(cmd.Context(), cmd.OutOrStdout(), opts)
+			err := installIsolationHelper(cmd.Context(), cmd.OutOrStdout(), opts)
+			if errors.Is(err, helperUpgradeProblem("invalid_target")) {
+				return errors.New(helperUpgradeText(cmd, "invalid_target"))
+			}
+			return err
 		},
 	}
 	cmd.Flags().IntVar(&opts.ServiceUID, "service-uid", defaultUID, "amuxlet service uid allowed to connect")
@@ -693,10 +699,9 @@ func installIsolationHelper(ctx context.Context, out interface{ Write([]byte) (i
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("inspect existing helper socket: %w", err)
 	}
-	targetDir := "/usr/local/libexec/amux"
-	target := filepath.Join(targetDir, "amux-isolation-helper")
-	materializerTarget := filepath.Join(targetDir, "amuxlet-materializer")
-	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+	target := filepath.Join(isolationHelperDir, "amux-isolation-helper")
+	materializerTarget := filepath.Join(isolationHelperDir, "amuxlet-materializer")
+	if err := prepareIsolationHelperDir("/", true); err != nil {
 		return err
 	}
 	if err := installFileAtomically(target, data, 0o755); err != nil {
@@ -822,8 +827,8 @@ func newIsolationHelperUninstallCmd() *cobra.Command {
 			}
 			_ = exec.CommandContext(cmd.Context(), "systemctl", "disable", "--now", "amux-isolation-helper.service").Run()
 			_ = os.Remove("/etc/systemd/system/amux-isolation-helper.service")
-			_ = os.Remove("/usr/local/libexec/amux/amux-isolation-helper")
-			_ = os.Remove("/usr/local/libexec/amux/amuxlet-materializer")
+			_ = os.Remove(filepath.Join(isolationHelperDir, "amux-isolation-helper"))
+			_ = os.Remove(filepath.Join(isolationHelperDir, "amuxlet-materializer"))
 			_ = exec.CommandContext(cmd.Context(), "systemctl", "daemon-reload").Run()
 			if purge {
 				return fmt.Errorf("--purge is intentionally unsupported; remove retained mappings/accounts only after manual review")

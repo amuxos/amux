@@ -411,6 +411,13 @@ func (b *Bridge) routeFreshTopicInput(ctx context.Context, chatID, rootMsgID, ms
 	case inputrouter.OutcomeBind:
 		return b.bindThread(ctx, chatID, rootMsgID, openID, routedText)
 	case inputrouter.OutcomeRun:
+		ctx = b.withCredentialContinuation(ctx, chatID, rootMsgID, func(resumeCtx context.Context) error {
+			fresh, err := b.currentWorkspace(chatID)
+			if err != nil {
+				return err
+			}
+			return b.routeFreshTopicInput(resumeCtx, chatID, rootMsgID, msgID, openID, text, mention, fresh, opts)
+		})
 		if isGroupWatch {
 			return b.runAndBindNaturalEntryWithOptions(ctx, chatID, rootMsgID, msgID, openID, text, mention, naturalEntryOptions{
 				source:                   routeInputSourceGroupWatch,

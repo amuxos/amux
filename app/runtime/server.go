@@ -53,6 +53,7 @@ type server struct {
 	memoryBindingResolver     func(context.Context, string) (string, error)
 	creds                     task.CredentialProvider
 	isolationRuntime          *isolation.Runtime
+	credentialLifetime        context.Context
 	isolationGlobalEnv        []string
 	relaunchMu                sync.Mutex
 	startSessionHook          func(adapter.Adapter, *session.Session, []string, []string) error

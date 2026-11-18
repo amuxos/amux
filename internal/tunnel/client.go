@@ -17,6 +17,7 @@ import (
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/registry"
 	"github.com/amuxos/amux/internal/session"
+	"github.com/amuxos/amux/internal/sessioncredential"
 	"github.com/amuxos/amux/internal/transport"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"google.golang.org/grpc"
@@ -460,6 +461,20 @@ func (c *Client) handleRequest(ctx context.Context, sendFn func(*pb.TunnelMsg) e
 			return
 		}
 		sendResp(resp, "")
+	case sessioncredential.Route:
+		handler, ok := c.localSrv.(interface {
+			IsolatedSessionCredential(context.Context, sessioncredential.Request) sessioncredential.Result
+		})
+		if !ok {
+			sendResp(nil, "isolated session credential route unavailable")
+			return
+		}
+		var input sessioncredential.Request
+		if err := unmarshalTunnelPayload(req.Payload, &input); err != nil {
+			sendResp(nil, "invalid isolated session credential request")
+			return
+		}
+		sendResp(handler.IsolatedSessionCredential(reqCtx, input), "")
 	case "Run":
 		var r pb.RunRequest
 		if err := unmarshalTunnelPayload(req.Payload, &r); err != nil {

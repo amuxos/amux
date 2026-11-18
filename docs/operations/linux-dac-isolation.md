@@ -28,8 +28,12 @@ sudo amux isolation helper install \
   --principal-root /var/lib/amux/principals
 ```
 
-This installs the helper, matching materializer, and systemd unit. The service
-user's `config.toml` must use the same socket, UID range, and Principal root:
+This installs the helper and matching materializer into the root-owned
+`/usr/local/libexec/amux` directory and registers the systemd unit. Installation
+and managed updates set that directory to `0755` regardless of the installer's
+umask. Isolated UIDs can execute the installed helper without access to the
+service user's home. The service user's `config.toml` must use the same socket,
+UID range, and Principal root:
 
 ```toml
 [isolation]

@@ -336,6 +336,10 @@ func (b *Bridge) newSessionPolicy(ctx context.Context, chatID string) (groupLaun
 		}
 		return policy, nil
 	}
+	return b.storedSessionPolicy(chatID)
+}
+
+func (b *Bridge) storedSessionPolicy(chatID string) (groupLaunchPolicy, error) {
 	if b != nil && b.db != nil && chatID != "" {
 		settings, err := b.db.ReadGroupSettings(b.currentBridgeId(), chatID)
 		if err != nil {
