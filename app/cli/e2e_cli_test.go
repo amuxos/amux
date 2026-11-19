@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,14 +23,15 @@ import (
 )
 
 type cliE2EBinaryCache struct {
-	once sync.Once
-	dir  string
-	err  error
+	once         sync.Once
+	dir          string
+	ownedTempDir bool
+	err          error
 }
 
-func (c *cliE2EBinaryCache) Get(build func() (string, error)) (string, error) {
+func (c *cliE2EBinaryCache) Get(build func() (string, bool, error)) (string, error) {
 	c.once.Do(func() {
-		c.dir, c.err = build()
+		c.dir, c.ownedTempDir, c.err = build()
 	})
 	return c.dir, c.err
 }
@@ -57,7 +59,7 @@ func TestMain(m *testing.M) {
 	// Keep tests away from the caller's real amux home even when the test
 	// binary inherits AMUX_HOME from an amux-managed Agent Session.
 	code := amuxhometest.Run(m)
-	if sharedCLIE2EBinaries.dir != "" {
+	if sharedCLIE2EBinaries.ownedTempDir && sharedCLIE2EBinaries.dir != "" {
 		_ = os.RemoveAll(sharedCLIE2EBinaries.dir)
 	}
 	os.Exit(code)
@@ -508,7 +510,7 @@ func newCLIE2E(t *testing.T) *cliE2E {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binDir, err := sharedCLIE2EBinaries.Get(func() (string, error) {
+	binDir, err := sharedCLIE2EBinaries.Get(func() (string, bool, error) {
 		return buildCLIE2EBinaries(repoRoot)
 	})
 	if err != nil {
@@ -542,18 +544,42 @@ func newCLIE2E(t *testing.T) *cliE2E {
 	return e
 }
 
-func buildCLIE2EBinaries(repoRoot string) (string, error) {
+func prebuiltCLIE2EBinariesDir() (string, bool) {
+	if cliE2EBuildTags != "" {
+		return "", false
+	}
+	dir := strings.TrimSpace(os.Getenv("AMUX_TEST_BIN_DIR"))
+	if dir == "" || !filepath.IsAbs(dir) {
+		return "", false
+	}
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	for _, name := range []string{"amux", "amuxd", "amuxlet"} {
+		info, err := os.Stat(filepath.Join(dir, name+ext))
+		if err != nil || info.IsDir() {
+			return "", false
+		}
+	}
+	return dir, true
+}
+
+func buildCLIE2EBinaries(repoRoot string) (string, bool, error) {
+	if prebuilt, ok := prebuiltCLIE2EBinariesDir(); ok {
+		return prebuilt, false, nil
+	}
 	// Distributions can exercise this process contract against their own thin
 	// entrypoints while keeping the shared E2E implementation in the core module.
 	if buildRoot := os.Getenv("AMUX_E2E_BUILD_ROOT"); buildRoot != "" {
 		if !filepath.IsAbs(buildRoot) {
-			return "", fmt.Errorf("AMUX_E2E_BUILD_ROOT must be absolute")
+			return "", false, fmt.Errorf("AMUX_E2E_BUILD_ROOT must be absolute")
 		}
 		repoRoot = buildRoot
 	}
 	binDir, err := os.MkdirTemp("", "amux-e2e-bin-")
 	if err != nil {
-		return "", fmt.Errorf("create shared E2E binary dir: %w", err)
+		return "", false, fmt.Errorf("create shared E2E binary dir: %w", err)
 	}
 	args := []string{"build", "-trimpath", "-buildvcs=false"}
 	if cliE2EBuildTags != "" {
@@ -564,9 +590,9 @@ func buildCLIE2EBinaries(repoRoot string) (string, error) {
 	cmd.Dir = repoRoot
 	if out, buildErr := cmd.CombinedOutput(); buildErr != nil {
 		_ = os.RemoveAll(binDir)
-		return "", fmt.Errorf("build CLI E2E binaries: %w\n%s", buildErr, out)
+		return "", false, fmt.Errorf("build CLI E2E binaries: %w\n%s", buildErr, out)
 	}
-	return binDir, nil
+	return binDir, true, nil
 }
 
 func freeTCPAddr(t *testing.T) string {
@@ -980,5 +1006,29 @@ for line in sys.stdin:
 `
 	if err := os.WriteFile(path, []byte(body), 0755); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestBuildCLIE2EBinariesReusesPrebuiltDir(t *testing.T) {
+	dir := t.TempDir()
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	for _, name := range []string{"amux", "amuxd", "amuxlet"} {
+		if err := os.WriteFile(filepath.Join(dir, name+ext), []byte("#!/bin/sh\n"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("AMUX_TEST_BIN_DIR", dir)
+	got, ownedTemp, err := buildCLIE2EBinaries(t.TempDir())
+	if err != nil {
+		t.Fatalf("buildCLIE2EBinaries: %v", err)
+	}
+	if got != dir {
+		t.Fatalf("dir = %q, want %q", got, dir)
+	}
+	if ownedTemp {
+		t.Fatal("ownedTemp = true for prebuilt dir, want false so caller bin dir is never deleted")
 	}
 }

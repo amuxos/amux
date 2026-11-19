@@ -951,8 +951,9 @@ func TestDocumentCommentFinalizationClaimFailureDoesNotPublish(t *testing.T) {
 }
 
 func TestRetryFeishuRateLimitRetriesOn99991400(t *testing.T) {
+	t.Parallel()
 	calls := 0
-	err := retryFeishuRateLimit(context.Background(), "test-op", func() error {
+	err := retryFeishuRateLimitWithBackoff(context.Background(), "test-op", time.Millisecond, 8*time.Millisecond, func() error {
 		calls++
 		if calls < 3 {
 			return &feishuPermissionError{operation: "test-op", code: feishuRateLimitCode, message: "request trigger frequency limit"}
@@ -968,8 +969,9 @@ func TestRetryFeishuRateLimitRetriesOn99991400(t *testing.T) {
 }
 
 func TestRetryFeishuRateLimitNoRetryOnOtherError(t *testing.T) {
+	t.Parallel()
 	calls := 0
-	err := retryFeishuRateLimit(context.Background(), "test-op", func() error {
+	err := retryFeishuRateLimitWithBackoff(context.Background(), "test-op", time.Millisecond, 8*time.Millisecond, func() error {
 		calls++
 		return fmt.Errorf("some other error: code=99991672")
 	})
@@ -982,8 +984,9 @@ func TestRetryFeishuRateLimitNoRetryOnOtherError(t *testing.T) {
 }
 
 func TestRetryFeishuRateLimitGivesUpAfterMaxRetries(t *testing.T) {
+	t.Parallel()
 	calls := 0
-	err := retryFeishuRateLimit(context.Background(), "test-op", func() error {
+	err := retryFeishuRateLimitWithBackoff(context.Background(), "test-op", time.Millisecond, 8*time.Millisecond, func() error {
 		calls++
 		return &feishuPermissionError{operation: "test-op", code: feishuRateLimitCode, message: "request trigger frequency limit"}
 	})
@@ -996,10 +999,11 @@ func TestRetryFeishuRateLimitGivesUpAfterMaxRetries(t *testing.T) {
 }
 
 func TestRetryFeishuRateLimitRespectsContextCancellation(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	calls := 0
-	err := retryFeishuRateLimit(ctx, "test-op", func() error {
+	err := retryFeishuRateLimitWithBackoff(ctx, "test-op", time.Millisecond, 8*time.Millisecond, func() error {
 		calls++
 		return &feishuPermissionError{operation: "test-op", code: feishuRateLimitCode, message: "request trigger frequency limit"}
 	})

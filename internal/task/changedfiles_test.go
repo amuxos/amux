@@ -9,6 +9,7 @@ import (
 )
 
 func TestGitChangedFiles(t *testing.T) {
+	t.Parallel()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
@@ -44,6 +45,7 @@ func TestGitChangedFiles(t *testing.T) {
 }
 
 func TestGitChangedFilesNonRepoIsEmpty(t *testing.T) {
+	t.Parallel()
 	files, err := GitChangedFiles(context.Background(), t.TempDir(), "")
 	if err != nil {
 		t.Fatal(err)

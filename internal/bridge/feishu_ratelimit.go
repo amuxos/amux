@@ -33,7 +33,11 @@ func isFeishuRateLimitError(err error) bool {
 // retrying only when the error is a Feishu rate limit (code 99991400).
 // Between retries it sleeps with exponential backoff, respecting ctx.
 func retryFeishuRateLimit(ctx context.Context, operation string, fn func() error) error {
-	backoff := feishuRateLimitBaseBackoff
+	return retryFeishuRateLimitWithBackoff(ctx, operation, feishuRateLimitBaseBackoff, feishuRateLimitMaxBackoff, fn)
+}
+
+func retryFeishuRateLimitWithBackoff(ctx context.Context, operation string, baseBackoff, maxBackoff time.Duration, fn func() error) error {
+	backoff := baseBackoff
 	var lastErr error
 	for attempt := 0; attempt <= feishuRateLimitMaxRetries; attempt++ {
 		if err := fn(); err != nil {
@@ -50,8 +54,8 @@ func retryFeishuRateLimit(ctx context.Context, operation string, fn func() error
 			case <-time.After(backoff):
 			}
 			backoff *= 2
-			if backoff > feishuRateLimitMaxBackoff {
-				backoff = feishuRateLimitMaxBackoff
+			if backoff > maxBackoff {
+				backoff = maxBackoff
 			}
 			continue
 		}
