@@ -12,11 +12,80 @@ import (
 	"testing"
 	"time"
 
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/store"
 	"github.com/google/uuid"
 )
+
+func TestSessionCredentialCommandResolvesPATHInLinuxIsolation(t *testing.T) {
+	binary, uidText := os.Getenv("AMUX_TEST_HELPER_BINARY"), os.Getenv("AMUX_TEST_MAINTENANCE_UID")
+	if os.Geteuid() != 0 || binary == "" || uidText == "" {
+		t.Skip("requires root, helper binary and dedicated test uid")
+	}
+	uid, err := strconv.Atoi(uidText)
+	if err != nil || uid < 65536 {
+		t.Fatal("invalid test uid")
+	}
+	root, err := os.MkdirTemp("/tmp", "amux-credential-linux-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+	if err := os.Chmod(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(root, "credential-cli")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nprintf '%s\\n' \"$1\" \"$CHECK_VALUE\"\nprintf credential-stderr >&2\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", root+string(os.PathListSeparator)+os.Getenv("PATH"))
+	cfg := isolation.HelperConfig{
+		SocketPath: filepath.Join(root, "helper.sock"), StateDir: filepath.Join(root, "state"), PrincipalRoot: filepath.Join(root, "principals"),
+		ServiceUID: 0, ServiceGID: 0, UIDRangeStart: uid, UIDRangeEnd: uid, MaterializerPath: binary, ExecWrapperPath: binary,
+		SkipAccountProvision: true, PIDNamespace: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- isolation.ServeHelper(ctx, cfg) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}()
+	client := isolation.NewHelperClient(cfg.SocketPath)
+	for {
+		if _, err := client.Handshake(ctx); err == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	rt, err := isolation.NewRuntime(config.IsolationConfig{
+		Enabled: true, Backend: principal.BackendLinuxDAC, UIDRangeStart: uid, UIDRangeEnd: uid,
+		HelperSocket: cfg.SocketPath, MappingDB: filepath.Join(root, "mappings.db"), PrincipalRoot: cfg.PrincipalRoot,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rt.Close()
+	principalID := uuid.NewString()
+	identity := principal.ExecutionIdentity{
+		IdentityMode: principal.IdentityModeIdentified, EffectivePrincipalID: principalID, OriginActorPrincipalID: principalID,
+		Source: principal.SourceFeishu, IsolationBackend: principal.BackendLinuxDAC,
+	}
+	output, err := runSessionCredentialCommand(ctx, rt, identity, "credential-cli", []string{"credential-stdout"}, []string{"CHECK_VALUE=credential-env"}, nil)
+	if err != nil || output.ExitCode != 0 || string(output.Stdout) != "credential-stdout\ncredential-env\n" || string(output.Stderr) != "credential-stderr" {
+		t.Fatalf("output=%+v err=%v", output, err)
+	}
+}
 
 type maintenanceIsolatedProc struct {
 	serverTestProc
