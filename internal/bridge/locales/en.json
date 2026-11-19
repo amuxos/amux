@@ -2476,6 +2476,12 @@
   "session.queue.waiting": {
     "other": "Possibly queued; waiting %s with no model output yet"
   },
+  "session.retry.rate_limit": {
+    "other": "Upstream rate-limited, retrying (#%d · %s)"
+  },
+  "session.retry.provider": {
+    "other": "Upstream busy or queued, retrying (#%d · %s)"
+  },
   "session.status.silent": {
     "other": "No new progress for %s"
   },

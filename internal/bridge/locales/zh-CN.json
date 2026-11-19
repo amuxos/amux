@@ -2459,6 +2459,12 @@
   "session.queue.waiting": {
     "other": "可能正在排队，已等待 %s，尚未收到模型输出"
   },
+  "session.retry.rate_limit": {
+    "other": "上游限流重试中（第 %d 次 · %s）"
+  },
+  "session.retry.provider": {
+    "other": "上游繁忙/排队重试中（第 %d 次 · %s）"
+  },
   "session.status.silent": {
     "other": "%s未收到新进展"
   },

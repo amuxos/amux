@@ -89,9 +89,11 @@ type helperServer struct {
 
 	mu            sync.Mutex
 	launches      map[string]*helperLaunch
+	starting      map[string]struct{}
 	draining      bool
 	upgradeGuards int
 	mappingMu     sync.Mutex
+	cleanupMu     sync.Mutex
 
 	hardeningMu        sync.Mutex
 	hardening          map[string]bool
@@ -446,16 +448,19 @@ func (s *helperServer) handleWithFiles(req HelperRequest, requestFiles []*os.Fil
 		if err := s.validateMapping(req.Mapping); err != nil {
 			return responseForError(err), nil
 		}
-		// Serialize against prepare/start while checking the helper's own live
-		// launch registry in addition to the Runtime's persisted references.
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		// Serialize cleanup sweeps against each other, but only hold s.mu while
+		// snapshotting active launch workspaces so disk sweeps never stall
+		// concurrent starts, signals, or reaps across principals.
+		s.cleanupMu.Lock()
+		defer s.cleanupMu.Unlock()
 		refs.Workspaces = append([]string{}, refs.Workspaces...)
+		s.mu.Lock()
 		for _, launch := range s.launches {
 			if launch.desc.State == "running" {
 				refs.Workspaces = append(refs.Workspaces, launch.desc.Paths.Workspace)
 			}
 		}
+		s.mu.Unlock()
 		paths := s.pathsFor(*req.Mapping, "")
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
@@ -830,19 +835,37 @@ func (s *helperServer) start(req HelperRequest) (LaunchDescription, []*os.File, 
 		return LaunchDescription{}, nil, denial
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.draining || s.upgradeGuards > 0 {
+		s.mu.Unlock()
 		return LaunchDescription{}, nil, fmt.Errorf("helper is draining")
 	}
 	if launch := s.launches[req.LaunchID]; launch != nil {
 		files, err := launch.attachFiles()
+		s.mu.Unlock()
 		return launch.desc, files, err
 	}
 	if desc, found, err := s.describeDB(req.LaunchID); err != nil {
+		s.mu.Unlock()
 		return LaunchDescription{}, nil, err
 	} else if found {
+		s.mu.Unlock()
 		return desc, nil, fmt.Errorf("launch id is already claimed")
 	}
+	if s.starting == nil {
+		s.starting = make(map[string]struct{})
+	}
+	if _, inProgress := s.starting[req.LaunchID]; inProgress {
+		s.mu.Unlock()
+		return LaunchDescription{}, nil, fmt.Errorf("launch id is already starting")
+	}
+	s.starting[req.LaunchID] = struct{}{}
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.starting, req.LaunchID)
+		s.mu.Unlock()
+	}()
+
 	if err := chownTreeSecure(req.Spec.Dir, req.Mapping.UID, req.Mapping.GID, s.cfg.AllowUnprivileged); err != nil {
 		return LaunchDescription{}, nil, err
 	}
@@ -852,6 +875,13 @@ func (s *helperServer) start(req HelperRequest) (LaunchDescription, []*os.File, 
 		if err := chownTreeSecure(runPath, req.Mapping.UID, req.Mapping.GID, s.cfg.AllowUnprivileged); err != nil {
 			return LaunchDescription{}, nil, err
 		}
+	}
+	hardening := s.resolveHardening(*req.Mapping)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.draining || s.upgradeGuards > 0 {
+		return LaunchDescription{}, nil, fmt.Errorf("helper is draining")
 	}
 	stdinR, stdinW, err := os.Pipe()
 	if err != nil {
@@ -876,7 +906,6 @@ func (s *helperServer) start(req HelperRequest) (LaunchDescription, []*os.File, 
 			_ = file.Close()
 		}
 	}
-	hardening := s.resolveHardening(*req.Mapping)
 	commandPath := req.Spec.Path
 	commandArgs := append([]string(nil), req.Spec.Args...)
 	commandEnv := append([]string(nil), req.Spec.Env...)
@@ -1539,8 +1568,14 @@ func chownTreeSecure(root string, uid, gid int, allowUnprivileged bool) error {
 		return fmt.Errorf("open %s without following symlinks: %w", root, err)
 	}
 	defer unix.Close(fd)
-	if err := unix.Fchown(fd, uid, gid); err != nil && !allowUnprivileged {
+	var rootStat unix.Stat_t
+	if err := unix.Fstat(fd, &rootStat); err != nil {
 		return err
+	}
+	if rootStat.Uid != uint32(uid) || rootStat.Gid != uint32(gid) {
+		if err := unix.Fchown(fd, uid, gid); err != nil && !allowUnprivileged {
+			return err
+		}
 	}
 	return chownDirContents(fd, uid, gid, allowUnprivileged, 0)
 }
@@ -1583,8 +1618,10 @@ func chownDirContents(dirFD, uid, gid int, allowUnprivileged bool, depth int) er
 		default:
 			return fmt.Errorf("special file is not allowed in materialized tree")
 		}
-		if err := unix.Fchownat(dirFD, name, uid, gid, unix.AT_SYMLINK_NOFOLLOW); err != nil && !allowUnprivileged {
-			return err
+		if stat.Uid != uint32(uid) || stat.Gid != uint32(gid) {
+			if err := unix.Fchownat(dirFD, name, uid, gid, unix.AT_SYMLINK_NOFOLLOW); err != nil && !allowUnprivileged {
+				return err
+			}
 		}
 		if stat.Mode&unix.S_IFMT != unix.S_IFDIR {
 			continue
