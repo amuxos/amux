@@ -86,6 +86,9 @@ func FromAgentEvent(event agentstream.Event) []Event {
 		if body.Severity == agentstream.SeverityError {
 			out.Kind = KindError
 			out.Error = &ErrorEvent{Message: body.Message, Code: body.Code}
+		} else if body.Severity == agentstream.SeverityWarning && (body.Retryable || body.Code == "provider_retry" || body.Code == "rate_limit_retry") {
+			out.Kind = KindRetry
+			out.Error = &ErrorEvent{Message: body.Message, Code: body.Code}
 		}
 	case agentstream.TurnFinished:
 		out.Kind = KindTurnDone

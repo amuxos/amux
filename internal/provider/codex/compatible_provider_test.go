@@ -1057,7 +1057,9 @@ func TestProcRetryableTopLevelErrorsWaitForAuthoritativeCompletion(t *testing.T)
 		select {
 		case ev := <-events:
 			if ev.Diagnostic != nil {
-				t.Fatalf("retryable error emitted system output: %q", []byte(ev.Text))
+				if ev.Diagnostic.Severity == agentstream.SeverityError || !ev.Diagnostic.Retryable {
+					t.Fatalf("retryable error emitted non-retryable diagnostic: %+v (%q)", ev.Diagnostic, []byte(ev.Text))
+				}
 			}
 			if ev.Terminal != nil && ev.Terminal.Outcome == agentstream.OutcomeError {
 				t.Fatal("retryable error terminated the active turn")

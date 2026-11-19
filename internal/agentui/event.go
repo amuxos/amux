@@ -22,6 +22,7 @@ const (
 	KindTurnStarted         EventKind = "turn_started"
 	KindTurnDone            EventKind = "turn_done"
 	KindInterrupted         EventKind = "interrupted"
+	KindRetry               EventKind = "retry"
 	KindError               EventKind = "error"
 	KindUsage               EventKind = "usage"
 	KindResult              EventKind = "result"
