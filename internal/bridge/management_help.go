@@ -5,32 +5,49 @@ import (
 	"github.com/amuxos/amux/internal/distribution"
 )
 
+func managementHelpCollapsibleSection(id string, title any, body ...cardElement) cardElement {
+	return cardElement{
+		Tag:          "collapsible_panel",
+		ElementID:    id,
+		Expanded:     false,
+		HasBorder:    true,
+		BorderColor:  "grey-200",
+		CornerRadius: "8px",
+		Padding:      "8px 12px 8px 12px",
+		Header: &panelHeader{
+			Title:           managementStyledText(title, cardTitle{Tag: "plain_text", TextSize: "normal", TextColor: "default"}),
+			BackgroundColor: "grey-50",
+			VerticalAlign:   "center",
+			Padding:         "6px 10px 6px 10px",
+		},
+		Elements: body,
+	}
+}
+
 func renderManagementHelpCard(state managementState) string {
 	mode := managementNormalizeDraft(managementDraftFromState(state)).Interaction
 	elements := []cardElement{
 		managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.message.handling.summary"), Body: managementInteractionText(mode)}),
 		managementSectionTitleElement(managementInteractionHelpTitle(mode)),
 		managementHelpBlockElement(managementTextElement(managementInteractionHelpBody(mode), "normal", "default", nil)),
-		managementSectionTitleElement(managementCopy("management.document.comments")),
-		managementHelpBlockElement(
+		managementHelpCollapsibleSection("amux_help_doc_comments", managementCopy("management.document.comments"),
 			managementTextElement(managementCopy("management.enable.go.to.assistant.settings.integrations.and.enable.document"), "normal", "default", managementIconPtr("setting_outlined", "grey")),
 			managementTextElement(managementCopy("management.use.mention.the.assistant.in.a.comment.with.your"), "normal", "default", managementIconPtr("robot_outlined", "grey")),
 			managementTextElement(managementCopy("management.topics.each.root.comment.is.independent.mention.the.assistant"), "normal", "default", managementIconPtr("info_outlined", "grey")),
 			managementTextElement(managementCopy("management.expert.new.topics.use.the.current.default.expert.existing"), "normal", "default", managementIconPtr("info_outlined", "grey")),
 			managementTextElement(managementCopy("management.body.the.assistant.replies.through.comments.and.does.not"), "normal", "default", managementIconPtr("info_outlined", "grey"))),
-		managementSectionTitleElement(managementCopy("management.group.watch.312")),
-		managementHelpBlockElement(
+		managementHelpCollapsibleSection("amux_help_group_watch", managementCopy("management.group.watch.312"),
 			managementTextElement(managementCopy("management.enable.mention.the.assistant.in.the.target.group.and"), "normal", "default", managementIconPtr("setting_outlined", "grey")),
 			managementTextElement(managementCopy("management.disable.mention.the.assistant.in.the.target.group.and"), "normal", "default", managementIconPtr("setting_outlined", "grey")),
 			managementTextElement(managementCopy("management.manage.send.amux.privately.then.open.assistant.settings.integrations"), "normal", "default", managementIconPtr("info_outlined", "grey"))),
-		managementSectionTitleElement(managementCopy("management.let.other.group.members.use.the.assistant")),
-		managementHelpBlockElement(managementTextElement(managementGroupCollaborationHintText(), "normal", "default", nil)),
+		managementHelpCollapsibleSection("amux_help_group_collab", managementCopy("management.let.other.group.members.use.the.assistant"),
+			managementTextElement(managementGroupCollaborationHintText(), "normal", "default", nil)),
 	}
 	elements = append(elements, managementCommandHelpElements(command.ScopePrivate)...)
 	if state.GoalSupported {
 		elements = append(elements, managementSectionTitleElement(sessionMessage("goal.title")), managementHintElement(sessionMessage("goal.usage")))
 	}
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.help"), Subtitle: managementCopy("management.send.a.task.directly.to.begin"), Summary: managementCopy("management.amux.help"), Theme: "default", Icon: managementIcon("info_outlined", "grey"), Elements: elements})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.help"), Subtitle: managementCopy("management.send.a.task.directly.to.begin"), Summary: managementCopy("management.amux.help"), Theme: "wathet", Icon: managementIcon("info_outlined", "blue"), Elements: elements})
 }
 
 func renderManagementCompactHelpCard() string {

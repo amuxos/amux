@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"encoding/json"
-	"strconv"
 	"strings"
 	"time"
 
@@ -36,13 +35,22 @@ func renderManagementCardForSurface(cardJSON string, surface managementSurface, 
 		backElements := []cardElement{managementBackToOverviewElement()}
 		decorateManagementSurfaceElements(backElements, surface)
 		back := backElements[0]
-		doc.Body.Elements = append([]cardElement{back, managementDividerElement()}, doc.Body.Elements...)
+		if len(doc.Body.Elements) > 0 && isManagementSubpageBackRow(doc.Body.Elements[0]) {
+			back.Columns = append(back.Columns, doc.Body.Elements[0].Columns...)
+			doc.Body.Elements[0] = back
+		} else {
+			doc.Body.Elements = append([]cardElement{back, managementDividerElement()}, doc.Body.Elements...)
+		}
 	}
 	raw, err := json.Marshal(doc)
 	if err != nil {
 		return cardJSON
 	}
 	return string(raw)
+}
+
+func isManagementSubpageBackRow(element cardElement) bool {
+	return element.Tag == "column_set" && len(element.Columns) == 1 && strings.Contains(element.ElementID, "_back")
 }
 
 // Focused editors and operation states keep the same escape route as section
@@ -64,7 +72,7 @@ func managementSubpageBackElement(text any, action string, name string) cardElem
 }
 
 func managementNavigationBackElement(text any, action string, name string) cardElement {
-	element := managementButtonRowElement([]managementButton{{Text: text, Type: "default", Action: action, Name: name, Icon: managementIconPtr("left_outlined", "grey")}})
+	element := managementButtonRowElement([]managementButton{{Text: text, Type: "text", Action: action, Name: name, Icon: managementIconPtr("left_outlined", "grey")}})
 	if len(element.Columns) > 0 && len(element.Columns[0].Elements) > 0 {
 		element.Columns[0].Elements[0].Size = "small"
 	}
@@ -139,45 +147,198 @@ func decorateManagementSurfaceElements(elements []cardElement, surface managemen
 
 func renderManagementOverviewCard(state managementState) string {
 	draft := managementDraftFromState(state)
-	theme := "green"
-	statusTitle := managementCopy("management.running.normally")
-	statusSummary := managementCopy("management.d.runtimes.available.ready.for.tasks", state.Targets)
-	statusColor := "default"
-	statusIcon := managementIconPtr("check_outlined", "green")
+	theme := "wathet"
+	headerIconColor := "blue"
+	statusTag := cardTextTag{Tag: "text_tag", Text: managementPlainText(managementCopy("management.status.tag.healthy")), Color: "green"}
 	if state.SystemStatus != managementSystemHealthy {
 		theme = "orange"
-		statusTitle = managementCopy("management.cannot.start.new.tasks.right.now")
-		statusSummary = managementCopy("management.no.runtimes.available.check.system.status")
-		statusColor = "orange"
-		statusIcon = managementIconPtr("warning_outlined", "orange")
+		headerIconColor = "orange"
+		statusTag = cardTextTag{Tag: "text_tag", Text: managementPlainText(managementCopy("management.status.tag.attention")), Color: "orange"}
 	}
-	elements := []cardElement{managementTextElement(statusTitle, "heading", statusColor, statusIcon), managementTextElement(statusSummary, "notation", statusColor, nil)}
+	elements := []cardElement{managementOverviewStatusElement(state)}
 	if state.SystemStatus == managementSystemHealthy && state.Update.ShouldPrompt {
 		elements = append(elements, managementUpdateNoticeElement(state.Update))
 	}
-	elements = append(elements, managementDividerElement(), managementSectionTitleElement(managementCopy("management.current.configuration")), managementOverviewConfigElement(state, draft), managementDividerElement(), managementSectionTitleElement(managementCopy("management.manage")))
-	elements = append(elements, managementOverviewActionElements(state)...)
-	elements = append(elements, managementTextElement(managementCopy("management.send.amux.again.to.refresh.status"), "notation", "grey", managementIconPtr("refresh_outlined", "grey")))
+	quickActionsTitle := managementSectionTitleElement(managementCopy("management.quick.actions"))
+	quickActionsTitle.Margin = "4px 0px 0px 0px"
+	elements = append(elements,
+		managementOverviewConfigHeaderElement(state),
+		managementOverviewConfigElement(state, draft),
+		quickActionsTitle,
+	)
+	elements = append(elements, managementOverviewQuickActionElements(state)...)
 	if state.ScheduleSummary != nil {
-		elements = append(elements, managementDividerElement(), managementTextElement(state.ScheduleSummary, "normal", "default", nil), managementFormButtonRowElement(scheduleButton("title", "list", 0, nil), scheduleButton("alerts", "alerts", 0, nil)))
+		schedulesTitle := managementSectionTitleElement(managementCopy("management.schedules"))
+		schedulesTitle.Margin = "4px 0px 0px 0px"
+		listButton := scheduleButton("title", "list", 0, nil)
+		listButton.Size = "small"
+		listButton.Width = "fill"
+		alertsButton := scheduleButton("alerts", "alerts", 0, nil)
+		alertsButton.Size = "small"
+		alertsButton.Width = "fill"
+		elements = append(elements,
+			schedulesTitle,
+			managementTextElement(state.ScheduleSummary, "notation", "grey", nil),
+			cardElement{
+				Tag:               "column_set",
+				ElementID:         "amux_overview_schedules",
+				FlexMode:          "none",
+				HorizontalSpacing: "8px",
+				Columns: []cardColumn{
+					{Tag: "column", Width: "weighted", Weight: 1, HorizontalAlign: "center", Elements: []cardElement{listButton}},
+					{Tag: "column", Width: "weighted", Weight: 1, HorizontalAlign: "center", Elements: []cardElement{alertsButton}},
+				},
+			},
+		)
 	}
-	elements = append(elements, managementLanguageElement())
-	card := marshalNativeManagementCard(managementCardView{Title: "amux", Summary: "amux", Theme: theme, Icon: managementIcon("robot_outlined", theme), Elements: elements})
+	elements = append(elements,
+		managementDividerElement(),
+		managementOverviewSecondaryRowElement(state),
+		managementLanguageElement(),
+	)
+	card := marshalNativeManagementCard(managementCardView{
+		Title:    "amux",
+		Summary:  "amux",
+		Theme:    theme,
+		Icon:     managementIcon("robot_outlined", headerIconColor),
+		Tags:     []cardTextTag{statusTag},
+		Elements: elements,
+	})
 	return renderManagementCardForSurface(card, managementSurfaceAmux, managementViewOverview)
 }
 
+func managementOverviewStatusElement(state managementState) cardElement {
+	refreshButton := managementButtonElement(managementButton{
+		Text:   managementCopy("management.refresh"),
+		Type:   "text",
+		Action: managementActionStatusOpen,
+		Name:   "amux.overview.refresh",
+		Icon:   managementIconPtr("refresh_outlined", "grey"),
+	})
+	refreshButton.Size = "small"
+	if state.SystemStatus != managementSystemHealthy {
+		return cardElement{
+			Tag:               "column_set",
+			ElementID:         "amux_overview_status",
+			FlexMode:          "none",
+			HorizontalSpacing: "8px",
+			Columns: []cardColumn{
+				{
+					Tag:             "column",
+					Width:           "weighted",
+					Weight:          1,
+					Direction:       "vertical",
+					VerticalAlign:   "top",
+					VerticalSpacing: "2px",
+					Elements: []cardElement{
+						managementTextElement(managementCopy("management.cannot.start.new.tasks.right.now"), "heading", "orange", managementIconPtr("warning_outlined", "orange")),
+						managementTextElement(managementCopy("management.no.runtimes.available.check.system.status"), "notation", "orange", nil),
+					},
+				},
+				{Tag: "column", Width: "auto", VerticalAlign: "top", Elements: []cardElement{refreshButton}},
+			},
+		}
+	}
+	return cardElement{
+		Tag:               "column_set",
+		ElementID:         "amux_overview_status",
+		FlexMode:          "none",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{
+				Tag:           "column",
+				Width:         "weighted",
+				Weight:        1,
+				VerticalAlign: "center",
+				Elements: []cardElement{
+					managementTextElement(managementCopy("management.runtimes.available.compact", state.Targets), "notation", "grey", managementIconPtr("check_outlined", "green")),
+				},
+			},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{refreshButton}},
+		},
+	}
+}
+
+func managementOverviewConfigHeaderElement(state managementState) cardElement {
+	editType := "primary_text"
+	editIconColor := "blue"
+	if state.SystemStatus != managementSystemHealthy || state.Update.ShouldPrompt {
+		editType = "text"
+		editIconColor = "grey"
+	}
+	editButton := managementButtonElement(managementButton{
+		Text:   managementCopy("management.edit.configuration"),
+		Type:   editType,
+		Action: managementActionSettingsEdit,
+		Name:   "amux.overview.settings",
+		Icon:   managementIconPtr("edit_outlined", editIconColor),
+	})
+	editButton.Size = "small"
+	return cardElement{
+		Tag:               "column_set",
+		ElementID:         "amux_overview_config_header",
+		FlexMode:          "none",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementSectionTitleElement(managementCopy("management.current.configuration"))}},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{editButton}},
+		},
+	}
+}
+
+func managementOverviewKeyValueRowElement(label, value any) cardElement {
+	return cardElement{
+		Tag:               "column_set",
+		FlexMode:          "none",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{Tag: "column", Width: "weighted", Weight: 2, VerticalAlign: "top", Elements: []cardElement{managementTextElement(label, "notation", "grey", nil)}},
+			{Tag: "column", Width: "weighted", Weight: 5, VerticalAlign: "top", Elements: []cardElement{managementTextElement(value, "normal", "default", nil)}},
+		},
+	}
+}
+
 func managementOverviewConfigElement(state managementState, draft managementSettingsDraft) cardElement {
-	element := managementVerticalSummaryElement("amux_overview_config",
-		managementKeyValueRowElement(managementCopy("management.message.handling.summary"), managementModeSummary(draft)),
-		managementTextElement(managementWorkspaceSummary(state), "notation", "grey", managementIconPtr("info_outlined", "grey")),
-		managementKeyValueRowElement(managementCopy("management.default.expert"), managementProfileNameByRef(state, draft.DefaultAgent)),
-		managementKeyValueRowElement(managementCopy("management.runtime"), managementRuntimeLabel(state, draft.DefaultRuntimeRef)),
-		managementKeyValueRowElement(managementCopy("management.default.model"), managementRuntimeModelLabel(draft.DefaultModelRef)),
-		managementKeyValueRowElement(managementCopy("management.reasoning.effort"), managementReasoningEffortLabel(draft.DefaultReasoningEffort)),
-		managementKeyValueRowElement(managementCopy("management.activity.display"), managementThinkingProcessLabel(draft.ThinkingProcess)))
+	rows := []cardElement{
+		managementOverviewKeyValueRowElement(managementCopy("management.default.expert"), managementProfileNameByRef(state, draft.DefaultAgent)),
+		managementOverviewKeyValueRowElement(managementCopy("management.runtime.and.model"), managementOverviewRuntimeModelSummary(state, draft)),
+		managementOverviewKeyValueRowElement(managementCopy("management.message.handling.summary"), managementModeSummary(draft)),
+		managementOverviewKeyValueRowElement(managementCopy("management.activity.and.integrations"), managementOverviewActivityIntegrationsSummary(state, draft)),
+	}
+	if strings.TrimSpace(state.Mode) == config.FeishuInteractionSingleton {
+		rows = append(rows, managementTextElement(managementWorkspaceSummary(state), "notation", "grey", managementIconPtr("info_outlined", "grey")))
+	}
+	element := managementVerticalSummaryElement("amux_overview_config", rows...)
 	element.Columns[0].BackgroundStyle = "blue-50"
 	element.Columns[0].VerticalSpacing = "4px"
 	return element
+}
+
+func managementOverviewRuntimeModelSummary(state managementState, draft managementSettingsDraft) any {
+	parts := []any{
+		managementRuntimeLabel(state, draft.DefaultRuntimeRef),
+		" · ",
+		managementRuntimeModelLabel(draft.DefaultModelRef),
+	}
+	if strings.TrimSpace(draft.DefaultReasoningEffort) != "" {
+		parts = append(parts, " · ", managementReasoningEffortLabel(draft.DefaultReasoningEffort))
+	}
+	return managementConcat(parts...)
+}
+
+func managementOverviewActivityIntegrationsSummary(state managementState, draft managementSettingsDraft) any {
+	capabilities := managementCapabilityViews(state)
+	enabled := 0
+	for _, capability := range capabilities {
+		if capability.Enabled {
+			enabled++
+		}
+	}
+	return managementConcat(
+		managementThinkingProcessLabel(draft.ThinkingProcess),
+		" · ",
+		managementCopy("management.integrations.enabled.count", enabled, len(capabilities)),
+	)
 }
 
 func managementKeyValueRowElement(label, value any) cardElement {
@@ -220,44 +381,149 @@ func managementVerticalSummaryElement(elementID string, rows ...cardElement) car
 	return cardElement{Tag: "column_set", ElementID: elementID, FlexMode: "none", Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, Direction: "vertical", VerticalAlign: "top", VerticalSpacing: "4px", BackgroundStyle: "grey-50", Padding: "8px 12px 8px 12px", Elements: rows}}}
 }
 
-func managementOverviewActionElements(state managementState) []cardElement {
-	items := []managementButton{
-		{Text: managementCopy("management.system.status"), Type: "default", Action: managementActionSystemMaintenance, Name: "amux.overview.system", Icon: managementIconPtr("setting_outlined", "grey")},
-		{Text: managementCopy("management.assistant.settings"), Type: "primary", Action: managementActionSettingsOpen, Name: "amux.overview.settings", Icon: managementIconPtr("setting_outlined", "blue")},
-		{Text: managementCopy("management.expert.library"), Type: "default", Action: managementActionPackLibraryOpen, Name: "amux.overview.library", Icon: managementIconPtr("robot_outlined", "grey")},
-		{Text: managementCopy("management.experiments"), Type: "default", Action: managementActionExperimentsOpen, Name: "amux.overview.experiments", Icon: managementIconPtr("setting_outlined", "grey")},
-		{Text: guideCopy("title"), Type: "default", Action: managementActionGuideOpen, Name: "amux.overview.guide", Icon: managementIconPtr("info_outlined", "grey")},
-		{Text: managementCopy("management.help"), Type: "default", Action: managementActionHelpOpen, Name: "amux.overview.help", Icon: managementIconPtr("info_outlined", "grey")},
-		{Text: discoveryCopy("title"), Type: "default", Action: capabilityAction + "open", Name: "amux.overview.discovery", Icon: managementIconPtr("info_outlined", "grey")},
-		{Text: managementCopy("management.console.title"), Type: "default", Action: managementActionConsoleOpen, Name: "amux.overview.console", Icon: managementIconPtr("setting_outlined", "grey")},
-	}
-	if state.SystemStatus != managementSystemHealthy || state.Update.ShouldPrompt {
-		items[0].Type = "primary"
-		items[0].Icon = managementIconPtr("setting_outlined", "blue")
-		items[1].Type = "default"
-		items[1].Icon = managementIconPtr("setting_outlined", "grey")
-	}
-	if state.SystemStatus == managementSystemHealthy && state.Update.ShouldPrompt {
-		items[0].Text = managementCopy("management.view.update")
-	}
-	rows := make([]cardElement, 0, 2)
-	for start := 0; start < len(items); start += 3 {
-		columns := make([]cardColumn, 0, 3)
-		for _, item := range items[start:min(len(items), start+3)] {
-			button := managementButtonElement(item)
-			button.Width = "fill"
-			columns = append(columns, cardColumn{Tag: "column", Width: "weighted", Weight: 1, HorizontalAlign: "center", Elements: []cardElement{button}})
+type managementOverviewTile struct {
+	Title    any
+	Subtitle any
+	Action   string
+	Name     string
+	Icon     *cardIcon
+}
+
+func managementOverviewQuickActionElements(state managementState) []cardElement {
+	capabilities := managementCapabilityViews(state)
+	enabled := 0
+	for _, c := range capabilities {
+		if c.Enabled {
+			enabled++
 		}
-		id := "amux_overview_actions"
-		if start > 0 {
-			id += "_more"
-		}
-		if start > 3 {
-			id += "_" + strconv.Itoa(start/3)
-		}
-		rows = append(rows, cardElement{Tag: "column_set", ElementID: id, FlexMode: "none", HorizontalSpacing: "8px", Columns: columns})
 	}
-	return rows
+	row1 := managementOverviewTileGridRow("amux_overview_actions", []managementOverviewTile{
+		{
+			Title:    managementCopy("management.expert.library"),
+			Subtitle: managementCopy("management.tile.library.desc"),
+			Action:   managementActionPackLibraryOpen,
+			Name:     "amux.overview.library",
+			Icon:     managementIconPtr("robot_outlined", "blue"),
+		},
+		{
+			Title:    discoveryCopy("title"),
+			Subtitle: managementCopy("management.tile.discovery.desc"),
+			Action:   capabilityAction + "open",
+			Name:     "amux.overview.discovery",
+			Icon:     managementIconPtr("app-default_outlined", "purple"),
+		},
+	})
+	row2 := managementOverviewTileGridRow("amux_overview_actions_more", []managementOverviewTile{
+		{
+			Title:    managementCopy("management.integrations"),
+			Subtitle: managementCopy("management.integrations.enabled.count", enabled, len(capabilities)),
+			Action:   managementActionCapabilitiesOpen,
+			Name:     "amux.overview.capabilities",
+			Icon:     managementIconPtr("setting_outlined", "green"),
+		},
+		{
+			Title:    managementCopy("management.console.title"),
+			Subtitle: managementCopy("management.tile.console.desc"),
+			Action:   managementActionConsoleOpen,
+			Name:     "amux.overview.console",
+			Icon:     managementIconPtr("version_outlined", "blue"),
+		},
+	})
+	return []cardElement{row1, row2}
+}
+
+func managementOverviewTileGridRow(elementID string, tiles []managementOverviewTile) cardElement {
+	columns := make([]cardColumn, 0, len(tiles))
+	for _, tile := range tiles {
+		container := cardElement{
+			Tag:             "interactive_container",
+			Width:           "fill",
+			BackgroundStyle: "grey-50",
+			HasBorder:       true,
+			BorderColor:     "grey-200",
+			CornerRadius:    "8px",
+			Padding:         "8px 10px 8px 10px",
+			Direction:       "vertical",
+			VerticalSpacing: "2px",
+			Behaviors: []cardBehavior{{
+				Type:  "callback",
+				Value: managementButtonValue(managementButton{Action: tile.Action, Name: tile.Name}),
+			}},
+			Elements: []cardElement{
+				managementTextElement(tile.Title, "normal", "default", tile.Icon),
+				managementTextElement(tile.Subtitle, "notation", "grey", nil),
+			},
+		}
+		columns = append(columns, cardColumn{Tag: "column", Width: "weighted", Weight: 1, Elements: []cardElement{container}})
+	}
+	return cardElement{Tag: "column_set", ElementID: elementID, FlexMode: "none", HorizontalSpacing: "8px", Columns: columns}
+}
+
+func managementOverviewSecondaryRowElement(state managementState) cardElement {
+	systemSpec := managementButton{
+		Text:   managementCopy("management.system.status"),
+		Type:   "text",
+		Action: managementActionSystemMaintenance,
+		Name:   "amux.overview.system",
+		Icon:   managementIconPtr("check_outlined", "green"),
+	}
+	if state.SystemStatus != managementSystemHealthy {
+		systemSpec.Type = "primary"
+		systemSpec.Icon = managementIconPtr("warning_outlined", "blue")
+	} else if state.Update.ShouldPrompt {
+		systemSpec.Text = managementCopy("management.view.update")
+		systemSpec.Type = "primary"
+		systemSpec.Icon = managementIconPtr("version_outlined", "blue")
+	}
+	systemButton := managementButtonElement(systemSpec)
+	systemButton.Size = "small"
+	experimentsButton := managementButtonElement(managementButton{
+		Text:   managementCopy("management.experiments"),
+		Type:   "text",
+		Action: managementActionExperimentsOpen,
+		Name:   "amux.overview.experiments",
+		Icon:   managementIconPtr("version_outlined", "grey"),
+	})
+	experimentsButton.Size = "small"
+	guideButton := managementButtonElement(managementButton{
+		Text:   guideCopy("title"),
+		Type:   "text",
+		Action: managementActionGuideOpen,
+		Name:   "amux.overview.guide",
+		Icon:   managementIconPtr("info_outlined", "grey"),
+	})
+	guideButton.Size = "small"
+	helpButton := managementButtonElement(managementButton{
+		Text:   managementCopy("management.help"),
+		Type:   "text",
+		Action: managementActionHelpOpen,
+		Name:   "amux.overview.help",
+		Icon:   managementIconPtr("info_outlined", "grey"),
+	})
+	helpButton.Size = "small"
+	return cardElement{
+		Tag:               "column_set",
+		ElementID:         "amux_overview_secondary",
+		FlexMode:          "flow",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{systemButton}},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{experimentsButton}},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{guideButton}},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{helpButton}},
+		},
+	}
+}
+
+func managementOverviewButtonGridRow(elementID string, items []managementButton) cardElement {
+	columns := make([]cardColumn, 0, len(items))
+	for _, item := range items {
+		button := managementButtonElement(item)
+		button.Size = "small"
+		button.Width = "fill"
+		columns = append(columns, cardColumn{Tag: "column", Width: "weighted", Weight: 1, HorizontalAlign: "center", Elements: []cardElement{button}})
+	}
+	return cardElement{Tag: "column_set", ElementID: elementID, FlexMode: "none", HorizontalSpacing: "6px", Columns: columns}
 }
 
 func marshalNativeManagementCard(view managementCardView) string {
@@ -282,7 +548,7 @@ func marshalNativeManagementCard(view managementCardView) string {
 	doc.Body.VerticalSpacing = "8px"
 	doc.Body.Padding = "12px 16px 16px 16px"
 	if strings.TrimSpace(managementDefaultText(view.Title)) != "" {
-		header := &cardHeader{Title: managementPlainText(view.Title), Template: valueOrPlaceholder(view.Theme, "default"), Padding: "8px 16px 8px 16px"}
+		header := &cardHeader{Title: managementPlainText(view.Title), Template: valueOrPlaceholder(view.Theme, "default"), TextTagList: view.Tags, Padding: "8px 16px 8px 16px"}
 		if strings.TrimSpace(view.Icon.Token) != "" {
 			icon := view.Icon
 			header.Icon = &icon
@@ -360,7 +626,15 @@ func managementCompactSummaryElement(items ...managementSummaryItem) cardElement
 }
 
 func managementMaintenanceDetailsElement(state managementState) cardElement {
-	return managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.message.handling.summary"), Body: managementModeSummary(managementDraftFromState(state))}, managementSummaryItem{Title: managementCopy("management.version"), Body: managementValueOrPlaceholder(state.SystemInfo.Version, managementCopy("management.unknown"))}, managementSummaryItem{Title: managementCopy("management.uptime"), Body: managementUptimeText(state.SystemInfo.StartedAt, time.Now())}, managementSummaryItem{Title: managementCopy("management.connected.assistants"), Body: managementCopy("management.d", state.SystemInfo.BotCount)}, managementSummaryItem{Title: managementCopy("management.hub.host.ip"), Body: managementValueOrPlaceholder(state.SystemInfo.HubIP, managementCopy("management.unknown"))})
+	card := managementKeyValueListElement("amux_maintenance_details",
+		managementSummaryItem{Title: managementCopy("management.message.handling.summary"), Body: managementModeSummary(managementDraftFromState(state))},
+		managementSummaryItem{Title: managementCopy("management.version"), Body: managementValueOrPlaceholder(state.SystemInfo.Version, managementCopy("management.unknown"))},
+		managementSummaryItem{Title: managementCopy("management.uptime"), Body: managementUptimeText(state.SystemInfo.StartedAt, time.Now())},
+		managementSummaryItem{Title: managementCopy("management.connected.assistants"), Body: managementCopy("management.d", state.SystemInfo.BotCount)},
+		managementSummaryItem{Title: managementCopy("management.hub.host.ip"), Body: managementValueOrPlaceholder(state.SystemInfo.HubIP, managementCopy("management.unknown"))},
+	)
+	card.Columns[0].BackgroundStyle = "blue-50"
+	return card
 }
 
 func managementSettingsEditorElements(state managementState, name string, draft managementSettingsDraft, submitAction string, submitText any, cancelAction string, trailingAction *managementButton, leftHint cardElement) []cardElement {
@@ -408,7 +682,6 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	if len(profileOptions) > 0 {
 		profileField = managementSelectStaticElement("default_agent", managementCopy("management.search.experts.libraries.or.descriptions"), draft.DefaultAgent, profileOptions)
 		profileField.Required = false
-		profileField.Behaviors = draftChangeBehavior("default_agent")
 	}
 	runtimeOptions := managementRuntimeOptions(state)
 	runtimeField := managementSelectStaticElement("default_runtime_ref", managementCopy("management.choose.a.runtime"), draft.DefaultRuntimeRef, runtimeOptions)
@@ -440,15 +713,12 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	}
 	reasoningField := managementSelectStaticElement("default_reasoning_effort", managementCopy("management.choose.reasoning.effort"), initialReasoningEffort, reasoningOptions)
 	reasoningField.Required = false
-	reasoningField.Behaviors = draftChangeBehavior("default_reasoning_effort")
 	thinkingProcessField := managementSelectStaticElement("thinking_process", managementCopy("management.choose.how.activity.is.displayed"), draft.ThinkingProcess, []cardOption{
 		{Text: managementStyledText(managementCopy("management.collapsed.default"), cardTitle{Tag: "plain_text"}), Value: config.FeishuThinkingProcessCollapsed},
 		{Text: managementStyledText(managementCopy("management.expanded"), cardTitle{Tag: "plain_text"}), Value: config.FeishuThinkingProcessExpanded},
 		{Text: managementStyledText(managementCopy("management.hidden"), cardTitle{Tag: "plain_text"}), Value: config.FeishuThinkingProcessHidden},
 	})
 	thinkingProcessField.Required = false
-	thinkingProcessField.Behaviors = draftChangeBehavior("thinking_process")
-	hintRow := cardElement{Tag: "column_set", FlexMode: "none", HorizontalSpacing: "16px", Columns: []cardColumn{managementSettingsHintColumn(leftHint), managementSettingsHintColumn(managementProfileLibraryHintElement(state))}}
 	profileRow := cardElement{Tag: "column_set", FlexMode: "none", Columns: []cardColumn{managementSettingsFieldColumn(managementCopy("management.default.expert"), profileField)}}
 	runtimeRow := cardElement{Tag: "column_set", FlexMode: "none", Columns: []cardColumn{managementSettingsFieldColumn(managementCopy("management.runtime.new.sessions.only"), runtimeField)}}
 	interactionRow := cardElement{Tag: "column_set", FlexMode: "none", Columns: []cardColumn{managementSettingsFieldColumn(managementCopy("management.message.handling.question"), interactionSelect)}}
@@ -456,24 +726,25 @@ func managementSettingsEditorElements(state managementState, name string, draft 
 	reasoningRow := cardElement{Tag: "column_set", FlexMode: "none", Columns: []cardColumn{managementSettingsFieldColumn(managementCopy("management.reasoning.effort.new.sessions.only"), reasoningField)}}
 	thinkingProcessRow := cardElement{Tag: "column_set", FlexMode: "none", Columns: []cardColumn{managementSettingsFieldColumn(managementCopy("management.activity.display"), thinkingProcessField)}}
 	buttons.Margin = "4px 0px 0px 0px"
-	form := cardElement{Tag: "form", Name: name, Direction: "vertical", VerticalSpacing: "8px", Elements: []cardElement{buttons}}
 	values := map[string]string{"interaction": draft.Interaction, "default_agent": draft.DefaultAgent, "default_runtime_ref": draft.DefaultRuntimeRef, "default_model_ref": draft.DefaultModelRef, "default_reasoning_effort": draft.DefaultReasoningEffort, "thinking_process": draft.ThinkingProcess, "daily_cleanup": draft.DailyCleanup}
-	elements := []cardElement{hintRow, profileRow, runtimeRow, modelRow}
 	if submitAction == guideSave {
-		elements = []cardElement{runtimeRow, modelRow}
+		form := cardElement{Tag: "form", Name: name, Direction: "vertical", VerticalSpacing: "8px", Elements: []cardElement{reasoningRow, buttons}}
+		elements := []cardElement{runtimeRow, modelRow}
+		elements = append(elements, modelServiceElements(state, draft.DefaultRuntimeRef, values, draftChangeAction)...)
+		return append(elements, form)
 	}
+	elements := []cardElement{leftHint, managementProfileLibraryHintElement(state), runtimeRow, modelRow}
 	elements = append(elements, modelServiceElements(state, draft.DefaultRuntimeRef, values, draftChangeAction)...)
-	if submitAction == guideSave {
-		return append(elements, reasoningRow, form)
-	}
-	elements = append(elements, reasoningRow, interactionRow)
+	elements = append(elements, interactionRow)
+	formElements := []cardElement{profileRow, reasoningRow}
 	if managementUsesThreadRouting(draft.Interaction) {
 		field := managementSelectStaticElement("daily_cleanup", managementCopy("cleanup.choose"), dailyCleanupInitial(draft.DailyCleanup), dailyCleanupOptions())
 		field.Required = false
-		field.Behaviors = draftChangeBehavior("daily_cleanup")
-		elements = append(elements, managementTextElement(managementConcat(managementCopy("cleanup.title"), " · ", managementCopy("cleanup.hint")), "notation", "grey", nil), field)
+		formElements = append(formElements, managementTextElement(managementConcat(managementCopy("cleanup.title"), " · ", managementCopy("cleanup.hint")), "notation", "grey", nil), field)
 	}
-	return append(elements, thinkingProcessRow, form)
+	formElements = append(formElements, thinkingProcessRow, buttons)
+	form := cardElement{Tag: "form", Name: name, Direction: "vertical", VerticalSpacing: "8px", Elements: formElements}
+	return append(elements, form)
 }
 
 func managementRuntimeOptions(state managementState) []cardOption {
@@ -876,6 +1147,7 @@ type managementCardView struct {
 	Summary  any
 	Theme    string
 	Icon     cardIcon
+	Tags     []cardTextTag
 	Elements []cardElement
 	Buttons  []managementButton
 }

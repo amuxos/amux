@@ -257,8 +257,8 @@ func TestManagementCardActionDirectlyOpensSettingsEditCard(t *testing.T) {
 	if resp == nil || resp.Toast == nil || resp.Toast.Type != "success" {
 		t.Fatalf("response = %#v, want success toast", resp)
 	}
-	if resp.Card != nil {
-		t.Fatalf("response card = %#v, want async DM card instead of callback replacement", resp.Card)
+	if resp.Card == nil || resp.Card.Type != "raw" {
+		t.Fatalf("response card = %#v, want direct raw card replacement", resp.Card)
 	}
 	if !strings.Contains(resp.Toast.Content, "助手设置") {
 		t.Fatalf("toast = %q, want settings hint", resp.Toast.Content)
@@ -2260,8 +2260,8 @@ func TestManagementCapabilityNavigationUsesFocusedCards(t *testing.T) {
 	}{
 		{
 			action:    managementActionCapabilitiesOpen,
-			want:      []string{"接入能力", "返回概览", "返回助手设置", "云文档评论", "已关闭", "打开设置", managementActionDocumentCommentsOpen},
-			notWant:   []string{managementActionDocumentCommentsSet},
+			want:      []string{"接入能力", "返回概览", "云文档评论", "已关闭", "打开设置", managementActionDocumentCommentsOpen},
+			notWant:   []string{"返回助手设置", managementActionDocumentCommentsSet},
 			wantToast: "已打开接入能力",
 		},
 		{
@@ -2683,13 +2683,17 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 	}
 	for _, want := range []string{
 		`"content":"amux"`,
+		"刷新",
 		"当前配置",
-		"管理",
-		"重新发送 /amux 刷新状态",
-		"实验功能",
-		"助手设置",
+		"常用入口",
+		"修改配置",
 		"专家库",
+		"能力广场",
+		"接入能力",
+		"Web管理后台",
 		"系统状态",
+		"实验功能",
+		"新手引导",
 		"使用帮助",
 		`"` + managementSurfaceKey + `":"navigation"`,
 	} {
@@ -2697,16 +2701,22 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 			t.Fatalf("/amux card = %s, want %q", sentCard, want)
 		}
 	}
-	for _, unwanted := range []string{`"element_id":"amux_navigation"`, `"content":"概览"`, `"content":"当前助手"`} {
+	for _, unwanted := range []string{`"element_id":"amux_navigation"`, `"content":"概览"`, `"content":"当前助手"`, `"重新发送 /amux 刷新状态"`} {
 		if strings.Contains(sentCard, unwanted) {
 			t.Fatalf("/amux card = %s, should omit %q", sentCard, unwanted)
 		}
 	}
 	for action, wantCount := range map[string]int{
-		managementActionSettingsOpen:      1,
+		managementActionStatusOpen:        1,
+		managementActionSettingsEdit:      1,
+		managementActionCapabilitiesOpen:  1,
 		managementActionPackLibraryOpen:   1,
 		managementActionSystemMaintenance: 1,
+		managementActionExperimentsOpen:   1,
+		managementActionGuideOpen:         1,
 		managementActionHelpOpen:          1,
+		managementActionConsoleOpen:       1,
+		capabilityAction + "open":         1,
 	} {
 		if got := strings.Count(sentCard, action); got != wantCount {
 			t.Fatalf("/amux action %q count = %d, want %d", action, got, wantCount)
@@ -2716,23 +2726,42 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 	if err := json.Unmarshal([]byte(sentCard), &doc); err != nil {
 		t.Fatalf("unmarshal /amux card: %v", err)
 	}
+	foundStatus := false
+	foundConfigHeader := false
 	foundConfig := false
 	foundActionRows := 0
-	for index, element := range doc.Body.Elements {
-		if element.ElementID == "amux_overview_config" {
+	foundSecondary := false
+	foundLanguage := false
+	wantGridRows := [][]string{
+		{managementActionPackLibraryOpen, capabilityAction + "open"},
+		{managementActionCapabilitiesOpen, managementActionConsoleOpen},
+	}
+	for _, element := range doc.Body.Elements {
+		switch {
+		case element.ElementID == "amux_overview_status":
+			foundStatus = true
+			if element.FlexMode != "none" || len(element.Columns) != 2 {
+				t.Fatalf("/amux status = %#v, want two-column compact status strip", element)
+			}
+			refresh := element.Columns[1].Elements[0]
+			if refresh.Tag != "button" || refresh.Type != "text" || refresh.Size != "small" {
+				t.Fatalf("/amux refresh button = %#v, want small text refresh button", refresh)
+			}
+		case element.ElementID == "amux_overview_config_header":
+			foundConfigHeader = true
+			if element.FlexMode != "none" || len(element.Columns) != 2 || managementTextContent(element.Columns[0].Elements[0]) != "当前配置" {
+				t.Fatalf("/amux config header = %#v, want title + edit button", element)
+			}
+		case element.ElementID == "amux_overview_config":
 			foundConfig = true
-			if index != 4 || element.FlexMode != "none" || len(element.Columns) != 1 {
-				t.Fatalf("/amux config = %#v at %d, want one vertical container after current config heading", element, index)
+			if element.FlexMode != "none" || len(element.Columns) != 1 {
+				t.Fatalf("/amux config = %#v, want one vertical container", element)
 			}
 			column := element.Columns[0]
-			if column.BackgroundStyle != "blue-50" || column.Direction != "vertical" || column.VerticalSpacing != "4px" || len(column.Elements) != 7 {
-				t.Fatalf("/amux config column = %#v, want seven compact vertical rows", column)
+			if column.BackgroundStyle != "blue-50" || column.Direction != "vertical" || column.VerticalSpacing != "4px" || len(column.Elements) != 4 {
+				t.Fatalf("/amux config column = %#v, want four compact vertical rows", column)
 			}
-			workspace := column.Elements[1]
-			if workspace.Tag != "div" || workspace.Text == nil || workspace.Text.TextSize != "notation" || workspace.Text.TextColor != "grey" || workspace.Icon == nil || workspace.Icon.Token != "info_outlined" || !strings.HasPrefix(workspace.Text.Content, "每个新话题") {
-				t.Fatalf("/amux workspace row = %#v, want standalone grey notation with info icon", workspace)
-			}
-			for rowIndex, label := range map[int]string{0: "处理方式", 2: "默认专家", 3: "运行引擎", 4: "默认模型", 5: "思考强度", 6: "处理过程展示"} {
+			for rowIndex, label := range []string{"默认专家", "引擎与模型", "处理方式", "过程与接入"} {
 				row := column.Elements[rowIndex]
 				if row.Tag != "column_set" || row.FlexMode != "none" || row.HorizontalSpacing != "8px" || len(row.Columns) != 2 {
 					t.Fatalf("/amux config row %d = %#v, want two-column label/value row", rowIndex, row)
@@ -2746,34 +2775,48 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 					t.Fatalf("/amux config row %d value = %#v, want normal default text", rowIndex, valueElement)
 				}
 			}
-		}
-		if strings.HasPrefix(element.ElementID, "amux_overview_actions") {
-			row := foundActionRows
-			foundActionRows++
-			wantActions := []string{managementActionSystemMaintenance, managementActionSettingsOpen, managementActionPackLibraryOpen, managementActionExperimentsOpen, managementActionGuideOpen, managementActionHelpOpen, capabilityAction + "open", managementActionConsoleOpen}
-			if index != 7+row || element.FlexMode != "none" || len(element.Columns) != min(3, len(wantActions)-row*3) {
-				t.Fatal("overview rows must contain at most three actions")
+		case strings.HasPrefix(element.ElementID, "amux_overview_actions"):
+			if foundActionRows >= len(wantGridRows) {
+				t.Fatalf("unexpected extra overview action row %q", element.ElementID)
 			}
-			for actionIndex, wantAction := range wantActions[row*3 : min(len(wantActions), row*3+3)] {
-				button := element.Columns[actionIndex].Elements[0]
-				var value map[string]string
-				if err := json.Unmarshal(button.Value, &value); err != nil || value[managementActionKey] != wantAction {
-					t.Fatalf("/amux action %d = %#v value=%#v err=%v, want %q", actionIndex, button, value, err, wantAction)
+			wantActions := wantGridRows[foundActionRows]
+			foundActionRows++
+			if element.FlexMode != "none" || len(element.Columns) != 2 {
+				t.Fatalf("overview action row %q = %#v, want 2-column grid row", element.ElementID, element)
+			}
+			for actionIndex, wantAction := range wantActions {
+				tile := element.Columns[actionIndex].Elements[0]
+				if tile.Tag != "interactive_container" || len(tile.Behaviors) == 0 || tile.Behaviors[0].Value[managementActionKey] != wantAction {
+					t.Fatalf("/amux action %d = %#v, want interactive_container with action %q", actionIndex, tile, wantAction)
 				}
 			}
+		case element.ElementID == "amux_overview_secondary":
+			foundSecondary = true
+			if element.FlexMode != "flow" || len(element.Columns) != 4 {
+				t.Fatalf("/amux secondary row = %#v, want four compact flow actions", element)
+			}
+			for _, col := range element.Columns {
+				btn := col.Elements[0]
+				if btn.Tag != "button" || btn.Size != "small" {
+					t.Fatalf("/amux secondary button = %#v, want small button", btn)
+				}
+			}
+		case element.ElementID == "amux_overview_language":
+			foundLanguage = true
+			if element.FlexMode != "none" || len(element.Columns) != 2 {
+				t.Fatalf("/amux language row = %#v, want compact two-column row", element)
+			}
+			sel := element.Columns[1].Elements[0]
+			if sel.Tag != "select_static" || sel.Type != "text" || sel.Width != "default" {
+				t.Fatalf("/amux language select = %#v, want borderless compact select", sel)
+			}
 		}
 	}
-	if len(doc.Body.Elements) != 12 || managementTextContent(doc.Body.Elements[3]) != "当前配置" || managementTextContent(doc.Body.Elements[6]) != "管理" {
-		t.Fatalf("/amux body = %#v, want status → current config → management hierarchy", doc.Body.Elements)
+	if button := findManagementButtonByAction(t, sentCard, managementActionExperimentsOpen); button.Type != "text" || button.Size != "small" || button.Icon == nil || button.Icon.Color != "grey" {
+		t.Fatalf("experiment entry = %#v, want quiet small text button with icon", button)
 	}
-	if managementTextContent(doc.Body.Elements[10]) != "重新发送 /amux 刷新状态" {
-		t.Fatal("refresh hint must precede the language selector")
-	}
-	if button := findManagementButtonByAction(t, sentCard, managementActionExperimentsOpen); button.Width != "fill" || button.Type != "default" || button.Icon == nil || button.Icon.Color != "grey" {
-		t.Fatalf("experiment entry = %#v, want full-width quiet management button with icon", button)
-	}
-	if !foundConfig || foundActionRows != 3 {
-		t.Fatalf("/amux card = %s, found config=%v action rows=%d", sentCard, foundConfig, foundActionRows)
+	if !foundStatus || !foundConfigHeader || !foundConfig || foundActionRows != 2 || !foundSecondary || !foundLanguage {
+		t.Fatalf("/amux card = %s, found status=%v header=%v config=%v actionRows=%d secondary=%v language=%v", sentCard, foundStatus, foundConfigHeader, foundConfig, foundActionRows, foundSecondary, foundLanguage)
 	}
 	if b.isPrivateManagementCommand("/amux1") {
 		t.Fatal("/amux1 must be removed from owner private management commands")
@@ -2782,29 +2825,30 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 
 func TestManagementOverviewKeepsOneStatusBlockAndPromotesSystemOnlyWhenAttention(t *testing.T) {
 	healthy := renderManagementOverviewCard(managementState{
-		Mode:         config.FeishuInteractionThread,
-		SystemStatus: managementSystemHealthy,
-		Targets:      2,
+		Mode:                   config.FeishuInteractionThread,
+		SystemStatus:           managementSystemHealthy,
+		Targets:                2,
+		DefaultReasoningEffort: "high",
 	})
 	for _, want := range []string{
+		"可用运行环境 2 个",
+		"2 runtimes available",
 		"运行正常",
-		"可用运行环境 2 个 · 可以开始任务",
-		`"template":"green"`,
+		"Healthy",
+		"常用入口",
+		`"template":"wathet"`,
 	} {
 		if !strings.Contains(healthy, want) {
 			t.Fatalf("healthy overview = %s, want %q", healthy, want)
 		}
 	}
-	if got := strings.Count(healthy, `"content":"运行正常"`); got != 1 {
-		t.Fatalf("healthy overview status count = %d, want one consolidated status block: %s", got, healthy)
+	if system := findManagementButtonByAction(t, healthy, managementActionSystemMaintenance); system.Type != "text" || system.Size != "small" || system.Icon == nil || system.Icon.Token != "check_outlined" || system.Icon.Color != "green" {
+		t.Fatalf("healthy system action = %#v, want small text action with green check icon", system)
 	}
-	if system := findManagementButtonByAction(t, healthy, managementActionSystemMaintenance); system.Type != "default" {
-		t.Fatalf("healthy system action = %#v, want equal-weight default action", system)
+	if edit := findManagementButtonByAction(t, healthy, managementActionSettingsEdit); edit.Type != "primary_text" || edit.Icon == nil || edit.Icon.Token != "edit_outlined" || edit.Icon.Color != "blue" {
+		t.Fatalf("healthy edit action = %#v, want primary_text blue edit action", edit)
 	}
-	if settings := findManagementButtonByAction(t, healthy, managementActionSettingsOpen); settings.Type != "primary" || settings.Icon == nil || settings.Icon.Color != "blue" {
-		t.Fatalf("healthy settings action = %#v, want the only blue primary action", settings)
-	}
-	for _, action := range []string{managementActionSystemMaintenance, managementActionPackLibraryOpen, managementActionHelpOpen} {
+	for _, action := range []string{managementActionExperimentsOpen, managementActionGuideOpen, managementActionHelpOpen} {
 		if button := findManagementButtonByAction(t, healthy, action); button.Icon == nil || button.Icon.Color != "grey" {
 			t.Fatalf("healthy secondary action %q = %#v, want quiet grey icon", action, button)
 		}
@@ -2823,13 +2867,33 @@ func TestManagementOverviewKeepsOneStatusBlockAndPromotesSystemOnlyWhenAttention
 			t.Fatalf("attention overview = %s, want %q", attention, want)
 		}
 	}
-	if system := findManagementButtonByAction(t, attention, managementActionSystemMaintenance); system.Type != "primary" || system.Icon == nil || system.Icon.Color != "blue" {
-		t.Fatalf("attention system action = %#v, want blue primary", system)
+	if system := findManagementButtonByAction(t, attention, managementActionSystemMaintenance); system.Type != "primary" || system.Icon == nil || system.Icon.Token != "warning_outlined" || system.Icon.Color != "blue" {
+		t.Fatalf("attention system action = %#v, want blue primary with warning icon", system)
 	}
-	for _, action := range []string{managementActionSettingsOpen, managementActionPackLibraryOpen, managementActionHelpOpen} {
-		if button := findManagementButtonByAction(t, attention, action); button.Type != "default" || button.Icon == nil || button.Icon.Color != "grey" {
-			t.Fatalf("attention secondary action %q = %#v, want quiet default", action, button)
-		}
+	if edit := findManagementButtonByAction(t, attention, managementActionSettingsEdit); edit.Type != "text" || edit.Icon == nil || edit.Icon.Color != "grey" {
+		t.Fatalf("attention edit action = %#v, want quiet text", edit)
+	}
+
+	withUpdate := renderManagementOverviewCard(managementState{
+		Mode:         config.FeishuInteractionSingleton,
+		SystemStatus: managementSystemHealthy,
+		Targets:      1,
+		BotSession:   &BotSession{Cwd: "/tmp/workspace"},
+		Update: ManagementUpdateInfo{
+			CurrentVersion:  "v1.0.0",
+			LatestVersion:   "v1.1.0",
+			UpdateAvailable: true,
+			ShouldPrompt:    true,
+		},
+	})
+	if !strings.Contains(withUpdate, "/tmp/workspace") || !strings.Contains(withUpdate, "1 runtime available") {
+		t.Fatalf("update/singleton overview = %s, want singleton cwd and singular runtime copy", withUpdate)
+	}
+	if system := findManagementButtonByAction(t, withUpdate, managementActionSystemMaintenance); system.Type != "primary" || system.Icon == nil || system.Icon.Token != "version_outlined" || system.Icon.Color != "blue" {
+		t.Fatalf("update system action = %#v, want blue primary with version icon", system)
+	}
+	if edit := findManagementButtonByAction(t, withUpdate, managementActionSettingsEdit); edit.Type != "text" || edit.Icon == nil || edit.Icon.Color != "grey" {
+		t.Fatalf("update edit action = %#v, want quiet text", edit)
 	}
 }
 
@@ -2920,7 +2984,6 @@ func TestAmuxAssistantUsesStableBackActionAndFocusedEditFlow(t *testing.T) {
 			}
 		}
 		findManagementButtonByAction(t, card, managementActionStatusOpen)
-		findManagementButtonByAction(t, card, managementActionSettingsOpen)
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for /amux settings edit patch")
 	}
@@ -2972,10 +3035,10 @@ func TestAmuxAssistantUsesStableBackActionAndFocusedEditFlow(t *testing.T) {
 	// cancellation. Wait for its summary instead of treating that older patch
 	// as the cancellation's result.
 	card := waitForManagementCard(t, patched, func(card string) bool {
-		return strings.Contains(card, `"element_id":"amux_settings_task_defaults"`)
+		return strings.Contains(card, `"element_id":"amux_overview_config"`)
 	})
-	if card == "" || !strings.Contains(card, "返回概览") || strings.Contains(card, `"element_id":"amux_navigation"`) || strings.Contains(card, `"tag":"form"`) {
-		t.Fatalf("settings cancel patch = %s, want stable settings summary", card)
+	if card == "" || strings.Contains(card, `"element_id":"amux_management_back"`) || strings.Contains(card, `"element_id":"amux_navigation"`) || strings.Contains(card, `"tag":"form"`) {
+		t.Fatalf("settings cancel patch = %s, want overview card", card)
 	}
 }
 
@@ -3067,6 +3130,15 @@ func findManagementButtonByAction(t *testing.T, card, action string) cardElement
 					copy := *element
 					found = &copy
 					return
+				}
+			}
+			if element.Tag == "interactive_container" {
+				for _, behavior := range element.Behaviors {
+					if behavior.Type == "callback" && behavior.Value[managementActionKey] == action {
+						copy := *element
+						found = &copy
+						return
+					}
 				}
 			}
 			visit(element.Actions)

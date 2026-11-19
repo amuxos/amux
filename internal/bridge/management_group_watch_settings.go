@@ -236,7 +236,7 @@ func renderGroupWatchEditorPages(state managementState, draft managementGroupWat
 		elements = append(elements, cardElement{Tag: "form", Name: "group_watch_form", Direction: "vertical", VerticalSpacing: "8px", Elements: form})
 		return marshalNativeManagementCard(managementCardView{
 			Title: managementCopy("management.edit.watch.task.settings"), Subtitle: managementConcat(managementValueOrPlaceholder(draft.ChatName, managementCopy("management.unnamed.group")), " · ", draft.ChatID),
-			Summary: managementCopy("management.edit.group.watch.task.settings"), Theme: "blue", Icon: managementIcon("edit_outlined", "blue"), Elements: elements,
+			Summary: managementCopy("management.edit.group.watch.task.settings"), Theme: "wathet", Icon: managementIcon("edit_outlined", "blue"), Elements: elements,
 			Buttons: []managementButton{{Text: managementCopy("management.cancel"), Type: "default", Action: managementActionGroupWatchOpen}},
 		})
 	}

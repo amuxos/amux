@@ -56,6 +56,9 @@ func scheduleStatus(e schedule.Entry) any {
 	return scheduleText("status." + status)
 }
 func scheduleSummary(entries []schedule.Entry) any {
+	if len(entries) == 0 {
+		return scheduleText("none")
+	}
 	enabled, running, attention := 0, 0, 0
 	completed, failed, missed := 0, 0, 0
 	for _, e := range entries {
@@ -75,10 +78,18 @@ func scheduleSummary(entries []schedule.Entry) any {
 	return managementConcat(scheduleText("summary", enabled, running, attention), "\n", scheduleText("recent", completed, failed, missed))
 }
 func renderSchedules(entries []schedule.Entry, filter string, page int) string {
+	if filter == "" {
+		filter = "all"
+	}
 	elements := []cardElement{scheduleBackToOverview(), managementDividerElement(), managementTextElement(scheduleSummary(entries), "normal", "default", nil), managementTextElement(scheduleText("policy"), "notation", "grey", nil)}
 	var filters []cardElement
 	for _, f := range []string{"all", "attention", "running", "paused"} {
-		filters = append(filters, scheduleButton("filter."+f, "list", 0, map[string]string{"filter": f}))
+		btn := scheduleButton("filter."+f, "list", 0, map[string]string{"filter": f})
+		btn.Size = "small"
+		if f == filter {
+			btn.Type = "primary"
+		}
+		filters = append(filters, btn)
 	}
 	elements = append(elements, managementFormButtonRowElement(filters...))
 	sort.SliceStable(entries, func(i, j int) bool {
@@ -118,20 +129,47 @@ func renderSchedules(entries []schedule.Entry, filter string, page int) string {
 	page = max(0, min(page, pages-1))
 	end := min(len(rows), (page+1)*10)
 	for _, e := range rows[page*10 : end] {
-		elements = append(elements, managementDividerElement(), managementTextElement(scheduleName(e.Task), "heading-3", "default", nil), managementTextElement(scheduleStatus(e), "normal", "default", nil), managementTextElement(scheduleText("next", scheduleNext(e)), "notation", "grey", nil), scheduleButton("detail", "detail", e.Task.ID, nil))
+		detailBtn := scheduleButton("detail", "detail", e.Task.ID, nil)
+		detailBtn.Type = "primary_text"
+		detailBtn.Size = "small"
+		header := cardElement{
+			Tag:               "column_set",
+			FlexMode:          "none",
+			HorizontalSpacing: "8px",
+			Columns: []cardColumn{
+				{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(scheduleName(e.Task), "normal", "default", nil)}},
+				{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{detailBtn}},
+			},
+		}
+		item := managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_%d", e.Task.ID),
+			header,
+			managementTextElement(scheduleStatus(e), "notation", "default", nil),
+			managementTextElement(scheduleText("next", scheduleNext(e)), "notation", "grey", nil),
+		)
+		item.Columns[0].VerticalSpacing = "2px"
+		elements = append(elements, item)
 	}
 	if len(rows) == 0 {
 		elements = append(elements, managementTextElement(scheduleText("empty"), "normal", "grey", nil))
 	}
-	elements = append(elements, managementTextElement(scheduleText("page", page+1, pages, scheduleTime(time.Now().Unix())), "notation", "grey", nil))
+	pageColumns := []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(scheduleText("page", page+1, pages, scheduleTime(time.Now().Unix())), "notation", "grey", nil)}}}
 	if page > 0 {
-		elements = append(elements, scheduleButton("previous", "list", 0, map[string]string{"page": strconv.Itoa(page - 1), "filter": filter}))
+		prev := scheduleButton("previous", "list", 0, map[string]string{"page": strconv.Itoa(page - 1), "filter": filter})
+		prev.Size = "small"
+		pageColumns = append(pageColumns, cardColumn{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{prev}})
 	}
 	if page+1 < pages {
-		elements = append(elements, scheduleButton("next_page", "list", 0, map[string]string{"page": strconv.Itoa(page + 1), "filter": filter}))
+		next := scheduleButton("next_page", "list", 0, map[string]string{"page": strconv.Itoa(page + 1), "filter": filter})
+		next.Size = "small"
+		pageColumns = append(pageColumns, cardColumn{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{next}})
 	}
-	elements = append(elements, scheduleButton("refresh", "list", 0, map[string]string{"page": strconv.Itoa(page), "filter": filter}))
-	return marshalNativeManagementCard(managementCardView{Title: scheduleText("title"), Summary: scheduleText("title"), Theme: "blue", Elements: elements})
+	refresh := scheduleButton("refresh", "list", 0, map[string]string{"page": strconv.Itoa(page), "filter": filter})
+	refresh.Size = "small"
+	refresh.Type = "text"
+	refresh.Icon = managementIconPtr("refresh_outlined", "grey")
+	pageColumns = append(pageColumns, cardColumn{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{refresh}})
+	elements = append(elements, cardElement{Tag: "column_set", FlexMode: "none", HorizontalSpacing: "8px", Columns: pageColumns})
+	return marshalNativeManagementCard(managementCardView{Title: scheduleText("title"), Summary: scheduleText("title"), Theme: "wathet", Icon: managementIcon("setting_outlined", "blue"), Elements: elements})
 }
 func renderScheduleDetail(e schedule.Entry, result bool, pages ...int) string {
 	page := 0
@@ -143,9 +181,14 @@ func renderScheduleDetail(e schedule.Entry, result bool, pages ...int) string {
 	elements := []cardElement{managementTextElement(scheduleName(e.Task), "heading-3", "default", nil), managementTextElement(scheduleStatus(e), "normal", "default", nil), managementTextElement(scheduleText("recipient"), "notation", "grey", nil), managementTextElement(e.Task.Spec, "normal", "default", nil), managementTextElement(scheduleText("next", scheduleNext(e)), "normal", "default", nil), managementTextElement(scheduleText("last_completed", scheduleTime(v.LastCompletedAt)), "normal", "default", nil)}
 	back := managementNavigationBackElement(scheduleText("back"), "schedule.list", "schedule.back.list")
 	if result {
-		back = managementButtonRowElement([]managementButton{{Text: scheduleText("back_detail"), Type: "default", Action: "schedule.detail", Name: "schedule.back.detail", Values: map[string]string{"schedule_id": strconv.FormatInt(e.Task.ID, 10)}, Icon: managementIconPtr("left_outlined", "grey")}})
+		back = managementButtonRowElement([]managementButton{{Text: scheduleText("back_detail"), Type: "text", Action: "schedule.detail", Name: "schedule.back.detail", Values: map[string]string{"schedule_id": strconv.FormatInt(e.Task.ID, 10)}, Icon: managementIconPtr("left_outlined", "grey")}})
+		if len(back.Columns) > 0 && len(back.Columns[0].Elements) > 0 {
+			back.Columns[0].Elements[0].Size = "small"
+		}
 	}
-	elements = append([]cardElement{scheduleBackToOverview(), back, managementDividerElement()}, elements...)
+	breadcrumb := scheduleBackToOverview()
+	breadcrumb.Columns = append(breadcrumb.Columns, back.Columns...)
+	elements = append([]cardElement{breadcrumb, managementDividerElement()}, elements...)
 	if v.IncidentAt != 0 {
 		elements = append(elements, managementTextElement(scheduleText("incident", v.IncidentCount, scheduleTime(v.IncidentAt)), "normal", "orange", nil))
 	}
@@ -289,10 +332,9 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	}
 	// Never write a private view into a forwarded/shared card.
 	if privateCard {
-		b.updateManagementCardAtVersion(open, message, card, version)
-	} else {
-		err = b.sendManagementCardToDM(ctx, open, card)
+		return b.managementCardResponse(open, message, card, version, cardToast("success", scheduleText("updated"))), true, nil
 	}
+	err = b.sendManagementCardToDM(ctx, open, card)
 	return cardToast("success", scheduleText("updated")), true, err
 }
 func (b *Bridge) runScheduleNotices(ctx context.Context) {
@@ -512,7 +554,7 @@ func renderScheduleAlerts(entries []schedule.Entry, page int) string {
 		elements = append(elements, scheduleButton("next_page", "alerts", 0, map[string]string{"page": strconv.Itoa(page + 1)}))
 	}
 	elements = append(elements, scheduleButton("refresh", "alerts", 0, map[string]string{"page": strconv.Itoa(page)}))
-	return marshalNativeManagementCard(managementCardView{Title: scheduleText("alerts"), Summary: scheduleText("alerts"), Theme: "blue", Elements: elements})
+	return marshalNativeManagementCard(managementCardView{Title: scheduleText("alerts"), Summary: scheduleText("alerts"), Theme: "wathet", Icon: managementIcon("setting_outlined", "blue"), Elements: elements})
 }
 func (b *Bridge) sendScheduleNotice(ctx context.Context, n schedule.Notice, card string) (string, int, error) {
 	if n.MessageID != "" {

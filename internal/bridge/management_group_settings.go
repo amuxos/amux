@@ -552,7 +552,7 @@ func renderCurrentGroupSettingsCardWithNotice(state managementState, settings *G
 		}
 		buttons = append(buttons, watch)
 	}
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.current.group.settings"), Subtitle: managementCopy("management.manage.only.this.assistant.s.settings.in.this.group"), Summary: managementCopy("management.amux.current.group.settings"), Theme: "blue", Elements: elements, Buttons: buttons})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.current.group.settings"), Subtitle: managementCopy("management.manage.only.this.assistant.s.settings.in.this.group"), Summary: managementCopy("management.amux.current.group.settings"), Theme: "wathet", Icon: managementIcon("setting_outlined", "blue"), Elements: elements, Buttons: buttons})
 }
 
 // Feishu rejects a card above managementGroupSettingsLimitElements tagged nodes:
@@ -902,7 +902,7 @@ func renderGroupSettingsEditCardPage(draft managementGroupSettingsDraft, scope m
 	}
 	elements = append(elements, cardElement{Tag: "form", Name: "group_settings_form", Direction: "vertical", VerticalSpacing: "8px", Elements: form})
 	return marshalNativeManagementCard(managementCardView{
-		Title: managementCopy("management.edit.group.settings"), Subtitle: managementConcat(managementValueOrPlaceholder(scope["chat_name"], managementCopy("management.unnamed.group")), " · ", scope["chat_id"]), Summary: managementCopy("management.amux.group.settings.editor"), Theme: "blue",
+		Title: managementCopy("management.edit.group.settings"), Subtitle: managementConcat(managementValueOrPlaceholder(scope["chat_name"], managementCopy("management.unnamed.group")), " · ", scope["chat_id"]), Summary: managementCopy("management.amux.group.settings.editor"), Theme: "wathet", Icon: managementIcon("edit_outlined", "blue"),
 		Elements: elements,
 		Buttons:  []managementButton{groupSettingsScopedButton(managementActionGroupSettingsOpen, managementCopy("management.cancel"), "default", scope)},
 	})

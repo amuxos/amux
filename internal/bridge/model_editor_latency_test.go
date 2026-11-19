@@ -50,7 +50,7 @@ func TestModelEditorRendersBeforeSlowDiscovery(t *testing.T) {
 	event := &callback.CardActionTriggerEvent{Event: &callback.CardActionTriggerRequest{
 		Action: &callback.CallBackAction{Value: map[string]any{"default_runtime_ref": "codex"}},
 	}}
-	if !b.handleModelServiceEditor(event, managementActionSettingsEdit, "owner", "card", b.advanceModelServiceEditor("card")) {
+	if _, ok := b.handleModelServiceEditor(event, managementActionSettingsEdit, "owner", "card", b.advanceModelServiceEditor("card")); !ok {
 		t.Fatal("editor not handled")
 	}
 	select {

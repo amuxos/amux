@@ -161,8 +161,19 @@ func managementLanguageElement() cardElement {
 	// This selector invokes a callback outside a form; Feishu rejects the
 	// form-only required field on standalone controls.
 	field.Required = false
+	field.Type = "text"
+	field.Width = "default"
 	field.Behaviors = []cardBehavior{{Type: "callback", Value: managementButtonValue(managementButton{Action: managementActionLanguage})}}
-	return managementSettingsFieldRow(managementCopy("management.language"), field)
+	return cardElement{
+		Tag:               "column_set",
+		ElementID:         "amux_overview_language",
+		FlexMode:          "none",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(managementCopy("management.language"), "notation", "grey", nil)}},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{field}},
+		},
+	}
 }
 
 func (b *Bridge) changeManagementLocale(openID, messageID string, action *callback.CallBackAction) *callback.CardActionTriggerResponse {
@@ -179,8 +190,10 @@ func (b *Bridge) changeManagementLocale(openID, messageID string, action *callba
 	if err := b.db.setManagementLocale(b.currentBridgeId(), openID, preference); err != nil {
 		return cardToast("error", managementCopy("management.language.failed"))
 	}
-	b.updateManagementCardFromCallback(openID, messageID, renderManagementOverviewCard(b.managementState()))
-	return cardToast("success", managementCopy("management.language.saved"))
+	b.settingsMu.Lock()
+	version := b.modelServiceVersions[messageID]
+	b.settingsMu.Unlock()
+	return b.managementCardResponse(openID, messageID, renderManagementOverviewCard(b.managementState()), version, cardToast("success", managementCopy("management.language.saved")))
 }
 
 func (b *Bridge) localizeManagementToast(response *callback.CardActionTriggerResponse, openID string) {

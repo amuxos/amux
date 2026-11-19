@@ -28,16 +28,17 @@ func (b *Bridge) managementAgentPackSnapshot() (agentprofile.PackCatalogSnapshot
 	return b.managementPackActions.Snapshot()
 }
 
-func (b *Bridge) runManagementAgentPackLibraryOpen(openID, messageID string, surface managementSurface) {
-	b.runManagementAgentPackLibraryView(openID, messageID, managementPackLibraryView{}, surface)
+func (b *Bridge) runManagementAgentPackLibraryOpen(openID, messageID string, surface managementSurface) string {
+	return b.runManagementAgentPackLibraryView(openID, messageID, managementPackLibraryView{}, surface)
 }
 
-func (b *Bridge) runManagementAgentPackLibraryView(openID, messageID string, view managementPackLibraryView, surface managementSurface) {
-	b.runManagementAgentPackLibraryViewWithNotice(openID, messageID, view, "", surface)
+func (b *Bridge) runManagementAgentPackLibraryView(openID, messageID string, view managementPackLibraryView, surface managementSurface) string {
+	return b.runManagementAgentPackLibraryViewWithNotice(openID, messageID, view, "", surface)
 }
 
-func (b *Bridge) runManagementAgentPackLibraryViewWithNotice(openID string, messageID string, view managementPackLibraryView, notice any, surface managementSurface) {
+func (b *Bridge) runManagementAgentPackLibraryViewWithNotice(openID string, messageID string, view managementPackLibraryView, notice any, surface managementSurface) string {
 	version, viewLock := b.beginManagementPackLibraryView(openID, messageID)
+	fastCard := make(chan string, 1)
 	go func() {
 		defer b.finishManagementPackLibraryView(openID, messageID, version)
 		snapshot, err := b.managementAgentPackSnapshot()
@@ -50,6 +51,13 @@ func (b *Bridge) runManagementAgentPackLibraryViewWithNotice(openID string, mess
 		} else {
 			card = renderManagementCardForSurface(card, surface, managementViewLibrary)
 		}
+		select {
+		case fastCard <- card:
+			if b.managementCardPatch == nil {
+				return
+			}
+		default:
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		viewLock.Lock()
@@ -59,10 +67,17 @@ func (b *Bridge) runManagementAgentPackLibraryViewWithNotice(openID string, mess
 		}
 		b.writeManagementCardFromCallback(ctx, openID, messageID, card)
 	}()
+	select {
+	case card := <-fastCard:
+		return card
+	case <-time.After(50 * time.Millisecond):
+		return ""
+	}
 }
 
-func (b *Bridge) runManagementLoadedPackView(openID, messageID, namespace string, view managementPackLibraryView, surface managementSurface) {
+func (b *Bridge) runManagementLoadedPackView(openID, messageID, namespace string, view managementPackLibraryView, surface managementSurface) string {
 	version, viewLock := b.beginManagementPackLibraryView(openID, messageID)
+	fastCard := make(chan string, 1)
 	go func() {
 		defer b.finishManagementPackLibraryView(openID, messageID, version)
 		snapshot, err := b.managementAgentPackSnapshot()
@@ -72,13 +87,19 @@ func (b *Bridge) runManagementLoadedPackView(openID, messageID, namespace string
 		card := renderAgentPackLibraryFailureCard()
 		if err == nil {
 			if pack, ok := managementLoadedPackByNamespace(snapshot, namespace); ok {
-				card = renderLoadedPackManagementCard(pack, view)
-				card = renderManagementCardForSurface(card, surface, managementViewLibrary)
+				card = renderManagementCardForSurface(renderLoadedPackManagementCard(pack, view), surface, managementViewLibrary)
 			} else {
 				card = renderAgentPackLibraryCardViewForSurface(snapshot, view, managementCopy("management.this.pack.is.no.longer.in.the.expert.library"), surface)
 			}
 		} else {
 			card = renderManagementCardForSurface(card, surface, managementViewLibrary)
+		}
+		select {
+		case fastCard <- card:
+			if b.managementCardPatch == nil {
+				return
+			}
+		default:
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -89,6 +110,12 @@ func (b *Bridge) runManagementLoadedPackView(openID, messageID, namespace string
 		}
 		b.writeManagementCardFromCallback(ctx, openID, messageID, card)
 	}()
+	select {
+	case card := <-fastCard:
+		return card
+	case <-time.After(50 * time.Millisecond):
+		return ""
+	}
 }
 
 func managementLoadedPackByNamespace(snapshot agentprofile.PackCatalogSnapshot, namespace string) (agentprofile.LoadedPackState, bool) {
@@ -371,7 +398,7 @@ func renderAgentPackLibraryCardViewWithBudget(snapshot agentprofile.PackCatalogS
 		}
 		view.Page = clampedPage
 	}
-	card := marshalNativeManagementCard(managementCardView{Title: managementCopy("management.expert.library"), Subtitle: managementCopy("management.manage.available.experts"), Summary: managementCopy("management.amux.expert.library"), Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: managementPackLibraryCardElements(snapshot, view, notice, pages[view.Page], len(pages))})
+	card := marshalNativeManagementCard(managementCardView{Title: managementCopy("management.expert.library"), Summary: managementCopy("management.amux.expert.library"), Theme: "wathet", Icon: managementIcon("robot_outlined", "blue"), Elements: managementPackLibraryCardElements(snapshot, view, notice, pages[view.Page], len(pages))})
 	if managementCardTaggedNodeCount(card) <= maxElements && len(card) <= maxBytes {
 		return card
 	}
@@ -413,8 +440,6 @@ func managementPackLibraryCardElements(snapshot agentprofile.PackCatalogSnapshot
 	elements = append(elements, managementHintElement(hint))
 	elements = append(elements, managementPackLibrarySectionNavigation(snapshot, view.Section))
 	backButton := managementButton{Text: managementCopy("management.back.to.assistant.settings"), Type: "default", Action: managementActionSettingsOpen, Name: managementActionSettingsOpen + ".pack_library.back"}
-	elements = append(elements, managementDividerElement())
-	elements = append(elements, managementSectionTitleElement(managementPackLibrarySectionTitle(view.Section)))
 	if len(items) == 0 {
 		elements = append(elements, managementHintElement(managementPackLibraryEmptyText(view.Section)))
 	} else {
@@ -476,15 +501,46 @@ func managementPackLibraryItemChunks(snapshot agentprofile.PackCatalogSnapshot, 
 }
 
 func managementLoadedPackElements(pack agentprofile.LoadedPackState, view managementPackLibraryView, _ string) []cardElement {
-	elements := []cardElement{managementDividerElement(), managementTextElement(pack.DisplayName, "normal", "default", nil)}
-	elements = append(elements, managementLoadedPackSummaryElement(pack))
 	if len(pack.DuplicateNamespaces) > 0 {
-		return append(elements, managementHintElement(managementCopy("management.the.same.git.repository.is.loaded.more.than.once")))
+		return []cardElement{managementVerticalSummaryElement("amux_pack_"+pack.Namespace,
+			managementTextElement(pack.DisplayName, "normal", "default", nil),
+			managementLoadedPackSummaryElement(pack),
+			managementHintElement(managementCopy("management.the.same.git.repository.is.loaded.more.than.once")),
+		)}
 	}
 	viewValues := managementPackLibraryViewValues(view)
-	buttons := []managementButton{{Text: managementCopy("management.choose.an.expert"), Type: "default", Action: managementActionSettingsEdit, Name: managementActionSettingsEdit + ".pack." + pack.Namespace}, {Text: managementCopy("management.manage.expert.library"), Type: "default", Action: managementActionPackManage, Name: managementActionPackManage + "." + pack.Namespace, Values: mergeManagementButtonValues(viewValues, map[string]string{"namespace": pack.Namespace})}}
-	elements = append(elements, managementButtonRowElement(buttons))
-	return elements
+	chooseBtn := managementButtonElement(managementButton{
+		Text:   managementCopy("management.choose.an.expert"),
+		Type:   "primary_text",
+		Action: managementActionSettingsEdit,
+		Name:   managementActionSettingsEdit + ".pack." + pack.Namespace,
+	})
+	chooseBtn.Size = "small"
+	manageBtn := managementButtonElement(managementButton{
+		Text:   managementCopy("management.manage.expert.library"),
+		Type:   "text",
+		Action: managementActionPackManage,
+		Name:   managementActionPackManage + "." + pack.Namespace,
+		Values: mergeManagementButtonValues(viewValues, map[string]string{"namespace": pack.Namespace}),
+	})
+	manageBtn.Size = "small"
+	header := cardElement{
+		Tag:               "column_set",
+		FlexMode:          "none",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(pack.DisplayName, "normal", "default", nil)}},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{chooseBtn}},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{manageBtn}},
+		},
+	}
+	statusText := managementConcat(managementLoadedPackStatusText(pack), " · ", managementLoadedPackContentText(pack))
+	card := managementVerticalSummaryElement("amux_pack_"+pack.Namespace,
+		header,
+		managementTextElement(statusText, "notation", "grey", nil),
+	)
+	card.Columns[0].VerticalSpacing = "4px"
+	return []cardElement{card}
 }
 
 func renderLoadedPackManagementCard(pack agentprofile.LoadedPackState, view managementPackLibraryView) string {
@@ -506,10 +562,10 @@ func renderLoadedPackManagementCard(pack agentprofile.LoadedPackState, view mana
 	}
 	back := managementFormButtonRowElement(managementNavigationButtonElement(managementPackLibraryNavigateButton(managementCopy("management.back.to.expert.library"), view.Section, view.Page)))
 	elements = append([]cardElement{back, managementDividerElement()}, elements...)
-	return marshalNativeManagementCard(managementCardView{Title: managementValueOrPlaceholder(pack.DisplayName, managementCopy("management.expert.library.management")), Subtitle: managementCopy("management.check.for.updates.or.remove"), Summary: managementCopy("management.amux.expert.library.management"), Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: elements})
+	return marshalNativeManagementCard(managementCardView{Title: managementValueOrPlaceholder(pack.DisplayName, managementCopy("management.expert.library.management")), Subtitle: managementCopy("management.check.for.updates.or.remove"), Summary: managementCopy("management.amux.expert.library.management"), Theme: "wathet", Icon: managementIcon("robot_outlined", "blue"), Elements: elements})
 }
 
-func managementLoadedPackSummaryElement(pack agentprofile.LoadedPackState) cardElement {
+func managementLoadedPackStatusText(pack agentprofile.LoadedPackState) any {
 	status := managementCopy("management.loaded")
 	if strings.TrimSpace(pack.LastError) != "" {
 		status = managementCopy("management.update.failed")
@@ -517,7 +573,18 @@ func managementLoadedPackSummaryElement(pack agentprofile.LoadedPackState) cardE
 	if len(pack.DuplicateNamespaces) > 0 {
 		status = managementCopy("management.action.needed")
 	}
-	return managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.status"), Body: status}, managementSummaryItem{Title: managementCopy("management.contents"), Body: managementCopy("management.d.experts.version.s", pack.ProfileCount, managementShortRevision(pack.CurrentRevision))})
+	return status
+}
+
+func managementLoadedPackContentText(pack agentprofile.LoadedPackState) any {
+	return managementCopy("management.d.experts.version.s", pack.ProfileCount, managementShortRevision(pack.CurrentRevision))
+}
+
+func managementLoadedPackSummaryElement(pack agentprofile.LoadedPackState) cardElement {
+	return managementCompactSummaryElement(
+		managementSummaryItem{Title: managementCopy("management.status"), Body: managementLoadedPackStatusText(pack)},
+		managementSummaryItem{Title: managementCopy("management.contents"), Body: managementLoadedPackContentText(pack)},
+	)
 }
 
 func managementMarketPackElements(pack agentprofile.CatalogPackState, view managementPackLibraryView, operationNonce string) []cardElement {
@@ -525,11 +592,41 @@ func managementMarketPackElements(pack agentprofile.CatalogPackState, view manag
 	if pack.NamespaceConflict {
 		status = managementCopy("management.configuration.needed")
 	}
-	elements := []cardElement{managementMarketPackHeaderElement(pack.DisplayName, pack.Description, pack.GitURL, status)}
 	if pack.NamespaceConflict {
-		return append(elements, managementHintElement(managementCopy("management.the.default.library.identifier.is.used.by.another.git")))
+		return []cardElement{managementVerticalSummaryElement("amux_market_"+pack.ID,
+			managementMarketPackHeaderElement(pack.DisplayName, pack.Description, pack.GitURL, status),
+			managementHintElement(managementCopy("management.the.default.library.identifier.is.used.by.another.git")),
+		)}
 	}
-	return append(elements, managementButtonRowElement([]managementButton{{Text: managementConcat(managementCopy("management.add"), pack.DisplayName), Type: "default", Action: managementActionPackInstall, Name: managementActionPackInstall + "." + pack.Namespace, Values: mergeManagementButtonValues(managementPackLibraryViewValues(view), map[string]string{"catalog_id": pack.ID, "operation_nonce": operationNonce, "expected_generation": pack.Generation}), Confirm: managementConfirm(managementConcat(managementCopy("management.add"), pack.DisplayName, "？"), managementCopy("management.its.experts.will.appear.in.assistant.settings.and.stay"))}}))
+	addBtn := managementButtonElement(managementButton{
+		Text:   managementConcat(managementCopy("management.add"), pack.DisplayName),
+		Type:   "primary_text",
+		Action: managementActionPackInstall,
+		Name:   managementActionPackInstall + "." + pack.Namespace,
+		Values: mergeManagementButtonValues(managementPackLibraryViewValues(view), map[string]string{"catalog_id": pack.ID, "operation_nonce": operationNonce, "expected_generation": pack.Generation}),
+		Confirm: managementConfirm(
+			managementConcat(managementCopy("management.add"), pack.DisplayName, "？"),
+			managementCopy("management.its.experts.will.appear.in.assistant.settings.and.stay"),
+		),
+	})
+	addBtn.Size = "small"
+	header := cardElement{
+		Tag:               "column_set",
+		FlexMode:          "none",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(pack.DisplayName, "normal", "default", nil)}},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{addBtn}},
+		},
+	}
+	rows := []cardElement{header}
+	if desc := managementTruncateText(pack.Description, managementMarketPackDescriptionMaxRunes); strings.TrimSpace(managementDefaultText(desc)) != "" {
+		rows = append(rows, managementTextElement(desc, "notation", "grey", nil))
+	}
+	rows = append(rows, managementTextElement(status, "notation", "grey", nil))
+	card := managementVerticalSummaryElement("amux_market_"+pack.ID, rows...)
+	card.Columns[0].VerticalSpacing = "4px"
+	return []cardElement{card}
 }
 
 func paginateManagementPackLibrary(snapshot agentprofile.PackCatalogSnapshot, view managementPackLibraryView, notice any, chunks [][]cardElement, maxElements, maxBytes int) [][]cardElement {
@@ -542,7 +639,7 @@ func paginateManagementPackLibrary(snapshot agentprofile.PackCatalogSnapshot, vi
 	budgetView.Page = 1
 	for _, chunk := range chunks {
 		candidate := append(append([]cardElement(nil), current...), chunk...)
-		card := marshalNativeManagementCard(managementCardView{Title: managementCopy("management.expert.library"), Subtitle: managementCopy("management.manage.available.experts"), Summary: managementCopy("management.amux.expert.library"), Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: managementPackLibraryCardElements(snapshot, budgetView, notice, candidate, 999)})
+		card := marshalNativeManagementCard(managementCardView{Title: managementCopy("management.expert.library"), Summary: managementCopy("management.amux.expert.library"), Theme: "wathet", Icon: managementIcon("robot_outlined", "blue"), Elements: managementPackLibraryCardElements(snapshot, budgetView, notice, candidate, 999)})
 		if len(current) > 0 && (managementCardTaggedNodeCount(card) > maxElements || len(card) > maxBytes) {
 			pages = append(pages, current)
 			current = append([]cardElement(nil), chunk...)
@@ -570,7 +667,13 @@ func managementPackLibrarySectionNavigation(snapshot agentprofile.PackCatalogSna
 		buttons[len(buttons)-1].Name = fmt.Sprintf("%s.section.%s", managementActionPackLibraryNavigate, item.section)
 		buttons[len(buttons)-1].Type = buttonType
 	}
-	return managementButtonRowElement(buttons)
+	row := managementButtonRowElement(buttons)
+	for i := range row.Columns {
+		for j := range row.Columns[i].Elements {
+			row.Columns[i].Elements[j].Size = "small"
+		}
+	}
+	return row
 }
 
 func managementPackLibraryNavigateButton(text any, section managementPackLibrarySection, page int) managementButton {

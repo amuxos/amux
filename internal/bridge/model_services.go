@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"strings"
 	"time"
@@ -217,15 +218,16 @@ func modelServiceSelection(action *callback.CallBackAction) (id, operation strin
 
 // SDK/network calls run outside the Feishu callback deadline. The existing card
 // is patched, and the unsaved editor draft remains the source of form values.
-func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent, action, openID, messageID string, version uint64) bool {
+func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent, action, openID, messageID string, version uint64) (*callback.CardActionTriggerResponse, bool) {
 	if b.hub == nil && (len(modelservice.List()) == 0 || b.resolveModelServicePrincipal == nil) {
-		return false
+		return nil, false
 	}
 	if action != managementActionSettingsEdit && action != managementActionOnboardingEdit && action != managementActionDocumentCommentsEdit && action != managementActionGroupWatchEdit {
-		return false
+		return nil, false
 	}
 	surface := managementSurfaceFromCallback(event.Event.Action)
 	service, operation := modelServiceSelection(event.Event.Action)
+	firstCard := make(chan string, 1)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
@@ -257,8 +259,20 @@ func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent
 				return renderSettingsEditCardForSurface(current, draft, surface)
 			}
 		}
+		sentInitial := false
 		publish := func(current managementState) {
 			card := renderFocusedManagementCardForSurface(render(current), surface)
+			if !sentInitial {
+				sentInitial = true
+				select {
+				case firstCard <- card:
+					if b.managementCardPatch != nil {
+						b.writeManagementCardAtVersion(ctx, openID, messageID, card, version)
+					}
+					return
+				default:
+				}
+			}
 			b.writeManagementCardAtVersion(ctx, openID, messageID, card, version)
 		}
 		load := func(operation string, force bool) managementState {
@@ -290,7 +304,21 @@ func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent
 			}
 		}
 	}()
-	return true
+	toast := cardToast("success", managementCopy("management.model.service.updating"))
+	if action == managementActionSettingsEdit && service == "" && managementDraftFieldFromCallback(event.Event.Action, managementState{}) == "" {
+		toast = cardToast("success", managementCopy("management.assistant.settings.opened"))
+	}
+	select {
+	case card := <-firstCard:
+		resp := &callback.CardActionTriggerResponse{Toast: toast.Toast}
+		localized := b.managementCardForPatch(openID, messageID, card)
+		if strings.TrimSpace(localized) != "" {
+			resp.Card = &callback.Card{Type: "raw", Data: json.RawMessage(localized)}
+		}
+		return resp, true
+	case <-time.After(150 * time.Millisecond):
+		return toast, true
+	}
 }
 
 func (b *Bridge) advanceModelServiceEditor(messageID string) uint64 {

@@ -148,7 +148,11 @@ func renderGroupWatchManagementCardWithNoticeAndNames(state managementState, not
 		}
 		buttons = append([]managementButton{{Text: text, Type: "primary", Action: managementActionGroupWatchUpdate, Name: managementActionGroupWatchUpdate + "." + operation, Values: map[string]string{"operation": operation}}}, buttons...)
 	}
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.group.watch.312"), Subtitle: managementCopy("management.automatically.handle.new.topics.in.selected.groups"), Summary: managementCopy("management.amux.group.watch.management"), Theme: "blue", Icon: managementIcon("setting_outlined", "blue"), Elements: elements, Buttons: buttons})
+	tagColor := "neutral"
+	if state.GroupWatch.Enabled && len(state.GroupWatch.ChatIDs) > 0 {
+		tagColor = "green"
+	}
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.group.watch.312"), Subtitle: managementCopy("management.automatically.handle.new.topics.in.selected.groups"), Summary: managementCopy("management.amux.group.watch.management"), Theme: "wathet", Icon: managementIcon("setting_outlined", "blue"), Tags: []cardTextTag{{Tag: "text_tag", Text: managementPlainText(status), Color: tagColor}}, Elements: elements, Buttons: buttons})
 }
 
 func (b *Bridge) resolveGroupWatchNames(ctx context.Context, chatIDs []string) map[string]string {
@@ -260,7 +264,7 @@ func renderCurrentGroupWatchCard(state managementState, chatID, chatName string,
 	} else {
 		hint = managementCopy("management.group.watch.requires.separate.conversations.per.topic.change.message")
 	}
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.current.group.management"), Subtitle: managementCopy("management.manage.only.this.assistant.in.this.group"), Summary: managementCopy("management.amux.current.group.management"), Theme: "blue", Icon: managementIcon("setting_outlined", "blue"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.group.name"), Body: managementValueOrPlaceholder(chatName, managementCopy("management.unnamed.group"))}, managementSummaryItem{Title: managementCopy("management.group.id"), Body: shortChatID(chatID)}, managementSummaryItem{Title: managementCopy("management.group.watch.312"), Body: status}, managementSummaryItem{Title: managementCopy("management.default.expert"), Body: managementDefaultAgentName(state)}), managementHintElement(managementCopy("management.you.just.sent.amux.in.this.group")), managementHintElement(hint)}, Buttons: buttons})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.current.group.management"), Subtitle: managementCopy("management.manage.only.this.assistant.in.this.group"), Summary: managementCopy("management.amux.current.group.management"), Theme: "wathet", Icon: managementIcon("setting_outlined", "blue"), Elements: []cardElement{managementCompactSummaryElement(managementSummaryItem{Title: managementCopy("management.group.name"), Body: managementValueOrPlaceholder(chatName, managementCopy("management.unnamed.group"))}, managementSummaryItem{Title: managementCopy("management.group.id"), Body: shortChatID(chatID)}, managementSummaryItem{Title: managementCopy("management.group.watch.312"), Body: status}, managementSummaryItem{Title: managementCopy("management.default.expert"), Body: managementDefaultAgentName(state)}), managementHintElement(managementCopy("management.you.just.sent.amux.in.this.group")), managementHintElement(hint)}, Buttons: buttons})
 }
 
 func shortChatID(chatID string) string {

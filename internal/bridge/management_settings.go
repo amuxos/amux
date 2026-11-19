@@ -884,6 +884,9 @@ func (b *Bridge) sendManagementCardToDM(ctx context.Context, openID, cardJSON st
 	}
 	if err == nil {
 		b.rememberPrivateManagementCard(openID, messageID)
+		if b.hub != nil && strings.Contains(cardJSON, `"element_id":"amux_overview_config"`) {
+			go b.prewarmEditorModels(b.managementState(), openID, messageID)
+		}
 	}
 	return err
 }
@@ -1154,7 +1157,7 @@ func renderCapabilitiesCardWithNotice(state managementState, notice any) string 
 			enabled++
 		}
 	}
-	elements := []cardElement{managementSubpageBackElement(managementCopy("management.back.to.assistant.settings"), managementActionSettingsOpen, "amux.capabilities.back.settings"), managementDividerElement(), managementTextElement(managementCopy("management.d.capabilities.total.d.enabled", len(capabilities), enabled), "notation", "grey", nil)}
+	elements := []cardElement{managementTextElement(managementCopy("management.d.capabilities.total.d.enabled", len(capabilities), enabled), "notation", "grey", nil)}
 	if strings.TrimSpace(managementDefaultText(notice)) != "" {
 		elements = append(elements, managementTextElement(managementTruncateText(notice, 240), "normal", "orange", managementIconPtr("warning_outlined", "orange")))
 	}
@@ -1169,21 +1172,50 @@ func renderCapabilitiesCardWithNotice(state managementState, notice any) string 
 		}
 		permissionButtons = append(permissionButtons, managementButton{Text: managementCopy("management.check.feishu.permissions"), Type: "default", Action: managementActionPermissionRecheck, Name: "amux.capabilities.permissions.recheck"})
 		elements = append(elements, managementButtonRowElement(permissionButtons))
-	} else if state.PermissionAuditFailed {
-		elements = append(elements, managementTextElement(managementCopy("management.feishu.permissions.check.unavailable"), "normal", "orange", managementIconPtr("warning_outlined", "orange")), managementButtonRowElement([]managementButton{{Text: managementCopy("management.check.feishu.permissions"), Type: "default", Action: managementActionPermissionRecheck, Name: "amux.capabilities.permissions.recheck"}}))
-	} else if state.PermissionAuditChecked {
-		elements = append(elements, managementTextElement(managementCopy("management.feishu.permissions.none.missing"), "normal", "green", managementIconPtr("check_outlined", "green")), managementButtonRowElement([]managementButton{{Text: managementCopy("management.check.feishu.permissions"), Type: "default", Action: managementActionPermissionRecheck, Name: "amux.capabilities.permissions.recheck"}}))
 	} else {
-		elements = append(elements, managementTextElement(managementCopy("management.feishu.permissions.not.checked.yet"), "normal", "default", managementIconPtr("info_outlined", "grey")), managementButtonRowElement([]managementButton{{Text: managementCopy("management.check.feishu.permissions"), Type: "default", Action: managementActionPermissionRecheck, Name: "amux.capabilities.permissions.recheck"}}))
-	}
-	for index, capability := range capabilities {
-		if index > 0 {
-			elements = append(elements, managementDividerElement())
+		var statusEl cardElement
+		switch {
+		case state.PermissionAuditFailed:
+			statusEl = managementTextElement(managementCopy("management.feishu.permissions.check.unavailable"), "notation", "orange", managementIconPtr("warning_outlined", "orange"))
+		case state.PermissionAuditChecked:
+			statusEl = managementTextElement(managementCopy("management.feishu.permissions.none.missing"), "notation", "green", managementIconPtr("check_outlined", "green"))
+		default:
+			statusEl = managementTextElement(managementCopy("management.feishu.permissions.not.checked.yet"), "notation", "grey", managementIconPtr("info_outlined", "grey"))
 		}
+		recheckBtn := managementButtonElement(managementButton{
+			Text:   managementCopy("management.check.feishu.permissions"),
+			Type:   "text",
+			Action: managementActionPermissionRecheck,
+			Name:   "amux.capabilities.permissions.recheck",
+			Icon:   managementIconPtr("refresh_outlined", "grey"),
+		})
+		recheckBtn.Size = "small"
+		elements = append(elements, cardElement{
+			Tag:               "column_set",
+			FlexMode:          "none",
+			HorizontalSpacing: "8px",
+			Columns: []cardColumn{
+				{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{statusEl}},
+				{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{recheckBtn}},
+			},
+		})
+	}
+	for _, capability := range capabilities {
 		elements = append(elements, managementCapabilityDirectoryElements(capability)...)
 	}
 	elements = append(elements, managementHintElement(managementCopy("management.these.settings.affect.only.this.assistant")))
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.integrations"), Summary: managementCopy("management.amux.integrations"), Theme: "blue", Icon: managementIcon("setting_outlined", "blue"), Elements: elements})
+	tagColor := "neutral"
+	if enabled > 0 {
+		tagColor = "green"
+	}
+	return marshalNativeManagementCard(managementCardView{
+		Title:    managementCopy("management.integrations"),
+		Summary:  managementCopy("management.amux.integrations"),
+		Theme:    "wathet",
+		Icon:     managementIcon("setting_outlined", "blue"),
+		Tags:     []cardTextTag{{Tag: "text_tag", Text: managementPlainText(managementCopy("management.integrations.enabled.count", enabled, len(capabilities))), Color: tagColor}},
+		Elements: elements,
+	})
 }
 
 func (c *managementSettingsState) beginFeishuPermissionRecheck(messageID string) (uint64, bool) {
@@ -1359,10 +1391,60 @@ func (b *Bridge) runFeishuPermissionApply(openID, messageID string, surface mana
 }
 
 func managementCapabilityDirectoryElements(capability managementCapabilityView) []cardElement {
-	summary := managementVerticalSummaryElement("amux_capability_"+capability.ID, managementKeyValueRowElement(capability.Title, capability.Status), managementTextElement(capability.Summary, "notation", "grey", nil))
-	summary.Columns[0].VerticalSpacing = "4px"
-	open := managementButton{Text: managementCopy("management.open.settings"), Type: "default", Action: capability.OpenAction, Name: "amux.capability." + capability.ID + ".open"}
-	return []cardElement{summary, managementButtonRowElement([]managementButton{open})}
+	openButton := managementButtonElement(managementButton{
+		Text:   managementCopy("management.open.settings"),
+		Type:   "primary_text",
+		Action: capability.OpenAction,
+		Name:   "amux.capability." + capability.ID + ".open",
+	})
+	openButton.Size = "small"
+	statusColor := "grey"
+	bg := "grey-50"
+	if capability.Enabled {
+		statusColor = "green"
+		bg = "blue-50"
+	}
+	header := cardElement{
+		Tag:               "column_set",
+		FlexMode:          "none",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{
+				Tag:             "column",
+				Width:           "weighted",
+				Weight:          1,
+				Direction:       "vertical",
+				VerticalAlign:   "center",
+				VerticalSpacing: "2px",
+				Elements: []cardElement{
+					managementTextElement(capability.Title, "normal", "default", nil),
+					managementTextElement(capability.Status, "notation", statusColor, nil),
+				},
+			},
+			{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{openButton}},
+		},
+	}
+	card := cardElement{
+		Tag:             "interactive_container",
+		ElementID:       "amux_capability_" + capability.ID,
+		Width:           "fill",
+		BackgroundStyle: bg,
+		HasBorder:       true,
+		BorderColor:     "grey-200",
+		CornerRadius:    "8px",
+		Padding:         "10px 12px 10px 12px",
+		Direction:       "vertical",
+		VerticalSpacing: "4px",
+		Behaviors: []cardBehavior{{
+			Type:  "callback",
+			Value: managementButtonValue(managementButton{Action: capability.OpenAction, Name: "amux.capability." + capability.ID + ".open"}),
+		}},
+		Elements: []cardElement{
+			header,
+			managementTextElement(capability.Summary, "notation", "grey", nil),
+		},
+	}
+	return []cardElement{card}
 }
 
 func renderBotToBotCard(state managementState) string {
@@ -1393,7 +1475,13 @@ func renderBotToBotCardWithNotice(state managementState, notice any) string {
 		elements = append(elements, managementHintElement(managementTruncateText(notice, 240)))
 	}
 	elements = append(elements, managementButtonRowElement([]managementButton{{Text: actionText, Type: actionType, Action: managementActionBotToBotSet, Name: "amux.bot_to_bot.enabled.set", Values: map[string]string{"enabled": target}}}), managementHintElement(managementCopy("management.these.settings.affect.only.this.assistant")))
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.agent.to.agent"), Summary: managementCopy("management.amux.agent.collaboration.settings"), Theme: "blue", Icon: managementIcon("robot_outlined", "blue"), Elements: elements})
+	tagColor := "neutral"
+	if state.BotToBot.Enabled && state.Mode == config.FeishuInteractionThread {
+		tagColor = "green"
+	} else if state.BotToBot.Enabled {
+		tagColor = "orange"
+	}
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.agent.to.agent"), Summary: managementCopy("management.amux.agent.collaboration.settings"), Theme: "wathet", Icon: managementIcon("robot_outlined", "blue"), Tags: []cardTextTag{{Tag: "text_tag", Text: managementPlainText(status), Color: tagColor}}, Elements: elements})
 }
 
 func renderDocumentCommentsCardWithNotice(state managementState, notice any) string {
@@ -1437,7 +1525,11 @@ func renderDocumentCommentsCardWithNotice(state managementState, notice any) str
 		executionActionType = "default"
 	}
 	elements = append(elements, managementButtonRowElement([]managementButton{{Text: managementCopy("management.edit.task.settings"), Type: executionActionType, Action: managementActionDocumentCommentsEdit}, {Text: actionText, Type: actionType, Action: managementActionDocumentCommentsSet, Values: map[string]string{"enabled": target}}}), managementHintElement(managementCopy("management.these.settings.affect.only.this.assistant")))
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.document.comments"), Summary: managementCopy("management.amux.document.comment.settings"), Theme: "blue", Icon: managementIcon("setting_outlined", "blue"), Elements: elements})
+	tagColor := "neutral"
+	if state.DocumentCommentsEnabled {
+		tagColor = "green"
+	}
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.document.comments"), Summary: managementCopy("management.amux.document.comment.settings"), Theme: "wathet", Icon: managementIcon("setting_outlined", "blue"), Tags: []cardTextTag{{Tag: "text_tag", Text: managementPlainText(status), Color: tagColor}}, Elements: elements})
 }
 
 func renderDocumentCommentsEditCard(state managementState, draft managementDocumentCommentsDraft) string {
@@ -1872,10 +1964,7 @@ func renderSettingsEditCardForSurface(state managementState, draft managementSet
 	elements := managementSettingsEditorElements(state,
 		"settings_form", draft, managementActionSettingsSave, managementCopy("management.save"), managementActionSettingsCancel,
 		libraryAction, managementMessageHandlingHintElement())
-	if surface == managementSurfaceAmux {
-		elements = append([]cardElement{managementSubpageBackElement(managementCopy("management.back.to.assistant.settings"), managementActionSettingsOpen, "amux.settings.edit.back"), managementDividerElement()}, elements...)
-	}
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.edit.defaults"), Subtitle: managementCopy("management.takes.effect.when.saved"), Summary: managementCopy("management.edit.amux.assistant.defaults"), Theme: "blue", Icon: managementIcon("edit_outlined", "blue"), Elements: elements})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.edit.defaults"), Subtitle: managementCopy("management.takes.effect.when.saved"), Summary: managementCopy("management.edit.amux.assistant.defaults"), Theme: "wathet", Icon: managementIcon("edit_outlined", "blue"), Elements: elements})
 }
 
 func renderSettingsConfirmationCard(state managementState, draft managementSettingsDraft, req BotSettingsRequest, result BotSettingsResult) string {
@@ -2013,7 +2102,7 @@ func renderSettingsManualBindCard(state managementState, req BotSettingsRequest,
 		elements = append(elements, managementHintElement(notice))
 	}
 	values := managementBotSettingsRecoveryValues(req, thinkingProcess, token)
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.bind.an.existing.project"), Subtitle: managementCopy("management.separate.conversations.per.topic.remain.active.until.binding.completes"), Summary: managementCopy("management.bind.an.existing.project"), Theme: "blue", Icon: managementIcon("link_outlined", "blue"), Elements: elements, Buttons: []managementButton{{Text: managementCopy("management.check.binding"), Type: "primary", Action: managementActionSettingsRecoveryCheck, Values: values}, {Text: managementCopy("management.back.to.recovery.options"), Type: "default", Action: managementActionSettingsRecoveryBack, Values: values}}})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.bind.an.existing.project"), Subtitle: managementCopy("management.separate.conversations.per.topic.remain.active.until.binding.completes"), Summary: managementCopy("management.bind.an.existing.project"), Theme: "blue", Icon: managementIcon("setting_outlined", "blue"), Elements: elements, Buttons: []managementButton{{Text: managementCopy("management.check.binding"), Type: "primary", Action: managementActionSettingsRecoveryCheck, Values: values}, {Text: managementCopy("management.back.to.recovery.options"), Type: "default", Action: managementActionSettingsRecoveryBack, Values: values}}})
 }
 
 func renderSettingsProcessingCard(state managementState, draft managementSettingsDraft) string {

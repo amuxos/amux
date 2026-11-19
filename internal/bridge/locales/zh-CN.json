@@ -320,6 +320,51 @@
   "management.running.normally": {
     "other": "运行正常"
   },
+  "management.overview.status.healthy": {
+    "other": "运行正常 · 可用运行环境 %d 个"
+  },
+  "management.refresh": {
+    "other": "刷新"
+  },
+  "management.edit.configuration": {
+    "other": "修改配置"
+  },
+  "management.runtime.and.model": {
+    "other": "引擎与模型"
+  },
+  "management.activity.and.integrations": {
+    "other": "过程与接入"
+  },
+  "management.integrations.enabled.count": {
+    "other": "接入能力 %d/%d 已开启"
+  },
+  "management.quick.actions": {
+    "other": "常用入口"
+  },
+  "management.system.and.advanced": {
+    "other": "系统与高级"
+  },
+  "management.schedules": {
+    "other": "定时任务"
+  },
+  "management.status.tag.healthy": {
+    "other": "运行正常"
+  },
+  "management.status.tag.attention": {
+    "other": "需关注"
+  },
+  "management.runtimes.available.compact": {
+    "other": "可用运行环境 %d 个"
+  },
+  "management.tile.library.desc": {
+    "other": "管理专家与技能"
+  },
+  "management.tile.discovery.desc": {
+    "other": "探索实用示例"
+  },
+  "management.tile.console.desc": {
+    "other": "浏览器完整控制台"
+  },
   "management.d.runtimes.available.ready.for.tasks": {
     "other": "可用运行环境 %d 个 · 可以开始任务"
   },
@@ -1164,7 +1209,7 @@
     "other": "云文档评论"
   },
   "management.enable.go.to.assistant.settings.integrations.and.enable.document": {
-    "other": "开启：前往「助手设置 → 接入能力」开启云文档评论。"
+    "other": "开启：前往「/amux → 接入能力」开启云文档评论。"
   },
   "management.use.mention.the.assistant.in.a.comment.with.your": {
     "other": "使用：在评论中 @智能体 并提出要求；仅负责人可用。"
@@ -1185,7 +1230,7 @@
     "other": "关闭：在目标群 @智能体 发送“关闭群值守”，确认后移出当前群。"
   },
   "management.manage.send.amux.privately.then.open.assistant.settings.integrations": {
-    "other": "管理：私聊发送 /amux，前往「助手设置 → 接入能力 → 群值守」。"
+    "other": "管理：私聊发送 /amux，前往「接入能力 → 群值守」。"
   },
   "management.let.other.group.members.use.the.assistant": {
     "other": "让群里的其他人使用"
@@ -2851,6 +2896,9 @@
   },
   "schedule.empty": {
     "other": "当前没有符合条件的定时任务。创建人身份未确认的任务不在此列表中。"
+  },
+  "schedule.none": {
+    "other": "暂无定时任务"
   },
   "schedule.page": {
     "other": "第 %d / %d 页 · 刷新于 %s"
