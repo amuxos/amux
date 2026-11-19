@@ -161,3 +161,32 @@ func TestMaintenanceCopyLanguages(t *testing.T) {
 		}
 	}
 }
+
+func TestMaintenanceRecoveryWaitTracksPendingSessions(t *testing.T) {
+	// Inspect RPC deadlines directly so the test does not depend on scheduler timing.
+	var endDeadlines []time.Time
+	pending := []int32{12, 10, 10}
+	n := 0
+	call := func(ctx context.Context, action string) (*pb.MaintenanceResponse, error) {
+		if action == "end" {
+			deadline, _ := ctx.Deadline()
+			endDeadlines = append(endDeadlines, deadline)
+			if n == len(pending) {
+				return &pb.MaintenanceResponse{Phase: "idle"}, nil
+			}
+			return nil, context.DeadlineExceeded
+		}
+		if action != "status" {
+			t.Fatalf("unexpected action %q", action)
+		}
+		r := &pb.MaintenanceResponse{Phase: "recovering", SleepingSessions: pending[n]}
+		n++
+		return r, nil
+	}
+	if err := waitForMaintenanceRecovery(call, time.Second, time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if !endDeadlines[1].Equal(endDeadlines[0]) || !endDeadlines[2].After(endDeadlines[1]) || !endDeadlines[3].Equal(endDeadlines[2]) {
+		t.Fatalf("deadlines %v", endDeadlines)
+	}
+}

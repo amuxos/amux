@@ -653,15 +653,22 @@ func (s *server) relaunchSessionWithEnvContext(ctx context.Context, sess *sessio
 	// not mint (unidentified session, no principal store, a direct runtime call)
 	// leaves the stored credential untouched.
 	actorToken string, actorTokenExpiresAt int64) (*pb.RunResponse, error) {
-	for !s.relaunchMu.TryLock() {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(10 * time.Millisecond):
-		}
+	if err := s.lockRelaunch(ctx); err != nil {
+		return nil, err
 	}
 	defer s.relaunchMu.Unlock()
 	return s.relaunchSessionLockedWithEnvContext(ctx, sess, action, extraArgs, launchEnv, recordEnv, true, actorToken, actorTokenExpiresAt)
+}
+
+func (s *server) lockRelaunch(ctx context.Context) error {
+	for !s.relaunchMu.TryLock() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	return nil
 }
 func (s *server) relaunchSessionLocked(sess *session.Session, action string) (*pb.RunResponse, error) {
 	return s.relaunchSessionLockedWithEnv(sess, action, nil, nil, nil, false)

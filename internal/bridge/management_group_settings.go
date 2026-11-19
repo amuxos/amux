@@ -320,6 +320,13 @@ func groupSettingsErrorToast(err error) *callback.CardActionTriggerResponse {
 
 type managementGroupSettingsDraft map[string]string
 
+func groupIdleTimeoutInput(settings *GroupSettings) string {
+	if settings.IdleTimeoutInherited {
+		return ""
+	}
+	return strconv.Itoa(settings.IdleTimeoutSeconds)
+}
+
 func groupSettingsFormDraft(settings *GroupSettings) managementGroupSettingsDraft {
 	args := settings.DefaultArgs
 	if args == nil {
@@ -339,7 +346,7 @@ func groupSettingsFormDraft(settings *GroupSettings) managementGroupSettingsDraf
 		"group_reasoning":    valueOrPlaceholder(settings.DefaultReasoningEffort, managementRuntimeDefaultReasoningOption),
 		"group_thinking":     settings.ThinkingProcess, "group_access": settings.Mode,
 		"group_target": settings.DefaultTarget, "group_cwd": settings.DefaultCwd,
-		"group_args": string(argsJSON), "group_idle_seconds": strconv.Itoa(settings.IdleTimeoutSeconds),
+		"group_args": string(argsJSON), "group_idle_seconds": groupIdleTimeoutInput(settings),
 		"group_context_limit": strconv.Itoa(settings.ThreadContextLimit),
 		"group_max_total":     strconv.Itoa(settings.MaxSessionsTotal), "group_max_per_user": strconv.Itoa(settings.MaxSessionsPerUser),
 	}
@@ -423,6 +430,13 @@ func (draft managementGroupSettingsDraft) settings(base *GroupSettings) (*GroupS
 		{"group_max_total", managementCopy("management.group.session.limit"), &settings.MaxSessionsTotal},
 		{"group_max_per_user", managementCopy("management.session.limit.per.user"), &settings.MaxSessionsPerUser},
 	} {
+		if field.key == "group_idle_seconds" {
+			settings.IdleTimeoutInherited = draft[field.key] == ""
+			if settings.IdleTimeoutInherited {
+				settings.IdleTimeoutSeconds = 0
+				continue
+			}
+		}
 		value, err := strconv.Atoi(draft[field.key])
 		if err != nil || value < 0 {
 			return nil, managementLocalizedError("management.s.must.be.a.nonnegative.integer", field.label)
@@ -497,7 +511,7 @@ func renderCurrentGroupSettingsCardWithNotice(state managementState, settings *G
 			managementSummaryItem{Title: managementCopy("management.target.machine"), Body: managementValueOrPlaceholder(settings.DefaultTarget, managementCopy("management.automatic"))},
 			managementSummaryItem{Title: managementCopy("management.working.directory"), Body: managementValueOrPlaceholder(settings.DefaultCwd, managementCopy("management.runtime.default.directory"))},
 			managementSummaryItem{Title: managementCopy("management.extra.arguments"), Body: string(args)},
-			managementSummaryItem{Title: managementCopy("management.idle.timeout.in.seconds"), Body: strconv.Itoa(settings.IdleTimeoutSeconds)},
+			managementSummaryItem{Title: managementCopy("management.idle.timeout.in.seconds"), Body: managementValueOrPlaceholder(groupIdleTimeoutInput(settings), managementCopy("workspace.idle.inherit"))},
 			managementSummaryItem{Title: managementCopy("management.context.message.count"), Body: strconv.Itoa(settings.ThreadContextLimit)},
 			managementSummaryItem{Title: managementCopy("management.group.session.limit.per.user.limit"), Body: fmt.Sprintf("%d / %d", settings.MaxSessionsTotal, settings.MaxSessionsPerUser)}),
 		managementHintElement(managementCopy("management.saved.execution.options.apply.only.to.new.sessions.existing")),
@@ -681,7 +695,7 @@ func managementGroupSettingsEditFields(state managementState, draft managementGr
 	inputField(managementCopy("management.target.machine"), "group_target", managementCopy("management.leave.blank.for.automatic.selection"))
 	inputField(managementCopy("management.working.directory"), "group_cwd", managementCopy("management.absolute.path.on.the.target.machine.leave.blank.for"))
 	inputField(managementCopy("management.extra.arguments.json.string.array"), "group_args", `["--flag", "value with spaces"]`)
-	inputField(managementCopy("management.idle.timeout.seconds.0.to.disable.or.at.least"), "group_idle_seconds", managementCopy("management.nonnegative.integer"))
+	inputField(managementCopy("management.idle.timeout.seconds.0.to.disable.or.at.least"), "group_idle_seconds", managementCopy("workspace.idle.inherit"))
 	inputField(managementCopy("management.context.message.count"), "group_context_limit", managementCopy("management.nonnegative.integer"))
 	inputField(managementCopy("management.group.session.limit.0.for.unlimited"), "group_max_total", managementCopy("management.nonnegative.integer"))
 	inputField(managementCopy("management.session.limit.per.user.0.for.unlimited"), "group_max_per_user", managementCopy("management.nonnegative.integer"))

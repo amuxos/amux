@@ -163,26 +163,46 @@ func (m *updateMaintenance) finish() error {
 	var result error
 	m.once.Do(func() {
 		defer func() { m.stop(); <-m.done }()
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
-		for {
-			callCtx, callCancel := context.WithTimeout(ctx, 30*time.Second)
-			response, err := m.call(callCtx, "end")
-			callCancel()
-			if err == nil && response.Phase == "idle" {
-				return
-			}
-			if ctx.Err() != nil {
-				result = fmt.Errorf("%s: %w", maintenanceText(m.cmd, "recovery_failed"), err)
-				return
-			}
-			timer := time.NewTimer(time.Second)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-			case <-timer.C:
-			}
+		if err := waitForMaintenanceRecovery(m.call, 2*time.Minute, time.Second); err != nil {
+			result = fmt.Errorf("%s: %w", maintenanceText(m.cmd, "recovery_failed"), err)
 		}
 	})
 	return result
+}
+
+// Bound the time without progress. A large recovery can span several RPCs.
+func waitForMaintenanceRecovery(call func(context.Context, string) (*pb.MaintenanceResponse, error), stallTimeout, retryInterval time.Duration) error {
+	deadline := time.Now().Add(stallTimeout)
+	var lastErr error
+	previous := int32(-1)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+		endCtx, endCancel := context.WithTimeout(ctx, 30*time.Second)
+		response, err := call(endCtx, "end")
+		endCancel()
+		if err != nil {
+			lastErr = err
+			// gRPC drops the response on errors, including partial recovery
+			// and batch deadlines. Older Runtimes lack this read-only action.
+			statusCtx, statusCancel := context.WithTimeout(ctx, 2*time.Second)
+			response, err = call(statusCtx, "status")
+			statusCancel()
+		}
+		cancel()
+		if err == nil && response != nil {
+			if response.Phase == "idle" {
+				return nil
+			}
+			if response.Phase == "recovering" {
+				if previous >= 0 && response.SleepingSessions < previous {
+					deadline = time.Now().Add(stallTimeout)
+				}
+				previous = response.SleepingSessions
+			}
+		}
+		if wait := min(retryInterval, time.Until(deadline)); wait > 0 {
+			time.Sleep(wait)
+		}
+	}
+	return errors.Join(context.DeadlineExceeded, lastErr)
 }

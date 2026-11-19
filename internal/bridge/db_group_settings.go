@@ -32,6 +32,7 @@ type GroupSettings struct {
 	DefaultCwd             string    `json:"default_cwd"`
 	DefaultArgs            []string  `json:"default_args"`
 	IdleTimeoutSeconds     int       `json:"idle_timeout_seconds"`
+	IdleTimeoutInherited   bool      `json:"idle_timeout_inherited,omitempty"`
 	ThreadContextLimit     int       `json:"thread_context_limit"`
 	MaxSessionsTotal       int       `json:"max_sessions_total"`
 	MaxSessionsPerUser     int       `json:"max_sessions_per_user"`
@@ -74,7 +75,10 @@ func (b *bridgeDB) migrateGroupSettings() error {
 			session_root_msg_id TEXT NOT NULL,
 			PRIMARY KEY (bridge_id, chat_id, origin_root_msg_id)
 		)`)
-	return err
+	if err != nil {
+		return err
+	}
+	return b.addColumnIfMissing(`ALTER TABLE feishu_group_settings ADD COLUMN idle_timeout_inherited INTEGER NOT NULL DEFAULT 0`)
 }
 
 // ReadGroupSettings never seeds a row. Nil means the group still follows the
@@ -95,13 +99,13 @@ func (b *bridgeDB) ReadGroupSettingsContext(ctx context.Context, bridgeID, chatI
 		SELECT bridge_id, chat_id, interaction_mode, isolation_required,
 			default_agent, default_runtime_ref, default_model_ref, default_reasoning_effort,
 			thinking_process, mode, default_target, default_cwd, default_args_json,
-			idle_timeout_seconds, thread_context_limit, max_sessions_total, max_sessions_per_user,
+			idle_timeout_seconds, idle_timeout_inherited, thread_context_limit, max_sessions_total, max_sessions_per_user,
 			state_version, updated_by, updated_at
 		FROM feishu_group_settings WHERE bridge_id=? AND chat_id=?`, bridgeID, chatID).Scan(
 		&settings.BridgeID, &settings.ChatID, &settings.InteractionMode, &settings.IsolationRequired,
 		&settings.DefaultAgent, &settings.DefaultRuntimeRef, &settings.DefaultModelRef, &settings.DefaultReasoningEffort,
 		&settings.ThinkingProcess, &settings.Mode, &settings.DefaultTarget, &settings.DefaultCwd, &argsJSON,
-		&settings.IdleTimeoutSeconds, &settings.ThreadContextLimit, &settings.MaxSessionsTotal, &settings.MaxSessionsPerUser,
+		&settings.IdleTimeoutSeconds, &settings.IdleTimeoutInherited, &settings.ThreadContextLimit, &settings.MaxSessionsTotal, &settings.MaxSessionsPerUser,
 		&settings.Version, &settings.UpdatedBy, &updatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -152,7 +156,7 @@ func (b *bridgeDB) SaveGroupSettingsContext(ctx context.Context, settings GroupS
 		settings.InteractionMode, boolToInt(settings.IsolationRequired), settings.DefaultAgent,
 		settings.DefaultRuntimeRef, settings.DefaultModelRef, settings.DefaultReasoningEffort,
 		settings.ThinkingProcess, settings.Mode, settings.DefaultTarget, settings.DefaultCwd, argsJSON,
-		settings.IdleTimeoutSeconds, settings.ThreadContextLimit, settings.MaxSessionsTotal,
+		settings.IdleTimeoutSeconds, settings.IdleTimeoutInherited, settings.ThreadContextLimit, settings.MaxSessionsTotal,
 		settings.MaxSessionsPerUser, settings.Version, settings.UpdatedBy, settings.UpdatedAt.Unix(),
 	}
 	if expectedVersion == 0 {
@@ -160,10 +164,10 @@ func (b *bridgeDB) SaveGroupSettingsContext(ctx context.Context, settings GroupS
 			INSERT INTO feishu_group_settings (
 				interaction_mode, isolation_required, default_agent, default_runtime_ref,
 				default_model_ref, default_reasoning_effort, thinking_process, mode,
-				default_target, default_cwd, default_args_json, idle_timeout_seconds,
+				default_target, default_cwd, default_args_json, idle_timeout_seconds, idle_timeout_inherited,
 				thread_context_limit, max_sessions_total, max_sessions_per_user,
 				state_version, updated_by, updated_at, bridge_id, chat_id
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(bridge_id, chat_id) DO NOTHING`, append(args, settings.BridgeID, settings.ChatID)...)
 	} else {
 		result, err = tx.ExecContext(ctx, `
@@ -171,7 +175,7 @@ func (b *bridgeDB) SaveGroupSettingsContext(ctx context.Context, settings GroupS
 				session_root_msg_id=CASE WHEN interaction_mode<>? THEN '' ELSE session_root_msg_id END,
 				interaction_mode=?, isolation_required=?, default_agent=?, default_runtime_ref=?,
 				default_model_ref=?, default_reasoning_effort=?, thinking_process=?, mode=?,
-				default_target=?, default_cwd=?, default_args_json=?, idle_timeout_seconds=?,
+				default_target=?, default_cwd=?, default_args_json=?, idle_timeout_seconds=?, idle_timeout_inherited=?,
 				thread_context_limit=?, max_sessions_total=?, max_sessions_per_user=?,
 				state_version=?, updated_by=?, updated_at=?
 			WHERE bridge_id=? AND chat_id=? AND state_version=?`,
@@ -186,21 +190,21 @@ func (b *bridgeDB) SaveGroupSettingsContext(ctx context.Context, settings GroupS
 	result, err = tx.ExecContext(ctx, `
 		INSERT INTO feishu_workspaces (
 			bridge_id, chat_id, kind, mode, default_agent, default_target, default_cwd,
-			default_model, default_args_json, idle_timeout_seconds, thread_context_limit,
+			default_model, default_args_json, idle_timeout_seconds, idle_timeout_inherited, thread_context_limit,
 			max_sessions_total, max_sessions_per_user, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(bridge_id, chat_id) DO UPDATE SET
 			mode=excluded.mode, default_agent=excluded.default_agent,
 			default_target=excluded.default_target, default_cwd=excluded.default_cwd,
 			default_model=excluded.default_model, default_args_json=excluded.default_args_json,
-			idle_timeout_seconds=excluded.idle_timeout_seconds,
+			idle_timeout_seconds=excluded.idle_timeout_seconds, idle_timeout_inherited=excluded.idle_timeout_inherited,
 			thread_context_limit=excluded.thread_context_limit,
 			max_sessions_total=excluded.max_sessions_total,
 			max_sessions_per_user=excluded.max_sessions_per_user, updated_at=excluded.updated_at
 		WHERE feishu_workspaces.kind IN ('group', 'topic_group')`,
 		settings.BridgeID, settings.ChatID, WorkspaceKindGroup, settings.Mode, settings.DefaultAgent,
 		settings.DefaultTarget, settings.DefaultCwd, settings.DefaultModelRef, argsJSON,
-		settings.IdleTimeoutSeconds, settings.ThreadContextLimit, settings.MaxSessionsTotal,
+		settings.IdleTimeoutSeconds, settings.IdleTimeoutInherited, settings.ThreadContextLimit, settings.MaxSessionsTotal,
 		settings.MaxSessionsPerUser, settings.UpdatedAt.Unix())
 	if err != nil {
 		return nil, err
@@ -220,6 +224,11 @@ func (b *bridgeDB) SaveGroupSettingsContext(ctx context.Context, settings GroupS
 }
 
 func normalizeGroupSettings(settings GroupSettings) GroupSettings {
+	// Older clients edit the numeric field on a draft without touching the inheritance flag.
+	if settings.IdleTimeoutSeconds != 0 {
+		settings.IdleTimeoutInherited = false
+	}
+
 	settings.BridgeID = strings.TrimSpace(settings.BridgeID)
 	settings.ChatID = strings.TrimSpace(settings.ChatID)
 	settings.InteractionMode = strings.TrimSpace(settings.InteractionMode)

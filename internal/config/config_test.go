@@ -628,8 +628,19 @@ func TestGetBridgeFeishuWorkspaceDefaultsEmptyConfig(t *testing.T) {
 	requireLoad(t, path)
 
 	got := config.GetBridgeFeishuWorkspaceDefaults()
-	if got.Agent != "" || got.Target != "" || got.Cwd != "" || got.Model != "" || got.IdleTimeoutSeconds != 0 || len(got.Args) != 0 {
+	if got.Agent != "" || got.Target != "" || got.Cwd != "" || got.Model != "" || !got.IdleTimeoutInherited || got.IdleTimeoutSeconds != 0 || len(got.Args) != 0 {
 		t.Fatalf("workspace defaults = %+v, want zero values", got)
+	}
+}
+
+func TestWorkspaceIdleTimeoutExplicitZeroOverridesInheritance(t *testing.T) {
+	requireLoad(t, writeConfig(t, "[bridge.feishu.profiles.work.workspace_defaults]\nidle_timeout_seconds=0\n"))
+	if !config.GetBridgeFeishuWorkspaceDefaults().IdleTimeoutInherited || config.GetBridgeFeishuWorkspaceDefaultsForProfile("work").IdleTimeoutInherited {
+		t.Fatal("profile zero must disable sleep without changing installation inheritance")
+	}
+	requireLoad(t, writeConfig(t, "[bridge.feishu.workspace_defaults]\nidle_timeout_seconds=0\n"))
+	if config.GetBridgeFeishuWorkspaceDefaultsForProfile("work").IdleTimeoutInherited {
+		t.Fatal("an explicit installation zero must disable sleep")
 	}
 }
 

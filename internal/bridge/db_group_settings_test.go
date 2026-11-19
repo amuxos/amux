@@ -45,10 +45,68 @@ func requireGroupWorkspaceProjection(t *testing.T, db *bridgeDB, settings *Group
 		Mode: settings.Mode, DefaultAgent: settings.DefaultAgent, DefaultTarget: settings.DefaultTarget,
 		DefaultCwd: settings.DefaultCwd, DefaultModel: settings.DefaultModelRef, DefaultArgs: settings.DefaultArgs,
 		ThreadContextLimit: settings.ThreadContextLimit, MaxSessionsTotal: settings.MaxSessionsTotal,
-		MaxSessionsPerUser: settings.MaxSessionsPerUser, IdleTimeoutSeconds: settings.IdleTimeoutSeconds,
+		MaxSessionsPerUser: settings.MaxSessionsPerUser, IdleTimeoutSeconds: settings.IdleTimeoutSeconds, IdleTimeoutInherited: settings.IdleTimeoutInherited,
 	}
 	if !reflect.DeepEqual(ws, want) {
 		t.Fatalf("workspace projection = %+v; want %+v", ws, want)
+	}
+}
+
+func TestWorkspaceSleepPolicySurvivesMigrationAndGroupSettings(t *testing.T) {
+	loadBridgeTestConfig(t, "")
+	path := filepath.Join(t.TempDir(), "bridge.db")
+	db := openGroupSettingsTestDB(t, path)
+	settings := testGroupSettings()
+	settings.IdleTimeoutSeconds = 0
+	// Make a legacy database containing both a workspace and its saved group policy.
+	if _, err := db.SaveGroupSettings(settings, 0); err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"feishu_workspaces", "feishu_group_settings"} {
+		if _, err := db.db.Exec("ALTER TABLE " + table + " DROP COLUMN idle_timeout_inherited"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db = openGroupSettingsTestDB(t, path)
+	check := func(chat string, wantInherited bool) {
+		t.Helper()
+		ws, err := db.GetWorkspace(settings.BridgeID, chat)
+		if err != nil {
+			t.Fatal(err)
+		}
+		timeout := workspaceLaunchIdleTimeout(ws.IdleTimeoutSeconds, ws.IdleTimeoutInherited)
+		if (timeout == nil) != wantInherited || (timeout != nil && *timeout != 0) {
+			t.Fatalf("workspace %q: timeout=%v, inherited=%v", chat, timeout, ws.IdleTimeoutInherited)
+		}
+	}
+	check(settings.ChatID, false)
+	check("new-workspace", true)
+	saved, err := db.ReadGroupSettings(settings.BridgeID, settings.ChatID)
+	if err != nil || saved == nil || saved.IdleTimeoutInherited {
+		t.Fatalf("legacy policy=%+v, err=%v", saved, err)
+	}
+	for _, inherited := range []bool{true, false} {
+		draft := groupSettingsFormDraft(saved)
+		draft["group_idle_seconds"] = "0"
+		if inherited {
+			draft["group_idle_seconds"] = ""
+		}
+		edited, err := draft.settings(saved)
+		if err != nil {
+			t.Fatal(err)
+		}
+		saved, err = db.SaveGroupSettings(*edited, saved.Version)
+		if err != nil {
+			t.Fatal(err)
+		}
+		saved, err = db.ReadGroupSettings(settings.BridgeID, settings.ChatID)
+		if err != nil || saved == nil || saved.IdleTimeoutInherited != inherited {
+			t.Fatalf("group policy=%+v, err=%v", saved, err)
+		}
+		check(settings.ChatID, inherited)
 	}
 }
 

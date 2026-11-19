@@ -71,7 +71,7 @@ func newSystemCleanupCmd() *cobra.Command {
 
 func cleanupStepText(cmd *cobra.Command, name string) string {
 	switch name {
-	case "sessions", "tasks", "workspaces", "session_artifacts", "provider_rollouts", "provider_trust", "provider_home", "logs", "database", "isolation", "references":
+	case "sessions", "tasks", "task_sessions", "workspaces", "session_artifacts", "provider_rollouts", "provider_trust", "provider_home", "logs", "database", "isolation", "references":
 	default:
 		name = "other"
 	}

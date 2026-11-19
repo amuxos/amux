@@ -4,8 +4,8 @@ package isolation
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/amuxos/amux/internal/cleanup"
 	"io"
 	"net"
 	"os"
@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amuxos/amux/internal/cleanup"
 	"github.com/google/uuid"
 	"golang.org/x/sys/unix"
 )
@@ -385,9 +386,21 @@ func (h *helperProcessHandle) Close() error {
 }
 
 func (c *HelperClient) DailyCleanup(ctx context.Context, mapping AccountMapping, req DailyCleanupRequest) ([]cleanup.Step, error) {
-	resp, _, err := c.request(ctx, HelperRequest{Operation: OpDailyCleanup, Mapping: &mapping, Cleanup: &req}, 0)
+	wire := HelperRequest{Operation: OpDailyCleanup, Mapping: &mapping, Cleanup: &req}
+	data, err := json.Marshal(req.References)
 	if err != nil {
 		return nil, err
 	}
-	return resp.CleanupSteps, nil
+	if len(data) <= maxInlineCleanupReferencesBytes {
+		resp, _, err := c.request(ctx, wire, 0)
+		return resp.CleanupSteps, err
+	}
+	file, err := sealCleanupReferences(data)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	req.References = nil
+	resp, _, err := c.requestWithFiles(ctx, wire, []*os.File{file}, 0)
+	return resp.CleanupSteps, err
 }

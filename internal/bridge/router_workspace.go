@@ -18,7 +18,7 @@ import (
 
 func (b *Bridge) currentWorkspace(chatID string) (*FeishuWorkspace, error) {
 	if b == nil || b.db == nil {
-		return &FeishuWorkspace{Mode: defaultWorkspaceMode, DefaultAgent: agentprofile.DefaultProfileRef, DefaultArgs: nil, ThreadContextLimit: defaultThreadContextLimit, MaxSessionsTotal: defaultWorkspaceMaxSessionsTotal, MaxSessionsPerUser: defaultWorkspaceMaxSessionsUser, IdleTimeoutSeconds: defaultIdleTimeoutSeconds}, nil
+		return &FeishuWorkspace{Mode: defaultWorkspaceMode, DefaultAgent: agentprofile.DefaultProfileRef, DefaultArgs: nil, ThreadContextLimit: defaultThreadContextLimit, MaxSessionsTotal: defaultWorkspaceMaxSessionsTotal, MaxSessionsPerUser: defaultWorkspaceMaxSessionsUser, IdleTimeoutSeconds: defaultIdleTimeoutSeconds, IdleTimeoutInherited: true}, nil
 	}
 	return b.db.GetWorkspace(b.currentBridgeId(), chatID)
 }
@@ -551,7 +551,10 @@ func (b *Bridge) handleWorkspaceRootCommandReply(ctx context.Context, chatID, ro
 		if !ok {
 			return b.notifyRootCommand(ctx, chatID, rootMsgID, workspaceIdleTimeoutUsage())
 		}
-		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) { s.IdleTimeoutSeconds = seconds }, func() error { return b.db.SetWorkspaceIdleTimeoutSeconds(b.currentBridgeId(), chatID, seconds) }); err != nil {
+		if err := b.updateGroupWorkspace(ctx, chatID, openID, func(s *GroupSettings) {
+			s.IdleTimeoutSeconds = seconds
+			s.IdleTimeoutInherited = false
+		}, func() error { return b.db.SetWorkspaceIdleTimeoutSeconds(b.currentBridgeId(), chatID, seconds) }); err != nil {
 			if notifyErr := b.notifyRootCommand(ctx, chatID, rootMsgID, fmt.Sprintf("设置 workspace idle timeout 失败：%v", err)); notifyErr != nil {
 				return fmt.Errorf("set workspace idle timeout: %w; notify: %v", err, notifyErr)
 			}
@@ -623,7 +626,11 @@ func workspaceStatusText(ws *FeishuWorkspace) string {
 	if ws == nil {
 		return "Feishu workspace 未配置"
 	}
-	return fmt.Sprintf("Feishu workspace\n"+"Mode: %s\n"+"Default target: %s\n"+"Default cwd: %s\n"+"Default model: %s\n"+"Default args: %s\n"+"Max sessions total: %d\n"+"Max sessions per user: %d\n"+"Thread context limit: %d\n"+"Idle timeout seconds: %d", ws.Mode, workspaceDefaultValueText(ws.DefaultTarget), workspaceDefaultValueText(ws.DefaultCwd), workspaceDefaultValueText(ws.DefaultModel), workspaceDefaultArgsText(ws.DefaultArgs), ws.MaxSessionsTotal, ws.MaxSessionsPerUser, ws.ThreadContextLimit, ws.IdleTimeoutSeconds)
+	idleTimeout := strconv.Itoa(ws.IdleTimeoutSeconds)
+	if ws.IdleTimeoutInherited {
+		idleTimeout = "runtime.session_reclaim.feishu.sleep_after_seconds"
+	}
+	return fmt.Sprintf("Feishu workspace\n"+"Mode: %s\n"+"Default target: %s\n"+"Default cwd: %s\n"+"Default model: %s\n"+"Default args: %s\n"+"Max sessions total: %d\n"+"Max sessions per user: %d\n"+"Thread context limit: %d\n"+"Idle timeout seconds: %s", ws.Mode, workspaceDefaultValueText(ws.DefaultTarget), workspaceDefaultValueText(ws.DefaultCwd), workspaceDefaultValueText(ws.DefaultModel), workspaceDefaultArgsText(ws.DefaultArgs), ws.MaxSessionsTotal, ws.MaxSessionsPerUser, ws.ThreadContextLimit, idleTimeout)
 }
 func workspaceDefaultValueText(value string) string {
 	value = strings.TrimSpace(value)

@@ -64,7 +64,7 @@ func (b *Bridge) groupSettingsDraftContext(ctx context.Context, chatID string) (
 		DefaultReasoningEffort: state.DefaultReasoningEffort,
 		ThinkingProcess:        config.GetBridgeFeishuPresentationForProfile(b.ProfileName()).ThinkingProcess,
 		Mode:                   ws.Mode, DefaultTarget: ws.DefaultTarget, DefaultCwd: ws.DefaultCwd,
-		DefaultArgs: append([]string(nil), ws.DefaultArgs...), IdleTimeoutSeconds: ws.IdleTimeoutSeconds,
+		DefaultArgs: append([]string(nil), ws.DefaultArgs...), IdleTimeoutSeconds: ws.IdleTimeoutSeconds, IdleTimeoutInherited: ws.IdleTimeoutInherited,
 		ThreadContextLimit: ws.ThreadContextLimit, MaxSessionsTotal: ws.MaxSessionsTotal, MaxSessionsPerUser: ws.MaxSessionsPerUser,
 	}, nil
 }
@@ -318,6 +318,7 @@ func groupSettingsWorkspace(ws *FeishuWorkspace, settings *GroupSettings) *Feish
 	copy.Mode, copy.DefaultAgent = settings.Mode, settings.DefaultAgent
 	copy.DefaultTarget, copy.DefaultCwd, copy.DefaultModel = settings.DefaultTarget, settings.DefaultCwd, settings.DefaultModelRef
 	copy.DefaultArgs = append([]string(nil), settings.DefaultArgs...)
+	copy.IdleTimeoutInherited = settings.IdleTimeoutInherited
 	copy.IdleTimeoutSeconds, copy.ThreadContextLimit = settings.IdleTimeoutSeconds, settings.ThreadContextLimit
 	copy.MaxSessionsTotal, copy.MaxSessionsPerUser = settings.MaxSessionsTotal, settings.MaxSessionsPerUser
 	return &copy

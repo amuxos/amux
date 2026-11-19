@@ -107,7 +107,7 @@ func renderDailyCleanupReport(r cleanup.Report) string {
 		s := steps[name]
 		key := "cleanup.step." + name
 		switch name {
-		case "sessions", "tasks", "workspaces", "session_artifacts", "provider_rollouts", "provider_trust", "provider_home", "logs", "database", "isolation", "references":
+		case "sessions", "tasks", "task_sessions", "workspaces", "session_artifacts", "provider_rollouts", "provider_trust", "provider_home", "logs", "database", "isolation", "references":
 		default:
 			key = "cleanup.step.other"
 		}

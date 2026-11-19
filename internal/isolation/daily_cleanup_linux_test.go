@@ -4,6 +4,7 @@ package isolation
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -56,6 +57,11 @@ func TestHelperDailyCleanupPreservesReferencedAndRunningWorkspaces(t *testing.T)
 	}
 	if _, err := os.Stat(filepath.Join(workspaceRoot, "orphan")); err != nil {
 		t.Fatal("preview deleted data")
+	}
+	// Larger than the default Unix packet send limit. The file packet must
+	// preserve the entire snapshot, including the protected workspace.
+	for i := range 8000 {
+		refs.SessionIDs = append(refs.SessionIDs, fmt.Sprintf("%08d-0000-4000-8000-%012d", i, i))
 	}
 	steps, err := client.DailyCleanup(ctx, mapping, DailyCleanupRequest{References: &refs})
 	if err != nil {

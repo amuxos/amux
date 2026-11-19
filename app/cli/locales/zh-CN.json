@@ -179,6 +179,9 @@
   "cleanup.step.tasks": {
     "other": "过期终态任务"
   },
+  "cleanup.step.task_sessions": {
+    "other": "任务子会话"
+  },
   "cleanup.step.workspaces": {
     "other": "孤立工作区"
   },

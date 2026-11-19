@@ -227,6 +227,11 @@ and requested service restarts complete before those Sessions resume. Sessions
 already sleeping are not awakened. A renewable lease and durable recovery list
 survive CLI handoff and Runtime restart; abandonment triggers recovery. Resume
 failures are reported and retried, without silently discarding the recovery list.
+Recovery attempts yield between Sessions. When an attempt reaches its deadline,
+the next pass starts with Sessions it had no time to try. Retry backoff increases
+only when a pass makes no progress, and resets when any pending Session is restored.
+The updater waits as long as the Runtime continues reducing the pending count.
+Two minutes without observable progress ends the CLI wait. The Runtime keeps retrying.
 Native goal continuations pause admission during maintenance; the existing goal
 grant is retained and resumed afterward. Maintenance is a local administration RPC,
 not a Hub or tunnel operation. An older Runtime without this protocol still uses
@@ -354,12 +359,15 @@ and sends the result to configured Bot owners. Only host operators can invoke
 this system operation; Agent credentials and enrolled users cannot.
 
 Cleanup uses existing archived Session and seven-day terminal Task lifecycle
-APIs. It retains referenced workspaces/provider threads, recent orphan data,
+APIs. The report counts Task child Sessions removed through Task pruning.
+It retains referenced workspaces/provider threads, recent orphan data,
 explicitly protected paths, credentials and running/sleeping Sessions. It never
 sweeps global `/tmp`. Filesystem cleanup fails closed on unreadable authoritative
 state and does not follow symlinks outside managed roots. Provider-specific
 layouts are registered by distributions. Principal files are processed through
 the existing privileged helper, never by granting the Runtime broad sudo.
+Large reference snapshots travel as a sealed file descriptor so the helper
+can evaluate the complete snapshot within the socket's message size limit.
 Logs are bounded and SQLite compaction runs only above 300 MiB of free pages.
 
 ## Configured Codex executable

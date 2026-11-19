@@ -683,6 +683,9 @@
   "management.extra.arguments.must.be.a.json.string.array": {
     "other": "附加参数须为 JSON 字符串数组"
   },
+  "workspace.idle.inherit": {
+    "other": "使用 Runtime 休眠策略"
+  },
   "management.idle.timeout.in.seconds": {
     "other": "空闲回收秒数"
   },
@@ -3058,6 +3061,9 @@
   },
   "cleanup.step.tasks": {
     "other": "过期终态任务"
+  },
+  "cleanup.step.task_sessions": {
+    "other": "任务子会话"
   },
   "cleanup.step.workspaces": {
     "other": "孤立工作区"

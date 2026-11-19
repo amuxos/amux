@@ -151,6 +151,7 @@ func TestGroupSettingsCardCompleteSaveAndIndependentDefaults(t *testing.T) {
 	want.DefaultModelRef, want.DefaultReasoningEffort, want.ThinkingProcess = "my-native-model", "high", config.FeishuThinkingProcessHidden
 	want.Mode, want.DefaultTarget, want.DefaultCwd = WorkspaceModeShared, "local", "/project/review"
 	want.DefaultArgs = []string{"--name", "value with spaces", `a"b`, `C:\path`}
+	want.IdleTimeoutInherited = false
 	want.IdleTimeoutSeconds, want.ThreadContextLimit, want.MaxSessionsTotal, want.MaxSessionsPerUser = 300, 17, 6, 2
 	want.Version, want.UpdatedBy, want.UpdatedAt = 1, "owner", saved.UpdatedAt
 	if !reflect.DeepEqual(*saved, want) {

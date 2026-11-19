@@ -89,6 +89,7 @@ func (s *server) Cleanup(ctx context.Context, req *pb.CleanupRequest) (*pb.Clean
 	}
 	report.Steps = append(report.Steps, sessions)
 	tasks := cleanup.Step{Name: "tasks"}
+	taskSessions := cleanup.Step{Name: "task_sessions"}
 	if s.cleanupTasks == nil {
 		tasks.Error(fmt.Errorf("task runner is unavailable"))
 	} else {
@@ -99,8 +100,16 @@ func (s *server) Cleanup(ctx context.Context, req *pb.CleanupRequest) (*pb.Clean
 		if !report.DryRun {
 			tasks.Deleted = len(result.Tasks)
 		}
+		for _, item := range result.Tasks {
+			if item.DeletedChildSession {
+				taskSessions.Candidates++
+			}
+		}
+		if !report.DryRun {
+			taskSessions.Deleted = taskSessions.Candidates
+		}
 	}
-	report.Steps = append(report.Steps, tasks)
+	report.Steps = append(report.Steps, tasks, taskSessions)
 	s.cleanupLaunchMu.Lock()
 	refs, err := s.cleanupReferences()
 	if err != nil {

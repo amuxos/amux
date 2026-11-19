@@ -2,14 +2,15 @@ package runtime
 
 import (
 	"context"
-	"github.com/amuxos/amux/internal/session"
-	"github.com/amuxos/amux/internal/store"
-	"github.com/amuxos/amux/internal/task"
-	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/amuxos/amux/internal/session"
+	"github.com/amuxos/amux/internal/store"
+	"github.com/amuxos/amux/internal/task"
+	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
 func TestDailyCleanupPreservesLiveDataAndPersistsIdempotency(t *testing.T) {
@@ -23,7 +24,8 @@ func TestDailyCleanupPreservesLiveDataAndPersistsIdempotency(t *testing.T) {
 	defer db.Close()
 	mgr := session.NewManager(db)
 	srv := &server{mgr: mgr, amuxDir: dir, cleanupDB: db, cleanupTarget: "test"}
-	runner, err := task.NewRunner(task.Options{AmuxDir: dir, Store: task.NewSQLStore(db), Control: newTaskController(srv, "test"), Artifacts: taskArtifactPruner{srv: srv}})
+	taskStore := task.NewSQLStore(db)
+	runner, err := task.NewRunner(task.Options{AmuxDir: dir, Store: taskStore, Control: newTaskController(srv, "test"), Artifacts: taskArtifactPruner{srv: srv}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,6 +42,11 @@ func TestDailyCleanupPreservesLiveDataAndPersistsIdempotency(t *testing.T) {
 	if err = mgr.SetArchived(dead, "test"); err != nil {
 		t.Fatal(err)
 	}
+	child := archiveOwned(t, mgr, "task-child", "old-task", dir)
+	old := time.Now().Add(-30 * 24 * time.Hour)
+	if err := taskStore.Save(&task.TaskRun{ID: "old-task", ChildSessionId: child.ID, Status: task.StatusSucceeded, FinishedAt: old}); err != nil {
+		t.Fatal(err)
+	}
 	root := filepath.Join(dir, "workspaces", "feishu", "group")
 	orphan := filepath.Join(root, "orphan")
 	if err = os.MkdirAll(orphan, 0700); err != nil {
@@ -48,7 +55,6 @@ func TestDailyCleanupPreservesLiveDataAndPersistsIdempotency(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(orphan, "data"), []byte("old"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	old := time.Now().Add(-30 * 24 * time.Hour)
 	os.Chtimes(orphan, old, old)
 	preview, err := srv.Cleanup(context.Background(), &pb.CleanupRequest{DryRun: true})
 	if err != nil {
@@ -57,8 +63,21 @@ func TestDailyCleanupPreservesLiveDataAndPersistsIdempotency(t *testing.T) {
 	if !preview.Reports[0].DryRun {
 		t.Fatal("not a preview")
 	}
+	checkTaskSessions := func(report *pb.CleanupReport, deleted int64) {
+		t.Helper()
+		for _, step := range report.Steps {
+			if step.Name == "task_sessions" && step.Candidates == 1 && step.Deleted == deleted {
+				return
+			}
+		}
+		t.Fatalf("missing task child session counts in %v", report.Steps)
+	}
+	checkTaskSessions(preview.Reports[0], 0)
 	if _, err = mgr.Get(dead.ID); err != nil {
 		t.Fatal("preview pruned session")
+	}
+	if _, err = mgr.Get(child.ID); err != nil {
+		t.Fatal("preview pruned task child")
 	}
 	if _, err = os.Stat(orphan); err != nil {
 		t.Fatal("preview removed workspace")
@@ -66,6 +85,10 @@ func TestDailyCleanupPreservesLiveDataAndPersistsIdempotency(t *testing.T) {
 	result, err := srv.Cleanup(context.Background(), &pb.CleanupRequest{RunId: "daily/test"})
 	if err != nil {
 		t.Fatal(err)
+	}
+	checkTaskSessions(result.Reports[0], 1)
+	if _, err = mgr.Get(child.ID); err == nil {
+		t.Fatal("expired archived task child retained")
 	}
 	if _, err = mgr.Get(live.ID); err != nil {
 		t.Fatal("live session lost")
