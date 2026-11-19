@@ -2,11 +2,13 @@ package bridge
 
 import (
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
 func TestStripANSI(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want string
@@ -26,52 +28,56 @@ func TestStripANSI(t *testing.T) {
 	}
 }
 
+func waitAggFlush(t *testing.T, ch <-chan string, timeout time.Duration) string {
+	t.Helper()
+	select {
+	case text := <-ch:
+		return text
+	case <-time.After(timeout):
+		t.Fatal("expected at least one flush, got none")
+		return ""
+	}
+}
+
 func TestAggregator_Flush(t *testing.T) {
-	var got []string
-	agg := NewAggregator(50*time.Millisecond, 200, func(text string) error {
-		got = append(got, text)
+	t.Parallel()
+	flushed := make(chan string, 4)
+	agg := NewAggregator(5*time.Millisecond, 200, func(text string) error {
+		flushed <- text
 		return nil
 	})
 
 	agg.Add([]byte("hello "))
 	agg.Add([]byte("world"))
 
-	// Wait for timer flush.
-	time.Sleep(120 * time.Millisecond)
-
-	if len(got) == 0 {
-		t.Fatal("expected at least one flush, got none")
-	}
-	combined := strings.Join(got, "")
-	if !strings.Contains(combined, "hello world") {
-		t.Errorf("flushed text %q does not contain 'hello world'", combined)
+	got := waitAggFlush(t, flushed, time.Second)
+	if !strings.Contains(got, "hello world") {
+		t.Errorf("flushed text %q does not contain 'hello world'", got)
 	}
 }
 
 func TestAggregator_MaxBytes(t *testing.T) {
-	var got []string
+	t.Parallel()
+	flushed := make(chan string, 4)
 	agg := NewAggregator(10*time.Second, 5, func(text string) error {
-		got = append(got, text)
+		flushed <- text
 		return nil
 	})
 
 	agg.Add([]byte("abcde")) // exactly maxBytes → immediate flush
-	time.Sleep(20 * time.Millisecond)
-
-	if len(got) == 0 {
-		t.Fatal("expected immediate flush on maxBytes, got none")
-	}
+	waitAggFlush(t, flushed, time.Second)
 }
 
 func TestAggregator_TUIMode(t *testing.T) {
+	t.Parallel()
 	// Simulate a TUI app that:
 	//  1. enters alternate screen
 	//  2. writes "Hello TUI!" at a fixed position
 	//  3. exits alternate screen
 	// The aggregator should render the visible screen rather than the raw bytes.
-	var got []string
-	agg := NewAggregator(50*time.Millisecond, 1<<20, func(text string) error {
-		got = append(got, text)
+	flushed := make(chan string, 4)
+	agg := NewAggregator(5*time.Millisecond, 1<<20, func(text string) error {
+		flushed <- text
 		return nil
 	})
 
@@ -81,26 +87,21 @@ func TestAggregator_TUIMode(t *testing.T) {
 	tui += "Hello TUI!"  // write text
 	agg.Add([]byte(tui))
 
-	// Wait for timer flush.
-	time.Sleep(120 * time.Millisecond)
-
-	if len(got) == 0 {
-		t.Fatal("expected at least one flush in TUI mode, got none")
-	}
-	combined := strings.Join(got, "\n")
-	if !strings.Contains(combined, "Hello TUI!") {
-		t.Errorf("TUI flush %q does not contain 'Hello TUI!'", combined)
+	got := waitAggFlush(t, flushed, time.Second)
+	if !strings.Contains(got, "Hello TUI!") {
+		t.Errorf("TUI flush %q does not contain 'Hello TUI!'", got)
 	}
 }
 
 func TestAggregator_TUIMode_OSCRemnants(t *testing.T) {
+	t.Parallel()
 	// Simulate a TUI app that emits OSC 10/11 colour-set sequences.
 	// vt10x does not handle OSC 10/11, so it may write the parameter bytes as
 	// literal cell text ("]11;rgb:1e1e/1e1e/2e2e\").  The aggregator should
 	// strip those remnants so they don't appear in the Feishu message.
-	var got []string
-	agg := NewAggregator(50*time.Millisecond, 1<<20, func(text string) error {
-		got = append(got, text)
+	flushed := make(chan string, 4)
+	agg := NewAggregator(5*time.Millisecond, 1<<20, func(text string) error {
+		flushed <- text
 		return nil
 	})
 
@@ -114,31 +115,32 @@ func TestAggregator_TUIMode_OSCRemnants(t *testing.T) {
 	tui += "\x1b]11;rgb:1e1e/1e1e/2e2e\x1b\\" // OSC 11 (ST-terminated)
 	agg.Add([]byte(tui))
 
-	time.Sleep(120 * time.Millisecond)
-
-	if len(got) == 0 {
-		t.Fatal("expected at least one flush, got none")
-	}
-	combined := strings.Join(got, "\n")
-	if !strings.Contains(combined, "Hello TUI!") {
-		t.Errorf("TUI flush %q does not contain 'Hello TUI!'", combined)
+	got := waitAggFlush(t, flushed, time.Second)
+	if !strings.Contains(got, "Hello TUI!") {
+		t.Errorf("TUI flush %q does not contain 'Hello TUI!'", got)
 	}
 	// OSC remnants must not appear in output.
-	if strings.Contains(combined, "rgb:") || strings.Contains(combined, "]11;") {
-		t.Errorf("TUI flush %q still contains OSC remnants", combined)
+	if strings.Contains(got, "rgb:") || strings.Contains(got, "]11;") {
+		t.Errorf("TUI flush %q still contains OSC remnants", got)
 	}
 }
 
 func TestAggregator_SkipsEmptyAfterStrip(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
 	flushed := false
-	agg := NewAggregator(50*time.Millisecond, 200, func(text string) error {
+	agg := NewAggregator(5*time.Millisecond, 200, func(text string) error {
+		mu.Lock()
 		flushed = true
+		mu.Unlock()
 		return nil
 	})
 
 	agg.Add([]byte("\x1b[2J\x1b[H\r\n")) // ANSI noise → empty after strip
-	time.Sleep(120 * time.Millisecond)
+	time.Sleep(25 * time.Millisecond)
 
+	mu.Lock()
+	defer mu.Unlock()
 	if flushed {
 		t.Error("expected no flush for ANSI-only content")
 	}

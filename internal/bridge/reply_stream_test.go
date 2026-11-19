@@ -183,9 +183,10 @@ func (f *fakeReplyAPI) finalsLocked() []string {
 }
 
 func TestStreamingReplySender_CreatesThenPatches(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
-	s := newStreamingReplySender(200*time.Millisecond, api, func(t string) { finalText = t })
+	s := newStreamingReplySender(25*time.Millisecond, api, func(t string) { finalText = t })
 
 	s.enqueue(replyCommandAdd, "Hello")
 	waitForAtomic(t, "creates", &api.creates, 1)
@@ -198,10 +199,7 @@ func TestStreamingReplySender_CreatesThenPatches(t *testing.T) {
 		t.Fatalf("patches = %d, want 0 during rate window", got)
 	}
 	// Wait for the rate-limit timer to fire.
-	time.Sleep(250 * time.Millisecond)
-	if got := atomic.LoadInt32(&api.patches); got != 1 {
-		t.Fatalf("patches = %d, want 1 after timer", got)
-	}
+	waitForAtomic(t, "patches", &api.patches, 1)
 	api.mu.Lock()
 	if api.lastText != "Hello, world" {
 		t.Fatalf("lastText = %q, want %q", api.lastText, "Hello, world")
@@ -223,10 +221,7 @@ func TestStreamingReplySender_CreatesThenPatches(t *testing.T) {
 	// Reset → next delta starts a new card (new create).
 	s.Reset()
 	s.enqueue(replyCommandAdd, "Second turn")
-	time.Sleep(60 * time.Millisecond)
-	if got := atomic.LoadInt32(&api.creates); got != 2 {
-		t.Fatalf("creates = %d after Reset+AddDelta, want 2", got)
-	}
+	waitForAtomic(t, "creates after Reset+AddDelta", &api.creates, 2)
 }
 
 func TestStreamingReplySender_FinalizeForBotMentionsCallerOnSameCard(t *testing.T) {
@@ -539,7 +534,7 @@ func TestStreamingReplySender_DropsEmptyAndDuplicate(t *testing.T) {
 		t.Fatalf("empty delta should not trigger create")
 	}
 	s.enqueue(replyCommandAdd, "same")
-	time.Sleep(30 * time.Millisecond)
+	waitForAtomic(t, "creates", &api.creates, 1)
 	// Second flush with no new text should not patch.
 	s.Flush()
 	if atomic.LoadInt32(&api.patches) != 0 {
@@ -761,10 +756,7 @@ func TestStreamingReplySender_ReplaceCurrentPatchesExistingCard(t *testing.T) {
 	s := newStreamingReplySender(0, api, nil)
 
 	s.enqueue(replyCommandAdd, "partial")
-	time.Sleep(30 * time.Millisecond)
-	if got := atomic.LoadInt32(&api.creates); got != 1 {
-		t.Fatalf("creates = %d, want 1 before replacement", got)
-	}
+	waitForAtomic(t, "creates before replacement", &api.creates, 1)
 	s.ReplaceCurrent("complete")
 	s.Flush()
 

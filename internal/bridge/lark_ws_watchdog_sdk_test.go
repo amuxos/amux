@@ -166,6 +166,7 @@ func TestLarkWSWatchdogObservesRealSDKFrames(t *testing.T) {
 // behavior the watchdog backs up: with the watchdog off, the SDK's own read
 // deadline (2 x ping interval + 5s) must still recycle a silent connection.
 func TestLarkSDKReadDeadlineRecoversHalfDeadConnection(t *testing.T) {
+	t.Parallel()
 	gateway := newFakeLarkGateway(t, 1)
 	defer gateway.server.Close()
 	cfg := defaultLarkWSWatchdogConfig()

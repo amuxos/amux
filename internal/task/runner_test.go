@@ -327,6 +327,18 @@ func waitTerminal(t *testing.T, r *Runner, id string) *TaskRun {
 	return nil
 }
 
+func waitForRunnerCondition(t *testing.T, timeout time.Duration, desc string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", desc)
+}
+
 // ---- tests ----
 
 func TestRunnerSuccessWithEnvelope(t *testing.T) {
@@ -784,6 +796,7 @@ func TestRunnerCancel(t *testing.T) {
 // runner prepares a worktree, the (fake) child writes a file into it, and the
 // runner derives changed_files from the workspace diff — not from agent text.
 func TestRunnerGitWorktreeChangedFiles(t *testing.T) {
+	t.Parallel()
 	repo := initGitRepo(t)
 	ctrl := &fakeController{}
 	ctrl.onCreate = func(c *fakeChild) {
@@ -1104,6 +1117,7 @@ func TestRunnerPersistentTeardownDestroysSecretRetainsWorkspace(t *testing.T) {
 // git-worktree workspace is not deregistered at terminal state, so the next
 // task on the instance reuses the same worktree instead of rebuilding it.
 func TestRunnerPersistentGitWorktreeRetainedAcrossTasks(t *testing.T) {
+	t.Parallel()
 	repo := initGitRepo(t)
 	amuxDir := t.TempDir()
 
@@ -1393,8 +1407,10 @@ func TestRunnerRespondPermissionGating(t *testing.T) {
 	}
 	r := newTestRunner(t, ctrl, 2*time.Second)
 	run, _ := r.Submit(Spec{Agent: "claude", Task: "x"}, "", "", 0)
-	// Give the task a moment to reach running.
-	time.Sleep(30 * time.Millisecond)
+	waitForRunnerCondition(t, 2*time.Second, "task running", func() bool {
+		g, err := r.Get(run.ID)
+		return err == nil && g.Status == StatusRunning
+	})
 	if err := r.RespondPermission(run.ID, PermissionResponse{Allow: true}); err == nil {
 		t.Fatal("expected error responding with no pending permission")
 	}
@@ -1498,7 +1514,19 @@ func TestRunnerSubscribeReplaysEarlyOutput(t *testing.T) {
 	r := newTestRunner(t, ctrl, 2*time.Second)
 	run, _ := r.Submit(Spec{Agent: "claude", Task: "x"}, "", "", 0)
 
-	time.Sleep(50 * time.Millisecond) // let alpha/beta stream before we subscribe
+	waitForRunnerCondition(t, 2*time.Second, "early output streamed", func() bool {
+		evs, err := r.opts.Events.Events(run.ID, 0)
+		if err != nil {
+			return false
+		}
+		var seen strings.Builder
+		for _, ev := range evs {
+			if ev.Kind == TaskEventOutput {
+				seen.Write(ev.Output)
+			}
+		}
+		return strings.Contains(seen.String(), "beta")
+	})
 	stream, unsub, err := r.Subscribe(run.ID, 0)
 	if err != nil {
 		t.Fatalf("subscribe: %v", err)
