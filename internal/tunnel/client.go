@@ -105,9 +105,19 @@ func (c *Client) Run(ctx context.Context) {
 	if c.adm != nil {
 		go c.sweepReservations(ctx)
 	}
-	backoff := time.Second
+	const (
+		initialBackoff = time.Second
+		maxBackoff     = 30 * time.Second
+		stableConnMin  = 5 * time.Second
+	)
+	backoff := initialBackoff
 	for {
-		if err := c.connect(ctx); err != nil {
+		started := time.Now()
+		err := c.connect(ctx)
+		if time.Since(started) >= stableConnMin {
+			backoff = initialBackoff
+		}
+		if err != nil {
 			if ctx.Err() != nil {
 				return
 			}
@@ -115,8 +125,9 @@ func (c *Client) Run(ctx context.Context) {
 		}
 		select {
 		case <-time.After(backoff):
-			if backoff < 30*time.Second {
-				backoff *= 2
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
 			}
 		case <-ctx.Done():
 			return

@@ -51,10 +51,15 @@ func (c *turnCoalescer) busyInputSteers() bool {
 	return strings.TrimSpace(strings.ToLower(os.Getenv(busyInputEnv))) != "interrupt"
 }
 
-// defaultCoalesceDelay is the burst-merge window: messages arriving while a
-// turn is executing are buffered for this long and submitted as ONE preempt,
-// so a burst interrupts the running turn only once.
-const defaultCoalesceDelay = 2 * time.Second
+// defaultCoalesceDelay is the initial burst-merge window: messages arriving
+// while a turn is executing are buffered briefly and submitted as ONE preempt
+// or steer. When additional messages arrive within the window, the timer slides
+// up to defaultCoalesceMaxDelay so multi-message bursts still merge cleanly
+// without penalizing single follow-ups with a multi-second wait.
+const (
+	defaultCoalesceDelay    = 400 * time.Millisecond
+	defaultCoalesceMaxDelay = 2 * time.Second
+)
 
 type coalescedInput struct {
 	source               feishuSource
@@ -65,6 +70,9 @@ type coalescedInput struct {
 	notifyFailure        func(context.Context, error) error
 	localExpertAuthoring bool
 	steer                bool
+	timer                *time.Timer
+	windowDelay          time.Duration
+	maxDeadline          time.Time
 }
 
 // setTurnActive records whether the session bound to rootMsgID is currently
@@ -120,9 +128,25 @@ func (b *Bridge) enqueueCoalescedInputForMessage(ctx context.Context, chat *Lark
 		if pending.notifyFailure == nil {
 			pending.notifyFailure = notifyFailure
 		}
+		if pending.timer != nil && !pending.maxDeadline.IsZero() {
+			if remaining := time.Until(pending.maxDeadline); remaining > 0 {
+				extend := pending.windowDelay
+				if extend > remaining {
+					extend = remaining
+				}
+				pending.timer.Reset(extend)
+			}
+		}
 		b.coalesceMu.Unlock()
 		return
 	}
+	delay := b.coalesceDelay
+	maxDelay := delay
+	if delay <= 0 {
+		delay = defaultCoalesceDelay
+		maxDelay = defaultCoalesceMaxDelay
+	}
+	rootMsgID := chat.RootMsgID
 	pending := &coalescedInput{
 		source:               feishuSourceForInput(ctx, chat),
 		chat:                 chat,
@@ -132,13 +156,13 @@ func (b *Bridge) enqueueCoalescedInputForMessage(ctx context.Context, chat *Lark
 		notifyFailure:        notifyFailure,
 		localExpertAuthoring: chat.localExpertAuthoring,
 		steer:                b.busyInputSteers(),
+		windowDelay:          delay,
 	}
-	b.coalesced[chat.RootMsgID] = pending
-	delay := b.coalesceDelay
-	if delay <= 0 {
-		delay = defaultCoalesceDelay
+	if maxDelay > delay {
+		pending.maxDeadline = time.Now().Add(maxDelay)
 	}
-	rootMsgID := chat.RootMsgID
+	pending.timer = time.AfterFunc(delay, func() { b.flushCoalescedInput(rootMsgID) })
+	b.coalesced[rootMsgID] = pending
 	b.coalesceMu.Unlock()
 
 	if pending.steer {
@@ -146,7 +170,6 @@ func (b *Bridge) enqueueCoalescedInputForMessage(ctx context.Context, chat *Lark
 		// injected into it after the merge window, or queued when the turn
 		// cannot accept it. Explicit 中断/停止 commands still interrupt.
 		pending.interruptDone <- nil
-		time.AfterFunc(delay, func() { b.flushCoalescedInput(rootMsgID) })
 		return
 	}
 
@@ -156,7 +179,6 @@ func (b *Bridge) enqueueCoalescedInputForMessage(ctx context.Context, chat *Lark
 	if freeze := b.markTurnSuperseded(rootMsgID); freeze != nil {
 		go freeze()
 	}
-	time.AfterFunc(delay, func() { b.flushCoalescedInput(rootMsgID) })
 	go func() {
 		interruptCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()

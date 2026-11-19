@@ -246,3 +246,16 @@ func assertQuerySucceeds(t *testing.T, db *DB, query string) {
 	}
 	rows.Close()
 }
+
+func TestMigrationsCreatesMessagesSessionIndex(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "runtime.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+
+	var name string
+	if err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type='index' AND name='messages_session_id_idx'`).Scan(&name); err != nil {
+		t.Fatalf("expected messages_session_id_idx index: %v", err)
+	}
+}

@@ -18,7 +18,14 @@ func (b *Bridge) routeGroupSessionInput(ctx context.Context, chatID, rootMsgID, 
 		return false, nil
 	}
 	unlock := b.lockRoute(groupSettingsRouteKey(b.currentBridgeId(), chatID))
-	defer unlock()
+	released := false
+	release := func() {
+		if !released {
+			released = true
+			unlock()
+		}
+	}
+	defer release()
 	settings, err := b.db.ReadGroupSettings(b.currentBridgeId(), chatID)
 	if err != nil {
 		return true, err
@@ -30,6 +37,7 @@ func (b *Bridge) routeGroupSessionInput(ctx context.Context, chatID, rootMsgID, 
 		if opts.source == routeInputSourceGroupWatch {
 			return true, nil
 		}
+		release()
 		return true, b.notifyThread(ctx, rootMsgID, err.Error())
 	}
 	opts.groupRouted = true
@@ -49,12 +57,14 @@ func (b *Bridge) routeGroupSessionInput(ctx context.Context, chatID, rootMsgID, 
 		if opts.source == routeInputSourceGroupWatch {
 			return true, nil
 		}
+		release()
 		return true, b.notifyThread(ctx, rootMsgID, "这段本群连续会话已结束接收新消息，已提交的任务会继续完成。请新发一条群消息或另开话题开始新的对话。")
 	}
 	if opts.source == routeInputSourceGroupWatch {
 		if settings.InteractionMode != config.FeishuInteractionThread {
 			return true, nil
 		}
+		release()
 		return true, forward(rootMsgID, ctx)
 	}
 	allowed, err := b.canUseBotInGroup(chatID, openID)
@@ -62,6 +72,7 @@ func (b *Bridge) routeGroupSessionInput(ctx context.Context, chatID, rootMsgID, 
 		return true, err
 	}
 	if !allowed {
+		release()
 		return true, b.notifyThread(ctx, rootMsgID, memberBlockedByBotAccessText())
 	}
 	existing, err := b.db.FindByRootMsg(b.currentBridgeId(), rootMsgID)
@@ -69,9 +80,11 @@ func (b *Bridge) routeGroupSessionInput(ctx context.Context, chatID, rootMsgID, 
 		return true, err
 	}
 	if existing != nil && originRoot == "" {
+		release()
 		return true, forward(rootMsgID, ctx)
 	}
 	if settings.InteractionMode != config.FeishuInteractionSingleton {
+		release()
 		return true, forward(rootMsgID, ctx)
 	}
 	routedText := b.stripCurrentBotMention(text, mention)
@@ -79,15 +92,20 @@ func (b *Bridge) routeGroupSessionInput(ctx context.Context, chatID, rootMsgID, 
 	// An explicit launch/bind creates an ordinary topic using the selected
 	// group launch defaults; it never replaces the current group conversation.
 	if originRoot == "" && (intent == command.CommandRun || intent == command.CommandBind) {
+		release()
 		return true, forward(rootMsgID, ctx)
 	}
 	if activeRoot == "" {
 		if !mention.Mentioned || intent != command.CommandNone {
+			release()
 			return true, forward(rootMsgID, ctx)
 		}
+		// Keep the group lock while initializing the first singleton conversation
+		// so two concurrent mentions do not race to create separate group roots.
 		return true, forward(rootMsgID, withGroupLaunchPolicy(ctx, settings, false, true))
 	}
 	if !mention.Mentioned && originRoot == "" {
+		release()
 		return true, forward(rootMsgID, ctx)
 	}
 	chat, err := b.db.FindByRootMsg(b.currentBridgeId(), activeRoot)
@@ -95,11 +113,15 @@ func (b *Bridge) routeGroupSessionInput(ctx context.Context, chatID, rootMsgID, 
 		return true, err
 	}
 	if chat == nil || chat.Status != ChatStatusActive {
+		release()
 		return true, b.notifyThread(ctx, rootMsgID, "本群连续会话已不可用。请负责人在“当前群设置”中选择“新开连续会话”。")
 	}
 	if err := b.db.RecordGroupSessionOrigin(b.currentBridgeId(), chatID, rootMsgID, activeRoot); err != nil {
 		return true, err
 	}
+	// Release the group-level lock now that the origin mapping is persisted;
+	// forward(activeRoot, ...) acquires the per-topic lock for activeRoot.
+	release()
 	// Replying to an input topic's root is an ordinary continuation. Normalize
 	// that relation before replacing the routing root with the output anchor;
 	// genuine quotes of child messages still use the normal quote resolver.

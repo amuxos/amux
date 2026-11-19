@@ -129,6 +129,7 @@ ALTER TABLE sessions ADD COLUMN last_sleep_reason TEXT NOT NULL DEFAULT '';
 	{17, `SELECT 1`},
 	{18, sessionTimelineEventsTableSQL},
 	{19, sessionGoalGrantsSQL},
+	{20, `CREATE INDEX IF NOT EXISTS messages_session_id_idx ON messages(session_id, id)`},
 }
 
 func (db *DB) migrate() error {
@@ -218,15 +219,18 @@ func (db *DB) ensureCurrentSchema() error {
 	if _, err := db.Exec(baseTablesSQL); err != nil {
 		return fmt.Errorf("ensure base tables: %w", err)
 	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS messages_session_id_idx ON messages(session_id, id)`); err != nil {
+		return fmt.Errorf("ensure messages index: %w", err)
+	}
 	if _, err := db.Exec(sessionGoalGrantsSQL); err != nil {
 		return fmt.Errorf("ensure session goal grants: %w", err)
 	}
+	sessionCols, err := db.tableColumns("sessions")
+	if err != nil {
+		return err
+	}
 	for _, col := range sessionAdditiveColumns {
-		ok, err := db.columnExists("sessions", col.name)
-		if err != nil {
-			return err
-		}
-		if ok {
+		if sessionCols[col.name] {
 			continue
 		}
 		if _, err := db.Exec("ALTER TABLE sessions ADD COLUMN " + col.def); err != nil {
@@ -239,12 +243,12 @@ func (db *DB) ensureCurrentSchema() error {
 	if _, err := db.Exec(tasksTableSQL); err != nil {
 		return fmt.Errorf("ensure tasks table: %w", err)
 	}
+	taskCols, err := db.tableColumns("tasks")
+	if err != nil {
+		return err
+	}
 	for _, col := range taskAdditiveColumns {
-		ok, err := db.columnExists("tasks", col.name)
-		if err != nil {
-			return err
-		}
-		if ok {
+		if taskCols[col.name] {
 			continue
 		}
 		if _, err := db.Exec("ALTER TABLE tasks ADD COLUMN " + col.def); err != nil {
@@ -266,12 +270,13 @@ func (db *DB) ensureCurrentSchema() error {
 	return nil
 }
 
-func (db *DB) columnExists(table, name string) (bool, error) {
+func (db *DB) tableColumns(table string) (map[string]bool, error) {
 	rows, err := db.Query("PRAGMA table_info(" + table + ")")
 	if err != nil {
-		return false, fmt.Errorf("inspect %s columns: %w", table, err)
+		return nil, fmt.Errorf("inspect %s columns: %w", table, err)
 	}
 	defer rows.Close()
+	cols := make(map[string]bool)
 	for rows.Next() {
 		var (
 			cid        int
@@ -282,13 +287,11 @@ func (db *DB) columnExists(table, name string) (bool, error) {
 			pk         int
 		)
 		if err := rows.Scan(&cid, &colName, &colType, &notNull, &defaultVal, &pk); err != nil {
-			return false, fmt.Errorf("scan %s columns: %w", table, err)
+			return nil, fmt.Errorf("scan %s columns: %w", table, err)
 		}
-		if colName == name {
-			return true, nil
-		}
+		cols[colName] = true
 	}
-	return false, rows.Err()
+	return cols, rows.Err()
 }
 
 func latestMigrationVersion() int {

@@ -446,6 +446,16 @@ func (b *bridgeDB) migrate() error {
 		return err
 	}
 	if _, err := b.db.Exec(`
+		CREATE INDEX IF NOT EXISTS idx_lark_chats_target_session
+		ON lark_chats(target_id, session_name, status, bridge_id);
+		CREATE INDEX IF NOT EXISTS idx_lark_chats_bridge_chat_status
+		ON lark_chats(bridge_id, chat_id, status, open_id);
+		CREATE INDEX IF NOT EXISTS idx_lark_chats_root_status
+		ON lark_chats(root_msg_id, status);
+	`); err != nil {
+		return err
+	}
+	if _, err := b.db.Exec(`
 		DELETE FROM feishu_workspaces
 		WHERE id NOT IN (
 			SELECT keep_id FROM (
