@@ -78,18 +78,24 @@ long_test_pattern="^($(printf '%s\n' "$long_test_names" | paste -sd '|' -))$"
 AMUX_RUN_LONG_TESTS=1 AMUX_TEST_BIN_DIR="$PWD/bin" go test -timeout=10m ./app/cli -run "$long_test_pattern" -count=1 -parallel=2
 if command -v npm >/dev/null 2>&1; then
   cp -R sidecars/claude-sdk "$test_root/sidecar"
-  claude_lock_hash="$(git hash-object sidecars/claude-sdk/package-lock.json)"
-  claude_nm_cache="${AMUX_NPM_CACHE_DIR:-${TMPDIR:-/tmp}/amux-check-node-modules}/claude-sdk-$claude_lock_hash"
-  if [[ -d "$claude_nm_cache/node_modules" ]]; then
-    ln -s "$claude_nm_cache/node_modules" "$test_root/sidecar/node_modules"
+  if [[ -f sidecars/claude-sdk/package-lock.json ]]; then
+    claude_lock_hash="$(git hash-object sidecars/claude-sdk/package-lock.json)"
+    claude_nm_cache="${AMUX_NPM_CACHE_DIR:-${TMPDIR:-/tmp}/amux-check-node-modules}/claude-sdk-$claude_lock_hash"
+    if [[ -d "$claude_nm_cache/node_modules" ]]; then
+      ln -s "$claude_nm_cache/node_modules" "$test_root/sidecar/node_modules"
+    else
+      (cd "$test_root/sidecar" && npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund)
+      if [[ -d "$test_root/sidecar/node_modules" ]]; then
+        mkdir -p "$(dirname "$claude_nm_cache")"
+        claude_nm_tmp="$claude_nm_cache.tmp.$$"
+        rm -rf -- "$claude_nm_tmp"
+        mkdir -p "$claude_nm_tmp"
+        cp -R "$test_root/sidecar/node_modules" "$claude_nm_tmp/node_modules"
+        mv "$claude_nm_tmp" "$claude_nm_cache" 2>/dev/null || rm -rf -- "$claude_nm_tmp"
+      fi
+    fi
   else
     (cd "$test_root/sidecar" && npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund)
-    mkdir -p "$(dirname "$claude_nm_cache")"
-    claude_nm_tmp="$claude_nm_cache.tmp.$$"
-    rm -rf -- "$claude_nm_tmp"
-    mkdir -p "$claude_nm_tmp"
-    cp -R "$test_root/sidecar/node_modules" "$claude_nm_tmp/node_modules"
-    mv "$claude_nm_tmp" "$claude_nm_cache" 2>/dev/null || rm -rf -- "$claude_nm_tmp"
   fi
   (cd "$test_root/sidecar" && npm run build && npm test)
 fi
