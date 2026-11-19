@@ -73,8 +73,12 @@ func (b *Bridge) handleManagementConsoleAction(ctx context.Context, event *callb
 	}
 	if action == managementActionConsoleOpen || action == managementActionConsoleRefresh {
 		info := b.managementConsole.Snapshot()
-		go b.writeManagementConsoleCard(context.Background(), openID, messageID, info, "", version)
-		return cardToast("success", managementCopy("management.console.refreshed"))
+		card := renderManagementConsoleCard(info, "", time.Now())
+		var toast *callback.CardActionTriggerResponse
+		if action == managementActionConsoleRefresh || b.managementCardPatch != nil {
+			toast = cardToast("success", managementCopy("management.console.refreshed"))
+		}
+		return b.managementCardResponse(openID, messageID, card, version, toast)
 	}
 	// Starting/stopping a listener must not block the Feishu callback deadline.
 	go func() {
@@ -128,22 +132,29 @@ func (b *Bridge) writeManagementConsoleCard(parent context.Context, openID, mess
 
 func renderManagementConsoleCard(info ManagementConsoleInfo, notice string, now time.Time) string {
 	enabled := info.Enabled && info.ExpiresAt.After(now)
-	status, theme := managementCopy("management.console.off"), "grey"
+	status, theme, tagColor := managementCopy("management.console.off"), "wathet", "neutral"
 	if enabled {
-		status, theme = managementCopy("management.console.on"), "green"
+		status, tagColor = managementCopy("management.console.on"), "green"
 	}
-	elements := []cardElement{
-		managementBackToOverviewElement(), managementDividerElement(),
+	rows := []cardElement{
 		managementKeyValueRowElement(managementCopy("management.console.status"), status),
 	}
 	if enabled {
 		remaining := info.ExpiresAt.Sub(now)
 		seconds := int((remaining + time.Second - 1) / time.Second)
-		elements = append(elements,
+		rows = append(rows,
 			managementKeyValueRowElement(managementCopy("management.console.address"), info.URL),
 			managementKeyValueRowElement(managementCopy("management.console.remaining"), fmt.Sprintf("%02d:%02d", seconds/60, seconds%60)),
 			managementKeyValueRowElement(managementCopy("management.console.password"), info.Password),
 		)
+	}
+	summary := managementVerticalSummaryElement("amux_console_summary", rows...)
+	if enabled {
+		summary.Columns[0].BackgroundStyle = "blue-50"
+	}
+	elements := []cardElement{
+		managementBackToOverviewElement(), managementDividerElement(),
+		summary,
 	}
 	elements = append(elements, managementHintElement(managementCopy("management.console.explanation")))
 	if enabled && strings.HasPrefix(info.URL, "http://") {
@@ -163,9 +174,15 @@ func renderManagementConsoleCard(info ManagementConsoleInfo, notice string, now 
 		buttons = append(buttons, managementButton{Text: managementCopy("management.console.enable"), Type: "primary", Action: managementActionConsoleEnable, Name: "amux.console.enable"})
 	}
 	buttons = append(buttons, managementButton{Text: managementCopy("management.console.refresh"), Type: "default", Action: managementActionConsoleRefresh, Name: "amux.console.refresh"})
+	iconColor := "blue"
+	if theme == "orange" {
+		iconColor = "orange"
+	}
 	card := marshalNativeManagementCard(managementCardView{
 		Title: managementCopy("management.console.title"), Summary: managementCopy("management.console.title"),
-		Theme: theme, Elements: elements, Buttons: buttons,
+		Theme: theme, Icon: managementIcon("version_outlined", iconColor),
+		Tags:     []cardTextTag{{Tag: "text_tag", Text: managementPlainText(status), Color: tagColor}},
+		Elements: elements, Buttons: buttons,
 	})
 	return renderFocusedManagementCardForSurface(card, managementSurfaceAmux)
 }

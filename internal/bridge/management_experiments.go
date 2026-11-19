@@ -193,6 +193,7 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 	executableItem := managementExperimentItemElement("codex_executable", managementCopy("management.codex.executable.title"), managementCopy("management.codex.executable.description"), cardElement{Tag: "div", Text: managementStyledTextPtr("Codex", cardTitle{Tag: "plain_text"})}, saved.CodexExecutable != running.CodexExecutable, []cardElement{executable, managementHintElement(managementCopy("management.codex.executable.scope"))})
 	elements := []cardElement{
 		managementBackToOverviewElement(),
+		managementDividerElement(),
 		{Tag: "form", Name: "experiments_form", Direction: "vertical", VerticalSpacing: "12px", Elements: []cardElement{
 			item,
 			groupItem,
@@ -213,12 +214,12 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		label := config.AgentExecutableLabel(agent)
 		input := cardElement{Tag: "input", Name: name, DefaultValue: saved.AgentExecutables[agent], Placeholder: managementStyledTextPtr(managementCopy("management.launcher.placeholder", agent), cardTitle{Tag: "plain_text"})}
 		entry := managementExperimentItemElement(name, managementCopy("management.launcher.title", label), managementCopy("management.launcher.description", label), cardElement{Tag: "div", Text: managementStyledTextPtr(label, cardTitle{Tag: "plain_text"})}, saved.AgentExecutables[agent] != running.AgentExecutables[agent], []cardElement{input, managementHintElement(managementCopy("management.launcher.scope"))})
-		form := &elements[1]
+		form := &elements[2]
 		n := len(form.Elements)
 		form.Elements = append(form.Elements[:n-1], entry, form.Elements[n-1])
 	}
 	elements = append(elements, conversationExperimentElements()...)
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.experiments"), Summary: managementCopy("management.amux.experiments"), Theme: "blue", Elements: elements})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.experiments"), Summary: managementCopy("management.amux.experiments"), Theme: "wathet", Icon: managementIcon("version_outlined", "blue"), Elements: elements})
 }
 
 // Each experiment contributes a compact item to the shared page-level form.
@@ -228,7 +229,7 @@ func managementExperimentItemElement(id string, title any, summary any, control 
 		{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(title, "normal", "default", nil)}},
 		{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{control}},
 	}}
-	heading.Columns[1].Elements[0].Width = "120px"
+	heading.Columns[1].Elements[0].Width = "92px"
 	children := []cardElement{heading, managementTextElement(summary, "notation", "grey", nil)}
 	if pending {
 		children = append(children, managementTextElement(managementCopy("management.restart.pending.saved.settings.are.not.active.yet"), "notation", "orange", nil))
@@ -236,7 +237,7 @@ func managementExperimentItemElement(id string, title any, summary any, control 
 	if len(advanced) > 0 {
 		children = append(children, cardElement{Tag: "collapsible_panel", ElementID: id + "_advanced", Expanded: false, Header: &panelHeader{Title: managementStyledText(managementCopy("management.advanced.settings"), cardTitle{Tag: "plain_text", TextSize: "notation", TextColor: "grey"})}, Elements: advanced})
 	}
-	return cardElement{Tag: "column_set", ElementID: id + "_item", FlexMode: "none", Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, Direction: "vertical", VerticalSpacing: "8px", Padding: "12px", BackgroundStyle: "grey-50", Elements: children}}}
+	return cardElement{Tag: "column_set", ElementID: id + "_item", FlexMode: "none", Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, Direction: "vertical", VerticalSpacing: "4px", Padding: "10px 12px 10px 12px", BackgroundStyle: "grey-50", Elements: children}}}
 }
 
 func renderManagementExperimentsRestartConfirmationCard(state managementState) string {

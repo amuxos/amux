@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	"github.com/rs/zerolog/log"
 )
 
@@ -294,6 +296,23 @@ func (b *Bridge) updateManagementCardFromCallback(openID, messageID, cardJSON st
 	b.updateManagementCardAtVersion(openID, messageID, cardJSON, version)
 }
 
+func (b *Bridge) managementCardResponse(openID, messageID, cardJSON string, version uint64, toast *callback.CardActionTriggerResponse) *callback.CardActionTriggerResponse {
+	resp := &callback.CardActionTriggerResponse{}
+	if toast != nil {
+		resp.Toast = toast.Toast
+	}
+	if b != nil {
+		localized := b.managementCardForPatch(openID, messageID, cardJSON)
+		if strings.TrimSpace(localized) != "" {
+			resp.Card = &callback.Card{Type: "raw", Data: json.RawMessage(localized)}
+		}
+		if b.managementCardPatch != nil {
+			b.updateManagementCardAtVersion(openID, messageID, cardJSON, version)
+		}
+	}
+	return resp
+}
+
 func (b *Bridge) updateManagementCardAtVersion(openID, messageID, card string, version uint64) {
 	go b.writeManagementCardAtVersion(context.Background(), openID, messageID, card, version)
 }
@@ -409,11 +428,15 @@ func renderSystemStatusCard(state managementState) string {
 func renderSystemMaintenanceCardForSurface(state managementState, surface managementSurface) string {
 	subtitle := managementCopy("management.needs.attention")
 	theme := "orange"
+	iconToken := "warning_outlined"
 	iconColor := "orange"
+	tag := cardTextTag{Tag: "text_tag", Text: managementPlainText(managementCopy("management.status.tag.attention")), Color: "orange"}
 	if state.SystemStatus == managementSystemHealthy {
 		subtitle = managementCopy("management.running.normally")
-		theme = "green"
+		theme = "wathet"
+		iconToken = "check_outlined"
 		iconColor = "green"
+		tag = cardTextTag{Tag: "text_tag", Text: managementPlainText(managementCopy("management.status.tag.healthy")), Color: "green"}
 	}
 	restartValues := map[string]string{"system_instance": managementSystemInstanceID(state), "confirmation_nonce": newManagementConfirmationNonce()}
 	buttons := []managementButton{{Text: managementCopy("management.check.for.updates"), Type: "primary", Action: managementActionSystemUpdate, Icon: managementIconPtr("version_outlined", "blue")}, {Text: managementCopy("management.restart.amux"), Type: "default", Action: managementActionSystemRestartOK, Values: restartValues, Icon: managementIconPtr("refresh_outlined", "grey"), Confirm: managementConfirm(managementCopy("management.restart.amux.409"), managementCopy("management.the.feishu.assistant.will.briefly.go.offline.existing.sessions"))}}
@@ -430,7 +453,7 @@ func renderSystemMaintenanceCardForSurface(state managementState, surface manage
 	if surface != managementSurfaceAmux {
 		buttons = append(buttons, managementButton{Text: managementCopy("management.back.to.overview"), Type: "default", Action: managementActionStatusOpen})
 	}
-	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.system.status"), Subtitle: subtitle, Summary: managementCopy("management.amux.system.status"), Theme: theme, Icon: managementIcon("setting_outlined", iconColor), Elements: elements, Buttons: buttons})
+	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.system.status"), Subtitle: subtitle, Summary: managementCopy("management.amux.system.status"), Theme: theme, Icon: managementIcon(iconToken, iconColor), Tags: []cardTextTag{tag}, Elements: elements, Buttons: buttons})
 }
 
 func renderSystemRestartConfirmationCard(state managementState) string {

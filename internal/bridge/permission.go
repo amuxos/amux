@@ -300,7 +300,17 @@ func permissionPayloadFromEvent(permission *agentui.PermissionEvent) permissionP
 	return out
 }
 
-func (b *Bridge) handleCardAction(ctx context.Context, event *callback.CardActionTriggerEvent) (*callback.CardActionTriggerResponse, error) {
+func (b *Bridge) handleCardAction(ctx context.Context, event *callback.CardActionTriggerEvent) (retResp *callback.CardActionTriggerResponse, retErr error) {
+	started := time.Now()
+	defer func() {
+		action := ""
+		if event != nil && event.Event != nil && event.Event.Action != nil {
+			action = managementActionFromCallback(event.Event.Action)
+		}
+		if action != "" {
+			log.Debug().Str("action", action).Dur("duration_ms", time.Since(started)).Bool("has_card", retResp != nil && retResp.Card != nil).Msg("bridge: card action completed")
+		}
+	}()
 	if event == nil || event.Event == nil || event.Event.Action == nil {
 		return cardToast("warning", managementCopy("permission.invalid")), nil
 	}

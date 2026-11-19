@@ -16,8 +16,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const editorModelTTL = 30 * time.Second
-const editorModelRetention = 5 * time.Minute
+const editorModelTTL = 2 * time.Minute
+const editorModelRetention = 15 * time.Minute
 const editorModelCacheLimit = 64
 
 // Snapshots contain model presentation data only. Drafts, credentials and
@@ -221,6 +221,20 @@ func loadingEditorModels(base managementState, runtimeRef string) managementStat
 
 // publish is synchronous and version-checked at the card write boundary. This
 // preserves preview/result ordering without holding a cache lock over I/O.
+func (b *Bridge) prewarmEditorModels(base managementState, openID, messageID string) {
+	if b == nil || b.hub == nil || strings.TrimSpace(messageID) == "" {
+		return
+	}
+	draft := managementDraftFromState(base)
+	runtimeRef := strings.TrimSpace(draft.DefaultRuntimeRef)
+	if runtimeRef == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	b.refreshEditorModels(ctx, base, openID, messageID, runtimeRef, "", "", false, func(managementState) {})
+}
+
 func (b *Bridge) refreshEditorModels(ctx context.Context, base managementState, openID, messageID, runtimeRef, service, operation string, force bool, publish func(managementState)) managementState {
 	scope := b.prepareEditorModelScope(base, openID, messageID, runtimeRef)
 	var entry *editorModelEntry

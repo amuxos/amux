@@ -284,11 +284,18 @@ func newCardDoc(elements []cardElement) cardDoc {
 }
 
 type cardHeader struct {
-	Title    cardTitle  `json:"title"`
-	Subtitle *cardTitle `json:"subtitle,omitempty"`
-	Template string     `json:"template,omitempty"`
-	Icon     *cardIcon  `json:"icon,omitempty"`
-	Padding  string     `json:"padding,omitempty"`
+	Title       cardTitle     `json:"title"`
+	Subtitle    *cardTitle    `json:"subtitle,omitempty"`
+	Template    string        `json:"template,omitempty"`
+	Icon        *cardIcon     `json:"icon,omitempty"`
+	TextTagList []cardTextTag `json:"text_tag_list,omitempty"`
+	Padding     string        `json:"padding,omitempty"`
+}
+
+type cardTextTag struct {
+	Tag   string    `json:"tag"`
+	Text  cardTitle `json:"text"`
+	Color string    `json:"color,omitempty"`
 }
 
 type cardTitle struct {

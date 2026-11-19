@@ -92,7 +92,7 @@ func TestAmuxEverySubpageKeepsOverviewBack(t *testing.T) {
 func TestAmuxNestedBackTargetsParent(t *testing.T) {
 	state := managementState{Mode: config.FeishuInteractionThread}
 	for name, tc := range map[string]struct{ card, action string }{
-		"defaults": {renderSettingsEditCardForSurface(state, managementDraftFromState(state), managementSurfaceAmux), managementActionSettingsOpen},
+		"defaults": {renderSettingsEditCardForSurface(state, managementDraftFromState(state), managementSurfaceAmux), managementActionStatusOpen},
 		"comments": {renderDocumentCommentsEditCard(state, managementDocumentCommentsDraftFromState(state)), managementActionDocumentCommentsOpen},
 		"watch":    {renderGroupWatchEditCard(state, managementGroupWatchDraftFromState(state)), managementActionGroupWatchOpen},
 		"library":  {renderLoadedPackManagementCard(agentprofile.LoadedPackState{Namespace: "team"}, managementPackLibraryView{Section: managementPackLibrarySectionLoaded, Page: 2}), managementActionPackLibraryNavigate},

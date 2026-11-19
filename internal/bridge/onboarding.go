@@ -294,7 +294,7 @@ func renderGuideCard(state managementState, p onboardingProgress, notice any) st
 		button.Width = "fill"
 		elements = append(elements, button)
 	}
-	card := marshalNativeManagementCard(managementCardView{Title: guideCopy("title." + title), Summary: guideCopy("title"), Subtitle: guideCopy("subtitle"), Theme: "blue", Elements: elements})
+	card := marshalNativeManagementCard(managementCardView{Title: guideCopy("title." + title), Summary: guideCopy("title"), Subtitle: guideCopy("subtitle"), Theme: "wathet", Icon: managementIcon("robot_outlined", "blue"), Elements: elements})
 	return renderFocusedManagementCardForSurface(card, managementSurfaceAmux)
 }
 

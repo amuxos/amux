@@ -85,7 +85,7 @@ func discoveryButton(action string, text any, values map[string]string) manageme
 	return managementButton{Text: text, Type: "default", Name: strings.Join(parts, "."), Action: capabilityAction + action, Values: values}
 }
 func discoveryCard(title any, elements []cardElement) string {
-	card := marshalNativeManagementCard(managementCardView{Title: title, Summary: title, Theme: "blue", Elements: elements})
+	card := marshalNativeManagementCard(managementCardView{Title: title, Summary: title, Theme: "wathet", Icon: managementIcon("app-default_outlined", "purple"), Elements: elements})
 	return renderFocusedManagementCardForSurface(card, managementSurfaceAmux)
 }
 func discoveryParent() cardElement {
@@ -139,18 +139,54 @@ func renderDiscoveryPlaza(p discoveryPreference, category string, page int, now 
 	filter.Behaviors = []cardBehavior{{Type: "callback", Value: managementButtonValue(discoveryButton("open", discoveryCopy("title"), nil))}}
 	elements := []cardElement{managementHintElement(discoveryCopy("intro")), filter}
 	for _, c := range entries[page*capabilityPageSize : min(len(entries), (page+1)*capabilityPageSize)] {
-		elements = append(elements, managementDividerElement(), managementTextElement(c.text("title"), "heading", "default", nil), managementTextElement(c.text("body"), "normal", "default", nil), managementButtonRowElement([]managementButton{discoveryButton("detail", discoveryCopy("examples"), map[string]string{"capability": c.ID})}))
+		detailSpec := discoveryButton("detail", discoveryCopy("examples"), map[string]string{"capability": c.ID})
+		detailSpec.Type = "primary_text"
+		detailBtn := managementButtonElement(detailSpec)
+		detailBtn.Size = "small"
+		header := cardElement{
+			Tag:               "column_set",
+			FlexMode:          "none",
+			HorizontalSpacing: "8px",
+			Columns: []cardColumn{
+				{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(c.text("title"), "normal", "default", nil)}},
+				{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{detailBtn}},
+			},
+		}
+		item := cardElement{
+			Tag:             "interactive_container",
+			ElementID:       "amux_discovery_" + c.ID,
+			Width:           "fill",
+			BackgroundStyle: "grey-50",
+			HasBorder:       true,
+			BorderColor:     "grey-200",
+			CornerRadius:    "8px",
+			Padding:         "10px 12px 10px 12px",
+			Direction:       "vertical",
+			VerticalSpacing: "4px",
+			Behaviors: []cardBehavior{{
+				Type:  "callback",
+				Value: managementButtonValue(detailSpec),
+			}},
+			Elements: []cardElement{
+				header,
+				managementTextElement(c.text("body"), "notation", "grey", nil),
+			},
+		}
+		elements = append(elements, item)
 	}
-	elements = append(elements, managementTextElement(discoveryCopy("page", page+1, pages), "notation", "grey", nil))
+	pageColumns := []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(discoveryCopy("page", page+1, pages), "notation", "grey", nil)}}}
 	for _, delta := range []int{-1, 1} {
 		if next := page + delta; next >= 0 && next < pages {
 			key := "next"
 			if delta < 0 {
 				key = "previous"
 			}
-			elements = append(elements, managementButtonRowElement([]managementButton{discoveryButton("open", discoveryCopy(key), map[string]string{"category": category, "page": strconv.Itoa(next)})}))
+			btn := managementButtonElement(discoveryButton("open", discoveryCopy(key), map[string]string{"category": category, "page": strconv.Itoa(next)}))
+			btn.Size = "small"
+			pageColumns = append(pageColumns, cardColumn{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{btn}})
 		}
 	}
+	elements = append(elements, cardElement{Tag: "column_set", FlexMode: "none", HorizontalSpacing: "8px", Columns: pageColumns})
 	elements = append(elements, discoveryPreferenceElements(p, now)...)
 	elements = append(elements, managementButtonRowElement([]managementButton{discoveryButton("random", discoveryCopy("random"), nil), {Text: managementCopy("management.help"), Action: managementActionHelpOpen}}))
 	return discoveryCard(discoveryCopy("title"), elements)
@@ -160,17 +196,46 @@ func discoveryPreferenceElements(p discoveryPreference, now time.Time) []cardEle
 	if p.Enabled {
 		key, action = "daily.on", "disable"
 	}
-	return []cardElement{managementDividerElement(), managementTextElement(discoveryCopy(key, now.Format("MST")), "notation", "grey", nil), managementButtonRowElement([]managementButton{discoveryButton(action, discoveryCopy("daily."+action), nil)})}
+	toggle := managementButtonElement(discoveryButton(action, discoveryCopy("daily."+action), nil))
+	toggle.Type = "text"
+	toggle.Size = "small"
+	return []cardElement{
+		managementDividerElement(),
+		cardElement{
+			Tag:               "column_set",
+			FlexMode:          "none",
+			HorizontalSpacing: "8px",
+			Columns: []cardColumn{
+				{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(discoveryCopy(key, now.Format("MST")), "notation", "grey", nil)}},
+				{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{toggle}},
+			},
+		},
+	}
 }
 func renderDiscoveryDetail(c discoveryCapability, p discoveryPreference, daily bool, now time.Time) string {
-	elements := []cardElement{discoveryParent(), managementTextElement(c.text("body"), "normal", "default", nil), managementHintElement(c.text("requires"))}
+	elements := []cardElement{discoveryParent(), managementDividerElement(), managementTextElement(c.text("body"), "normal", "default", nil), managementHintElement(c.text("requires"))}
 	for i := 0; i < 2; i++ {
-		elements = append(elements, managementDividerElement(), managementTextElement(c.text(fmt.Sprintf("prompt.%d", i)), "normal", "default", nil), managementButtonRowElement([]managementButton{discoveryButton("prompt", discoveryCopy("use", i+1), map[string]string{"capability": c.ID, "example": strconv.Itoa(i)})}))
+		useSpec := discoveryButton("prompt", discoveryCopy("use", i+1), map[string]string{"capability": c.ID, "example": strconv.Itoa(i)})
+		useSpec.Type = "primary_text"
+		useBtn := managementButtonElement(useSpec)
+		useBtn.Size = "small"
+		box := managementVerticalSummaryElement(fmt.Sprintf("amux_discovery_example_%d", i),
+			managementTextElement(c.text(fmt.Sprintf("prompt.%d", i)), "normal", "default", nil),
+			cardElement{
+				Tag:      "column_set",
+				FlexMode: "none",
+				Columns:  []cardColumn{{Tag: "column", Width: "auto", Elements: []cardElement{useBtn}}},
+			},
+		)
+		box.Columns[0].VerticalSpacing = "4px"
+		elements = append(elements, box)
 	}
+	footerButtons := []managementButton{}
 	if c.Settings != "" {
-		elements = append(elements, managementButtonRowElement([]managementButton{{Text: discoveryCopy("settings"), Action: c.Settings}}))
+		footerButtons = append(footerButtons, managementButton{Text: discoveryCopy("settings"), Type: "default", Action: c.Settings})
 	}
-	elements = append(elements, managementButtonRowElement([]managementButton{discoveryButton("random", discoveryCopy("random"), map[string]string{"exclude": c.ID})}))
+	footerButtons = append(footerButtons, discoveryButton("random", discoveryCopy("random"), map[string]string{"exclude": c.ID}))
+	elements = append(elements, managementButtonRowElement(footerButtons))
 	if daily {
 		elements = append([]cardElement{managementHintElement(discoveryCopy("daily.title"))}, elements...)
 		elements = append(elements, discoveryPreferenceElements(p, now)...)
@@ -181,11 +246,11 @@ func renderDiscoveryPrompt(c discoveryCapability, example int, locale i18n.Local
 	input := cardElement{Tag: "input", Name: "capability_prompt", DefaultValue: c.text(fmt.Sprintf("prompt.%d", example)).For(locale), Placeholder: managementPlainTextPtr(discoveryCopy("edit")), Required: true, Width: "fill"}
 	button := managementFormSubmitButton(capabilityAction+"send", discoveryCopy("send"))
 	button.Value, _ = json.Marshal(managementButtonValue(discoveryButton("send", discoveryCopy("send"), map[string]string{"capability": c.ID, "token": token})))
-	elements := []cardElement{discoveryParent(), managementButtonRowElement([]managementButton{discoveryButton("detail", discoveryCopy("back.detail"), map[string]string{"capability": c.ID})}), managementHintElement(discoveryCopy("review")), managementTextElement(c.text("requires"), "notation", "grey", nil), {Tag: "form", Name: "capability_prompt_form", Direction: "vertical", Elements: []cardElement{input, button}}}
+	elements := []cardElement{discoveryParent(), managementDividerElement(), managementButtonRowElement([]managementButton{discoveryButton("detail", discoveryCopy("back.detail"), map[string]string{"capability": c.ID})}), managementHintElement(discoveryCopy("review")), managementTextElement(c.text("requires"), "notation", "grey", nil), {Tag: "form", Name: "capability_prompt_form", Direction: "vertical", Elements: []cardElement{input, button}}}
 	return discoveryCard(c.text("title"), elements)
 }
 func renderDiscoveryResult(c discoveryCapability, key string) string {
-	return discoveryCard(c.text("title"), []cardElement{discoveryParent(), managementHintElement(discoveryCopy(key)), managementButtonRowElement([]managementButton{discoveryButton("detail", discoveryCopy("back.detail"), map[string]string{"capability": c.ID})})})
+	return discoveryCard(c.text("title"), []cardElement{discoveryParent(), managementDividerElement(), managementHintElement(discoveryCopy(key)), managementButtonRowElement([]managementButton{discoveryButton("detail", discoveryCopy("back.detail"), map[string]string{"capability": c.ID})})})
 }
 
 func (b *Bridge) handleDiscoveryAction(ctx context.Context, event *callback.CardActionTriggerEvent, action, owner, messageID string) (*callback.CardActionTriggerResponse, bool, error) {

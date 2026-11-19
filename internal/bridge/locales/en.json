@@ -320,6 +320,53 @@
   "management.running.normally": {
     "other": "Running normally"
   },
+  "management.overview.status.healthy": {
+    "other": "Running normally · %d runtimes available",
+    "one": "Running normally · %d runtime available"
+  },
+  "management.refresh": {
+    "other": "Refresh"
+  },
+  "management.edit.configuration": {
+    "other": "Edit"
+  },
+  "management.runtime.and.model": {
+    "other": "Runtime & model"
+  },
+  "management.activity.and.integrations": {
+    "other": "Activity & integrations"
+  },
+  "management.integrations.enabled.count": {
+    "other": "%d/%d integrations on"
+  },
+  "management.quick.actions": {
+    "other": "Quick actions"
+  },
+  "management.system.and.advanced": {
+    "other": "System & advanced"
+  },
+  "management.schedules": {
+    "other": "Schedules"
+  },
+  "management.status.tag.healthy": {
+    "other": "Healthy"
+  },
+  "management.status.tag.attention": {
+    "other": "Attention"
+  },
+  "management.runtimes.available.compact": {
+    "other": "%d runtimes available",
+    "one": "%d runtime available"
+  },
+  "management.tile.library.desc": {
+    "other": "Experts & skills"
+  },
+  "management.tile.discovery.desc": {
+    "other": "Explore examples"
+  },
+  "management.tile.console.desc": {
+    "other": "Full web console"
+  },
   "management.d.runtimes.available.ready.for.tasks": {
     "other": "%d runtimes available · Ready for tasks",
     "one": "%d runtime available · Ready for tasks"
@@ -1174,7 +1221,7 @@
     "other": "Document comments"
   },
   "management.enable.go.to.assistant.settings.integrations.and.enable.document": {
-    "other": "Enable: go to Assistant settings → Integrations and enable document comments."
+    "other": "Enable: open /amux → Integrations and enable document comments."
   },
   "management.use.mention.the.assistant.in.a.comment.with.your": {
     "other": "Use: mention the assistant in a comment with your request. Owner only."
@@ -1195,7 +1242,7 @@
     "other": "Disable: mention the assistant in the target group and send “关闭群值守”; confirmation removes the group from watch."
   },
   "management.manage.send.amux.privately.then.open.assistant.settings.integrations": {
-    "other": "Manage: send /amux privately, then open Assistant settings → Integrations → Group watch."
+    "other": "Manage: send /amux privately, then open Integrations → Group watch."
   },
   "management.let.other.group.members.use.the.assistant": {
     "other": "Let other group members use the assistant"
@@ -2869,6 +2916,9 @@
   },
   "schedule.empty": {
     "other": "No scheduled tasks in this view. Tasks with unverified creator identity are not included."
+  },
+  "schedule.none": {
+    "other": "No schedules yet"
   },
   "schedule.page": {
     "other": "Page %d / %d · refreshed %s"

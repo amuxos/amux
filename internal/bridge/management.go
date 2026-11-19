@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -163,6 +164,27 @@ func (b *Bridge) handleBotMenu(ctx context.Context, event *larkapplication.P2Bot
 	}
 }
 
+func isQuietManagementNavigationAction(action string) bool {
+	switch action {
+	case managementActionStatusOpen,
+		managementActionSettingsOpen,
+		managementActionSettingsEdit,
+		managementActionCapabilitiesOpen,
+		managementActionBotToBotOpen,
+		managementActionDocumentCommentsOpen,
+		managementActionGroupWatchOpen,
+		managementActionPackLibraryOpen,
+		managementActionPackLibraryNavigate,
+		managementActionPackManage,
+		managementActionSystemMaintenance,
+		managementActionExperimentsOpen,
+		managementActionHelpOpen,
+		managementActionConsoleOpen:
+		return true
+	}
+	return false
+}
+
 func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback.CardActionTriggerEvent) (response *callback.CardActionTriggerResponse, handled bool, err error) {
 	if event == nil || event.Event == nil || event.Event.Action == nil {
 		return nil, false, nil
@@ -171,7 +193,18 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	if action == "" {
 		return nil, false, nil
 	}
+	var syncCard string
+	var syncOpenID, syncMessageID string
 	defer func() {
+		if syncCard != "" && syncMessageID != "" && response != nil && response.Card == nil {
+			localized := b.managementCardForPatch(syncOpenID, syncMessageID, syncCard)
+			if strings.TrimSpace(localized) != "" {
+				response.Card = &callback.Card{Type: "raw", Data: json.RawMessage(localized)}
+			}
+		}
+		if b.managementCardPatch == nil && syncMessageID != "" && response != nil && response.Card != nil && isQuietManagementNavigationAction(action) {
+			response.Toast = nil
+		}
 		if event.Event.Operator != nil {
 			b.localizeManagementToast(response, event.Event.Operator.OpenID)
 		}
@@ -224,8 +257,8 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	if response, handled, err := b.handleGuideAction(ctx, event, action, openID, messageID); handled {
 		return response, handled, err
 	}
-	if b.handleModelServiceEditor(event, action, openID, messageID, version) {
-		return cardToast("success", managementCopy("management.model.service.updating")), true, nil
+	if editorResp, ok := b.handleModelServiceEditor(event, action, openID, messageID, version); ok {
+		return editorResp, true, nil
 	}
 	state := b.managementState()
 	if action == managementActionGroupWatchEdit || action == managementActionGroupWatchSave {
@@ -233,18 +266,22 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	}
 	surface := managementSurfaceFromCallback(event.Event.Action)
 	updateCard := func(card string, page managementView) {
-		b.updateManagementCardAtVersion(
-			openID,
-			messageID,
-			renderManagementCardForSurface(card, surface, page), version,
-		)
+		rendered := renderManagementCardForSurface(card, surface, page)
+		syncCard = rendered
+		syncOpenID = openID
+		syncMessageID = messageID
+		if messageID == "" || b.managementCardPatch != nil {
+			b.updateManagementCardAtVersion(openID, messageID, rendered, version)
+		}
 	}
 	updateFocusedCard := func(card string) {
-		b.updateManagementCardAtVersion(
-			openID,
-			messageID,
-			renderFocusedManagementCardForSurface(card, surface), version,
-		)
+		rendered := renderFocusedManagementCardForSurface(card, surface)
+		syncCard = rendered
+		syncOpenID = openID
+		syncMessageID = messageID
+		if messageID == "" || b.managementCardPatch != nil {
+			b.updateManagementCardAtVersion(openID, messageID, rendered, version)
+		}
 	}
 	settingsEditCard := func(current managementState, draft managementSettingsDraft) string {
 		return renderSettingsEditCardForSurface(current, draft, surface)
@@ -356,6 +393,9 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		return cardToast("success", managementCopy("management.assistant.settings.opened")), true, nil
 	case managementActionSettingsEdit:
 		updateSettingsEditCard(state, managementDraftFromCallback(event.Event.Action, state))
+		if managementDraftFieldFromCallback(event.Event.Action, state) == "" {
+			return cardToast("success", managementCopy("management.assistant.settings.opened")), true, nil
+		}
 		return cardToast("success", managementCopy("management.configuration.selection.updated")), true, nil
 	case managementActionCapabilitiesOpen:
 		updateFocusedCard(capabilitiesCard(state))
@@ -536,7 +576,11 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			}
 			state = b.managementState()
 		}
-		updateCard(settingsSummaryCard(state), managementViewSettings)
+		if surface == managementSurfaceAmux {
+			updateCard(overviewCard(state), managementViewOverview)
+		} else {
+			updateCard(settingsSummaryCard(state), managementViewSettings)
+		}
 		return cardToast("success", managementCopy("management.assistant.settings.saved")), true, nil
 	case managementActionSettingsConfirm:
 		req, token, ok := managementConfirmedBotSettingsRequest(event.Event.Action, openID)
@@ -604,10 +648,16 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		updateCard(settingsSummaryCard(state), managementViewSettings)
 		return cardToast("success", managementCopy("management.deferred.for.now")), true, nil
 	case managementActionSettingsCancel:
-		updateCard(settingsSummaryCard(state), managementViewSettings)
+		if surface == managementSurfaceAmux {
+			updateCard(overviewCard(state), managementViewOverview)
+		} else {
+			updateCard(settingsSummaryCard(state), managementViewSettings)
+		}
 		return cardToast("success", managementCopy("management.changes.cancelled")), true, nil
 	case managementActionPackLibraryOpen:
-		b.runManagementAgentPackLibraryOpen(openID, messageID, surface)
+		syncCard = b.runManagementAgentPackLibraryOpen(openID, messageID, surface)
+		syncOpenID = openID
+		syncMessageID = messageID
 		return cardToast("success", managementCopy("management.opening.the.expert.library")), true, nil
 	case managementActionPackLibraryNavigate:
 		view, ok := managementPackLibraryViewFromCallback(event.Event.Action)
@@ -617,7 +667,9 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		if b.managementPackOperationActive(openID, messageID) {
 			return cardToast("warning", managementCopy("management.an.expert.library.operation.is.in.progress.wait.for")), true, nil
 		}
-		b.runManagementAgentPackLibraryView(openID, messageID, view, surface)
+		syncCard = b.runManagementAgentPackLibraryView(openID, messageID, view, surface)
+		syncOpenID = openID
+		syncMessageID = messageID
 		return cardToast("success", managementCopy("management.switching.expert.library.pages")), true, nil
 	case managementActionPackManage:
 		namespace := managementCallbackString(event.Event.Action, "namespace")
@@ -628,7 +680,9 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		if b.managementPackOperationActive(openID, messageID) {
 			return cardToast("warning", managementCopy("management.an.expert.library.operation.is.in.progress.wait.for")), true, nil
 		}
-		b.runManagementLoadedPackView(openID, messageID, namespace, view, surface)
+		syncCard = b.runManagementLoadedPackView(openID, messageID, namespace, view, surface)
+		syncOpenID = openID
+		syncMessageID = messageID
 		return cardToast("success", managementCopy("management.opening.expert.library.management")), true, nil
 	case managementActionPackInstall:
 		catalogID := managementCallbackString(event.Event.Action, "catalog_id")
