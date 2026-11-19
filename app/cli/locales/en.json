@@ -179,6 +179,9 @@
   "cleanup.step.tasks": {
     "other": "Expired terminal tasks"
   },
+  "cleanup.step.task_sessions": {
+    "other": "Task child sessions"
+  },
   "cleanup.step.workspaces": {
     "other": "Orphan workspaces"
   },

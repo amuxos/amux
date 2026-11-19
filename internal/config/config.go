@@ -248,12 +248,13 @@ func ValidateBridgeFeishuGroupWatchInteraction(groupWatch BridgeFeishuGroupWatch
 }
 
 type BridgeFeishuWorkspaceDefaultsConfig struct {
-	Agent              string
-	Target             string
-	Cwd                string
-	Model              string
-	Args               []string
-	IdleTimeoutSeconds int
+	IdleTimeoutInherited bool
+	Agent                string
+	Target               string
+	Cwd                  string
+	Model                string
+	Args                 []string
+	IdleTimeoutSeconds   int
 }
 
 const (
@@ -897,12 +898,13 @@ func cleanUniqueStrings(values []string, lower bool, allowed map[string]bool) []
 
 func GetBridgeFeishuWorkspaceDefaults() BridgeFeishuWorkspaceDefaultsConfig {
 	return BridgeFeishuWorkspaceDefaultsConfig{
-		Agent:              viper.GetString("bridge.feishu.workspace_defaults.agent"),
-		Target:             viper.GetString("bridge.feishu.workspace_defaults.target"),
-		Cwd:                viper.GetString("bridge.feishu.workspace_defaults.cwd"),
-		Model:              viper.GetString("bridge.feishu.workspace_defaults.model"),
-		Args:               viper.GetStringSlice("bridge.feishu.workspace_defaults.args"),
-		IdleTimeoutSeconds: viper.GetInt("bridge.feishu.workspace_defaults.idle_timeout_seconds"),
+		Agent:                viper.GetString("bridge.feishu.workspace_defaults.agent"),
+		Target:               viper.GetString("bridge.feishu.workspace_defaults.target"),
+		Cwd:                  viper.GetString("bridge.feishu.workspace_defaults.cwd"),
+		Model:                viper.GetString("bridge.feishu.workspace_defaults.model"),
+		Args:                 viper.GetStringSlice("bridge.feishu.workspace_defaults.args"),
+		IdleTimeoutSeconds:   viper.GetInt("bridge.feishu.workspace_defaults.idle_timeout_seconds"),
+		IdleTimeoutInherited: !viper.IsSet("bridge.feishu.workspace_defaults.idle_timeout_seconds"),
 	}
 }
 
@@ -930,6 +932,7 @@ func GetBridgeFeishuWorkspaceDefaultsForProfile(profile string) BridgeFeishuWork
 	}
 	if viper.IsSet(base + ".idle_timeout_seconds") {
 		defaults.IdleTimeoutSeconds = viper.GetInt(base + ".idle_timeout_seconds")
+		defaults.IdleTimeoutInherited = false
 	}
 	return defaults
 }

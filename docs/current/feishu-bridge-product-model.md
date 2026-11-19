@@ -42,6 +42,8 @@ command is not an authorization grant. Natural-language requests for delegation
 or schedules require Agent tools and must be verified by their actual records;
 `/schedule` and `/sched` are unsupported topic commands.
 
+New Feishu topic and document-comment Sessions inherit the selected Runtime’s Feishu sleep policy when no workspace timeout was configured. An explicit zero disables idle sleep. Existing workspace and Session records keep their saved timeout. Group watch and Bot singleton Sessions keep their dedicated timeout policies.
+
 ## Bridge responsibilities
 
 Agents can use `amux.feishu_send_message` to send plain text or Markdown through

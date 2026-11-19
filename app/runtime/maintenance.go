@@ -37,13 +37,14 @@ type maintenanceRecord struct {
 // an updater/runtime crash between process shutdown and persisting Sleep.
 type runtimeMaintenance struct {
 	pb.UnimplementedRuntimeMaintenanceServer
-	mu       sync.Mutex
-	srv      *server
-	tasks    func() int
-	record   *maintenanceRecord
-	requests int
-	now      func() time.Time
-	resume   func(context.Context, *session.Session) error
+	mu             sync.Mutex
+	srv            *server
+	tasks          func() int
+	record         *maintenanceRecord
+	requests       int
+	recoveryActive bool
+	now            func() time.Time
+	resume         func(context.Context, *session.Session) error
 }
 
 func newRuntimeMaintenance(srv *server, tasks func() int) (*runtimeMaintenance, error) {
@@ -141,6 +142,8 @@ func (m *runtimeMaintenance) Maintain(ctx context.Context, req *pb.MaintenanceRe
 		if err := m.save(); err != nil {
 			return nil, err
 		}
+	case "status":
+		return m.response(), nil
 	case "poll":
 		return m.drain(ctx)
 	case "end":
@@ -230,6 +233,9 @@ func (m *runtimeMaintenance) sleepLocked(sess *session.Session, snap session.Sna
 	return m.srv.mgr.SetSleepingPreservingQueue(sess, maintenanceSleepReason)
 }
 func (m *runtimeMaintenance) recover(ctx context.Context) (*pb.MaintenanceResponse, error) {
+	if m.recoveryActive {
+		return m.response(), nil
+	}
 	m.record.Phase = "recovering"
 	// Recovery errors must not leave normal admission disabled indefinitely.
 	m.srv.mgr.SetMaintenance(false)
@@ -237,40 +243,12 @@ func (m *runtimeMaintenance) recover(ctx context.Context) (*pb.MaintenanceRespon
 		m.srv.mgr.ResumeMaintenanceGoals()
 		return nil, err
 	}
-	m.srv.relaunchMu.Lock()
-	defer m.srv.relaunchMu.Unlock()
-	var failures []error
-	remaining := make([]maintenanceSession, 0, len(m.record.Sessions))
-	for _, entry := range m.record.Sessions {
-		sess, err := m.srv.mgr.Get(entry.Name)
-		if err != nil || sess.Snapshot().ID != entry.ID {
-			continue
-		}
-		if sess.StateSnapshot() == session.StateRunning && sess.HasProcess() {
-			// A prior resume may have launched the process but failed to persist
-			// Running. Retry that write without interrupting any newly accepted turn.
-			if err := m.srv.mgr.SetRunning(sess); err != nil {
-				remaining = append(remaining, entry)
-				failures = append(failures, fmt.Errorf("%s: %w", entry.Name, err))
-			}
-			continue
-		}
-		if err := ctx.Err(); err != nil {
-			remaining = append(remaining, entry)
-			failures = append(failures, err)
-			continue
-		}
-		if err := m.resume(ctx, sess); err != nil {
-			remaining = append(remaining, entry)
-			failures = append(failures, fmt.Errorf("%s: %w", entry.Name, err))
-		}
-	}
+	m.recoveryActive = true
+	remaining, recoveryErr := m.recoverSessions(ctx, m.record.Sessions)
+	m.recoveryActive = false
 	m.record.Sessions = remaining
 	if len(remaining) > 0 {
-		if err := m.save(); err != nil {
-			failures = append(failures, err)
-		}
-		return m.response(), errors.Join(failures...)
+		return m.response(), errors.Join(recoveryErr, m.save())
 	}
 	if err := os.Remove(m.path()); err != nil && !os.IsNotExist(err) {
 		return nil, err
@@ -278,6 +256,48 @@ func (m *runtimeMaintenance) recover(ctx context.Context) (*pb.MaintenanceRespon
 	m.record = nil
 	m.srv.mgr.ResumeMaintenanceGoals()
 	return m.response(), nil
+}
+
+// The caller holds mu and has marked recovery active. Keep the same durable
+// journal until the batch finishes, while letting other local RPCs take mu.
+func (m *runtimeMaintenance) recoverSessions(ctx context.Context, entries []maintenanceSession) ([]maintenanceSession, error) {
+	m.mu.Unlock()
+	defer m.mu.Lock()
+	var failures []error
+	remaining := make([]maintenanceSession, 0, len(entries))
+	for i, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			// Try entries that have not had a turn before retrying failures.
+			next := append([]maintenanceSession(nil), entries[i:]...)
+			return append(next, remaining...), errors.Join(append(failures, err)...)
+		}
+		if err := m.recoverSession(ctx, entry); err != nil {
+			remaining = append(remaining, entry)
+			failures = append(failures, fmt.Errorf("%s: %w", entry.Name, err))
+		}
+	}
+	return remaining, errors.Join(failures...)
+}
+
+func (m *runtimeMaintenance) recoverSession(ctx context.Context, entry maintenanceSession) error {
+	if err := m.srv.lockRelaunch(ctx); err != nil {
+		return err
+	}
+	defer m.srv.relaunchMu.Unlock()
+	sess, err := m.srv.mgr.Get(entry.Name)
+	if err != nil {
+		return nil
+	}
+	snap := sess.Snapshot()
+	if snap.ID != entry.ID || snap.State == session.StateArchived {
+		return nil
+	}
+	if snap.State == session.StateRunning && sess.HasProcess() {
+		// A prior resume may have failed to persist Running. Retry the write
+		// without interrupting any work accepted since the process started.
+		return m.srv.mgr.SetRunning(sess)
+	}
+	return m.resume(ctx, sess)
 }
 
 // maintenanceWatchInterval is how soon recovery is retried once a recovery
@@ -304,11 +324,12 @@ func (m *runtimeMaintenance) watch(ctx context.Context) {
 		}
 		progressed := true
 		m.mu.Lock()
-		if m.record != nil && (m.record.Phase == "recovering" || !m.now().Before(m.record.Expires)) {
+		if m.record != nil && !m.recoveryActive && (m.record.Phase == "recovering" || !m.now().Before(m.record.Expires)) {
+			pending := len(m.record.Sessions)
 			recoveryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			if _, err := m.recover(recoveryCtx); err != nil {
 				fmt.Fprintf(os.Stderr, "runtime: maintenance recovery: %v\n", err)
-				progressed = false
+				progressed = len(m.record.Sessions) < pending
 			}
 			cancel()
 		}

@@ -362,7 +362,7 @@ func (b *Bridge) createDocumentCommentSession(ctx context.Context, ref documentC
 	sessionName := documentSessionName(b.currentBridgeId(), ref.FileToken, ref.CommentID)
 	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	idleTimeout := int64(b.db.workspaceDefaults.IdleTimeoutSeconds)
+	defaults := b.db.workspaceDefaults
 	session, err := b.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{
 		TargetID: target.ID,
 		Name:     sessionName,
@@ -371,7 +371,7 @@ func (b *Bridge) createDocumentCommentSession(ctx context.Context, ref documentC
 			Source: "feishu",
 			Scope:  documentWorkspaceScope(b.currentBridgeId(), ref.FileToken),
 		},
-		IdleTimeoutSeconds: &idleTimeout,
+		IdleTimeoutSeconds: workspaceLaunchIdleTimeout(defaults.IdleTimeoutSeconds, defaults.IdleTimeoutInherited),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("start document session: %w", err)

@@ -441,8 +441,9 @@ func (s *helperServer) handleWithFiles(req HelperRequest, requestFiles []*os.Fil
 		}
 		return HelperResponse{}, nil
 	case OpDailyCleanup:
-		if req.Cleanup == nil || req.Cleanup.References == nil {
-			return helperError("invalid_request", "cleanup references are required"), nil
+		refs, err := readCleanupReferences(req.Cleanup, requestFiles)
+		if err != nil {
+			return helperError("invalid_request", err.Error()), nil
 		}
 		if err := s.validateMapping(req.Mapping); err != nil {
 			return responseForError(err), nil
@@ -452,7 +453,6 @@ func (s *helperServer) handleWithFiles(req HelperRequest, requestFiles []*os.Fil
 		// concurrent starts, signals, or reaps across principals.
 		s.cleanupMu.Lock()
 		defer s.cleanupMu.Unlock()
-		refs := *req.Cleanup.References
 		refs.Workspaces = append([]string{}, refs.Workspaces...)
 		s.mu.Lock()
 		for _, launch := range s.launches {

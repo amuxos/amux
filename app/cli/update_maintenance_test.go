@@ -161,3 +161,57 @@ func TestMaintenanceCopyLanguages(t *testing.T) {
 		}
 	}
 }
+
+func TestMaintenanceRecoveryWaitTracksPendingSessions(t *testing.T) {
+	// Inspect RPC deadlines directly so the test does not depend on scheduler timing.
+	var endDeadlines []time.Time
+	pending := []int32{12, 10, 10}
+	n := 0
+	call := func(ctx context.Context, action string) (*pb.MaintenanceResponse, error) {
+		if action == "end" {
+			deadline, _ := ctx.Deadline()
+			endDeadlines = append(endDeadlines, deadline)
+			if n == len(pending) {
+				return &pb.MaintenanceResponse{Phase: "idle"}, nil
+			}
+			return nil, context.DeadlineExceeded
+		}
+		if action != "status" {
+			t.Fatalf("unexpected action %q", action)
+		}
+		r := &pb.MaintenanceResponse{Phase: "recovering", SleepingSessions: pending[n]}
+		n++
+		return r, nil
+	}
+	if err := waitForMaintenanceRecovery(call, 0, time.Second, time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if !endDeadlines[1].Equal(endDeadlines[0]) || !endDeadlines[2].After(endDeadlines[1]) || !endDeadlines[3].Equal(endDeadlines[2]) {
+		t.Fatalf("deadlines %v", endDeadlines)
+	}
+}
+
+func TestMaintenanceRecoveryWaitAllowsColdRuntimeStartup(t *testing.T) {
+	var deadlines []time.Time
+	call := func(ctx context.Context, action string) (*pb.MaintenanceResponse, error) {
+		if action == "status" {
+			return nil, status.Error(codes.Unavailable, "starting")
+		}
+		deadline, _ := ctx.Deadline()
+		deadlines = append(deadlines, deadline)
+		switch len(deadlines) {
+		case 1:
+			return nil, status.Error(codes.Unavailable, "starting")
+		case 2:
+			return &pb.MaintenanceResponse{Phase: "recovering", SleepingSessions: 10}, nil
+		default:
+			return &pb.MaintenanceResponse{Phase: "idle"}, nil
+		}
+	}
+	if err := waitForMaintenanceRecovery(call, 5*time.Second, time.Second, 0); err != nil {
+		t.Fatal(err)
+	}
+	if len(deadlines) != 3 || !deadlines[0].Equal(deadlines[1]) || deadlines[1].Sub(deadlines[2]) < 3*time.Second {
+		t.Fatalf("startup and progress deadlines %v", deadlines)
+	}
+}

@@ -328,3 +328,72 @@ func TestMaintenanceWatchIntervalBacksOffAfterFailedRecovery(t *testing.T) {
 		t.Fatalf("interval from zero = %s, want %s", got, maintenanceWatchInterval)
 	}
 }
+
+func TestMaintenanceRecoveryRetriesUntouchedSessionsFirst(t *testing.T) {
+	m, mgr := newMaintenanceTest(t)
+	slow, _ := maintenanceSessionForTest(t, mgr, "slow")
+	next, _ := maintenanceSessionForTest(t, mgr, "next")
+	maintenanceCall(t, m, "begin")
+	maintenanceCall(t, m, "poll")
+	m.record.Sessions = []maintenanceSession{{ID: slow.ID, Name: slow.Name}, {ID: next.ID, Name: next.Name}}
+	ctx, cancel := context.WithCancel(maintenanceContext())
+	resume := m.resume
+	m.resume = func(_ context.Context, s *session.Session) error {
+		if s != slow {
+			t.Fatal("started a session after the batch deadline")
+		}
+		cancel()
+		return context.Canceled
+	}
+	if _, err := m.Maintain(ctx, &pb.MaintenanceRequest{Token: maintenanceTestToken, Action: "end"}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("recovery returned %v, want cancellation", err)
+	}
+	if len(m.record.Sessions) != 2 || m.record.Sessions[0].ID != next.ID {
+		t.Fatalf("next batch order = %+v", m.record.Sessions)
+	}
+	var tried []string
+	m.resume = func(ctx context.Context, s *session.Session) error {
+		tried = append(tried, s.Name)
+		return resume(ctx, s)
+	}
+	maintenanceCall(t, m, "end")
+	if len(tried) != 2 || tried[0] != next.Name {
+		t.Fatalf("second batch order = %v", tried)
+	}
+}
+
+func TestMaintenanceRecoveryDoesNotBlockMaintenanceRPC(t *testing.T) {
+	m, mgr := newMaintenanceTest(t)
+	maintenanceSessionForTest(t, mgr, "slow")
+	maintenanceCall(t, m, "begin")
+	maintenanceCall(t, m, "poll")
+	entered, release := make(chan struct{}), make(chan struct{})
+	m.resume = func(context.Context, *session.Session) error {
+		close(entered)
+		<-release
+		return errors.New("provider unavailable")
+	}
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		_, _ = m.Maintain(maintenanceContext(), &pb.MaintenanceRequest{Token: maintenanceTestToken, Action: "end"})
+	}()
+	defer func() {
+		close(release)
+		<-finished
+	}()
+	<-entered
+	result := make(chan error, 1)
+	go func() {
+		_, err := m.Maintain(maintenanceContext(), &pb.MaintenanceRequest{Token: "other-maintenance-token", Action: "begin"})
+		result <- err
+	}()
+	select {
+	case err := <-result:
+		if status.Code(err) != codes.AlreadyExists {
+			t.Fatalf("second upgrade returned %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("second upgrade blocked behind the provider")
+	}
+}

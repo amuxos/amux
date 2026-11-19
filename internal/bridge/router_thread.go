@@ -276,7 +276,15 @@ func resolveUniqueBridgeProfileShortName(name string) (agentprofile.Profile, err
 	return agentprofile.Profile{}, agentprofile.ErrProfileNotFound
 }
 
-func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, messageAuthorOpenID, executionActorOpenID, targetID, sessionName, cwd string, launch agentprofile.LaunchProjection, idleTimeoutSeconds int) (sessionlaunch.SessionRef, bool, error) {
+func workspaceLaunchIdleTimeout(seconds int, inherited bool) *int64 {
+	if inherited {
+		return nil
+	}
+	timeout := int64(seconds)
+	return &timeout
+}
+
+func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, messageAuthorOpenID, executionActorOpenID, targetID, sessionName, cwd string, launch agentprofile.LaunchProjection, idleTimeout *int64) (sessionlaunch.SessionRef, bool, error) {
 	var res sessionlaunch.SessionRef
 	policy, err := b.newSessionPolicy(ctx, chatID)
 	if err != nil {
@@ -304,8 +312,7 @@ func (b *Bridge) runFeishuSession(ctx context.Context, rootMsgID, chatID, messag
 	}
 	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	idleTimeout := int64(idleTimeoutSeconds)
-	res, err = b.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{TargetID: targetID, Name: sessionName, Launch: launch, Workspace: sessionlaunch.WorkspaceRequest{Cwd: cwd, Source: "feishu", Scope: b.feishuWorkspaceScope(chatID, messageAuthorOpenID)}, IdleTimeoutSeconds: &idleTimeout, ExecutionIdentity: identity.Identity, LaunchID: identity.LaunchID, AgentActorToken: identity.ActorToken, AgentActorTokenExpiresAt: identity.ActorTokenExpiresAt, SystemInstructions: b.sessionStartInstructions()})
+	res, err = b.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{TargetID: targetID, Name: sessionName, Launch: launch, Workspace: sessionlaunch.WorkspaceRequest{Cwd: cwd, Source: "feishu", Scope: b.feishuWorkspaceScope(chatID, messageAuthorOpenID)}, IdleTimeoutSeconds: idleTimeout, ExecutionIdentity: identity.Identity, LaunchID: identity.LaunchID, AgentActorToken: identity.ActorToken, AgentActorTokenExpiresAt: identity.ActorTokenExpiresAt, SystemInstructions: b.sessionStartInstructions()})
 	if err != nil {
 		principalID := ""
 		if identity.Identity != nil {
@@ -431,7 +438,7 @@ func (b *Bridge) runAndBindThread(ctx context.Context, chatID, rootMsgID, openID
 	if blocked {
 		return nil
 	}
-	res, ok, err := b.runFeishuSession(ctx, rootMsgID, chatID, openID, openID, target.ID, req.Name, req.Cwd, launch, ws.IdleTimeoutSeconds)
+	res, ok, err := b.runFeishuSession(ctx, rootMsgID, chatID, openID, openID, target.ID, req.Name, req.Cwd, launch, workspaceLaunchIdleTimeout(ws.IdleTimeoutSeconds, ws.IdleTimeoutInherited))
 	if !ok {
 		return err
 	}
@@ -615,13 +622,14 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 	if agentErr != nil {
 		return b.notifyThread(ctx, rootMsgID, agentErr.Error())
 	}
-	idleTimeoutSeconds := ws.IdleTimeoutSeconds
+	idleTimeout := workspaceLaunchIdleTimeout(ws.IdleTimeoutSeconds, ws.IdleTimeoutInherited)
 	entrySource := ""
 	if opts.source == routeInputSourceGroupWatch {
-		idleTimeoutSeconds = opts.idleTimeoutSeconds
+		idleTimeoutSeconds := opts.idleTimeoutSeconds
 		if idleTimeoutSeconds < 60 {
 			idleTimeoutSeconds = config.DefaultFeishuGroupWatchIdleTimeoutSeconds
 		}
+		idleTimeout = workspaceLaunchIdleTimeout(idleTimeoutSeconds, false)
 		entrySource = ChatEntrySourceGroupWatch
 	}
 	cwd := ""
@@ -643,7 +651,7 @@ func (b *Bridge) runAndBindNaturalEntryWithOptions(ctx context.Context, chatID, 
 				return b.notifyThread(ctx, rootMsgID, b.groupWatchOwnerUnavailableText())
 			}
 		}
-		res, ok, err = b.runFeishuSession(ctx, rootMsgID, chatID, openID, executionActorOpenID, target.ID, sessionName, cwd, launch, idleTimeoutSeconds)
+		res, ok, err = b.runFeishuSession(ctx, rootMsgID, chatID, openID, executionActorOpenID, target.ID, sessionName, cwd, launch, idleTimeout)
 	}
 	if opts.alertDedup != nil {
 		finishAlert = false // Keep creation/Submit uncertainty durable until resolved.

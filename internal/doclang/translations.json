@@ -1907,6 +1907,10 @@
     "en": "Default Agent arguments for new workspaces.",
     "zh-CN": "新 workspace 的默认 Agent 参数。"
   },
+  "继承目标 Runtime 的飞书休眠策略": {
+    "en": "Inherit the target Runtime's Feishu sleep policy",
+    "zh-CN": "继承目标 Runtime 的飞书休眠策略"
+  },
   "新 workspace Session 的休眠阈值。": {
     "en": "Sleep threshold for new workspace Sessions.",
     "zh-CN": "新 workspace Session 的休眠阈值。"

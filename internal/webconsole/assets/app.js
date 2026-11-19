@@ -1790,11 +1790,12 @@
     } catch (error) { notify(errorMessage(error), true); }
   }
   function editGroupSettings(snapshot, settings, values) {
-    const groupDefinitions = [...botFieldDefinitions, ['mode', 'governance', ['owner_only', 'shared']], ['thinking_process', 'thinkingProcess', ['collapsed', 'expanded']], ['default_target', 'defaultTarget'], ['default_cwd', 'cwd'], ['idle_timeout_seconds', 'idleTimeout', 'number'], ['thread_context_limit', 'threadContextLimit', 'number'], ['max_sessions_total', 'maxSessions', 'number'], ['max_sessions_per_user', 'maxSessionsPerUser', 'number']];
+    const groupDefinitions = [...botFieldDefinitions, ['mode', 'governance', ['owner_only', 'shared']], ['thinking_process', 'thinkingProcess', ['collapsed', 'expanded']], ['default_target', 'defaultTarget'], ['default_cwd', 'cwd'], ['idle_timeout_seconds', 'workspaceIdleTimeout', 'number'], ['thread_context_limit', 'threadContextLimit', 'number'], ['max_sessions_total', 'maxSessions', 'number'], ['max_sessions_per_user', 'maxSessionsPerUser', 'number']];
     const initial = Object.assign({}, settings, values || {});
+    if (settings.idle_timeout_inherited && values?.idle_timeout_seconds == null) initial.idle_timeout_seconds = '';
     const advanced = e('details', {}, e('summary', { text: t('advanced') }), ...editableSettingFields(initial, groupDefinitions.slice(6)), formField('default_args', 'nativeArgs', 'textarea', values && values.default_args !== undefined ? values.default_args : list(settings, 'default_args').join('\n')));
     formDialog('groups', [formField('profile', 'profile', 'text', snapshot.profile, { readonly: true }), formField('chat_id', 'chatID', 'text', snapshot.chat_id || state.route.params.chat_id, { readonly: true }), e('p', { class: 'rail', text: t('source') + ': ' + t(snapshot.settings_source === 'bot_defaults' ? 'botDefaults' : 'savedSettings') }), ...editableSettingFields(initial, groupDefinitions.slice(0, 6)), advanced], data => {
-      const next = Object.assign({}, settings, readSettingFields(data, groupDefinitions), { default_args: String(data.default_args || '').split('\n').filter(Boolean) });
+      const next = Object.assign({}, settings, readSettingFields(data, groupDefinitions), { idle_timeout_inherited: String(data.idle_timeout_seconds ?? '').trim() === '', default_args: String(data.default_args || '').split('\n').filter(Boolean) });
       return write('groups', 'save', { profile: snapshot.profile, chat_id: snapshot.chat_id || state.route.params.chat_id, expected_version: settings.version || 0, settings: next });
     }, { draftKey: 'group:' + snapshot.profile + ':' + (snapshot.chat_id || state.route.params.chat_id) + ':' + settings.version, rebuild: saved => editGroupSettings(snapshot, settings, saved) });
   }

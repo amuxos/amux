@@ -737,6 +737,9 @@
   "management.extra.arguments.must.be.a.json.string.array": {
     "other": "Extra arguments must be a JSON string array"
   },
+  "workspace.idle.inherit": {
+    "other": "Use the Runtime sleep policy"
+  },
   "management.idle.timeout.in.seconds": {
     "other": "Idle timeout in seconds"
   },
@@ -3132,6 +3135,9 @@
   },
   "cleanup.step.tasks": {
     "other": "Expired terminal tasks"
+  },
+  "cleanup.step.task_sessions": {
+    "other": "Task child sessions"
   },
   "cleanup.step.workspaces": {
     "other": "Orphan workspaces"

@@ -446,6 +446,9 @@ func completeUpdatePostInstall(cmd *cobra.Command, opts *installOptions, nextSte
 		if err := restartIfRunning(runtimeService()); err != nil {
 			return err
 		}
+		if opts.maintenance != nil {
+			opts.maintenance.waitForRuntimeStart = true
+		}
 		if err := restartIfRunning(hubService()); err != nil {
 			return err
 		}

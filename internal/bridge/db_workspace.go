@@ -15,7 +15,7 @@ import (
 
 func workspaceDefaultsFromConfig(profile string) workspaceDefaults {
 	cfg := config.GetBridgeFeishuWorkspaceDefaultsForProfile(profile)
-	defaults := workspaceDefaults{Agent: strings.TrimSpace(cfg.Agent), Target: strings.TrimSpace(cfg.Target), Cwd: strings.TrimSpace(cfg.Cwd), Model: strings.TrimSpace(cfg.Model), Args: cleanWorkspaceDefaultArgs(cfg.Args), IdleTimeoutSeconds: cfg.IdleTimeoutSeconds}
+	defaults := workspaceDefaults{Agent: strings.TrimSpace(cfg.Agent), Target: strings.TrimSpace(cfg.Target), Cwd: strings.TrimSpace(cfg.Cwd), Model: strings.TrimSpace(cfg.Model), Args: cleanWorkspaceDefaultArgs(cfg.Args), IdleTimeoutSeconds: cfg.IdleTimeoutSeconds, IdleTimeoutInherited: cfg.IdleTimeoutInherited}
 	if defaults.Agent == "" {
 		defaults.Agent = agentprofile.DefaultProfileRef
 	}
@@ -42,17 +42,17 @@ func (b *bridgeDB) GetWorkspace(bridgeID, chatID string) (*FeishuWorkspace, erro
 		return nil, fmt.Errorf("workspace bridge_id is required")
 	}
 	if strings.TrimSpace(chatID) == "" {
-		return &FeishuWorkspace{BridgeId: bridgeID, Kind: WorkspaceKindGroup, Mode: defaultWorkspaceMode, DefaultAgent: agentprofile.DefaultProfileRef, DefaultModel: strings.TrimSpace(b.workspaceDefaults.Model), ThreadContextLimit: defaultThreadContextLimit, MaxSessionsTotal: defaultWorkspaceMaxSessionsTotal, MaxSessionsPerUser: defaultWorkspaceMaxSessionsUser, IdleTimeoutSeconds: b.workspaceDefaults.IdleTimeoutSeconds}, nil
+		return &FeishuWorkspace{BridgeId: bridgeID, Kind: WorkspaceKindGroup, Mode: defaultWorkspaceMode, DefaultAgent: agentprofile.DefaultProfileRef, DefaultModel: strings.TrimSpace(b.workspaceDefaults.Model), ThreadContextLimit: defaultThreadContextLimit, MaxSessionsTotal: defaultWorkspaceMaxSessionsTotal, MaxSessionsPerUser: defaultWorkspaceMaxSessionsUser, IdleTimeoutSeconds: b.workspaceDefaults.IdleTimeoutSeconds, IdleTimeoutInherited: b.workspaceDefaults.IdleTimeoutInherited}, nil
 	}
 	if err := b.ensureWorkspace(bridgeID, chatID); err != nil {
 		return nil, err
 	}
 	row := b.db.QueryRow(`
-		SELECT bridge_id, chat_id, kind, mode, default_agent, default_target, default_cwd, default_model, default_args_json, thread_context_limit, max_sessions_total, max_sessions_per_user, idle_timeout_seconds
+		SELECT bridge_id, chat_id, kind, mode, default_agent, default_target, default_cwd, default_model, default_args_json, thread_context_limit, max_sessions_total, max_sessions_per_user, idle_timeout_seconds, idle_timeout_inherited
 		FROM feishu_workspaces WHERE bridge_id=? AND chat_id=?`, bridgeID, chatID)
 	var ws FeishuWorkspace
 	var defaultArgsJSON string
-	if err := row.Scan(&ws.BridgeId, &ws.ChatID, &ws.Kind, &ws.Mode, &ws.DefaultAgent, &ws.DefaultTarget, &ws.DefaultCwd, &ws.DefaultModel, &defaultArgsJSON, &ws.ThreadContextLimit, &ws.MaxSessionsTotal, &ws.MaxSessionsPerUser, &ws.IdleTimeoutSeconds); err != nil {
+	if err := row.Scan(&ws.BridgeId, &ws.ChatID, &ws.Kind, &ws.Mode, &ws.DefaultAgent, &ws.DefaultTarget, &ws.DefaultCwd, &ws.DefaultModel, &defaultArgsJSON, &ws.ThreadContextLimit, &ws.MaxSessionsTotal, &ws.MaxSessionsPerUser, &ws.IdleTimeoutSeconds, &ws.IdleTimeoutInherited); err != nil {
 		return nil, err
 	}
 	args, err := decodeWorkspaceDefaultArgs(defaultArgsJSON)
@@ -77,11 +77,11 @@ func (b *bridgeDB) ReadWorkspaceContext(ctx context.Context, bridgeID, chatID st
 		return b.defaultWorkspaceContext(ctx, bridgeID, chatID)
 	}
 	row := b.db.QueryRowContext(ctx, `
-		SELECT bridge_id, chat_id, kind, mode, default_agent, default_target, default_cwd, default_model, default_args_json, thread_context_limit, max_sessions_total, max_sessions_per_user, idle_timeout_seconds
+		SELECT bridge_id, chat_id, kind, mode, default_agent, default_target, default_cwd, default_model, default_args_json, thread_context_limit, max_sessions_total, max_sessions_per_user, idle_timeout_seconds, idle_timeout_inherited
 		FROM feishu_workspaces WHERE bridge_id=? AND chat_id=?`, bridgeID, chatID)
 	var ws FeishuWorkspace
 	var defaultArgsJSON string
-	if err := row.Scan(&ws.BridgeId, &ws.ChatID, &ws.Kind, &ws.Mode, &ws.DefaultAgent, &ws.DefaultTarget, &ws.DefaultCwd, &ws.DefaultModel, &defaultArgsJSON, &ws.ThreadContextLimit, &ws.MaxSessionsTotal, &ws.MaxSessionsPerUser, &ws.IdleTimeoutSeconds); err != nil {
+	if err := row.Scan(&ws.BridgeId, &ws.ChatID, &ws.Kind, &ws.Mode, &ws.DefaultAgent, &ws.DefaultTarget, &ws.DefaultCwd, &ws.DefaultModel, &defaultArgsJSON, &ws.ThreadContextLimit, &ws.MaxSessionsTotal, &ws.MaxSessionsPerUser, &ws.IdleTimeoutSeconds, &ws.IdleTimeoutInherited); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return b.defaultWorkspaceContext(ctx, bridgeID, chatID)
 		}
@@ -138,7 +138,7 @@ func (b *bridgeDB) defaultWorkspaceContext(ctx context.Context, bridgeID, chatID
 	return &FeishuWorkspace{BridgeId: bridgeID, ChatID: chatID, Kind: WorkspaceKindGroup, Mode: defaultWorkspaceMode, DefaultAgent: strings.TrimSpace(defaults.Agent), DefaultTarget: strings.TrimSpace(defaults.Target), DefaultCwd: strings.TrimSpace(defaults.Cwd), DefaultModel: strings.TrimSpace(defaults.Model), DefaultArgs: append([]string( // ReadWorkspace returns the effective workspace settings without creating a
 		// workspace row. This keeps read-only surfaces such as the group /amux card
 		// free of state changes.
-		nil), defaults.Args...), ThreadContextLimit: defaultThreadContextLimit, MaxSessionsTotal: defaultWorkspaceMaxSessionsTotal, MaxSessionsPerUser: defaultWorkspaceMaxSessionsUser, IdleTimeoutSeconds: defaults.IdleTimeoutSeconds}, nil
+		nil), defaults.Args...), ThreadContextLimit: defaultThreadContextLimit, MaxSessionsTotal: defaultWorkspaceMaxSessionsTotal, MaxSessionsPerUser: defaultWorkspaceMaxSessionsUser, IdleTimeoutSeconds: defaults.IdleTimeoutSeconds, IdleTimeoutInherited: defaults.IdleTimeoutInherited}, nil
 }
 func (b *bridgeDB) EnsureWorkspaceKind(bridgeID, chatID, kind string) error {
 	bridgeID = strings.TrimSpace(bridgeID)
@@ -298,7 +298,7 @@ func (b *bridgeDB) SetWorkspaceIdleTimeoutSeconds(bridgeID, chatID string, secon
 	}
 	_, err := b.db.Exec(`
 		UPDATE feishu_workspaces
-		SET idle_timeout_seconds=?, updated_at=strftime('%s','now')
+		SET idle_timeout_seconds=?, idle_timeout_inherited=0, updated_at=strftime('%s','now')
 		WHERE bridge_id=? AND chat_id=?`, seconds, bridgeID, chatID)
 	return err
 }
@@ -357,10 +357,10 @@ func (b *bridgeDB) ensureWorkspace(bridgeID, chatID string) error {
 	}
 	_, err = b.db.Exec(`
 		INSERT INTO feishu_workspaces (
-			bridge_id, chat_id, kind, mode, default_agent, default_target, default_cwd, default_model, default_args_json, thread_context_limit, max_sessions_total, max_sessions_per_user, idle_timeout_seconds
+			bridge_id, chat_id, kind, mode, default_agent, default_target, default_cwd, default_model, default_args_json, thread_context_limit, max_sessions_total, max_sessions_per_user, idle_timeout_seconds, idle_timeout_inherited
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(bridge_id, chat_id) DO NOTHING`, bridgeID, chatID, WorkspaceKindGroup, defaultWorkspaceMode, strings.TrimSpace(defaults.Agent), strings.TrimSpace(defaults.Target), strings.TrimSpace(defaults.Cwd), strings.TrimSpace(defaults.Model), argsJSON, defaultThreadContextLimit, defaultWorkspaceMaxSessionsTotal, defaultWorkspaceMaxSessionsUser, defaults.IdleTimeoutSeconds)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(bridge_id, chat_id) DO NOTHING`, bridgeID, chatID, WorkspaceKindGroup, defaultWorkspaceMode, strings.TrimSpace(defaults.Agent), strings.TrimSpace(defaults.Target), strings.TrimSpace(defaults.Cwd), strings.TrimSpace(defaults.Model), argsJSON, defaultThreadContextLimit, defaultWorkspaceMaxSessionsTotal, defaultWorkspaceMaxSessionsUser, defaults.IdleTimeoutSeconds, defaults.IdleTimeoutInherited)
 	return err
 }
 func (b *bridgeDB) rebuildLegacyWorkspaceTableIfNeeded() error {

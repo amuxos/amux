@@ -22,12 +22,13 @@ type bridgeDB struct {
 }
 
 type workspaceDefaults struct {
-	Agent              string
-	Target             string
-	Cwd                string
-	Model              string
-	Args               []string
-	IdleTimeoutSeconds int
+	IdleTimeoutInherited bool
+	Agent                string
+	Target               string
+	Cwd                  string
+	Model                string
+	Args                 []string
+	IdleTimeoutSeconds   int
 }
 
 const (
@@ -130,19 +131,20 @@ const (
 )
 
 type FeishuWorkspace struct {
-	BridgeId           string
-	ChatID             string
-	Kind               string
-	Mode               string
-	DefaultAgent       string
-	DefaultTarget      string
-	DefaultCwd         string
-	DefaultModel       string
-	DefaultArgs        []string
-	ThreadContextLimit int
-	MaxSessionsTotal   int
-	MaxSessionsPerUser int
-	IdleTimeoutSeconds int
+	IdleTimeoutInherited bool
+	BridgeId             string
+	ChatID               string
+	Kind                 string
+	Mode                 string
+	DefaultAgent         string
+	DefaultTarget        string
+	DefaultCwd           string
+	DefaultModel         string
+	DefaultArgs          []string
+	ThreadContextLimit   int
+	MaxSessionsTotal     int
+	MaxSessionsPerUser   int
+	IdleTimeoutSeconds   int
 }
 
 var errBotProfileStateChanged = errors.New("bot profile state changed")
@@ -405,6 +407,9 @@ func (b *bridgeDB) migrate() error {
 		return err
 	}
 	if err := b.rebuildLegacyWorkspaceTableIfNeeded(); err != nil {
+		return err
+	}
+	if err := b.addColumnIfMissing(`ALTER TABLE feishu_workspaces ADD COLUMN idle_timeout_inherited INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
 	if ok, err := b.columnExists("lark_chats", "sandbox_id"); err != nil {

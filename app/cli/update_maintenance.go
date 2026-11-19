@@ -41,11 +41,12 @@ var updateMaintenanceNeeded = func() (bool, error) {
 var updateMaintenanceDial = newLocalRuntimeClientWithTimeout
 
 type updateMaintenance struct {
-	cmd   *cobra.Command
-	token string
-	stop  context.CancelFunc
-	done  chan struct{}
-	once  sync.Once
+	cmd                 *cobra.Command
+	token               string
+	stop                context.CancelFunc
+	done                chan struct{}
+	once                sync.Once
+	waitForRuntimeStart bool
 }
 
 func maintenanceText(cmd *cobra.Command, key string, args ...any) string {
@@ -163,26 +164,61 @@ func (m *updateMaintenance) finish() error {
 	var result error
 	m.once.Do(func() {
 		defer func() { m.stop(); <-m.done }()
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
-		for {
-			callCtx, callCancel := context.WithTimeout(ctx, 30*time.Second)
-			response, err := m.call(callCtx, "end")
-			callCancel()
-			if err == nil && response.Phase == "idle" {
-				return
-			}
-			if ctx.Err() != nil {
-				result = fmt.Errorf("%s: %w", maintenanceText(m.cmd, "recovery_failed"), err)
-				return
-			}
-			timer := time.NewTimer(time.Second)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-			case <-timer.C:
-			}
+		var startupGrace time.Duration
+		if m.waitForRuntimeStart {
+			startupGrace = 5 * time.Minute
+		}
+		if err := waitForMaintenanceRecovery(m.call, startupGrace, 2*time.Minute, time.Second); err != nil {
+			result = fmt.Errorf("%s: %w", maintenanceText(m.cmd, "recovery_failed"), err)
 		}
 	})
 	return result
+}
+
+// Bound the time without progress. A large recovery can span several RPCs.
+func waitForMaintenanceRecovery(call func(context.Context, string) (*pb.MaintenanceResponse, error), startupGrace, stallTimeout, retryInterval time.Duration) error {
+	// Loading the persisted timeline on a cold Runtime precedes the first RPC.
+	// The ordinary stall deadline applies once an RPC observes its state.
+	waitingForStartup := startupGrace > 0
+	deadline := time.Now().Add(stallTimeout)
+	if waitingForStartup {
+		deadline = time.Now().Add(startupGrace)
+	}
+	var lastErr error
+	previous := int32(-1)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+		endCtx, endCancel := context.WithTimeout(ctx, 30*time.Second)
+		response, err := call(endCtx, "end")
+		endCancel()
+		if err != nil {
+			lastErr = err
+			// gRPC drops the response on errors, including partial recovery
+			// and batch deadlines. Older Runtimes lack this read-only action.
+			statusCtx, statusCancel := context.WithTimeout(ctx, 2*time.Second)
+			response, err = call(statusCtx, "status")
+			statusCancel()
+		}
+		cancel()
+		if err == nil && response != nil {
+			if response.Phase == "idle" {
+				return nil
+			}
+			if waitingForStartup {
+				deadline = time.Now().Add(stallTimeout)
+				waitingForStartup = false
+				lastErr = nil
+			}
+			if response.Phase == "recovering" {
+				if previous >= 0 && response.SleepingSessions < previous {
+					deadline = time.Now().Add(stallTimeout)
+				}
+				previous = response.SleepingSessions
+			}
+		}
+		if wait := min(retryInterval, time.Until(deadline)); wait > 0 {
+			time.Sleep(wait)
+		}
+	}
+	return errors.Join(context.DeadlineExceeded, lastErr)
 }

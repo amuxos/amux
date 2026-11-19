@@ -57,6 +57,7 @@
     thinkingProcess: ['Thinking presentation', '思考过程呈现'],
     collapsed: ['Collapsed', '折叠'],
     expanded: ['Expanded', '展开'],
+    workspaceIdleTimeout: ['Idle timeout in seconds (blank uses Runtime policy, 0 disables sleep)', '空闲超时秒数（留空使用 Runtime 策略，0 关闭休眠）'],
     idleTimeout: ['Idle timeout (seconds)', '空闲超时（秒）'],
     threadContextLimit: ['Thread context limit', '话题上下文条数'],
     maxSessions: ['Maximum sessions', '会话总量上限'],

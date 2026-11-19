@@ -35,7 +35,7 @@ func TestDailyCleanupChoiceDefaultAndOldCards(t *testing.T) {
 func TestDailyCleanupCardsBothLanguagesAndPrivacy(t *testing.T) {
 	state := managementState{Mode: interactionModeThreadIsolated, DailyCleanup: "true", DefaultAgent: "builtin/codex"}
 	draft := managementDraftFromState(state)
-	report := cleanup.Report{ID: "report-id", Target: "local", FinishedAt: time.Now(), Steps: []cleanup.Step{{Name: "workspaces", Deleted: 2, Skipped: 3, Bytes: 1024, Errors: []string{"/private/secret-workspace/secret-token"}}}}
+	report := cleanup.Report{ID: "report-id", Target: "local", FinishedAt: time.Now(), Steps: []cleanup.Step{{Name: "task_sessions", Deleted: 1}, {Name: "workspaces", Deleted: 2, Skipped: 3, Bytes: 1024, Errors: []string{"/private/secret-workspace/secret-token"}}}}
 	group := groupSettingsFormDraft(&GroupSettings{InteractionMode: "thread", IsolationRequired: true})
 	cards := []string{renderSettingsEditCard(state, draft), renderOnboardingCard(state), renderGroupSettingsEditCardAtPage(state, group, map[string]string{}, 0), renderDailyCleanupReport(report)}
 	for _, card := range cards {
