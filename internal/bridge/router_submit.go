@@ -195,7 +195,16 @@ func (b *Bridge) canAddReaction() bool {
 	return b != nil && (b.client != nil || b.reactionAdd != nil)
 }
 
+// boundSessionAlive reports whether the session bound to chat still exists and is
+// not archived on its target. A reclaimed session (archived or pruned/absent)
+// returns false. On a probe RPC/parse failure it returns a non-nil error so the
+// caller leaves the binding untouched (avoids terminating on transient hub errors).
 func (b *Bridge) boundSessionAlive(ctx context.Context, chat *LarkChat) (bool, error) {
+	if b != nil && b.hub != nil && chat != nil {
+		if sess := b.boundSession(chat.TargetID, chat.SessionName); sess != nil {
+			return sess.State != string(session.StateArchived), nil
+		}
+	}
 	probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	resp, err := b.hub.Route(probeCtx, chat.TargetID, "List", &pb.ListRequest{})
@@ -206,11 +215,7 @@ func (b *Bridge) boundSessionAlive(ctx context.Context, chat *LarkChat) (bool, e
 	if err := json.Unmarshal(resp.Payload, &out); err != nil {
 		return false, err
 	}
-	for _, s := range // boundSessionAlive reports whether the session bound to chat still exists and is
-	// not archived on its target. A reclaimed session (archived or pruned/absent)
-	// returns false. On a probe RPC/parse failure it returns a non-nil error so the
-	// caller leaves the binding untouched (avoids terminating on transient hub errors).
-	out.Sessions {
+	for _, s := range out.Sessions {
 		if s.Name == chat.SessionName {
 			return s.State != string(session.StateArchived), nil
 		}
