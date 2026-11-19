@@ -1445,6 +1445,20 @@ func toolActivityCardTitle(meta toolActivityCardMeta, locales ...i18n.Locale) st
 		}
 	}
 	if meta.Status == "running" || meta.Status == "" {
+		if meta.Activity != nil && meta.Activity.RetryCount > 0 {
+			elapsed := time.Duration(0)
+			if !meta.Activity.StartedAt.IsZero() {
+				elapsed = now.Sub(meta.Activity.StartedAt)
+				if elapsed < 0 {
+					elapsed = 0
+				}
+			}
+			retryKey := "retry.provider"
+			if meta.Activity.RetryCode == "rate_limit_retry" {
+				retryKey = "retry.rate_limit"
+			}
+			return sessionCopy(locales, "status.model") + identityText + modelText + " · " + sessionCopy(locales, retryKey, meta.Activity.RetryCount, formatElapsed(elapsed, locales...))
+		}
 		if meta.Activity != nil && !meta.Activity.LastActivityAt.IsZero() {
 			silentFor := now.Sub(meta.Activity.LastActivityAt)
 			possiblyQueued := distributionActivityPossiblyQueued(meta.AgentType, meta.Activity)

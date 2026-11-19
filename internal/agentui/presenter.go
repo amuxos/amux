@@ -49,6 +49,9 @@ type ActivityView struct {
 	StartedAt      time.Time
 	LastActivityAt time.Time
 	FinishedAt     time.Time
+	RetryCount     int
+	RetryCode      string
+	RetryAt        time.Time
 }
 
 type Presenter struct {
@@ -67,6 +70,9 @@ type Presenter struct {
 	startedAt      time.Time
 	lastActivityAt time.Time
 	finishedAt     time.Time
+	retryCount     int
+	retryCode      string
+	retryAt        time.Time
 	nowFn          func() time.Time
 }
 
@@ -125,9 +131,11 @@ func (p *Presenter) Consume(ev Event) []Action {
 		if ev.Text == "" {
 			return nil
 		}
+		p.clearRetry()
 		p.markActivity()
 		return []Action{{Kind: ActionReplyAppend, Turn: p.turn, Source: ev.Source, Text: ev.Text}}
 	case KindAssistantText:
+		p.clearRetry()
 		p.markActivity()
 		actions := []Action{{Kind: ActionReplyMessageBoundary, Turn: p.turn}}
 		if ev.Text != "" {
@@ -135,6 +143,7 @@ func (p *Presenter) Consume(ev Event) []Action {
 		}
 		return actions
 	case KindResult:
+		p.clearRetry()
 		p.markActivity()
 		if len(ev.UsageJSON) > 0 {
 			p.usage = cloneBytes(ev.UsageJSON)
@@ -147,6 +156,7 @@ func (p *Presenter) Consume(ev Event) []Action {
 		if !p.updateThinking(ev.Text) {
 			return nil
 		}
+		p.clearRetry()
 		p.markActivity()
 		p.activity = true
 		return p.activityAction(false)
@@ -154,6 +164,7 @@ func (p *Presenter) Consume(ev Event) []Action {
 		if ev.Plan == nil {
 			return nil
 		}
+		p.clearRetry()
 		p.markActivity()
 		p.activity = true
 		p.plan = append(p.plan[:0], ev.Plan.Entries...)
@@ -162,10 +173,22 @@ func (p *Presenter) Consume(ev Event) []Action {
 		if ev.Tool == nil {
 			return nil
 		}
+		p.clearRetry()
 		p.markActivity()
 		p.activity = true
 		p.updateTool(ev.Kind, ev.Tool)
 		return p.activityAction(ev.Kind != KindToolUpdated)
+	case KindRetry:
+		p.retryCount++
+		if ev.Error != nil && ev.Error.Code != "" {
+			p.retryCode = ev.Error.Code
+		} else if p.retryCode == "" {
+			p.retryCode = "provider_retry"
+		}
+		p.retryAt = p.nowFn()
+		p.markActivity()
+		p.activity = true
+		return p.activityAction(true)
 	case KindUsage:
 		if len(ev.UsageJSON) > 0 {
 			p.markActivity()
@@ -285,6 +308,13 @@ func (p *Presenter) reset() {
 	p.startedAt = time.Time{}
 	p.lastActivityAt = time.Time{}
 	p.finishedAt = time.Time{}
+	p.clearRetry()
+}
+
+func (p *Presenter) clearRetry() {
+	p.retryCount = 0
+	p.retryCode = ""
+	p.retryAt = time.Time{}
 }
 
 func (p *Presenter) markActivity() {
@@ -423,6 +453,9 @@ func (p *Presenter) activityView() *ActivityView {
 		StartedAt:      p.startedAt,
 		LastActivityAt: p.lastActivityAt,
 		FinishedAt:     p.finishedAt,
+		RetryCount:     p.retryCount,
+		RetryCode:      p.retryCode,
+		RetryAt:        p.retryAt,
 	}
 	keys := make([]string, 0, len(p.tools))
 	for key := range p.tools {

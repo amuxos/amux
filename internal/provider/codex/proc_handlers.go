@@ -271,9 +271,6 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 			} `json:"error"`
 		}
 		_ = json.Unmarshal(msg.Params, &n)
-		if n.WillRetry && p.noteRetryActivity() {
-			return
-		}
 		reason := n.Error.Message
 		if strings.TrimSpace(reason) == "" {
 			reason = n.Message
@@ -284,6 +281,25 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 		errorCode := n.Code
 		if strings.TrimSpace(errorCode) == "" {
 			errorCode = codexErrorInfoCode(n.Error.CodexErrorInfo)
+		}
+		if n.WillRetry && p.noteRetryActivity() {
+			retryCode := "provider_retry"
+			lowered := strings.ToLower(reason)
+			if strings.EqualFold(errorCode, "rate_limit") ||
+				strings.Contains(lowered, "429") ||
+				strings.Contains(lowered, "rate limit") ||
+				strings.Contains(lowered, "rate_limit") ||
+				strings.Contains(lowered, "too many requests") ||
+				strings.Contains(lowered, "usage limit") {
+				retryCode = "rate_limit_retry"
+			}
+			p.emitTurn(agentstream.Diagnostic{
+				Severity:  agentstream.SeverityWarning,
+				Code:      retryCode,
+				Message:   reason,
+				Retryable: true,
+			}, agentstream.ActorSystem, "system", "diagnostic", "")
+			return
 		}
 		if p.snapshotTurnID() != "" {
 			p.emitTurnFailure(reason, errorCode)
