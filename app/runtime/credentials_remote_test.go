@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os/exec"
 	"testing"
 
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -15,6 +17,17 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 )
+
+func TestSessionCredentialCommandMissingExecutable(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	output, err := runSessionCredentialCommand(context.Background(), nil, principal.ExecutionIdentity{}, "missing-credential-cli", nil, nil, nil)
+	if !errors.Is(err, exec.ErrNotFound) {
+		t.Fatalf("error = %v, want exec.ErrNotFound", err)
+	}
+	if len(output.Stdout) != 0 || len(output.Stderr) != 0 {
+		t.Fatal("missing executable produced command output")
+	}
+}
 
 func TestHubCredentialProviderRequestsFilteredMaterial(t *testing.T) {
 	lis := bufconn.Listen(1024 * 1024)
