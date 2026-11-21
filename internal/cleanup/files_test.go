@@ -138,7 +138,7 @@ func TestArtifactsCleanupLeavesUnknownFilesAndLiveIDs(t *testing.T) {
 	for _, name := range []string{live + ".pid", dead + ".log", "unknown"} {
 		oldFile(t, filepath.Join(root, name), "x")
 	}
-	s := SweepSessionArtifacts(context.Background(), root, References{SessionIDs: []string{live}}, time.Now(), false)
+	s := SweepSessionArtifacts(context.Background(), root, References{SessionIDs: []string{live}}, nil, time.Now(), false)
 	if s.Deleted != 1 {
 		t.Fatalf("result=%+v", s)
 	}

@@ -13,6 +13,105 @@ import (
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
+func TestDailyCleanupReclaimsStoppedBrokerDiagnostics(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", dir)
+	db, err := store.Open(filepath.Join(dir, "runtime.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mgr := session.NewManager(db)
+	srv := &server{mgr: mgr, amuxDir: dir, cleanupDB: db}
+	runner, err := task.NewRunner(task.Options{AmuxDir: dir, Store: task.NewSQLStore(db), Control: newTaskController(srv, "test")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.cleanupTasks = runner
+	// The archived child still has an owner, so the Session survives pruning.
+	archived := archiveOwned(t, mgr, "archived-child", "retained-task", dir)
+	sleeping, err := mgr.Create("sleeping", "codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.SetSleeping(sleeping); err != nil {
+		t.Fatal(err)
+	}
+	running, err := mgr.Create("running", "codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.SetRunning(running); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpdateSessionState(running.ID, string(session.StateSleeping), 0); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(dir, "sessions")
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	files := []struct {
+		name          string
+		old, eligible bool
+	}{
+		{archived.ID + ".structured.log", true, true},
+		{archived.ID + ".pid", true, true},
+		{sleeping.ID + ".acp.log", true, true},
+		{sleeping.ID + ".pid", false, false},
+		{sleeping.ID + ".resume-session-id", true, false},
+		{sleeping.ID + ".actor-token", true, false},
+		{running.ID + ".structured.log", true, false},
+	}
+	old := time.Now().Add(-4 * time.Hour)
+	for _, file := range files {
+		path := filepath.Join(root, file.name)
+		if err := os.WriteFile(path, []byte("data"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if file.old {
+			if err := os.Chtimes(path, old, old); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	for _, dryRun := range []bool{true, false} {
+		result, err := srv.Cleanup(context.Background(), &pb.CleanupRequest{DryRun: dryRun})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var artifacts *pb.CleanupStep
+		for _, step := range result.Reports[0].Steps {
+			if step.Name == "session_artifacts" {
+				artifacts = step
+			}
+		}
+		var deleted int64
+		if !dryRun {
+			deleted = 3
+		}
+		if artifacts == nil || artifacts.Candidates != 3 || artifacts.Deleted != deleted || artifacts.Bytes != 12 || len(artifacts.Errors) != 0 {
+			t.Fatalf("dry_run=%t: %v", dryRun, artifacts)
+		}
+		for _, file := range files {
+			_, err := os.Stat(filepath.Join(root, file.name))
+			if dryRun || !file.eligible {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if !os.IsNotExist(err) {
+				t.Fatalf("%s was not reclaimed: %v", file.name, err)
+			}
+		}
+	}
+	for _, sess := range []*session.Session{archived, sleeping, running} {
+		if _, err := mgr.Get(sess.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestDailyCleanupPreservesLiveDataAndPersistsIdempotency(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", t.TempDir())
