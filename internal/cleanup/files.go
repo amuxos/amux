@@ -117,7 +117,10 @@ func SweepWorkspaces(ctx context.Context, path string, refs References, depth in
 	s.Error(err)
 	return s
 }
-func SweepSessionArtifacts(ctx context.Context, path string, refs References, now time.Time, dry bool) Step {
+
+// SweepSessionArtifacts retains Session-owned data. For Sessions whose brokers
+// are stably stopped, only disposable broker diagnostics can age out in place.
+func SweepSessionArtifacts(ctx context.Context, path string, refs References, stoppedBrokers map[string]bool, now time.Time, dry bool) Step {
 	s := Step{Name: "session_artifacts"}
 	root, err := openRoot(path)
 	if os.IsNotExist(err) {
@@ -142,12 +145,12 @@ func SweepSessionArtifacts(ctx context.Context, path string, refs References, no
 			s.Error(ctx.Err())
 			break
 		}
-		id := strings.SplitN(d.Name(), ".", 2)[0]
+		id, suffix, _ := strings.Cut(d.Name(), ".")
 		if _, err := uuid.Parse(id); err != nil {
 			s.Skipped++
 			continue
 		}
-		if ids[id] || d.Type()&os.ModeSymlink != 0 {
+		if d.Type()&os.ModeSymlink != 0 || (ids[id] && (!stoppedBrokers[id] || !isBrokerDiagnostic(suffix) || !d.Type().IsRegular())) {
 			s.Skipped++
 			continue
 		}
@@ -164,6 +167,16 @@ func SweepSessionArtifacts(ctx context.Context, path string, refs References, no
 	}
 	return s
 }
+
+func isBrokerDiagnostic(suffix string) bool {
+	switch suffix {
+	case "pid", "log", "acp.log", "structured.log":
+		return true
+	default:
+		return false
+	}
+}
+
 func SweepHome(ctx context.Context, home string, refs References, now time.Time, dry bool) []Step {
 	var out []Step
 	for _, p := range HomePolicies() {

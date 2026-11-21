@@ -360,8 +360,12 @@ this system operation; Agent credentials and enrolled users cannot.
 
 Cleanup uses existing archived Session and seven-day terminal Task lifecycle
 APIs. The report counts Task child Sessions removed through Task pruning.
-It retains referenced workspaces/provider threads, recent orphan data,
-explicitly protected paths, credentials and running/sleeping Sessions. It never
+An expired Task whose child Session can still run or resume is deferred. The
+Session artifact sweep can remove broker PID and log files at least three hours
+old for archived or sleeping Sessions whose brokers have stopped, while retaining
+their Session records, replay and resume data. It retains referenced workspaces
+and provider threads, recent orphan data, explicitly protected paths and
+credentials. It never
 sweeps global `/tmp`. Filesystem cleanup fails closed on unreadable authoritative
 state and does not follow symlinks outside managed roots. Provider-specific
 layouts are registered by distributions. Principal files are processed through

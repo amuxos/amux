@@ -8,35 +8,73 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/cleanup"
+	"github.com/amuxos/amux/internal/mux"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/google/uuid"
 )
 
-func (s *server) cleanupReferences() (cleanup.References, error) {
+func (s *server) cleanupReferences() (cleanup.References, map[string]bool, error) {
 	var refs cleanup.References
 	if s.cleanupDB == nil {
-		return refs, fmt.Errorf("runtime database is unavailable")
+		return refs, nil, fmt.Errorf("runtime database is unavailable")
 	}
 	rows, err := s.cleanupDB.AllSessions()
 	if err != nil {
-		return refs, err
+		return refs, nil, err
 	}
+	storedStopped := make(map[string]bool)
 	for _, row := range rows {
 		refs.SessionIDs = append(refs.SessionIDs, row.ID)
 		refs.Workspaces = append(refs.Workspaces, row.Cwd)
 		refs.AgentSessionIDs = append(refs.AgentSessionIDs, row.AgentSessionID)
+		if brokerStopped(session.State(row.State), row.PID, row.BrokerSocket) {
+			storedStopped[row.ID] = true
+		}
 	}
+	stoppedBrokers := make(map[string]bool)
 	// Include newly-created/in-memory Sessions and their current native thread ID.
 	for _, sess := range s.mgr.List() {
 		snap := sess.Snapshot()
 		refs.SessionIDs = append(refs.SessionIDs, snap.ID)
 		refs.Workspaces = append(refs.Workspaces, snap.Cwd)
 		refs.AgentSessionIDs = append(refs.AgentSessionIDs, snap.AgentSessionID)
+		if storedStopped[snap.ID] && brokerStopped(snap.State, snap.PID, snap.BrokerSocket) {
+			stoppedBrokers[snap.ID] = true
+		}
 	}
-	return refs, nil
+	return refs, stoppedBrokers, nil
 }
+
+func brokerStopped(state session.State, pid int, socket string) bool {
+	return (state == session.StateArchived || state == session.StateSleeping) && pid == 0 && socket == ""
+}
+
+// Hold relaunchMu while classifying and removing broker diagnostics, including
+// for recovery and model changes that enter through the lower-level re-launch path.
+func (s *server) sweepSessionArtifacts(ctx context.Context, protectedPaths []string, dry bool) (cleanup.References, cleanup.Step, error) {
+	if err := s.lockRelaunch(ctx); err != nil {
+		return cleanup.References{}, cleanup.Step{}, err
+	}
+	defer s.relaunchMu.Unlock()
+	refs, stoppedBrokers, err := s.cleanupReferences()
+	if err != nil {
+		return refs, cleanup.Step{}, err
+	}
+	refs.ProtectedPaths = append([]string{}, protectedPaths...)
+	if len(stoppedBrokers) > 0 {
+		brokers, err := mux.ListBrokerProcesses()
+		if err != nil {
+			return refs, cleanup.Step{Name: "session_artifacts", Errors: []string{err.Error()}}, nil
+		}
+		for _, broker := range brokers {
+			delete(stoppedBrokers, broker.SessionID)
+		}
+	}
+	return refs, cleanup.SweepSessionArtifacts(ctx, filepath.Join(s.amuxDir, "sessions"), refs, stoppedBrokers, time.Now(), dry), nil
+}
+
 func (s *server) Cleanup(ctx context.Context, req *pb.CleanupRequest) (*pb.CleanupResponse, error) {
 	s.dailyCleanupMu.Lock()
 	defer s.dailyCleanupMu.Unlock()
@@ -62,7 +100,7 @@ func (s *server) Cleanup(ctx context.Context, req *pb.CleanupRequest) (*pb.Clean
 	}
 	// Fail closed before lifecycle or filesystem deletion if authoritative state
 	// is unavailable. Do not manufacture an empty live set.
-	if _, err := s.cleanupReferences(); err != nil {
+	if _, _, err := s.cleanupReferences(); err != nil {
 		return nil, err
 	}
 	if !report.DryRun {
@@ -111,12 +149,11 @@ func (s *server) Cleanup(ctx context.Context, req *pb.CleanupRequest) (*pb.Clean
 	}
 	report.Steps = append(report.Steps, tasks, taskSessions)
 	s.cleanupLaunchMu.Lock()
-	refs, err := s.cleanupReferences()
+	refs, artifacts, err := s.sweepSessionArtifacts(ctx, req.GetProtectedPaths(), report.DryRun)
 	if err != nil {
 		report.Steps = append(report.Steps, cleanup.Step{Name: "references", Errors: []string{err.Error()}})
 	} else {
-		refs.ProtectedPaths = append([]string{}, req.GetProtectedPaths()...)
-		report.Steps = append(report.Steps, cleanup.SweepSessionArtifacts(ctx, filepath.Join(s.amuxDir, "sessions"), refs, time.Now(), report.DryRun))
+		report.Steps = append(report.Steps, artifacts)
 		report.Steps = append(report.Steps, cleanup.SweepWorkspaces(ctx, filepath.Join(s.amuxDir, "workspaces"), refs, 3, time.Now(), report.DryRun))
 		if home, err := os.UserHomeDir(); err != nil {
 			report.Steps = append(report.Steps, cleanup.Step{Name: "provider_home", Errors: []string{err.Error()}})
