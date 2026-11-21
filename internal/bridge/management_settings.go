@@ -624,14 +624,22 @@ func (b *Bridge) runManagementGroupWatchExecutionUpdate(openID, messageID string
 		if err != nil {
 			log.Warn().Err(err).Str("profile", b.ProfileName()).Msg("bridge: save group watch execution")
 			notice = managementCopy("management.could.not.save.task.settings.settings.are.unchanged.refresh.540")
+			if errors.Is(err, config.ErrGroupWatchChatSettingsChanged) {
+				notice = managementCopy("management.watch.stale")
+			}
 		}
-		state := b.managementState()
-		nameCtx, nameCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		names := b.resolveGroupWatchNames(nameCtx, state.GroupWatch.ChatIDs)
-		nameCancel()
-		finalCard := renderGroupWatchManagementCardWithNoticeAndNames(state, notice, names)
-		if err == nil && draft.ChatID != "" {
-			state = b.groupWatchManagementState(state, draft.ChatID)
+		var finalCard string
+		switch {
+		case draft.ChatID == "":
+			state := b.managementState()
+			nameCtx, nameCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			names := b.resolveGroupWatchNames(nameCtx, state.GroupWatch.ChatIDs)
+			nameCancel()
+			finalCard = renderGroupWatchManagementCardWithNoticeAndNames(state, notice, names)
+		case err != nil:
+			finalCard = renderGroupWatchSaveFailureCard(draft, notice)
+		default:
+			state := b.groupWatchManagementState(b.managementState(), draft.ChatID)
 			fresh := managementGroupWatchDraftFromCallback(&callback.CallBackAction{Value: map[string]any{"chat_id": draft.ChatID, "chat_name": draft.ChatName}}, state)
 			finalCard = renderGroupWatchGroupSummary(state, fresh)
 		}

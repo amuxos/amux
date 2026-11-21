@@ -136,7 +136,7 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		summary = managementCopy("management.notify.when.long.tasks.finish")
 	}
 	pending := completion != running.CompletionNotification
-	item := managementExperimentItemElement("completion_notification", managementCopy("management.long.conversation.completion.notifications"), summary, enabled, pending, []cardElement{
+	item := managementExperimentItemElement(managementCopy("management.long.conversation.completion.notifications"), summary, enabled, pending, []cardElement{
 		managementSettingsFieldRow(managementCopy("management.notification.threshold.seconds"), seconds),
 		managementHintElement(managementCopy("management.notify.the.turn.initiator.through.a.private.card.linking")),
 	})
@@ -144,12 +144,12 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
 		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
 	})
-	groupItem := managementExperimentItemElement("group_settings", managementCopy("management.per.group.settings"), managementCopy("management.set.an.expert.runtime.model.reasoning.effort.and.conversation"), groupEnabled, saved.GroupSettingsEnabled != running.GroupSettingsEnabled, nil)
+	groupItem := managementExperimentItemElement(managementCopy("management.per.group.settings"), managementCopy("management.set.an.expert.runtime.model.reasoning.effort.and.conversation"), groupEnabled, saved.GroupSettingsEnabled != running.GroupSettingsEnabled, nil)
 	memoryEnabled := managementSelectStaticElement("memory_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.MemoryEnabled), []cardOption{
 		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
 		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
 	})
-	memoryItem := managementExperimentItemElement("agent_memory", managementCopy("management.agent.memory"), managementCopy("management.remember.preferences.and.experience.across.conversations.without.an.agent"), memoryEnabled, saved.MemoryEnabled != running.MemoryEnabled, []cardElement{
+	memoryItem := managementExperimentItemElement(managementCopy("management.agent.memory"), managementCopy("management.remember.preferences.and.experience.across.conversations.without.an.agent"), memoryEnabled, saved.MemoryEnabled != running.MemoryEnabled, []cardElement{
 		managementHintElement(managementCopy("management.supports.codex.claude.and.pi.shared.across.runtimes.in")),
 	})
 	steerEnabled := managementSelectStaticElement("steer_foreground_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.SteerForeground), []cardOption{
@@ -161,7 +161,7 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		steerStatus = managementCopy("management.steer.foreground.currently.on")
 	}
 	// Applied live on save, so it never shows the restart-pending notice.
-	steerItem := managementExperimentItemElement("steer_foreground", managementCopy("management.steer.foreground"), managementCopy("management.steer.foreground.description"), steerEnabled, saved.SteerForeground != running.SteerForeground, []cardElement{
+	steerItem := managementExperimentItemElement(managementCopy("management.steer.foreground"), managementCopy("management.steer.foreground.description"), steerEnabled, saved.SteerForeground != running.SteerForeground, []cardElement{
 		managementHintElement(steerStatus),
 		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
 	})
@@ -173,7 +173,7 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 	if running.ShowBackgroundTasks {
 		bgStatus = managementCopy("management.show.background.tasks.currently.on")
 	}
-	bgItem := managementExperimentItemElement("show_background_tasks", managementCopy("management.show.background.tasks"), managementCopy("management.show.background.tasks.description"), bgEnabled, saved.ShowBackgroundTasks != running.ShowBackgroundTasks, []cardElement{
+	bgItem := managementExperimentItemElement(managementCopy("management.show.background.tasks"), managementCopy("management.show.background.tasks.description"), bgEnabled, saved.ShowBackgroundTasks != running.ShowBackgroundTasks, []cardElement{
 		managementHintElement(bgStatus),
 		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
 	})
@@ -185,27 +185,13 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 	if running.MentionTurnInitiator {
 		mentionStatus = managementCopy("management.mention.turn.initiator.currently.on")
 	}
-	mentionItem := managementExperimentItemElement("mention_turn_initiator", managementCopy("management.mention.turn.initiator"), managementCopy("management.mention.turn.initiator.description"), mentionEnabled, saved.MentionTurnInitiator != running.MentionTurnInitiator, []cardElement{
+	mentionItem := managementExperimentItemElement(managementCopy("management.mention.turn.initiator"), managementCopy("management.mention.turn.initiator.description"), mentionEnabled, saved.MentionTurnInitiator != running.MentionTurnInitiator, []cardElement{
 		managementHintElement(mentionStatus),
 		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
 	})
 	executable := cardElement{Tag: "input", Name: "codex_executable", DefaultValue: saved.CodexExecutable, Placeholder: managementStyledTextPtr(managementCopy("management.codex.executable.placeholder"), cardTitle{Tag: "plain_text"})}
-	executableItem := managementExperimentItemElement("codex_executable", managementCopy("management.codex.executable.title"), managementCopy("management.codex.executable.description"), cardElement{Tag: "div", Text: managementStyledTextPtr("Codex", cardTitle{Tag: "plain_text"})}, saved.CodexExecutable != running.CodexExecutable, []cardElement{executable, managementHintElement(managementCopy("management.codex.executable.scope"))})
-	elements := []cardElement{
-		managementBackToOverviewElement(),
-		managementDividerElement(),
-		{Tag: "form", Name: "experiments_form", Direction: "vertical", VerticalSpacing: "12px", Elements: []cardElement{
-			item,
-			groupItem,
-			memoryItem,
-			steerItem,
-			bgItem,
-			mentionItem,
-			executableItem,
-			managementFormButtonRowElement(managementFormSubmitButton(managementActionExperimentsSaveRestart, managementCopy("management.save.and.restart"))),
-		}},
-		managementTextElement(managementCopy("management.applies.to.all.assistants.in.this.instance"), "notation", "grey", nil),
-	}
+	executableItem := managementExperimentItemElement(managementCopy("management.codex.executable.title"), managementCopy("management.codex.executable.description"), cardElement{Tag: "div", Text: managementStyledTextPtr("Codex", cardTitle{Tag: "plain_text"})}, saved.CodexExecutable != running.CodexExecutable, []cardElement{executable, managementHintElement(managementCopy("management.codex.executable.scope"))})
+	items := []cardElement{item, groupItem, memoryItem, steerItem, bgItem, mentionItem, executableItem}
 	for _, agent := range config.AgentExecutableNames() {
 		if agent == "codex" {
 			continue
@@ -213,31 +199,33 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		name := agent + "_executable"
 		label := config.AgentExecutableLabel(agent)
 		input := cardElement{Tag: "input", Name: name, DefaultValue: saved.AgentExecutables[agent], Placeholder: managementStyledTextPtr(managementCopy("management.launcher.placeholder", agent), cardTitle{Tag: "plain_text"})}
-		entry := managementExperimentItemElement(name, managementCopy("management.launcher.title", label), managementCopy("management.launcher.description", label), cardElement{Tag: "div", Text: managementStyledTextPtr(label, cardTitle{Tag: "plain_text"})}, saved.AgentExecutables[agent] != running.AgentExecutables[agent], []cardElement{input, managementHintElement(managementCopy("management.launcher.scope"))})
-		form := &elements[2]
-		n := len(form.Elements)
-		form.Elements = append(form.Elements[:n-1], entry, form.Elements[n-1])
+		items = append(items, managementExperimentItemElement(managementCopy("management.launcher.title", label), managementCopy("management.launcher.description", label), cardElement{Tag: "div", Text: managementStyledTextPtr(label, cardTitle{Tag: "plain_text"})}, saved.AgentExecutables[agent] != running.AgentExecutables[agent], []cardElement{input, managementHintElement(managementCopy("management.launcher.scope"))}))
+	}
+	items = append(items, managementFormButtonRowElement(managementFormSubmitButton(managementActionExperimentsSaveRestart, managementCopy("management.save.and.restart"))))
+	elements := []cardElement{
+		managementBackToOverviewElement(),
+		managementDividerElement(),
+		{Tag: "form", Name: "experiments_form", Direction: "vertical", VerticalSpacing: "12px", Elements: items},
+		managementTextElement(managementCopy("management.applies.to.all.assistants.in.this.instance"), "notation", "grey", nil),
 	}
 	elements = append(elements, conversationExperimentElements()...)
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.experiments"), Summary: managementCopy("management.amux.experiments"), Theme: "wathet", Icon: managementIcon("version_outlined", "blue"), Elements: elements})
 }
 
 // Each experiment contributes a compact item to the shared page-level form.
-// Field names and IDs belong to the feature, so adding an item needs no new layout.
-func managementExperimentItemElement(id string, title any, summary any, control cardElement, pending bool, advanced []cardElement) cardElement {
+func managementExperimentItemElement(title any, summary any, control cardElement, pending bool, advanced []cardElement) cardElement {
 	heading := cardElement{Tag: "column_set", FlexMode: "none", HorizontalSpacing: "12px", Columns: []cardColumn{
 		{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(title, "normal", "default", nil)}},
 		{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{control}},
 	}}
-	heading.Columns[1].Elements[0].Width = "92px"
 	children := []cardElement{heading, managementTextElement(summary, "notation", "grey", nil)}
 	if pending {
 		children = append(children, managementTextElement(managementCopy("management.restart.pending.saved.settings.are.not.active.yet"), "notation", "orange", nil))
 	}
 	if len(advanced) > 0 {
-		children = append(children, cardElement{Tag: "collapsible_panel", ElementID: id + "_advanced", Expanded: false, Header: &panelHeader{Title: managementStyledText(managementCopy("management.advanced.settings"), cardTitle{Tag: "plain_text", TextSize: "notation", TextColor: "grey"})}, Elements: advanced})
+		children = append(children, cardElement{Tag: "collapsible_panel", Expanded: false, Header: &panelHeader{Title: managementStyledText(managementCopy("management.advanced.settings"), cardTitle{Tag: "plain_text", TextSize: "notation", TextColor: "grey"})}, Elements: advanced})
 	}
-	return cardElement{Tag: "column_set", ElementID: id + "_item", FlexMode: "none", Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, Direction: "vertical", VerticalSpacing: "4px", Padding: "10px 12px 10px 12px", BackgroundStyle: "grey-50", Elements: children}}}
+	return cardElement{Tag: "column_set", FlexMode: "none", Columns: []cardColumn{{Tag: "column", Width: "weighted", Weight: 1, Direction: "vertical", VerticalSpacing: "4px", Padding: "10px 12px 10px 12px", BackgroundStyle: "grey-50", Elements: children}}}
 }
 
 func renderManagementExperimentsRestartConfirmationCard(state managementState) string {

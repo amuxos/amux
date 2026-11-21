@@ -2665,6 +2665,9 @@
   "management.watch.group_saved": {
     "other": "Watch settings saved for this group"
   },
+  "management.watch.group_save_failed": {
+    "other": "Could not save watch settings for this group"
+  },
   "session.goal.title": {
     "other": "Goal"
   },

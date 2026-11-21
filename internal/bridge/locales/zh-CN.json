@@ -2645,6 +2645,9 @@
   "management.watch.group_saved": {
     "other": "已保存本群值守设置"
   },
+  "management.watch.group_save_failed": {
+    "other": "未能保存本群值守设置"
+  },
   "session.goal.title": {
     "other": "持续目标"
   },
