@@ -3,6 +3,7 @@ package bridge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -165,11 +166,11 @@ func (b *Bridge) applyGroupWatchChatSettings(draft managementGroupWatchDraft, ag
 			return err
 		}
 	}
-	if err := config.SetBridgeFeishuGroupWatchChat(b.ProfileName(), draft.ChatID, value, version); err != nil {
-		return err
+	err = config.SetBridgeFeishuGroupWatchChat(b.ProfileName(), draft.ChatID, value, version)
+	if err == nil || errors.Is(err, config.ErrGroupWatchChatSettingsChanged) {
+		b.setGroupWatchConfig(config.GetBridgeFeishuGroupWatchForProfile(b.ProfileName()))
 	}
-	b.setGroupWatchConfig(config.GetBridgeFeishuGroupWatchForProfile(b.ProfileName()))
-	return nil
+	return err
 }
 
 func groupWatchSettingsButton(chatID, chatName string) managementButton {
@@ -196,6 +197,19 @@ func renderGroupWatchGroupSummary(state managementState, draft managementGroupWa
 			managementSummaryItem{Title: managementCopy("management.watch.idle_label"), Body: draft.IdleSeconds}),
 			managementHintElement(managementCopy("management.watch.only_this_group"))},
 		Buttons: []managementButton{groupWatchSettingsButton(draft.ChatID, draft.ChatName), {Text: managementCopy("management.group.watch.312"), Type: "default", Action: managementActionGroupWatchOpen}},
+	})
+}
+
+func renderGroupWatchSaveFailureCard(draft managementGroupWatchDraft, notice any) string {
+	title := managementCopy("management.watch.group_save_failed")
+	return marshalNativeManagementCard(managementCardView{
+		Title: title, Summary: title, Theme: "orange",
+		Subtitle: managementConcat(managementValueOrPlaceholder(draft.ChatName, managementCopy("management.unnamed.group")), " · ", draft.ChatID),
+		Elements: []cardElement{managementHintElement(notice)},
+		Buttons: []managementButton{
+			groupWatchSettingsButton(draft.ChatID, draft.ChatName),
+			{Text: managementCopy("management.back.to.group.watch"), Type: "default", Action: managementActionGroupWatchOpen},
+		},
 	})
 }
 

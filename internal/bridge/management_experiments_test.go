@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -209,14 +210,52 @@ func TestManagementExperimentsMentionTurnInitiatorCallbackPreservesOmittedValue(
 	}
 }
 
+func TestManagementExperimentsOpenReturnsValidCardComponents(t *testing.T) {
+	loadBridgeTestConfig(t, "[memory]\nenabled = true\n")
+	b, _ := newBridgeForInputTest(t)
+	b.secrets = &Secrets{OpenId: "owner-open"}
+	event := settingsCallback(managementActionExperimentsOpen, map[string]any{managementSurfaceKey: string(managementSurfaceAmux)})
+	resp, err := b.handleCardAction(context.Background(), event)
+	if err != nil || resp == nil || resp.Card == nil {
+		t.Fatalf("open experiments: %+v, %v", resp, err)
+	}
+	idPattern := regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,19}$`)
+	for _, locale := range []i18n.Locale{"", i18n.English, i18n.Chinese, "fr"} {
+		card := selectManagementCardLocale(string(resp.Card.Data.(json.RawMessage)), locale)
+		findManagementButtonByAction(t, card, managementActionStatusOpen)
+		findManagementButtonByAction(t, card, managementActionExperimentsSaveRestart)
+		var doc cardDoc
+		if err := json.Unmarshal([]byte(card), &doc); err != nil {
+			t.Fatal(err)
+		}
+		var visit func([]cardElement)
+		visit = func(elements []cardElement) {
+			for _, el := range elements {
+				if el.ElementID != "" && !idPattern.MatchString(el.ElementID) {
+					t.Errorf("%s: invalid element ID %q", locale, el.ElementID)
+				}
+				if strings.HasSuffix(el.Width, "px") {
+					t.Errorf("%s: invalid fixed width %q on %s", locale, el.Width, el.Tag)
+				}
+				visit(el.Elements)
+				for _, col := range el.Columns {
+					visit(col.Elements)
+				}
+			}
+		}
+		visit(doc.Body.Elements)
+	}
+}
+
 func TestManagementExperimentsPendingStateBelongsToEachItem(t *testing.T) {
-	for _, changed := range []string{"completion_notification_item", "group_settings_item", "agent_memory_item"} {
+	fields := []string{"completion_enabled", "group_settings_enabled", "memory_enabled"}
+	for _, changed := range fields {
 		t.Run(changed, func(t *testing.T) {
 			saved := config.ExperimentsSettings{CompletionNotification: config.CompletionNotificationSettings{AfterSeconds: 30}}
 			running := saved
-			if changed == "agent_memory_item" {
+			if changed == "memory_enabled" {
 				saved.MemoryEnabled = true
-			} else if changed == "group_settings_item" {
+			} else if changed == "group_settings_enabled" {
 				saved.GroupSettingsEnabled = true
 			} else {
 				saved.CompletionNotification.Enabled = true
@@ -226,23 +265,25 @@ func TestManagementExperimentsPendingStateBelongsToEachItem(t *testing.T) {
 				t.Fatal(err)
 			}
 			found := 0
-			var visit func([]cardElement)
-			visit = func(elements []cardElement) {
-				for _, el := range elements {
-					if el.ElementID == "completion_notification_item" || el.ElementID == "group_settings_item" || el.ElementID == "agent_memory_item" {
-						found++
-						body, err := json.Marshal(el)
-						if err != nil || strings.Contains(string(body), "待重启") != (el.ElementID == changed) {
-							t.Fatalf("wrong pending state for %s: %s, %v", el.ElementID, body, err)
-						}
+			for _, form := range doc.Body.Elements {
+				if form.Name != "experiments_form" {
+					continue
+				}
+				for _, item := range form.Elements {
+					body, err := json.Marshal(item)
+					if err != nil {
+						t.Fatal(err)
 					}
-					visit(el.Elements)
-					for _, col := range el.Columns {
-						visit(col.Elements)
+					for _, field := range fields {
+						if strings.Contains(string(body), `"name":"`+field+`"`) {
+							found++
+							if strings.Contains(string(body), "待重启") != (field == changed) {
+								t.Fatalf("wrong pending state for %s", field)
+							}
+						}
 					}
 				}
 			}
-			visit(doc.Body.Elements)
 			if found != 3 {
 				t.Fatalf("experiment items = %d", found)
 			}

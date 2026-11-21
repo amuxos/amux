@@ -465,7 +465,10 @@ Operators must provision these prerequisites when enabling isolation; see the
 
 Group watch eligibility and inherited execution settings use the target group’s
 policy. Explicit capability execution overrides still apply within the group’s
-isolation requirement. Full design and transition cases live in
+isolation requirement. Saving a watch policy checks the group’s version, updates
+only that group, and preserves the other groups’ active policies. The result
+card confirms the saved settings or shows a save failure for that group with a
+link to reopen the editor. Full design and transition cases live in
 [the implementation specification](../superpowers/specs/2026-09-16-feishu-group-session-defaults-design.md).
 
 ## Model service selection

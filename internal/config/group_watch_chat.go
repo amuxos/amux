@@ -1,12 +1,16 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/amuxos/amux/internal/amuxhome"
 	"github.com/spf13/viper"
 )
+
+// ErrGroupWatchChatSettingsChanged indicates a conflict with the saved version.
+var ErrGroupWatchChatSettingsChanged = errors.New("group watch settings changed; reopen the editor")
 
 // A saved record is a complete group policy. Empty execution fields explicitly
 // inherit the group's conversation defaults, not the Bot-wide watch override.
@@ -92,7 +96,7 @@ func SetBridgeFeishuGroupWatchChat(profile, chatID string, value BridgeFeishuGro
 	if path == "" {
 		path = amuxhome.ConfigPath()
 	}
-	keys := []string{"bridge", "feishu", "profiles", profile, "group_watch", "chat_settings", chatID}
+	keys := []string{"bridge", "feishu", "profiles", profile, "group_watch", "chat_settings"}
 	values := map[string]any{
 		"enabled": value.Enabled, "agent_profile_ref": value.AgentProfileRef, "runtime_ref": value.RuntimeRef,
 		"model_ref": value.ModelRef, "reasoning_effort": value.ReasoningEffort, "thinking_process": value.ThinkingProcess,
@@ -101,11 +105,13 @@ func SetBridgeFeishuGroupWatchChat(profile, chatID string, value BridgeFeishuGro
 	}
 	configWriteMu.Lock()
 	defer configWriteMu.Unlock()
-	if err := updateConfigFileWithLock(path, func(cfg map[string]any) error {
-		current := cfg
+	var chatSettings map[string]any
+	err := updateConfigFileWithLock(path, func(cfg map[string]any) error {
+		chatSettings = cfg
 		for _, key := range keys {
-			current, _ = current[key].(map[string]any)
+			chatSettings, _ = chatSettings[key].(map[string]any)
 		}
+		current, _ := chatSettings[chatID].(map[string]any)
 		version := int64(0)
 		if current != nil {
 			switch v := current["version"].(type) {
@@ -116,13 +122,19 @@ func SetBridgeFeishuGroupWatchChat(profile, chatID string, value BridgeFeishuGro
 			}
 		}
 		if version != expectedVersion {
-			return fmt.Errorf("group watch settings changed; reopen the editor")
+			return ErrGroupWatchChatSettingsChanged
 		}
-		setNestedConfigValue(cfg, keys, values)
+		if chatSettings == nil {
+			chatSettings = make(map[string]any)
+			setNestedConfigValue(cfg, keys, chatSettings)
+		}
+		chatSettings[chatID] = values
 		return nil
-	}); err != nil {
-		return err
+	})
+	if err == nil || errors.Is(err, ErrGroupWatchChatSettingsChanged) {
+		// Viper replaces a table with its override when enumerating keys. Publish
+		// the entire table so a saved group cannot hide its persisted siblings.
+		viper.Set(strings.Join(keys, "."), chatSettings)
 	}
-	viper.Set(strings.Join(keys, "."), values)
-	return nil
+	return err
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
+	"github.com/spf13/viper"
 )
 
 func TestGroupWatchSettingsRouteByChatAndSkipPausedPolling(t *testing.T) {
@@ -155,6 +157,14 @@ enabled = true
 chat_ids = ["group_a", "group_b"]
 max_active_sessions_per_chat = 50
 idle_timeout_seconds = 10800
+[bridge.feishu.profiles.coder.group_watch.chat_settings.group_b]
+enabled = true
+agent_profile_ref = "builtin/codex"
+runtime_ref = "codex"
+model_ref = "previous-model"
+max_active_sessions_per_chat = 100
+idle_timeout_seconds = 900
+version = 11
 `)
 	b, _ := newBridgeForInputTest(t)
 	b.profile = "coder"
@@ -181,7 +191,7 @@ idle_timeout_seconds = 10800
 	if got := current.ForChat("group_a"); got.Enabled || got.MaxActiveSessionsPerChat != 9 || got.IdleTimeoutSeconds != 240 || got.ThinkingProcess != "hidden" {
 		t.Fatalf("saved A: %+v", got)
 	}
-	if got := current.ForChat("group_b"); !got.Enabled || got.MaxActiveSessionsPerChat != 50 || got.IdleTimeoutSeconds != 10800 {
+	if got := current.ChatSettings["group_b"]; !got.Enabled || got.MaxActiveSessionsPerChat != 100 || got.IdleTimeoutSeconds != 900 || got.Version != 11 || got.ModelRef != "previous-model" {
 		t.Fatalf("B changed: %+v", got)
 	}
 	reopened := managementGroupWatchDraftFromCallback(&callback.CallBackAction{Value: map[string]any{"chat_id": "group_a"}}, b.groupWatchManagementState(b.managementState(), "group_a"))
@@ -201,6 +211,69 @@ idle_timeout_seconds = 10800
 	}
 	if b.groupWatchSnapshot().ChatSettings["group_a"].Version != 1 {
 		t.Fatal("rejected callback changed settings")
+	}
+
+	setBridgeTestBotDefaultAgent(t, b, "builtin/codex")
+	groupB := managementGroupWatchDraftFromCallback(
+		&callback.CallBackAction{Value: map[string]any{"chat_id": "group_b", "chat_name": "B"}},
+		b.groupWatchManagementState(b.managementState(), "group_b"),
+	)
+	groupB.ModelRef = "replacement-model"
+	values = map[string]any{}
+	for key, value := range managementGroupWatchDraftValues(groupB) {
+		values[key] = value
+	}
+	response, handled, err = b.handleManagementCardAction(context.Background(), settingsCallback(managementActionGroupWatchSave, values))
+	if err != nil || !handled || response.Toast.Type != "success" {
+		t.Fatalf("save B: %+v, %v", response, err)
+	}
+	waitForManagementCard(t, cards, func(card string) bool { return strings.Contains(card, "已保存本群值守设置") })
+	if got := b.groupWatchSnapshot().ChatSettings["group_b"]; got.ModelRef != "replacement-model" || got.Version != 12 || got.MaxActiveSessionsPerChat != 100 {
+		t.Fatalf("B model was not saved: %+v", got)
+	}
+}
+
+func TestGroupWatchSettingsSaveConflictShowsFailureAndCanReopen(t *testing.T) {
+	const settings = `[bridge.feishu.profiles.coder.group_watch]
+enabled = true
+chat_ids = ["group_a"]
+[bridge.feishu.profiles.coder.group_watch.chat_settings.group_a]
+enabled = false
+version = %d
+`
+	loadBridgeTestConfig(t, fmt.Sprintf(settings, 6))
+	b, _ := newBridgeForInputTest(t)
+	b.profile = "coder"
+	b.secrets = &Secrets{OpenId: "owner-open"}
+	b.setGroupWatchConfig(config.GetBridgeFeishuGroupWatchForProfile("coder"))
+	cards := make(chan string, 4)
+	b.managementCardPatch = func(_ context.Context, _, card string) error { cards <- card; return nil }
+
+	if err := os.WriteFile(viper.ConfigFileUsed(), []byte(fmt.Sprintf(settings, 7)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	draft := managementGroupWatchDraft{ChatID: "group_a", ChatName: "A", Version: "6", Enabled: "false", MaxActive: "9", IdleSeconds: "240", Mode: "inherit", ThinkingProcess: "hidden"}
+	values := map[string]any{managementSurfaceKey: string(managementSurfaceAmux)}
+	for key, value := range managementGroupWatchDraftValues(draft) {
+		values[key] = value
+	}
+	response, handled, err := b.handleManagementCardAction(context.Background(), settingsCallback(managementActionGroupWatchSave, values))
+	if err != nil || !handled || response.Toast.Type != "success" {
+		t.Fatalf("start save: %+v, %v", response, err)
+	}
+	card := waitForManagementCard(t, cards, func(card string) bool { return strings.Contains(card, "设置已变更") })
+	for locale, want := range map[i18n.Locale]string{i18n.English: "Could not save watch settings for this group", i18n.Chinese: "未能保存本群值守设置"} {
+		localized := selectManagementCardLocale(card, locale)
+		if !strings.Contains(localized, want) {
+			t.Fatalf("%s: missing failure title", locale)
+		}
+		edit := findManagementButtonByAction(t, localized, managementActionGroupWatchEdit)
+		if !strings.Contains(string(edit.Value), `"chat_id":"group_a"`) {
+			t.Fatalf("%s: reopen lost group scope", locale)
+		}
+	}
+	if got := b.groupWatchSnapshot().ChatSettings["group_a"]; got.Version != 7 || got.ThinkingProcess == "hidden" {
+		t.Fatalf("conflict did not refresh the saved policy: %+v", got)
 	}
 }
 
