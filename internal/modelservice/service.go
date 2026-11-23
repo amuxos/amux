@@ -73,6 +73,14 @@ type Service struct {
 	ID       string
 	Name     string
 	Runtimes []string
+	// AllowedPaths optionally declares exact HTTP paths accepted by Hub
+	// ProxyModel in addition to the standard /v1/* endpoints, enabling
+	// transparent passthrough gateways.
+	AllowedPaths []string
+	// AllowLegacyHost permits ProxyModel calls from non-isolated legacy-host
+	// launches where no per-session actor token is minted (invalid actor tokens
+	// are still rejected). Standard managed services leave this false.
+	AllowLegacyHost bool
 	// Query receives a trusted principal, never a principal supplied in a card.
 	// Actions are status, login, refresh and an explicit install opt-in for
 	// services that return CanInstall. Challenges remain service-private.
@@ -100,6 +108,7 @@ func Register(s Service) error {
 		return fmt.Errorf("model service %q already registered", s.ID)
 	}
 	s.Runtimes = append([]string(nil), s.Runtimes...)
+	s.AllowedPaths = append([]string(nil), s.AllowedPaths...)
 	registry.services[s.ID] = s
 	return nil
 }
@@ -108,6 +117,10 @@ func Get(id string) (Service, bool) {
 	registry.RLock()
 	defer registry.RUnlock()
 	s, ok := registry.services[id]
+	if ok {
+		s.Runtimes = append([]string(nil), s.Runtimes...)
+		s.AllowedPaths = append([]string(nil), s.AllowedPaths...)
+	}
 	return s, ok
 }
 

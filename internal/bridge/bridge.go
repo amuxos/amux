@@ -985,6 +985,15 @@ func (b *Bridge) handleMessage(ctx context.Context, event *larkim.P2MessageRecei
 					if !b.ownerConfirmed() {
 						return b.notifyThread(ctx, msgID, ownerConfirmationRequiredText())
 					}
+					if reply, handled, cmdErr := b.handleDistributionTextCommand(ctx, openID, routedText, true); handled {
+						if cmdErr != nil {
+							return b.notifyThread(ctx, msgID, "⚠️ "+cmdErr.Error())
+						}
+						if strings.TrimSpace(reply) != "" {
+							return b.notifyThread(ctx, msgID, reply)
+						}
+						return nil
+					}
 					return b.routeToSessionInChatWithMention(ctx, chatID, msgID, msgID, openID, text, mention)
 				} else if strings.HasPrefix(cmdText, "/setup") || cmdText == "setup" {
 					return b.notifyRootCommand(ctx, chatID, msgID, "⚠️ /setup 已移除。请在群里发送 /workspace init。")
@@ -1107,6 +1116,22 @@ func (b *Bridge) handlePrivateMessage(ctx context.Context, msg *larkim.EventMess
 			return err
 		}
 		return b.sendGuideWelcome(ctx, openID)
+	}
+
+	if b.ownerConfirmed() {
+		mention := b.messageBotMentionInfo(msg)
+		cmdText := b.stripCurrentBotMention(text, mention)
+		if reply, handled, cmdErr := b.handleDistributionTextCommand(ctx, openID, cmdText, false); handled {
+			if cmdErr != nil {
+				_, _, err := b.notifyDM(ctx, openID, "⚠️ "+cmdErr.Error())
+				return err
+			}
+			if strings.TrimSpace(reply) != "" {
+				_, _, err := b.notifyDM(ctx, openID, reply)
+				return err
+			}
+			return nil
+		}
 	}
 
 	if !b.ownerConfirmed() || !b.canUseBridge(openID) {

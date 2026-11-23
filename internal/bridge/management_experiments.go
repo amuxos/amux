@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
 
@@ -200,6 +201,37 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		label := config.AgentExecutableLabel(agent)
 		input := cardElement{Tag: "input", Name: name, DefaultValue: saved.AgentExecutables[agent], Placeholder: managementStyledTextPtr(managementCopy("management.launcher.placeholder", agent), cardTitle{Tag: "plain_text"})}
 		items = append(items, managementExperimentItemElement(managementCopy("management.launcher.title", label), managementCopy("management.launcher.description", label), cardElement{Tag: "div", Text: managementStyledTextPtr(label, cardTitle{Tag: "plain_text"})}, saved.AgentExecutables[agent] != running.AgentExecutables[agent], []cardElement{input, managementHintElement(managementCopy("management.launcher.scope"))}))
+	}
+	for _, toggle := range bridgeExtensions.snapshot().ExperimentToggles {
+		if strings.TrimSpace(toggle.ID) == "" || strings.TrimSpace(toggle.FieldName) == "" || toggle.GetEnabled == nil {
+			continue
+		}
+		cur := toggle.GetEnabled()
+		title := i18n.Render(func(locale i18n.Locale) string {
+			if locale == i18n.Chinese && toggle.TitleZH != "" {
+				return toggle.TitleZH
+			}
+			if toggle.TitleEN != "" {
+				return toggle.TitleEN
+			}
+			return toggle.TitleZH
+		})
+		summary := i18n.Render(func(locale i18n.Locale) string {
+			if locale == i18n.Chinese && toggle.SummaryZH != "" {
+				return toggle.SummaryZH
+			}
+			if toggle.SummaryEN != "" {
+				return toggle.SummaryEN
+			}
+			return toggle.SummaryZH
+		})
+		control := managementSelectStaticElement(toggle.FieldName, managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(cur), []cardOption{
+			{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
+			{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
+		})
+		items = append(items, managementExperimentItemElement(title, summary, control, false, []cardElement{
+			managementHintElement(managementCopy("management.steer.foreground.applies.live")),
+		}))
 	}
 	items = append(items, managementFormButtonRowElement(managementFormSubmitButton(managementActionExperimentsSaveRestart, managementCopy("management.save.and.restart"))))
 	elements := []cardElement{

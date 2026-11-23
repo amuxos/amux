@@ -2510,6 +2510,9 @@
   "session.retry.provider": {
     "other": "上游繁忙/排队重试中（第 %d 次 · %s）"
   },
+  "session.quota.shared_pool": {
+    "other": "额度提供：共享池"
+  },
   "session.status.silent": {
     "other": "%s未收到新进展"
   },

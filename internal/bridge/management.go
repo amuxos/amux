@@ -327,6 +327,23 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			b.setSteerForeground(saved.SteerForeground)
 			b.showBackgroundTasks.Store(saved.ShowBackgroundTasks)
 			b.mentionTurnInitiator.Store(saved.MentionTurnInitiator)
+			for _, toggle := range bridgeExtensions.snapshot().ExperimentToggles {
+				if toggle.SetEnabled == nil || strings.TrimSpace(toggle.FieldName) == "" {
+					continue
+				}
+				raw, present := managementExperimentCallbackValue(event.Event.Action, toggle.FieldName)
+				if !present {
+					continue
+				}
+				val, _ := raw.(string)
+				val = strings.TrimSpace(val)
+				if val != "true" && val != "false" {
+					return cardToast("error", managementCopy("management.choose.on.or.off")), true, nil
+				}
+				if err := toggle.SetEnabled(val == "true"); err != nil {
+					return cardToast("error", managementCopy("management.cannot.save.experiment.settings.check.the.configuration.file")), true, nil
+				}
+			}
 		}
 		if action == managementActionExperimentsSaveRestart {
 			updateFocusedCard(renderManagementExperimentsRestartConfirmationCard(state))

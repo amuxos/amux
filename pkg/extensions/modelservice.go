@@ -8,6 +8,11 @@ type ModelServiceModel = modelservice.Model
 
 var RegisterModelService = modelservice.Register
 var StartModelServiceGateway = modelservice.StartGateway
+var StartModelServicePassthroughGateway = modelservice.StartPassthroughGateway
+
+var SetModelServiceSessionQuotaBorrowed = modelservice.SetSessionQuotaBorrowed
+var IsModelServiceSessionQuotaBorrowed = modelservice.IsSessionQuotaBorrowed
+var ClearModelServiceSessionQuotaBorrowed = modelservice.ClearSessionQuotaBorrowed
 
 var NewModelServiceProxyError = modelservice.NewProxyError
 var ModelServiceProxyErrorStatus = modelservice.ProxyErrorStatus

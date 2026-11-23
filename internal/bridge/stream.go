@@ -589,6 +589,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			meta.AgentProfile = streamChat.AgentProfile
 			meta.AgentType = streamChat.AgentType
 			meta.EffectiveModel = streamChat.EffectiveModel
+			meta.QuotaBorrowed = b.sessionQuotaBorrowed(targetID, sessionName)
 			meta.Activity = getActivityView()
 			meta.Subtasks = activity.Subtasks()
 			meta.ThinkingProcess = thinkingProcess()

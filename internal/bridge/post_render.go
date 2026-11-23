@@ -415,6 +415,7 @@ type toolActivityCardMeta struct {
 	AgentProfile    string
 	AgentType       string
 	EffectiveModel  string
+	QuotaBorrowed   bool
 	ViewURL         string
 	Activity        *agentui.ActivityView
 	Subtasks        []subtaskProgress
@@ -1444,6 +1445,9 @@ func toolActivityCardTitle(meta toolActivityCardMeta, locales ...i18n.Locale) st
 	modelText := ""
 	if model := strings.TrimSpace(meta.EffectiveModel); model != "" {
 		modelText = " · " + sessionCopy(locales, "model", truncateCardText(managementDefaultText(managementRuntimeModelLabel(model)), 80))
+	}
+	if meta.QuotaBorrowed {
+		modelText += " · " + sessionCopy(locales, "quota.shared_pool")
 	}
 	usageText := ""
 	if meta.Activity != nil {

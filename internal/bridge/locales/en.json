@@ -2529,6 +2529,9 @@
   "session.retry.provider": {
     "other": "Upstream busy or queued, retrying (#%d · %s)"
   },
+  "session.quota.shared_pool": {
+    "other": "Quota: Shared Pool"
+  },
   "session.status.silent": {
     "other": "No new progress for %s"
   },
