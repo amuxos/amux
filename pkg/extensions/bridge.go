@@ -8,6 +8,8 @@ import (
 )
 
 type BridgeExtension = bridge.Extension
+type BridgeTextCommandRequest = bridge.TextCommandRequest
+type BridgeExperimentToggle = bridge.ExperimentToggle
 type BridgeOnboardingOptions = bridge.OnboardingOptions
 type BridgeActivityView = agentui.ActivityView
 type BridgeConsoleOptions = bridge.ConsoleOptions

@@ -1,9 +1,11 @@
 package bridge
 
 import (
+	"context"
 	"strings"
 
 	"github.com/amuxos/amux/internal/agentui"
+	"github.com/amuxos/amux/internal/modelservice"
 )
 
 func distributionActivityPossiblyQueued(agentType string, activity *agentui.ActivityView) bool {
@@ -39,4 +41,53 @@ func distributionCoordinationProfile(ref string) bool {
 		return hook(ref)
 	}
 	return false
+}
+
+func (b *Bridge) handleDistributionTextCommand(ctx context.Context, openID, text string, inGroup bool) (string, bool, error) {
+	hook := bridgeExtensions.snapshot().HandleTextCommand
+	if hook == nil {
+		return "", false, nil
+	}
+	principalID := ""
+	if b != nil && b.resolveModelServicePrincipal != nil && strings.TrimSpace(openID) != "" {
+		if id, err := b.resolveModelServicePrincipal(openID); err == nil {
+			principalID = strings.TrimSpace(id)
+		}
+	}
+	// Pass true owner identity alongside InGroup so command handlers can allow
+	// owner self-service (e.g. local auth reuse) while still suppressing
+	// owner-only disclosures inside group chats.
+	isOwner := b != nil && b.canUseBridge(openID)
+	locale := ""
+	if b != nil {
+		locale = string(b.managementLocale(openID))
+	}
+	return hook(ctx, TextCommandRequest{
+		OpenID:      strings.TrimSpace(openID),
+		PrincipalID: principalID,
+		Text:        strings.TrimSpace(text),
+		IsOwner:     isOwner,
+		InGroup:     inGroup,
+		Locale:      locale,
+	})
+}
+
+func (b *Bridge) sessionQuotaBorrowed(targetID, sessionName string) bool {
+	if b == nil || b.hub == nil || strings.TrimSpace(sessionName) == "" {
+		return false
+	}
+	for _, target := range b.hub.ListTargets() {
+		if targetID != "" && target.GetId() != targetID {
+			continue
+		}
+		for _, sess := range target.GetSessions() {
+			if sess.GetName() == sessionName {
+				if id := strings.TrimSpace(sess.GetId()); id != "" && modelservice.IsSessionQuotaBorrowed(id) {
+					return true
+				}
+				return modelservice.IsSessionQuotaBorrowed(sessionName)
+			}
+		}
+	}
+	return modelservice.IsSessionQuotaBorrowed(sessionName)
 }

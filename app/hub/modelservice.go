@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 
@@ -19,12 +20,19 @@ func (s *hubServer) ProxyModel(req *pb.ProxyModelRequest, stream grpc.ServerStre
 	if err != nil {
 		return err
 	}
-	if actor == nil || actor.ActorPrincipalID == "" {
-		return status.Error(codes.Unauthenticated, "model service requires an authenticated principal")
-	}
 	service, ok := modelservice.Get(req.Service)
 	if !ok {
 		return status.Error(codes.NotFound, "unknown model service")
+	}
+	actorID := ""
+	if actor != nil {
+		actorID = actor.ActorPrincipalID
+	}
+	if actorID == "" {
+		if !service.AllowLegacyHost {
+			return status.Error(codes.Unauthenticated, "model service requires an authenticated principal")
+		}
+		actorID = "legacy-host"
 	}
 	if len(req.Body) > 32<<20 {
 		return status.Error(codes.ResourceExhausted, "model request too large")
@@ -33,21 +41,41 @@ func (s *hubServer) ProxyModel(req *pb.ProxyModelRequest, stream grpc.ServerStre
 		return status.Error(codes.InvalidArgument, "unsupported method")
 	}
 	// Fixed local origin: distributions choose upstream URLs, never callers.
-	if req.Path != "/v1/responses" && req.Path != "/v1/messages" && req.Path != "/v1/messages/count_tokens" && req.Path != "/v1/chat/completions" && req.Path != "/v1/models" {
-		return status.Error(codes.InvalidArgument, "unsupported model endpoint")
+	pathOnly, _, _ := strings.Cut(req.Path, "?")
+	passthrough := false
+	if pathOnly != "/v1/responses" && pathOnly != "/v1/messages" && pathOnly != "/v1/messages/count_tokens" && pathOnly != "/v1/chat/completions" && pathOnly != "/v1/models" {
+		allowed := false
+		for _, p := range service.AllowedPaths {
+			if p != "" && p == pathOnly {
+				allowed = true
+				passthrough = true
+				break
+			}
+		}
+		if !allowed {
+			return status.Error(codes.InvalidArgument, "unsupported model endpoint")
+		}
 	}
 	r, err := http.NewRequestWithContext(stream.Context(), req.Method, "http://localhost"+req.Path, bytes.NewReader(req.Body))
 	if err != nil {
 		return status.Error(codes.InvalidArgument, "invalid request")
 	}
 	r.Header.Set("Content-Type", "application/json")
-	for _, name := range []string{"User-Agent", "Anthropic-Version", "Anthropic-Beta", "X-Session-Id", "X-Amux-Reasoning-Effort"} {
-		if value := req.Headers[name]; value != "" {
-			r.Header.Set(name, value)
+	if passthrough {
+		for _, name := range modelservice.PassthroughHeaderAllowlist {
+			if value := req.Headers[name]; value != "" {
+				r.Header.Set(name, value)
+			}
+		}
+	} else {
+		for _, name := range []string{"User-Agent", "Anthropic-Version", "Anthropic-Beta", "X-Session-Id", "X-Amux-Reasoning-Effort"} {
+			if value := req.Headers[name]; value != "" {
+				r.Header.Set(name, value)
+			}
 		}
 	}
 	w := &modelStreamWriter{stream: stream, header: http.Header{}}
-	if err := service.Proxy(stream.Context(), actor.ActorPrincipalID, w, r); err != nil {
+	if err := service.Proxy(stream.Context(), actorID, w, r); err != nil {
 		if w.sent {
 			if w.err != nil {
 				return w.err
@@ -83,7 +111,7 @@ func (w *modelStreamWriter) WriteHeader(code int) {
 		code = 502
 	}
 	headers := map[string]string{}
-	for _, name := range []string{"Content-Type", "Cache-Control", "Retry-After", "X-Request-Id"} {
+	for _, name := range []string{"Content-Type", "Cache-Control", "Retry-After", "X-Request-Id", "X-Tt-Logid"} {
 		if v := w.header.Get(name); v != "" {
 			headers[name] = v
 		}
