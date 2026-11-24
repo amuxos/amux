@@ -144,6 +144,7 @@ func StartGateway(env []string, service string) (baseURL, key string, closeGatew
 // transparent passthrough gateway to Hub ProxyModel.
 var PassthroughHeaderAllowlist = []string{
 	"Authorization",
+	"X-Jwt-Token",
 	"Content-Type",
 	"Accept",
 	"User-Agent",
@@ -202,17 +203,20 @@ func StartPassthroughGateway(env []string, service string) (baseURL string, clos
 		if path := values["AMUX_ACTOR_TOKEN_FILE"]; path != "" {
 			data, readErr := os.ReadFile(path)
 			if readErr != nil {
-				if !os.IsNotExist(readErr) {
+				if key == "" && !os.IsNotExist(readErr) {
 					gatewayError(w, 401, "AMUX session credential unavailable")
 					return
 				}
 			} else {
-				actor = strings.TrimSpace(string(data))
+				parsed := strings.TrimSpace(string(data))
 				var stored struct {
 					Token string `json:"token"`
 				}
 				if json.Unmarshal(data, &stored) == nil {
-					actor = strings.TrimSpace(stored.Token)
+					parsed = strings.TrimSpace(stored.Token)
+				}
+				if parsed != "" {
+					actor = parsed
 				}
 			}
 		}
