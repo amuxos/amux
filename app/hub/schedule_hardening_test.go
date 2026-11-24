@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -315,5 +316,58 @@ func TestTriggerScheduleRPCAndCompletedStateAndErrorSummary(t *testing.T) {
 	}
 	if obs.Status != "failed" || !obs.Terminal || obs.Result != "runtime launch failed: missing credential" {
 		t.Fatalf("obs = %+v, want failed with run.Error summary", obs)
+	}
+}
+
+func TestObserveScheduledSubtaskUnderFleetIsolation(t *testing.T) {
+	principals := agentTokenTestStore(t)
+	alice, err := principals.Create(principal.Principal{Kind: principal.KindHuman, DisplayName: "alice"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := principal.ExecutionIdentity{
+		IdentityMode:           principal.IdentityModeIdentified,
+		OriginActorPrincipalID: alice.ID,
+		EffectivePrincipalID:   alice.ID,
+		Source:                 principal.SourceSchedule,
+		IsolationBackend:       principal.BackendLinuxDAC,
+	}
+	runJSON, err := json.Marshal(task.TaskRun{
+		ID:                "task-iso-1",
+		Status:            task.StatusSucceeded,
+		TargetID:          "rt-1",
+		ExecutionIdentity: id,
+		Result:            &task.TaskResult{Status: task.ResultOK, Summary: "ISOLATED_OK"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub := &fakeRouterHub{
+		targets: isolatingTargets("rt-1"),
+		routeFn: func(_ string, method string, _ interface{}) (*pb.TunnelMsg, error) {
+			if method == pb.TaskMethodGet {
+				return respJSON(t, &pb.GetSubtaskResponse{TaskJson: runJSON}), nil
+			}
+			return nil, status.Error(codes.Unimplemented, method)
+		},
+	}
+	idx := newTaskIndex()
+	idx.put("task-iso-1", taskPlacement{TargetID: "rt-1"})
+	router := newTaskRouter(hub, &fakeScheduler{}, idx, nil)
+	router.principals = principals
+
+	// External gRPC GetSubtask without caller credentials must still reject.
+	if _, err := router.GetSubtask(context.Background(), &pb.GetSubtaskRequest{Id: "task-iso-1"}); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("GetSubtask(unauthenticated) err = %v, want Unauthenticated", err)
+	}
+
+	// Control-plane schedule observation must succeed, clear stale observation_unavailable reason, and surface the terminal summary.
+	ctrl := &bridgeSchedules{reader: &bridgeSubtaskReader{router: router}}
+	obs, err := ctrl.ObserveScheduleExecution(context.Background(), schedule.Execution{TaskID: "task-iso-1", Reason: "observation_unavailable"})
+	if err != nil {
+		t.Fatalf("ObserveScheduleExecution: %v", err)
+	}
+	if obs.Status != "completed" || !obs.Terminal || obs.Result != "ISOLATED_OK" || obs.Reason != "" {
+		t.Fatalf("obs = %+v, want completed/ISOLATED_OK with empty reason", obs)
 	}
 }

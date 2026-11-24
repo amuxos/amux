@@ -299,6 +299,7 @@ func applyTaskRunObservation(r schedule.Execution, run task.TaskRun) (schedule.E
 		return r, fmt.Errorf("%w: task identity mismatch", schedule.ErrObservationPermanent)
 	}
 	r.Status = "running"
+	r.Reason = ""
 	r.Terminal = run.Status.IsTerminal()
 	r.TargetID = run.TargetID
 	r.SessionName = run.ChildSessionName
@@ -345,7 +346,7 @@ func applyTaskRunObservation(r schedule.Execution, run task.TaskRun) (schedule.E
 
 func (c *bridgeSchedules) ObserveScheduleExecution(ctx context.Context, r schedule.Execution) (schedule.Execution, error) {
 	if r.TaskID != "" {
-		raw, e := c.reader.GetSubtaskJSON(ctx, r.TaskID)
+		raw, e := c.reader.getScheduledSubtaskJSON(ctx, r.TaskID)
 		if e != nil {
 			return r, e
 		}
