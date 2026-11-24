@@ -137,8 +137,10 @@ func (s *Scheduler) isInFlight(execID int64) bool {
 	return ok
 }
 
-func (s *Scheduler) notifyIfDeferred() {
-	if !s.deferred.Swap(false) {
+// Notify wakes the scheduler loop immediately to re-evaluate the earliest due
+// schedule after a create, update, or enable mutation.
+func (s *Scheduler) Notify() {
+	if s == nil || s.wakeCh == nil {
 		return
 	}
 	select {
@@ -147,25 +149,68 @@ func (s *Scheduler) notifyIfDeferred() {
 	}
 }
 
-// Start runs the tick loop until ctx is cancelled, then waits for all in-flight
-// workers and the observer loop to finish before returning.
+func (s *Scheduler) notifyIfDeferred() {
+	if !s.deferred.Swap(false) {
+		return
+	}
+	s.Notify()
+}
+
+func (s *Scheduler) nextWait(now time.Time) time.Duration {
+	if s.store == nil {
+		return tickInterval
+	}
+	earliest, err := s.store.EarliestNextRun()
+	if err != nil || earliest == nil {
+		return tickInterval
+	}
+	wait := time.Until(time.Unix(*earliest, 0))
+	if !now.IsZero() {
+		wait = time.Unix(*earliest, 0).Sub(now)
+	}
+	if wait <= 0 {
+		// Guard against tight spin when due tasks are deferred waiting for busy workers.
+		if s.deferred.Load() {
+			return 250 * time.Millisecond
+		}
+		return 0
+	}
+	if wait > tickInterval {
+		return tickInterval
+	}
+	return wait
+}
+
+// Start runs the event-driven schedule loop until ctx is cancelled, then waits
+// for all in-flight workers and the observer loop to finish before returning.
 func (s *Scheduler) Start(ctx context.Context) {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
 		s.runObserver(ctx)
 	}()
-	ticker := time.NewTicker(tickInterval)
-	defer ticker.Stop()
+	timer := time.NewTimer(s.nextWait(time.Now()))
+	defer timer.Stop()
+	resetTimer := func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timer.Reset(s.nextWait(time.Now()))
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			s.wg.Wait()
 			return
-		case <-ticker.C:
+		case <-timer.C:
 			s.runDue(ctx, time.Now())
+			resetTimer()
 		case <-s.wakeCh:
 			s.runDue(ctx, time.Now())
+			resetTimer()
 		}
 	}
 }
@@ -186,7 +231,13 @@ func (s *Scheduler) runDue(ctx context.Context, now time.Time) {
 // fire attempts to deliver one task and records the outcome, advancing or
 // clearing its next run time.
 func (s *Scheduler) fire(ctx context.Context, t Task, now time.Time) {
-	spec, err := ParseSpec(t.Spec)
+	loc, _, err := ParseLocation(t.Timezone)
+	if err != nil {
+		log.Error().Err(err).Int64("id", t.ID).Str("timezone", t.Timezone).Msg("scheduler: invalid timezone, disabling")
+		_, _ = s.store.SetEnabled(t.ID, false)
+		return
+	}
+	spec, err := ParseSpecInLocation(t.Spec, loc, now)
 	if err != nil {
 		// A spec that no longer parses (e.g. corrupted row): disable it so we
 		// do not spin on it every tick.
@@ -217,7 +268,11 @@ func (s *Scheduler) fire(ctx context.Context, t Task, now time.Time) {
 
 	var next *int64
 	if spec.Recurring() {
-		if at, ok := spec.Next(now); ok {
+		var scheduledAt time.Time
+		if t.NextRunAt != nil {
+			scheduledAt = time.Unix(*t.NextRunAt, 0)
+		}
+		if at, ok := spec.NextAfterScheduled(scheduledAt, now); ok {
 			next = unixPtr(at)
 		}
 	}
@@ -262,7 +317,11 @@ const (
 func (s *Scheduler) fireSubtask(ctx context.Context, t Task, spec Spec, now time.Time) {
 	var next *int64
 	if spec.Recurring() {
-		if nextAt, ok := spec.Next(now); ok {
+		var scheduledAt time.Time
+		if t.NextRunAt != nil {
+			scheduledAt = time.Unix(*t.NextRunAt, 0)
+		}
+		if nextAt, ok := spec.NextAfterScheduled(scheduledAt, now); ok {
 			next = unixPtr(nextAt)
 		}
 	}

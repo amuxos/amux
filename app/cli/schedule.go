@@ -30,10 +30,11 @@ submits an ephemeral subtask from a saved task spec. Schedules live in the hub
 (amuxd), so a hub address must be configured.
 
 Time spec forms:
-  every <duration>   e.g. "every 30m", "every 2h" (minimum 1m)
-  daily <HH:MM>      e.g. "daily 09:00" (server local time)
+  every <duration>   e.g. "every 30m", "every 2h", "every 1d" (minimum 1m)
+  daily <HH:MM>      e.g. "daily 09:00" (in --timezone or server local time)
   at <when>          e.g. "at 2026-06-01 09:00" (one-shot)
-  cron <expr>        e.g. "cron 0 9 * * 1-5" (standard 5-field)`,
+  in <duration>      e.g. "in 10m", "in 2h" (relative one-shot)
+  cron <expr>        e.g. "cron 0 9 * * 1-5" or "cron @daily"`,
 	}
 	c.AddCommand(newScheduleCreateCmd(), newScheduleCreateTaskCmd(), newScheduleRunsCmd(), newScheduleListCmd(), newScheduleUpdateCmd(), newScheduleRemoveCommand("remove <id>"), newScheduleToggleCmd(true), newScheduleToggleCmd(false))
 	return c
@@ -42,6 +43,7 @@ Time spec forms:
 func newScheduleCreateCmd() *cobra.Command {
 	var name string
 	var runMode string
+	var timezone string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:   "create <session-ref> <spec> <prompt>",
 		Short: "Create a scheduled prompt",
@@ -79,6 +81,7 @@ func newScheduleCreateCmd() *cobra.Command {
 				TargetName:  resolved.Target.Name,
 				SessionName: resolved.Session.Name,
 				Spec:        args[1],
+				Timezone:    timezone,
 				RunMode:     runMode,
 				Prompt:      args[2],
 				Name:        name,
@@ -104,8 +107,10 @@ func newScheduleCreateCmd() *cobra.Command {
 	})
 	c.Flags().StringVar(&name, "name", "", "optional label for the schedule")
 	c.Flags().StringVar(&runMode, "run-mode", schedule.RunModeReuseSession, "execution mode: reuse-session or new-session-per-run")
+	c.Flags().StringVar(&timezone, "timezone", "", "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)")
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("run-mode", completeScheduleRunModes)
+	_ = c.RegisterFlagCompletionFunc("timezone", completeNoFiles)
 	return c
 }
 
@@ -206,11 +211,12 @@ func cliScheduleValidationMessage(err *clientop.FieldError) string {
 
 func newScheduleCreateTaskCmd() *cobra.Command {
 	flags := scheduleTaskFlags{workspacePolicy: string(task.WorkspaceTempDir)}
+	var timezone string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:   "create-task <spec>",
 		Short: "Create a scheduled subtask",
 		Example: `  amux schedule create-task "every 1h" --agent team/reviewer --task "review recent changes"
-  amux schedule create-task "daily 09:00" --agent builtin/codex --task "run smoke tests" --workspace-policy git-worktree --local-dir /path/to/repo`,
+  amux schedule create-task "daily 09:00" --timezone Asia/Shanghai --agent builtin/codex --task "run smoke tests" --workspace-policy git-worktree --local-dir /path/to/repo`,
 		Args: cobra.ExactArgs(1), ValidArgsFunction: completeScheduleSpec,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, closeClient, err := newAmuxdClient()
@@ -218,7 +224,7 @@ func newScheduleCreateTaskCmd() *cobra.Command {
 				return err
 			}
 			defer closeClient()
-			result, err := clientop.ScheduleCreateTask(cmdContext(cmd), client, clientop.ScheduleCreateTaskRequest{Spec: args[0], Name: flags.name, CreatedBy: "cli", Task: flags.clientopSpec()})
+			result, err := clientop.ScheduleCreateTask(cmdContext(cmd), client, clientop.ScheduleCreateTaskRequest{Spec: args[0], Timezone: timezone, Name: flags.name, CreatedBy: "cli", Task: flags.clientopSpec()})
 			if err != nil {
 				return fmt.Errorf("create scheduled subtask: %s", cliScheduleCreateError(err))
 			}
@@ -238,9 +244,11 @@ func newScheduleCreateTaskCmd() *cobra.Command {
 		},
 	})
 	c.Flags().StringVar(&flags.name, "name", "", "optional label for the schedule")
+	c.Flags().StringVar(&timezone, "timezone", "", "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)")
 	registerScheduleTaskFlags(c, &flags)
 	registerScheduleTaskFlagCompletions(c)
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
+	_ = c.RegisterFlagCompletionFunc("timezone", completeNoFiles)
 	return c
 }
 
@@ -407,12 +415,12 @@ func (f scheduleTaskFlags) applyChangedFlags(cmd *cobra.Command, dst *clientop.S
 
 func newScheduleUpdateCmd() *cobra.Command {
 	flags := scheduleTaskFlags{workspacePolicy: string(task.WorkspaceTempDir)}
-	var name, spec, prompt, runMode string
+	var name, spec, timezone, prompt, runMode string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a scheduled prompt or subtask in place",
 		Example: `  amux schedule update 8 --name nightly-report
-  amux schedule update 8 --spec "daily 09:00"
+  amux schedule update 8 --spec "daily 09:00" --timezone Asia/Shanghai
   amux schedule update 8 --prompt "summarize blockers" --run-mode new-session-per-run
   amux schedule update 8 --agent builtin/codex --task "run smoke tests"
   amux schedule update 8 --timeout 600 --reasoning-effort high`,
@@ -429,6 +437,9 @@ func newScheduleUpdateCmd() *cobra.Command {
 			}
 			if cmd.Flags().Changed("spec") {
 				req.Spec = &spec
+			}
+			if cmd.Flags().Changed("timezone") {
+				req.Timezone = &timezone
 			}
 			if cmd.Flags().Changed("prompt") {
 				req.Prompt = &prompt
@@ -471,6 +482,7 @@ func newScheduleUpdateCmd() *cobra.Command {
 					"schedule_id": out.ID,
 					"name":        out.Name,
 					"spec":        out.Spec,
+					"timezone":    out.Timezone,
 					"next_run_at": out.NextRunAt,
 				})
 			}
@@ -483,13 +495,15 @@ func newScheduleUpdateCmd() *cobra.Command {
 		},
 	})
 	c.Flags().StringVar(&name, "name", "", "new label for the schedule")
-	c.Flags().StringVar(&spec, "spec", "", "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run")
+	c.Flags().StringVar(&spec, "spec", "", "new time rule (every <duration>, daily <HH:MM>, at <when>, in <duration>, or cron <expr>); recomputes next run")
+	c.Flags().StringVar(&timezone, "timezone", "", "new IANA timezone for evaluating the schedule (empty uses hub local time)")
 	c.Flags().StringVar(&prompt, "prompt", "", "new prompt for a session-prompt schedule")
 	c.Flags().StringVar(&runMode, "run-mode", "", "new execution mode for a session-prompt schedule: reuse-session or new-session-per-run")
 	registerScheduleTaskFlags(c, &flags)
 	registerScheduleTaskFlagCompletions(c)
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("spec", completeScheduleSpec)
+	_ = c.RegisterFlagCompletionFunc("timezone", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("prompt", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("run-mode", completeScheduleRunModes)
 	return c

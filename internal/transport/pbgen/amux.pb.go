@@ -13746,6 +13746,7 @@ type ScheduleItem struct {
 	LastRunAt     int64                  `protobuf:"varint,14,opt,name=last_run_at,json=lastRunAt,proto3" json:"last_run_at,omitempty"`
 	LastStatus    string                 `protobuf:"bytes,15,opt,name=last_status,json=lastStatus,proto3" json:"last_status,omitempty"`
 	Runs          []*ScheduleRun         `protobuf:"bytes,16,rep,name=runs,proto3" json:"runs,omitempty"`
+	Timezone      string                 `protobuf:"bytes,17,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -13892,6 +13893,13 @@ func (x *ScheduleItem) GetRuns() []*ScheduleRun {
 	return nil
 }
 
+func (x *ScheduleItem) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
+}
+
 type ScheduleRun struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -13980,6 +13988,7 @@ type CreateScheduleRequest struct {
 	CreatedBy     string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
 	ScheduleType  string                 `protobuf:"bytes,9,opt,name=schedule_type,json=scheduleType,proto3" json:"schedule_type,omitempty"`
 	TaskSpecJson  []byte                 `protobuf:"bytes,10,opt,name=task_spec_json,json=taskSpecJson,proto3" json:"task_spec_json,omitempty"`
+	Timezone      string                 `protobuf:"bytes,11,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -14082,6 +14091,13 @@ func (x *CreateScheduleRequest) GetTaskSpecJson() []byte {
 		return x.TaskSpecJson
 	}
 	return nil
+}
+
+func (x *CreateScheduleRequest) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
 }
 
 type CreateScheduleResponse struct {
@@ -14435,6 +14451,7 @@ type UpdateScheduleRequest struct {
 	RunMode       *string                `protobuf:"bytes,4,opt,name=run_mode,json=runMode,proto3,oneof" json:"run_mode,omitempty"`
 	Prompt        *string                `protobuf:"bytes,5,opt,name=prompt,proto3,oneof" json:"prompt,omitempty"`
 	TaskSpecJson  []byte                 `protobuf:"bytes,6,opt,name=task_spec_json,json=taskSpecJson,proto3" json:"task_spec_json,omitempty"`
+	Timezone      *string                `protobuf:"bytes,7,opt,name=timezone,proto3,oneof" json:"timezone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -14509,6 +14526,13 @@ func (x *UpdateScheduleRequest) GetTaskSpecJson() []byte {
 		return x.TaskSpecJson
 	}
 	return nil
+}
+
+func (x *UpdateScheduleRequest) GetTimezone() string {
+	if x != nil && x.Timezone != nil {
+		return *x.Timezone
+	}
+	return ""
 }
 
 type UpdateScheduleResponse struct {
@@ -17035,7 +17059,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x1bCleanupAgentInstanceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\".\n" +
 	"\x1cCleanupAgentInstanceResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xde\x03\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xfa\x03\n" +
 	"\fScheduleItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12#\n" +
@@ -17055,14 +17079,15 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\vlast_run_at\x18\x0e \x01(\x03R\tlastRunAt\x12\x1f\n" +
 	"\vlast_status\x18\x0f \x01(\tR\n" +
 	"lastStatus\x12(\n" +
-	"\x04runs\x18\x10 \x03(\v2\x14.amux.v1.ScheduleRunR\x04runs\"\x8a\x01\n" +
+	"\x04runs\x18\x10 \x03(\v2\x14.amux.v1.ScheduleRunR\x04runs\x12\x1a\n" +
+	"\btimezone\x18\x11 \x01(\tR\btimezone\"\x8a\x01\n" +
 	"\vScheduleRun\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
 	"\vschedule_id\x18\x02 \x01(\x03R\n" +
 	"scheduleId\x12\x19\n" +
 	"\bfired_at\x18\x03 \x01(\x03R\afiredAt\x12\x17\n" +
 	"\atask_id\x18\x04 \x01(\tR\x06taskId\x12\x16\n" +
-	"\x06status\x18\x05 \x01(\tR\x06status\"\xbd\x02\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\"\xd9\x02\n" +
 	"\x15CreateScheduleRequest\x12\x1b\n" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x1f\n" +
 	"\vtarget_name\x18\x02 \x01(\tR\n" +
@@ -17076,7 +17101,8 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"created_by\x18\b \x01(\tR\tcreatedBy\x12#\n" +
 	"\rschedule_type\x18\t \x01(\tR\fscheduleType\x12$\n" +
 	"\x0etask_spec_json\x18\n" +
-	" \x01(\fR\ftaskSpecJson\"^\n" +
+	" \x01(\fR\ftaskSpecJson\x12\x1a\n" +
+	"\btimezone\x18\v \x01(\tR\btimezone\"^\n" +
 	"\x16CreateScheduleResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1e\n" +
 	"\vnext_run_at\x18\x02 \x01(\x03R\tnextRunAt\x12\x14\n" +
@@ -17094,18 +17120,20 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x15DeleteScheduleRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"(\n" +
 	"\x16DeleteScheduleResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xe6\x01\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x94\x02\n" +
 	"\x15UpdateScheduleRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x17\n" +
 	"\x04spec\x18\x03 \x01(\tH\x01R\x04spec\x88\x01\x01\x12\x1e\n" +
 	"\brun_mode\x18\x04 \x01(\tH\x02R\arunMode\x88\x01\x01\x12\x1b\n" +
 	"\x06prompt\x18\x05 \x01(\tH\x03R\x06prompt\x88\x01\x01\x12$\n" +
-	"\x0etask_spec_json\x18\x06 \x01(\fR\ftaskSpecJsonB\a\n" +
+	"\x0etask_spec_json\x18\x06 \x01(\fR\ftaskSpecJson\x12\x1f\n" +
+	"\btimezone\x18\a \x01(\tH\x04R\btimezone\x88\x01\x01B\a\n" +
 	"\x05_nameB\a\n" +
 	"\x05_specB\v\n" +
 	"\t_run_modeB\t\n" +
-	"\a_prompt\"a\n" +
+	"\a_promptB\v\n" +
+	"\t_timezone\"a\n" +
 	"\x16UpdateScheduleResponse\x121\n" +
 	"\bschedule\x18\x01 \x01(\v2\x15.amux.v1.ScheduleItemR\bschedule\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"E\n" +

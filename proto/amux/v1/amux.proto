@@ -1571,6 +1571,7 @@ message ScheduleItem {
   int64 last_run_at = 14;
   string last_status = 15;
   repeated ScheduleRun runs = 16;
+  string timezone = 17;
 }
 
 message ScheduleRun {
@@ -1592,6 +1593,7 @@ message CreateScheduleRequest {
   string created_by = 8;
   string schedule_type = 9;
   bytes task_spec_json = 10;
+  string timezone = 11;
 }
 
 message CreateScheduleResponse {
@@ -1636,6 +1638,7 @@ message UpdateScheduleRequest {
   optional string run_mode = 4;
   optional string prompt = 5;
   bytes task_spec_json = 6;
+  optional string timezone = 7;
 }
 
 message UpdateScheduleResponse {

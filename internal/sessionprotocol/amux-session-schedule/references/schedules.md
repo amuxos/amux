@@ -34,9 +34,11 @@ Put the object to check, success and stop conditions, next action, and schedule
 cleanup instructions in recurring prompts. Record the returned `schedule_id` and
 `next_run_at`; stop or delete the schedule when the workflow is finished.
 
-Time specifications: `every <duration>` (minimum 1m), `daily HH:MM`,
-`at <when>` (one-shot), and `cron <5-field expression>`. Resolve relative dates
-and confirm the scheduler's time zone when it affects the requested time.
+Time specifications: `every <duration>` (minimum 1m; supports `d`/`w`),
+`daily HH:MM`, `at <when>` (one-shot), `in <duration>` (relative one-shot
+normalized to `at <RFC3339>`), and `cron <5-field expression or @descriptor>`.
+Pass an explicit IANA `timezone` (for example `Asia/Shanghai`) when the
+schedule should not depend on the Hub's local time zone.
 
 ## Management and evidence
 

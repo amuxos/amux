@@ -407,6 +407,7 @@ const mcpProfileListPageSize = 10
 type mcpCreateScheduleArgs struct {
 	Name         string                     `json:"name"`
 	Spec         string                     `json:"spec"`
+	Timezone     string                     `json:"timezone"`
 	ScheduleType string                     `json:"schedule_type"`
 	Session      string                     `json:"session"`
 	Prompt       string                     `json:"prompt"`
@@ -689,7 +690,8 @@ func amuxTools() []mcp.Tool {
   "type": "object",
   "properties": {
     "name": {"type": "string", "description": "Schedule 的可选显示名称"},
-    "spec": {"type": "string", "description": "时间规则：every <duration>、daily <HH:MM>、at <when> 或 cron <expr>"},
+    "spec": {"type": "string", "description": "时间规则：every <duration>（支持 d/w）、daily <HH:MM>、at <when>、in <duration>（相对一次性）或 cron <expr>（支持 @daily 等描述符）"},
+    "timezone": {"type": "string", "description": "可选 IANA 时区名称（例如 Asia/Shanghai）；省略时使用 Hub 本地时区"},
     "schedule_type": {"type": "string", "enum": ["subtask", "session-prompt"], "description": "subtask（默认）创建临时子 Task；session-prompt 到期向目标 Session Submit 提示词并唤醒 Agent"},
     "session": {"type": "string", "description": "schedule_type=session-prompt 时的目标 session-ref（与 CLI amux schedule create <session-ref> 相同：target/name、Session ID 或名称）；省略时回落到 AMUX_SESSION_ID"},
     "prompt": {"type": "string", "description": "schedule_type=session-prompt 时到期投递到目标 Session 的提示词"},
@@ -705,7 +707,8 @@ func amuxTools() []mcp.Tool {
   "properties": {
     "schedule_id": {"type": "integer"},
     "name": {"type": "string", "description": "Schedule 的新显示名称；省略时保持不变"},
-    "spec": {"type": "string", "description": "新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at"},
+    "spec": {"type": "string", "description": "新的时间规则（every <duration>、daily <HH:MM>、at <when>、in <duration> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at"},
+    "timezone": {"type": "string", "description": "新的 IANA 时区名称（例如 Asia/Shanghai，传空字符串回落 Hub 本地时区）；省略时保持不变"},
     "prompt": {"type": "string", "description": "仅 session-prompt：更新到期投递到目标 Session 的提示词；省略时保持不变"},
     "run_mode": {"type": "string", "enum": ["reuse-session", "new-session-per-run"], "description": "仅 session-prompt：更新执行模式（reuse-session 或 new-session-per-run）；省略时保持不变"},
     "task": ` + string(updateTaskSchemaBytes) + `
