@@ -16,7 +16,7 @@ import (
 
 func TestPassthroughGatewayForwardsCustomPathAndAuthorization(t *testing.T) {
 	const svcID = "test-passthrough-relay"
-	var gotPath, gotAuth, gotSession string
+	var gotPath, gotAuth, gotJWT, gotSession string
 	if _, ok := modelservice.Get(svcID); !ok {
 		if err := modelservice.Register(modelservice.Service{
 			ID:           svcID,
@@ -26,6 +26,7 @@ func TestPassthroughGatewayForwardsCustomPathAndAuthorization(t *testing.T) {
 			Proxy: func(_ context.Context, principalID string, w http.ResponseWriter, r *http.Request) error {
 				gotPath = r.URL.Path
 				gotAuth = r.Header.Get("Authorization")
+				gotJWT = r.Header.Get("X-Jwt-Token")
 				gotSession = r.Header.Get("X-Session-Id")
 				w.Header().Set("Content-Type", "text/plain")
 				_, err := io.WriteString(w, "ok:"+principalID)
@@ -66,6 +67,7 @@ func TestPassthroughGatewayForwardsCustomPathAndAuthorization(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodPost, base+"/api/custom/chat", http.NoBody)
 	req.Header.Set("Authorization", "Custom-JWT token-123")
+	req.Header.Set("X-Jwt-Token", "jwt-abc-456")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("POST passthrough: %v", err)
@@ -75,8 +77,8 @@ func TestPassthroughGatewayForwardsCustomPathAndAuthorization(t *testing.T) {
 	if resp.StatusCode != 200 || string(body) != "ok:"+alice.ID {
 		t.Fatalf("resp = %d %q, want 200 ok:%s", resp.StatusCode, body, alice.ID)
 	}
-	if gotPath != "/api/custom/chat" || gotAuth != "Custom-JWT token-123" || gotSession != "sess-99" {
-		t.Fatalf("forwarded = (%q, %q, %q)", gotPath, gotAuth, gotSession)
+	if gotPath != "/api/custom/chat" || gotAuth != "Custom-JWT token-123" || gotJWT != "jwt-abc-456" || gotSession != "sess-99" {
+		t.Fatalf("forwarded = (%q, %q, %q, %q)", gotPath, gotAuth, gotJWT, gotSession)
 	}
 
 	// Disallowed path must be rejected.
