@@ -515,7 +515,11 @@ page. Loading and failure states are available in English and Simplified Chinese
 
 When a Feishu-started turn hits a provider rate limit or usage limit error, or
 remains stuck in upstream retry or queue wait without visible output for at
-least 60 seconds, the turn card may present up to three same-engine alternative
+least the configured threshold (default 60 seconds; adjustable live by the owner
+in the Feishu Experiments card via
+`bridge.feishu.experimental.model_recovery_queue_wait_seconds` in `0..3600`,
+where `0` disables queued recovery controls while retaining rate-limit error
+recovery), the turn card may present up to three same-engine alternative
 model buttons (plus an optional "Other models" dropdown when additional
 same-engine models exist) so the user can recover without starting a new topic or losing
 session history. Candidate models come from the current engine's registered

@@ -3442,5 +3442,13 @@
   "listen IP and port (non-loopback requires temporary-password authentication)": {
     "en": "listen IP and port (non-loopback requires temporary-password authentication)",
     "zh-CN": "监听 IP 和端口（非回环地址要求临时密码认证）"
+  },
+  "0-3600；0 关闭排队等待恢复按钮": {
+    "en": "0-3600; 0 disables queued-wait recovery controls",
+    "zh-CN": "0-3600；0 关闭排队等待恢复按钮"
+  },
+  "飞书回合无可见输出且处于上游重试或排队等待达到该秒数后，在进展卡片上展示同引擎切换模型重试按钮及「其他模型…」下拉；默认 60 秒，设为 0 关闭排队等待按钮（仍保留限流/额度耗尽报错恢复卡）。仅负责人可在实验功能卡片中修改，保存后立即生效。": {
+    "en": "After a Feishu turn has no visible output and stays in upstream retry or queue wait for this many seconds, show same-engine model switch retry buttons and an \"Other models...\" dropdown on the progress card. Default is 60 seconds; set to 0 to disable queued-wait controls while keeping rate-limit/usage-limit error recovery cards. Only the Bot owner can edit this in the Experiments card, and changes apply immediately after saving.",
+    "zh-CN": "飞书回合无可见输出且处于上游重试或排队等待达到该秒数后，在进展卡片上展示同引擎切换模型重试按钮及「其他模型…」下拉；默认 60 秒，设为 0 关闭排队等待按钮（仍保留限流/额度耗尽报错恢复卡）。仅负责人可在实验功能卡片中修改，保存后立即生效。"
   }
 }

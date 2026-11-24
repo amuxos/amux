@@ -465,10 +465,39 @@ func (b *Bridge) resolveTurnRecoveryCandidates(ctx context.Context, chat *LarkCh
 	return primary, more
 }
 
+func (b *Bridge) setModelRecoveryQueueWaitSeconds(seconds int) {
+	if b == nil {
+		return
+	}
+	if seconds < 0 || seconds > config.MaxFeishuModelRecoveryQueueWaitSeconds {
+		seconds = config.DefaultFeishuModelRecoveryQueueWaitSeconds
+	}
+	b.modelRecoveryQueueWaitSeconds.Store(int64(seconds))
+	b.modelRecoveryQueueWaitSet.Store(true)
+}
+
+func (b *Bridge) currentModelRecoveryQueueWaitSeconds() int {
+	if b == nil || !b.modelRecoveryQueueWaitSet.Load() {
+		return config.DefaultFeishuModelRecoveryQueueWaitSeconds
+	}
+	return int(b.modelRecoveryQueueWaitSeconds.Load())
+}
+
+func (b *Bridge) modelRecoveryQueueWaitThreshold() time.Duration {
+	seconds := b.currentModelRecoveryQueueWaitSeconds()
+	if seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
+}
+
 // shouldOfferQueuedModelRecovery reports whether a running turn has been
 // waiting in upstream retry or queue wait without visible output for at least
-// modelRecoveryQueueWaitThreshold (60s).
-func shouldOfferQueuedModelRecovery(meta toolActivityCardMeta) bool {
+// threshold (default 60s; <=0 disables queued recovery controls).
+func shouldOfferQueuedModelRecovery(meta toolActivityCardMeta, threshold time.Duration) bool {
+	if threshold <= 0 {
+		return false
+	}
 	if meta.SubtaskReport {
 		return false
 	}
@@ -486,7 +515,7 @@ func shouldOfferQueuedModelRecovery(meta toolActivityCardMeta) bool {
 		return false
 	}
 	elapsed := now.Sub(meta.Activity.StartedAt)
-	if elapsed < modelRecoveryQueueWaitThreshold {
+	if elapsed < threshold {
 		return false
 	}
 	if meta.Activity.RetryCount > 0 {
@@ -520,7 +549,7 @@ func (b *Bridge) modelRecoveryPromptForActivity(chat *LarkChat, turnID string, m
 	switch {
 	case meta.Status == "failed" && failedRateLimit:
 		reason = modelRecoveryReasonRateLimit
-	case !toolsExecuted && shouldOfferQueuedModelRecovery(meta):
+	case !toolsExecuted && shouldOfferQueuedModelRecovery(meta, b.modelRecoveryQueueWaitThreshold()):
 		reason = modelRecoveryReasonQueued
 	default:
 		return nil
