@@ -608,6 +608,8 @@ func (b *consoleBackend) consoleExecuteSchedule(ctx context.Context, action stri
 	case "enable", "disable":
 		ok, err := clientop.ScheduleSetEnabled(ctx, b.hub, req.ID, action == "enable")
 		return consoleOK(ok, err)
+	case "trigger":
+		return clientop.ScheduleTrigger(ctx, b.hub, req.ID)
 	case "delete":
 		ok, err := clientop.ScheduleDelete(ctx, b.hub, clientop.ScheduleIDRequest{ID: req.ID})
 		return consoleOK(ok, err)

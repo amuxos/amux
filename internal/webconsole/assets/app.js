@@ -1158,7 +1158,7 @@
   // last_status is "ok:task:<id>", "skipped:<why>", "error: <detail>" or a state.
   function parseRunStatus(raw) {
     const text = String(raw || '');
-    const match = text.match(/^(ok|error|skipped|submitting|failed)(?::\s*([\s\S]*))?$/);
+    const match = text.match(/^(ok|error|skipped|submitting|submitted|running|completed|failed|timed_out|cancelled|partial|missed|unknown)(?::\s*([\s\S]*))?$/);
     if (!match) return { status: text, taskID: '', detail: '' };
     const rest = match[2] || '';
     const task = rest.match(/^task:(\S+)$/);
@@ -1166,46 +1166,58 @@
   }
   function scheduleTypeLabel(type) { return type === 'session-prompt' ? t('sessionPrompt') : type === 'subtask' ? t('subtask') : type || t('unknown'); }
   const scheduleID = row => row.id || row.schedule_id;
+  function scheduleState(row) {
+    if (row && row.state) return row.state;
+    if (row && row.kind === 'once' && !row.next_run_at && row.last_run_at) return 'completed';
+    return row && row.enabled ? 'enabled' : 'paused';
+  }
   function scheduleToggle(snapshot, row, small) {
+    if (scheduleState(row) === 'completed') return null;
     const action = row.enabled ? 'disable' : 'enable';
     return actionButton(snapshot, 'schedules', action, { schedule_id: scheduleID(row) }, { key: action, item: row, name: row.name || '#' + scheduleID(row), tone: small ? 'small' : '' });
   }
+  function scheduleTriggerButton(snapshot, row, small) {
+    if (!capability(snapshot, 'trigger', row)) return null;
+    return actionButton(snapshot, 'schedules', 'trigger', { schedule_id: scheduleID(row) }, { key: 'runNow', item: row, name: row.name || '#' + scheduleID(row), tone: small ? 'small' : '' });
+  }
   function renderSchedules(snapshot) {
-    const next = row => { const d = row.enabled && toDate(row.next_run_at); return d ? d.valueOf() : Infinity; };
-    const rows = list(snapshot, 'schedules').slice().sort((a, b) => (b.enabled === true) - (a.enabled === true) || (next(a) === next(b) ? 0 : next(a) - next(b)) || scheduleID(a) - scheduleID(b));
-    const options = { stateOf: r => r.enabled ? 'enabled' : 'paused' };
+    const rank = row => { const st = scheduleState(row); return st === 'enabled' ? 0 : st === 'paused' ? 1 : 2; };
+    const next = row => { const d = scheduleState(row) === 'enabled' && toDate(row.next_run_at); return d ? d.valueOf() : Infinity; };
+    const rows = list(snapshot, 'schedules').slice().sort((a, b) => rank(a) - rank(b) || (next(a) === next(b) ? 0 : next(a) - next(b)) || scheduleID(a) - scheduleID(b));
+    const options = { stateOf: r => scheduleState(r) };
     const open = r => () => navigate('schedule', { schedule_id: scheduleID(r) });
     return [title('schedules', 'schedulesDesc', [refreshButton(), capability(snapshot, 'create') ? button('newSchedule', () => openScheduleForm(), 'primary', 'plus') : null]), filters(rows, options), dataTable([
       { key: 'schedules', render: r => cellTitle(r.name || '#' + scheduleID(r), ['#' + scheduleID(r), scheduleTypeLabel(r.schedule_type)], open(r)) },
       { key: 'spec', render: r => e('code', { class: 'spec', text: r.spec || '' }) },
-      { key: 'status', render: r => badge(r.enabled ? 'enabled' : 'paused') },
-      { key: 'nextRun', class: 'nowrap', render: r => r.enabled ? timeCell(r.next_run_at) : dash() },
+      { key: 'status', render: r => badge(scheduleState(r)) },
+      { key: 'nextRun', class: 'nowrap', render: r => scheduleState(r) === 'enabled' ? timeCell(r.next_run_at) : dash() },
       { key: 'lastRun', render: r => { const last = parseRunStatus(r.last_status); return e('div', { class: 'badges' }, timeCell(r.last_run_at), last.status ? badge(last.status) : null); } },
-      { key: 'actions', render: r => e('div', { class: 'actions' }, capability(snapshot, 'update', r) ? button('edit', () => openScheduleForm(r), 'small') : null, scheduleToggle(snapshot, r, true)) }
+      { key: 'actions', render: r => e('div', { class: 'actions' }, scheduleTriggerButton(snapshot, r, true), capability(snapshot, 'update', r) ? button('edit', () => openScheduleForm(r), 'small') : null, scheduleToggle(snapshot, r, true)) }
     ], filtered(rows, options), { rowLink: open }), e('p', { class: 'note', text: t('schedulePauseNote') })];
   }
   function renderSchedule(snapshot) {
     const item = snapshot.schedule; if (!item) return [title('schedule'), empty('unavailable')];
     const id = scheduleID(item);
+    const st = scheduleState(item);
     const task = snapshot.task || item.task || null;
     const last = parseRunStatus(item.last_status);
     const runs = (list(snapshot, 'runs').length ? list(snapshot, 'runs') : list(item, 'runs')).slice().sort((a, b) => Number(b.fired_at || 0) - Number(a.fired_at || 0));
     const content = item.schedule_type === 'subtask' && task
       ? [definition([['taskProfile', refText(task.agent)], ['agentType', task.runtime], ['model', refText(task.model)], ['reasoningEffort', task.reasoning_effort]]), task.task ? e('p', { class: 'prose', text: task.task }) : null]
       : item.prompt ? e('p', { class: 'prose', text: item.prompt }) : dash();
-    return [literalTitle(item.name || '#' + id, scheduleTypeLabel(item.schedule_type), [refreshButton(), button('scheduleTaskRecords', () => navigate('tasks', { schedule_id: id })), capability(snapshot, 'update', item) ? button('edit', () => openScheduleForm(item)) : null, scheduleToggle(snapshot, item), actionButton(snapshot, 'schedules', 'delete', { schedule_id: id }, { key: 'delete', item, name: item.name || '#' + id, tone: 'danger' })]),
+    return [literalTitle(item.name || '#' + id, scheduleTypeLabel(item.schedule_type), [refreshButton(), scheduleTriggerButton(snapshot, item, false), button('scheduleTaskRecords', () => navigate('tasks', { schedule_id: id })), capability(snapshot, 'update', item) ? button('edit', () => openScheduleForm(item)) : null, scheduleToggle(snapshot, item), actionButton(snapshot, 'schedules', 'delete', { schedule_id: id }, { key: 'delete', item, name: item.name || '#' + id, tone: 'danger' })]),
       e('div', { class: 'detail-grid' },
         e('div', { class: 'stack' },
           section('scheduleContent', e('div', { class: 'panel-body stack' }, content)),
           section('history', dataTable([
-            { key: 'firedAt', render: row => timeCell(row.fired_at) },
-            { key: 'status', render: row => { const parsed = parseRunStatus(row.status); return e('div', {}, badge(parsed.status), parsed.detail ? e('p', { class: 'cell-sub', text: parsed.detail }) : null); } },
+            { key: 'firedAt', render: row => e('div', { class: 'badges' }, timeCell(row.fired_at), row.trigger_source === 'manual' ? chip(t('manual'), 'info') : null) },
+            { key: 'status', render: row => { const parsed = parseRunStatus(row.status); const detail = row.result_summary || row.reason || parsed.detail; return e('div', {}, badge(parsed.status), detail ? e('p', { class: 'cell-sub', text: detail }) : null); } },
             { key: 'taskID', render: row => { const tid = row.task_id || parseRunStatus(row.status).taskID; return tid ? linkTo(shortID(tid), 'task', { task_id: tid }) : dash(); } }
           ], runs, { pageSize: 20, emptyKey: 'noRuns', emptyHint: false }))),
         e('aside', { class: 'stack' }, section('details', e('div', { class: 'panel-body' }, definition([
-          ['id', '#' + id], ['status', badge(item.enabled ? 'enabled' : 'paused')], ['spec', e('code', { class: 'spec', text: item.spec || '' })],
+          ['id', '#' + id], ['status', badge(st)], ['spec', e('code', { class: 'spec', text: item.spec || '' })], ['timezone', item.timezone || ''],
           ['target', item.target_name || item.target_id], ['sessionName', item.session_name], ['runMode', item.run_mode],
-          ['nextRun', item.enabled ? timeCell(item.next_run_at) : ''], ['lastRun', timeCell(item.last_run_at)],
+          ['nextRun', st === 'enabled' ? timeCell(item.next_run_at) : ''], ['lastRun', timeCell(item.last_run_at)],
           ['lastResult', last.status ? e('div', { class: 'stack tight' }, e('div', { class: 'badges' }, badge(last.status), last.taskID ? linkTo(shortID(last.taskID), 'task', { task_id: last.taskID }) : null), last.detail ? e('p', { class: 'cell-sub', text: last.detail }) : null) : '']]))),
           e('p', { class: 'note', text: t('schedulePauseNote') })))];
   }

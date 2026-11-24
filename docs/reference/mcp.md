@@ -8,7 +8,7 @@ This reference is generated from the actual `amux mcp` tools/list registry and c
 
 MCP product semantics, permissions, and lifecycle boundaries are defined by the [CLI product model](../current/cli-product-model.md) and [Task model](../distributed-task-model.md). At runtime, [`amux.result_continue`](#amuxresult_continue) continues successful results that exceed a page budget. Tool results are not tools/list registration metadata, so this reference does not maintain a separate output Schema that could drift.
 
-Official `tools/list` tools: **51**.
+Official `tools/list` tools: **52**.
 
 ## Public tool index
 
@@ -42,6 +42,7 @@ Official `tools/list` tools: **51**.
 | `amux.schedule_get` | Get a Schedule; include_runs=true includes run history and task_id values. |
 | `amux.schedule_list` | List Schedules with pagination. Follow next_cursor until has_more=false. |
 | `amux.schedule_set_enabled` | Enable or disable a Schedule. |
+| `amux.schedule_trigger` | Trigger a Schedule immediately once without changing its enabled state or next scheduled run time. |
 | `amux.schedule_update` | Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial subtask Task fields in place. Omitted fields remain unchanged. escalate-to-main is not allowed. |
 | `amux.session_interrupt` | Interrupt the current Session turn. |
 | `amux.session_list` | List caller-visible Sessions grouped by Runtime. Do not call this before creating a Session: first call session_run without target, and use this tool to choose only if it reports multiple targets. |
@@ -1202,6 +1203,26 @@ Enable or disable a Schedule.
   "required": [
     "schedule_id",
     "enabled"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.schedule_trigger`
+
+Trigger a Schedule immediately once without changing its enabled state or next scheduled run time.
+
+**Input JSON Schema**
+
+```json
+{
+  "properties": {
+    "schedule_id": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schedule_id"
   ],
   "type": "object"
 }

@@ -26,6 +26,17 @@ const (
 	DefaultRunHistoryLimit    = 50
 )
 
+const (
+	StateEnabled   = "enabled"
+	StatePaused    = "paused"
+	StateCompleted = "completed"
+)
+
+const (
+	TriggerSourceScheduled = "scheduled"
+	TriggerSourceManual    = "manual"
+)
+
 // NormalizeRunMode validates a schedule execution mode. Empty means the legacy default.
 func NormalizeRunMode(mode string) (string, error) {
 	mode = strings.TrimSpace(mode)
@@ -79,6 +90,19 @@ type Task struct {
 	// was recorded); the control plane decides what that implies.
 	OwnerPrincipalID string
 	CreatedAt        int64
+}
+
+// LifecycleState returns the user-facing schedule state: "completed" for a
+// one-shot schedule that has already run (next_run_at == nil && last_run_at != nil),
+// "paused" when disabled, and "enabled" when active.
+func (t Task) LifecycleState() string {
+	if t.Kind == KindOnce && t.NextRunAt == nil && t.LastRunAt != nil {
+		return StateCompleted
+	}
+	if !t.Enabled {
+		return StatePaused
+	}
+	return StateEnabled
 }
 
 // Run is a persisted schedule firing history entry.

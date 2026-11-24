@@ -1001,6 +1001,7 @@ const (
 	Amuxd_DeleteSchedule_FullMethodName               = "/amux.v1.Amuxd/DeleteSchedule"
 	Amuxd_UpdateSchedule_FullMethodName               = "/amux.v1.Amuxd/UpdateSchedule"
 	Amuxd_SetScheduleEnabled_FullMethodName           = "/amux.v1.Amuxd/SetScheduleEnabled"
+	Amuxd_TriggerSchedule_FullMethodName              = "/amux.v1.Amuxd/TriggerSchedule"
 	Amuxd_MaterializeCredential_FullMethodName        = "/amux.v1.Amuxd/MaterializeCredential"
 	Amuxd_SetCredential_FullMethodName                = "/amux.v1.Amuxd/SetCredential"
 	Amuxd_GetCredential_FullMethodName                = "/amux.v1.Amuxd/GetCredential"
@@ -1070,6 +1071,7 @@ type AmuxdClient interface {
 	DeleteSchedule(ctx context.Context, in *DeleteScheduleRequest, opts ...grpc.CallOption) (*DeleteScheduleResponse, error)
 	UpdateSchedule(ctx context.Context, in *UpdateScheduleRequest, opts ...grpc.CallOption) (*UpdateScheduleResponse, error)
 	SetScheduleEnabled(ctx context.Context, in *SetScheduleEnabledRequest, opts ...grpc.CallOption) (*SetScheduleEnabledResponse, error)
+	TriggerSchedule(ctx context.Context, in *TriggerScheduleRequest, opts ...grpc.CallOption) (*TriggerScheduleResponse, error)
 	MaterializeCredential(ctx context.Context, in *MaterializeCredentialRequest, opts ...grpc.CallOption) (*MaterializeCredentialResponse, error)
 	SetCredential(ctx context.Context, in *SetCredentialRequest, opts ...grpc.CallOption) (*CredentialProfileMetadata, error)
 	GetCredential(ctx context.Context, in *GetCredentialRequest, opts ...grpc.CallOption) (*CredentialProfileMetadata, error)
@@ -1466,6 +1468,16 @@ func (c *amuxdClient) SetScheduleEnabled(ctx context.Context, in *SetScheduleEna
 	return out, nil
 }
 
+func (c *amuxdClient) TriggerSchedule(ctx context.Context, in *TriggerScheduleRequest, opts ...grpc.CallOption) (*TriggerScheduleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TriggerScheduleResponse)
+	err := c.cc.Invoke(ctx, Amuxd_TriggerSchedule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *amuxdClient) MaterializeCredential(ctx context.Context, in *MaterializeCredentialRequest, opts ...grpc.CallOption) (*MaterializeCredentialResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MaterializeCredentialResponse)
@@ -1761,6 +1773,7 @@ type AmuxdServer interface {
 	DeleteSchedule(context.Context, *DeleteScheduleRequest) (*DeleteScheduleResponse, error)
 	UpdateSchedule(context.Context, *UpdateScheduleRequest) (*UpdateScheduleResponse, error)
 	SetScheduleEnabled(context.Context, *SetScheduleEnabledRequest) (*SetScheduleEnabledResponse, error)
+	TriggerSchedule(context.Context, *TriggerScheduleRequest) (*TriggerScheduleResponse, error)
 	MaterializeCredential(context.Context, *MaterializeCredentialRequest) (*MaterializeCredentialResponse, error)
 	SetCredential(context.Context, *SetCredentialRequest) (*CredentialProfileMetadata, error)
 	GetCredential(context.Context, *GetCredentialRequest) (*CredentialProfileMetadata, error)
@@ -1899,6 +1912,9 @@ func (UnimplementedAmuxdServer) UpdateSchedule(context.Context, *UpdateScheduleR
 }
 func (UnimplementedAmuxdServer) SetScheduleEnabled(context.Context, *SetScheduleEnabledRequest) (*SetScheduleEnabledResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetScheduleEnabled not implemented")
+}
+func (UnimplementedAmuxdServer) TriggerSchedule(context.Context, *TriggerScheduleRequest) (*TriggerScheduleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TriggerSchedule not implemented")
 }
 func (UnimplementedAmuxdServer) MaterializeCredential(context.Context, *MaterializeCredentialRequest) (*MaterializeCredentialResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method MaterializeCredential not implemented")
@@ -2593,6 +2609,24 @@ func _Amuxd_SetScheduleEnabled_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Amuxd_TriggerSchedule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TriggerScheduleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).TriggerSchedule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_TriggerSchedule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).TriggerSchedule(ctx, req.(*TriggerScheduleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Amuxd_MaterializeCredential_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MaterializeCredentialRequest)
 	if err := dec(in); err != nil {
@@ -3166,6 +3200,10 @@ var Amuxd_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetScheduleEnabled",
 			Handler:    _Amuxd_SetScheduleEnabled_Handler,
+		},
+		{
+			MethodName: "TriggerSchedule",
+			Handler:    _Amuxd_TriggerSchedule_Handler,
 		},
 		{
 			MethodName: "MaterializeCredential",

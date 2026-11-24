@@ -262,6 +262,11 @@ func (c *bridgeSchedules) Act(ctx context.Context, bot, open string, id int64, a
 		_, err = c.server.setScheduleEnabledRow(c.server.schedule, e.Task, false, time.Now())
 	case "resume":
 		_, err = c.server.setScheduleEnabledRow(c.server.schedule, e.Task, true, time.Now())
+	case "trigger":
+		if c.server.scheduleTrigger == nil {
+			return errors.New("scheduler trigger unavailable")
+		}
+		_, _, err = c.server.scheduleTrigger(ctx, id)
 	default:
 		err = c.server.schedule.ChangeVisibility(id, action, time.Now())
 	}
@@ -289,6 +294,55 @@ func (c *bridgeSchedules) Creators(bot string) ([]string, error) {
 	return out, nil
 }
 
+func applyTaskRunObservation(r schedule.Execution, run task.TaskRun) (schedule.Execution, error) {
+	if run.ID != r.TaskID {
+		return r, fmt.Errorf("%w: task identity mismatch", schedule.ErrObservationPermanent)
+	}
+	r.Status = "running"
+	r.Terminal = run.Status.IsTerminal()
+	r.TargetID = run.TargetID
+	r.SessionName = run.ChildSessionName
+	r.SessionID = run.ChildSessionId
+	r.TurnID = run.TurnID
+	r.LaunchID = run.LaunchID
+	if !run.StartedAt.IsZero() {
+		r.StartedAt = run.StartedAt.Unix()
+	}
+	if !run.FinishedAt.IsZero() {
+		r.FinishedAt = run.FinishedAt.Unix()
+	}
+	switch run.Status {
+	case task.StatusSucceeded:
+		r.Status = "completed"
+	case task.StatusFailed:
+		r.Status = "failed"
+	case task.StatusTimedOut:
+		r.Status = "timed_out"
+	case task.StatusCancelled:
+		r.Status = "cancelled"
+	case task.StatusPending, task.StatusScheduled, task.StatusPreparing:
+		r.Status = "submitted"
+	}
+	if run.Result != nil {
+		r.Result = run.Result.Summary
+		if run.Status == task.StatusSucceeded && run.Result.Status == task.ResultPartial {
+			r.Status = "partial"
+		}
+		if run.Status == task.StatusSucceeded && run.Result.Status == task.ResultFailed {
+			r.Status = "failed"
+		}
+	}
+	if r.Result == "" && strings.TrimSpace(run.Error) != "" {
+		errMsg := strings.TrimSpace(run.Error)
+		runes := []rune(errMsg)
+		if len(runes) > 500 {
+			errMsg = string(runes[:500]) + "…"
+		}
+		r.Result = errMsg
+	}
+	return r, nil
+}
+
 func (c *bridgeSchedules) ObserveScheduleExecution(ctx context.Context, r schedule.Execution) (schedule.Execution, error) {
 	if r.TaskID != "" {
 		raw, e := c.reader.GetSubtaskJSON(ctx, r.TaskID)
@@ -299,44 +353,7 @@ func (c *bridgeSchedules) ObserveScheduleExecution(ctx context.Context, r schedu
 		if e = json.Unmarshal(raw, &run); e != nil {
 			return r, e
 		}
-		if run.ID != r.TaskID {
-			return r, fmt.Errorf("%w: task identity mismatch", schedule.ErrObservationPermanent)
-		}
-		r.Status = "running"
-		r.Terminal = run.Status.IsTerminal()
-		r.TargetID = run.TargetID
-		r.SessionName = run.ChildSessionName
-		r.SessionID = run.ChildSessionId
-		r.TurnID = run.TurnID
-		r.LaunchID = run.LaunchID
-		if !run.StartedAt.IsZero() {
-			r.StartedAt = run.StartedAt.Unix()
-		}
-		if !run.FinishedAt.IsZero() {
-			r.FinishedAt = run.FinishedAt.Unix()
-		}
-		switch run.Status {
-		case task.StatusSucceeded:
-			r.Status = "completed"
-		case task.StatusFailed:
-			r.Status = "failed"
-		case task.StatusTimedOut:
-			r.Status = "timed_out"
-		case task.StatusCancelled:
-			r.Status = "cancelled"
-		case task.StatusPending, task.StatusScheduled, task.StatusPreparing:
-			r.Status = "submitted"
-		}
-		if run.Result != nil {
-			r.Result = run.Result.Summary
-			if run.Status == task.StatusSucceeded && run.Result.Status == task.ResultPartial {
-				r.Status = "partial"
-			}
-			if run.Status == task.StatusSucceeded && run.Result.Status == task.ResultFailed {
-				r.Status = "failed"
-			}
-		}
-		return r, nil
+		return applyTaskRunObservation(r, run)
 	}
 	// Only canonical TurnFinished closes a prompt execution. Result text is
 	// available for viewing but is never used to infer success.

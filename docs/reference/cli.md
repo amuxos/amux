@@ -83,6 +83,7 @@ After changing public command names, hierarchy, visibility, descriptions, argume
 | `amux schedule enable` | Enable a scheduled prompt |
 | `amux schedule list` | List scheduled prompts and subtasks |
 | `amux schedule remove` | Delete a scheduled prompt |
+| `amux schedule run` | Trigger a schedule immediately once without changing its next run time |
 | `amux schedule runs` | List runs for a schedule |
 | `amux schedule update` | Update a scheduled prompt or subtask in place |
 | `amux session` | Manage agent sessions |
@@ -1520,6 +1521,7 @@ amux schedule [flags]
 | `amux schedule enable` | Enable a scheduled prompt |
 | `amux schedule list` | List scheduled prompts and subtasks |
 | `amux schedule remove` | Delete a scheduled prompt |
+| `amux schedule run` | Trigger a schedule immediately once without changing its next run time |
 | `amux schedule runs` | List runs for a schedule |
 | `amux schedule update` | Update a scheduled prompt or subtask in place |
 
@@ -1664,6 +1666,22 @@ amux schedule remove <id> [flags]
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | help for remove |
+
+## `amux schedule run`
+
+Trigger a schedule immediately once without changing its next run time
+
+**Usage**
+
+```text
+amux schedule run <id> [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for run |
 
 ## `amux schedule runs`
 

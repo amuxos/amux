@@ -8,6 +8,7 @@ import (
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/schedule"
 	"github.com/amuxos/amux/internal/sessionlaunch"
+	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -243,5 +244,76 @@ func TestScheduleCreateUpdateTimezoneAndRelativeInNotifiesScheduler(t *testing.T
 	}
 	if notified != 3 {
 		t.Fatalf("schedulerNotify calls = %d, want 3", notified)
+	}
+}
+
+func TestTriggerScheduleRPCAndCompletedStateAndErrorSummary(t *testing.T) {
+	store := newScheduleTestStore(t)
+	triggeredID := int64(0)
+	srv := &hubServer{
+		schedule: store,
+		scheduleTrigger: func(_ context.Context, id int64) (schedule.Execution, string, error) {
+			triggeredID = id
+			return schedule.Execution{ID: 77, ScheduleID: id, TaskID: "task-now", TriggerSource: schedule.TriggerSourceManual, Status: "submitted"}, "ok:task:task-now", nil
+		},
+	}
+	future := time.Now().Add(time.Hour).Unix()
+	row, err := store.Create(schedule.Task{
+		Name:         "nightly",
+		ScheduleType: schedule.ScheduleTypeSubtask,
+		Spec:         "daily 09:00",
+		Kind:         schedule.KindDaily,
+		TaskSpecJson: []byte(`{"agent":"builtin/codex","task":"check"}`),
+		Enabled:      true,
+		NextRunAt:    &future,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trigResp, err := srv.TriggerSchedule(context.Background(), &pb.TriggerScheduleRequest{Id: row.ID})
+	if err != nil {
+		t.Fatalf("TriggerSchedule: %v", err)
+	}
+	if !trigResp.Ok || trigResp.ExecutionId != 77 || trigResp.TaskId != "task-now" || triggeredID != row.ID {
+		t.Fatalf("TriggerSchedule resp = %+v", trigResp)
+	}
+
+	// Consumed one-shot reports state=completed in GetSchedule.
+	past := time.Now().Add(-time.Minute).Unix()
+	once, err := store.Create(schedule.Task{
+		Name:        "one-shot",
+		TargetID:    "t1",
+		SessionName: "s1",
+		Prompt:      "done",
+		Spec:        "at 2026-01-01 09:00",
+		Kind:        schedule.KindOnce,
+		Enabled:     true,
+		NextRunAt:   &past,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RecordRun(once.ID, past, nil, "completed"); err != nil {
+		t.Fatal(err)
+	}
+	gotOnce, err := srv.GetSchedule(context.Background(), &pb.GetScheduleRequest{Id: once.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotOnce.Schedule.State != schedule.StateCompleted {
+		t.Fatalf("consumed one-shot state = %q, want completed", gotOnce.Schedule.State)
+	}
+
+	// Failed subtask with nil Result falls back to run.Error (truncated at 500 runes).
+	obs, err := applyTaskRunObservation(schedule.Execution{TaskID: "task-err"}, task.TaskRun{
+		ID:     "task-err",
+		Status: task.StatusFailed,
+		Error:  "runtime launch failed: missing credential",
+	})
+	if err != nil {
+		t.Fatalf("applyTaskRunObservation: %v", err)
+	}
+	if obs.Status != "failed" || !obs.Terminal || obs.Result != "runtime launch failed: missing credential" {
+		t.Fatalf("obs = %+v, want failed with run.Error summary", obs)
 	}
 }

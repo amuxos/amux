@@ -2999,6 +2999,9 @@
   "schedule.filter.paused": {
     "other": "已暂停"
   },
+  "schedule.filter.completed": {
+    "other": "已完成"
+  },
   "schedule.blocked.230013": {
     "other": "通知未送达：Bot 管理员不在应用可用范围内。请将管理员加入可用范围并发布后重新检查。"
   },
@@ -3025,6 +3028,9 @@
   },
   "schedule.pause": {
     "other": "暂停后续执行"
+  },
+  "schedule.trigger": {
+    "other": "立即运行"
   },
   "schedule.resume": {
     "other": "恢复后续执行"
