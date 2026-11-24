@@ -141,6 +141,7 @@ type Bridge struct {
 	mentionTurnInitiator atomic.Bool
 	queueNotice          queueNoticeState
 	steerObservers       steerObserverState
+	turnRecovery         turnRecoveryState
 	subtaskCardController
 	subtaskCardPort
 

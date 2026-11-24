@@ -2513,6 +2513,51 @@
   "session.quota.shared_pool": {
     "other": "额度提供：共享池"
   },
+  "session.recovery.prompt.rate_limit": {
+    "other": "可原地切换以下可用模型并重试本轮，不丢失当前会话上下文："
+  },
+  "session.recovery.prompt.queued": {
+    "other": "当前模型等待较久，可中断并切换以下模型重试本轮："
+  },
+  "session.recovery.button.switch": {
+    "other": "切换 %s 重试"
+  },
+  "session.recovery.button.switch_hint": {
+    "other": "切换 %s（%s）重试"
+  },
+  "session.recovery.select.placeholder": {
+    "other": "其他模型…"
+  },
+  "session.recovery.toast.switching": {
+    "other": "正在切换为 %s…"
+  },
+  "session.recovery.toast.unauthorized": {
+    "other": "仅原发起人或负责人可切换当前回合的模型。"
+  },
+  "session.recovery.toast.expired": {
+    "other": "该恢复按钮已失效，请重新发送消息或新建话题。"
+  },
+  "session.recovery.toast.processing": {
+    "other": "正在处理切换请求，请稍候。"
+  },
+  "session.recovery.toast.invalid": {
+    "other": "恢复操作参数无效。"
+  },
+  "session.recovery.notice.switched_retrying": {
+    "other": "已切换为 `%s`，正在重试上一轮请求。"
+  },
+  "session.recovery.notice.switched_tools_used": {
+    "other": "已切换为 `%s`。上一轮已执行过工具操作，为避免重复副作用未自动重发，请确认后继续发送。"
+  },
+  "session.recovery.notice.switched_manual": {
+    "other": "已切换为 `%s`，请重新发送上一条消息继续对话。"
+  },
+  "session.recovery.notice.failed": {
+    "other": "⚠️ 切换模型 `%s` 失败：%s"
+  },
+  "session.recovery.notice.resubmit_failed": {
+    "other": "已切换为 `%s`，但自动重试发送失败，请手动重新发送上一条消息。"
+  },
   "session.status.silent": {
     "other": "%s未收到新进展"
   },

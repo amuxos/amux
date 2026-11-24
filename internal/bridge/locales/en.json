@@ -2532,6 +2532,51 @@
   "session.quota.shared_pool": {
     "other": "Quota: Shared Pool"
   },
+  "session.recovery.prompt.rate_limit": {
+    "other": "Switch to an available model below and retry this turn without losing context:"
+  },
+  "session.recovery.prompt.queued": {
+    "other": "Waiting a while on the current model. Interrupt and switch to retry this turn:"
+  },
+  "session.recovery.button.switch": {
+    "other": "Switch to %s & retry"
+  },
+  "session.recovery.button.switch_hint": {
+    "other": "Switch to %s (%s) & retry"
+  },
+  "session.recovery.select.placeholder": {
+    "other": "Other models…"
+  },
+  "session.recovery.toast.switching": {
+    "other": "Switching to %s…"
+  },
+  "session.recovery.toast.unauthorized": {
+    "other": "Only the turn initiator or Bot owner can switch models for this turn."
+  },
+  "session.recovery.toast.expired": {
+    "other": "This recovery action has expired. Please resend your message or start a new topic."
+  },
+  "session.recovery.toast.processing": {
+    "other": "Model switch is already in progress."
+  },
+  "session.recovery.toast.invalid": {
+    "other": "Invalid model recovery action."
+  },
+  "session.recovery.notice.switched_retrying": {
+    "other": "Switched to `%s`. Retrying your previous turn."
+  },
+  "session.recovery.notice.switched_tools_used": {
+    "other": "Switched to `%s`. Because tool calls already ran in the previous turn, it was not replayed automatically—please confirm and continue."
+  },
+  "session.recovery.notice.switched_manual": {
+    "other": "Switched to `%s`. Please resend your previous message to continue."
+  },
+  "session.recovery.notice.failed": {
+    "other": "⚠️ Failed to switch to `%s`: %s"
+  },
+  "session.recovery.notice.resubmit_failed": {
+    "other": "Switched to `%s`, but automatic retry submission failed. Please resend your message."
+  },
   "session.status.silent": {
     "other": "No new progress for %s"
   },

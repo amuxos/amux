@@ -9,6 +9,8 @@ import (
 
 type BridgeExtension = bridge.Extension
 type BridgeTextCommandRequest = bridge.TextCommandRequest
+type BridgeFallbackModelRequest = bridge.FallbackModelRequest
+type BridgeFallbackModelCandidate = bridge.FallbackModelCandidate
 type BridgeExperimentToggle = bridge.ExperimentToggle
 type BridgeOnboardingOptions = bridge.OnboardingOptions
 type BridgeActivityView = agentui.ActivityView

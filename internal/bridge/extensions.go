@@ -49,6 +49,27 @@ type ExperimentToggle struct {
 	SetEnabled func(bool) error
 }
 
+// FallbackModelCandidate describes one same-engine model candidate shown on a
+// turn recovery card.
+type FallbackModelCandidate struct {
+	Model string
+	Label string
+	Hint  string
+}
+
+// FallbackModelRequest carries context for distribution-specific fallback
+// ranking (for example filtering depleted or overloaded models).
+type FallbackModelRequest struct {
+	AgentType    string
+	AgentProfile string
+	CurrentModel string
+	TargetID     string
+	SessionName  string
+	OpenID       string
+	PrincipalID  string
+	Candidates   []FallbackModelCandidate
+}
+
 type Extension struct {
 	Onboarding             OnboardingOptions
 	SessionCredential      *CredentialAdmissionOptions
@@ -61,6 +82,7 @@ type Extension struct {
 	AgentTypeName          func(string) string
 	CoordinationProfile    func(string) bool
 	HandleTextCommand      func(context.Context, TextCommandRequest) (string, bool, error)
+	RankFallbackModels     func(context.Context, FallbackModelRequest) ([]FallbackModelCandidate, error)
 	// DefaultProfileReplacements maps retired default refs to replacements.
 	// Targets cannot also be sources, so repeated migrations are idempotent.
 	DefaultProfileReplacements map[string]string

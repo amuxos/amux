@@ -141,6 +141,7 @@ func (b *Bridge) submitToSessionMode(ctx context.Context, chat *LarkChat, text s
 	// Steered input joins the running turn (first chat wins); queued or
 	// coalesced input starts its own turn from this chat.
 	b.recordTurnSourceChat(chat.RootMsgID, receipt.TurnID, chat.ChatID, chat.ThreadID)
+	b.recordTurnRecovery(chat, receipt.TurnID, text, parts, systemInstructions, inputs, receipt.Delivery == "steered")
 	if receipt.Delivery == "steered" {
 		b.noteTurnSteered(chat.RootMsgID, receipt.TurnID)
 	}
