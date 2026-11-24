@@ -27,12 +27,13 @@ const tickInterval = 20 * time.Second
 const submitTimeout = 60 * time.Second
 
 const (
-	subtaskSubmitTimeout = 30 * time.Second
-	subtaskSubmitWorkers = 8
-	promptDeliverWorkers = 8
-	observeWorkers       = 4
-	observeMaxAge        = 24 * time.Hour
-	observeMaxBackoff    = 15 * time.Minute
+	subtaskSubmitTimeout                      = 30 * time.Second
+	subtaskSubmitWorkers                      = 8
+	promptDeliverWorkers                      = 8
+	observeWorkers                            = 4
+	observeMaxAge                             = 24 * time.Hour
+	observeMaxBackoff                         = 15 * time.Minute
+	defaultScheduledSessionIdleTimeoutSeconds = int64(30 * time.Minute / time.Second)
 )
 
 // ErrObservationPermanent marks an observation failure that can never recover
@@ -58,19 +59,25 @@ type TaskSubmitter interface {
 // enforces that the injected decision runs on every delivery path.
 type SessionPromptAuthorizer func(ctx context.Context, task Task, session *pb.Session) error
 
+// NewSessionLaunchPreparer enriches a new-session-per-run launch request with
+// control-plane execution identity, actor token, and resolved profile spec
+// derived from the authorized template session.
+type NewSessionLaunchPreparer func(ctx context.Context, task Task, template *pb.Session, req *sessionlaunch.StartRequest) error
+
 // Scheduler runs due tasks on a background tick, injecting prompts into
 // sessions via the hub.
 type Scheduler struct {
-	sub            Submitter
-	sessionStarter sessionlaunch.Starter
-	store          *Store
-	taskSubmit     TaskSubmitter
-	authorize      SessionPromptAuthorizer
-	subtaskSem     chan struct{}
-	promptSem      chan struct{}
-	wakeCh         chan struct{}
-	deferred       atomic.Bool
-	observer       OutcomeReader
+	sub               Submitter
+	sessionStarter    sessionlaunch.Starter
+	store             *Store
+	taskSubmit        TaskSubmitter
+	authorize         SessionPromptAuthorizer
+	prepareNewSession NewSessionLaunchPreparer
+	subtaskSem        chan struct{}
+	promptSem         chan struct{}
+	wakeCh            chan struct{}
+	deferred          atomic.Bool
+	observer          OutcomeReader
 
 	inFlightMu sync.Mutex
 	inFlight   map[int64]struct{}
@@ -94,6 +101,12 @@ func NewWithTaskSubmitter(sub Submitter, store *Store, starter sessionlaunch.Sta
 // A nil callback preserves legacy installations that do not have identities.
 func (s *Scheduler) SetSessionPromptAuthorizer(authorize SessionPromptAuthorizer) {
 	s.authorize = authorize
+}
+
+// SetNewSessionLaunchPreparer installs the control-plane callback that prepares
+// identity, actor tokens, and resolved profile specs for new-session-per-run.
+func (s *Scheduler) SetNewSessionLaunchPreparer(prepare NewSessionLaunchPreparer) {
+	s.prepareNewSession = prepare
 }
 
 // Wait blocks until all in-flight asynchronous schedule deliveries, subtask
@@ -404,23 +417,44 @@ func (s *Scheduler) deliverNewSessionPerRun(ctx context.Context, t Task, now tim
 			return "error: " + err.Error()
 		}
 	}
-	name := scheduledSessionName(t.ID, now)
+	var execID int64
+	if r, _ := ctx.Value(executionKey{}).(*Execution); r != nil {
+		execID = r.ID
+	}
+	name := scheduledSessionName(t.ID, execID, now)
 	runCtx, cancel := context.WithTimeout(ctx, submitTimeout)
 	defer cancel()
-	session, err := s.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{
+	idleTimeout := template.IdleTimeoutSeconds
+	if idleTimeout <= 0 {
+		idleTimeout = defaultScheduledSessionIdleTimeoutSeconds
+	}
+	startReq := sessionlaunch.StartRequest{
 		TargetID: t.TargetID,
 		Name:     name,
 		Launch: agentprofile.LaunchProjection{
-			AgentType: template.AgentType,
-			ExtraArgs: append([]string(nil), template.ExtraArgs...),
-			Env:       append([]string(nil), template.Env...),
+			AgentProfile: template.AgentProfile,
+			AgentType:    template.AgentType,
+			ExtraArgs:    append([]string(nil), template.ExtraArgs...),
+			Env:          append([]string(nil), template.Env...),
 		},
 		Workspace: sessionlaunch.WorkspaceRequest{
 			Cwd:    template.Cwd,
 			Source: template.WorkspaceSource,
 			Scope:  template.WorkspaceScope,
 		},
-	})
+		IdleTimeoutSeconds: &idleTimeout,
+		ExecutionIdentity:  template.GetExecutionIdentity(),
+	}
+	if s.prepareNewSession != nil {
+		if err := s.prepareNewSession(runCtx, t, template, &startReq); err != nil {
+			log.Warn().Err(err).Int64("id", t.ID).Str("session", name).Msg("scheduler: prepare new session failed")
+			if r, _ := ctx.Value(executionKey{}).(*Execution); r != nil {
+				r.Reason = "admission_rejected"
+			}
+			return "error: prepare: " + err.Error()
+		}
+	}
+	session, err := s.sessionStarter.Start(runCtx, startReq)
 	if err != nil {
 		log.Warn().Err(err).Int64("id", t.ID).Str("session", name).Msg("scheduler: run failed")
 		return "error: run: " + err.Error()
@@ -463,8 +497,12 @@ func (s *Scheduler) findSession(targetID, sessionName string) *pb.Session {
 	return nil
 }
 
-func scheduledSessionName(taskID int64, now time.Time) string {
-	return fmt.Sprintf("sched-%d-%s", taskID, strings.ToLower(now.UTC().Format("20060102-150405")))
+func scheduledSessionName(taskID, execID int64, now time.Time) string {
+	stamp := strings.ToLower(now.UTC().Format("20060102-150405"))
+	if execID > 0 {
+		return fmt.Sprintf("sched-%d-%s-%d", taskID, stamp, execID)
+	}
+	return fmt.Sprintf("sched-%d-%s", taskID, stamp)
 }
 
 // liveState reports whether a session state can accept input. Killed sessions

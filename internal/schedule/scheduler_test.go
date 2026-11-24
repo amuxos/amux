@@ -901,6 +901,12 @@ func TestSchedulerNewSessionPerRun(t *testing.T) {
 	if run.Name == "" || submit.Name != "resolved-session" {
 		t.Fatalf("run name = %q submit name = %q, want resolved response name", run.Name, submit.Name)
 	}
+	if !strings.HasPrefix(run.Name, "sched-") || !strings.HasSuffix(run.Name, "-1") {
+		t.Fatalf("run name = %q, want sched-<id>-<ts>-<execID>", run.Name)
+	}
+	if !run.IdleTimeoutSecondsSet || run.IdleTimeoutSeconds != defaultScheduledSessionIdleTimeoutSeconds {
+		t.Fatalf("idle timeout = (%v, %d), want (true, %d)", run.IdleTimeoutSecondsSet, run.IdleTimeoutSeconds, defaultScheduledSessionIdleTimeoutSeconds)
+	}
 	if run.AgentType != "demo-agent" || run.Cwd != "/repo" || run.WorkspaceSource != "cli" || run.WorkspaceScope != "local" {
 		t.Fatalf("run request did not clone template: %+v", run)
 	}
