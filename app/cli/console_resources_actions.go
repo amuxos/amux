@@ -565,10 +565,12 @@ func (b *consoleBackend) consoleExecuteSchedule(ctx context.Context, action stri
 		}
 	}
 	var req struct {
-		ID   int64                       `json:"schedule_id"`
-		Name *string                     `json:"name,omitempty"`
-		Spec *string                     `json:"spec,omitempty"`
-		Task *clientop.ScheduledTaskSpec `json:"task,omitempty"`
+		ID      int64                       `json:"schedule_id"`
+		Name    *string                     `json:"name,omitempty"`
+		Spec    *string                     `json:"spec,omitempty"`
+		Prompt  *string                     `json:"prompt,omitempty"`
+		RunMode *string                     `json:"run_mode,omitempty"`
+		Task    *clientop.ScheduledTaskSpec `json:"task,omitempty"`
 	}
 	if err := consoleDecode(data, &req); err != nil {
 		return nil, err
@@ -600,7 +602,7 @@ func (b *consoleBackend) consoleExecuteSchedule(ctx context.Context, action stri
 				}
 			}
 		}
-		return clientop.ScheduleUpdate(ctx, b.hub, clientop.ScheduleUpdateRequest{ID: req.ID, Name: req.Name, Spec: req.Spec, Task: req.Task})
+		return clientop.ScheduleUpdate(ctx, b.hub, clientop.ScheduleUpdateRequest{ID: req.ID, Name: req.Name, Spec: req.Spec, Prompt: req.Prompt, RunMode: req.RunMode, Task: req.Task})
 	case "enable", "disable":
 		ok, err := clientop.ScheduleSetEnabled(ctx, b.hub, req.ID, action == "enable")
 		return consoleOK(ok, err)

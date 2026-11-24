@@ -147,15 +147,18 @@ func ScheduleSetEnabled(ctx context.Context, hub pb.AmuxdClient, id int64, enabl
 	return true, nil
 }
 
-// ScheduleUpdateRequest updates one schedule in place. Any of Name, Spec, or
-// Task may be set; omitted fields keep their current value. Setting Spec
-// recomputes next_run_at on the hub. Setting Task requires a complete spec and
-// reuses the same validation as create.
+// ScheduleUpdateRequest updates one schedule in place. Any of Name, Spec,
+// Prompt, RunMode, or Task may be set; omitted fields keep their current value.
+// Setting Spec recomputes next_run_at on the hub. Prompt and RunMode apply to
+// session-prompt schedules; Task applies to subtask schedules and reuses the
+// same validation as create.
 type ScheduleUpdateRequest struct {
-	ID   int64
-	Name *string
-	Spec *string
-	Task *ScheduledTaskSpec
+	ID      int64
+	Name    *string
+	Spec    *string
+	Prompt  *string
+	RunMode *string
+	Task    *ScheduledTaskSpec
 }
 
 // ScheduleUpdateResult is what an update returns.
@@ -182,6 +185,22 @@ func ScheduleUpdate(ctx context.Context, hub pb.AmuxdClient, req ScheduleUpdateR
 		wire.Spec = &spec
 		changed = true
 	}
+	if req.Prompt != nil {
+		prompt := strings.TrimSpace(*req.Prompt)
+		if prompt == "" {
+			return ScheduleUpdateResult{}, RequiredError(FieldPrompt)
+		}
+		wire.Prompt = &prompt
+		changed = true
+	}
+	if req.RunMode != nil {
+		runMode, err := schedule.NormalizeRunMode(*req.RunMode)
+		if err != nil {
+			return ScheduleUpdateResult{}, InvalidError(FieldRunMode, *req.RunMode, "reuse-session or new-session-per-run")
+		}
+		wire.RunMode = &runMode
+		changed = true
+	}
 	if req.Task != nil {
 		if err := req.Task.Validate(); err != nil {
 			return ScheduleUpdateResult{}, err
@@ -194,7 +213,7 @@ func ScheduleUpdate(ctx context.Context, hub pb.AmuxdClient, req ScheduleUpdateR
 		changed = true
 	}
 	if !changed {
-		return ScheduleUpdateResult{}, fmt.Errorf("at least one of name, spec, or task is required")
+		return ScheduleUpdateResult{}, fmt.Errorf("at least one of name, spec, prompt, run_mode, or task is required")
 	}
 	resp, err := hub.UpdateSchedule(ctx, wire)
 	if err != nil {

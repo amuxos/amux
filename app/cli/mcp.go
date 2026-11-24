@@ -676,6 +676,15 @@ func amuxTools() []mcp.Tool {
 		panic("build scheduled task schema: " + err.Error())
 	}
 	scheduledTaskSchema := json.RawMessage(scheduledTaskSchemaBytes)
+	var updateTaskSchemaObj map[string]any
+	if err := json.Unmarshal(scheduledTaskSchemaBytes, &updateTaskSchemaObj); err != nil {
+		panic("parse scheduled task schema for update: " + err.Error())
+	}
+	delete(updateTaskSchemaObj, "required")
+	updateTaskSchemaBytes, err := json.Marshal(updateTaskSchemaObj)
+	if err != nil {
+		panic("marshal scheduled task update schema: " + err.Error())
+	}
 	createScheduleSchema := json.RawMessage(`{
   "type": "object",
   "properties": {
@@ -697,7 +706,9 @@ func amuxTools() []mcp.Tool {
     "schedule_id": {"type": "integer"},
     "name": {"type": "string", "description": "Schedule 的新显示名称；省略时保持不变"},
     "spec": {"type": "string", "description": "新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at"},
-    "task": ` + string(scheduledTaskSchema) + `
+    "prompt": {"type": "string", "description": "仅 session-prompt：更新到期投递到目标 Session 的提示词；省略时保持不变"},
+    "run_mode": {"type": "string", "enum": ["reuse-session", "new-session-per-run"], "description": "仅 session-prompt：更新执行模式（reuse-session 或 new-session-per-run）；省略时保持不变"},
+    "task": ` + string(updateTaskSchemaBytes) + `
   },
   "required": ["schedule_id"]
 }`)
@@ -925,7 +936,7 @@ func amuxTools() []mcp.Tool {
 		{Name: "amux.schedule_list", Description: "分页列出 Schedule；沿 next_cursor 读取至 has_more=false。", InputSchema: scheduleListSchema},
 		{Name: "amux.schedule_get", Description: "获取 Schedule；include_runs=true 时包含运行历史及 task_id。", InputSchema: getScheduleSchema},
 		{Name: "amux.schedule_delete", Description: "删除 Schedule；既有运行对应的 Task 结果仍可读取。", InputSchema: scheduleIDSchema},
-		{Name: "amux.schedule_update", Description: "原地更新 Schedule 的名称、时间规则或 Task；省略字段保持不变，不允许 escalate-to-main。", InputSchema: updateScheduleSchema},
+		{Name: "amux.schedule_update", Description: "原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。", InputSchema: updateScheduleSchema},
 		{Name: "amux.schedule_set_enabled", Description: "启用或停用 Schedule。", InputSchema: setScheduleEnabledSchema},
 		{Name: "amux.instance_spawn", Description: "非阻塞创建持久 Agent Instance（后台实例），返回稳定的 agent_instance_id。适用于你判断需要较长时间执行或大量工具调用的任务；短问题直接回答，不要委派。prompt 要自包含：写清目标、约束、交付物，并要求后台 Agent 结束时给出一段简洁的、面向用户的结论（放在最终回复末尾，可用「结论：」开头），不要把工作过程当作结论。调用后简短告诉用户已在后台开始，并继续响应用户的新消息；记住 agent_instance_id 与任务的对应关系，但对用户用自然语言描述任务，不要展示原始 id。任务结束时系统会自动向你送达一条「后台任务完成」通知，无需轮询或反复调用 task_get。", InputSchema: spawnAgentSchema},
 		{Name: "amux.instance_send", Description: "向持久 Agent mailbox 入队消息但不唤醒，不启动新 turn。", InputSchema: sendMessageSchema},

@@ -2027,5 +2027,13 @@ func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRe
 		}
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
+	if scheduleType == schedule.ScheduleTypeSubtask && len(req.TaskSpecJson) > 0 {
+		var spec task.Spec
+		if json.Unmarshal(updated.TaskSpecJson, &spec) == nil && spec.ExecutionIdentity != nil {
+			if encoded, mErr := json.Marshal(*spec.ExecutionIdentity); mErr == nil {
+				_ = store.UpdateCreatorAccessIdentity(updated.ID, string(encoded))
+			}
+		}
+	}
 	return &pb.UpdateScheduleResponse{Schedule: scheduleItemFromTask(updated, nil)}, nil
 }

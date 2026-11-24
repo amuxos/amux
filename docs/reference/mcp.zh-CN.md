@@ -42,7 +42,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.schedule_get` | 获取 Schedule；include_runs=true 时包含运行历史及 task_id。 |
 | `amux.schedule_list` | 分页列出 Schedule；沿 next_cursor 读取至 has_more=false。 |
 | `amux.schedule_set_enabled` | 启用或停用 Schedule。 |
-| `amux.schedule_update` | 原地更新 Schedule 的名称、时间规则或 Task；省略字段保持不变，不允许 escalate-to-main。 |
+| `amux.schedule_update` | 原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。 |
 | `amux.session_interrupt` | 中断 Session 当前 turn。 |
 | `amux.session_list` | 按 runtime 分组列出调用方可见的 Session；创建 Session 时不要预先调用，先省略 target 调用 session_run，仅在其报告多个 target 后用本工具选择。 |
 | `amux.session_prune` | 破坏性操作：永久删除已归档 Session；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent；Task 历史使用 task_prune。 |
@@ -1205,7 +1205,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.schedule_update`
 
-原地更新 Schedule 的名称、时间规则或 Task；省略字段保持不变，不允许 escalate-to-main。
+原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。
 
 **输入 JSON Schema**
 
@@ -1214,6 +1214,18 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
   "properties": {
     "name": {
       "description": "Schedule 的新显示名称；省略时保持不变",
+      "type": "string"
+    },
+    "prompt": {
+      "description": "仅 session-prompt：更新到期投递到目标 Session 的提示词；省略时保持不变",
+      "type": "string"
+    },
+    "run_mode": {
+      "description": "仅 session-prompt：更新执行模式（reuse-session 或 new-session-per-run）；省略时保持不变",
+      "enum": [
+        "reuse-session",
+        "new-session-per-run"
+      ],
       "type": "string"
     },
     "schedule_id": {
@@ -1321,10 +1333,6 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
           "type": "object"
         }
       },
-      "required": [
-        "agent",
-        "task"
-      ],
       "type": "object"
     }
   },

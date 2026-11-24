@@ -1693,6 +1693,7 @@ amux schedule update <id> [flags]
 ```bash
 amux schedule update 8 --name nightly-report
   amux schedule update 8 --spec "daily 09:00"
+  amux schedule update 8 --prompt "summarize blockers" --run-mode new-session-per-run
   amux schedule update 8 --agent builtin/codex --task "run smoke tests"
   amux schedule update 8 --timeout 600 --reasoning-effort high
 ```
@@ -1710,6 +1711,7 @@ amux schedule update 8 --name nightly-report
 | `--model` | `string` | `""` | Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model |
 | `--name` | `string` | `""` | new label for the schedule |
 | `--permission-policy` | `string` | `""` | Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags |
+| `--prompt` | `string` | `""` | new prompt for a session-prompt schedule |
 | `--reasoning-effort` | `string` | `""` | Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default |
 | `--repo-cache-key` | `string` | `""` | workspace repo cache key |
 | `--repo-commit` | `string` | `""` | workspace repo commit/ref |
@@ -1717,6 +1719,7 @@ amux schedule update 8 --name nightly-report
 | `--repo-remote` | `string` | `""` | workspace repo remote URL or stable id |
 | `--repo-subdir` | `string` | `""` | workspace repo subdirectory |
 | `--run-as` | `string` | `""` | run as an enrolled principal alias (resolved and frozen when the schedule is saved) |
+| `--run-mode` | `string` | `""` | new execution mode for a session-prompt schedule: reuse-session or new-session-per-run |
 | `--runtime` | `string` | `""` | Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts |
 | `--spec` | `string` | `""` | new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run |
 | `--task` | `string` | `""` | task prompt to run on each schedule fire |

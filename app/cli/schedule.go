@@ -407,12 +407,13 @@ func (f scheduleTaskFlags) applyChangedFlags(cmd *cobra.Command, dst *clientop.S
 
 func newScheduleUpdateCmd() *cobra.Command {
 	flags := scheduleTaskFlags{workspacePolicy: string(task.WorkspaceTempDir)}
-	var name, spec string
+	var name, spec, prompt, runMode string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a scheduled prompt or subtask in place",
 		Example: `  amux schedule update 8 --name nightly-report
   amux schedule update 8 --spec "daily 09:00"
+  amux schedule update 8 --prompt "summarize blockers" --run-mode new-session-per-run
   amux schedule update 8 --agent builtin/codex --task "run smoke tests"
   amux schedule update 8 --timeout 600 --reasoning-effort high`,
 		Args:              cobra.ExactArgs(1),
@@ -428,6 +429,12 @@ func newScheduleUpdateCmd() *cobra.Command {
 			}
 			if cmd.Flags().Changed("spec") {
 				req.Spec = &spec
+			}
+			if cmd.Flags().Changed("prompt") {
+				req.Prompt = &prompt
+			}
+			if cmd.Flags().Changed("run-mode") {
+				req.RunMode = &runMode
 			}
 			ctx := cmdContext(cmd)
 			client, closeClient, err := newScheduleClient()
@@ -477,10 +484,14 @@ func newScheduleUpdateCmd() *cobra.Command {
 	})
 	c.Flags().StringVar(&name, "name", "", "new label for the schedule")
 	c.Flags().StringVar(&spec, "spec", "", "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run")
+	c.Flags().StringVar(&prompt, "prompt", "", "new prompt for a session-prompt schedule")
+	c.Flags().StringVar(&runMode, "run-mode", "", "new execution mode for a session-prompt schedule: reuse-session or new-session-per-run")
 	registerScheduleTaskFlags(c, &flags)
 	registerScheduleTaskFlagCompletions(c)
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("spec", completeScheduleSpec)
+	_ = c.RegisterFlagCompletionFunc("prompt", completeNoFiles)
+	_ = c.RegisterFlagCompletionFunc("run-mode", completeScheduleRunModes)
 	return c
 }
 func newScheduleRunsCmd() *cobra.Command {
