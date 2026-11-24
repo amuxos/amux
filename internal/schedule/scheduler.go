@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -21,13 +23,22 @@ import (
 // precision is intentionally not offered (see minInterval in spec.go).
 const tickInterval = 20 * time.Second
 
-// submitTimeout bounds a single prompt injection.
-const submitTimeout = 10 * time.Minute
+// submitTimeout bounds a single async prompt submission or template session launch.
+const submitTimeout = 60 * time.Second
 
 const (
 	subtaskSubmitTimeout = 30 * time.Second
-	subtaskSubmitWorkers = 4
+	subtaskSubmitWorkers = 8
+	promptDeliverWorkers = 8
+	observeWorkers       = 4
+	observeMaxAge        = 24 * time.Hour
+	observeMaxBackoff    = 15 * time.Minute
 )
+
+// ErrObservationPermanent marks an observation failure that can never recover
+// (for example, a replaced session ID or mismatched task identity). Reconcile
+// converges such executions to terminal unknown rather than polling forever.
+var ErrObservationPermanent = errors.New("schedule observation permanently unavailable")
 
 // Submitter is the subset of *tunnel.Hub the scheduler needs. It is an
 // interface so the tick loop can be unit-tested without a real hub.
@@ -56,7 +67,14 @@ type Scheduler struct {
 	taskSubmit     TaskSubmitter
 	authorize      SessionPromptAuthorizer
 	subtaskSem     chan struct{}
+	promptSem      chan struct{}
+	wakeCh         chan struct{}
+	deferred       atomic.Bool
 	observer       OutcomeReader
+
+	inFlightMu sync.Mutex
+	inFlight   map[int64]struct{}
+	wg         sync.WaitGroup
 }
 
 func NewWithTaskSubmitter(sub Submitter, store *Store, starter sessionlaunch.Starter, taskSubmit TaskSubmitter) *Scheduler {
@@ -66,6 +84,9 @@ func NewWithTaskSubmitter(sub Submitter, store *Store, starter sessionlaunch.Sta
 		store:          store,
 		taskSubmit:     taskSubmit,
 		subtaskSem:     make(chan struct{}, subtaskSubmitWorkers),
+		promptSem:      make(chan struct{}, promptDeliverWorkers),
+		wakeCh:         make(chan struct{}, 1),
+		inFlight:       make(map[int64]struct{}),
 	}
 }
 
@@ -75,17 +96,62 @@ func (s *Scheduler) SetSessionPromptAuthorizer(authorize SessionPromptAuthorizer
 	s.authorize = authorize
 }
 
-// Start runs the tick loop until ctx is cancelled. Intended to run in its own
-// goroutine.
+// Wait blocks until all in-flight asynchronous schedule deliveries, subtask
+// submissions, and observer routines have completed.
+func (s *Scheduler) Wait() {
+	s.wg.Wait()
+}
+
+func (s *Scheduler) beginInFlight(execID int64) {
+	s.inFlightMu.Lock()
+	if s.inFlight == nil {
+		s.inFlight = make(map[int64]struct{})
+	}
+	s.inFlight[execID] = struct{}{}
+	s.inFlightMu.Unlock()
+}
+
+func (s *Scheduler) endInFlight(execID int64) {
+	s.inFlightMu.Lock()
+	delete(s.inFlight, execID)
+	s.inFlightMu.Unlock()
+}
+
+func (s *Scheduler) isInFlight(execID int64) bool {
+	s.inFlightMu.Lock()
+	_, ok := s.inFlight[execID]
+	s.inFlightMu.Unlock()
+	return ok
+}
+
+func (s *Scheduler) notifyIfDeferred() {
+	if !s.deferred.Swap(false) {
+		return
+	}
+	select {
+	case s.wakeCh <- struct{}{}:
+	default:
+	}
+}
+
+// Start runs the tick loop until ctx is cancelled, then waits for all in-flight
+// workers and the observer loop to finish before returning.
 func (s *Scheduler) Start(ctx context.Context) {
-	go s.runObserver(ctx)
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.runObserver(ctx)
+	}()
 	ticker := time.NewTicker(tickInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
+			s.wg.Wait()
 			return
 		case <-ticker.C:
+			s.runDue(ctx, time.Now())
+		case <-s.wakeCh:
 			s.runDue(ctx, time.Now())
 		}
 	}
@@ -126,6 +192,16 @@ func (s *Scheduler) fire(ctx context.Context, t Task, now time.Time) {
 		return
 	}
 
+	// Acquire a worker slot before claiming so busy workers defer the claim
+	// instead of silently advancing next_run_at and dropping the occurrence.
+	select {
+	case s.promptSem <- struct{}{}:
+	default:
+		s.deferred.Store(true)
+		log.Info().Int64("id", t.ID).Msg("scheduler: session-prompt workers busy, deferring claim")
+		return
+	}
+
 	var next *int64
 	if spec.Recurring() {
 		if at, ok := spec.Next(now); ok {
@@ -134,8 +210,23 @@ func (s *Scheduler) fire(ctx context.Context, t Task, now time.Time) {
 	}
 	run, claimed, err := s.store.ClaimTracked(t, now, next)
 	if err != nil || !claimed {
+		<-s.promptSem
+		s.notifyIfDeferred()
 		return
 	}
+	s.beginInFlight(run.ID)
+	s.wg.Add(1)
+	go s.deliverSessionPrompt(ctx, t, spec, run, now)
+}
+
+func (s *Scheduler) deliverSessionPrompt(ctx context.Context, t Task, spec Spec, run Execution, now time.Time) {
+	defer s.wg.Done()
+	defer func() {
+		<-s.promptSem
+		s.notifyIfDeferred()
+	}()
+	defer s.endInFlight(run.ID)
+
 	status := s.deliver(context.WithValue(ctx, executionKey{}, &run), t, now)
 	if !spec.Recurring() && status == statusSkippedOffline {
 		status = statusMissed
@@ -146,7 +237,6 @@ func (s *Scheduler) fire(ctx context.Context, t Task, now time.Time) {
 	if err := s.store.Observe(run, now); err != nil {
 		log.Warn().Err(err).Msg("scheduler: persist prompt observation")
 	}
-
 }
 
 const (
@@ -163,16 +253,15 @@ func (s *Scheduler) fireSubtask(ctx context.Context, t Task, spec Spec, now time
 			next = unixPtr(nextAt)
 		}
 	}
-	run, claimed, err := s.store.ClaimTracked(t, now, next)
-	if err != nil {
-		log.Warn().Err(err).Int64("id", t.ID).Msg("scheduler: claim subtask run")
-		return
-	}
-	if !claimed {
-		return
-	}
-
 	if s.taskSubmit == nil {
+		run, claimed, err := s.store.ClaimTracked(t, now, next)
+		if err != nil {
+			log.Warn().Err(err).Int64("id", t.ID).Msg("scheduler: claim subtask run")
+			return
+		}
+		if !claimed {
+			return
+		}
 		status := statusMissed
 		if spec.Recurring() {
 			status = "error: scheduled subtask submitter unavailable"
@@ -184,23 +273,42 @@ func (s *Scheduler) fireSubtask(ctx context.Context, t Task, spec Spec, now time
 		return
 	}
 
+	// Acquire a worker slot before claiming so a burst of concurrent schedules
+	// (e.g. multiple daily 09:00 rules) defers instead of silently dropping.
 	select {
 	case s.subtaskSem <- struct{}{}:
-		go s.submitSubtask(ctx, t, run)
 	default:
-		status := statusMissed
-		if spec.Recurring() {
-			status = "error: scheduled subtask submission queue full"
-		}
-		run.Status = "missed"
-		run.Reason = "not_dispatched"
-		run.Terminal = true
-		s.recordTrackedSubtask(run, "", status)
+		s.deferred.Store(true)
+		log.Info().Int64("id", t.ID).Msg("scheduler: subtask workers busy, deferring claim")
+		return
 	}
+
+	run, claimed, err := s.store.ClaimTracked(t, now, next)
+	if err != nil {
+		<-s.subtaskSem
+		s.notifyIfDeferred()
+		log.Warn().Err(err).Int64("id", t.ID).Msg("scheduler: claim subtask run")
+		return
+	}
+	if !claimed {
+		<-s.subtaskSem
+		s.notifyIfDeferred()
+		return
+	}
+
+	s.beginInFlight(run.ID)
+	s.wg.Add(1)
+	go s.submitSubtask(ctx, t, run)
 }
 
 func (s *Scheduler) submitSubtask(ctx context.Context, t Task, run Execution) {
-	defer func() { <-s.subtaskSem }()
+	defer s.wg.Done()
+	defer func() {
+		<-s.subtaskSem
+		s.notifyIfDeferred()
+	}()
+	defer s.endInFlight(run.ID)
+
 	submitCtx, cancel := context.WithTimeout(ctx, subtaskSubmitTimeout)
 	defer cancel()
 	taskID, err := s.taskSubmit.SubmitScheduledTask(submitCtx, t.TaskSpecJson)
@@ -264,6 +372,7 @@ func (s *Scheduler) deliverReuseSession(ctx context.Context, t Task) string {
 		Name:   t.SessionName,
 		Text:   t.Prompt,
 		Source: "scheduler",
+		Async:  true,
 	})
 	if err != nil {
 		log.Warn().Err(err).Int64("id", t.ID).Msg("scheduler: submit failed")
@@ -320,6 +429,7 @@ func (s *Scheduler) deliverNewSessionPerRun(ctx context.Context, t Task, now tim
 		Name:   session.Name,
 		Text:   t.Prompt,
 		Source: "scheduler",
+		Async:  true,
 	})
 	if err != nil {
 		log.Warn().Err(err).Int64("id", t.ID).Str("session", session.Name).Msg("scheduler: submit failed")
@@ -422,6 +532,11 @@ func finishAdmission(r *Execution, status string, now time.Time) {
 			r.Terminal = true
 		} else {
 			r.Reason = "admission_unconfirmed"
+			if r.TaskID == "" && r.TurnID == "" {
+				// Admission finished without a trackable receipt; converge to
+				// terminal unknown immediately so reconcile does not poll forever.
+				r.Terminal = true
+			}
 		}
 	}
 	if r.Terminal {
@@ -436,6 +551,22 @@ func (s *Scheduler) recordTrackedSubtask(r Execution, taskID, status string) {
 		log.Warn().Err(err).Msg("scheduler: persist task observation")
 	}
 }
+
+func observeBackoff(failures int) time.Duration {
+	if failures <= 1 {
+		return tickInterval
+	}
+	shift := failures - 1
+	if shift > 6 {
+		shift = 6
+	}
+	d := tickInterval << shift
+	if d > observeMaxBackoff {
+		return observeMaxBackoff
+	}
+	return d
+}
+
 func (s *Scheduler) reconcile(ctx context.Context, now time.Time) {
 	if s.observer == nil {
 		return
@@ -444,33 +575,74 @@ func (s *Scheduler) reconcile(ctx context.Context, now time.Time) {
 	if err != nil {
 		return
 	}
+	var ready []Execution
 	for _, r := range runs {
+		if s.isInFlight(r.ID) {
+			continue
+		}
+		if r.NextObserveAt > now.Unix() {
+			continue
+		}
+		ready = append(ready, r)
+	}
+	if len(ready) == 0 {
+		return
+	}
+	sem := make(chan struct{}, observeWorkers)
+	var wg sync.WaitGroup
+	for _, r := range ready {
 		if ctx.Err() != nil {
+			break
+		}
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(r Execution) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			s.reconcileOne(ctx, r, now)
+		}(r)
+	}
+	wg.Wait()
+}
+
+func (s *Scheduler) reconcileOne(ctx context.Context, r Execution, now time.Time) {
+	if ctx.Err() != nil {
+		return
+	}
+	if r.TaskID == "" && r.TurnID == "" {
+		if now.Unix()-r.SubmittedAt < 60 {
 			return
 		}
-		if r.TaskID == "" && r.TurnID == "" {
-			if now.Unix()-r.SubmittedAt < 60 {
-				continue
+		r.Status = "unknown"
+		r.Reason = "admission_unconfirmed"
+		r.Terminal = true
+		r.FinishedAt = now.Unix()
+	} else {
+		readCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		observed, e := s.observer.ObserveScheduleExecution(readCtx, r)
+		cancel()
+		if e != nil {
+			if errors.Is(e, context.Canceled) && ctx.Err() != nil {
+				return
 			}
 			r.Status = "unknown"
-			r.Reason = "admission_unconfirmed"
-		} else {
-			readCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			observed, e := s.observer.ObserveScheduleExecution(readCtx, r)
-			cancel()
-			if e != nil {
-				if errors.Is(e, context.Canceled) && ctx.Err() != nil {
-					return
-				}
-				r.Status = "unknown"
-				r.Reason = "observation_unavailable"
+			r.Reason = "observation_unavailable"
+			r.ObserveFailures++
+			if errors.Is(e, ErrObservationPermanent) || now.Unix()-r.SubmittedAt >= int64(observeMaxAge.Seconds()) {
+				r.Terminal = true
+				r.FinishedAt = now.Unix()
+				r.NextObserveAt = 0
 			} else {
-				r = observed
+				r.NextObserveAt = now.Add(observeBackoff(r.ObserveFailures)).Unix()
 			}
+		} else {
+			r = observed
+			r.ObserveFailures = 0
+			r.NextObserveAt = 0
 		}
-		if err = s.store.Observe(r, now); err != nil {
-			log.Warn().Err(err).Msg("scheduler: reconcile observation")
-		}
+	}
+	if err := s.store.Observe(r, now); err != nil {
+		log.Warn().Err(err).Msg("scheduler: reconcile observation")
 	}
 }
 

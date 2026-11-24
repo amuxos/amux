@@ -20,6 +20,8 @@ type Execution struct {
 	TargetID, SessionName, SessionID, LaunchID, TurnID, TaskID  string
 	Status, Reason, Result, Cursor                              string
 	Terminal                                                    bool
+	ObserveFailures                                             int
+	NextObserveAt                                               int64
 }
 type Visibility struct {
 	LastCompletedScheduledAt                  int64
@@ -239,13 +241,37 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 	if e != nil {
 		return e
 	}
-	// The same unresolved run may be observed between other overlapping runs.
-	// Deduplicate its incident count independently of the last observed run ID.
-	var counted bool
-	if e = s.db.QueryRow(`SELECT COALESCE(json_extract(data,'$.AlertCounted'),0) FROM schedule_executions WHERE id=?`, r.ID).Scan(&counted); e != nil {
+	// Read the current execution row under visMu so we preserve AlertCounted
+	// and never allow a stale observer snapshot without admission identifiers
+	// (TaskID/TurnID) to clobber a concurrent delivery receipt.
+	var existingRaw []byte
+	var existingTerminal bool
+	if e = s.db.QueryRow(`SELECT data, terminal FROM schedule_executions WHERE id=?`, r.ID).Scan(&existingRaw, &existingTerminal); e != nil {
 		return e
 	}
-	r.AlertCounted = counted
+	if existingTerminal {
+		return nil
+	}
+	var existing Execution
+	if e = json.Unmarshal(existingRaw, &existing); e != nil {
+		return e
+	}
+	if (existing.TaskID != "" && r.TaskID == "") || (existing.TurnID != "" && r.TurnID == "") {
+		return nil
+	}
+	if r.SessionName == "" {
+		r.SessionName = existing.SessionName
+	}
+	if r.SessionID == "" {
+		r.SessionID = existing.SessionID
+	}
+	if r.LaunchID == "" {
+		r.LaunchID = existing.LaunchID
+	}
+	if r.TargetID == "" {
+		r.TargetID = existing.TargetID
+	}
+	r.AlertCounted = existing.AlertCounted
 	r.ObservedAt = now.Unix()
 	if ve == nil {
 		if r.Status == "completed" {
@@ -338,8 +364,9 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 			return e
 		}
 	}
-	// Legacy RPC clients also see authoritative results once they become known.
-	if r.Terminal {
+	// Legacy RPC clients also see authoritative results once they become known,
+	// without overwriting a descriptive admission error with generic "unknown".
+	if r.Terminal && r.Status != "unknown" {
 		if _, e = tx.Exec(`UPDATE schedule_runs SET status=? WHERE schedule_id=? AND fired_at=?`, r.Status, r.ScheduleID, r.SubmittedAt); e != nil {
 			return e
 		}

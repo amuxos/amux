@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -267,6 +268,10 @@ func TestScheduleOutcomeOnlyClosesForExactCanonicalTurn(t *testing.T) {
 	r, e = c.ObserveScheduleExecution(context.Background(), r)
 	if e != nil || !r.Terminal || r.Status != "completed" {
 		t.Fatalf("exact completion lost: %+v %v", r, e)
+	}
+	_, e = c.ObserveScheduleExecution(context.Background(), schedule.Execution{TargetID: "runtime", SessionName: "session", SessionID: "different-session-id", TurnID: "wanted", Status: "submitted"})
+	if !errors.Is(e, schedule.ErrObservationPermanent) {
+		t.Fatalf("session identity mismatch err = %v, want ErrObservationPermanent", e)
 	}
 }
 
