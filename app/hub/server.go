@@ -1613,6 +1613,53 @@ func (s *hubServer) authorizeScheduledSessionPrompt(_ context.Context, row sched
 	return fmt.Errorf("session authorization: %w", decision.Err)
 }
 
+// stripScheduledSessionClonedArgs removes runtime-injected amux MCP flags
+// copied from a template session so the freshly created session receives its
+// own session ID, actor token, and MCP config instead of inheriting the
+// template's credentials.
+func stripScheduledSessionClonedArgs(args []string) []string {
+	if len(args) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := strings.TrimSpace(args[i])
+		if arg == "--mcp-config" {
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "--mcp-config=") {
+			continue
+		}
+		if (arg == "-c" || arg == "--config") && i+1 < len(args) && strings.Contains(args[i+1], "mcp_servers.amux.") {
+			i++
+			continue
+		}
+		if strings.Contains(arg, "mcp_servers.amux.") {
+			continue
+		}
+		out = append(out, args[i])
+	}
+	return out
+}
+
+func stripScheduledSessionClonedEnv(env []string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(env))
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "AMUX_SESSION_ID=") ||
+			strings.HasPrefix(entry, "AMUX_ACTOR_TOKEN=") ||
+			strings.HasPrefix(entry, "AMUX_ACTOR_TOKEN_FILE=") ||
+			strings.HasPrefix(entry, "AMUX_MEMORY_BINDING=") {
+			continue
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
 // prepareScheduledNewSession populates control-plane execution identity,
 // actor token, and resolved profile spec when run_mode=new-session-per-run
 // creates a fresh session from a template session.
@@ -1620,6 +1667,8 @@ func (s *hubServer) prepareScheduledNewSession(_ context.Context, _ schedule.Tas
 	if template == nil || req == nil {
 		return nil
 	}
+	req.Launch.ExtraArgs = stripScheduledSessionClonedArgs(req.Launch.ExtraArgs)
+	req.Launch.Env = stripScheduledSessionClonedEnv(req.Launch.Env)
 	if ref := strings.TrimSpace(template.AgentProfile); ref != "" && req.Launch.ProfileSpec == nil {
 		resolve := s.resolveAgentProfile
 		if resolve == nil {
@@ -1628,7 +1677,22 @@ func (s *hubServer) prepareScheduledNewSession(_ context.Context, _ schedule.Tas
 			}
 		}
 		if profile, err := resolve(ref); err == nil {
-			req.Launch.AgentProfile = profile.Ref()
+			// Populate runtime type and model from the template session so v2
+			// portable profiles (whose Type/Model are intentionally blank until
+			// projected) materialize cleanly without duplicating native args.
+			if strings.TrimSpace(profile.Type) == "" {
+				profile.Type = strings.TrimSpace(template.AgentType)
+			}
+			if strings.TrimSpace(profile.ExecutionRuntimeRef) == "" {
+				profile.ExecutionRuntimeRef = strings.TrimSpace(template.AgentType)
+			}
+			if strings.TrimSpace(profile.Model) == "" {
+				profile.Model = strings.TrimSpace(template.EffectiveModel)
+				if profile.Model == "" {
+					profile.Model, _ = agentprofile.AgentArgsModel(template.AgentType, req.Launch.ExtraArgs)
+				}
+			}
+			req.Launch.AgentProfile = profile.PinnedRef()
 			req.Launch.ProfileSpec = agentprofile.ToPBProfileSpec(profile)
 		}
 	}
@@ -1642,6 +1706,13 @@ func (s *hubServer) prepareScheduledNewSession(_ context.Context, _ schedule.Tas
 	refreshed, err := s.principals.RefreshScheduledExecution(identity, "scheduled-session:"+uuid.NewString())
 	if err != nil {
 		return fmt.Errorf("refresh scheduled session identity: %w", err)
+	}
+	// Under Linux DAC isolation, template.Cwd points inside the principal's
+	// mode-0700 isolated directory, which the runtime service user cannot read
+	// to stage as a host source tree. Clear Cwd so the runtime allocates a fresh
+	// isolated workspace for this run under the same principal.
+	if identity.IsolationBackend == principal.BackendLinuxDAC || refreshed.IsolationBackend == principal.BackendLinuxDAC {
+		req.Workspace.Cwd = ""
 	}
 	launchID := "launch-" + uuid.NewString()
 	token, expiresAt := s.issueAgentActorToken(refreshed, sessionAgentCredentialSubject(req.TargetID, req.Name))

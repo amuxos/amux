@@ -25,16 +25,36 @@ func TestPrepareScheduledNewSessionRefreshesIdentityAndMintsToken(t *testing.T) 
 		EffectivePrincipalID:   alice.ID,
 		Source:                 principal.SourceFeishu,
 		ExecutionStateRef:      "feishu:orig",
+		IsolationBackend:       principal.BackendLinuxDAC,
 	}
 	template := &pb.Session{
 		Name:               "template-s1",
 		AgentProfile:       "builtin/codex",
 		AgentType:          "codex",
+		Cwd:                "/var/lib/amux/principals/amux_1234/workspace/feishu-orig",
 		IdleTimeoutSeconds: 900,
 		ExecutionIdentity:  principal.ToProtoIdentity(origIdentity),
 	}
 	srv := &hubServer{principals: principals}
-	req := &sessionlaunch.StartRequest{TargetID: "t1", Name: "sched-1-20260601-100000-1"}
+	req := &sessionlaunch.StartRequest{
+		TargetID: "t1",
+		Name:     "sched-1-20260601-100000-1",
+		Launch: sessionlaunch.StartRequest{}.Launch,
+		Workspace: sessionlaunch.WorkspaceRequest{
+			Cwd: template.Cwd,
+		},
+	}
+	req.Launch.ExtraArgs = []string{
+		"--model", "Seed-2.1-Turbo",
+		"-c", `mcp_servers.amux.command="/bin/amux"`,
+		"-c", `mcp_servers.amux.env={AMUX_SESSION_ID="old-sess", AMUX_ACTOR_TOKEN="old-tok"}`,
+	}
+	req.Launch.Env = []string{
+		"PATH=/usr/bin",
+		"AMUX_ACTOR_TOKEN=old-tok",
+		"AMUX_SESSION_ID=old-sess",
+		"AMUX_MEMORY_BINDING=old-mem",
+	}
 	if err := srv.prepareScheduledNewSession(context.Background(), schedule.Task{ID: 1, OwnerPrincipalID: alice.ID}, template, req); err != nil {
 		t.Fatalf("prepareScheduledNewSession: %v", err)
 	}
@@ -44,8 +64,17 @@ func TestPrepareScheduledNewSessionRefreshesIdentityAndMintsToken(t *testing.T) 
 	if req.ExecutionIdentity.EffectivePrincipalId != alice.ID || req.LaunchID == "" || req.AgentActorToken == "" {
 		t.Fatalf("expected refreshed identity, launch id, and actor token: %+v", req)
 	}
-	if req.Launch.ProfileSpec == nil || req.Launch.AgentProfile != "builtin/codex" {
-		t.Fatalf("expected resolved builtin/codex profile spec, got %+v", req.Launch)
+	if req.Launch.ProfileSpec == nil || req.Launch.ProfileSpec.Type != "codex" || req.Launch.ProfileSpec.Model != "Seed-2.1-Turbo" {
+		t.Fatalf("expected resolved codex profile spec with type & model, got %+v", req.Launch.ProfileSpec)
+	}
+	if req.Workspace.Cwd != "" {
+		t.Fatalf("expected Linux DAC isolated template Cwd to be cleared, got %q", req.Workspace.Cwd)
+	}
+	if len(req.Launch.ExtraArgs) != 2 || req.Launch.ExtraArgs[0] != "--model" || req.Launch.ExtraArgs[1] != "Seed-2.1-Turbo" {
+		t.Fatalf("expected stale mcp_servers.amux.* args stripped while preserving --model, got %v", req.Launch.ExtraArgs)
+	}
+	if len(req.Launch.Env) != 1 || req.Launch.Env[0] != "PATH=/usr/bin" {
+		t.Fatalf("expected session-scoped AMUX_* env stripped while preserving PATH, got %v", req.Launch.Env)
 	}
 	// Disabling the principal must cause prepareScheduledNewSession to refuse launch.
 	if err := principals.Disable(alice.ID); err != nil {
