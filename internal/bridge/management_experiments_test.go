@@ -131,7 +131,7 @@ func TestManagementExperimentsCompactList(t *testing.T) {
 		}
 	}
 	visit(doc.Body.Elements)
-	if panels != 6 {
+	if panels != 4 {
 		t.Fatalf("panels = %d", panels)
 	}
 	running.CompletionNotification.AfterSeconds = 60
@@ -207,6 +207,133 @@ func TestManagementExperimentsMentionTurnInitiatorCallbackPreservesOmittedValue(
 	update, err = managementExperimentsSettingsFromCallback(action, saved)
 	if err != nil || update.MentionTurnInitiator == nil || *update.MentionTurnInitiator {
 		t.Fatalf("explicit off update = %+v, %v", update, err)
+	}
+}
+
+func TestManagementExperimentsModelRecoveryQueueWaitCallbackAndBilingualCard(t *testing.T) {
+	saved := config.ExperimentsSettings{ModelRecoveryQueueWaitSeconds: 60}
+	// Blank or omitted value keeps the existing setting.
+	action := &callback.CallBackAction{FormValue: map[string]any{
+		"completion_enabled": "false",
+		"recovery_wait_sec":  "   ",
+	}}
+	update, err := managementExperimentsSettingsFromCallback(action, saved)
+	if err != nil || update.ModelRecoveryQueueWaitSeconds != nil {
+		t.Fatalf("blank wait seconds update = %+v, %v", update, err)
+	}
+
+	// Valid integer (including 0 to disable) is parsed.
+	for _, tc := range []struct {
+		raw  string
+		want int
+	}{
+		{raw: "0", want: 0},
+		{raw: "15", want: 15},
+		{raw: "3600", want: 3600},
+	} {
+		action.FormValue["recovery_wait_sec"] = tc.raw
+		update, err = managementExperimentsSettingsFromCallback(action, saved)
+		if err != nil || update.ModelRecoveryQueueWaitSeconds == nil || *update.ModelRecoveryQueueWaitSeconds != tc.want {
+			t.Fatalf("raw=%q update = %+v, %v", tc.raw, update, err)
+		}
+	}
+
+	// Legacy long field name remains accepted as fallback.
+	legacyAction := &callback.CallBackAction{FormValue: map[string]any{
+		"completion_enabled":                "false",
+		"model_recovery_queue_wait_seconds": "42",
+	}}
+	update, err = managementExperimentsSettingsFromCallback(legacyAction, saved)
+	if err != nil || update.ModelRecoveryQueueWaitSeconds == nil || *update.ModelRecoveryQueueWaitSeconds != 42 {
+		t.Fatalf("legacy field update = %+v, %v", update, err)
+	}
+
+	// Out-of-range or non-numeric values are rejected.
+	for _, bad := range []string{"-1", "3601", "abc"} {
+		action.FormValue["recovery_wait_sec"] = bad
+		if _, err := managementExperimentsSettingsFromCallback(action, saved); err == nil {
+			t.Fatalf("raw=%q unexpectedly accepted", bad)
+		}
+	}
+
+	// Bilingual rendering covers both active and disabled states and stays
+	// well within Feishu CardKit 2.0 component (200) and size (30 KB) budgets.
+	for _, sec := range []int{45, 0} {
+		rawCard := renderManagementExperimentsCard(
+			config.ExperimentsSettings{ModelRecoveryQueueWaitSeconds: sec},
+			config.ExperimentsSettings{ModelRecoveryQueueWaitSeconds: sec},
+		)
+		if len(rawCard) >= 26*1024 {
+			t.Fatalf("sec=%d: experiments card bytes = %d, want < 26 KiB to leave headroom for extensions", sec, len(rawCard))
+		}
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(rawCard), &doc); err != nil {
+			t.Fatalf("sec=%d: invalid card JSON: %v", sec, err)
+		}
+		tags := 0
+		var walk func(any)
+		walk = func(v any) {
+			switch x := v.(type) {
+			case map[string]any:
+				if tag, ok := x["tag"].(string); ok {
+					tags++
+					if tag == "input" {
+						if name, _ := x["name"].(string); len(name) > 20 {
+							t.Fatalf("sec=%d: input name %q exceeds 20 chars (%d)", sec, name, len(name))
+						}
+					}
+				}
+				for _, child := range x {
+					walk(child)
+				}
+			case []any:
+				for _, child := range x {
+					walk(child)
+				}
+			}
+		}
+		walk(doc["body"])
+		if tags >= 170 {
+			t.Fatalf("sec=%d: public experiments card tag count = %d, want < 170 to stay under Feishu 200-tag limit with extensions", sec, tags)
+		}
+
+		zhCard := selectManagementCardLocale(rawCard, i18n.Chinese)
+		enCard := selectManagementCardLocale(rawCard, i18n.English)
+		if !strings.Contains(zhCard, "recovery_wait_sec") || !strings.Contains(enCard, "recovery_wait_sec") {
+			t.Fatalf("sec=%d: missing input field in rendered card", sec)
+		}
+		if sec == 45 {
+			if !strings.Contains(zhCard, "45 秒") || !strings.Contains(enCard, "45s") {
+				t.Fatalf("sec=45: expected formatted threshold in zh/en cards:\nzh=%s\nen=%s", zhCard, enCard)
+			}
+		} else {
+			if !strings.Contains(zhCard, "已关闭") || !strings.Contains(enCard, "Off") {
+				t.Fatalf("sec=0: expected disabled copy in zh/en cards:\nzh=%s\nen=%s", zhCard, enCard)
+			}
+		}
+	}
+
+	// Saving through the management callback persists and applies live to Bridge.
+	loadBridgeTestConfig(t, "")
+	b, _ := newBridgeForInputTest(t)
+	b.secrets = &Secrets{OpenId: "owner-open"}
+	saveEvent := settingsCallback(managementActionExperimentsSaveRestart, map[string]any{
+		managementSurfaceKey: string(managementSurfaceAmux),
+	})
+	saveEvent.Event.Action.FormValue = map[string]any{
+		"completion_enabled": "false",
+		"recovery_wait_sec":  "25",
+	}
+	resp, err := b.handleCardAction(context.Background(), saveEvent)
+	if err != nil || resp == nil {
+		t.Fatalf("save experiments: %+v, %v", resp, err)
+	}
+	if got := b.currentModelRecoveryQueueWaitSeconds(); got != 25 {
+		t.Fatalf("live bridge queue wait = %d, want 25", got)
+	}
+	persisted, err := config.ReadExperimentsSettings()
+	if err != nil || persisted.ModelRecoveryQueueWaitSeconds != 25 {
+		t.Fatalf("persisted config queue wait = %+v, %v (want 25)", persisted, err)
 	}
 }
 

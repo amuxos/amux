@@ -139,7 +139,11 @@ type Bridge struct {
 	// mentionTurnInitiator is the live experimental switch that decorates
 	// group-topic Agent replies with the human initiators of the current Turn.
 	mentionTurnInitiator atomic.Bool
-	queueNotice          queueNoticeState
+	// modelRecoveryQueueWaitSeconds is the live queued-turn wait threshold in
+	// seconds before showing model switch buttons (0 disables queued buttons).
+	modelRecoveryQueueWaitSeconds atomic.Int64
+	modelRecoveryQueueWaitSet     atomic.Bool
+	queueNotice                   queueNoticeState
 	steerObservers       steerObserverState
 	turnRecovery         turnRecoveryState
 	subtaskCardController
@@ -409,6 +413,7 @@ func NewWithProfile(hub Hub, profile string, secrets *Secrets, starter sessionla
 	config.SetLiveSteerForeground(b.steerForeground.Load())
 	b.showBackgroundTasks.Store(config.GetBridgeFeishuShowBackgroundTasks())
 	b.mentionTurnInitiator.Store(config.GetBridgeFeishuMentionTurnInitiator())
+	b.setModelRecoveryQueueWaitSeconds(config.GetBridgeFeishuModelRecoveryQueueWaitSeconds())
 	return b, nil
 }
 

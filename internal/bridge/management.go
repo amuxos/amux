@@ -327,6 +327,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			b.setSteerForeground(saved.SteerForeground)
 			b.showBackgroundTasks.Store(saved.ShowBackgroundTasks)
 			b.mentionTurnInitiator.Store(saved.MentionTurnInitiator)
+			b.setModelRecoveryQueueWaitSeconds(saved.ModelRecoveryQueueWaitSeconds)
 			for _, toggle := range bridgeExtensions.snapshot().ExperimentToggles {
 				if toggle.SetEnabled == nil || strings.TrimSpace(toggle.FieldName) == "" {
 					continue

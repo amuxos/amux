@@ -2577,6 +2577,27 @@
   "session.recovery.notice.resubmit_failed": {
     "other": "Switched to `%s`, but automatic retry submission failed. Please resend your message."
   },
+  "management.model.recovery.queue.wait.title": {
+    "other": "Queued model switch threshold"
+  },
+  "management.model.recovery.queue.wait.summary": {
+    "other": "Show model switch recovery buttons on the progress card after %d seconds of upstream retry or queue wait without output."
+  },
+  "management.model.recovery.queue.wait.disabled": {
+    "other": "Queued model switch buttons are off (rate-limit error recovery cards remain active)."
+  },
+  "management.model.recovery.queue.wait.currently.on": {
+    "other": "Currently %ds"
+  },
+  "management.model.recovery.queue.wait.currently.off": {
+    "other": "Currently off"
+  },
+  "management.model.recovery.queue.wait.hint": {
+    "other": "Range 0–3600s (default 60s). Set to 0 to disable queued buttons while keeping 429/usage-limit recovery cards. Applies immediately on save."
+  },
+  "management.model.recovery.queue.wait.invalid": {
+    "other": "Queued model switch wait threshold must be an integer from 0 to 3600 seconds."
+  },
   "session.status.silent": {
     "other": "No new progress for %s"
   },

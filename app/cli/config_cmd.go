@@ -381,6 +381,16 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		}
 		value = int64(parsed)
 	}
+	if key == config.FeishuModelRecoveryQueueWaitSecondsKey {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return commandValidationError(fmt.Errorf("%s must be an integer from 0 to %d", key, config.MaxFeishuModelRecoveryQueueWaitSeconds))
+		}
+		if err := config.ValidateModelRecoveryQueueWaitSeconds(parsed); err != nil {
+			return commandValidationError(err)
+		}
+		value = int64(parsed)
+	}
 	if isCompletionNotificationThresholdConfigKey(key) {
 		parsed, err := strconv.Atoi(raw)
 		if err != nil || parsed < 0 {

@@ -104,28 +104,54 @@ func TestTurnRecoveryQueuedThreshold60s(t *testing.T) {
 
 	below := base
 	below.Now = started.Add(59 * time.Second)
-	if shouldOfferQueuedModelRecovery(below) {
+	if shouldOfferQueuedModelRecovery(below, 60*time.Second) {
 		t.Fatal("queued recovery should not appear before 60s")
 	}
 
 	at60 := base
 	at60.Now = started.Add(60 * time.Second)
-	if !shouldOfferQueuedModelRecovery(at60) {
+	if !shouldOfferQueuedModelRecovery(at60, 60*time.Second) {
 		t.Fatal("queued recovery should appear at 60s during upstream retry")
+	}
+
+	// Custom shorter threshold (e.g. owner set 15s in experiments card).
+	at15 := base
+	at15.Now = started.Add(15 * time.Second)
+	if !shouldOfferQueuedModelRecovery(at15, 15*time.Second) {
+		t.Fatal("queued recovery should respect custom 15s threshold")
+	}
+
+	// Threshold 0 disables queued recovery controls.
+	if shouldOfferQueuedModelRecovery(at60, 0) {
+		t.Fatal("queued recovery must be disabled when threshold is 0")
 	}
 
 	withOutput := at60
 	viewWithStep := *at60.Activity
 	viewWithStep.CurrentStep = "Reading files"
 	withOutput.Activity = &viewWithStep
-	if shouldOfferQueuedModelRecovery(withOutput) {
+	if shouldOfferQueuedModelRecovery(withOutput, 60*time.Second) {
 		t.Fatal("queued recovery must not appear once visible output exists")
 	}
 
 	subtask := at60
 	subtask.SubtaskReport = true
-	if shouldOfferQueuedModelRecovery(subtask) {
+	if shouldOfferQueuedModelRecovery(subtask, 60*time.Second) {
 		t.Fatal("queued recovery must not appear on subtask report turns")
+	}
+
+	// Bridge live atomic threshold defaults to 60s and honors live updates including 0.
+	b := &Bridge{}
+	if got := b.modelRecoveryQueueWaitThreshold(); got != 60*time.Second {
+		t.Fatalf("default threshold = %v, want 60s", got)
+	}
+	b.setModelRecoveryQueueWaitSeconds(20)
+	if got := b.modelRecoveryQueueWaitThreshold(); got != 20*time.Second {
+		t.Fatalf("updated threshold = %v, want 20s", got)
+	}
+	b.setModelRecoveryQueueWaitSeconds(0)
+	if got := b.modelRecoveryQueueWaitThreshold(); got != 0 {
+		t.Fatalf("disabled threshold = %v, want 0", got)
 	}
 }
 

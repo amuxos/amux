@@ -2558,6 +2558,27 @@
   "session.recovery.notice.resubmit_failed": {
     "other": "已切换为 `%s`，但自动重试发送失败，请手动重新发送上一条消息。"
   },
+  "management.model.recovery.queue.wait.title": {
+    "other": "排队切换模型等待阈值"
+  },
+  "management.model.recovery.queue.wait.summary": {
+    "other": "回合无输出且处于上游重试或排队等待满 %d 秒后，在进展卡展示切换模型重试按钮。"
+  },
+  "management.model.recovery.queue.wait.disabled": {
+    "other": "已关闭排队等待切换模型按钮（仍保留限流/额度耗尽报错恢复按钮）。"
+  },
+  "management.model.recovery.queue.wait.currently.on": {
+    "other": "当前 %d 秒"
+  },
+  "management.model.recovery.queue.wait.currently.off": {
+    "other": "当前已关闭"
+  },
+  "management.model.recovery.queue.wait.hint": {
+    "other": "范围 0–3600 秒（默认 60 秒）；设为 0 关闭排队等待按钮（保留 429/额度耗尽恢复卡），保存后立即生效。"
+  },
+  "management.model.recovery.queue.wait.invalid": {
+    "other": "排队切换模型等待阈值必须为 0 到 3600 之间的整数秒。"
+  },
   "session.status.silent": {
     "other": "%s未收到新进展"
   },

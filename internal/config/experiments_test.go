@@ -175,6 +175,39 @@ func TestExperimentsMentionTurnInitiatorDefaultOffPersistsAndOlderCardsPreserveI
 	}
 }
 
+func TestExperimentsModelRecoveryQueueWaitDefaultsPersistsAndValidates(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	requireLoad(t, writeConfig(t, ""))
+	if got, err := config.ReadExperimentsSettings(); err != nil || got.ModelRecoveryQueueWaitSeconds != 60 {
+		t.Fatalf("default settings = %+v, %v", got, err)
+	}
+	v30 := 30
+	if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{ModelRecoveryQueueWaitSeconds: &v30}); err != nil {
+		t.Fatal(err)
+	}
+	// Omitted field preserves saved value.
+	got, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{})
+	if err != nil || got.ModelRecoveryQueueWaitSeconds != 30 {
+		t.Fatalf("older card update = %+v, %v", got, err)
+	}
+	// Zero disables queued recovery and persists distinctly from unset.
+	v0 := 0
+	got, err = config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{ModelRecoveryQueueWaitSeconds: &v0})
+	if err != nil || got.ModelRecoveryQueueWaitSeconds != 0 {
+		t.Fatalf("zero update = %+v, %v", got, err)
+	}
+	// Out-of-range values are rejected.
+	badNeg := -1
+	if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{ModelRecoveryQueueWaitSeconds: &badNeg}); err == nil {
+		t.Fatal("expected negative seconds to fail")
+	}
+	badHigh := config.MaxFeishuModelRecoveryQueueWaitSeconds + 1
+	if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{ModelRecoveryQueueWaitSeconds: &badHigh}); err == nil {
+		t.Fatal("expected oversized seconds to fail")
+	}
+}
+
 func TestLiveSteerForegroundOverridesConfig(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)

@@ -25,19 +25,23 @@ type ExperimentsSettings struct {
 	// MentionTurnInitiator mirrors
 	// bridge.feishu.experimental.mention_turn_initiator and applies live.
 	MentionTurnInitiator bool
+	// ModelRecoveryQueueWaitSeconds mirrors
+	// bridge.feishu.experimental.model_recovery_queue_wait_seconds and applies live.
+	ModelRecoveryQueueWaitSeconds int
 }
 
 // ExperimentsSettingsUpdate preserves the latest saved value for experiment
 // fields omitted by older cards. Omitted fields are resolved under the file lock.
 type ExperimentsSettingsUpdate struct {
-	AgentExecutables       map[string]string
-	CodexExecutable        *string
-	CompletionNotification CompletionNotificationSettings
-	GroupSettingsEnabled   *bool
-	MemoryEnabled          *bool
-	SteerForeground        *bool
-	ShowBackgroundTasks    *bool
-	MentionTurnInitiator   *bool
+	AgentExecutables              map[string]string
+	CodexExecutable               *string
+	CompletionNotification        CompletionNotificationSettings
+	GroupSettingsEnabled          *bool
+	MemoryEnabled                 *bool
+	SteerForeground               *bool
+	ShowBackgroundTasks           *bool
+	MentionTurnInitiator          *bool
+	ModelRecoveryQueueWaitSeconds *int
 }
 
 func experimentsConfigPath() string {
@@ -59,9 +63,10 @@ func GetExperimentsSettings() ExperimentsSettings {
 		CompletionNotification: CompletionNotificationSettings{Enabled: presentation.CompletionNotificationEnabled, AfterSeconds: presentation.CompletionNotificationAfterSeconds},
 		GroupSettingsEnabled:   GetBridgeFeishuGroupSettingsEnabled(),
 		MemoryEnabled:          GetMemory().Enabled,
-		SteerForeground:        GetBridgeFeishuSteerForeground(),
-		ShowBackgroundTasks:    GetBridgeFeishuShowBackgroundTasks(),
-		MentionTurnInitiator:   GetBridgeFeishuMentionTurnInitiator(),
+		SteerForeground:               GetBridgeFeishuSteerForeground(),
+		ShowBackgroundTasks:           GetBridgeFeishuShowBackgroundTasks(),
+		MentionTurnInitiator:          GetBridgeFeishuMentionTurnInitiator(),
+		ModelRecoveryQueueWaitSeconds: GetBridgeFeishuModelRecoveryQueueWaitSeconds(),
 	}
 }
 
@@ -71,14 +76,15 @@ func experimentsSettingsFromConfig(raw map[string]any) (ExperimentsSettings, err
 		return ExperimentsSettings{}, err
 	}
 	return ExperimentsSettings{
-		AgentExecutables:       executableSettings(v.GetString),
-		CodexExecutable:        strings.TrimSpace(v.GetString(CodexExecutableKey)),
-		CompletionNotification: completionNotificationSettings(v),
-		GroupSettingsEnabled:   v.GetBool("bridge.feishu.group_settings.enabled"),
-		MemoryEnabled:          v.GetBool("memory.enabled"),
-		SteerForeground:        v.GetBool(FeishuSteerForegroundKey),
-		ShowBackgroundTasks:    v.GetBool(FeishuShowBackgroundTasksKey),
-		MentionTurnInitiator:   v.GetBool(FeishuMentionTurnInitiatorKey),
+		AgentExecutables:              executableSettings(v.GetString),
+		CodexExecutable:               strings.TrimSpace(v.GetString(CodexExecutableKey)),
+		CompletionNotification:        completionNotificationSettings(v),
+		GroupSettingsEnabled:          v.GetBool("bridge.feishu.group_settings.enabled"),
+		MemoryEnabled:                 v.GetBool("memory.enabled"),
+		SteerForeground:               v.GetBool(FeishuSteerForegroundKey),
+		ShowBackgroundTasks:           v.GetBool(FeishuShowBackgroundTasksKey),
+		MentionTurnInitiator:          v.GetBool(FeishuMentionTurnInitiatorKey),
+		ModelRecoveryQueueWaitSeconds: modelRecoveryQueueWaitSecondsFromViper(v),
 	}, nil
 }
 
@@ -96,14 +102,15 @@ func ReadExperimentsSettings() (ExperimentsSettings, error) {
 // UpdateExperimentsSettings so omitted fields do not overwrite newer settings.
 func SaveExperimentsSettings(settings ExperimentsSettings) error {
 	_, err := UpdateExperimentsSettings(ExperimentsSettingsUpdate{
-		AgentExecutables:       settings.AgentExecutables,
-		CodexExecutable:        &settings.CodexExecutable,
-		CompletionNotification: settings.CompletionNotification,
-		GroupSettingsEnabled:   &settings.GroupSettingsEnabled,
-		MemoryEnabled:          &settings.MemoryEnabled,
-		SteerForeground:        &settings.SteerForeground,
-		ShowBackgroundTasks:    &settings.ShowBackgroundTasks,
-		MentionTurnInitiator:   &settings.MentionTurnInitiator,
+		AgentExecutables:              settings.AgentExecutables,
+		CodexExecutable:               &settings.CodexExecutable,
+		CompletionNotification:        settings.CompletionNotification,
+		GroupSettingsEnabled:          &settings.GroupSettingsEnabled,
+		MemoryEnabled:                 &settings.MemoryEnabled,
+		SteerForeground:               &settings.SteerForeground,
+		ShowBackgroundTasks:           &settings.ShowBackgroundTasks,
+		MentionTurnInitiator:          &settings.MentionTurnInitiator,
+		ModelRecoveryQueueWaitSeconds: &settings.ModelRecoveryQueueWaitSeconds,
 	})
 	return err
 }
@@ -121,6 +128,11 @@ func UpdateExperimentsSettings(update ExperimentsSettingsUpdate) (ExperimentsSet
 	}
 	if err := validateCompletionNotificationSettings(update.CompletionNotification); err != nil {
 		return ExperimentsSettings{}, err
+	}
+	if update.ModelRecoveryQueueWaitSeconds != nil {
+		if err := ValidateModelRecoveryQueueWaitSeconds(*update.ModelRecoveryQueueWaitSeconds); err != nil {
+			return ExperimentsSettings{}, err
+		}
 	}
 	var saved ExperimentsSettings
 	err := UpdateConfigFile(experimentsConfigPath(), func(raw map[string]any) error {
@@ -145,6 +157,9 @@ func UpdateExperimentsSettings(update ExperimentsSettingsUpdate) (ExperimentsSet
 		}
 		if update.MentionTurnInitiator != nil {
 			setNestedConfigValue(raw, strings.Split(FeishuMentionTurnInitiatorKey, "."), *update.MentionTurnInitiator)
+		}
+		if update.ModelRecoveryQueueWaitSeconds != nil {
+			setNestedConfigValue(raw, strings.Split(FeishuModelRecoveryQueueWaitSecondsKey, "."), *update.ModelRecoveryQueueWaitSeconds)
 		}
 		var err error
 		saved, err = experimentsSettingsFromConfig(raw)

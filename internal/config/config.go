@@ -575,6 +575,41 @@ func GetBridgeFeishuMentionTurnInitiator() bool {
 	return viper.GetBool(FeishuMentionTurnInitiatorKey)
 }
 
+// FeishuModelRecoveryQueueWaitSecondsKey controls how many seconds a Feishu
+// turn must remain in upstream retry or queue wait without visible output
+// before the progress card shows same-engine model recovery controls.
+// Default is 60s; 0 disables the queued recovery controls while retaining
+// rate-limit error recovery cards. Running bridges apply edits live.
+const (
+	FeishuModelRecoveryQueueWaitSecondsKey     = "bridge.feishu.experimental.model_recovery_queue_wait_seconds"
+	DefaultFeishuModelRecoveryQueueWaitSeconds = 60
+	MaxFeishuModelRecoveryQueueWaitSeconds     = 3600
+)
+
+func ValidateModelRecoveryQueueWaitSeconds(seconds int) error {
+	if seconds < 0 || seconds > MaxFeishuModelRecoveryQueueWaitSeconds {
+		return fmt.Errorf("%s must be an integer from 0 to %d", FeishuModelRecoveryQueueWaitSecondsKey, MaxFeishuModelRecoveryQueueWaitSeconds)
+	}
+	return nil
+}
+
+func modelRecoveryQueueWaitSecondsFromViper(v *viper.Viper) int {
+	if v == nil || !v.IsSet(FeishuModelRecoveryQueueWaitSecondsKey) {
+		return DefaultFeishuModelRecoveryQueueWaitSeconds
+	}
+	seconds := v.GetInt(FeishuModelRecoveryQueueWaitSecondsKey)
+	if seconds < 0 || seconds > MaxFeishuModelRecoveryQueueWaitSeconds {
+		return DefaultFeishuModelRecoveryQueueWaitSeconds
+	}
+	return seconds
+}
+
+// GetBridgeFeishuModelRecoveryQueueWaitSeconds reports the startup value of the
+// queued model recovery wait threshold in seconds.
+func GetBridgeFeishuModelRecoveryQueueWaitSeconds() int {
+	return modelRecoveryQueueWaitSecondsFromViper(viper.GetViper())
+}
+
 // liveSteerForeground mirrors the steer_foreground switch for components
 // outside the bridge (the hub task router's parent-completion notifier).
 // 0 = not set by a bridge yet (fall back to the config value), 1 = off, 2 = on.

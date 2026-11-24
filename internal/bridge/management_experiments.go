@@ -96,6 +96,33 @@ func managementExperimentsSettingsFromCallback(action *callback.CallBackAction, 
 		value := enabled == "true"
 		update.MentionTurnInitiator = &value
 	}
+	if raw, present := managementExperimentCallbackValue(action, "recovery_wait_sec"); present {
+		text, ok := raw.(string)
+		if !ok {
+			return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.model.recovery.queue.wait.invalid")
+		}
+		trimmed := strings.TrimSpace(text)
+		if trimmed != "" {
+			seconds, err := strconv.Atoi(trimmed)
+			if err != nil || config.ValidateModelRecoveryQueueWaitSeconds(seconds) != nil {
+				return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.model.recovery.queue.wait.invalid")
+			}
+			update.ModelRecoveryQueueWaitSeconds = &seconds
+		}
+	} else if raw, present := managementExperimentCallbackValue(action, "model_recovery_queue_wait_seconds"); present {
+		text, ok := raw.(string)
+		if !ok {
+			return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.model.recovery.queue.wait.invalid")
+		}
+		trimmed := strings.TrimSpace(text)
+		if trimmed != "" {
+			seconds, err := strconv.Atoi(trimmed)
+			if err != nil || config.ValidateModelRecoveryQueueWaitSeconds(seconds) != nil {
+				return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.model.recovery.queue.wait.invalid")
+			}
+			update.ModelRecoveryQueueWaitSeconds = &seconds
+		}
+	}
 	if raw, present := managementExperimentCallbackValue(action, "codex_executable"); present {
 		value, ok := raw.(string)
 		if !ok || !config.ValidAgentExecutable(value) {
@@ -161,38 +188,47 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 	if running.SteerForeground {
 		steerStatus = managementCopy("management.steer.foreground.currently.on")
 	}
-	// Applied live on save, so it never shows the restart-pending notice.
-	steerItem := managementExperimentItemElement(managementCopy("management.steer.foreground"), managementCopy("management.steer.foreground.description"), steerEnabled, saved.SteerForeground != running.SteerForeground, []cardElement{
-		managementHintElement(steerStatus),
-		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
-	})
+	// Live-applied switches inline their live status and omit redundant
+	// collapsible panels so the card stays well within Feishu's 200-component
+	// and 30 KB limits even with distribution extensions installed.
+	steerSummary := joinManagementCopy(
+		managementCopy("management.steer.foreground.description"),
+		steerStatus,
+		managementCopy("management.steer.foreground.applies.live"),
+	)
+	steerItem := managementExperimentItemElement(managementCopy("management.steer.foreground"), steerSummary, steerEnabled, saved.SteerForeground != running.SteerForeground, nil)
 	bgEnabled := managementSelectStaticElement("show_background_tasks_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.ShowBackgroundTasks), []cardOption{
 		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
 		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
 	})
-	bgStatus := managementCopy("management.show.background.tasks.currently.off")
-	if running.ShowBackgroundTasks {
-		bgStatus = managementCopy("management.show.background.tasks.currently.on")
-	}
-	bgItem := managementExperimentItemElement(managementCopy("management.show.background.tasks"), managementCopy("management.show.background.tasks.description"), bgEnabled, saved.ShowBackgroundTasks != running.ShowBackgroundTasks, []cardElement{
-		managementHintElement(bgStatus),
-		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
-	})
+	bgItem := managementExperimentItemElement(managementCopy("management.show.background.tasks"), managementCopy("management.show.background.tasks.description"), bgEnabled, saved.ShowBackgroundTasks != running.ShowBackgroundTasks, nil)
 	mentionEnabled := managementSelectStaticElement("mention_turn_initiator_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.MentionTurnInitiator), []cardOption{
 		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
 		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
 	})
-	mentionStatus := managementCopy("management.mention.turn.initiator.currently.off")
-	if running.MentionTurnInitiator {
-		mentionStatus = managementCopy("management.mention.turn.initiator.currently.on")
+	mentionItem := managementExperimentItemElement(managementCopy("management.mention.turn.initiator"), managementCopy("management.mention.turn.initiator.description"), mentionEnabled, saved.MentionTurnInitiator != running.MentionTurnInitiator, nil)
+	recoveryWaitInput := cardElement{Tag: "input", Name: "recovery_wait_sec", Placeholder: managementStyledTextPtr(managementCopy("management.currently.d.seconds.leave.blank.to.keep", saved.ModelRecoveryQueueWaitSeconds), cardTitle{Tag: "plain_text"})}
+	recoveryWaitSummary := managementCopy("management.model.recovery.queue.wait.summary", saved.ModelRecoveryQueueWaitSeconds)
+	if saved.ModelRecoveryQueueWaitSeconds == 0 {
+		recoveryWaitSummary = managementCopy("management.model.recovery.queue.wait.disabled")
 	}
-	mentionItem := managementExperimentItemElement(managementCopy("management.mention.turn.initiator"), managementCopy("management.mention.turn.initiator.description"), mentionEnabled, saved.MentionTurnInitiator != running.MentionTurnInitiator, []cardElement{
-		managementHintElement(mentionStatus),
-		managementHintElement(managementCopy("management.steer.foreground.applies.live")),
-	})
+	recoveryWaitStatus := managementCopy("management.model.recovery.queue.wait.currently.on", running.ModelRecoveryQueueWaitSeconds)
+	if running.ModelRecoveryQueueWaitSeconds == 0 {
+		recoveryWaitStatus = managementCopy("management.model.recovery.queue.wait.currently.off")
+	}
+	recoveryWaitItem := managementExperimentItemElement(
+		managementCopy("management.model.recovery.queue.wait.title"),
+		recoveryWaitSummary,
+		cardElement{Tag: "div", Text: managementStyledTextPtr(recoveryWaitStatus, cardTitle{Tag: "plain_text"})},
+		saved.ModelRecoveryQueueWaitSeconds != running.ModelRecoveryQueueWaitSeconds,
+		[]cardElement{
+			recoveryWaitInput,
+			managementHintElement(managementCopy("management.model.recovery.queue.wait.hint")),
+		},
+	)
 	executable := cardElement{Tag: "input", Name: "codex_executable", DefaultValue: saved.CodexExecutable, Placeholder: managementStyledTextPtr(managementCopy("management.codex.executable.placeholder"), cardTitle{Tag: "plain_text"})}
 	executableItem := managementExperimentItemElement(managementCopy("management.codex.executable.title"), managementCopy("management.codex.executable.description"), cardElement{Tag: "div", Text: managementStyledTextPtr("Codex", cardTitle{Tag: "plain_text"})}, saved.CodexExecutable != running.CodexExecutable, []cardElement{executable, managementHintElement(managementCopy("management.codex.executable.scope"))})
-	items := []cardElement{item, groupItem, memoryItem, steerItem, bgItem, mentionItem, executableItem}
+	items := []cardElement{item, groupItem, memoryItem, steerItem, bgItem, mentionItem, recoveryWaitItem, executableItem}
 	for _, agent := range config.AgentExecutableNames() {
 		if agent == "codex" {
 			continue
@@ -229,9 +265,7 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 			{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
 			{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
 		})
-		items = append(items, managementExperimentItemElement(title, summary, control, false, []cardElement{
-			managementHintElement(managementCopy("management.steer.foreground.applies.live")),
-		}))
+		items = append(items, managementExperimentItemElement(title, summary, control, false, nil))
 	}
 	items = append(items, managementFormButtonRowElement(managementFormSubmitButton(managementActionExperimentsSaveRestart, managementCopy("management.save.and.restart"))))
 	elements := []cardElement{
@@ -242,6 +276,18 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 	}
 	elements = append(elements, conversationExperimentElements()...)
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.experiments"), Summary: managementCopy("management.amux.experiments"), Theme: "wathet", Icon: managementIcon("version_outlined", "blue"), Elements: elements})
+}
+
+func joinManagementCopy(parts ...i18n.Text) i18n.Text {
+	return i18n.Render(func(locale i18n.Locale) string {
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if s := strings.TrimSpace(p.For(locale)); s != "" {
+				out = append(out, s)
+			}
+		}
+		return strings.Join(out, " ")
+	})
 }
 
 // Each experiment contributes a compact item to the shared page-level form.
