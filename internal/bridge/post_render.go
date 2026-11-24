@@ -434,7 +434,11 @@ type toolActivityCardMeta struct {
 	// PlaceholderError is the user-facing error shown in place of the
 	// placeholder line when the turn fails before any output.
 	PlaceholderError string
-	Now              time.Time
+	// ModelRecovery renders same-engine fallback switch buttons inside the
+	// activity content block when a turn hits a rate/usage limit or remains
+	// queued/retrying without output for at least 60s.
+	ModelRecovery *modelRecoveryCardPrompt
+	Now           time.Time
 }
 
 type turnCardActivity struct {
@@ -703,6 +707,13 @@ func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
 		notice := managementTextElement(sessionMessage("queue.notice", meta.QueuedInputs), "notation", "grey", nil)
 		notice.ElementID = "queue_notice"
 		element.Columns[0].Elements = append(element.Columns[0].Elements, notice)
+		raw, _ = json.Marshal(element)
+	}
+	if recovery := renderModelRecoveryElements(meta.ModelRecovery); len(recovery) > 0 && len(element.Columns) > 0 {
+		// Recovery controls also live inside the activity content element so
+		// CardKit ReplaceElement can attach them after 60s of queueing or on
+		// rate-limit failure, and automatically remove them once output resumes.
+		element.Columns[0].Elements = append(element.Columns[0].Elements, recovery...)
 		raw, _ = json.Marshal(element)
 	}
 	activity := turnCardActivity{

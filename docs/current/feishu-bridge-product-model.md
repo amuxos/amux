@@ -511,6 +511,34 @@ changing the draft; an authoritative signed-out result removes that source's
 choices. Late results cannot replace a newer edit, saved settings or a different
 page. Loading and failure states are available in English and Simplified Chinese.
 
+## Turn model recovery actions
+
+When a Feishu-started turn hits a provider rate limit or usage limit error, or
+remains stuck in upstream retry or queue wait without visible output for at
+least 60 seconds, the turn card may present up to three same-engine alternative
+model buttons (plus an optional "Other models" dropdown when additional
+same-engine models exist) so the user can recover without starting a new topic or losing
+session history. Candidate models come from the current engine's registered
+model catalog excluding the active model; distributions may install an optional
+`RankFallbackModels` Bridge hook to filter unavailable or high-load models and
+rank healthier candidates first, falling back to the public catalog order on
+timeout or error.
+
+Clicking a recovery button is authorized only for the turn's initiator or the
+Bot owner and is atomically claimed per turn so duplicate clicks cannot switch
+or resubmit twice. If the turn is still running, Bridge interrupts it and waits
+briefly for the session to become idle before invoking
+`Restart(PreserveHistory: true)` on the existing session so engines that support
+in-place hot reconfiguration apply the new model without restarting the process.
+Bridge keeps a bounded in-memory recovery cache of recently submitted turn
+inputs (evicted on normal turn completion or TTL expiry; large image payloads
+are omitted). When the interrupted or failed turn had not executed any tool
+calls and its cached input is still available, Bridge automatically resubmits
+that turn on the new model; when tool calls had already run or the cached input
+is unavailable, Bridge only switches the model and informs the user to continue
+manually rather than replaying side effects. All recovery controls and status
+notices are localized in English and Simplified Chinese.
+
 ## Distribution default migrations
 
 Distributions declare exact old-to-new profile reference mappings for retired

@@ -551,6 +551,11 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			turnMessages, turnSteerStart, turnMsgID = nil, -1, turnID
 			turnMsgMu.Unlock()
 		}
+		getCurrentTurnID := func() string {
+			turnMsgMu.Lock()
+			defer turnMsgMu.Unlock()
+			return turnMsgID
+		}
 		recordTurnMessage := func(text string) {
 			if strings.TrimSpace(text) == "" {
 				return
@@ -605,6 +610,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			meta.ViewURL = b.sessionViewerURL(targetID, sessionName)
 			meta.Placeholder, meta.PlaceholderError = placeholder.State()
 			meta.Now = time.Now()
+			meta.ModelRecovery = b.modelRecoveryPromptForActivity(streamChat, getCurrentTurnID(), meta)
 			return meta
 		}
 		legacyActivitySend := func(text string) (string, error) {
@@ -735,11 +741,13 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 					}
 				}
 			}
-			if model := strings.TrimSpace(ev.EffectiveModel); model != "" && strings.TrimSpace(streamChat.EffectiveModel) == "" {
+			if model := strings.TrimSpace(ev.EffectiveModel); model != "" && model != strings.TrimSpace(streamChat.EffectiveModel) {
 				streamChat.EffectiveModel = model
-				if err := b.db.RefreshSessionIdentity(bridgeID, targetID, sessionName, "", "", model); err != nil {
-					log.Warn().Err(err).Str("session", sessionName).Str("effective_model", model).
-						Msg("bridge: persist provider-confirmed effective model")
+				if b.db != nil {
+					if err := b.db.RefreshSessionIdentity(bridgeID, targetID, sessionName, "", "", model); err != nil {
+						log.Warn().Err(err).Str("session", sessionName).Str("effective_model", model).
+							Msg("bridge: persist provider-confirmed effective model")
+					}
 				}
 				if view := getActivityView(); view != nil {
 					publishActivity(view, true)
@@ -1056,6 +1064,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							continue
 						}
 						view := action.Activity
+						if view != nil && len(view.Tools) > 0 {
+							b.markTurnRecoveryToolUsed(getCurrentTurnID())
+						}
 						if view != nil && view.Status == "running" && activityViewHasOutput(view) {
 							placeholder.End()
 						}
@@ -1095,6 +1106,14 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						if action.Error != nil {
 							providerCode = action.Error.Code
 						}
+						errTurnID := strings.TrimSpace(action.Turn.ID)
+						if errTurnID == "" {
+							errTurnID = getCurrentTurnID()
+						}
+						rateLimited := providerUsageLimited(action.Text, providerCode)
+						if rateLimited {
+							b.markTurnRecoveryRateLimited(errTurnID, streamChat, streamChat.EffectiveModel)
+						}
 						text := ""
 						if !providerFailureNoticePending {
 							text = bridgeErrorNoticeWithCode(
@@ -1123,11 +1142,28 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						if text != "" {
 							sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-							_, _, sendErr := b.sendTextToBinding(sendCtx, streamChat, text)
+							var sendErr error
+							if rateLimited {
+								failedMeta := toolActivityCardMeta{
+									Status:         "failed",
+									AgentProfile:   streamChat.AgentProfile,
+									AgentType:      streamChat.AgentType,
+									EffectiveModel: streamChat.EffectiveModel,
+									SubtaskReport:  subtaskReportTurn.Load(),
+								}
+								if prompt := b.modelRecoveryPromptForActivity(streamChat, errTurnID, failedMeta); prompt != nil {
+									_, _, sendErr = b.sendInteractiveToBinding(sendCtx, streamChat, renderModelRecoveryErrorCard(text, prompt), "model recovery error card")
+								} else {
+									_, _, sendErr = b.sendTextToBinding(sendCtx, streamChat, text)
+								}
+							} else {
+								_, _, sendErr = b.sendTextToBinding(sendCtx, streamChat, text)
+							}
 							cancel()
 							failureNoticeDelivered = sendErr == nil
 						}
 					case agentui.ActionTurnFinished:
+						b.markTurnRecoveryFinished(action.Turn.ID, action.Turn.State == "turn_done")
 						b.retireQuestions(targetID, sessionName, rootMsgID, action.Turn.ID, "", false, action.Turn.State == "turn_done")
 						allowed := visibilityGate.Allow(action)
 						visibilityGate.Observe(action)
@@ -1299,10 +1335,18 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						continue
 					}
 					if placeholder.RefreshDue(now) && view != nil && view.Status == "running" {
-						// Keep the waiting card's elapsed time fresh.
+						// Keep the waiting card's elapsed time fresh (and attach
+						// queued model recovery buttons once the 60s threshold passes).
 						activitySender.ForceSend(fmt.Sprintf("%s|placeholder=%d", activityViewFingerprint(view), now.Unix()))
 						statusRefresh.MarkRefreshed(now, view)
 						continue
+					}
+					if view != nil && view.Status == "running" {
+						if meta := activityMeta(); meta.ModelRecovery != nil {
+							activitySender.ForceSend(fmt.Sprintf("%s|recovery=%s", activityViewFingerprint(view), meta.ModelRecovery.Reason))
+							statusRefresh.MarkRefreshed(now, view)
+							continue
+						}
 					}
 					if statusRefresh.Due(now, view) {
 						publishActivity(view, true)
