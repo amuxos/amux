@@ -92,8 +92,8 @@ func StartGateway(env []string, service string) (baseURL, key string, closeGatew
 			headers[name] = r.Header.Get(name)
 		}
 		headers["X-Amux-Reasoning-Effort"] = values["AMUX_MODEL_SERVICE_EFFORT"]
-		if headers["X-Session-Id"] == "" {
-			headers["X-Session-Id"] = values["AMUX_SESSION_ID"]
+		if sessionID := values["AMUX_SESSION_ID"]; sessionID != "" {
+			headers["X-Session-Id"] = sessionID
 		}
 		stream, err := client.ProxyModel(ctx, &pb.ProxyModelRequest{Service: service, Method: r.Method, Path: r.URL.Path, Headers: headers, Body: body})
 		if err != nil {
@@ -166,6 +166,12 @@ var PassthroughHeaderAllowlist = []string{
 // 127.0.0.1:0, authenticates to Hub with the broker's actor credential, and
 // forwards raw HTTP path, headers, and body verbatim through ProxyModel.
 func StartPassthroughGateway(env []string, service string) (baseURL string, closeGateway func(), err error) {
+	return StartFilteredPassthroughGateway(env, service, nil)
+}
+
+// StartFilteredPassthroughGateway runs prepare before relaying each request.
+// The filter can adjust request headers or return a safe ProxyError.
+func StartFilteredPassthroughGateway(env []string, service string, prepare func(*http.Request) error) (baseURL string, closeGateway func(), err error) {
 	values := map[string]string{}
 	for _, entry := range env {
 		k, v, ok := strings.Cut(entry, "=")
@@ -193,6 +199,14 @@ func StartPassthroughGateway(env []string, service string) (baseURL string, clos
 		if r.Header.Get("Origin") != "" {
 			gatewayError(w, 403, "browser requests are not supported")
 			return
+		}
+		if prepare != nil {
+			if err := prepare(r); err != nil {
+				if !WriteProxyError(w, err) {
+					gatewayError(w, http.StatusServiceUnavailable, errorMessage("unavailable"))
+				}
+				return
+			}
 		}
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 32<<20))
 		if err != nil {

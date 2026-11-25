@@ -26,6 +26,55 @@ type relayTestServer struct {
 	tokens   chan string
 }
 
+func TestPassthroughRequestFilterAppliesBeforeHubRelay(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &relayTestServer{requests: make(chan *pb.ProxyModelRequest, 1), tokens: make(chan string, 1)}
+	server := grpc.NewServer()
+	pb.RegisterAmuxdServer(server, fake)
+	go server.Serve(lis)
+	defer server.Stop()
+	base, closeGateway, err := StartFilteredPassthroughGateway([]string{"AMUX_HUB_ADDR=" + lis.Addr().String()}, "test", func(r *http.Request) error {
+		if r.Header.Get("Authorization") != "native" {
+			return NewProxyError(http.StatusUnauthorized, "request rejected")
+		}
+		r.Header.Set("Authorization", "prepared")
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeGateway()
+	client := &http.Client{Timeout: 5 * time.Second}
+	for _, tc := range []struct {
+		value string
+		code  int
+	}{{"invalid", 401}, {"native", 200}} {
+		req, err := http.NewRequest(http.MethodGet, base+"/test", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", tc.value)
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != tc.code {
+			t.Fatalf("status = %d, want %d", resp.StatusCode, tc.code)
+		}
+	}
+	if len(fake.requests) != 1 {
+		t.Fatalf("Hub received %d requests", len(fake.requests))
+	}
+	if req := <-fake.requests; req.Headers["Authorization"] != "prepared" {
+		t.Fatal("Hub did not receive the filtered headers")
+	}
+}
+
 func (s *relayTestServer) ProxyModel(r *pb.ProxyModelRequest, stream grpc.ServerStreamingServer[pb.ProxyModelChunk]) error {
 	md, _ := metadata.FromIncomingContext(stream.Context())
 	s.tokens <- strings.Join(md.Get("x-amux-actor-token"), "")
@@ -49,7 +98,7 @@ func TestGatewayActorRotationStreamingAndLocalAuthentication(t *testing.T) {
 	if err = os.WriteFile(tokenFile, []byte(`{"token":"rotated-actor"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	base, key, closeGateway, err := StartGateway([]string{"AMUX_HUB_ADDR=" + lis.Addr().String(), "AMUX_ACTOR_TOKEN=launch-actor", "AMUX_ACTOR_TOKEN_FILE=" + tokenFile, "AMUX_MODEL_SERVICE_EFFORT=ultra"}, "test")
+	base, key, closeGateway, err := StartGateway([]string{"AMUX_HUB_ADDR=" + lis.Addr().String(), "AMUX_ACTOR_TOKEN=launch-actor", "AMUX_ACTOR_TOKEN_FILE=" + tokenFile, "AMUX_MODEL_SERVICE_EFFORT=ultra", "AMUX_SESSION_ID=session"}, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,6 +108,7 @@ func TestGatewayActorRotationStreamingAndLocalAuthentication(t *testing.T) {
 		t.Helper()
 		r, _ := http.NewRequestWithContext(context.Background(), "POST", base+"/responses", strings.NewReader(`{"model":"test"}`))
 		r.Header.Set("Authorization", auth)
+		r.Header.Set("X-Session-Id", "client-requested")
 		response, err := client.Do(r)
 		if err != nil {
 			t.Fatal(err)
@@ -80,7 +130,7 @@ func TestGatewayActorRotationStreamingAndLocalAuthentication(t *testing.T) {
 		t.Fatal("did not use refreshed actor")
 	}
 	req := <-fake.requests
-	if req.Service != "test" || req.Path != "/v1/responses" || req.Headers["X-Amux-Reasoning-Effort"] != "ultra" {
+	if req.Service != "test" || req.Path != "/v1/responses" || req.Headers["X-Amux-Reasoning-Effort"] != "ultra" || req.Headers["X-Session-Id"] != "session" {
 		t.Fatalf("wrong relay metadata: %+v", req)
 	}
 	closeGateway()

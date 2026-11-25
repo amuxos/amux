@@ -280,6 +280,9 @@ type StartOptions struct {
 	// ProviderName is the provider id used in amux events and errors. Empty
 	// defaults to "codex".
 	ProviderName string
+	// ReadPrincipalHomeFiles reads HOME-relative files as the target user
+	// during isolated model discovery. It is nil on host launches.
+	ReadPrincipalHomeFiles func(context.Context, []string) (map[string][]byte, error)
 	// DiscoverSkills enables Codex-compatible app-server skills/list discovery
 	// for the current Cwd. It does not add any Agent Profile Pack roots.
 	DiscoverSkills bool

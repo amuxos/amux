@@ -61,7 +61,7 @@ func (s *server) ListNativeModels(parent context.Context, req *pb.ListNativeMode
 	}
 	models, signedIn, err := codex.DiscoverModels(ctx, codex.StartOptions{
 		Backend: backend, LaunchContext: launchContext, Cwd: cwd, Executable: executable,
-		Env: env, ProviderName: req.AgentType,
+		Env: env, ProviderName: req.AgentType, ReadPrincipalHomeFiles: principalHomeReader(s.isolationRuntime, &identity),
 	})
 	if err != nil {
 		return nil, err

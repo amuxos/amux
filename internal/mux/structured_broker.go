@@ -84,6 +84,9 @@ type StructuredLaunchOptions struct {
 	Backend                isolation.LaunchBackend
 	LaunchContext          isolation.LaunchContext
 	ResponsesChat          *ResponsesChatOptions
+	// ReadPrincipalHomeFiles is available during broker preparation for a
+	// Linux DAC execution. It reads HOME-relative files as that principal.
+	ReadPrincipalHomeFiles func(context.Context, []string) (map[string][]byte, error)
 }
 
 type structuredReconfigureFrame struct {
