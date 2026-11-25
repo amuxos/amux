@@ -284,23 +284,34 @@ type fakeRoute struct {
 }
 
 type fakeSub struct {
+	mu             sync.Mutex
 	targets        []*pb.Target
 	routes         []fakeRoute
 	failures       map[string]error
 	runSessionName string
+	routeFn        func(ctx context.Context, targetID, method string, payload interface{}) (*pb.TunnelMsg, error)
 }
 
 func (f *fakeSub) ListTargets() []*pb.Target { return f.targets }
-func (f *fakeSub) Route(_ context.Context, _ string, method string, payload interface{}) (*pb.TunnelMsg, error) {
-	if err := f.failures[method]; err != nil {
+func (f *fakeSub) Route(ctx context.Context, targetID string, method string, payload interface{}) (*pb.TunnelMsg, error) {
+	if f.routeFn != nil {
+		return f.routeFn(ctx, targetID, method, payload)
+	}
+	f.mu.Lock()
+	err := f.failures[method]
+	runSessionName := f.runSessionName
+	if err == nil {
+		f.routes = append(f.routes, fakeRoute{method: method, payload: payload})
+	}
+	f.mu.Unlock()
+	if err != nil {
 		return nil, err
 	}
-	f.routes = append(f.routes, fakeRoute{method: method, payload: payload})
 	if method == "Run" {
 		req := payload.(*pb.RunRequest)
 		name := req.Name
-		if f.runSessionName != "" {
-			name = f.runSessionName
+		if runSessionName != "" {
+			name = runSessionName
 		}
 		raw, _ := json.Marshal(&pb.RunResponse{Session: &pb.Session{
 			Name: name, AgentType: req.AgentType, Cwd: req.Cwd, State: "running",
@@ -311,6 +322,8 @@ func (f *fakeSub) Route(_ context.Context, _ string, method string, payload inte
 }
 
 func (f *fakeSub) submitted() []*pb.SubmitRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	var out []*pb.SubmitRequest
 	for _, route := range f.routes {
 		if req, ok := route.payload.(*pb.SubmitRequest); ok {
@@ -318,6 +331,11 @@ func (f *fakeSub) submitted() []*pb.SubmitRequest {
 		}
 	}
 	return out
+}
+
+func runDueAndWait(sched *Scheduler, ctx context.Context, now time.Time) {
+	sched.runDue(ctx, now)
+	sched.Wait()
 }
 
 type fakeTaskSubmitter struct {
@@ -689,9 +707,9 @@ func TestSchedulerFireOnlineRecurring(t *testing.T) {
 	task, _ := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "tick", Spec: "every 30m", Kind: KindInterval, Enabled: true, NextRunAt: &due})
 
 	sub := &fakeSub{targets: onlineTarget()}
-	newTestScheduler(sub, s).runDue(context.Background(), now)
+	runDueAndWait(newTestScheduler(sub, s), context.Background(), now)
 
-	if len(sub.submitted()) != 1 || sub.submitted()[0].Text != "tick" || sub.submitted()[0].Source != "scheduler" {
+	if len(sub.submitted()) != 1 || sub.submitted()[0].Text != "tick" || sub.submitted()[0].Source != "scheduler" || !sub.submitted()[0].Async {
 		t.Fatalf("submitted = %+v", sub.submitted())
 	}
 	got, _ := s.Get(task.ID)
@@ -720,7 +738,7 @@ func TestSchedulerAuthorizationDenialRoutesNothingAndRecordsError(t *testing.T) 
 		return errors.New("session authorization: owner no longer authorized")
 	})
 
-	sched.runDue(context.Background(), now)
+	runDueAndWait(sched, context.Background(), now)
 
 	if len(sub.routes) != 0 {
 		t.Fatalf("authorization denial routed calls: %+v", sub.routes)
@@ -755,7 +773,7 @@ func TestSchedulerAuthorizationRunsBeforeNewSessionPerRun(t *testing.T) {
 		return errors.New("session authorization: template owner changed")
 	})
 
-	sched.runDue(context.Background(), now)
+	runDueAndWait(sched, context.Background(), now)
 
 	if len(sub.routes) != 0 {
 		t.Fatalf("authorization denial routed calls: %+v", sub.routes)
@@ -791,7 +809,7 @@ func TestSchedulerAuthorizationAllowsDelivery(t *testing.T) {
 		return nil
 	})
 
-	sched.runDue(context.Background(), now)
+	runDueAndWait(sched, context.Background(), now)
 
 	if called != 1 {
 		t.Fatalf("authorizer calls = %d, want 1", called)
@@ -808,7 +826,7 @@ func TestSchedulerFireOfflineRecurring(t *testing.T) {
 	task, _ := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "tick", Spec: "every 30m", Kind: KindInterval, Enabled: true, NextRunAt: &due})
 
 	sub := &fakeSub{targets: nil} // nothing online
-	newTestScheduler(sub, s).runDue(context.Background(), now)
+	runDueAndWait(newTestScheduler(sub, s), context.Background(), now)
 
 	if len(sub.submitted()) != 0 {
 		t.Fatalf("should not submit when offline: %+v", sub.submitted())
@@ -829,7 +847,7 @@ func TestSchedulerFireOnceConsumed(t *testing.T) {
 	task, _ := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "once", Spec: "at 2026-06-01 09:59", Kind: KindOnce, Enabled: true, NextRunAt: &due})
 
 	sub := &fakeSub{targets: onlineTarget()}
-	newTestScheduler(sub, s).runDue(context.Background(), now)
+	runDueAndWait(newTestScheduler(sub, s), context.Background(), now)
 
 	got, _ := s.Get(task.ID)
 	if got.NextRunAt != nil {
@@ -847,7 +865,7 @@ func TestSchedulerOnceOfflineMissed(t *testing.T) {
 	task, _ := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "once", Spec: "at 2026-06-01 09:59", Kind: KindOnce, Enabled: true, NextRunAt: &due})
 
 	sub := &fakeSub{targets: nil}
-	newTestScheduler(sub, s).runDue(context.Background(), now)
+	runDueAndWait(newTestScheduler(sub, s), context.Background(), now)
 
 	got, _ := s.Get(task.ID)
 	if got.NextRunAt != nil {
@@ -867,7 +885,7 @@ func TestSchedulerNewSessionPerRun(t *testing.T) {
 	task, _ := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "tick", Spec: "every 30m", Kind: KindInterval, RunMode: RunModeNewSessionPerRun, Enabled: true, NextRunAt: &due})
 
 	sub := &fakeSub{targets: onlineTarget(), runSessionName: "resolved-session"}
-	newTestScheduler(sub, s).runDue(context.Background(), now)
+	runDueAndWait(newTestScheduler(sub, s), context.Background(), now)
 
 	if len(sub.routes) != 2 {
 		t.Fatalf("routes = %+v, want Run then Submit", sub.routes)
@@ -889,7 +907,7 @@ func TestSchedulerNewSessionPerRun(t *testing.T) {
 	if len(run.ExtraArgs) != 1 || run.ExtraArgs[0] != "--debug" || len(run.Env) != 1 || run.Env[0] != "A=B" {
 		t.Fatalf("run args/env did not clone template: %+v", run)
 	}
-	if submit.Text != "tick" || submit.Source != "scheduler" {
+	if submit.Text != "tick" || submit.Source != "scheduler" || !submit.Async {
 		t.Fatalf("submit = %+v", submit)
 	}
 	got, _ := s.Get(task.ID)
@@ -905,7 +923,7 @@ func TestSchedulerNewSessionPerRunRunFailure(t *testing.T) {
 	task, _ := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "tick", Spec: "every 30m", Kind: KindInterval, RunMode: RunModeNewSessionPerRun, Enabled: true, NextRunAt: &due})
 
 	sub := &fakeSub{targets: onlineTarget(), failures: map[string]error{"Run": context.DeadlineExceeded}}
-	newTestScheduler(sub, s).runDue(context.Background(), now)
+	runDueAndWait(newTestScheduler(sub, s), context.Background(), now)
 
 	if len(sub.routes) != 0 {
 		t.Fatalf("should not record successful routes after run failure: %+v", sub.routes)
@@ -923,7 +941,7 @@ func TestSchedulerNewSessionPerRunSubmitFailure(t *testing.T) {
 	task, _ := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "tick", Spec: "every 30m", Kind: KindInterval, RunMode: RunModeNewSessionPerRun, Enabled: true, NextRunAt: &due})
 
 	sub := &fakeSub{targets: onlineTarget(), failures: map[string]error{"Submit": context.DeadlineExceeded}}
-	newTestScheduler(sub, s).runDue(context.Background(), now)
+	runDueAndWait(newTestScheduler(sub, s), context.Background(), now)
 
 	if len(sub.routes) != 1 || sub.routes[0].method != "Run" {
 		t.Fatalf("routes = %+v, want only Run", sub.routes)
@@ -941,7 +959,7 @@ func TestSchedulerArchivedSessionSkipped(t *testing.T) {
 	task, _ := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "tick", Spec: "every 30m", Kind: KindInterval, Enabled: true, NextRunAt: &due})
 
 	sub := &fakeSub{targets: []*pb.Target{{Id: "local", Sessions: []*pb.Session{{Name: "c1", State: "archived"}}}}}
-	newTestScheduler(sub, s).runDue(context.Background(), now)
+	runDueAndWait(newTestScheduler(sub, s), context.Background(), now)
 
 	if len(sub.submitted()) != 0 {
 		t.Fatalf("should not submit to archived session: %+v", sub.submitted())
@@ -952,5 +970,403 @@ func TestSchedulerArchivedSessionSkipped(t *testing.T) {
 	}
 	if got.NextRunAt == nil {
 		t.Error("recurring task should still advance")
+	}
+}
+
+func TestStoreUsesWALBusyTimeoutAndForeignKeys(t *testing.T) {
+	s := newTestStore(t)
+	var journalMode string
+	if err := s.db.QueryRow(`PRAGMA journal_mode`).Scan(&journalMode); err != nil {
+		t.Fatalf("read journal_mode: %v", err)
+	}
+	if strings.ToLower(journalMode) != "wal" {
+		t.Fatalf("journal_mode = %q, want wal", journalMode)
+	}
+	var busyTimeout int
+	if err := s.db.QueryRow(`PRAGMA busy_timeout`).Scan(&busyTimeout); err != nil {
+		t.Fatalf("read busy_timeout: %v", err)
+	}
+	if busyTimeout != scheduleDBBusyTimeoutMS {
+		t.Fatalf("busy_timeout = %d, want %d", busyTimeout, scheduleDBBusyTimeoutMS)
+	}
+	var fk int
+	if err := s.db.QueryRow(`PRAGMA foreign_keys`).Scan(&fk); err != nil {
+		t.Fatalf("read foreign_keys: %v", err)
+	}
+	if fk != 1 {
+		t.Fatalf("foreign_keys = %d, want 1", fk)
+	}
+}
+
+func TestSchedulerSessionPromptAsyncDoesNotBlockOtherDueTasks(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.Local)
+	due := now.Add(-time.Second).Unix()
+	slowTask, err := s.Create(Task{TargetID: "local", SessionName: "slow", Prompt: "slow-prompt", Spec: "every 30m", Kind: KindInterval, Enabled: true, NextRunAt: &due})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fastTask, err := s.Create(Task{TargetID: "local", SessionName: "fast", Prompt: "fast-prompt", Spec: "every 30m", Kind: KindInterval, Enabled: true, NextRunAt: &due})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	slowStarted := make(chan struct{})
+	releaseSlow := make(chan struct{})
+	fastDone := make(chan struct{})
+	sub := &fakeSub{
+		targets: []*pb.Target{{Id: "local", Name: "local", Sessions: []*pb.Session{
+			{Name: "slow", State: "running"},
+			{Name: "fast", State: "running"},
+		}}},
+		routeFn: func(ctx context.Context, _ string, method string, payload interface{}) (*pb.TunnelMsg, error) {
+			req := payload.(*pb.SubmitRequest)
+			if !req.Async {
+				t.Errorf("SubmitRequest.Async = false for %s, want true", req.Name)
+			}
+			if req.Name == "slow" {
+				close(slowStarted)
+				select {
+				case <-releaseSlow:
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			} else if req.Name == "fast" {
+				defer close(fastDone)
+			}
+			raw, _ := json.Marshal(&pb.SubmitResponse{Ok: true, TurnId: "turn-" + req.Name, SessionId: "sess-" + req.Name})
+			return &pb.TunnelMsg{Payload: raw}, nil
+		},
+	}
+
+	sched := newTestScheduler(sub, s)
+	runDone := make(chan struct{})
+	go func() {
+		sched.runDue(context.Background(), now)
+		close(runDone)
+	}()
+
+	select {
+	case <-slowStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("slow task did not start")
+	}
+	select {
+	case <-fastDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("fast task was blocked by slow session-prompt delivery")
+	}
+	select {
+	case <-runDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("runDue blocked waiting for slow session-prompt delivery")
+	}
+
+	close(releaseSlow)
+	sched.Wait()
+
+	for _, id := range []int64{slowTask.ID, fastTask.ID} {
+		got, err := s.Get(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.LastStatus != statusOK {
+			t.Fatalf("task %d status = %q, want %q", id, got.LastStatus, statusOK)
+		}
+	}
+}
+
+func TestSchedulerBurstSubtasksDeferClaimInsteadOfDropping(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.Local)
+	due := now.Unix()
+	total := subtaskSubmitWorkers + 4
+	ids := make([]int64, 0, total)
+	taskIDs := make([]string, 0, total)
+	for i := 0; i < total; i++ {
+		row, err := s.Create(Task{
+			Name:         "morning-burst",
+			ScheduleType: ScheduleTypeSubtask,
+			Spec:         "daily 09:00",
+			Kind:         KindDaily,
+			TaskSpecJson: []byte(`{"agent":"builtin/codex","task":"report"}`),
+			Enabled:      true,
+			NextRunAt:    &due,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, row.ID)
+		taskIDs = append(taskIDs, "task-burst-"+string(rune('a'+i)))
+	}
+
+	release := make(chan struct{})
+	fake := &fakeTaskSubmitter{ids: taskIDs, release: release}
+	sched := newTestSchedulerWithTask(&fakeSub{}, s, fake)
+
+	// First pass claims up to subtaskSubmitWorkers and leaves overflow unclaimed.
+	sched.runDue(context.Background(), now)
+	dueAfterFirst, err := s.DueTasks(now.Unix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dueAfterFirst) != total-subtaskSubmitWorkers {
+		t.Fatalf("remaining unclaimed due tasks = %d, want %d", len(dueAfterFirst), total-subtaskSubmitWorkers)
+	}
+
+	// Release workers; second pass claims and submits the deferred tasks cleanly.
+	close(release)
+	sched.Wait()
+	sched.runDue(context.Background(), now)
+	sched.Wait()
+
+	if got := fake.callCount(); got != total {
+		t.Fatalf("total submitted subtasks = %d, want %d (none dropped)", got, total)
+	}
+	for _, id := range ids {
+		runs, err := s.ListRuns(id, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(runs) != 1 || !strings.HasPrefix(runs[0].Status, "ok:task:") {
+			t.Fatalf("schedule %d runs = %+v, want one ok:task run", id, runs)
+		}
+	}
+}
+
+type fakeOutcomeReader struct {
+	mu    sync.Mutex
+	fn    func(ctx context.Context, r Execution) (Execution, error)
+	calls int
+}
+
+func (f *fakeOutcomeReader) ObserveScheduleExecution(ctx context.Context, r Execution) (Execution, error) {
+	f.mu.Lock()
+	f.calls++
+	fn := f.fn
+	f.mu.Unlock()
+	if fn != nil {
+		return fn(ctx, r)
+	}
+	return r, nil
+}
+
+func (f *fakeOutcomeReader) callCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls
+}
+
+func TestSchedulerReconcileSkipsInFlightAndObservePreservesReceipts(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.Local)
+	due := now.Unix()
+	row, err := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "tick", Spec: "every 30m", Kind: KindInterval, Enabled: true, NextRunAt: &due})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	sub := &fakeSub{
+		targets: onlineTarget(),
+		routeFn: func(ctx context.Context, _ string, _ string, _ interface{}) (*pb.TunnelMsg, error) {
+			close(started)
+			<-release
+			raw, _ := json.Marshal(&pb.SubmitResponse{Ok: true, TurnId: "turn-live", SessionId: "sess-live", LaunchId: "launch-live"})
+			return &pb.TunnelMsg{Payload: raw}, nil
+		},
+	}
+	obs := &fakeOutcomeReader{}
+	sched := newTestScheduler(sub, s)
+	sched.SetOutcomeReader(obs)
+	sched.runDue(context.Background(), now)
+	<-started
+
+	// Reconcile running >60s after claim must skip the in-flight execution.
+	sched.reconcile(context.Background(), now.Add(90*time.Second))
+	pending, err := s.PendingExecutions()
+	if err != nil || len(pending) != 1 {
+		t.Fatalf("pending = %+v %v, want 1 still-pending execution", pending, err)
+	}
+	if pending[0].Status != "submitting" {
+		t.Fatalf("in-flight execution status = %q, want submitting", pending[0].Status)
+	}
+	staleSnapshot := pending[0]
+
+	// Finish delivery so TurnID is recorded, then attempt a stale Observe write
+	// with empty TurnID; Store.Observe must refuse to clobber the receipt.
+	close(release)
+	sched.Wait()
+
+	staleSnapshot.Status = "unknown"
+	staleSnapshot.Reason = "admission_unconfirmed"
+	if err := s.Observe(staleSnapshot, now.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	history, err := s.ExecutionHistory(row.ID)
+	if err != nil || len(history) != 1 {
+		t.Fatalf("history = %+v %v", history, err)
+	}
+	if history[0].TurnID != "turn-live" || history[0].Status != "submitted" {
+		t.Fatalf("stale Observe clobbered receipt: %+v", history[0])
+	}
+}
+
+func TestSchedulerReconcileConvergesPermanentExpiredAndBacksOff(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Date(2026, 6, 1, 10, 0, 0, 0, time.Local)
+	due := now.Unix()
+
+	// 1) Crashed receipt without TaskID/TurnID converges after 60s.
+	crashedRow, err := s.Create(Task{TargetID: "local", SessionName: "c1", Prompt: "a", Spec: "every 30m", Kind: KindInterval, Enabled: true, NextRunAt: &due})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := now.Add(30 * time.Minute).Unix()
+	if _, ok, err := s.ClaimTracked(crashedRow, now, &next); err != nil || !ok {
+		t.Fatalf("claim crashed: %v %v", ok, err)
+	}
+
+	// 2) Permanent error (e.g. session identity mismatch) converges immediately.
+	permRow, err := s.Create(Task{TargetID: "local", SessionName: "c2", Prompt: "b", Spec: "every 30m", Kind: KindInterval, Enabled: true, NextRunAt: &due})
+	if err != nil {
+		t.Fatal(err)
+	}
+	permRun, ok, err := s.ClaimTracked(permRow, now, &next)
+	if err != nil || !ok {
+		t.Fatalf("claim perm: %v %v", ok, err)
+	}
+	permRun.TurnID = "turn-perm"
+	permRun.SessionID = "sess-old"
+	permRun.Status = "submitted"
+	if err := s.Observe(permRun, now); err != nil {
+		t.Fatal(err)
+	}
+
+	// 3) Transient error backs off, then converges after observeMaxAge.
+	transRow, err := s.Create(Task{TargetID: "local", SessionName: "c3", Prompt: "c", Spec: "every 30m", Kind: KindInterval, Enabled: true, NextRunAt: &due})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transRun, ok, err := s.ClaimTracked(transRow, now, &next)
+	if err != nil || !ok {
+		t.Fatalf("claim trans: %v %v", ok, err)
+	}
+	transRun.TaskID = "task-transient"
+	transRun.Status = "submitted"
+	if err := s.Observe(transRun, now); err != nil {
+		t.Fatal(err)
+	}
+
+	obs := &fakeOutcomeReader{
+		fn: func(_ context.Context, r Execution) (Execution, error) {
+			if r.TurnID == "turn-perm" {
+				return r, ErrObservationPermanent
+			}
+			return r, errors.New("temporary network error")
+		},
+	}
+	sched := newTestScheduler(&fakeSub{}, s)
+	sched.SetOutcomeReader(obs)
+
+	// At now+90s: crashed converges, perm converges, trans fails once and sets backoff.
+	sched.reconcile(context.Background(), now.Add(90*time.Second))
+	if obs.callCount() != 2 {
+		t.Fatalf("first reconcile observer calls = %d, want 2", obs.callCount())
+	}
+	pending, err := s.PendingExecutions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 1 || pending[0].TaskID != "task-transient" {
+		t.Fatalf("pending after first reconcile = %+v, want only task-transient", pending)
+	}
+	if pending[0].ObserveFailures != 1 || pending[0].NextObserveAt <= now.Add(90*time.Second).Unix() {
+		t.Fatalf("transient backoff not recorded: %+v", pending[0])
+	}
+
+	// Calling reconcile again within backoff window must NOT hit observer.
+	sched.reconcile(context.Background(), now.Add(95*time.Second))
+	if obs.callCount() != 2 {
+		t.Fatalf("reconcile ignored backoff: calls = %d, want 2", obs.callCount())
+	}
+
+	// Past observeMaxAge: transient converges to terminal unknown.
+	sched.reconcile(context.Background(), now.Add(observeMaxAge+time.Minute))
+	pending, err = s.PendingExecutions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 0 {
+		t.Fatalf("pending after observeMaxAge = %+v, want 0", pending)
+	}
+}
+
+type blockingTaskSubmitter struct {
+	started chan struct{}
+	release chan struct{}
+	id      string
+}
+
+func (b *blockingTaskSubmitter) SubmitScheduledTask(_ context.Context, _ []byte) (string, error) {
+	close(b.started)
+	<-b.release
+	return b.id, nil
+}
+
+func TestSchedulerStartDrainsWorkersOnCancel(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Now().Add(-time.Second)
+	due := now.Unix()
+	row, err := s.Create(Task{
+		Name:         "drain-test",
+		ScheduleType: ScheduleTypeSubtask,
+		Spec:         "every 30m",
+		Kind:         KindInterval,
+		TaskSpecJson: []byte(`{"agent":"builtin/codex","task":"review"}`),
+		Enabled:      true,
+		NextRunAt:    &due,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := make(chan struct{})
+	release := make(chan struct{})
+	fake := &blockingTaskSubmitter{started: started, release: release, id: "task-drain"}
+	sched := newTestSchedulerWithTask(&fakeSub{}, s, fake)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		sched.Start(ctx)
+	}()
+
+	// Trigger an immediate run and wait for worker to start.
+	sched.runDue(ctx, time.Now())
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("worker did not start")
+	}
+
+	// Cancel Start context; Start must not return while worker is still finishing.
+	cancel()
+	select {
+	case <-done:
+		t.Fatal("Start returned before in-flight worker finished")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Start did not return after worker finished")
+	}
+	runs, err := s.ListRuns(row.ID, 10)
+	if err != nil || len(runs) != 1 || runs[0].TaskID != "task-drain" {
+		t.Fatalf("worker receipt lost during drain: %+v %v", runs, err)
 	}
 }

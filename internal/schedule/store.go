@@ -106,20 +106,30 @@ func DefaultSchedulePath() string {
 	return filepath.Join(amuxhome.Dir(), "schedule.db")
 }
 
+const scheduleDBBusyTimeoutMS = 5000
+
+func scheduleSQLiteDSN(path string) string {
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+	return fmt.Sprintf("%s%s_pragma=busy_timeout%%3d%d&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_txlock=immediate", path, separator, scheduleDBBusyTimeoutMS)
+}
+
 // OpenStore opens (creating if needed) the schedule database and migrates it.
 func OpenStore(path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, fmt.Errorf("schedule db mkdir: %w", err)
 	}
-	db, err := sql.Open("sqlite", path)
+	db, err := sql.Open("sqlite", scheduleSQLiteDSN(path))
 	if err != nil {
 		return nil, fmt.Errorf("schedule db open: %w", err)
 	}
+	db.SetMaxOpenConns(1)
 	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("schedule db foreign keys: %w", err)
 	}
-	db.SetMaxOpenConns(1)
 	s := &Store{db: db}
 	if err := s.migrate(); err != nil {
 		_ = db.Close()

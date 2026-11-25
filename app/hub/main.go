@@ -262,7 +262,15 @@ func newStartCmd() *cobra.Command {
 				scheduler := schedule.NewWithTaskSubmitter(hub, scheduleStore, sessionStarter, taskRouter)
 				scheduler.SetSessionPromptAuthorizer(hubRPC.authorizeScheduledSessionPrompt)
 				scheduler.SetOutcomeReader(scheduleControl)
-				go scheduler.Start(ctx)
+				schedulerDone := make(chan struct{})
+				go func() {
+					defer close(schedulerDone)
+					scheduler.Start(ctx)
+				}()
+				defer func() {
+					cancel()
+					<-schedulerDone
+				}()
 			}
 			srv := grpc.NewServer(serverOpts...)
 			pb.RegisterAmuxdServer(srv, hubRPC)

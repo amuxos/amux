@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -310,7 +311,7 @@ func (c *bridgeSchedules) ObserveScheduleExecution(ctx context.Context, r schedu
 			return r, e
 		}
 		if run.ID != r.TaskID {
-			return r, errors.New("task identity mismatch")
+			return r, fmt.Errorf("%w: task identity mismatch", schedule.ErrObservationPermanent)
 		}
 		r.Status = "running"
 		r.Terminal = run.Status.IsTerminal()
@@ -364,7 +365,7 @@ func (c *bridgeSchedules) ObserveScheduleExecution(ctx context.Context, r schedu
 			return e
 		}
 		if event.SessionID != r.SessionID {
-			return errors.New("session identity mismatch")
+			return fmt.Errorf("%w: session identity mismatch", schedule.ErrObservationPermanent)
 		}
 		r.Cursor = ev.Cursor
 		if event.Turn == nil || event.Turn.ID != r.TurnID {
