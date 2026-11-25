@@ -18,9 +18,160 @@ const (
 	scheduleResultCardMaxRunes = 6000
 )
 
+func (b *Bridge) ensureDeliveryWake() chan struct{} {
+	b.scheduleDeliveryWakeMu.Lock()
+	defer b.scheduleDeliveryWakeMu.Unlock()
+	if b.scheduleDeliveryWake == nil {
+		b.scheduleDeliveryWake = make(chan struct{}, 1)
+	}
+	return b.scheduleDeliveryWake
+}
+
+// NotifyScheduleDelivery wakes the background delivery loop immediately so
+// newly created schedule confirmation cards and completed results land without
+// waiting for the periodic polling tick.
+func (b *Bridge) NotifyScheduleDelivery() {
+	if b == nil {
+		return
+	}
+	ch := b.ensureDeliveryWake()
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
+}
+
 func scheduleResultDeliveryUUID(botID string, scheduleID, runID int64) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("schedule-result:%s:%d:%d", botID, scheduleID, runID)))
 	return fmt.Sprintf("%x", sum[:16])
+}
+
+func scheduleCreatedDeliveryUUID(botID string, scheduleID int64) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("schedule-created:%s:%d", botID, scheduleID)))
+	return fmt.Sprintf("%x", sum[:16])
+}
+
+func scheduleSpecDisplay(t schedule.Task) string {
+	spec := strings.TrimSpace(t.Spec)
+	if tz := strings.TrimSpace(t.Timezone); tz != "" {
+		return spec + " (" + tz + ")"
+	}
+	return spec
+}
+
+func scheduleExecutionModeCopy(t schedule.Task) any {
+	if t.ScheduleType == schedule.ScheduleTypeSubtask || t.RunMode == schedule.RunModeNewSessionPerRun {
+		return scheduleText("mode.isolated")
+	}
+	return scheduleText("mode.reuse_session")
+}
+
+func scheduleEffectiveDeliveryTarget(t schedule.Task) string {
+	switch strings.TrimSpace(t.DeliveryTarget) {
+	case schedule.DeliveryTargetOrigin:
+		return schedule.DeliveryTargetOrigin
+	case schedule.DeliveryTargetCreatorDM:
+		return schedule.DeliveryTargetCreatorDM
+	default:
+		return schedule.DeliveryTargetNone
+	}
+}
+
+func scheduleEffectiveDeliveryPolicy(t schedule.Task) string {
+	switch strings.TrimSpace(t.DeliveryPolicy) {
+	case schedule.DeliveryPolicyOnNonEmpty:
+		return schedule.DeliveryPolicyOnNonEmpty
+	case schedule.DeliveryPolicyOnFailure:
+		return schedule.DeliveryPolicyOnFailure
+	default:
+		return schedule.DeliveryPolicyAlways
+	}
+}
+
+func scheduleDeliveryTargetCopy(target string) any {
+	switch target {
+	case schedule.DeliveryTargetOrigin:
+		return scheduleText("delivery_target.origin")
+	case schedule.DeliveryTargetCreatorDM:
+		return scheduleText("delivery_target.creator_dm")
+	default:
+		return scheduleText("delivery_target.none")
+	}
+}
+
+func scheduleDeliveryPolicyCopy(policy string) any {
+	switch policy {
+	case schedule.DeliveryPolicyOnNonEmpty:
+		return scheduleText("delivery_policy.on_non_empty")
+	case schedule.DeliveryPolicyOnFailure:
+		return scheduleText("delivery_policy.on_failure")
+	default:
+		return scheduleText("delivery_policy.always")
+	}
+}
+
+func scheduleDeliverySummary(t schedule.Task) any {
+	target := scheduleEffectiveDeliveryTarget(t)
+	if target == schedule.DeliveryTargetNone {
+		return scheduleDeliveryTargetCopy(target)
+	}
+	return managementConcat(
+		scheduleDeliveryTargetCopy(target),
+		" · ",
+		scheduleDeliveryPolicyCopy(scheduleEffectiveDeliveryPolicy(t)),
+	)
+}
+
+func renderScheduleCreatedCard(entry schedule.Entry) string {
+	elements := []cardElement{
+		managementTextElement(
+			managementConcat(scheduleExecutionModeCopy(entry.Task), " · ", scheduleSpecDisplay(entry.Task)),
+			"normal",
+			"default",
+			nil,
+		),
+		managementTextElement(scheduleText("next", scheduleNext(entry)), "notation", "grey", nil),
+		managementTextElement(
+			managementConcat(scheduleText("created.agent_prefix"), scheduleDeliveryAgentLabel(entry.Task)),
+			"notation",
+			"grey",
+			nil,
+		),
+		managementTextElement(
+			managementConcat(scheduleText("detail.delivery_prefix"), scheduleDeliverySummary(entry.Task)),
+			"notation",
+			"grey",
+			nil,
+		),
+	}
+
+	if entry.Task.ID > 0 {
+		elements = append(elements, managementDividerElement())
+		runNowBtn := scheduleButton("created.action.run_now", "trigger", entry.Task.ID, map[string]string{"source": "delivery"})
+		runNowBtn.Size = "small"
+		actions := []cardElement{runNowBtn}
+		if entry.Task.Enabled && entry.Task.NextRunAt != nil {
+			pauseBtn := scheduleButton("delivery.action.pause", "pause", entry.Task.ID, map[string]string{"source": "delivery"})
+			pauseBtn.Size = "small"
+			actions = append(actions, pauseBtn)
+		}
+		undoBtn := scheduleButton("created.action.undo", "delete", entry.Task.ID, map[string]string{"source": "delivery"})
+		undoBtn.Size = "small"
+		undoBtn.Type = "danger"
+		actions = append(actions, undoBtn)
+		manageBtn := scheduleButton("delivery.action.manage", "detail", entry.Task.ID, map[string]string{"source": "delivery"})
+		manageBtn.Size = "small"
+		actions = append(actions, manageBtn)
+		elements = append(elements, managementFormButtonRowElement(actions...))
+	}
+
+	title := managementConcat(scheduleText("created.title"), " · ", scheduleName(entry.Task))
+	return marshalNativeManagementCard(managementCardView{
+		Title:    title,
+		Summary:  title,
+		Theme:    "wathet",
+		Elements: elements,
+	})
 }
 
 func truncateScheduleDeliveryBody(s string) string {
@@ -102,6 +253,14 @@ func renderScheduleResultDeliveryCard(entry schedule.Entry, run schedule.Executi
 		elements = append(elements, managementTextElement(scheduleText("delivery.no_output"), "normal", "grey", nil))
 	}
 
+	if entry.Visibility.AutoPausedAt > 0 {
+		failures := entry.Visibility.ConsecutiveFailures
+		if failures < schedule.DefaultAutoPauseFailureThreshold {
+			failures = schedule.DefaultAutoPauseFailureThreshold
+		}
+		elements = append(elements, managementTextElement(scheduleText("delivery.auto_paused", failures), "normal", "orange", nil))
+	}
+
 	footerParts := []any{
 		scheduleText("task_identity", entry.Task.ID, scheduleName(entry.Task)),
 		" · ",
@@ -155,6 +314,9 @@ func (b *Bridge) sendScheduleResultCard(ctx context.Context, d schedule.ResultDe
 		return "", 0, fmt.Errorf("feishu client unavailable")
 	}
 	reqUUID := scheduleResultDeliveryUUID(d.BotID, d.ScheduleID, d.RunID)
+	if d.Kind == schedule.DeliveryKindCreated {
+		reqUUID = scheduleCreatedDeliveryUUID(d.BotID, d.ScheduleID)
+	}
 
 	sendDM := func(openID string) (string, int, error) {
 		resp, err := b.client.Im.Message.Create(ctx, larkim.NewCreateMessageReqBuilder().
@@ -277,27 +439,36 @@ func (b *Bridge) deliverScheduleResults(ctx context.Context, now time.Time) erro
 		return err
 	}
 	for _, d := range pending {
-		// Re-verify live creator authorization before posting any execution output.
+		// Re-verify live creator authorization before posting any schedule card.
 		entry, err := b.schedules.Get(ctx, bot, d.OpenID, d.ScheduleID)
 		if err != nil {
 			_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusDenied, true, err.Error(), now)
 			continue
 		}
-		// If the user switched delivery_target to "none" before delivery flushed,
-		// respect the updated preference and skip.
-		if entry.Task.DeliveryTarget == schedule.DeliveryTargetNone {
-			_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusSkipped, true, "", now)
-			continue
+		var rawCard string
+		if d.Kind == schedule.DeliveryKindCreated {
+			rawCard = renderScheduleCreatedCard(entry)
+		} else {
+			// If the user switched delivery_target to "none" before delivery flushed,
+			// respect the updated preference and skip.
+			if entry.Task.DeliveryTarget == schedule.DeliveryTargetNone {
+				_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusSkipped, true, "", now)
+				continue
+			}
+			rawCard = renderScheduleResultDeliveryCard(entry, d.Run)
 		}
-		rawCard := renderScheduleResultDeliveryCard(entry, d.Run)
 		card := b.managementCardForRecipient(d.OpenID, rawCard)
 		msgID, code, sendErr := b.sendScheduleResultCard(ctx, d, card)
 		if sendErr == nil {
-			log.Info().Int64("schedule_id", d.ScheduleID).Int64("run_id", d.RunID).Str("target", d.Target).Str("message_id", msgID).Msg("bridge: delivered schedule result card")
+			if d.Kind == schedule.DeliveryKindCreated {
+				log.Info().Int64("schedule_id", d.ScheduleID).Str("target", d.Target).Str("message_id", msgID).Msg("bridge: delivered schedule created card")
+			} else {
+				log.Info().Int64("schedule_id", d.ScheduleID).Int64("run_id", d.RunID).Str("target", d.Target).Str("message_id", msgID).Msg("bridge: delivered schedule result card")
+			}
 			_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusDelivered, true, "", now)
 			continue
 		}
-		log.Warn().Err(sendErr).Int64("schedule_id", d.ScheduleID).Int64("run_id", d.RunID).Str("target", d.Target).Int("code", code).Msg("bridge: schedule result delivery failed")
+		log.Warn().Err(sendErr).Int64("schedule_id", d.ScheduleID).Int64("run_id", d.RunID).Str("kind", d.Kind).Str("target", d.Target).Int("code", code).Msg("bridge: schedule card delivery failed")
 		_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusFailed, isPermanentFeishuDeliveryError(code), sendErr.Error(), now)
 	}
 	return nil

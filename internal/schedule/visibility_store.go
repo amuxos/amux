@@ -50,6 +50,9 @@ type Visibility struct {
 	MessageID, DeliveredStatus, DeliveryError string
 	Blocked                                   bool
 	Version                                   int64
+	ConsecutiveFailures                       int    `json:",omitempty"`
+	AutoPausedAt                              int64  `json:",omitempty"`
+	AutoPausedReason                          string `json:",omitempty"`
 }
 type RecentCounts struct{ Completed, Failed, Missed int }
 type Entry struct {
@@ -122,6 +125,27 @@ func (s *Store) saveVisibility(id int64, v Visibility) error {
 // an existing creator visibility binding (for example after an authorized
 // subtask schedule update changes its effective run_as identity). No-op when
 // the schedule has no visibility binding.
+// ResetAutoPause clears consecutive-failure circuit-breaker state when a
+// schedule is explicitly resumed or re-enabled.
+func (s *Store) ResetAutoPause(id int64) error {
+	s.visMu.Lock()
+	defer s.visMu.Unlock()
+	v, err := s.Visibility(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	if v.ConsecutiveFailures == 0 && v.AutoPausedAt == 0 && v.AutoPausedReason == "" {
+		return nil
+	}
+	v.ConsecutiveFailures = 0
+	v.AutoPausedAt = 0
+	v.AutoPausedReason = ""
+	return s.saveVisibility(id, v)
+}
+
 func (s *Store) UpdateCreatorAccessIdentity(id int64, accessIdentityJSON string) error {
 	s.visMu.Lock()
 	defer s.visMu.Unlock()
@@ -410,7 +434,22 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 	}
 	r.AlertCounted = existing.AlertCounted
 	r.ObservedAt = now.Unix()
+	autoPause := false
 	if ve == nil {
+		if r.Terminal {
+			if r.Status == "completed" {
+				v.ConsecutiveFailures = 0
+				v.AutoPausedAt = 0
+				v.AutoPausedReason = ""
+			} else if Attention(r.Status) {
+				v.ConsecutiveFailures++
+				if t.Kind != KindOnce && t.Enabled && v.ConsecutiveFailures >= DefaultAutoPauseFailureThreshold {
+					autoPause = true
+					v.AutoPausedAt = now.Unix()
+					v.AutoPausedReason = "consecutive_failures"
+				}
+			}
+		}
 		if r.Status == "completed" {
 			if r.FinishedAt > v.LastCompletedAt {
 				v.LastCompletedAt = r.FinishedAt
@@ -515,6 +554,11 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 	n, _ := res.RowsAffected()
 	if n == 0 {
 		return nil
+	}
+	if autoPause {
+		if _, e = tx.Exec(`UPDATE scheduled_tasks SET enabled=0 WHERE id=?`, r.ScheduleID); e != nil {
+			return e
+		}
 	}
 	if enqueueDelivery != nil {
 		if dRaw, derr := json.Marshal(enqueueDelivery); derr == nil {

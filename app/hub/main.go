@@ -467,6 +467,7 @@ func tryStartBridges(
 		b.SetSubtaskReader(subtasks)
 		if schedules != nil && schedules.server.schedule != nil {
 			b.SetScheduleControl(schedules)
+			schedules.server.RegisterScheduleDeliveryWaker(b.NotifyScheduleDelivery)
 		}
 		if principals != nil {
 			bridgeID := bridge.BridgeIdFromAppId(secrets.AppId)

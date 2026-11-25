@@ -3085,6 +3085,96 @@
   "schedule.delivery.detail_sent": {
     "other": "Sent schedule details to your DM"
   },
+  "schedule.delivery.deleted": {
+    "other": "Schedule deleted"
+  },
+  "schedule.delivery.admin_paused": {
+    "other": "Paused by Bot administrator"
+  },
+  "schedule.delivery.auto_paused": {
+    "other": "Auto-paused after %d consecutive failures. Review the error and resume when ready."
+  },
+  "schedule.created.title": {
+    "other": "Schedule created"
+  },
+  "schedule.created.agent_prefix": {
+    "other": "Executor: "
+  },
+  "schedule.created.action.run_now": {
+    "other": "Run test"
+  },
+  "schedule.created.action.undo": {
+    "other": "Undo & delete"
+  },
+  "schedule.mode.isolated": {
+    "other": "Isolated run"
+  },
+  "schedule.mode.reuse_session": {
+    "other": "Current session"
+  },
+  "schedule.detail.execution_prefix": {
+    "other": "Execution: "
+  },
+  "schedule.detail.delivery_prefix": {
+    "other": "Result delivery: "
+  },
+  "schedule.detail.delivery_target_label": {
+    "other": "Delivery target"
+  },
+  "schedule.detail.delivery_policy_label": {
+    "other": "Delivery policy"
+  },
+  "schedule.delivery_target.origin": {
+    "other": "Origin chat"
+  },
+  "schedule.delivery_target.creator_dm": {
+    "other": "Creator DM"
+  },
+  "schedule.delivery_target.none": {
+    "other": "No card"
+  },
+  "schedule.delivery_policy.always": {
+    "other": "Always"
+  },
+  "schedule.delivery_policy.on_non_empty": {
+    "other": "Only when non-empty"
+  },
+  "schedule.delivery_policy.on_failure": {
+    "other": "Only on failure"
+  },
+  "schedule.delivery_status.delivered": {
+    "other": "Card delivery: delivered"
+  },
+  "schedule.delivery_status.failed": {
+    "other": "Card delivery: failed"
+  },
+  "schedule.delivery_status.denied": {
+    "other": "Card delivery: skipped (unauthorized)"
+  },
+  "schedule.delivery_status.skipped": {
+    "other": "Card delivery: skipped"
+  },
+  "schedule.delivery_status.pending": {
+    "other": "Card delivery: pending"
+  },
+  "schedule.auto_paused": {
+    "other": "Auto-paused after %d consecutive failures (%s). Resume to reset."
+  },
+  "schedule.auto_paused_short": {
+    "other": "Auto-paused (consecutive failures)"
+  },
+  "schedule.delete": {
+    "other": "Delete"
+  },
+  "schedule.deleted": {
+    "other": "Schedule deleted"
+  },
+  "schedule.prune_completed": {
+    "other": "Clean completed (%d)"
+  },
+  "schedule.pruned": {
+    "other": "Cleared completed one-shot schedules"
+  },
   "schedule.resume": {
     "other": "Resume schedule"
   },

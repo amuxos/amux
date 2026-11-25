@@ -3065,6 +3065,96 @@
   "schedule.delivery.detail_sent": {
     "other": "已将管理详情发送到私聊"
   },
+  "schedule.delivery.deleted": {
+    "other": "已撤销并删除该定时任务"
+  },
+  "schedule.delivery.admin_paused": {
+    "other": "已由 Bot 管理员紧急暂停"
+  },
+  "schedule.delivery.auto_paused": {
+    "other": "已连续失败 %d 次，系统已自动暂停后续执行。排查修复后可在管理详情中恢复。"
+  },
+  "schedule.created.title": {
+    "other": "已创建定时任务"
+  },
+  "schedule.created.agent_prefix": {
+    "other": "执行对象："
+  },
+  "schedule.created.action.run_now": {
+    "other": "立即试跑"
+  },
+  "schedule.created.action.undo": {
+    "other": "撤销删除"
+  },
+  "schedule.mode.isolated": {
+    "other": "独立隔离执行"
+  },
+  "schedule.mode.reuse_session": {
+    "other": "当前会话执行"
+  },
+  "schedule.detail.execution_prefix": {
+    "other": "执行方式："
+  },
+  "schedule.detail.delivery_prefix": {
+    "other": "结果推送："
+  },
+  "schedule.detail.delivery_target_label": {
+    "other": "推送目标"
+  },
+  "schedule.detail.delivery_policy_label": {
+    "other": "推送条件"
+  },
+  "schedule.delivery_target.origin": {
+    "other": "原会话"
+  },
+  "schedule.delivery_target.creator_dm": {
+    "other": "创建人私聊"
+  },
+  "schedule.delivery_target.none": {
+    "other": "不推卡片"
+  },
+  "schedule.delivery_policy.always": {
+    "other": "每次都推"
+  },
+  "schedule.delivery_policy.on_non_empty": {
+    "other": "仅非空推送"
+  },
+  "schedule.delivery_policy.on_failure": {
+    "other": "仅失败推送"
+  },
+  "schedule.delivery_status.delivered": {
+    "other": "卡片推送：已送达"
+  },
+  "schedule.delivery_status.failed": {
+    "other": "卡片推送：失败"
+  },
+  "schedule.delivery_status.denied": {
+    "other": "卡片推送：已跳过（无权限）"
+  },
+  "schedule.delivery_status.skipped": {
+    "other": "卡片推送：已跳过"
+  },
+  "schedule.delivery_status.pending": {
+    "other": "卡片推送：待发送"
+  },
+  "schedule.auto_paused": {
+    "other": "因连续失败 %d 次已自动暂停（%s）。修复后点击「恢复后续执行」将清零计数。"
+  },
+  "schedule.auto_paused_short": {
+    "other": "已自动暂停（连续失败）"
+  },
+  "schedule.delete": {
+    "other": "删除"
+  },
+  "schedule.deleted": {
+    "other": "已删除定时任务"
+  },
+  "schedule.prune_completed": {
+    "other": "清理已完成 (%d)"
+  },
+  "schedule.pruned": {
+    "other": "已清理已完成的一次性任务"
+  },
   "schedule.resume": {
     "other": "恢复后续执行"
   },
