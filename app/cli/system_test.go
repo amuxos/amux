@@ -610,10 +610,7 @@ func TestSystemRestartRestoresAgentPackAutoSyncWhenSystemStopFails(t *testing.T)
 }
 
 func TestSystemStartReconcilesRunningRuntimeMissingFromLocalHub(t *testing.T) {
-	var calls []string
-	hooks := fakeLegacySystemMutationHooks(&calls, defaultLocalHubAddr)
-	execute := legacySystemExecutor(io.Discard, hooks)
-	err := execute(context.Background(), system.ChangePlan{
+	plan := system.ChangePlan{
 		Request: system.ChangeRequest{Action: system.ActionStart, Scope: system.CurrentScope()},
 		Before: system.Snapshot{
 			State:      system.StateDegraded,
@@ -623,13 +620,26 @@ func TestSystemStartReconcilesRunningRuntimeMissingFromLocalHub(t *testing.T) {
 				{Name: "targets", State: "fail", Required: true, Message: `expected runtime "local" not registered`},
 			},
 		},
-	})
-	if err != nil {
-		t.Fatalf("execute start: %v", err)
 	}
-	want := []string{"start hub", "guard runtime", "stop runtime", "start runtime"}
-	if !reflect.DeepEqual(calls, want) {
-		t.Fatalf("calls = %v, want stale runtime reconciliation %v", calls, want)
+	for _, tt := range []struct {
+		name                    string
+		skipStaleRuntimeRestart bool
+		want                    []string
+	}{
+		{name: "ordinary system start", want: []string{"start hub", "guard runtime", "stop runtime", "start runtime"}},
+		{name: "update start after refresh", skipStaleRuntimeRestart: true, want: []string{"start hub", "start runtime"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls []string
+			hooks := fakeLegacySystemMutationHooks(&calls, defaultLocalHubAddr)
+			hooks.skipStaleRuntimeRestart = tt.skipStaleRuntimeRestart
+			if err := legacySystemExecutor(io.Discard, hooks)(t.Context(), plan); err != nil {
+				t.Fatalf("execute start: %v", err)
+			}
+			if !reflect.DeepEqual(calls, tt.want) {
+				t.Fatalf("calls = %v, want %v", calls, tt.want)
+			}
+		})
 	}
 }
 
