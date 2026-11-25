@@ -3134,6 +3134,36 @@
   "schedule.tag.auto_paused": {
     "other": "已自动暂停"
   },
+  "schedule.run.view_full": {
+    "other": "查看完整结果"
+  },
+  "schedule.run.view_session": {
+    "other": "查看完整会话 ↗"
+  },
+  "schedule.run.back_history": {
+    "other": "返回执行记录"
+  },
+  "schedule.run.field.planned": {
+    "other": "计划时间"
+  },
+  "schedule.run.field.duration": {
+    "other": "开始 / 结束"
+  },
+  "schedule.run.field.task": {
+    "other": "Task ID"
+  },
+  "schedule.run.field.session": {
+    "other": "执行会话"
+  },
+  "schedule.run.field.turn": {
+    "other": "Turn ID"
+  },
+  "schedule.run.section.output": {
+    "other": "完整输出"
+  },
+  "schedule.run.timeline_hint": {
+    "other": "完整过程与工具调用保留在执行会话中。可在 /amux → Web 管理后台按上方执行会话名查看，或直接让我帮你查询该次执行。"
+  },
   "schedule.delivery_target.origin": {
     "other": "原会话"
   },

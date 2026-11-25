@@ -3154,6 +3154,36 @@
   "schedule.tag.auto_paused": {
     "other": "Auto-paused"
   },
+  "schedule.run.view_full": {
+    "other": "Full output"
+  },
+  "schedule.run.view_session": {
+    "other": "Open full session ↗"
+  },
+  "schedule.run.back_history": {
+    "other": "Execution history"
+  },
+  "schedule.run.field.planned": {
+    "other": "Planned"
+  },
+  "schedule.run.field.duration": {
+    "other": "Started / Finished"
+  },
+  "schedule.run.field.task": {
+    "other": "Task ID"
+  },
+  "schedule.run.field.session": {
+    "other": "Session"
+  },
+  "schedule.run.field.turn": {
+    "other": "Turn ID"
+  },
+  "schedule.run.section.output": {
+    "other": "Full output"
+  },
+  "schedule.run.timeline_hint": {
+    "other": "Full tool calls and timeline stay in the execution session. Open /amux → Web console and search the session name above, or ask this assistant to inspect it."
+  },
   "schedule.delivery_target.origin": {
     "other": "Origin chat"
   },

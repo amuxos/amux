@@ -785,3 +785,167 @@ func (c *p1ScheduleControl) Act(ctx context.Context, bot, open string, id int64,
 	}
 	return c.deliveryAuthScheduleControl.Act(ctx, bot, open, id, action)
 }
+
+func TestScheduleRunDetailCardFullOutputAndSessionViewerLink(t *testing.T) {
+	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	now := time.Unix(1700000000, 0)
+	nextRun := now.Unix()
+	tsk, err := store.Create(schedule.Task{
+		Name:           "daily-audit",
+		Spec:           "daily 09:00",
+		Kind:           schedule.KindDaily,
+		ScheduleType:   schedule.ScheduleTypeSubtask,
+		DeliveryTarget: schedule.DeliveryTargetOrigin,
+		DeliveryPolicy: schedule.DeliveryPolicyAlways,
+		Enabled:        true,
+		NextRunAt:      &nextRun,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.BindCreator(tsk.ID, schedule.Creator{
+		BotID:       "bot-1",
+		OpenID:      "ou_alice",
+		PrincipalID: "p_alice",
+		Source:      "turn:alice",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	nextAfter := now.Add(24 * time.Hour).Unix()
+	run, claimed, err := store.ClaimTracked(tsk, now, &nextAfter)
+	if err != nil || !claimed {
+		t.Fatalf("ClaimTracked: claimed=%v err=%v", claimed, err)
+	}
+	longBody := "## Summary\n" + strings.Repeat("Line of detailed audit output.\n", 80) + "TAIL_MARKER_VISIBLE"
+	run.Status = "completed"
+	run.Terminal = true
+	run.StartedAt = now.Unix()
+	run.FinishedAt = now.Add(5 * time.Second).Unix()
+	run.TargetID = "runtime-1"
+	run.SessionName = "subtask-task-audit-1"
+	run.TaskID = "task-audit-1"
+	run.TurnID = "turn-audit-1"
+	run.Result = longBody
+	if err := store.Observe(run, now.Add(5*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Render full run detail both with and without session viewer URL and check bilingual/size/buttons.
+	entry := schedule.Entry{Task: tsk, Runs: []schedule.Execution{run}}
+	for _, viewer := range []string{"", "https://viewer.example/s/tok-123"} {
+		raw := renderScheduleRunDetail(entry, run, 0, viewer)
+		if len(raw) >= maxFeishuCardBytes {
+			t.Fatalf("run detail card too large: %d", len(raw))
+		}
+		if !strings.Contains(raw, "TAIL_MARKER_VISIBLE") {
+			t.Fatalf("run detail card truncated 2500-char body that should be preserved in full")
+		}
+		if viewer != "" && !strings.Contains(raw, viewer) {
+			t.Fatalf("expected session viewer link %q in run detail card", viewer)
+		}
+		for _, locale := range []i18n.Locale{"", i18n.English, i18n.Chinese} {
+			selected := selectManagementCardLocale(raw, locale)
+			var doc any
+			if err := json.Unmarshal([]byte(selected), &doc); err != nil {
+				t.Fatalf("invalid json for locale %q: %v", locale, err)
+			}
+			names := map[string]bool{}
+			var checkButtons func(any)
+			checkButtons = func(value any) {
+				switch v := value.(type) {
+				case map[string]any:
+					if v["tag"] == "button" {
+						name, _ := v["name"].(string)
+						if name == "" || names[name] {
+							t.Fatalf("duplicate/empty button name %q in locale %q", name, locale)
+						}
+						names[name] = true
+					}
+					for _, child := range v {
+						checkButtons(child)
+					}
+				case []any:
+					for _, child := range v {
+						checkButtons(child)
+					}
+				}
+			}
+			checkButtons(doc)
+			walkManagementTestText(doc, func(text string) {
+				if strings.Contains(text, "schedule.") || strings.Contains(text, "%!") {
+					t.Fatalf("unresolved copy in locale %q: %s", locale, text)
+				}
+			})
+		}
+	}
+
+	// Exercise schedule.run_detail callback via Bridge with creator auth and non-creator refusal.
+	ctrl := &deliveryAuthScheduleControl{store: store, deny: map[string]bool{}}
+	var sentCard string
+	b := &Bridge{
+		bridgeID:  "bot-1",
+		secrets:   &Secrets{AppId: "bot-1", AppSecret: "sec"},
+		schedules: ctrl,
+	}
+	b.SetSessionViewer("https://viewer.example", "secret-signing-token")
+	b.dmInteractive = func(_ context.Context, open, card string) (string, string, error) {
+		sentCard = card
+		return "om_dm", "", nil
+	}
+
+	// Ensure deliveryAuthScheduleControl.Get includes Runs for run_detail lookup.
+	b.schedules = &runsAwareScheduleControl{deliveryAuthScheduleControl: ctrl}
+
+	resp, handled, err := b.handleManagementCardAction(context.Background(), &callback.CardActionTriggerEvent{
+		Event: &callback.CardActionTriggerRequest{
+			Operator: &callback.Operator{OpenID: "ou_bob"},
+			Context:  &callback.Context{OpenMessageID: "om_shared"},
+			Action: &callback.CallBackAction{Value: map[string]interface{}{
+				managementActionKey: "schedule.run_detail",
+				"schedule_id":       fmt.Sprint(tsk.ID),
+				"run_id":            fmt.Sprint(run.ID),
+				"page":              "0",
+			}},
+		},
+	})
+	if err != nil || !handled || resp.Toast.Type != "error" || sentCard != "" {
+		t.Fatalf("non-creator run_detail should be refused: handled=%v err=%v toast=%+v", handled, err, resp.Toast)
+	}
+
+	resp, handled, err = b.handleManagementCardAction(context.Background(), &callback.CardActionTriggerEvent{
+		Event: &callback.CardActionTriggerRequest{
+			Operator: &callback.Operator{OpenID: "ou_alice"},
+			Context:  &callback.Context{OpenMessageID: "om_shared"},
+			Action: &callback.CallBackAction{Value: map[string]interface{}{
+				managementActionKey: "schedule.run_detail",
+				"schedule_id":       fmt.Sprint(tsk.ID),
+				"run_id":            fmt.Sprint(run.ID),
+				"page":              "0",
+			}},
+		},
+	})
+	if err != nil || !handled || resp.Toast.Type != "success" {
+		t.Fatalf("creator run_detail failed: handled=%v err=%v toast=%+v", handled, err, resp.Toast)
+	}
+	if !strings.Contains(sentCard, "TAIL_MARKER_VISIBLE") || !strings.Contains(sentCard, "https://viewer.example/s/") {
+		t.Fatalf("run_detail card missing full output or session viewer URL: %s", sentCard)
+	}
+}
+
+type runsAwareScheduleControl struct {
+	*deliveryAuthScheduleControl
+}
+
+func (c *runsAwareScheduleControl) Get(ctx context.Context, bot, open string, id int64) (schedule.Entry, error) {
+	e, err := c.deliveryAuthScheduleControl.Get(ctx, bot, open, id)
+	if err != nil {
+		return e, err
+	}
+	e.Runs, err = c.store.VisibleHistory(id)
+	return e, err
+}

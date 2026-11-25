@@ -194,6 +194,10 @@ func scheduleDeliveryAgentLabel(t schedule.Task) string {
 }
 
 func renderScheduleResultDeliveryCard(entry schedule.Entry, run schedule.Execution) string {
+	return renderScheduleResultDeliveryCardWithViewer(entry, run, "")
+}
+
+func renderScheduleResultDeliveryCardWithViewer(entry schedule.Entry, run schedule.Execution, viewerURL string) string {
 	theme := "green"
 	switch run.Status {
 	case "partial":
@@ -279,6 +283,17 @@ func renderScheduleResultDeliveryCard(entry schedule.Entry, run schedule.Executi
 		manageBtn := scheduleButton("delivery.action.manage", "detail", entry.Task.ID, map[string]string{"source": "delivery"})
 		manageBtn.Size = "small"
 		actions = append(actions, manageBtn)
+		if link := strings.TrimSpace(viewerURL); link != "" {
+			sessionBtn := managementButtonElement(managementButton{
+				Text: scheduleText("run.view_session"),
+				Type: "default",
+				Name: fmt.Sprintf("schedule.delivery_session.%d.%d", entry.Task.ID, run.ID),
+				URL:  link,
+			})
+			sessionBtn.Name = fmt.Sprintf("schedule.delivery_session.%d.%d", entry.Task.ID, run.ID)
+			sessionBtn.Size = "small"
+			actions = append(actions, sessionBtn)
+		}
 		elements = append(elements, managementFormButtonRowElement(actions...))
 	}
 
@@ -446,7 +461,7 @@ func (b *Bridge) deliverScheduleResults(ctx context.Context, now time.Time) erro
 				_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusSkipped, true, "", now)
 				continue
 			}
-			rawCard = renderScheduleResultDeliveryCard(entry, d.Run)
+			rawCard = renderScheduleResultDeliveryCardWithViewer(entry, d.Run, b.sessionViewerURL(d.Run.TargetID, d.Run.SessionName))
 		}
 		card := b.managementCardForRecipient(d.OpenID, rawCard)
 		msgID, code, sendErr := b.sendScheduleResultCard(ctx, d, card)
