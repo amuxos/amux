@@ -13750,6 +13750,7 @@ type ScheduleItem struct {
 	State          string                 `protobuf:"bytes,18,opt,name=state,proto3" json:"state,omitempty"`
 	DeliveryTarget string                 `protobuf:"bytes,19,opt,name=delivery_target,json=deliveryTarget,proto3" json:"delivery_target,omitempty"`
 	DeliveryPolicy string                 `protobuf:"bytes,20,opt,name=delivery_policy,json=deliveryPolicy,proto3" json:"delivery_policy,omitempty"`
+	CreatedAt      int64                  `protobuf:"varint,21,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -13922,6 +13923,13 @@ func (x *ScheduleItem) GetDeliveryPolicy() string {
 		return x.DeliveryPolicy
 	}
 	return ""
+}
+
+func (x *ScheduleItem) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
 }
 
 type ScheduleRun struct {
@@ -17323,7 +17331,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x1bCleanupAgentInstanceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\".\n" +
 	"\x1cCleanupAgentInstanceResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xe2\x04\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x81\x05\n" +
 	"\fScheduleItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12#\n" +
@@ -17347,7 +17355,9 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\btimezone\x18\x11 \x01(\tR\btimezone\x12\x14\n" +
 	"\x05state\x18\x12 \x01(\tR\x05state\x12'\n" +
 	"\x0fdelivery_target\x18\x13 \x01(\tR\x0edeliveryTarget\x12'\n" +
-	"\x0fdelivery_policy\x18\x14 \x01(\tR\x0edeliveryPolicy\"\xb8\x03\n" +
+	"\x0fdelivery_policy\x18\x14 \x01(\tR\x0edeliveryPolicy\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x15 \x01(\x03R\tcreatedAt\"\xb8\x03\n" +
 	"\vScheduleRun\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
 	"\vschedule_id\x18\x02 \x01(\x03R\n" +

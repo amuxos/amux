@@ -3047,6 +3047,24 @@
   "schedule.delivery.footer.once_done": {
     "other": "一次性定时任务已完成"
   },
+  "schedule.delivery.action.rerun": {
+    "other": "立即重跑"
+  },
+  "schedule.delivery.action.pause": {
+    "other": "暂停"
+  },
+  "schedule.delivery.action.manage": {
+    "other": "管理详情"
+  },
+  "schedule.delivery.triggered": {
+    "other": "已触发立即执行，完成后将自动回传结果"
+  },
+  "schedule.delivery.paused": {
+    "other": "已暂停该定时任务"
+  },
+  "schedule.delivery.detail_sent": {
+    "other": "已将管理详情发送到私聊"
+  },
   "schedule.resume": {
     "other": "恢复后续执行"
   },

@@ -11,6 +11,7 @@ import (
 	"github.com/amuxos/amux/internal/schedule"
 	"github.com/amuxos/amux/internal/task"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -116,6 +117,21 @@ func renderScheduleResultDeliveryCard(entry schedule.Entry, run schedule.Executi
 		managementTextElement(managementConcat(footerParts...), "notation", "grey", nil),
 	)
 
+	if entry.Task.ID > 0 {
+		rerunBtn := scheduleButton("delivery.action.rerun", "trigger", entry.Task.ID, map[string]string{"source": "delivery"})
+		rerunBtn.Size = "small"
+		actions := []cardElement{rerunBtn}
+		if entry.Task.Enabled && entry.Task.NextRunAt != nil {
+			pauseBtn := scheduleButton("delivery.action.pause", "pause", entry.Task.ID, map[string]string{"source": "delivery"})
+			pauseBtn.Size = "small"
+			actions = append(actions, pauseBtn)
+		}
+		manageBtn := scheduleButton("delivery.action.manage", "detail", entry.Task.ID, map[string]string{"source": "delivery"})
+		manageBtn.Size = "small"
+		actions = append(actions, manageBtn)
+		elements = append(elements, managementFormButtonRowElement(actions...))
+	}
+
 	title := managementConcat(scheduleText("delivery.title"), " · ", scheduleName(entry.Task))
 	return marshalNativeManagementCard(managementCardView{
 		Title:    title,
@@ -134,13 +150,13 @@ func isPermanentFeishuDeliveryError(code int) bool {
 	}
 }
 
-func (b *Bridge) sendScheduleResultCard(ctx context.Context, d schedule.ResultDelivery, card string) (int, error) {
+func (b *Bridge) sendScheduleResultCard(ctx context.Context, d schedule.ResultDelivery, card string) (string, int, error) {
 	if b.client == nil {
-		return 0, fmt.Errorf("feishu client unavailable")
+		return "", 0, fmt.Errorf("feishu client unavailable")
 	}
 	reqUUID := scheduleResultDeliveryUUID(d.BotID, d.ScheduleID, d.RunID)
 
-	sendDM := func(openID string) (int, error) {
+	sendDM := func(openID string) (string, int, error) {
 		resp, err := b.client.Im.Message.Create(ctx, larkim.NewCreateMessageReqBuilder().
 			ReceiveIdType("open_id").
 			Body(larkim.NewCreateMessageReqBodyBuilder().
@@ -151,18 +167,22 @@ func (b *Bridge) sendScheduleResultCard(ctx context.Context, d schedule.ResultDe
 				Build()).
 			Build())
 		if err != nil {
-			return 0, err
+			return "", 0, err
 		}
 		if resp == nil {
-			return 0, fmt.Errorf("empty feishu response")
+			return "", 0, fmt.Errorf("empty feishu response")
 		}
 		if !resp.Success() {
-			return resp.Code, fmt.Errorf("code=%d msg=%s", resp.Code, resp.Msg)
+			return "", resp.Code, fmt.Errorf("code=%d msg=%s", resp.Code, resp.Msg)
 		}
-		return 0, nil
+		msgID := ""
+		if resp.Data != nil && resp.Data.MessageId != nil {
+			msgID = *resp.Data.MessageId
+		}
+		return msgID, 0, nil
 	}
 
-	sendChat := func(chatID string) (int, error) {
+	sendChat := func(chatID string) (string, int, error) {
 		resp, err := b.client.Im.Message.Create(ctx, larkim.NewCreateMessageReqBuilder().
 			ReceiveIdType("chat_id").
 			Body(larkim.NewCreateMessageReqBodyBuilder().
@@ -173,20 +193,24 @@ func (b *Bridge) sendScheduleResultCard(ctx context.Context, d schedule.ResultDe
 				Build()).
 			Build())
 		if err != nil {
-			return 0, err
+			return "", 0, err
 		}
 		if resp == nil {
-			return 0, fmt.Errorf("empty feishu response")
+			return "", 0, fmt.Errorf("empty feishu response")
 		}
 		if !resp.Success() {
-			return resp.Code, fmt.Errorf("code=%d msg=%s", resp.Code, resp.Msg)
+			return "", resp.Code, fmt.Errorf("code=%d msg=%s", resp.Code, resp.Msg)
 		}
-		return 0, nil
+		msgID := ""
+		if resp.Data != nil && resp.Data.MessageId != nil {
+			msgID = *resp.Data.MessageId
+		}
+		return msgID, 0, nil
 	}
 
 	if d.Target == schedule.DeliveryTargetCreatorDM {
 		if strings.TrimSpace(d.OpenID) == "" {
-			return 230001, fmt.Errorf("creator open_id missing")
+			return "", 230001, fmt.Errorf("creator open_id missing")
 		}
 		return sendDM(d.OpenID)
 	}
@@ -204,7 +228,11 @@ func (b *Bridge) sendScheduleResultCard(ctx context.Context, d schedule.ResultDe
 				Build()).
 			Build())
 		if err == nil && resp != nil && resp.Success() {
-			return 0, nil
+			msgID := ""
+			if resp.Data != nil && resp.Data.MessageId != nil {
+				msgID = *resp.Data.MessageId
+			}
+			return msgID, 0, nil
 		}
 		// If the root message was deleted/withdrawn or doesn't accept thread
 		// replies, fall back to the originating chat_id if known.
@@ -212,12 +240,12 @@ func (b *Bridge) sendScheduleResultCard(ctx context.Context, d schedule.ResultDe
 			if chatID := strings.TrimSpace(d.OriginChatID); chatID != "" && isPermanentFeishuDeliveryError(resp.Code) {
 				return sendChat(chatID)
 			}
-			return resp.Code, fmt.Errorf("code=%d msg=%s", resp.Code, resp.Msg)
+			return "", resp.Code, fmt.Errorf("code=%d msg=%s", resp.Code, resp.Msg)
 		}
 		if err != nil {
-			return 0, err
+			return "", 0, err
 		}
-		return 0, fmt.Errorf("empty feishu reply response")
+		return "", 0, fmt.Errorf("empty feishu reply response")
 	}
 
 	if chatID := strings.TrimSpace(d.OriginChatID); chatID != "" {
@@ -226,7 +254,7 @@ func (b *Bridge) sendScheduleResultCard(ctx context.Context, d schedule.ResultDe
 	if openID := strings.TrimSpace(d.OpenID); openID != "" {
 		return sendDM(openID)
 	}
-	return 230001, fmt.Errorf("no delivery destination available")
+	return "", 230001, fmt.Errorf("no delivery destination available")
 }
 
 // deliverScheduleResults drains queued proactive result deliveries for this
@@ -263,11 +291,13 @@ func (b *Bridge) deliverScheduleResults(ctx context.Context, now time.Time) erro
 		}
 		rawCard := renderScheduleResultDeliveryCard(entry, d.Run)
 		card := b.managementCardForRecipient(d.OpenID, rawCard)
-		code, sendErr := b.sendScheduleResultCard(ctx, d, card)
+		msgID, code, sendErr := b.sendScheduleResultCard(ctx, d, card)
 		if sendErr == nil {
+			log.Info().Int64("schedule_id", d.ScheduleID).Int64("run_id", d.RunID).Str("target", d.Target).Str("message_id", msgID).Msg("bridge: delivered schedule result card")
 			_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusDelivered, true, "", now)
 			continue
 		}
+		log.Warn().Err(sendErr).Int64("schedule_id", d.ScheduleID).Int64("run_id", d.RunID).Str("target", d.Target).Int("code", code).Msg("bridge: schedule result delivery failed")
 		_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusFailed, isPermanentFeishuDeliveryError(code), sendErr.Error(), now)
 	}
 	return nil

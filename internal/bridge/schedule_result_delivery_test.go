@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,7 @@ import (
 	"github.com/amuxos/amux/internal/schedule"
 	"github.com/amuxos/amux/internal/task"
 	lark "github.com/larksuite/oapi-sdk-go/v3"
+	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
 
 func TestRenderScheduleResultDeliveryCardBilingualAndBounded(t *testing.T) {
@@ -113,14 +115,16 @@ type fakeDeliveryRequest struct {
 }
 
 type deliveryAuthScheduleControl struct {
-	store *schedule.Store
-	deny  map[string]bool
+	store     *schedule.Store
+	deny      map[string]bool
+	acted     []string
+	onAct     func(open string, id int64, action string) error
 }
 
-func (c deliveryAuthScheduleControl) List(ctx context.Context, bot, open string) ([]schedule.Entry, error) {
+func (c *deliveryAuthScheduleControl) List(ctx context.Context, bot, open string) ([]schedule.Entry, error) {
 	return c.store.Personal(bot, open)
 }
-func (c deliveryAuthScheduleControl) Get(ctx context.Context, bot, open string, id int64) (schedule.Entry, error) {
+func (c *deliveryAuthScheduleControl) Get(ctx context.Context, bot, open string, id int64) (schedule.Entry, error) {
 	if c.deny[open] {
 		return schedule.Entry{}, errors.New("creator authorization revoked")
 	}
@@ -135,13 +139,23 @@ func (c deliveryAuthScheduleControl) Get(ctx context.Context, bot, open string, 
 	}
 	return schedule.Entry{}, errors.New("not found")
 }
-func (c deliveryAuthScheduleControl) Act(ctx context.Context, bot, open string, id int64, action string) error {
+func (c *deliveryAuthScheduleControl) Act(ctx context.Context, bot, open string, id int64, action string) error {
+	if c.deny[open] {
+		return errors.New("creator authorization revoked")
+	}
+	if _, err := c.Get(ctx, bot, open, id); err != nil {
+		return err
+	}
+	c.acted = append(c.acted, fmt.Sprintf("%s:%d:%s", open, id, action))
+	if c.onAct != nil {
+		return c.onAct(open, id, action)
+	}
 	return nil
 }
-func (c deliveryAuthScheduleControl) Creators(bot string) ([]string, error) {
+func (c *deliveryAuthScheduleControl) Creators(bot string) ([]string, error) {
 	return nil, nil
 }
-func (c deliveryAuthScheduleControl) Store() *schedule.Store {
+func (c *deliveryAuthScheduleControl) Store() *schedule.Store {
 	return c.store
 }
 
@@ -181,7 +195,7 @@ func TestDeliverScheduleResultsRoutingFallbackAndAuthRevocation(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ctrl := deliveryAuthScheduleControl{store: store, deny: map[string]bool{}}
+	ctrl := &deliveryAuthScheduleControl{store: store, deny: map[string]bool{}}
 	b := &Bridge{
 		bridgeID:  "bot-1",
 		secrets:   &Secrets{AppId: "bot-1", AppSecret: "sec"},
@@ -288,5 +302,113 @@ func TestDeliverScheduleResultsRoutingFallbackAndAuthRevocation(t *testing.T) {
 	mu.Unlock()
 	if hist, _ := store.ExecutionHistory(s4); len(hist) != 1 || hist[0].DeliveryStatus != schedule.DeliveryStatusDenied {
 		t.Fatalf("case 4 status = %+v, want denied", hist)
+	}
+}
+
+func TestScheduleResultCardQuickActionsAuthorizationAndNoDMSpam(t *testing.T) {
+	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	nextRun := int64(1767229200)
+	tsk, err := store.Create(schedule.Task{
+		Name:           "recurring-uptime",
+		Spec:           "every 10m",
+		Kind:           schedule.KindInterval,
+		ScheduleType:   schedule.ScheduleTypeSubtask,
+		DeliveryTarget: schedule.DeliveryTargetOrigin,
+		DeliveryPolicy: schedule.DeliveryPolicyAlways,
+		Enabled:        true,
+		NextRunAt:      &nextRun,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.BindCreator(tsk.ID, schedule.Creator{
+		BotID:       "bot-1",
+		OpenID:      "ou_alice",
+		PrincipalID: "p_alice",
+		Source:      "turn:alice",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify rendered result card has rerun, pause, and manage buttons for active recurring schedule,
+	// and omits pause for a completed one-shot schedule.
+	activeCard := renderScheduleResultDeliveryCard(schedule.Entry{Task: tsk}, schedule.Execution{Status: "completed", Terminal: true})
+	if !strings.Contains(activeCard, "schedule.trigger") || !strings.Contains(activeCard, "schedule.pause") || !strings.Contains(activeCard, "schedule.detail") {
+		t.Fatalf("active recurring delivery card missing quick action buttons: %s", activeCard)
+	}
+	onceDone := tsk
+	onceDone.Kind = schedule.KindOnce
+	onceDone.NextRunAt = nil
+	onceCard := renderScheduleResultDeliveryCard(schedule.Entry{Task: onceDone}, schedule.Execution{Status: "completed", Terminal: true})
+	if strings.Contains(onceCard, "schedule.pause") {
+		t.Fatalf("completed one-shot delivery card should not show pause button")
+	}
+
+	ctrl := &deliveryAuthScheduleControl{store: store, deny: map[string]bool{}}
+	dmSent := 0
+	b := &Bridge{
+		bridgeID:  "bot-1",
+		secrets:   &Secrets{AppId: "bot-1", AppSecret: "sec"},
+		schedules: ctrl,
+	}
+	b.dmInteractive = func(_ context.Context, open, card string) (string, string, error) {
+		dmSent++
+		if open != "ou_alice" {
+			t.Fatalf("unexpected DM recipient %q", open)
+		}
+		return "om_dm", "", nil
+	}
+
+	click := func(who, op string) *callback.CardActionTriggerResponse {
+		t.Helper()
+		resp, handled, err := b.handleManagementCardAction(context.Background(), &callback.CardActionTriggerEvent{
+			Event: &callback.CardActionTriggerRequest{
+				Operator: &callback.Operator{OpenID: who},
+				Context:  &callback.Context{OpenMessageID: "om_group_result_card"},
+				Action: &callback.CallBackAction{
+					Value: map[string]interface{}{
+						managementActionKey: "schedule." + op,
+						"schedule_id":       fmt.Sprint(tsk.ID),
+						"source":            "delivery",
+					},
+				},
+			},
+		})
+		if err != nil || !handled {
+			t.Fatalf("click(%s, %s): handled=%v err=%v", who, op, handled, err)
+		}
+		return resp
+	}
+
+	// Non-creator is refused with zero side effects and zero DM sends.
+	if resp := click("ou_bob", "pause"); resp.Toast.Type != "error" {
+		t.Fatalf("non-creator pause should fail, got %+v", resp.Toast)
+	}
+	if len(ctrl.acted) != 0 || dmSent != 0 {
+		t.Fatalf("non-creator caused side effects: acted=%v dmSent=%d", ctrl.acted, dmSent)
+	}
+
+	// Creator clicking trigger and pause executes actions with crisp toasts and ZERO DM spam.
+	if resp := click("ou_alice", "trigger"); resp.Toast.Type != "success" {
+		t.Fatalf("creator trigger failed: %+v", resp.Toast)
+	}
+	if resp := click("ou_alice", "pause"); resp.Toast.Type != "success" {
+		t.Fatalf("creator pause failed: %+v", resp.Toast)
+	}
+	if dmSent != 0 {
+		t.Fatalf("trigger/pause on delivery card should not spam DM, got dmSent=%d", dmSent)
+	}
+
+	// Creator clicking detail sends management detail card privately to DM.
+	if resp := click("ou_alice", "detail"); resp.Toast.Type != "success" {
+		t.Fatalf("creator detail failed: %+v", resp.Toast)
+	}
+	if dmSent != 1 {
+		t.Fatalf("detail click should send 1 private DM card, got %d", dmSent)
 	}
 }

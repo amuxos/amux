@@ -343,6 +343,20 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	if privateCard {
 		return b.managementCardResponse(open, message, card, version, cardToast("success", scheduleText("updated"))), true, nil
 	}
+	// Quick actions on a result delivery card give an immediate toast without
+	// dumping an unsolicited management card into DM, except when the user
+	// explicitly asks to open management details.
+	if managementCallbackString(event.Event.Action, "source") == "delivery" {
+		switch op {
+		case "trigger":
+			return cardToast("success", scheduleText("delivery.triggered")), true, nil
+		case "pause":
+			return cardToast("success", scheduleText("delivery.paused")), true, nil
+		case "detail":
+			err = b.sendManagementCardToDM(ctx, open, card)
+			return cardToast("success", scheduleText("delivery.detail_sent")), true, err
+		}
+	}
 	err = b.sendManagementCardToDM(ctx, open, card)
 	return cardToast("success", scheduleText("updated")), true, err
 }

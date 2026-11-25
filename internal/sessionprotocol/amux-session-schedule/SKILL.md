@@ -19,10 +19,14 @@ must return control to their parent rather than create sessions or schedules.
 - A Task is bounded work with its own terminal status and result. Creating an
   ordinary Session does not provide a separate workspace or extra isolation.
 - For delayed work, use a schedule rather than waiting in a long-running shell.
-  Read [schedule modes and management](references/schedules.md) before creating
-  or modifying one. Continue an existing workflow with a `session-prompt` schedule
-  in `reuse-session` mode; use a `subtask` for independent bounded work. Use
-  `new-session-per-run` only when a fresh ordinary conversation is requested.
+  Default to an isolated `subtask` schedule (omitting `task.agent`/`task.model`
+  inherits the current Session, and in Feishu omitting `delivery_target`
+  defaults to `origin`); use `session-prompt` (`reuse-session`) only when
+  continuing the current conversation history. Reply immediately after
+  `schedule_create` instead of waiting for the first fire, and never confuse an
+  older completed schedule from another thread with a new request. Read
+  [schedule modes and management](references/schedules.md) when you need full
+  details or CLI syntax.
 - Confirm real IDs, target and time zone from tool responses. Discover candidates
   only when the requested target cannot be resolved. Follow tool schemas and
   pagination; never invent tool names, IDs or flags. Authorization does not

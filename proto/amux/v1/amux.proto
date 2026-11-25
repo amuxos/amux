@@ -1576,6 +1576,7 @@ message ScheduleItem {
   string state = 18;
   string delivery_target = 19;
   string delivery_policy = 20;
+  int64 created_at = 21;
 }
 
 message ScheduleRun {

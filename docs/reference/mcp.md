@@ -37,10 +37,10 @@ Official `tools/list` tools: **52**.
 | `amux.profile_get` | Get complete Agent Profile details by exact ref, including development namespaces. |
 | `amux.profile_list` | List non-development Agent Profiles with pagination. Submit tasks using profiles[].ref and fetch details with profile_get. Follow next_cursor until has_more=false. |
 | `amux.result_continue` | Continue reading a paginated result. Concatenate content_chunk values in order until complete=true. Cursors are short-lived and valid only in the current MCP process. |
-| `amux.schedule_create` | Create a Hub schedule. Default schedule_type=subtask (recommended for most schedules: runs an isolated ephemeral child Task each fire, inherits the current Session's Agent and model when omitted, escalate-to-main is not allowed; in Feishu chats, omitting delivery_target defaults to origin, with delivery_policy always/on_failure/on_non_empty). Use schedule_type=session-prompt (default reuse-session) only when continuing the target Session's conversation context. |
+| `amux.schedule_create` | Create a Hub schedule. Default schedule_type=subtask (recommended for most schedules: runs an isolated ephemeral child Task each fire, inherits the current Session's Agent and model when omitted, escalate-to-main is not allowed; in Feishu chats, omitting delivery_target defaults to origin, with delivery_policy always/on_failure/on_non_empty). Use schedule_type=session-prompt (default reuse-session) only when continuing the target Session's conversation context. Reply to the user immediately after creation without waiting for the first fire. |
 | `amux.schedule_delete` | Delete a Schedule. Task results from existing runs remain readable. |
 | `amux.schedule_get` | Get a Schedule; include_runs=true includes run history and task_id values. |
-| `amux.schedule_list` | List Schedules with pagination. Follow next_cursor until has_more=false. |
+| `amux.schedule_list` | List Schedules with pagination (includes created_at_iso and delivery settings; do not mistake an older completed schedule from another thread for a newly requested one); follow next_cursor until has_more=false. |
 | `amux.schedule_set_enabled` | Enable or disable a Schedule. |
 | `amux.schedule_trigger` | Trigger a Schedule immediately once without changing its enabled state or next scheduled run time. |
 | `amux.schedule_update` | Update a Schedule in place: name, spec, timezone, result delivery (delivery_target/delivery_policy), session-prompt prompt/run_mode, or partial subtask Task fields; omitted fields remain unchanged, and escalate-to-main is not allowed. |
@@ -967,7 +967,7 @@ Continue reading a paginated result. Concatenate content_chunk values in order u
 
 ## `amux.schedule_create`
 
-Create a Hub schedule. Default schedule_type=subtask (recommended for most schedules: runs an isolated ephemeral child Task each fire, inherits the current Session's Agent and model when omitted, escalate-to-main is not allowed; in Feishu chats, omitting delivery_target defaults to origin, with delivery_policy always/on_failure/on_non_empty). Use schedule_type=session-prompt (default reuse-session) only when continuing the target Session's conversation context.
+Create a Hub schedule. Default schedule_type=subtask (recommended for most schedules: runs an isolated ephemeral child Task each fire, inherits the current Session's Agent and model when omitted, escalate-to-main is not allowed; in Feishu chats, omitting delivery_target defaults to origin, with delivery_policy always/on_failure/on_non_empty). Use schedule_type=session-prompt (default reuse-session) only when continuing the target Session's conversation context. Reply to the user immediately after creation without waiting for the first fire.
 
 **Input JSON Schema**
 
@@ -1185,7 +1185,7 @@ Get a Schedule; include_runs=true includes run history and task_id values.
 
 ## `amux.schedule_list`
 
-List Schedules with pagination. Follow next_cursor until has_more=false.
+List Schedules with pagination (includes created_at_iso and delivery settings; do not mistake an older completed schedule from another thread for a newly requested one); follow next_cursor until has_more=false.
 
 **Input JSON Schema**
 

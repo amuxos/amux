@@ -311,6 +311,10 @@ string]any {
 	if item.DeliveryPolicy != "" {
 		view["delivery_policy"] = item.DeliveryPolicy
 	}
+	if item.CreatedAt > 0 {
+		view["created_at"] = item.CreatedAt
+		view["created_at_iso"] = mcpScheduleTimeISO(item.CreatedAt)
+	}
 	if item.NextRunAt > 0 {
 		view["next_run_at_iso"] = mcpScheduleTimeISO(item.NextRunAt)
 	}
@@ -347,6 +351,10 @@ string]any {
 	}
 	if item.DeliveryPolicy != "" {
 		view["delivery_policy"] = item.DeliveryPolicy
+	}
+	if item.CreatedAt > 0 {
+		view["created_at"] = item.CreatedAt
+		view["created_at_iso"] = mcpScheduleTimeISO(item.CreatedAt)
 	}
 	if item.NextRunAt > 0 {
 		view["next_run_at_iso"] = mcpScheduleTimeISO(item.NextRunAt)

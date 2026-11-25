@@ -3067,6 +3067,24 @@
   "schedule.delivery.footer.once_done": {
     "other": "One-shot schedule completed"
   },
+  "schedule.delivery.action.rerun": {
+    "other": "Run now"
+  },
+  "schedule.delivery.action.pause": {
+    "other": "Pause"
+  },
+  "schedule.delivery.action.manage": {
+    "other": "Manage"
+  },
+  "schedule.delivery.triggered": {
+    "other": "Triggered immediate run; results will arrive when finished"
+  },
+  "schedule.delivery.paused": {
+    "other": "Schedule paused"
+  },
+  "schedule.delivery.detail_sent": {
+    "other": "Sent schedule details to your DM"
+  },
   "schedule.resume": {
     "other": "Resume schedule"
   },

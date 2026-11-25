@@ -37,10 +37,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.profile_get` | 按精确 ref 获取 Agent Profile 完整详情，支持开发版 namespace。 |
 | `amux.profile_list` | 分页列出非开发版 Agent Profile；用 profiles[].ref 提交任务，详情用 profile_get。沿 next_cursor 读取至 has_more=false。 |
 | `amux.result_continue` | 续读分页结果；按序拼接 content_chunk，直到 complete=true。游标仅当前 MCP 进程短期有效。 |
-| `amux.schedule_create` | 创建 hub 定时规则。默认 schedule_type=subtask（推荐用于大多数定时任务：每次隔离运行临时子 Task，自动继承当前会话的 Agent 与模型，不允许 escalate-to-main；在飞书会话内省略 delivery_target 时自动投递回来源话题 origin，也可用 delivery_policy 控制 always/on_failure/on_non_empty）；仅需延续当前对话上下文时使用 schedule_type=session-prompt（默认 reuse-session，向目标 Session Submit 提示词并唤醒 Agent）。 |
+| `amux.schedule_create` | 创建 hub 定时规则。默认 schedule_type=subtask（推荐用于大多数定时任务：每次隔离运行临时子 Task，自动继承当前会话的 Agent 与模型，不允许 escalate-to-main；在飞书会话内省略 delivery_target 时自动投递回来源话题 origin，也可用 delivery_policy 控制 always/on_failure/on_non_empty）；仅需延续当前对话上下文时使用 schedule_type=session-prompt（默认 reuse-session，向目标 Session Submit 提示词并唤醒 Agent）。创建成功后请立即回复用户，不要在当前回合等待首次触发。 |
 | `amux.schedule_delete` | 删除 Schedule；既有运行对应的 Task 结果仍可读取。 |
 | `amux.schedule_get` | 获取 Schedule；include_runs=true 时包含运行历史及 task_id。 |
-| `amux.schedule_list` | 分页列出 Schedule；沿 next_cursor 读取至 has_more=false。 |
+| `amux.schedule_list` | 分页列出 Schedule（含 created_at_iso 与投递设置；勿将更早或其他话题已完成的同名历史任务误当作本次新建）；沿 next_cursor 读取至 has_more=false。 |
 | `amux.schedule_set_enabled` | 启用或停用 Schedule。 |
 | `amux.schedule_trigger` | 立即手动触发一次 Schedule（不影响其启停状态与下次计划触发时间）。 |
 | `amux.schedule_update` | 原地更新 Schedule 的名称、时间规则、时区、结果投递设置（delivery_target/delivery_policy）、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。 |
@@ -967,7 +967,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.schedule_create`
 
-创建 hub 定时规则。默认 schedule_type=subtask（推荐用于大多数定时任务：每次隔离运行临时子 Task，自动继承当前会话的 Agent 与模型，不允许 escalate-to-main；在飞书会话内省略 delivery_target 时自动投递回来源话题 origin，也可用 delivery_policy 控制 always/on_failure/on_non_empty）；仅需延续当前对话上下文时使用 schedule_type=session-prompt（默认 reuse-session，向目标 Session Submit 提示词并唤醒 Agent）。
+创建 hub 定时规则。默认 schedule_type=subtask（推荐用于大多数定时任务：每次隔离运行临时子 Task，自动继承当前会话的 Agent 与模型，不允许 escalate-to-main；在飞书会话内省略 delivery_target 时自动投递回来源话题 origin，也可用 delivery_policy 控制 always/on_failure/on_non_empty）；仅需延续当前对话上下文时使用 schedule_type=session-prompt（默认 reuse-session，向目标 Session Submit 提示词并唤醒 Agent）。创建成功后请立即回复用户，不要在当前回合等待首次触发。
 
 **输入 JSON Schema**
 
@@ -1185,7 +1185,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.schedule_list`
 
-分页列出 Schedule；沿 next_cursor 读取至 has_more=false。
+分页列出 Schedule（含 created_at_iso 与投递设置；勿将更早或其他话题已完成的同名历史任务误当作本次新建）；沿 next_cursor 读取至 has_more=false。
 
 **输入 JSON Schema**
 

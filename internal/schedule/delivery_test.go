@@ -221,3 +221,120 @@ func TestStoreObserveEnqueuesResultDeliveryAndTracksStatus(t *testing.T) {
 		t.Fatalf("run2 DeliveryStatus = %q, want delivered", hist[0].DeliveryStatus)
 	}
 }
+
+func TestOneShotCompletedSuppressesAdminDigestWhenProactiveDeliveryEnabled(t *testing.T) {
+	store, err := OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	now := time.Unix(1700000000, 0)
+	nextRun := now.Unix()
+
+	// 1) One-shot with delivery_target=origin + completed -> NO admin PendingAt digest.
+	withDelivery, err := store.Create(Task{
+		Name:           "once-with-delivery",
+		Spec:           "at 2026-11-25T15:00:00Z",
+		Kind:           KindOnce,
+		ScheduleType:   ScheduleTypeSubtask,
+		DeliveryTarget: DeliveryTargetOrigin,
+		DeliveryPolicy: DeliveryPolicyOnNonEmpty,
+		Enabled:        true,
+		NextRunAt:      &nextRun,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.BindCreator(withDelivery.ID, Creator{BotID: "bot-1", OpenID: "ou_alice", PrincipalID: "p_alice", Source: "turn:1"}); err != nil {
+		t.Fatal(err)
+	}
+	run1, ok, err := store.ClaimTracked(withDelivery, now, nil)
+	if err != nil || !ok {
+		t.Fatalf("ClaimTracked: %v %v", ok, err)
+	}
+	run1.Status = "completed"
+	run1.Terminal = true
+	run1.FinishedAt = now.Add(5 * time.Second).Unix()
+	run1.Result = "NO_ALERT"
+	if err := store.Observe(run1, now.Add(5*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	v1, err := store.Visibility(withDelivery.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v1.PendingAt != 0 {
+		t.Fatalf("one-shot completed with proactive delivery should not schedule admin digest, got PendingAt=%d", v1.PendingAt)
+	}
+
+	// 2) One-shot with delivery_target=origin + timed_out -> STILL alerts admin.
+	failedOnce, err := store.Create(Task{
+		Name:           "once-timed-out",
+		Spec:           "at 2026-11-25T15:01:00Z",
+		Kind:           KindOnce,
+		ScheduleType:   ScheduleTypeSubtask,
+		DeliveryTarget: DeliveryTargetOrigin,
+		DeliveryPolicy: DeliveryPolicyOnFailure,
+		Enabled:        true,
+		NextRunAt:      &nextRun,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.BindCreator(failedOnce.ID, Creator{BotID: "bot-1", OpenID: "ou_alice", PrincipalID: "p_alice", Source: "turn:2"}); err != nil {
+		t.Fatal(err)
+	}
+	run2, ok, err := store.ClaimTracked(failedOnce, now, nil)
+	if err != nil || !ok {
+		t.Fatalf("ClaimTracked: %v %v", ok, err)
+	}
+	run2.Status = "timed_out"
+	run2.Terminal = true
+	run2.FinishedAt = now.Add(5 * time.Second).Unix()
+	if err := store.Observe(run2, now.Add(5*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	v2, err := store.Visibility(failedOnce.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v2.PendingAt == 0 {
+		t.Fatalf("one-shot timed_out must still schedule admin alert")
+	}
+
+	// 3) One-shot with delivery_target=none + completed -> keeps legacy admin digest.
+	legacyOnce, err := store.Create(Task{
+		Name:           "once-legacy",
+		Spec:           "at 2026-11-25T15:02:00Z",
+		Kind:           KindOnce,
+		ScheduleType:   ScheduleTypeSubtask,
+		DeliveryTarget: DeliveryTargetNone,
+		DeliveryPolicy: DeliveryPolicyAlways,
+		Enabled:        true,
+		NextRunAt:      &nextRun,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.BindCreator(legacyOnce.ID, Creator{BotID: "bot-1", OpenID: "ou_alice", PrincipalID: "p_alice", Source: "turn:3"}); err != nil {
+		t.Fatal(err)
+	}
+	run3, ok, err := store.ClaimTracked(legacyOnce, now, nil)
+	if err != nil || !ok {
+		t.Fatalf("ClaimTracked: %v %v", ok, err)
+	}
+	run3.Status = "completed"
+	run3.Terminal = true
+	run3.FinishedAt = now.Add(5 * time.Second).Unix()
+	if err := store.Observe(run3, now.Add(5*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	v3, err := store.Visibility(legacyOnce.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v3.PendingAt == 0 {
+		t.Fatalf("one-shot completed with delivery_target=none should still schedule legacy admin digest")
+	}
+}

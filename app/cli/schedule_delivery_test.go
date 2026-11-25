@@ -199,3 +199,29 @@ func TestConsoleScheduleCreateAndUpdateForwardsDelivery(t *testing.T) {
 		t.Fatalf("console update forwarded wrong fields: %+v", hub.updateReq)
 	}
 }
+
+func TestMCPListSchedulesIncludesCreatedAtAndDeliveryFields(t *testing.T) {
+	view, err := listSchedulesMCPView([]*pb.ScheduleItem{{
+		Id:             42,
+		Name:           "daily-check",
+		ScheduleType:   schedule.ScheduleTypeSubtask,
+		Spec:           "daily 09:00",
+		DeliveryTarget: schedule.DeliveryTargetOrigin,
+		DeliveryPolicy: schedule.DeliveryPolicyOnNonEmpty,
+		CreatedAt:      1795590000,
+		Enabled:        true,
+	}}, "")
+	if err != nil {
+		t.Fatalf("listSchedulesMCPView: %v", err)
+	}
+	rows := view["schedules"].([]map[string]any)
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+	if rows[0]["created_at"] != int64(1795590000) || rows[0]["created_at_iso"] == "" {
+		t.Fatalf("missing created_at provenance in MCP list: %+v", rows[0])
+	}
+	if rows[0]["delivery_target"] != "origin" || rows[0]["delivery_policy"] != "on_non_empty" || rows[0]["execution_mode"] != "isolated" {
+		t.Fatalf("unexpected delivery/mode fields: %+v", rows[0])
+	}
+}

@@ -43,7 +43,12 @@ replace an in-session follow-up with an isolated Task.
 
 Put the object to check, success and stop conditions, next action, and schedule
 cleanup instructions in recurring prompts. Record the returned `schedule_id` and
-`next_run_at`; stop or delete the schedule when the workflow is finished.
+`next_run_at`; **reply to the user immediately after `schedule_create` instead
+of waiting or polling for the first fire** (results are delivered automatically
+when `delivery_target` is enabled). When checking `schedule_list`, check
+`created_at_iso` and state so you never mistake an older completed schedule from
+another thread for the user's new request. Stop or delete the schedule when the
+workflow is finished.
 
 Time specifications: `every <duration>` (minimum 1m; supports `d`/`w`),
 `daily HH:MM`, `at <when>` (one-shot), `in <duration>` (relative one-shot

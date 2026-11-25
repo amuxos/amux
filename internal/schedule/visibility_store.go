@@ -466,7 +466,7 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 					v.PendingAt = v.RecoveryAt + 600
 				}
 
-				if t.Kind == KindOnce && r.Terminal && v.PendingAt == 0 {
+				if t.Kind == KindOnce && r.Terminal && v.PendingAt == 0 && (t.DeliveryTarget == "" || t.DeliveryTarget == DeliveryTargetNone) {
 					v.PendingAt = now.Add(time.Minute).Unix()
 				}
 			}

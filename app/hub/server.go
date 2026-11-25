@@ -1316,6 +1316,7 @@ func scheduleItemFromTask(t schedule.Task, runs []schedule.Execution) *pb.Schedu
 		State:          t.LifecycleState(),
 		DeliveryTarget: t.DeliveryTarget,
 		DeliveryPolicy: t.DeliveryPolicy,
+		CreatedAt:      t.CreatedAt,
 		RunMode:        t.RunMode,
 		Prompt:       t.Prompt,
 		TaskSpecJson: append([]byte(nil), t.TaskSpecJson...),
