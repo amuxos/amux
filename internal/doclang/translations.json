@@ -3526,5 +3526,57 @@
   "飞书回合无可见输出且处于上游重试或排队等待达到该秒数后，在进展卡片上展示同引擎切换模型重试按钮及「其他模型…」下拉；默认 60 秒，设为 0 关闭排队等待按钮（仍保留限流/额度耗尽报错恢复卡）。仅负责人可在实验功能卡片中修改，保存后立即生效。": {
     "en": "After a Feishu turn has no visible output and stays in upstream retry or queue wait for this many seconds, show same-engine model switch retry buttons and an \"Other models...\" dropdown on the progress card. Default is 60 seconds; set to 0 to disable queued-wait controls while keeping rate-limit/usage-limit error recovery cards. Only the Bot owner can edit this in the Experiments card, and changes apply immediately after saving.",
     "zh-CN": "飞书回合无可见输出且处于上游重试或排队等待达到该秒数后，在进展卡片上展示同引擎切换模型重试按钮及「其他模型…」下拉；默认 60 秒，设为 0 关闭排队等待按钮（仍保留限流/额度耗尽报错恢复卡）。仅负责人可在实验功能卡片中修改，保存后立即生效。"
+  },
+  "result delivery target: none \\| origin \\| creator_dm": {
+    "en": "result delivery target: none \\| origin \\| creator_dm",
+    "zh-CN": "结果主动投递目标：none \\| origin \\| creator_dm"
+  },
+  "result delivery policy: always \\| on_failure \\| on_non_empty": {
+    "en": "result delivery policy: always \\| on_failure \\| on_non_empty",
+    "zh-CN": "结果主动投递策略：always \\| on_failure \\| on_non_empty"
+  },
+  "new result delivery target: none \\| origin \\| creator_dm": {
+    "en": "new result delivery target: none \\| origin \\| creator_dm",
+    "zh-CN": "新的结果主动投递目标：none \\| origin \\| creator_dm"
+  },
+  "new result delivery policy: always \\| on_failure \\| on_non_empty": {
+    "en": "new result delivery policy: always \\| on_failure \\| on_non_empty",
+    "zh-CN": "新的结果主动投递策略：always \\| on_failure \\| on_non_empty"
+  },
+  "Agent Profile 引用（取自 amux.profile_list 的 profiles[].ref）；在当前会话内创建时可省略，默认自动继承当前会话的 Agent Profile 与模型": {
+    "en": "Agent Profile ref from amux.profile_list profiles[].ref; optional when called inside a live Session (automatically inherits the current Session's Agent Profile and model)",
+    "zh-CN": "Agent Profile 引用（取自 amux.profile_list 的 profiles[].ref）；在当前会话内创建时可省略，默认自动继承当前会话的 Agent Profile 与模型"
+  },
+  "subtask（默认，推荐用于大多数定时任务）：每次隔离执行临时子 Task，自动继承当前会话的 Agent/模型（未显式指定时），结果按 delivery_target/delivery_policy 主动送达；session-prompt：向目标 Session Submit 提示词并唤醒 Agent（适合依赖当前会话上下文的后续跟进）": {
+    "en": "subtask (default, recommended for most schedules): runs an isolated ephemeral child Task each fire, inheriting the current Session's Agent/model when omitted, with proactive delivery controlled by delivery_target/delivery_policy; session-prompt: Submits a prompt into the target Session and wakes the Agent (for follow-ups needing conversation history)",
+    "zh-CN": "subtask（默认，推荐用于大多数定时任务）：每次隔离执行临时子 Task，自动继承当前会话的 Agent/模型（未显式指定时），结果按 delivery_target/delivery_policy 主动送达；session-prompt：向目标 Session Submit 提示词并唤醒 Agent（适合依赖当前会话上下文的后续跟进）"
+  },
+  "仅 session-prompt：reuse-session（默认）复用目标 Session 延续对话上下文；new-session-per-run（旧版兼容）每次按模板新开 Session": {
+    "en": "session-prompt only: reuse-session (default) reuses the target Session to retain conversation context; new-session-per-run (legacy compatibility) starts a new Session from the template each fire",
+    "zh-CN": "仅 session-prompt：reuse-session（默认）复用目标 Session 延续对话上下文；new-session-per-run（旧版兼容）每次按模板新开 Session"
+  },
+  "创建 hub 定时规则。默认 schedule_type=subtask（推荐用于大多数定时任务：每次隔离运行临时子 Task，自动继承当前会话的 Agent 与模型，不允许 escalate-to-main；在飞书会话内省略 delivery_target 时自动投递回来源话题 origin，也可用 delivery_policy 控制 always/on_failure/on_non_empty）；仅需延续当前对话上下文时使用 schedule_type=session-prompt（默认 reuse-session，向目标 Session Submit 提示词并唤醒 Agent）。": {
+    "en": "Create a Hub schedule. Default schedule_type=subtask (recommended for most schedules: runs an isolated ephemeral child Task each fire, inherits the current Session's Agent and model when omitted, escalate-to-main is not allowed; in Feishu chats, omitting delivery_target defaults to origin, with delivery_policy always/on_failure/on_non_empty). Use schedule_type=session-prompt (default reuse-session) only when continuing the target Session's conversation context.",
+    "zh-CN": "创建 hub 定时规则。默认 schedule_type=subtask（推荐用于大多数定时任务：每次隔离运行临时子 Task，自动继承当前会话的 Agent 与模型，不允许 escalate-to-main；在飞书会话内省略 delivery_target 时自动投递回来源话题 origin，也可用 delivery_policy 控制 always/on_failure/on_non_empty）；仅需延续当前对话上下文时使用 schedule_type=session-prompt（默认 reuse-session，向目标 Session Submit 提示词并唤醒 Agent）。"
+  },
+  "原地更新 Schedule 的名称、时间规则、时区、结果投递设置（delivery_target/delivery_policy）、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。": {
+    "en": "Update a Schedule in place: name, spec, timezone, result delivery (delivery_target/delivery_policy), session-prompt prompt/run_mode, or partial subtask Task fields; omitted fields remain unchanged, and escalate-to-main is not allowed.",
+    "zh-CN": "原地更新 Schedule 的名称、时间规则、时区、结果投递设置（delivery_target/delivery_policy）、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。"
+  },
+  "更新结果主动投递目标（none、origin 或 creator_dm）；省略时保持不变": {
+    "en": "Updated proactive result delivery target (none, origin, or creator_dm); omitted means unchanged",
+    "zh-CN": "更新结果主动投递目标（none、origin 或 creator_dm）；省略时保持不变"
+  },
+  "更新结果主动投递策略（always、on_failure 或 on_non_empty）；省略时保持不变": {
+    "en": "Updated proactive result delivery policy (always, on_failure, or on_non_empty); omitted means unchanged",
+    "zh-CN": "更新结果主动投递策略（always、on_failure 或 on_non_empty）；省略时保持不变"
+  },
+  "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、creator_dm（私聊创建者）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin": {
+    "en": "Proactive result delivery target: origin (reply back to the originating Feishu chat/thread; auto-default for Feishu subtask schedules when omitted), creator_dm (DM the schedule creator), or none (record only without proactive push). Note: origin is disallowed for session-prompt + reuse-session",
+    "zh-CN": "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、creator_dm（私聊创建者）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin"
+  },
+  "结果主动投递策略（delivery_target 非 none 时生效）：always（默认，每次终态都推送）、on_failure（仅失败或超时推送）、on_non_empty（仅失败或产出非静默内容时推送，忽略空内容/NO_ALERT/SILENT/HEARTBEAT_OK）": {
+    "en": "Proactive result delivery policy (applies when delivery_target is not none): always (default, push every terminal run), on_failure (push only on failure or timeout), or on_non_empty (push on failure or non-silent output, suppressing empty/NO_ALERT/SILENT/HEARTBEAT_OK)",
+    "zh-CN": "结果主动投递策略（delivery_target 非 none 时生效）：always（默认，每次终态都推送）、on_failure（仅失败或超时推送）、on_non_empty（仅失败或产出非静默内容时推送，忽略空内容/NO_ALERT/SILENT/HEARTBEAT_OK）"
   }
 }

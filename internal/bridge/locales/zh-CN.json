@@ -3032,6 +3032,21 @@
   "schedule.trigger": {
     "other": "立即运行"
   },
+  "schedule.delivery.title": {
+    "other": "定时任务结果"
+  },
+  "schedule.delivery.source.scheduled": {
+    "other": "定时触发"
+  },
+  "schedule.delivery.source.manual": {
+    "other": "手动触发"
+  },
+  "schedule.delivery.no_output": {
+    "other": "本次执行已完成，无正文输出。"
+  },
+  "schedule.delivery.footer.once_done": {
+    "other": "一次性定时任务已完成"
+  },
   "schedule.resume": {
     "other": "恢复后续执行"
   },

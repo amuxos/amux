@@ -1,34 +1,45 @@
 # Schedule modes and management
 
-`schedule_type` is `session-prompt` or `subtask`. `run_mode` applies only to
-`session-prompt`. These combine into three execution modes:
+Schedules separate **execution** from **result delivery**.
 
-| Mode | On each trigger | Results |
-| --- | --- | --- |
-| `session-prompt` + `reuse-session` | Submit a prompt to the existing Session, retaining conversation context | Session output; schedule has latest delivery status |
-| `session-prompt` + `new-session-per-run` | Create an ordinary Session from the existing Session's launch template, without copying conversation history | `ok:new-session:<name>` identifies the Session; read its output |
-| `subtask` | Submit independent bounded work from the saved Task specification | Task ID and run records; read Task terminal status and result |
+## Two primary execution modes
+
+| Mode | When to use | On each trigger | Result delivery |
+| --- | --- | --- | --- |
+| **Isolated** (`schedule_type="subtask"`, default) | Most recurring or one-shot jobs (reports, monitoring, reminders, checks, batch tasks) that should not pollute the current chat context | Runs an independent bounded Task; inside a live Session (`AMUX_SESSION_ID` set), omitting `task.agent` automatically inherits the current Session's Agent Profile and model | Controlled by `delivery_target` (`origin` / `creator_dm` / `none`) and `delivery_policy` (`always` / `on_failure` / `on_non_empty`). In Feishu chats, omitting `delivery_target` defaults to `origin` (`always`) |
+| **In-session** (`schedule_type="session-prompt"`, `run_mode="reuse-session"`) | Follow-ups and progress checks that explicitly need the current Session's conversation history | Submits the prompt into the existing Session and wakes the Agent | Output appears directly in that Session (`delivery_target="origin"` is disallowed; `creator_dm` or `none` is allowed) |
+
+Legacy compatibility: `schedule_type="session-prompt"` with
+`run_mode="new-session-per-run"` creates a fresh Session from an existing
+template Session on each fire without copying conversation history. Prefer
+`schedule_type="subtask"` with `delivery_target="origin"` for new independent
+schedules because it provides durable execution history, isolation, and direct
+result delivery back to the originating chat.
 
 ## Choosing and creating
 
-Use the current Session for follow-ups, progress checks and continuing a workflow.
-For MCP, call `schedule_create(schedule_type="session-prompt", spec=...,
-prompt=..., run_mode="reuse-session")`. Omit `session` for the current Session:
-the MCP server resolves its injected `AMUX_SESSION_ID`. For another Session use
-a confirmed Session ID or session-ref. Resolve targeting errors before retrying;
-do not silently replace a follow-up with an independent Task.
+For independent recurring or one-shot work, call
+`schedule_create(spec=..., task={"task": "..."})` (default
+`schedule_type="subtask"`). Inside a live Session, you may omit `task.agent`
+and `task.model` to inherit the current Session's Agent Profile and model, or
+specify a dedicated specialist profile explicitly. Set `delivery_target` and
+`delivery_policy` when needed:
 
-For a fresh conversation each time, set `schedule_type="session-prompt"`,
-`run_mode="new-session-per-run"`, confirmed template `session`, `spec` and a
-self-contained `prompt`. The template must exist and remain unarchived when the
-schedule fires. Its agent type, launch arguments, environment and workspace
-settings are reused; its conversation is not. Runs may share the template's
-working directory. This mode provides no extra isolation or guaranteed reply
-into the originating chat. Use the template's target to inspect created Sessions.
+- `delivery_target`:
+  - `origin`: post the run result card back to the originating chat/thread (auto-default for Feishu-originated `subtask` schedules when omitted).
+  - `creator_dm`: send the run result card directly to the schedule creator via DM.
+  - `none`: record execution history without proactive chat delivery.
+- `delivery_policy`:
+  - `always` (default): deliver on every terminal run.
+  - `on_failure`: deliver only on failure or timeout.
+  - `on_non_empty`: deliver on failure or non-silent output (suppresses empty output and silent tokens such as `NO_ALERT`, `SILENT`, `HEARTBEAT_OK`, `NONE`).
 
-For independent automation, set `schedule_type="subtask"`, `spec` and a complete
-`task`. Configure isolation and workspace explicitly when required. Omission of
-`schedule_type` defaults to `subtask`, not a current-session follow-up.
+For continuing the current conversation, call
+`schedule_create(schedule_type="session-prompt", spec=..., prompt=...,
+run_mode="reuse-session")`. Omit `session` for the current Session so the MCP
+server resolves `AMUX_SESSION_ID`. For another Session use a confirmed Session
+ID or session-ref. Resolve targeting errors before retrying; do not silently
+replace an in-session follow-up with an isolated Task.
 
 Put the object to check, success and stop conditions, next action, and schedule
 cleanup instructions in recurring prompts. Record the returned `schedule_id` and
@@ -46,20 +57,18 @@ MCP: `schedule_list`, `schedule_get`, `schedule_set_enabled`, `schedule_update`,
 `schedule_trigger` and `schedule_delete`. Follow `next_cursor` while `has_more=true`.
 Use `schedule_trigger` (CLI `amux schedule run <id>`) to verify a rule immediately
 once without changing its `next_run_at`.
-Update name, time, `timezone`, a session-prompt's `prompt` or `run_mode`, or partial
-fields of a subtask's `task` specification in place with `schedule_update`;
-omitted fields keep their current values and run history is preserved.
+Update name, time, `timezone`, `delivery_target`, `delivery_policy`, a
+session-prompt's `prompt` or `run_mode`, or partial fields of a subtask's
+`task` specification in place with `schedule_update`; omitted fields keep their
+current values and run history is preserved.
 
-For session-prompt, `schedule_get` exposes only `last_run_at` and `last_status`,
-not complete trigger history. `ok` and `ok:new-session:<name>` mean input was
-submitted, not that the requested work succeeded. `skipped:offline` or a one-shot
-`missed` means delivery did not occur. For subtask, use
-`schedule_get(include_runs=true)` to obtain run records. `ok:task:<id>` means
-Task submission; inspect that Task for the final outcome.
+For subtask schedules, use `schedule_get(include_runs=true)` to inspect run
+records, `task_id`, `result_summary`, and `delivery_status`. For session-prompt
+schedules, `schedule_get` exposes `last_run_at` and `last_status` (`ok` means
+input was submitted, not that the requested work succeeded).
 
-CLI equivalents: `amux schedule create "$AMUX_SESSION_ID" SPEC PROMPT
---run-mode reuse-session` (or a confirmed template ref and
-`--run-mode new-session-per-run`); `amux schedule create-task` creates a subtask.
-Use the command's current help for Task flags and management syntax. Use CLI
-only when the Runtime context selects CLI, or the user explicitly requests an
-operator CLI action.
+CLI equivalents: `amux schedule create-task SPEC --agent ... --task ...
+[--delivery-target origin|creator_dm|none] [--delivery-policy always|on_failure|on_non_empty]`;
+`amux schedule create "$AMUX_SESSION_ID" SPEC PROMPT --run-mode reuse-session`.
+Use CLI only when the Runtime context selects CLI, or the user explicitly
+requests an operator CLI action.

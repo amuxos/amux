@@ -75,10 +75,12 @@ type Task struct {
 	Prompt       string
 	Spec         string
 	Kind         string
-	Timezone     string
-	RunMode      string
-	ScheduleType string
-	TaskSpecJson []byte
+	Timezone       string
+	RunMode        string
+	ScheduleType   string
+	DeliveryTarget string
+	DeliveryPolicy string
+	TaskSpecJson   []byte
 	Enabled      bool
 	NextRunAt    *int64 // unix seconds; nil when no further run is scheduled
 	LastRunAt    *int64
@@ -180,6 +182,8 @@ func (s *Store) migrate() error {
 			timezone       TEXT    NOT NULL DEFAULT '',
 			run_mode       TEXT    NOT NULL DEFAULT 'reuse-session',
 			schedule_type  TEXT    NOT NULL DEFAULT 'session-prompt',
+			delivery_target TEXT   NOT NULL DEFAULT 'none',
+			delivery_policy TEXT   NOT NULL DEFAULT 'always',
 			task_spec_json BLOB,
 			enabled        INTEGER NOT NULL DEFAULT 1,
 			next_run_at    INTEGER,
@@ -208,6 +212,12 @@ func (s *Store) migrate() error {
 	}
 	if err := s.addColumnIfMissing(`ALTER TABLE scheduled_tasks ADD COLUMN timezone TEXT NOT NULL DEFAULT ''`); err != nil {
 		return fmt.Errorf("schedule migrate timezone: %w", err)
+	}
+	if err := s.addColumnIfMissing(`ALTER TABLE scheduled_tasks ADD COLUMN delivery_target TEXT NOT NULL DEFAULT 'none'`); err != nil {
+		return fmt.Errorf("schedule migrate delivery target: %w", err)
+	}
+	if err := s.addColumnIfMissing(`ALTER TABLE scheduled_tasks ADD COLUMN delivery_policy TEXT NOT NULL DEFAULT 'always'`); err != nil {
+		return fmt.Errorf("schedule migrate delivery policy: %w", err)
 	}
 	if _, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS schedule_runs (
@@ -247,11 +257,19 @@ func (s *Store) Create(t Task) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
+	deliveryTarget, err := NormalizeDeliveryTarget(t.DeliveryTarget)
+	if err != nil {
+		return Task{}, err
+	}
+	deliveryPolicy, err := NormalizeDeliveryPolicy(t.DeliveryPolicy)
+	if err != nil {
+		return Task{}, err
+	}
 	res, err := s.db.Exec(`
 		INSERT INTO scheduled_tasks
-			(name, target_id, target_name, session_name, prompt, spec, kind, timezone, run_mode, schedule_type, task_spec_json, enabled, next_run_at, created_by, owner_principal_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, t.Name, t.TargetID, t.TargetName, t.SessionName, t.Prompt, t.Spec, t.Kind, strings.TrimSpace(t.Timezone), runMode, scheduleType, t.TaskSpecJson,
+			(name, target_id, target_name, session_name, prompt, spec, kind, timezone, run_mode, schedule_type, delivery_target, delivery_policy, task_spec_json, enabled, next_run_at, created_by, owner_principal_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, t.Name, t.TargetID, t.TargetName, t.SessionName, t.Prompt, t.Spec, t.Kind, strings.TrimSpace(t.Timezone), runMode, scheduleType, deliveryTarget, deliveryPolicy, t.TaskSpecJson,
 		util.BoolInt(t.Enabled), t.NextRunAt, t.CreatedBy, t.OwnerPrincipalID)
 	if err != nil {
 		return Task{}, fmt.Errorf("schedule create: %w", err)
@@ -278,14 +296,22 @@ func (s *Store) Update(t Task) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
+	deliveryTarget, err := NormalizeDeliveryTarget(t.DeliveryTarget)
+	if err != nil {
+		return Task{}, err
+	}
+	deliveryPolicy, err := NormalizeDeliveryPolicy(t.DeliveryPolicy)
+	if err != nil {
+		return Task{}, err
+	}
 	res, err := s.db.Exec(`
 		UPDATE scheduled_tasks SET
 			name = ?, target_id = ?, target_name = ?, session_name = ?, prompt = ?,
-			spec = ?, kind = ?, timezone = ?, run_mode = ?, schedule_type = ?, task_spec_json = ?,
+			spec = ?, kind = ?, timezone = ?, run_mode = ?, schedule_type = ?, delivery_target = ?, delivery_policy = ?, task_spec_json = ?,
 			next_run_at = ?, updated_at = strftime('%s','now')
 		WHERE id = ?
 	`, t.Name, t.TargetID, t.TargetName, t.SessionName, t.Prompt, t.Spec, t.Kind, strings.TrimSpace(t.Timezone), runMode,
-		scheduleType, t.TaskSpecJson, t.NextRunAt, t.ID)
+		scheduleType, deliveryTarget, deliveryPolicy, t.TaskSpecJson, t.NextRunAt, t.ID)
 	if err != nil {
 		return Task{}, fmt.Errorf("schedule update: %w", err)
 	}
@@ -296,7 +322,7 @@ func (s *Store) Update(t Task) (Task, error) {
 }
 
 const selectColumns = `id, name, target_id, target_name, session_name, prompt, spec, kind, timezone, run_mode,
-	schedule_type, task_spec_json, enabled, next_run_at, last_run_at, last_status, created_by,
+	schedule_type, delivery_target, delivery_policy, task_spec_json, enabled, next_run_at, last_run_at, last_status, created_by,
 	owner_principal_id, created_at`
 
 // Get returns a task by ID, or sql.ErrNoRows if absent.
@@ -527,10 +553,10 @@ func scanTask(sc scanner) (Task, error) {
 	var t Task
 	var enabled int
 	var taskSpec []byte
-	var name, targetName, timezone, runMode, scheduleType, lastStatus, createdBy, owner sql.NullString
+	var name, targetName, timezone, runMode, scheduleType, deliveryTarget, deliveryPolicy, lastStatus, createdBy, owner sql.NullString
 	var nextRunAt, lastRunAt sql.NullInt64
 	if err := sc.Scan(&t.ID, &name, &t.TargetID, &targetName, &t.SessionName, &t.Prompt,
-		&t.Spec, &t.Kind, &timezone, &runMode, &scheduleType, &taskSpec, &enabled, &nextRunAt, &lastRunAt, &lastStatus,
+		&t.Spec, &t.Kind, &timezone, &runMode, &scheduleType, &deliveryTarget, &deliveryPolicy, &taskSpec, &enabled, &nextRunAt, &lastRunAt, &lastStatus,
 		&createdBy, &owner, &t.CreatedAt); err != nil {
 		return Task{}, err
 	}
@@ -543,6 +569,8 @@ func scanTask(sc scanner) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
+	t.DeliveryTarget, _ = NormalizeDeliveryTarget(deliveryTarget.String)
+	t.DeliveryPolicy, _ = NormalizeDeliveryPolicy(deliveryPolicy.String)
 	t.TaskSpecJson = append([]byte(nil), taskSpec...)
 	t.LastStatus = lastStatus.String
 	t.CreatedBy = createdBy.String

@@ -56,7 +56,11 @@ func (s *hubServer) resolveScheduleCreator(ctx context.Context) (schedule.Creato
 			if e != nil {
 				return schedule.Creator{}, nil
 			}
-			if result.OpenID != "" && (result != c) {
+			if root := strings.TrimSpace(link.RootMsgID); root != "" && !strings.HasPrefix(root, "singleton:") {
+				c.OriginRootMsgID = root
+			}
+			c.OriginChatID = bridge.LookupOriginChatID(bridge.DefaultDBPath(), link.BridgeID, link.RootMsgID, link.TargetID, link.SessionName)
+			if result.OpenID != "" && (result.PrincipalID != c.PrincipalID || result.BotID != c.BotID || result.OpenID != c.OpenID) {
 				return schedule.Creator{}, nil
 			}
 			result = c
@@ -436,7 +440,11 @@ func (s *hubServer) creatorFromTaskAncestry(ctx context.Context, run task.TaskRu
 			if e != nil {
 				return schedule.Creator{}, nil
 			}
-			if found.OpenID != "" && found != c {
+			if root := strings.TrimSpace(link.RootMsgID); root != "" && !strings.HasPrefix(root, "singleton:") {
+				c.OriginRootMsgID = root
+			}
+			c.OriginChatID = bridge.LookupOriginChatID(bridge.DefaultDBPath(), link.BridgeID, link.RootMsgID, link.TargetID, link.SessionName)
+			if found.OpenID != "" && (found.PrincipalID != c.PrincipalID || found.BotID != c.BotID || found.OpenID != c.OpenID) {
 				return schedule.Creator{}, nil
 			}
 			found = c

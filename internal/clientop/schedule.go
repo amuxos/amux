@@ -11,16 +11,20 @@ import (
 )
 
 type ScheduleCreateTaskRequest struct {
-	Spec      string            `json:"spec"`
-	Timezone  string            `json:"timezone,omitempty"`
-	Name      string            `json:"name,omitempty"`
-	Task      ScheduledTaskSpec `json:"task"`
-	CreatedBy string            `json:"-"`
+	Spec           string            `json:"spec"`
+	Timezone       string            `json:"timezone,omitempty"`
+	Name           string            `json:"name,omitempty"`
+	DeliveryTarget string            `json:"delivery_target,omitempty"`
+	DeliveryPolicy string            `json:"delivery_policy,omitempty"`
+	Task           ScheduledTaskSpec `json:"task"`
+	CreatedBy      string            `json:"-"`
 }
 
 type ScheduleCreateResult struct {
-	ID        int64 `json:"schedule_id"`
-	NextRunAt int64 `json:"next_run_at,omitempty"`
+	ID             int64  `json:"schedule_id"`
+	NextRunAt      int64  `json:"next_run_at,omitempty"`
+	DeliveryTarget string `json:"delivery_target,omitempty"`
+	DeliveryPolicy string `json:"delivery_policy,omitempty"`
 }
 
 type ScheduleIDRequest struct {
@@ -35,6 +39,22 @@ func ScheduleCreateTask(ctx context.Context, hub pb.AmuxdClient, req ScheduleCre
 	if err := req.Task.Validate(); err != nil {
 		return ScheduleCreateResult{}, err
 	}
+	deliveryTarget := strings.TrimSpace(req.DeliveryTarget)
+	if deliveryTarget != "" {
+		normalized, err := schedule.NormalizeDeliveryTarget(deliveryTarget)
+		if err != nil {
+			return ScheduleCreateResult{}, InvalidError(FieldDeliveryTarget, req.DeliveryTarget, "none, origin, or creator_dm")
+		}
+		deliveryTarget = normalized
+	}
+	deliveryPolicy := strings.TrimSpace(req.DeliveryPolicy)
+	if deliveryPolicy != "" {
+		normalized, err := schedule.NormalizeDeliveryPolicy(deliveryPolicy)
+		if err != nil {
+			return ScheduleCreateResult{}, InvalidError(FieldDeliveryPolicy, req.DeliveryPolicy, "always, on_failure, or on_non_empty")
+		}
+		deliveryPolicy = normalized
+	}
 	specJSON, err := json.Marshal(req.Task.ToTaskSpec())
 	if err != nil {
 		return ScheduleCreateResult{}, fmt.Errorf("encode task spec: %w", err)
@@ -42,6 +62,7 @@ func ScheduleCreateTask(ctx context.Context, hub pb.AmuxdClient, req ScheduleCre
 	resp, err := hub.CreateSchedule(ctx, &pb.CreateScheduleRequest{
 		ScheduleType: schedule.ScheduleTypeSubtask, Spec: strings.TrimSpace(req.Spec), Timezone: strings.TrimSpace(req.Timezone), Name: req.Name,
 		TaskSpecJson: specJSON, CreatedBy: req.CreatedBy,
+		DeliveryTarget: deliveryTarget, DeliveryPolicy: deliveryPolicy,
 	})
 	if err != nil {
 		return ScheduleCreateResult{}, err
@@ -49,22 +70,24 @@ func ScheduleCreateTask(ctx context.Context, hub pb.AmuxdClient, req ScheduleCre
 	if resp.Error != "" {
 		return ScheduleCreateResult{}, fmt.Errorf("%s", resp.Error)
 	}
-	return ScheduleCreateResult{ID: resp.Id, NextRunAt: resp.NextRunAt}, nil
+	return ScheduleCreateResult{ID: resp.Id, NextRunAt: resp.NextRunAt, DeliveryTarget: resp.DeliveryTarget, DeliveryPolicy: resp.DeliveryPolicy}, nil
 }
 
 // ScheduleCreateSessionPromptRequest creates a session-prompt schedule that
 // Submit-s into an existing target session when due (Scheduler.deliverReuseSession
 // or deliverNewSessionPerRun).
 type ScheduleCreateSessionPromptRequest struct {
-	Spec        string `json:"spec"`
-	Timezone    string `json:"timezone,omitempty"`
-	Name        string `json:"name,omitempty"`
-	TargetID    string `json:"target_id"`
-	TargetName  string `json:"target_name,omitempty"`
-	SessionName string `json:"session_name"`
-	Prompt      string `json:"prompt"`
-	RunMode     string `json:"run_mode,omitempty"`
-	CreatedBy   string `json:"-"`
+	Spec           string `json:"spec"`
+	Timezone       string `json:"timezone,omitempty"`
+	Name           string `json:"name,omitempty"`
+	TargetID       string `json:"target_id"`
+	TargetName     string `json:"target_name,omitempty"`
+	SessionName    string `json:"session_name"`
+	Prompt         string `json:"prompt"`
+	RunMode        string `json:"run_mode,omitempty"`
+	DeliveryTarget string `json:"delivery_target,omitempty"`
+	DeliveryPolicy string `json:"delivery_policy,omitempty"`
+	CreatedBy      string `json:"-"`
 }
 
 // ScheduleCreateSessionPrompt persists a session-prompt schedule via the hub.
@@ -88,17 +111,35 @@ func ScheduleCreateSessionPrompt(ctx context.Context, hub pb.AmuxdClient, req Sc
 	if err != nil {
 		return ScheduleCreateResult{}, InvalidError(FieldRunMode, req.RunMode, "reuse-session or new-session-per-run")
 	}
+	deliveryTarget := strings.TrimSpace(req.DeliveryTarget)
+	if deliveryTarget != "" {
+		normalized, err := schedule.NormalizeDeliveryTarget(deliveryTarget)
+		if err != nil {
+			return ScheduleCreateResult{}, InvalidError(FieldDeliveryTarget, req.DeliveryTarget, "none, origin, or creator_dm")
+		}
+		deliveryTarget = normalized
+	}
+	deliveryPolicy := strings.TrimSpace(req.DeliveryPolicy)
+	if deliveryPolicy != "" {
+		normalized, err := schedule.NormalizeDeliveryPolicy(deliveryPolicy)
+		if err != nil {
+			return ScheduleCreateResult{}, InvalidError(FieldDeliveryPolicy, req.DeliveryPolicy, "always, on_failure, or on_non_empty")
+		}
+		deliveryPolicy = normalized
+	}
 	resp, err := hub.CreateSchedule(ctx, &pb.CreateScheduleRequest{
-		ScheduleType: schedule.ScheduleTypeSessionPrompt,
-		TargetId:     strings.TrimSpace(req.TargetID),
-		TargetName:   strings.TrimSpace(req.TargetName),
-		SessionName:  strings.TrimSpace(req.SessionName),
-		Spec:         strings.TrimSpace(req.Spec),
-		Timezone:     strings.TrimSpace(req.Timezone),
-		RunMode:      runMode,
-		Prompt:       prompt,
-		Name:         req.Name,
-		CreatedBy:    req.CreatedBy,
+		ScheduleType:   schedule.ScheduleTypeSessionPrompt,
+		TargetId:       strings.TrimSpace(req.TargetID),
+		TargetName:     strings.TrimSpace(req.TargetName),
+		SessionName:    strings.TrimSpace(req.SessionName),
+		Spec:           strings.TrimSpace(req.Spec),
+		Timezone:       strings.TrimSpace(req.Timezone),
+		RunMode:        runMode,
+		Prompt:         prompt,
+		Name:           req.Name,
+		CreatedBy:      req.CreatedBy,
+		DeliveryTarget: deliveryTarget,
+		DeliveryPolicy: deliveryPolicy,
 	})
 	if err != nil {
 		return ScheduleCreateResult{}, err
@@ -106,7 +147,7 @@ func ScheduleCreateSessionPrompt(ctx context.Context, hub pb.AmuxdClient, req Sc
 	if resp.Error != "" {
 		return ScheduleCreateResult{}, fmt.Errorf("%s", resp.Error)
 	}
-	return ScheduleCreateResult{ID: resp.Id, NextRunAt: resp.NextRunAt}, nil
+	return ScheduleCreateResult{ID: resp.Id, NextRunAt: resp.NextRunAt, DeliveryTarget: resp.DeliveryTarget, DeliveryPolicy: resp.DeliveryPolicy}, nil
 }
 
 func ScheduleDelete(ctx context.Context, hub pb.AmuxdClient, req ScheduleIDRequest) (bool, error) {
@@ -183,22 +224,26 @@ func ScheduleTrigger(ctx context.Context, hub pb.AmuxdClient, id int64) (Schedul
 // session-prompt schedules; Task applies to subtask schedules and reuses the
 // same validation as create.
 type ScheduleUpdateRequest struct {
-	ID       int64
-	Name     *string
-	Spec     *string
-	Timezone *string
-	Prompt   *string
-	RunMode  *string
-	Task     *ScheduledTaskSpec
+	ID             int64
+	Name           *string
+	Spec           *string
+	Timezone       *string
+	Prompt         *string
+	RunMode        *string
+	DeliveryTarget *string
+	DeliveryPolicy *string
+	Task           *ScheduledTaskSpec
 }
 
 // ScheduleUpdateResult is what an update returns.
 type ScheduleUpdateResult struct {
-	ID        int64  `json:"schedule_id"`
-	Name      string `json:"name,omitempty"`
-	Spec      string `json:"spec,omitempty"`
-	Timezone  string `json:"timezone,omitempty"`
-	NextRunAt int64  `json:"next_run_at,omitempty"`
+	ID             int64  `json:"schedule_id"`
+	Name           string `json:"name,omitempty"`
+	Spec           string `json:"spec,omitempty"`
+	Timezone       string `json:"timezone,omitempty"`
+	DeliveryTarget string `json:"delivery_target,omitempty"`
+	DeliveryPolicy string `json:"delivery_policy,omitempty"`
+	NextRunAt      int64  `json:"next_run_at,omitempty"`
 }
 
 // ScheduleUpdate applies a partial update to one schedule.
@@ -238,6 +283,22 @@ func ScheduleUpdate(ctx context.Context, hub pb.AmuxdClient, req ScheduleUpdateR
 		wire.RunMode = &runMode
 		changed = true
 	}
+	if req.DeliveryTarget != nil {
+		target, err := schedule.NormalizeDeliveryTarget(*req.DeliveryTarget)
+		if err != nil {
+			return ScheduleUpdateResult{}, InvalidError(FieldDeliveryTarget, *req.DeliveryTarget, "none, origin, or creator_dm")
+		}
+		wire.DeliveryTarget = &target
+		changed = true
+	}
+	if req.DeliveryPolicy != nil {
+		policy, err := schedule.NormalizeDeliveryPolicy(*req.DeliveryPolicy)
+		if err != nil {
+			return ScheduleUpdateResult{}, InvalidError(FieldDeliveryPolicy, *req.DeliveryPolicy, "always, on_failure, or on_non_empty")
+		}
+		wire.DeliveryPolicy = &policy
+		changed = true
+	}
 	if req.Task != nil {
 		if err := req.Task.Validate(); err != nil {
 			return ScheduleUpdateResult{}, err
@@ -250,7 +311,7 @@ func ScheduleUpdate(ctx context.Context, hub pb.AmuxdClient, req ScheduleUpdateR
 		changed = true
 	}
 	if !changed {
-		return ScheduleUpdateResult{}, fmt.Errorf("at least one of name, spec, timezone, prompt, run_mode, or task is required")
+		return ScheduleUpdateResult{}, fmt.Errorf("at least one of name, spec, timezone, prompt, run_mode, delivery_target, delivery_policy, or task is required")
 	}
 	resp, err := hub.UpdateSchedule(ctx, wire)
 	if err != nil {
@@ -264,6 +325,8 @@ func ScheduleUpdate(ctx context.Context, hub pb.AmuxdClient, req ScheduleUpdateR
 		out.Name = resp.Schedule.Name
 		out.Spec = resp.Schedule.Spec
 		out.Timezone = resp.Schedule.Timezone
+		out.DeliveryTarget = resp.Schedule.DeliveryTarget
+		out.DeliveryPolicy = resp.Schedule.DeliveryPolicy
 		out.NextRunAt = resp.Schedule.NextRunAt
 	}
 	return out, nil

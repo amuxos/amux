@@ -466,7 +466,7 @@ func consoleSchedule(item *pb.ScheduleItem) *pb.ScheduleItem {
 	}
 	// Freeze the shape and omit the stored task spec altogether: it includes
 	// provider launch snapshots and can contain credentials/native args.
-	out := &pb.ScheduleItem{Id: item.Id, Name: item.Name, ScheduleType: item.ScheduleType, TargetId: item.TargetId, TargetName: item.TargetName, SessionName: item.SessionName, Spec: item.Spec, Kind: item.Kind, Timezone: item.Timezone, State: item.State, RunMode: item.RunMode, Prompt: item.Prompt, Enabled: item.Enabled, NextRunAt: item.NextRunAt, LastRunAt: item.LastRunAt, LastStatus: item.LastStatus}
+	out := &pb.ScheduleItem{Id: item.Id, Name: item.Name, ScheduleType: item.ScheduleType, TargetId: item.TargetId, TargetName: item.TargetName, SessionName: item.SessionName, Spec: item.Spec, Kind: item.Kind, Timezone: item.Timezone, State: item.State, RunMode: item.RunMode, DeliveryTarget: item.DeliveryTarget, DeliveryPolicy: item.DeliveryPolicy, Prompt: item.Prompt, Enabled: item.Enabled, NextRunAt: item.NextRunAt, LastRunAt: item.LastRunAt, LastStatus: item.LastStatus}
 	out.Runs = make([]*pb.ScheduleRun, 0, len(item.Runs))
 	for _, run := range item.Runs {
 		if run != nil {

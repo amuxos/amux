@@ -12,7 +12,15 @@ import (
 )
 
 // Creator is trusted provenance frozen by the control plane, never request data.
-type Creator struct{ PrincipalID, BotID, OpenID, Source, AccessIdentityJSON string }
+type Creator struct {
+	PrincipalID        string
+	BotID              string
+	OpenID             string
+	Source             string
+	AccessIdentityJSON string
+	OriginRootMsgID    string `json:",omitempty"`
+	OriginChatID       string `json:",omitempty"`
+}
 type Execution struct {
 	AlertCounted                                                bool
 	ID                                                          int64
@@ -21,6 +29,7 @@ type Execution struct {
 	TargetID, SessionName, SessionID, LaunchID, TurnID, TaskID  string
 	Status, Reason, Result, Cursor                              string
 	TriggerSource                                               string
+	DeliveryStatus                                              string `json:",omitempty"`
 	Terminal                                                    bool
 	ObserveFailures                                             int
 	NextObserveAt                                               int64
@@ -73,7 +82,10 @@ func (s *Store) migrateVisibility() error {
  CREATE TABLE IF NOT EXISTS schedule_notice_budget (bot_id TEXT NOT NULL, open_id TEXT NOT NULL, sent_at INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS schedule_visibility_upgrade (id INTEGER PRIMARY KEY CHECK(id=1), max_schedule_id INTEGER NOT NULL);
  INSERT OR IGNORE INTO schedule_visibility_upgrade SELECT 1,COALESCE(MAX(id),0) FROM scheduled_tasks;`)
-	return err
+	if err != nil {
+		return err
+	}
+	return s.migrateResultDeliveries()
 }
 func (s *Store) BindCreator(id int64, c Creator) error {
 	if c.PrincipalID == "" || c.BotID == "" || c.OpenID == "" || c.Source == "" {
@@ -393,6 +405,9 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 	if r.TargetID == "" {
 		r.TargetID = existing.TargetID
 	}
+	if r.TriggerSource == "" {
+		r.TriggerSource = existing.TriggerSource
+	}
 	r.AlertCounted = existing.AlertCounted
 	r.ObservedAt = now.Unix()
 	if ve == nil {
@@ -460,6 +475,30 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 			v.Latest = previousLatest
 		}
 	}
+	var enqueueDelivery *ResultDelivery
+	if r.Terminal && t.DeliveryTarget != "" && t.DeliveryTarget != DeliveryTargetNone {
+		if ShouldDeliverResult(t.DeliveryTarget, t.DeliveryPolicy, r) && ve == nil && v.Creator.BotID != "" {
+			r.DeliveryStatus = DeliveryStatusPending
+			enqueueDelivery = &ResultDelivery{
+				RunID:           r.ID,
+				ScheduleID:      r.ScheduleID,
+				BotID:           v.Creator.BotID,
+				OpenID:          v.Creator.OpenID,
+				Target:          t.DeliveryTarget,
+				Policy:          t.DeliveryPolicy,
+				OriginRootMsgID: v.Creator.OriginRootMsgID,
+				OriginChatID:    v.Creator.OriginChatID,
+				Run:             r,
+				CreatedAt:       now.Unix(),
+				RetryAt:         now.Unix(),
+			}
+		} else {
+			r.DeliveryStatus = DeliveryStatusSkipped
+		}
+		if ve == nil && v.Latest.ID == r.ID {
+			v.Latest.DeliveryStatus = r.DeliveryStatus
+		}
+	}
 	tx, e := s.db.Begin()
 	if e != nil {
 		return e
@@ -476,6 +515,13 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 	n, _ := res.RowsAffected()
 	if n == 0 {
 		return nil
+	}
+	if enqueueDelivery != nil {
+		if dRaw, derr := json.Marshal(enqueueDelivery); derr == nil {
+			if _, e = tx.Exec(`INSERT OR IGNORE INTO schedule_result_deliveries(run_id,schedule_id,bot_id,data) VALUES(?,?,?,?)`, enqueueDelivery.RunID, enqueueDelivery.ScheduleID, enqueueDelivery.BotID, dRaw); e != nil {
+				return e
+			}
+		}
 	}
 	if ve == nil {
 		raw, e = json.Marshal(v)

@@ -25,6 +25,8 @@ const (
 	FieldPrompt            Field = "prompt"
 	FieldScheduleType      Field = "schedule_type"
 	FieldRunMode           Field = "run_mode"
+	FieldDeliveryTarget    Field = "delivery_target"
+	FieldDeliveryPolicy    Field = "delivery_policy"
 	FieldTargetID          Field = "target_id"
 	FieldScheduledSession  Field = "session_name"
 )

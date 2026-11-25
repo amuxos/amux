@@ -350,15 +350,23 @@ func (b *Bridge) runScheduleNotices(ctx context.Context) {
 	if b.schedules == nil {
 		return
 	}
-	ticker := time.NewTicker(20 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+	ticks := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := b.deliverScheduleNotices(ctx, time.Now()); err != nil {
-				log.Warn().Err(err).Msg("bridge: schedule notifications")
+			now := time.Now()
+			if err := b.deliverScheduleResults(ctx, now); err != nil {
+				log.Warn().Err(err).Msg("bridge: schedule result delivery")
+			}
+			ticks++
+			if ticks%4 == 0 {
+				if err := b.deliverScheduleNotices(ctx, now); err != nil {
+					log.Warn().Err(err).Msg("bridge: schedule notifications")
+				}
 			}
 		}
 	}
