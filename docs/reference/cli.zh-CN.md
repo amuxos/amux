@@ -1694,6 +1694,7 @@ amux schedule update <id> [flags]
 amux schedule update 8 --name nightly-report
   amux schedule update 8 --spec "daily 09:00"
   amux schedule update 8 --agent builtin/codex --task "run smoke tests"
+  amux schedule update 8 --timeout 600 --reasoning-effort high
 ```
 
 **选项**

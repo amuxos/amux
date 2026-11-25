@@ -342,6 +342,17 @@ func (s *Store) SetEnabled(id int64, enabled bool) (bool, error) {
 	return n > 0, nil
 }
 
+// SetEnabledWithNextRun atomically updates both enabled and next_run_at.
+func (s *Store) SetEnabledWithNextRun(id int64, enabled bool, nextRunAt *int64) (bool, error) {
+	res, err := s.db.Exec(`UPDATE scheduled_tasks SET enabled = ?, next_run_at = ?, updated_at = strftime('%s','now') WHERE id = ?`,
+		util.BoolInt(enabled), nextRunAt, id)
+	if err != nil {
+		return false, fmt.Errorf("schedule set enabled with next run: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
+}
+
 // DueTasks returns enabled tasks whose next_run_at is at or before now.
 func (s *Store) DueTasks(now int64) ([]Task, error) {
 	rows, err := s.db.Query(`SELECT `+selectColumns+`

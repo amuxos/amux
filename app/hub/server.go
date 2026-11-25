@@ -22,6 +22,7 @@ import (
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/registry"
 	"github.com/amuxos/amux/internal/schedule"
+	"github.com/amuxos/amux/internal/sessionlaunch"
 	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/amuxos/amux/internal/tunnel"
@@ -1612,6 +1613,116 @@ func (s *hubServer) authorizeScheduledSessionPrompt(_ context.Context, row sched
 	return fmt.Errorf("session authorization: %w", decision.Err)
 }
 
+// stripScheduledSessionClonedArgs removes runtime-injected amux MCP flags
+// copied from a template session so the freshly created session receives its
+// own session ID, actor token, and MCP config instead of inheriting the
+// template's credentials.
+func stripScheduledSessionClonedArgs(args []string) []string {
+	if len(args) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := strings.TrimSpace(args[i])
+		if arg == "--mcp-config" {
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "--mcp-config=") {
+			continue
+		}
+		if (arg == "-c" || arg == "--config") && i+1 < len(args) && strings.Contains(args[i+1], "mcp_servers.amux.") {
+			i++
+			continue
+		}
+		if strings.Contains(arg, "mcp_servers.amux.") {
+			continue
+		}
+		out = append(out, args[i])
+	}
+	return out
+}
+
+func stripScheduledSessionClonedEnv(env []string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(env))
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "AMUX_SESSION_ID=") ||
+			strings.HasPrefix(entry, "AMUX_ACTOR_TOKEN=") ||
+			strings.HasPrefix(entry, "AMUX_ACTOR_TOKEN_FILE=") ||
+			strings.HasPrefix(entry, "AMUX_MEMORY_BINDING=") {
+			continue
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+// prepareScheduledNewSession populates control-plane execution identity,
+// actor token, and resolved profile spec when run_mode=new-session-per-run
+// creates a fresh session from a template session.
+func (s *hubServer) prepareScheduledNewSession(_ context.Context, _ schedule.Task, template *pb.Session, req *sessionlaunch.StartRequest) error {
+	if template == nil || req == nil {
+		return nil
+	}
+	req.Launch.ExtraArgs = stripScheduledSessionClonedArgs(req.Launch.ExtraArgs)
+	req.Launch.Env = stripScheduledSessionClonedEnv(req.Launch.Env)
+	if ref := strings.TrimSpace(template.AgentProfile); ref != "" && req.Launch.ProfileSpec == nil {
+		resolve := s.resolveAgentProfile
+		if resolve == nil {
+			resolve = func(r string) (agentprofile.Profile, error) {
+				return agentprofile.ResolveProfile(agentprofile.DefaultPackRegistryPath(), r)
+			}
+		}
+		if profile, err := resolve(ref); err == nil {
+			// Populate runtime type and model from the template session so v2
+			// portable profiles (whose Type/Model are intentionally blank until
+			// projected) materialize cleanly without duplicating native args.
+			if strings.TrimSpace(profile.Type) == "" {
+				profile.Type = strings.TrimSpace(template.AgentType)
+			}
+			if strings.TrimSpace(profile.ExecutionRuntimeRef) == "" {
+				profile.ExecutionRuntimeRef = strings.TrimSpace(template.AgentType)
+			}
+			if strings.TrimSpace(profile.Model) == "" {
+				profile.Model = strings.TrimSpace(template.EffectiveModel)
+				if profile.Model == "" {
+					profile.Model, _ = agentprofile.AgentArgsModel(template.AgentType, req.Launch.ExtraArgs)
+				}
+			}
+			req.Launch.AgentProfile = profile.PinnedRef()
+			req.Launch.ProfileSpec = agentprofile.ToPBProfileSpec(profile)
+		}
+	}
+	if s.principals == nil {
+		return nil
+	}
+	identity := principal.FromProtoIdentity(template.GetExecutionIdentity())
+	if !identity.Identified() {
+		return nil
+	}
+	refreshed, err := s.principals.RefreshScheduledExecution(identity, "scheduled-session:"+uuid.NewString())
+	if err != nil {
+		return fmt.Errorf("refresh scheduled session identity: %w", err)
+	}
+	// Under Linux DAC isolation, template.Cwd points inside the principal's
+	// mode-0700 isolated directory, which the runtime service user cannot read
+	// to stage as a host source tree. Clear Cwd so the runtime allocates a fresh
+	// isolated workspace for this run under the same principal.
+	if identity.IsolationBackend == principal.BackendLinuxDAC || refreshed.IsolationBackend == principal.BackendLinuxDAC {
+		req.Workspace.Cwd = ""
+	}
+	launchID := "launch-" + uuid.NewString()
+	token, expiresAt := s.issueAgentActorToken(refreshed, sessionAgentCredentialSubject(req.TargetID, req.Name))
+	req.ExecutionIdentity = principal.ToProtoIdentity(refreshed)
+	req.LaunchID = launchID
+	req.AgentActorToken = token
+	req.AgentActorTokenExpiresAt = expiresAt
+	return nil
+}
+
 // authorizeScheduleAccess resolves the schedule and refuses callers other than
 // its owner. It reports NotFound before PermissionDenied so a missing schedule
 // never reads as someone else's. The ownership refusal applies only while fleet
@@ -1799,14 +1910,52 @@ func (s *hubServer) SetScheduleEnabled(ctx context.Context, req *pb.SetScheduleE
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.authorizeScheduleAccess(ctx, store, req.Id); err != nil {
+	row, err := s.authorizeScheduleAccess(ctx, store, req.Id)
+	if err != nil {
 		return nil, err
 	}
-	ok, err := store.SetEnabled(req.Id, req.Enabled)
+	ok, err := s.setScheduleEnabledRow(store, row, req.Enabled, time.Now())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "%v", err)
+		return nil, err
 	}
 	return &pb.SetScheduleEnabledResponse{Ok: ok}, nil
+}
+
+// setScheduleEnabledRow toggles enabled and recomputes next_run_at when
+// re-enabling a schedule whose saved next_run_at is stale or unset, so paused
+// recurring schedules never misfire immediately upon resume.
+func (s *hubServer) setScheduleEnabledRow(store *schedule.Store, row schedule.Task, enabled bool, now time.Time) (bool, error) {
+	if !enabled {
+		ok, err := store.SetEnabled(row.ID, false)
+		if err != nil {
+			return false, status.Errorf(codes.Internal, "%v", err)
+		}
+		return ok, nil
+	}
+	if row.NextRunAt != nil && *row.NextRunAt > now.Unix() {
+		if row.Enabled {
+			return true, nil
+		}
+		ok, err := store.SetEnabled(row.ID, true)
+		if err != nil {
+			return false, status.Errorf(codes.Internal, "%v", err)
+		}
+		return ok, nil
+	}
+	spec, err := schedule.ParseSpec(row.Spec)
+	if err != nil {
+		return false, status.Errorf(codes.InvalidArgument, "parse schedule spec: %v", err)
+	}
+	next, err := schedule.FirstRun(spec, now)
+	if err != nil {
+		return false, status.Errorf(codes.FailedPrecondition,
+			"cannot enable expired schedule #%d (%s): update the spec to a future time first", row.ID, row.Spec)
+	}
+	ok, err := store.SetEnabledWithNextRun(row.ID, true, next)
+	if err != nil {
+		return false, status.Errorf(codes.Internal, "%v", err)
+	}
+	return ok, nil
 }
 
 func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRequest) (*pb.UpdateScheduleResponse, error) {

@@ -18,6 +18,8 @@ import (
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
+var newScheduleClient = newAmuxdClient
+
 func newScheduleCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "schedule",
@@ -286,15 +288,133 @@ func registerScheduleTaskFlagCompletions(c *cobra.Command) {
 	_ = c.RegisterFlagCompletionFunc("trusted-mode-ack", completeBoolValues)
 	_ = c.RegisterFlagCompletionFunc("run-as", completeNoFiles)
 }
+var scheduleTaskFlagNames = []string{
+	"arg", "agent", "runtime", "model", "reasoning-effort", "task",
+	"isolation", "credential-profile", "permission-policy", "workspace-policy",
+	"local-dir", "repo-kind", "repo-remote", "repo-cache-key", "repo-commit",
+	"repo-subdir", "timeout", "trusted-mode-ack", "run-as",
+}
+
+func anyScheduleTaskFlagChanged(cmd *cobra.Command) bool {
+	for _, name := range scheduleTaskFlagNames {
+		if cmd.Flags().Changed(name) {
+			return true
+		}
+	}
+	return false
+}
+
+func scheduledTaskSpecFromPB(item *pb.ScheduleItem) (clientop.ScheduledTaskSpec, error) {
+	if item == nil || len(item.TaskSpecJson) == 0 {
+		return clientop.ScheduledTaskSpec{}, nil
+	}
+	var spec task.Spec
+	if err := json.Unmarshal(item.TaskSpecJson, &spec); err != nil {
+		return clientop.ScheduledTaskSpec{}, fmt.Errorf("decode existing task spec: %w", err)
+	}
+	out := clientop.ScheduledTaskSpec{
+		ExtraArgs:         append([]string(nil), spec.ExtraArgs...),
+		Agent:             spec.Agent,
+		Runtime:           spec.Runtime,
+		Model:             spec.Model,
+		ReasoningEffort:   spec.ReasoningEffort,
+		Task:              spec.Task,
+		RunAs:             spec.RunAs,
+		Isolation:         string(spec.Isolation),
+		CredentialProfile: spec.CredentialProfile,
+		PermissionPolicy:  string(spec.PermissionPolicy),
+		Workspace: clientop.WorkspaceSpec{
+			Policy:   string(spec.Workspace.Policy),
+			LocalDir: spec.Workspace.LocalDir,
+		},
+		TimeoutSeconds: spec.TimeoutSeconds,
+	}
+	if spec.Workspace.Repo != nil {
+		out.Workspace.Repo = &clientop.RepoSpec{
+			Kind:     spec.Workspace.Repo.Kind,
+			Remote:   spec.Workspace.Repo.Remote,
+			CacheKey: spec.Workspace.Repo.CacheKey,
+			Commit:   spec.Workspace.Repo.Commit,
+			Subdir:   spec.Workspace.Repo.Subdir,
+		}
+	}
+	return out, nil
+}
+
+func (f scheduleTaskFlags) applyChangedFlags(cmd *cobra.Command, dst *clientop.ScheduledTaskSpec) {
+	if cmd.Flags().Changed("arg") {
+		dst.ExtraArgs = append([]string(nil), f.extraArgs...)
+	}
+	if cmd.Flags().Changed("agent") {
+		dst.Agent = f.agent
+	}
+	if cmd.Flags().Changed("runtime") {
+		dst.Runtime = f.runtime
+	}
+	if cmd.Flags().Changed("model") {
+		dst.Model = f.model
+	}
+	if cmd.Flags().Changed("reasoning-effort") {
+		dst.ReasoningEffort = f.reasoningEffort
+	}
+	if cmd.Flags().Changed("task") {
+		dst.Task = f.taskPrompt
+	}
+	if cmd.Flags().Changed("run-as") {
+		dst.RunAs = f.runAs
+	}
+	if cmd.Flags().Changed("isolation") {
+		dst.Isolation = f.isolation
+	}
+	if cmd.Flags().Changed("credential-profile") {
+		dst.CredentialProfile = f.credentialProfile
+	}
+	if cmd.Flags().Changed("permission-policy") {
+		dst.PermissionPolicy = f.permissionPolicy
+	}
+	if cmd.Flags().Changed("workspace-policy") {
+		dst.Workspace.Policy = f.workspacePolicy
+	}
+	if cmd.Flags().Changed("local-dir") {
+		dst.Workspace.LocalDir = f.localDir
+	}
+	if cmd.Flags().Changed("timeout") {
+		dst.TimeoutSeconds = f.timeoutSeconds
+	}
+	if cmd.Flags().Changed("repo-kind") || cmd.Flags().Changed("repo-remote") ||
+		cmd.Flags().Changed("repo-cache-key") || cmd.Flags().Changed("repo-commit") ||
+		cmd.Flags().Changed("repo-subdir") {
+		if dst.Workspace.Repo == nil {
+			dst.Workspace.Repo = &clientop.RepoSpec{}
+		}
+		if cmd.Flags().Changed("repo-kind") {
+			dst.Workspace.Repo.Kind = f.repoKind
+		}
+		if cmd.Flags().Changed("repo-remote") {
+			dst.Workspace.Repo.Remote = f.repoRemote
+		}
+		if cmd.Flags().Changed("repo-cache-key") {
+			dst.Workspace.Repo.CacheKey = f.repoCacheKey
+		}
+		if cmd.Flags().Changed("repo-commit") {
+			dst.Workspace.Repo.Commit = f.repoCommit
+		}
+		if cmd.Flags().Changed("repo-subdir") {
+			dst.Workspace.Repo.Subdir = f.repoSubdir
+		}
+	}
+}
+
 func newScheduleUpdateCmd() *cobra.Command {
 	flags := scheduleTaskFlags{workspacePolicy: string(task.WorkspaceTempDir)}
 	var name, spec string
-	c := &cobra.Command{
+	c := supportsJSONOutput(&cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a scheduled prompt or subtask in place",
 		Example: `  amux schedule update 8 --name nightly-report
   amux schedule update 8 --spec "daily 09:00"
-  amux schedule update 8 --agent builtin/codex --task "run smoke tests"`,
+  amux schedule update 8 --agent builtin/codex --task "run smoke tests"
+  amux schedule update 8 --timeout 600 --reasoning-effort high`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeScheduleIDs(scheduleAny),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -309,22 +429,43 @@ func newScheduleUpdateCmd() *cobra.Command {
 			if cmd.Flags().Changed("spec") {
 				req.Spec = &spec
 			}
-			if cmd.Flags().Changed("agent") || cmd.Flags().Changed("task") || cmd.Flags().Changed("runtime") || cmd.Flags().Changed("model") || cmd.Flags().Changed("arg") {
-				taskSpec := flags.clientopSpec()
-				req.Task = &taskSpec
-			}
-			client, closeClient, err := newAmuxdClient()
+			ctx := cmdContext(cmd)
+			client, closeClient, err := newScheduleClient()
 			if err != nil {
 				return err
 			}
 			defer closeClient()
-			out, err := clientop.ScheduleUpdate(cmdContext(cmd), client, req)
+			if anyScheduleTaskFlagChanged(cmd) {
+				current, err := clientop.ScheduleGet(ctx, client, clientop.ScheduleIDRequest{ID: id})
+				if err != nil {
+					return fmt.Errorf("get schedule: %w", err)
+				}
+				if current.ScheduleType != schedule.ScheduleTypeSubtask {
+					return fmt.Errorf("task flags are only valid for subtask schedules")
+				}
+				taskSpec, err := scheduledTaskSpecFromPB(current)
+				if err != nil {
+					return err
+				}
+				flags.applyChangedFlags(cmd, &taskSpec)
+				req.Task = &taskSpec
+			}
+			out, err := clientop.ScheduleUpdate(ctx, client, req)
 			if err != nil {
 				var fe *clientop.FieldError
 				if errors.As(err, &fe) {
 					return errors.New(cliScheduleValidationMessage(fe))
 				}
 				return err
+			}
+			if jsonOutputEnabled(cmd) {
+				return printJSON(cmd.OutOrStdout(), map[string]any{
+					"schema":      "amux.schedule.update.v1",
+					"schedule_id": out.ID,
+					"name":        out.Name,
+					"spec":        out.Spec,
+					"next_run_at": out.NextRunAt,
+				})
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "updated schedule #%d", out.ID)
 			if out.NextRunAt > 0 {
@@ -333,7 +474,7 @@ func newScheduleUpdateCmd() *cobra.Command {
 			fmt.Fprintln(cmd.OutOrStdout())
 			return nil
 		},
-	}
+	})
 	c.Flags().StringVar(&name, "name", "", "new label for the schedule")
 	c.Flags().StringVar(&spec, "spec", "", "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run")
 	registerScheduleTaskFlags(c, &flags)
@@ -402,7 +543,7 @@ func newScheduleListCmd() *cobra.Command {
 		ValidArgsFunction: completeNoFiles,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmdContext(cmd)
-			client, closeClient, err := newAmuxdClient()
+			client, closeClient, err := newScheduleClient()
 			if err != nil {
 				return err
 			}
@@ -454,7 +595,7 @@ func newScheduleRemoveCommand(use string) *cobra.Command {
 				return fmt.Errorf("invalid schedule id %q", args[0])
 			}
 			ctx := cmdContext(cmd)
-			client, closeClient, err := newAmuxdClient()
+			client, closeClient, err := newScheduleClient()
 			if err != nil {
 				return err
 			}
@@ -497,7 +638,7 @@ func newScheduleToggleCmd(enable bool) *cobra.Command {
 				return fmt.Errorf("invalid schedule id %q", args[0])
 			}
 			ctx := cmdContext(cmd)
-			client, closeClient, err := newAmuxdClient()
+			client, closeClient, err := newScheduleClient()
 			if err != nil {
 				return err
 			}

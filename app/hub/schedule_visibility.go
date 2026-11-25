@@ -259,20 +259,9 @@ func (c *bridgeSchedules) Act(ctx context.Context, bot, open string, id int64, a
 	}
 	switch action {
 	case "pause":
-		_, err = c.server.schedule.SetEnabled(id, false)
+		_, err = c.server.setScheduleEnabledRow(c.server.schedule, e.Task, false, time.Now())
 	case "resume":
-		spec, se := schedule.ParseSpec(e.Task.Spec)
-		if se != nil {
-			return se
-		}
-		next, se := schedule.FirstRun(spec, time.Now())
-		if se != nil {
-			return se
-		}
-		e.Task.NextRunAt = next
-		if _, err = c.server.schedule.Update(e.Task); err == nil {
-			_, err = c.server.schedule.SetEnabled(id, true)
-		}
+		_, err = c.server.setScheduleEnabledRow(c.server.schedule, e.Task, true, time.Now())
 	default:
 		err = c.server.schedule.ChangeVisibility(id, action, time.Now())
 	}
