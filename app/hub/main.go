@@ -261,7 +261,12 @@ func newStartCmd() *cobra.Command {
 			if scheduleStore != nil {
 				scheduler := schedule.NewWithTaskSubmitter(hub, scheduleStore, sessionStarter, taskRouter)
 				scheduler.SetSessionPromptAuthorizer(hubRPC.authorizeScheduledSessionPrompt)
+				scheduler.SetNewSessionLaunchPreparer(hubRPC.prepareScheduledNewSession)
 				scheduler.SetOutcomeReader(scheduleControl)
+				hubRPC.schedulerNotify = scheduler.Notify
+				hubRPC.scheduleTrigger = scheduler.TriggerNow
+				scheduleControl.server.schedulerNotify = scheduler.Notify
+				scheduleControl.server.scheduleTrigger = scheduler.TriggerNow
 				schedulerDone := make(chan struct{})
 				go func() {
 					defer close(schedulerDone)

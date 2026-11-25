@@ -41,6 +41,13 @@ func (r *bridgeSubtaskReader) GetSubtaskJSON(ctx context.Context, id string) ([]
 	return resp.TaskJson, nil
 }
 
+func (r *bridgeSubtaskReader) getScheduledSubtaskJSON(ctx context.Context, id string) ([]byte, error) {
+	if r == nil || r.router == nil {
+		return nil, errors.New("subtask router is unavailable")
+	}
+	return r.router.getSubtaskForControlPlane(ctx, id)
+}
+
 func (r *bridgeSubtaskReader) StreamSubtaskEvents(
 	ctx context.Context,
 	id string,

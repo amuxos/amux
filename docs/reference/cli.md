@@ -83,6 +83,7 @@ After changing public command names, hierarchy, visibility, descriptions, argume
 | `amux schedule enable` | Enable a scheduled prompt |
 | `amux schedule list` | List scheduled prompts and subtasks |
 | `amux schedule remove` | Delete a scheduled prompt |
+| `amux schedule run` | Trigger a schedule immediately once without changing its next run time |
 | `amux schedule runs` | List runs for a schedule |
 | `amux schedule update` | Update a scheduled prompt or subtask in place |
 | `amux session` | Manage agent sessions |
@@ -1498,10 +1499,11 @@ submits an ephemeral subtask from a saved task spec. Schedules live in the hub
 (amuxd), so a hub address must be configured.
 
 Time spec forms:
-  every <duration>   e.g. "every 30m", "every 2h" (minimum 1m)
-  daily <HH:MM>      e.g. "daily 09:00" (server local time)
+  every <duration>   e.g. "every 30m", "every 2h", "every 1d" (minimum 1m)
+  daily <HH:MM>      e.g. "daily 09:00" (in --timezone or server local time)
   at <when>          e.g. "at 2026-06-01 09:00" (one-shot)
-  cron <expr>        e.g. "cron 0 9 * * 1-5" (standard 5-field)
+  in <duration>      e.g. "in 10m", "in 2h" (relative one-shot)
+  cron <expr>        e.g. "cron 0 9 * * 1-5" or "cron @daily"
 
 **Usage**
 
@@ -1519,6 +1521,7 @@ amux schedule [flags]
 | `amux schedule enable` | Enable a scheduled prompt |
 | `amux schedule list` | List scheduled prompts and subtasks |
 | `amux schedule remove` | Delete a scheduled prompt |
+| `amux schedule run` | Trigger a schedule immediately once without changing its next run time |
 | `amux schedule runs` | List runs for a schedule |
 | `amux schedule update` | Update a scheduled prompt or subtask in place |
 
@@ -1554,6 +1557,7 @@ amux schedule create local/c1 "every 30m" "/daily-report run"
 | `-h, --help` | `bool` | `false` | help for create |
 | `--name` | `string` | `""` | optional label for the schedule |
 | `--run-mode` | `string` | `reuse-session` | execution mode: reuse-session or new-session-per-run |
+| `--timezone` | `string` | `""` | optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai) |
 
 ## `amux schedule create-task`
 
@@ -1569,7 +1573,7 @@ amux schedule create-task <spec> [flags]
 
 ```bash
 amux schedule create-task "every 1h" --agent team/reviewer --task "review recent changes"
-  amux schedule create-task "daily 09:00" --agent builtin/codex --task "run smoke tests" --workspace-policy git-worktree --local-dir /path/to/repo
+  amux schedule create-task "daily 09:00" --timezone Asia/Shanghai --agent builtin/codex --task "run smoke tests" --workspace-policy git-worktree --local-dir /path/to/repo
 ```
 
 **Options**
@@ -1595,6 +1599,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `--runtime` | `string` | `""` | Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts |
 | `--task` | `string` | `""` | task prompt to run on each schedule fire |
 | `--timeout` | `int` | `0` | task timeout in seconds (0 = runtime default) |
+| `--timezone` | `string` | `""` | optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai) |
 | `--trusted-mode-ack` | `bool` | `true` | legacy no-op: long-lived secrets inject under weak isolation by default (v0.38) |
 | `--workspace-policy` | `string` | `temp-dir` | workspace policy: temp-dir \| git-worktree |
 
@@ -1662,6 +1667,22 @@ amux schedule remove <id> [flags]
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | help for remove |
 
+## `amux schedule run`
+
+Trigger a schedule immediately once without changing its next run time
+
+**Usage**
+
+```text
+amux schedule run <id> [flags]
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for run |
+
 ## `amux schedule runs`
 
 List runs for a schedule
@@ -1692,8 +1713,10 @@ amux schedule update <id> [flags]
 
 ```bash
 amux schedule update 8 --name nightly-report
-  amux schedule update 8 --spec "daily 09:00"
+  amux schedule update 8 --spec "daily 09:00" --timezone Asia/Shanghai
+  amux schedule update 8 --prompt "summarize blockers" --run-mode new-session-per-run
   amux schedule update 8 --agent builtin/codex --task "run smoke tests"
+  amux schedule update 8 --timeout 600 --reasoning-effort high
 ```
 
 **Options**
@@ -1709,6 +1732,7 @@ amux schedule update 8 --name nightly-report
 | `--model` | `string` | `""` | Per-run model override for the scheduled execution; pass the current session model by default, otherwise the Profile or Agent default model |
 | `--name` | `string` | `""` | new label for the schedule |
 | `--permission-policy` | `string` | `""` | Task and native permission policy: default or policy-allow (default), or deny-all; scheduled Tasks cannot use escalate-to-main; overrides native permission flags |
+| `--prompt` | `string` | `""` | new prompt for a session-prompt schedule |
 | `--reasoning-effort` | `string` | `""` | Per-run reasoning effort override for the scheduled execution; pass the current session effort by default, otherwise the selected model's declared default |
 | `--repo-cache-key` | `string` | `""` | workspace repo cache key |
 | `--repo-commit` | `string` | `""` | workspace repo commit/ref |
@@ -1716,10 +1740,12 @@ amux schedule update 8 --name nightly-report
 | `--repo-remote` | `string` | `""` | workspace repo remote URL or stable id |
 | `--repo-subdir` | `string` | `""` | workspace repo subdirectory |
 | `--run-as` | `string` | `""` | run as an enrolled principal alias (resolved and frozen when the schedule is saved) |
+| `--run-mode` | `string` | `""` | new execution mode for a session-prompt schedule: reuse-session or new-session-per-run |
 | `--runtime` | `string` | `""` | Execution runtime adapter; omitted uses the builtin shortcut preset or the distribution default for other experts |
-| `--spec` | `string` | `""` | new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run |
+| `--spec` | `string` | `""` | new time rule (every <duration>, daily <HH:MM>, at <when>, in <duration>, or cron <expr>); recomputes next run |
 | `--task` | `string` | `""` | task prompt to run on each schedule fire |
 | `--timeout` | `int` | `0` | task timeout in seconds (0 = runtime default) |
+| `--timezone` | `string` | `""` | new IANA timezone for evaluating the schedule (empty uses hub local time) |
 | `--trusted-mode-ack` | `bool` | `true` | legacy no-op: long-lived secrets inject under weak isolation by default (v0.38) |
 | `--workspace-policy` | `string` | `temp-dir` | workspace policy: temp-dir \| git-worktree |
 

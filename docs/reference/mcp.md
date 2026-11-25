@@ -8,7 +8,7 @@ This reference is generated from the actual `amux mcp` tools/list registry and c
 
 MCP product semantics, permissions, and lifecycle boundaries are defined by the [CLI product model](../current/cli-product-model.md) and [Task model](../distributed-task-model.md). At runtime, [`amux.result_continue`](#amuxresult_continue) continues successful results that exceed a page budget. Tool results are not tools/list registration metadata, so this reference does not maintain a separate output Schema that could drift.
 
-Official `tools/list` tools: **51**.
+Official `tools/list` tools: **52**.
 
 ## Public tool index
 
@@ -42,7 +42,8 @@ Official `tools/list` tools: **51**.
 | `amux.schedule_get` | Get a Schedule; include_runs=true includes run history and task_id values. |
 | `amux.schedule_list` | List Schedules with pagination. Follow next_cursor until has_more=false. |
 | `amux.schedule_set_enabled` | Enable or disable a Schedule. |
-| `amux.schedule_update` | Update a Schedule's name, time rule, or Task in place. Omitted fields remain unchanged. escalate-to-main is not allowed. |
+| `amux.schedule_trigger` | Trigger a Schedule immediately once without changing its enabled state or next scheduled run time. |
+| `amux.schedule_update` | Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial subtask Task fields in place. Omitted fields remain unchanged. escalate-to-main is not allowed. |
 | `amux.session_interrupt` | Interrupt the current Session turn. |
 | `amux.session_list` | List caller-visible Sessions grouped by Runtime. Do not call this before creating a Session: first call session_run without target, and use this tool to choose only if it reports multiple targets. |
 | `amux.session_prune` | Destructive operation: permanently delete archived Sessions. Only the enrollment operator may use it in isolated clusters; delegated agents may use it in non-isolated clusters. Use task_prune for Task history. |
@@ -1002,7 +1003,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
       "type": "string"
     },
     "spec": {
-      "description": "Time rule: every \u003cduration\u003e, daily \u003cHH:MM\u003e, at \u003cwhen\u003e, or cron \u003cexpr\u003e",
+      "description": "Time rule: every \u003cduration\u003e (supports d/w), daily \u003cHH:MM\u003e, at \u003cwhen\u003e, in \u003cduration\u003e (relative one-shot), or cron \u003cexpr\u003e (supports @daily descriptors)",
       "type": "string"
     },
     "task": {
@@ -1108,6 +1109,10 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
         "task"
       ],
       "type": "object"
+    },
+    "timezone": {
+      "description": "Optional IANA timezone name (for example Asia/Shanghai); omitted uses Hub local time",
+      "type": "string"
     }
   },
   "required": [
@@ -1203,9 +1208,29 @@ Enable or disable a Schedule.
 }
 ```
 
+## `amux.schedule_trigger`
+
+Trigger a Schedule immediately once without changing its enabled state or next scheduled run time.
+
+**Input JSON Schema**
+
+```json
+{
+  "properties": {
+    "schedule_id": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schedule_id"
+  ],
+  "type": "object"
+}
+```
+
 ## `amux.schedule_update`
 
-Update a Schedule's name, time rule, or Task in place. Omitted fields remain unchanged. escalate-to-main is not allowed.
+Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial subtask Task fields in place. Omitted fields remain unchanged. escalate-to-main is not allowed.
 
 **Input JSON Schema**
 
@@ -1216,11 +1241,23 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
       "description": "New Schedule display name; omitted means unchanged",
       "type": "string"
     },
+    "prompt": {
+      "description": "session-prompt only: updated prompt delivered to the target Session when due; omitted means unchanged",
+      "type": "string"
+    },
+    "run_mode": {
+      "description": "session-prompt only: updated execution mode (reuse-session or new-session-per-run); omitted means unchanged",
+      "enum": [
+        "reuse-session",
+        "new-session-per-run"
+      ],
+      "type": "string"
+    },
     "schedule_id": {
       "type": "integer"
     },
     "spec": {
-      "description": "New time rule (every \u003cduration\u003e, daily \u003cHH:MM\u003e, at \u003cwhen\u003e, or cron \u003cexpr\u003e); omitted means unchanged. Updates recompute next_run_at",
+      "description": "New time rule (every \u003cduration\u003e, daily \u003cHH:MM\u003e, at \u003cwhen\u003e, in \u003cduration\u003e, or cron \u003cexpr\u003e); omitted means unchanged. Updates recompute next_run_at",
       "type": "string"
     },
     "task": {
@@ -1321,11 +1358,11 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
           "type": "object"
         }
       },
-      "required": [
-        "agent",
-        "task"
-      ],
       "type": "object"
+    },
+    "timezone": {
+      "description": "New IANA timezone name (for example Asia/Shanghai; empty string falls back to Hub local time); omitted means unchanged",
+      "type": "string"
     }
   },
   "required": [

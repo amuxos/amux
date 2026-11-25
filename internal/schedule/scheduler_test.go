@@ -500,8 +500,8 @@ func TestSchedulerSubtaskClaimThenAsyncSubmit(t *testing.T) {
 	if got.LastStatus != statusSubmitting {
 		t.Fatalf("immediate status = %q, want %q", got.LastStatus, statusSubmitting)
 	}
-	if got.NextRunAt == nil || *got.NextRunAt != now.Add(30*time.Minute).Unix() {
-		t.Fatalf("next_run_at = %v, want %d", got.NextRunAt, now.Add(30*time.Minute).Unix())
+	if got.NextRunAt == nil || *got.NextRunAt != time.Unix(due, 0).Add(30*time.Minute).Unix() {
+		t.Fatalf("next_run_at = %v, want %d", got.NextRunAt, time.Unix(due, 0).Add(30*time.Minute).Unix())
 	}
 
 	releaseSubmitter()
@@ -654,8 +654,8 @@ func TestSchedulerSubtaskSubmitErrorAdvancesRecurring(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.NextRunAt == nil || *got.NextRunAt != now.Add(30*time.Minute).Unix() {
-		t.Fatalf("next_run_at = %v, want %d", got.NextRunAt, now.Add(30*time.Minute).Unix())
+	if got.NextRunAt == nil || *got.NextRunAt != time.Unix(due, 0).Add(30*time.Minute).Unix() {
+		t.Fatalf("next_run_at = %v, want %d", got.NextRunAt, time.Unix(due, 0).Add(30*time.Minute).Unix())
 	}
 	if !strings.HasPrefix(got.LastStatus, "error:") {
 		t.Fatalf("last status = %q, want error", got.LastStatus)
@@ -716,7 +716,7 @@ func TestSchedulerFireOnlineRecurring(t *testing.T) {
 	if got.LastStatus != statusOK {
 		t.Errorf("status = %q, want ok", got.LastStatus)
 	}
-	if got.NextRunAt == nil || *got.NextRunAt != now.Add(30*time.Minute).Unix() {
+	if got.NextRunAt == nil || *got.NextRunAt != time.Unix(due, 0).Add(30*time.Minute).Unix() {
 		t.Errorf("next_run_at not advanced: %v", got.NextRunAt)
 	}
 }
@@ -750,7 +750,7 @@ func TestSchedulerAuthorizationDenialRoutesNothingAndRecordsError(t *testing.T) 
 	if got.LastStatus != "error: session authorization: owner no longer authorized" {
 		t.Fatalf("last status = %q", got.LastStatus)
 	}
-	if got.NextRunAt == nil || *got.NextRunAt != now.Add(30*time.Minute).Unix() {
+	if got.NextRunAt == nil || *got.NextRunAt != time.Unix(due, 0).Add(30*time.Minute).Unix() {
 		t.Fatalf("recurring denial did not advance next run: %v", got.NextRunAt)
 	}
 }
@@ -900,6 +900,12 @@ func TestSchedulerNewSessionPerRun(t *testing.T) {
 	}
 	if run.Name == "" || submit.Name != "resolved-session" {
 		t.Fatalf("run name = %q submit name = %q, want resolved response name", run.Name, submit.Name)
+	}
+	if !strings.HasPrefix(run.Name, "sched-") || !strings.HasSuffix(run.Name, "-1") {
+		t.Fatalf("run name = %q, want sched-<id>-<ts>-<execID>", run.Name)
+	}
+	if !run.IdleTimeoutSecondsSet || run.IdleTimeoutSeconds != defaultScheduledSessionIdleTimeoutSeconds {
+		t.Fatalf("idle timeout = (%v, %d), want (true, %d)", run.IdleTimeoutSecondsSet, run.IdleTimeoutSeconds, defaultScheduledSessionIdleTimeoutSeconds)
 	}
 	if run.AgentType != "demo-agent" || run.Cwd != "/repo" || run.WorkspaceSource != "cli" || run.WorkspaceScope != "local" {
 		t.Fatalf("run request did not clone template: %+v", run)
@@ -1368,5 +1374,126 @@ func TestSchedulerStartDrainsWorkersOnCancel(t *testing.T) {
 	runs, err := s.ListRuns(row.ID, 10)
 	if err != nil || len(runs) != 1 || runs[0].TaskID != "task-drain" {
 		t.Fatalf("worker receipt lost during drain: %+v %v", runs, err)
+	}
+}
+
+func TestSchedulerEventDrivenNotifyWakesWithinOneSecond(t *testing.T) {
+	s := newTestStore(t)
+	sub := &fakeSub{targets: onlineTarget()}
+	fired := make(chan struct{}, 1)
+	sub.routeFn = func(_ context.Context, _ string, _ string, _ interface{}) (*pb.TunnelMsg, error) {
+		select {
+		case fired <- struct{}{}:
+		default:
+		}
+		raw, _ := json.Marshal(&pb.SubmitResponse{Ok: true, TurnId: "turn-wake", SessionId: "s1"})
+		return &pb.TunnelMsg{Payload: raw}, nil
+	}
+	sched := newTestScheduler(sub, s)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		sched.Start(ctx)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
+
+	// Schedule a task due 1s from now and call Notify(); event-driven timer must
+	// fire it well before the 20s fallback tickInterval.
+	due := time.Now().Add(time.Second).Unix()
+	if _, err := s.Create(Task{
+		Name: "fast-wake", TargetID: "local", SessionName: "c1", Prompt: "ping",
+		Spec: "at " + time.Unix(due, 0).Format(time.RFC3339), Kind: KindOnce, Enabled: true, NextRunAt: &due,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	sched.Notify()
+
+	select {
+	case <-fired:
+	case <-time.After(3 * time.Second):
+		t.Fatal("event-driven scheduler did not wake promptly after Notify()")
+	}
+}
+
+func TestSchedulerTriggerNowPreservesNextRunAndSyncsAuthoritativeOutcome(t *testing.T) {
+	s := newTestStore(t)
+	future := time.Now().Add(4 * time.Hour).Unix()
+	row, err := s.Create(Task{
+		Name:         "manual-check",
+		ScheduleType: ScheduleTypeSubtask,
+		Spec:         "daily 09:00",
+		Kind:         KindDaily,
+		TaskSpecJson: []byte(`{"agent":"builtin/codex","task":"check"}`),
+		Enabled:      true,
+		NextRunAt:    &future,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeTaskSubmitter{ids: []string{"task-manual-1"}}
+	sched := newTestSchedulerWithTask(&fakeSub{}, s, fake)
+
+	exec, rawStatus, err := sched.TriggerNow(context.Background(), row.ID)
+	if err != nil {
+		t.Fatalf("TriggerNow: %v", err)
+	}
+	if exec.TaskID != "task-manual-1" || rawStatus != "ok:task:task-manual-1" || exec.TriggerSource != TriggerSourceManual {
+		t.Fatalf("TriggerNow = exec:%+v status:%q", exec, rawStatus)
+	}
+	got, err := s.Get(row.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.NextRunAt == nil || *got.NextRunAt != future {
+		t.Fatalf("TriggerNow mutated next_run_at: got %v want %d", got.NextRunAt, future)
+	}
+
+	// Simulate authoritative terminal failure observation; scheduled_tasks.last_status must sync.
+	exec.Status = "failed"
+	exec.Result = "exit code 1"
+	exec.Terminal = true
+	exec.FinishedAt = time.Now().Unix()
+	if err := s.Observe(exec, time.Now()); err != nil {
+		t.Fatalf("Observe terminal failure: %v", err)
+	}
+	got, err = s.Get(row.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.LastStatus != "failed" {
+		t.Fatalf("last_status after authoritative failure = %q, want failed", got.LastStatus)
+	}
+	rich, err := s.RichRuns(row.ID, 10)
+	if err != nil || len(rich) != 1 {
+		t.Fatalf("RichRuns = %+v %v", rich, err)
+	}
+	if rich[0].TriggerSource != TriggerSourceManual || rich[0].Result != "exit code 1" || rich[0].Status != "failed" {
+		t.Fatalf("rich run mismatch: %+v", rich[0])
+	}
+}
+
+func TestTaskLifecycleStateDistinguishesCompletedFromPaused(t *testing.T) {
+	future := time.Now().Add(time.Hour).Unix()
+	past := time.Now().Add(-time.Hour).Unix()
+	cases := []struct {
+		name string
+		task Task
+		want string
+	}{
+		{"active recurring", Task{Kind: KindInterval, Enabled: true, NextRunAt: &future}, StateEnabled},
+		{"paused recurring", Task{Kind: KindInterval, Enabled: false, NextRunAt: &future}, StatePaused},
+		{"pending once", Task{Kind: KindOnce, Enabled: true, NextRunAt: &future}, StateEnabled},
+		{"paused once before run", Task{Kind: KindOnce, Enabled: false, NextRunAt: &future}, StatePaused},
+		{"completed once", Task{Kind: KindOnce, Enabled: true, NextRunAt: nil, LastRunAt: &past}, StateCompleted},
+		{"completed once even if disabled", Task{Kind: KindOnce, Enabled: false, NextRunAt: nil, LastRunAt: &past}, StateCompleted},
+	}
+	for _, tc := range cases {
+		if got := tc.task.LifecycleState(); got != tc.want {
+			t.Errorf("%s: LifecycleState() = %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }

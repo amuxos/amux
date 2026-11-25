@@ -532,6 +532,7 @@ func (b *consoleBackend) consoleExecuteSchedule(ctx context.Context, action stri
 		var req struct {
 			ScheduleType string                     `json:"schedule_type,omitempty"`
 			Spec         string                     `json:"spec"`
+			Timezone     string                     `json:"timezone,omitempty"`
 			Name         string                     `json:"name,omitempty"`
 			Task         clientop.ScheduledTaskSpec `json:"task,omitempty"`
 			TargetID     string                     `json:"target_id,omitempty"`
@@ -545,7 +546,7 @@ func (b *consoleBackend) consoleExecuteSchedule(ctx context.Context, action stri
 		}
 		switch req.ScheduleType {
 		case "", "subtask":
-			return clientop.ScheduleCreateTask(ctx, b.hub, clientop.ScheduleCreateTaskRequest{Spec: req.Spec, Name: req.Name, Task: req.Task, CreatedBy: "console"})
+			return clientop.ScheduleCreateTask(ctx, b.hub, clientop.ScheduleCreateTaskRequest{Spec: req.Spec, Timezone: req.Timezone, Name: req.Name, Task: req.Task, CreatedBy: "console"})
 		case "session-prompt":
 			// Resolve through the Hub listing rather than accepting a guessed target or
 			// a browser-supplied identity. The Hub still enforces mutation authority.
@@ -559,16 +560,19 @@ func (b *consoleBackend) consoleExecuteSchedule(ctx context.Context, action stri
 			if err != nil {
 				return nil, err
 			}
-			return clientop.ScheduleCreateSessionPrompt(ctx, b.hub, clientop.ScheduleCreateSessionPromptRequest{Spec: req.Spec, Name: req.Name, TargetID: ref.Target, SessionName: ref.Name, Prompt: req.Prompt, RunMode: req.RunMode, CreatedBy: "console"})
+			return clientop.ScheduleCreateSessionPrompt(ctx, b.hub, clientop.ScheduleCreateSessionPromptRequest{Spec: req.Spec, Timezone: req.Timezone, Name: req.Name, TargetID: ref.Target, SessionName: ref.Name, Prompt: req.Prompt, RunMode: req.RunMode, CreatedBy: "console"})
 		default:
 			return nil, consoleInvalid("invalid_field", "schedule_type")
 		}
 	}
 	var req struct {
-		ID   int64                       `json:"schedule_id"`
-		Name *string                     `json:"name,omitempty"`
-		Spec *string                     `json:"spec,omitempty"`
-		Task *clientop.ScheduledTaskSpec `json:"task,omitempty"`
+		ID       int64                       `json:"schedule_id"`
+		Name     *string                     `json:"name,omitempty"`
+		Spec     *string                     `json:"spec,omitempty"`
+		Timezone *string                     `json:"timezone,omitempty"`
+		Prompt   *string                     `json:"prompt,omitempty"`
+		RunMode  *string                     `json:"run_mode,omitempty"`
+		Task     *clientop.ScheduledTaskSpec `json:"task,omitempty"`
 	}
 	if err := consoleDecode(data, &req); err != nil {
 		return nil, err
@@ -600,10 +604,12 @@ func (b *consoleBackend) consoleExecuteSchedule(ctx context.Context, action stri
 				}
 			}
 		}
-		return clientop.ScheduleUpdate(ctx, b.hub, clientop.ScheduleUpdateRequest{ID: req.ID, Name: req.Name, Spec: req.Spec, Task: req.Task})
+		return clientop.ScheduleUpdate(ctx, b.hub, clientop.ScheduleUpdateRequest{ID: req.ID, Name: req.Name, Spec: req.Spec, Timezone: req.Timezone, Prompt: req.Prompt, RunMode: req.RunMode, Task: req.Task})
 	case "enable", "disable":
 		ok, err := clientop.ScheduleSetEnabled(ctx, b.hub, req.ID, action == "enable")
 		return consoleOK(ok, err)
+	case "trigger":
+		return clientop.ScheduleTrigger(ctx, b.hub, req.ID)
 	case "delete":
 		ok, err := clientop.ScheduleDelete(ctx, b.hub, clientop.ScheduleIDRequest{ID: req.ID})
 		return consoleOK(ok, err)

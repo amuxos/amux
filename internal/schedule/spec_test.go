@@ -13,6 +13,9 @@ func TestParseSpecKinds(t *testing.T) {
 	}{
 		{"every 30m", KindInterval, true},
 		{"every 1h30m", KindInterval, true},
+		{"every 1d", KindInterval, true},
+		{"every 2w", KindInterval, true},
+		{"every 1d12h", KindInterval, true},
 		{"EVERY 2h", KindInterval, true},
 		{"every 30s", "", false}, // below minimum
 		{"every", "", false},
@@ -22,7 +25,14 @@ func TestParseSpecKinds(t *testing.T) {
 		{"at 2026-06-01 09:00", KindOnce, true},
 		{"at 2026-06-01T09:00:00+08:00", KindOnce, true},
 		{"at not-a-time", "", false},
+		{"in 10m", KindOnce, true},
+		{"in 2h", KindOnce, true},
+		{"in 1d", KindOnce, true},
+		{"in 0s", "", false},
+		{"in -5m", "", false},
 		{"cron 0 9 * * 1-5", KindCron, true},
+		{"cron @daily", KindCron, true},
+		{"cron @hourly", KindCron, true},
 		{"cron bogus", "", false},
 		{"nonsense", "", false},
 		{"", "", false},
@@ -107,5 +117,74 @@ func TestNextCron(t *testing.T) {
 	want := time.Date(2026, 6, 2, 9, 0, 0, 0, time.Local)
 	if !ok || !next.Equal(want) {
 		t.Fatalf("Next = %v; want %v", next, want)
+	}
+}
+
+func TestParseSpecInLocationTimezoneAndRelativeIn(t *testing.T) {
+	shanghai, name, err := ParseLocation("Asia/Shanghai")
+	if err != nil || name != "Asia/Shanghai" {
+		t.Fatalf("ParseLocation(Asia/Shanghai) = %v, %q, %v", shanghai, name, err)
+	}
+	if _, _, err := ParseLocation("Mars/Olympus"); err == nil {
+		t.Fatal("expected error for invalid timezone")
+	}
+
+	// 2026-06-01 00:30 UTC is 2026-06-01 08:30 Asia/Shanghai -> daily 09:00 fires at 01:00 UTC.
+	nowUTC := time.Date(2026, 6, 1, 0, 30, 0, 0, time.UTC)
+	daily, err := ParseSpecInLocation("daily 09:00", shanghai, nowUTC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, ok := daily.Next(nowUTC)
+	wantUTC := time.Date(2026, 6, 1, 1, 0, 0, 0, time.UTC)
+	if !ok || !next.Equal(wantUTC) {
+		t.Fatalf("daily in Asia/Shanghai = %v, want %v", next.UTC(), wantUTC)
+	}
+
+	cronSpec, err := ParseSpecInLocation("cron 0 9 * * *", shanghai, nowUTC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cronNext, ok := cronSpec.Next(nowUTC)
+	if !ok || !cronNext.Equal(wantUTC) {
+		t.Fatalf("cron in Asia/Shanghai = %v, want %v", cronNext.UTC(), wantUTC)
+	}
+
+	// Relative "in 15m" normalizes to an RFC3339 "at ..." in loc.
+	rel, err := ParseSpecInLocation("in 15m", shanghai, nowUTC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rel.Kind != KindOnce || rel.Raw != "at 2026-06-01T08:45:00+08:00" {
+		t.Fatalf("in 15m normalized = %+v", rel)
+	}
+	relNext, ok := rel.Next(nowUTC)
+	if !ok || !relNext.Equal(nowUTC.Add(15*time.Minute)) {
+		t.Fatalf("in 15m next = %v %v", relNext, ok)
+	}
+}
+
+func TestSpecIntervalNextAfterScheduledZeroDrift(t *testing.T) {
+	s, err := ParseSpec("every 1m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	anchor := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	scheduled := anchor
+	// Simulate 10 consecutive fires each delayed by 18s (like a 20s poll lag).
+	for i := 1; i <= 10; i++ {
+		now := scheduled.Add(18 * time.Second)
+		next, ok := s.NextAfterScheduled(scheduled, now)
+		want := anchor.Add(time.Duration(i) * time.Minute)
+		if !ok || !next.Equal(want) {
+			t.Fatalf("step %d: next = %v, want %v (no drift)", i, next, want)
+		}
+		scheduled = next
+	}
+	// If downtime skipped 3.5 intervals, jumps to the next grid slot strictly after now.
+	afterDowntime, ok := s.NextAfterScheduled(anchor, anchor.Add(3*time.Minute+30*time.Second))
+	want := anchor.Add(4 * time.Minute)
+	if !ok || !afterDowntime.Equal(want) {
+		t.Fatalf("after downtime: next = %v, want %v", afterDowntime, want)
 	}
 }

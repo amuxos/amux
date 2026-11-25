@@ -53,11 +53,12 @@ type consoleResourceHub struct {
 	queueCancel    *pb.AmuxdQueueCancelRequest
 	sleep          *pb.AmuxdSleepRequest
 	profile        agentprofile.Profile
-	scheduleCreate *pb.CreateScheduleRequest
-	scheduleUpdate *pb.UpdateScheduleRequest
-	scheduleEnable *pb.SetScheduleEnabledRequest
-	scheduleDelete *pb.DeleteScheduleRequest
-	schedule       *pb.ScheduleItem
+	scheduleCreate  *pb.CreateScheduleRequest
+	scheduleUpdate  *pb.UpdateScheduleRequest
+	scheduleEnable  *pb.SetScheduleEnabledRequest
+	scheduleDelete  *pb.DeleteScheduleRequest
+	scheduleTrigger *pb.TriggerScheduleRequest
+	schedule        *pb.ScheduleItem
 	scheduleError  string
 	rejected       bool
 	botsPayload    string
@@ -120,6 +121,13 @@ func (f *consoleResourceHub) SetScheduleEnabled(_ context.Context, req *pb.SetSc
 func (f *consoleResourceHub) DeleteSchedule(_ context.Context, req *pb.DeleteScheduleRequest, _ ...grpc.CallOption) (*pb.DeleteScheduleResponse, error) {
 	f.scheduleDelete = req
 	return &pb.DeleteScheduleResponse{Ok: !f.rejected}, nil
+}
+func (f *consoleResourceHub) TriggerSchedule(_ context.Context, req *pb.TriggerScheduleRequest, _ ...grpc.CallOption) (*pb.TriggerScheduleResponse, error) {
+	f.scheduleTrigger = req
+	if f.scheduleError != "" {
+		return &pb.TriggerScheduleResponse{Ok: false, Error: f.scheduleError}, nil
+	}
+	return &pb.TriggerScheduleResponse{Ok: !f.rejected, ExecutionId: 99, Status: "ok:sent"}, nil
 }
 func (f *consoleResourceHub) ListSchedules(context.Context, *pb.ListSchedulesRequest, ...grpc.CallOption) (*pb.ListSchedulesResponse, error) {
 	return &pb.ListSchedulesResponse{Schedules: []*pb.ScheduleItem{f.schedule}}, nil
@@ -327,6 +335,12 @@ func TestConsoleResourceScheduleValidationForwardingAndErrors(t *testing.T) {
 	}
 	if hub.scheduleEnable.GetEnabled() {
 		t.Fatal("disable lost")
+	}
+	if _, err := backend.executeResource(context.Background(), "schedules", "trigger", json.RawMessage(`{"schedule_id":7}`)); err != nil {
+		t.Fatal(err)
+	}
+	if hub.scheduleTrigger.GetId() != 7 {
+		t.Fatal("trigger lost")
 	}
 	if _, err := backend.executeResource(context.Background(), "schedules", "delete", json.RawMessage(`{"schedule_id":7}`)); err != nil {
 		t.Fatal(err)

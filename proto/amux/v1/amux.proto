@@ -73,6 +73,7 @@ service Amuxd {
   rpc DeleteSchedule(DeleteScheduleRequest) returns (DeleteScheduleResponse);
   rpc UpdateSchedule(UpdateScheduleRequest) returns (UpdateScheduleResponse);
   rpc SetScheduleEnabled(SetScheduleEnabledRequest) returns (SetScheduleEnabledResponse);
+  rpc TriggerSchedule(TriggerScheduleRequest) returns (TriggerScheduleResponse);
   rpc MaterializeCredential(MaterializeCredentialRequest) returns (MaterializeCredentialResponse);
   rpc SetCredential(SetCredentialRequest) returns (CredentialProfileMetadata);
   rpc GetCredential(GetCredentialRequest) returns (CredentialProfileMetadata);
@@ -1571,6 +1572,8 @@ message ScheduleItem {
   int64 last_run_at = 14;
   string last_status = 15;
   repeated ScheduleRun runs = 16;
+  string timezone = 17;
+  string state = 18;
 }
 
 message ScheduleRun {
@@ -1579,6 +1582,14 @@ message ScheduleRun {
   int64 fired_at = 3;
   string task_id = 4;
   string status = 5;
+  int64 scheduled_at = 6;
+  int64 started_at = 7;
+  int64 finished_at = 8;
+  string session_name = 9;
+  string turn_id = 10;
+  string reason = 11;
+  string result_summary = 12;
+  string trigger_source = 13;
 }
 
 message CreateScheduleRequest {
@@ -1592,6 +1603,7 @@ message CreateScheduleRequest {
   string created_by = 8;
   string schedule_type = 9;
   bytes task_spec_json = 10;
+  string timezone = 11;
 }
 
 message CreateScheduleResponse {
@@ -1636,6 +1648,7 @@ message UpdateScheduleRequest {
   optional string run_mode = 4;
   optional string prompt = 5;
   bytes task_spec_json = 6;
+  optional string timezone = 7;
 }
 
 message UpdateScheduleResponse {
@@ -1650,6 +1663,18 @@ message SetScheduleEnabledRequest {
 
 message SetScheduleEnabledResponse {
   bool ok = 1;
+}
+
+message TriggerScheduleRequest {
+  int64 id = 1;
+}
+
+message TriggerScheduleResponse {
+  bool ok = 1;
+  int64 execution_id = 2;
+  string task_id = 3;
+  string status = 4;
+  string error = 5;
 }
 
 // File names are inbox basenames or outbox-relative paths; never host paths.

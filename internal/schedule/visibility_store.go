@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ type Execution struct {
 	ScheduledAt, SubmittedAt, StartedAt, FinishedAt, ObservedAt int64
 	TargetID, SessionName, SessionID, LaunchID, TurnID, TaskID  string
 	Status, Reason, Result, Cursor                              string
+	TriggerSource                                               string
 	Terminal                                                    bool
 	ObserveFailures                                             int
 	NextObserveAt                                               int64
@@ -102,6 +104,24 @@ func (s *Store) saveVisibility(id int64, v Visibility) error {
 	}
 	_, e = s.db.Exec(`UPDATE schedule_visibility SET data=? WHERE schedule_id=?`, b, id)
 	return e
+}
+
+// UpdateCreatorAccessIdentity refreshes the frozen access-identity snapshot on
+// an existing creator visibility binding (for example after an authorized
+// subtask schedule update changes its effective run_as identity). No-op when
+// the schedule has no visibility binding.
+func (s *Store) UpdateCreatorAccessIdentity(id int64, accessIdentityJSON string) error {
+	s.visMu.Lock()
+	defer s.visMu.Unlock()
+	v, err := s.Visibility(id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	v.Creator.AccessIdentityJSON = accessIdentityJSON
+	return s.saveVisibility(id, v)
 }
 func (s *Store) Personal(bot, open string) ([]Entry, error) {
 	rows, err := s.db.Query(`SELECT schedule_id FROM schedule_visibility WHERE bot_id=? AND open_id=? ORDER BY schedule_id DESC`, bot, open)
@@ -187,7 +207,7 @@ func (s *Store) ClaimTracked(t Task, now time.Time, next *int64) (Execution, boo
 	if e != nil || n == 0 {
 		return Execution{}, false, e
 	}
-	r := Execution{ScheduleID: t.ID, ScheduledAt: *t.NextRunAt, SubmittedAt: now.Unix(), ObservedAt: now.Unix(), Status: "submitting", TargetID: t.TargetID, SessionName: t.SessionName}
+	r := Execution{ScheduleID: t.ID, ScheduledAt: *t.NextRunAt, SubmittedAt: now.Unix(), ObservedAt: now.Unix(), Status: "submitting", TriggerSource: TriggerSourceScheduled, TargetID: t.TargetID, SessionName: t.SessionName}
 	b, _ := json.Marshal(r)
 	res, e = tx.Exec(`INSERT INTO schedule_executions(schedule_id,scheduled_at,data) VALUES(?,?,?)`, t.ID, r.ScheduledAt, b)
 	if e != nil {
@@ -198,6 +218,108 @@ func (s *Store) ClaimTracked(t Task, now time.Time, next *int64) (Execution, boo
 		return Execution{}, false, e
 	}
 	return r, true, tx.Commit()
+}
+
+// JournalManualTrigger records a manual (Run Now) execution without altering
+// the schedule's enabled flag or next_run_at cadence.
+func (s *Store) JournalManualTrigger(t Task, now time.Time) (Execution, error) {
+	tx, e := s.db.Begin()
+	if e != nil {
+		return Execution{}, e
+	}
+	defer tx.Rollback()
+	var maxScheduled sql.NullInt64
+	if e = tx.QueryRow(`SELECT MAX(scheduled_at) FROM schedule_executions WHERE schedule_id=?`, t.ID).Scan(&maxScheduled); e != nil {
+		return Execution{}, e
+	}
+	scheduledAt := now.Unix()
+	if maxScheduled.Valid && scheduledAt <= maxScheduled.Int64 {
+		scheduledAt = maxScheduled.Int64 + 1
+	}
+	if _, e = tx.Exec(`UPDATE scheduled_tasks SET last_run_at=?, last_status='submitting', updated_at=strftime('%s','now') WHERE id=?`, now.Unix(), t.ID); e != nil {
+		return Execution{}, e
+	}
+	r := Execution{
+		ScheduleID:    t.ID,
+		ScheduledAt:   scheduledAt,
+		SubmittedAt:   now.Unix(),
+		ObservedAt:    now.Unix(),
+		Status:        "submitting",
+		TriggerSource: TriggerSourceManual,
+		TargetID:      t.TargetID,
+		SessionName:   t.SessionName,
+	}
+	b, _ := json.Marshal(r)
+	res, e := tx.Exec(`INSERT INTO schedule_executions(schedule_id,scheduled_at,data) VALUES(?,?,?)`, t.ID, r.ScheduledAt, b)
+	if e != nil {
+		return Execution{}, e
+	}
+	r.ID, e = res.LastInsertId()
+	if e != nil {
+		return Execution{}, e
+	}
+	return r, tx.Commit()
+}
+
+// RichRuns returns merged execution-journal records and unmatched legacy
+// schedule_runs rows for RPC/CLI/MCP/Console inspection, newest first.
+func (s *Store) RichRuns(id int64, limit int) ([]Execution, error) {
+	if limit <= 0 || limit > DefaultRunHistoryLimit {
+		limit = DefaultRunHistoryLimit
+	}
+	runs, err := s.ExecutionHistory(id)
+	if err != nil {
+		return nil, err
+	}
+	for i := range runs {
+		if runs[i].TriggerSource == "" {
+			runs[i].TriggerSource = TriggerSourceScheduled
+		}
+	}
+	legacy, err := s.ListRuns(id, limit)
+	if err != nil {
+		return nil, err
+	}
+	for _, old := range legacy {
+		matched := false
+		for _, r := range runs {
+			if r.SubmittedAt == old.FiredAt || r.ScheduledAt == old.FiredAt || (old.TaskID != "" && r.TaskID == old.TaskID) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			runs = append(runs, Execution{
+				ID:            old.ID,
+				ScheduleID:    id,
+				ScheduledAt:   old.FiredAt,
+				SubmittedAt:   old.FiredAt,
+				TaskID:        old.TaskID,
+				Status:        old.Status,
+				TriggerSource: TriggerSourceScheduled,
+				Terminal:      true,
+			})
+		}
+	}
+	sort.SliceStable(runs, func(i, j int) bool {
+		if runs[i].SubmittedAt != runs[j].SubmittedAt {
+			return runs[i].SubmittedAt > runs[j].SubmittedAt
+		}
+		return runs[i].ID > runs[j].ID
+	})
+	if len(runs) > limit {
+		runs = runs[:limit]
+	}
+	return runs, nil
+}
+
+func isAuthoritativeOutcome(status string) bool {
+	switch status {
+	case "completed", "failed", "timed_out", "cancelled", "partial":
+		return true
+	default:
+		return false
+	}
 }
 func (s *Store) executions(where string, args ...any) ([]Execution, error) {
 	rows, e := s.db.Query(`SELECT id,data FROM schedule_executions `+where, args...)
@@ -369,6 +491,11 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 	if r.Terminal && r.Status != "unknown" {
 		if _, e = tx.Exec(`UPDATE schedule_runs SET status=? WHERE schedule_id=? AND fired_at=?`, r.Status, r.ScheduleID, r.SubmittedAt); e != nil {
 			return e
+		}
+		if isAuthoritativeOutcome(r.Status) {
+			if _, e = tx.Exec(`UPDATE scheduled_tasks SET last_status=?, updated_at=strftime('%s','now') WHERE id=? AND last_run_at=?`, r.Status, r.ScheduleID, r.SubmittedAt); e != nil {
+				return e
+			}
 		}
 	}
 	if r.Terminal {

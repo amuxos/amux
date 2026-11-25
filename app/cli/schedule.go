@@ -18,6 +18,8 @@ import (
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
+var newScheduleClient = newAmuxdClient
+
 func newScheduleCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "schedule",
@@ -28,18 +30,20 @@ submits an ephemeral subtask from a saved task spec. Schedules live in the hub
 (amuxd), so a hub address must be configured.
 
 Time spec forms:
-  every <duration>   e.g. "every 30m", "every 2h" (minimum 1m)
-  daily <HH:MM>      e.g. "daily 09:00" (server local time)
+  every <duration>   e.g. "every 30m", "every 2h", "every 1d" (minimum 1m)
+  daily <HH:MM>      e.g. "daily 09:00" (in --timezone or server local time)
   at <when>          e.g. "at 2026-06-01 09:00" (one-shot)
-  cron <expr>        e.g. "cron 0 9 * * 1-5" (standard 5-field)`,
+  in <duration>      e.g. "in 10m", "in 2h" (relative one-shot)
+  cron <expr>        e.g. "cron 0 9 * * 1-5" or "cron @daily"`,
 	}
-	c.AddCommand(newScheduleCreateCmd(), newScheduleCreateTaskCmd(), newScheduleRunsCmd(), newScheduleListCmd(), newScheduleUpdateCmd(), newScheduleRemoveCommand("remove <id>"), newScheduleToggleCmd(true), newScheduleToggleCmd(false))
+	c.AddCommand(newScheduleCreateCmd(), newScheduleCreateTaskCmd(), newScheduleRunsCmd(), newScheduleRunCmd(), newScheduleListCmd(), newScheduleUpdateCmd(), newScheduleRemoveCommand("remove <id>"), newScheduleToggleCmd(true), newScheduleToggleCmd(false))
 	return c
 }
 
 func newScheduleCreateCmd() *cobra.Command {
 	var name string
 	var runMode string
+	var timezone string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:   "create <session-ref> <spec> <prompt>",
 		Short: "Create a scheduled prompt",
@@ -77,6 +81,7 @@ func newScheduleCreateCmd() *cobra.Command {
 				TargetName:  resolved.Target.Name,
 				SessionName: resolved.Session.Name,
 				Spec:        args[1],
+				Timezone:    timezone,
 				RunMode:     runMode,
 				Prompt:      args[2],
 				Name:        name,
@@ -102,8 +107,10 @@ func newScheduleCreateCmd() *cobra.Command {
 	})
 	c.Flags().StringVar(&name, "name", "", "optional label for the schedule")
 	c.Flags().StringVar(&runMode, "run-mode", schedule.RunModeReuseSession, "execution mode: reuse-session or new-session-per-run")
+	c.Flags().StringVar(&timezone, "timezone", "", "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)")
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("run-mode", completeScheduleRunModes)
+	_ = c.RegisterFlagCompletionFunc("timezone", completeNoFiles)
 	return c
 }
 
@@ -204,11 +211,12 @@ func cliScheduleValidationMessage(err *clientop.FieldError) string {
 
 func newScheduleCreateTaskCmd() *cobra.Command {
 	flags := scheduleTaskFlags{workspacePolicy: string(task.WorkspaceTempDir)}
+	var timezone string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:   "create-task <spec>",
 		Short: "Create a scheduled subtask",
 		Example: `  amux schedule create-task "every 1h" --agent team/reviewer --task "review recent changes"
-  amux schedule create-task "daily 09:00" --agent builtin/codex --task "run smoke tests" --workspace-policy git-worktree --local-dir /path/to/repo`,
+  amux schedule create-task "daily 09:00" --timezone Asia/Shanghai --agent builtin/codex --task "run smoke tests" --workspace-policy git-worktree --local-dir /path/to/repo`,
 		Args: cobra.ExactArgs(1), ValidArgsFunction: completeScheduleSpec,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, closeClient, err := newAmuxdClient()
@@ -216,7 +224,7 @@ func newScheduleCreateTaskCmd() *cobra.Command {
 				return err
 			}
 			defer closeClient()
-			result, err := clientop.ScheduleCreateTask(cmdContext(cmd), client, clientop.ScheduleCreateTaskRequest{Spec: args[0], Name: flags.name, CreatedBy: "cli", Task: flags.clientopSpec()})
+			result, err := clientop.ScheduleCreateTask(cmdContext(cmd), client, clientop.ScheduleCreateTaskRequest{Spec: args[0], Timezone: timezone, Name: flags.name, CreatedBy: "cli", Task: flags.clientopSpec()})
 			if err != nil {
 				return fmt.Errorf("create scheduled subtask: %s", cliScheduleCreateError(err))
 			}
@@ -236,9 +244,11 @@ func newScheduleCreateTaskCmd() *cobra.Command {
 		},
 	})
 	c.Flags().StringVar(&flags.name, "name", "", "optional label for the schedule")
+	c.Flags().StringVar(&timezone, "timezone", "", "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)")
 	registerScheduleTaskFlags(c, &flags)
 	registerScheduleTaskFlagCompletions(c)
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
+	_ = c.RegisterFlagCompletionFunc("timezone", completeNoFiles)
 	return c
 }
 
@@ -286,15 +296,134 @@ func registerScheduleTaskFlagCompletions(c *cobra.Command) {
 	_ = c.RegisterFlagCompletionFunc("trusted-mode-ack", completeBoolValues)
 	_ = c.RegisterFlagCompletionFunc("run-as", completeNoFiles)
 }
+var scheduleTaskFlagNames = []string{
+	"arg", "agent", "runtime", "model", "reasoning-effort", "task",
+	"isolation", "credential-profile", "permission-policy", "workspace-policy",
+	"local-dir", "repo-kind", "repo-remote", "repo-cache-key", "repo-commit",
+	"repo-subdir", "timeout", "trusted-mode-ack", "run-as",
+}
+
+func anyScheduleTaskFlagChanged(cmd *cobra.Command) bool {
+	for _, name := range scheduleTaskFlagNames {
+		if cmd.Flags().Changed(name) {
+			return true
+		}
+	}
+	return false
+}
+
+func scheduledTaskSpecFromPB(item *pb.ScheduleItem) (clientop.ScheduledTaskSpec, error) {
+	if item == nil || len(item.TaskSpecJson) == 0 {
+		return clientop.ScheduledTaskSpec{}, nil
+	}
+	var spec task.Spec
+	if err := json.Unmarshal(item.TaskSpecJson, &spec); err != nil {
+		return clientop.ScheduledTaskSpec{}, fmt.Errorf("decode existing task spec: %w", err)
+	}
+	out := clientop.ScheduledTaskSpec{
+		ExtraArgs:         append([]string(nil), spec.ExtraArgs...),
+		Agent:             spec.Agent,
+		Runtime:           spec.Runtime,
+		Model:             spec.Model,
+		ReasoningEffort:   spec.ReasoningEffort,
+		Task:              spec.Task,
+		RunAs:             spec.RunAs,
+		Isolation:         string(spec.Isolation),
+		CredentialProfile: spec.CredentialProfile,
+		PermissionPolicy:  string(spec.PermissionPolicy),
+		Workspace: clientop.WorkspaceSpec{
+			Policy:   string(spec.Workspace.Policy),
+			LocalDir: spec.Workspace.LocalDir,
+		},
+		TimeoutSeconds: spec.TimeoutSeconds,
+	}
+	if spec.Workspace.Repo != nil {
+		out.Workspace.Repo = &clientop.RepoSpec{
+			Kind:     spec.Workspace.Repo.Kind,
+			Remote:   spec.Workspace.Repo.Remote,
+			CacheKey: spec.Workspace.Repo.CacheKey,
+			Commit:   spec.Workspace.Repo.Commit,
+			Subdir:   spec.Workspace.Repo.Subdir,
+		}
+	}
+	return out, nil
+}
+
+func (f scheduleTaskFlags) applyChangedFlags(cmd *cobra.Command, dst *clientop.ScheduledTaskSpec) {
+	if cmd.Flags().Changed("arg") {
+		dst.ExtraArgs = append([]string(nil), f.extraArgs...)
+	}
+	if cmd.Flags().Changed("agent") {
+		dst.Agent = f.agent
+	}
+	if cmd.Flags().Changed("runtime") {
+		dst.Runtime = f.runtime
+	}
+	if cmd.Flags().Changed("model") {
+		dst.Model = f.model
+	}
+	if cmd.Flags().Changed("reasoning-effort") {
+		dst.ReasoningEffort = f.reasoningEffort
+	}
+	if cmd.Flags().Changed("task") {
+		dst.Task = f.taskPrompt
+	}
+	if cmd.Flags().Changed("run-as") {
+		dst.RunAs = f.runAs
+	}
+	if cmd.Flags().Changed("isolation") {
+		dst.Isolation = f.isolation
+	}
+	if cmd.Flags().Changed("credential-profile") {
+		dst.CredentialProfile = f.credentialProfile
+	}
+	if cmd.Flags().Changed("permission-policy") {
+		dst.PermissionPolicy = f.permissionPolicy
+	}
+	if cmd.Flags().Changed("workspace-policy") {
+		dst.Workspace.Policy = f.workspacePolicy
+	}
+	if cmd.Flags().Changed("local-dir") {
+		dst.Workspace.LocalDir = f.localDir
+	}
+	if cmd.Flags().Changed("timeout") {
+		dst.TimeoutSeconds = f.timeoutSeconds
+	}
+	if cmd.Flags().Changed("repo-kind") || cmd.Flags().Changed("repo-remote") ||
+		cmd.Flags().Changed("repo-cache-key") || cmd.Flags().Changed("repo-commit") ||
+		cmd.Flags().Changed("repo-subdir") {
+		if dst.Workspace.Repo == nil {
+			dst.Workspace.Repo = &clientop.RepoSpec{}
+		}
+		if cmd.Flags().Changed("repo-kind") {
+			dst.Workspace.Repo.Kind = f.repoKind
+		}
+		if cmd.Flags().Changed("repo-remote") {
+			dst.Workspace.Repo.Remote = f.repoRemote
+		}
+		if cmd.Flags().Changed("repo-cache-key") {
+			dst.Workspace.Repo.CacheKey = f.repoCacheKey
+		}
+		if cmd.Flags().Changed("repo-commit") {
+			dst.Workspace.Repo.Commit = f.repoCommit
+		}
+		if cmd.Flags().Changed("repo-subdir") {
+			dst.Workspace.Repo.Subdir = f.repoSubdir
+		}
+	}
+}
+
 func newScheduleUpdateCmd() *cobra.Command {
 	flags := scheduleTaskFlags{workspacePolicy: string(task.WorkspaceTempDir)}
-	var name, spec string
-	c := &cobra.Command{
+	var name, spec, timezone, prompt, runMode string
+	c := supportsJSONOutput(&cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a scheduled prompt or subtask in place",
 		Example: `  amux schedule update 8 --name nightly-report
-  amux schedule update 8 --spec "daily 09:00"
-  amux schedule update 8 --agent builtin/codex --task "run smoke tests"`,
+  amux schedule update 8 --spec "daily 09:00" --timezone Asia/Shanghai
+  amux schedule update 8 --prompt "summarize blockers" --run-mode new-session-per-run
+  amux schedule update 8 --agent builtin/codex --task "run smoke tests"
+  amux schedule update 8 --timeout 600 --reasoning-effort high`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeScheduleIDs(scheduleAny),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -309,22 +438,53 @@ func newScheduleUpdateCmd() *cobra.Command {
 			if cmd.Flags().Changed("spec") {
 				req.Spec = &spec
 			}
-			if cmd.Flags().Changed("agent") || cmd.Flags().Changed("task") || cmd.Flags().Changed("runtime") || cmd.Flags().Changed("model") || cmd.Flags().Changed("arg") {
-				taskSpec := flags.clientopSpec()
-				req.Task = &taskSpec
+			if cmd.Flags().Changed("timezone") {
+				req.Timezone = &timezone
 			}
-			client, closeClient, err := newAmuxdClient()
+			if cmd.Flags().Changed("prompt") {
+				req.Prompt = &prompt
+			}
+			if cmd.Flags().Changed("run-mode") {
+				req.RunMode = &runMode
+			}
+			ctx := cmdContext(cmd)
+			client, closeClient, err := newScheduleClient()
 			if err != nil {
 				return err
 			}
 			defer closeClient()
-			out, err := clientop.ScheduleUpdate(cmdContext(cmd), client, req)
+			if anyScheduleTaskFlagChanged(cmd) {
+				current, err := clientop.ScheduleGet(ctx, client, clientop.ScheduleIDRequest{ID: id})
+				if err != nil {
+					return fmt.Errorf("get schedule: %w", err)
+				}
+				if current.ScheduleType != schedule.ScheduleTypeSubtask {
+					return fmt.Errorf("task flags are only valid for subtask schedules")
+				}
+				taskSpec, err := scheduledTaskSpecFromPB(current)
+				if err != nil {
+					return err
+				}
+				flags.applyChangedFlags(cmd, &taskSpec)
+				req.Task = &taskSpec
+			}
+			out, err := clientop.ScheduleUpdate(ctx, client, req)
 			if err != nil {
 				var fe *clientop.FieldError
 				if errors.As(err, &fe) {
 					return errors.New(cliScheduleValidationMessage(fe))
 				}
 				return err
+			}
+			if jsonOutputEnabled(cmd) {
+				return printJSON(cmd.OutOrStdout(), map[string]any{
+					"schema":      "amux.schedule.update.v1",
+					"schedule_id": out.ID,
+					"name":        out.Name,
+					"spec":        out.Spec,
+					"timezone":    out.Timezone,
+					"next_run_at": out.NextRunAt,
+				})
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "updated schedule #%d", out.ID)
 			if out.NextRunAt > 0 {
@@ -333,13 +493,19 @@ func newScheduleUpdateCmd() *cobra.Command {
 			fmt.Fprintln(cmd.OutOrStdout())
 			return nil
 		},
-	}
+	})
 	c.Flags().StringVar(&name, "name", "", "new label for the schedule")
-	c.Flags().StringVar(&spec, "spec", "", "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run")
+	c.Flags().StringVar(&spec, "spec", "", "new time rule (every <duration>, daily <HH:MM>, at <when>, in <duration>, or cron <expr>); recomputes next run")
+	c.Flags().StringVar(&timezone, "timezone", "", "new IANA timezone for evaluating the schedule (empty uses hub local time)")
+	c.Flags().StringVar(&prompt, "prompt", "", "new prompt for a session-prompt schedule")
+	c.Flags().StringVar(&runMode, "run-mode", "", "new execution mode for a session-prompt schedule: reuse-session or new-session-per-run")
 	registerScheduleTaskFlags(c, &flags)
 	registerScheduleTaskFlagCompletions(c)
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("spec", completeScheduleSpec)
+	_ = c.RegisterFlagCompletionFunc("timezone", completeNoFiles)
+	_ = c.RegisterFlagCompletionFunc("prompt", completeNoFiles)
+	_ = c.RegisterFlagCompletionFunc("run-mode", completeScheduleRunModes)
 	return c
 }
 func newScheduleRunsCmd() *cobra.Command {
@@ -382,14 +548,59 @@ func newScheduleRunsCmd() *cobra.Command {
 				return nil
 			}
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "FIRED_AT\tTASK_ID\tSTATUS")
+			fmt.Fprintln(w, "FIRED_AT\tSOURCE\tTASK_ID\tSTATUS\tREASON")
 			for _, run := range item.Runs {
 				if run == nil {
 					continue
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\n", fmtUnix(run.FiredAt), dashIfEmpty(run.TaskId), dashIfEmpty(run.Status))
+				src := run.TriggerSource
+				if src == "" {
+					src = schedule.TriggerSourceScheduled
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", fmtUnix(run.FiredAt), src, dashIfEmpty(run.TaskId), dashIfEmpty(run.Status), dashIfEmpty(run.Reason))
 			}
 			return w.Flush()
+		},
+	})
+}
+
+func newScheduleRunCmd() *cobra.Command {
+	return supportsJSONOutput(&cobra.Command{
+		Use:               "run <id>",
+		Short:             "Trigger a schedule immediately once without changing its next run time",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeScheduleIDs(scheduleAny),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid schedule id %q", args[0])
+			}
+			client, closeClient, err := newScheduleClient()
+			if err != nil {
+				return err
+			}
+			defer closeClient()
+			result, err := clientop.ScheduleTrigger(cmdContext(cmd), client, id)
+			if err != nil {
+				return fmt.Errorf("trigger schedule: %w", err)
+			}
+			if jsonOutputEnabled(cmd) {
+				return printJSON(cmd.OutOrStdout(), map[string]any{
+					"schema":       "amux.schedule.run.v1",
+					"schedule_id":  result.ScheduleID,
+					"execution_id": result.ExecutionID,
+					"task_id":      result.TaskID,
+					"status":       result.Status,
+					"ok":           result.OK,
+					"error":        result.Error,
+				})
+			}
+			if result.TaskID != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "triggered schedule #%d (task: %s, status: %s)\n", result.ScheduleID, result.TaskID, dashIfEmpty(result.Status))
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "triggered schedule #%d (status: %s)\n", result.ScheduleID, dashIfEmpty(result.Status))
+			}
+			return nil
 		},
 	})
 }
@@ -402,7 +613,7 @@ func newScheduleListCmd() *cobra.Command {
 		ValidArgsFunction: completeNoFiles,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmdContext(cmd)
-			client, closeClient, err := newAmuxdClient()
+			client, closeClient, err := newScheduleClient()
 			if err != nil {
 				return err
 			}
@@ -427,15 +638,15 @@ func newScheduleListCmd() *cobra.Command {
 				return nil
 			}
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tTYPE\tTARGET\tMODE\tSPEC\tNEXT\tLAST\tSTATUS\tENABLED")
+			fmt.Fprintln(w, "ID\tNAME\tTYPE\tTARGET\tMODE\tSPEC\tNEXT\tLAST\tSTATUS\tSTATE")
 			for _, s := range items {
 				name := s.Name
 				if name == "" {
 					name = "—"
 				}
-				fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%v\n",
+				fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					s.Id, name, dashIfEmpty(s.ScheduleType), scheduleListTarget(s), scheduleListMode(s), s.Spec,
-					fmtUnix(s.NextRunAt), fmtUnix(s.LastRunAt), dashIfEmpty(s.LastStatus), s.Enabled)
+					fmtUnix(s.NextRunAt), fmtUnix(s.LastRunAt), dashIfEmpty(s.LastStatus), scheduleItemState(s))
 			}
 			return w.Flush()
 		},
@@ -454,7 +665,7 @@ func newScheduleRemoveCommand(use string) *cobra.Command {
 				return fmt.Errorf("invalid schedule id %q", args[0])
 			}
 			ctx := cmdContext(cmd)
-			client, closeClient, err := newAmuxdClient()
+			client, closeClient, err := newScheduleClient()
 			if err != nil {
 				return err
 			}
@@ -497,7 +708,7 @@ func newScheduleToggleCmd(enable bool) *cobra.Command {
 				return fmt.Errorf("invalid schedule id %q", args[0])
 			}
 			ctx := cmdContext(cmd)
-			client, closeClient, err := newAmuxdClient()
+			client, closeClient, err := newScheduleClient()
 			if err != nil {
 				return err
 			}
@@ -543,6 +754,22 @@ func dashIfEmpty(s string) string {
 		return "—"
 	}
 	return s
+}
+
+func scheduleItemState(s *pb.ScheduleItem) string {
+	if s == nil {
+		return "—"
+	}
+	if strings.TrimSpace(s.State) != "" {
+		return s.State
+	}
+	if s.Kind == schedule.KindOnce && s.NextRunAt == 0 && s.LastRunAt > 0 {
+		return schedule.StateCompleted
+	}
+	if !s.Enabled {
+		return schedule.StatePaused
+	}
+	return schedule.StateEnabled
 }
 
 func scheduleListTarget(s *pb.ScheduleItem) string {

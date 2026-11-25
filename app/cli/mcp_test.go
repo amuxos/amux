@@ -437,6 +437,7 @@ func TestMCPToolsIncludeScheduleTools(t *testing.T) {
 		"amux.schedule_delete",
 		"amux.schedule_update",
 		"amux.schedule_set_enabled",
+		"amux.schedule_trigger",
 	} {
 		if _, ok := byName[name]; !ok {
 			t.Fatalf("missing MCP tool %s", name)

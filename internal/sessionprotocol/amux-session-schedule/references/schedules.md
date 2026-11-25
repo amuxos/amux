@@ -34,19 +34,21 @@ Put the object to check, success and stop conditions, next action, and schedule
 cleanup instructions in recurring prompts. Record the returned `schedule_id` and
 `next_run_at`; stop or delete the schedule when the workflow is finished.
 
-Time specifications: `every <duration>` (minimum 1m), `daily HH:MM`,
-`at <when>` (one-shot), and `cron <5-field expression>`. Resolve relative dates
-and confirm the scheduler's time zone when it affects the requested time.
+Time specifications: `every <duration>` (minimum 1m; supports `d`/`w`),
+`daily HH:MM`, `at <when>` (one-shot), `in <duration>` (relative one-shot
+normalized to `at <RFC3339>`), and `cron <5-field expression or @descriptor>`.
+Pass an explicit IANA `timezone` (for example `Asia/Shanghai`) when the
+schedule should not depend on the Hub's local time zone.
 
 ## Management and evidence
 
-MCP: `schedule_list`, `schedule_get`, `schedule_set_enabled`, `schedule_update`
-and `schedule_delete`. Follow `next_cursor` while `has_more=true`.
-Update the name or time with `schedule_update`; it can also replace a subtask's
-complete Task specification. It cannot change a session-prompt's prompt or
-run_mode. For those, read the old configuration, delete and recreate it while
-preserving the unchanged fields and intended enabled state. Report partial
-failure if recreation fails.
+MCP: `schedule_list`, `schedule_get`, `schedule_set_enabled`, `schedule_update`,
+`schedule_trigger` and `schedule_delete`. Follow `next_cursor` while `has_more=true`.
+Use `schedule_trigger` (CLI `amux schedule run <id>`) to verify a rule immediately
+once without changing its `next_run_at`.
+Update name, time, `timezone`, a session-prompt's `prompt` or `run_mode`, or partial
+fields of a subtask's `task` specification in place with `schedule_update`;
+omitted fields keep their current values and run history is preserved.
 
 For session-prompt, `schedule_get` exposes only `last_run_at` and `last_status`,
 not complete trigger history. `ok` and `ok:new-session:<name>` mean input was

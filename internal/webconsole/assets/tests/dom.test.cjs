@@ -178,6 +178,39 @@ test('schedule types generate distinct payloads without unrelated fields', async
   assert.equal('task' in second, false);
 });
 
+test('editing a session-prompt schedule submits prompt and run_mode in place', async () => {
+  const env = environment();
+  const existing = { id: 7, name: 'Standup', spec: 'daily 09:00', schedule_type: 'session-prompt', prompt: 'Old', run_mode: 'reuse-session', enabled: true };
+  mount(env, 'schedules', { schedules: [existing], actions: ['update'] });
+  await env.app.openScheduleForm(existing);
+  const form = env.document.querySelector('#dialogs form');
+  form.querySelector('[name=prompt]').value = 'Updated standup prompt';
+  form.querySelector('[name=run_mode]').value = 'new-session-per-run';
+  await form.fire('submit');
+  const post = env.calls.find(c => c.url === '/api/console/schedules' && c.options.method === 'POST');
+  const body = JSON.parse(post.options.body);
+  assert.equal(body.action, 'update');
+  assert.equal(body.data.schedule_id, 7);
+  assert.equal(body.data.prompt, 'Updated standup prompt');
+  assert.equal(body.data.run_mode, 'new-session-per-run');
+  assert.equal('task' in body.data, false);
+});
+
+test('completed one-shot schedule renders completed state without pause toggle and supports run now', async () => {
+  const env = environment();
+  const once = { id: 15, name: 'Reminder', spec: 'at 2026-01-01 09:00', kind: 'once', schedule_type: 'session-prompt', state: 'completed', enabled: true, next_run_at: 0, last_run_at: 1767229200, last_status: 'completed' };
+  mount(env, 'schedules', { schedules: [once], actions: ['trigger', 'enable', 'disable'] });
+  const text = env.document.body.textContent;
+  assert.match(text, /Completed/);
+  assert.match(text, /Run now/);
+  assert.equal(findButton(env, 'Disable'), undefined);
+  const clicking = findButton(env, 'Run now').click();
+  await findButton(env, 'Confirm').click();
+  await clicking;
+  const post = env.calls.find(c => c.url === '/api/console/schedules' && c.options.method === 'POST');
+  assert.equal(JSON.parse(post.options.body).action, 'trigger');
+});
+
 test('settings save batches dirty keys as strings with CAS and reports restart', async () => {
   const env = environment();
   mount(env, 'settings', { settings: [{ key: 'a', value: 'false', writable: true }, { key: 'b', value: '1', writable: true }], version: 'sha', actions: ['save'] });

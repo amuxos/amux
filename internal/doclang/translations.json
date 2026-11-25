@@ -1023,6 +1023,22 @@
     "en": "every <duration>   e.g. \"every 30m\", \"every 2h\" (minimum 1m)",
     "zh-CN": "every <duration>   例如 \"every 30m\"、\"every 2h\"（最短 1m）"
   },
+  "every <duration>   e.g. \"every 30m\", \"every 2h\", \"every 1d\" (minimum 1m)": {
+    "en": "every <duration>   e.g. \"every 30m\", \"every 2h\", \"every 1d\" (minimum 1m)",
+    "zh-CN": "every <duration>   例如 \"every 30m\"、\"every 2h\"、\"every 1d\"（最短 1m）"
+  },
+  "daily <HH:MM>      e.g. \"daily 09:00\" (in --timezone or server local time)": {
+    "en": "daily <HH:MM>      e.g. \"daily 09:00\" (in --timezone or server local time)",
+    "zh-CN": "daily <HH:MM>      例如 \"daily 09:00\"（按 --timezone 或服务端本地时区）"
+  },
+  "in <duration>      e.g. \"in 10m\", \"in 2h\" (relative one-shot)": {
+    "en": "in <duration>      e.g. \"in 10m\", \"in 2h\" (relative one-shot)",
+    "zh-CN": "in <duration>      例如 \"in 10m\"、\"in 2h\"（相对一次性触发）"
+  },
+  "cron <expr>        e.g. \"cron 0 9 * * 1-5\" or \"cron @daily\"": {
+    "en": "cron <expr>        e.g. \"cron 0 9 * * 1-5\" or \"cron @daily\"",
+    "zh-CN": "cron <expr>        例如 \"cron 0 9 * * 1-5\" 或 \"cron @daily\""
+  },
   "daily <HH:MM>      e.g. \"daily 09:00\" (server local time)": {
     "en": "daily <HH:MM>      e.g. \"daily 09:00\" (server local time)",
     "zh-CN": "daily <HH:MM>      例如 \"daily 09:00\"（服务器本地时间）"
@@ -1131,9 +1147,29 @@
     "en": "new label for the schedule",
     "zh-CN": "Schedule 的新标签"
   },
+  "new prompt for a session-prompt schedule": {
+    "en": "new prompt for a session-prompt schedule",
+    "zh-CN": "session-prompt Schedule 的新提示词"
+  },
+  "new execution mode for a session-prompt schedule: reuse-session or new-session-per-run": {
+    "en": "new execution mode for a session-prompt schedule: reuse-session or new-session-per-run",
+    "zh-CN": "session-prompt Schedule 的新执行模式：reuse-session 或 new-session-per-run"
+  },
   "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run": {
     "en": "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run",
     "zh-CN": "新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；重新计算下次运行时间"
+  },
+  "new time rule (every <duration>, daily <HH:MM>, at <when>, in <duration>, or cron <expr>); recomputes next run": {
+    "en": "new time rule (every <duration>, daily <HH:MM>, at <when>, in <duration>, or cron <expr>); recomputes next run",
+    "zh-CN": "新的时间规则（every <duration>、daily <HH:MM>、at <when>、in <duration> 或 cron <expr>）；重新计算下次运行时间"
+  },
+  "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)": {
+    "en": "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)",
+    "zh-CN": "可选的 IANA 时区（例如 Asia/Shanghai），用于解析定时规则"
+  },
+  "new IANA timezone for evaluating the schedule (empty uses hub local time)": {
+    "en": "new IANA timezone for evaluating the schedule (empty uses hub local time)",
+    "zh-CN": "新的 IANA 时区（留空则使用 Hub 本地时区）"
   },
   "help for session": {
     "en": "help for session",
@@ -2287,9 +2323,21 @@
     "en": "Enable or disable a Schedule.",
     "zh-CN": "启用或停用 Schedule。"
   },
+  "Trigger a schedule immediately once without changing its next run time": {
+    "en": "Trigger a schedule immediately once without changing its next run time",
+    "zh-CN": "立即触发一次 Schedule，不改变其下次计划运行时间"
+  },
+  "立即手动触发一次 Schedule（不影响其启停状态与下次计划触发时间）。": {
+    "en": "Trigger a Schedule immediately once without changing its enabled state or next scheduled run time.",
+    "zh-CN": "立即手动触发一次 Schedule（不影响其启停状态与下次计划触发时间）。"
+  },
   "原地更新 Schedule 的名称、时间规则或 Task；省略字段保持不变，不允许 escalate-to-main。": {
     "en": "Update a Schedule's name, time rule, or Task in place. Omitted fields remain unchanged. escalate-to-main is not allowed.",
     "zh-CN": "原地更新 Schedule 的名称、时间规则或 Task；省略字段保持不变，不允许 escalate-to-main。"
+  },
+  "原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。": {
+    "en": "Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial subtask Task fields in place. Omitted fields remain unchanged. escalate-to-main is not allowed.",
+    "zh-CN": "原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。"
   },
   "中断 Session 当前 turn。": {
     "en": "Interrupt the current Session turn.",
@@ -2551,6 +2599,22 @@
     "en": "Time rule: every <duration>, daily <HH:MM>, at <when>, or cron <expr>",
     "zh-CN": "时间规则：every <duration>、daily <HH:MM>、at <when> 或 cron <expr>"
   },
+  "时间规则：every <duration>（支持 d/w）、daily <HH:MM>、at <when>、in <duration>（相对一次性）或 cron <expr>（支持 @daily 等描述符）": {
+    "en": "Time rule: every <duration> (supports d/w), daily <HH:MM>, at <when>, in <duration> (relative one-shot), or cron <expr> (supports @daily descriptors)",
+    "zh-CN": "时间规则：every <duration>（支持 d/w）、daily <HH:MM>、at <when>、in <duration>（相对一次性）或 cron <expr>（支持 @daily 等描述符）"
+  },
+  "可选 IANA 时区名称（例如 Asia/Shanghai）；省略时使用 Hub 本地时区": {
+    "en": "Optional IANA timezone name (for example Asia/Shanghai); omitted uses Hub local time",
+    "zh-CN": "可选 IANA 时区名称（例如 Asia/Shanghai）；省略时使用 Hub 本地时区"
+  },
+  "新的时间规则（every <duration>、daily <HH:MM>、at <when>、in <duration> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at": {
+    "en": "New time rule (every <duration>, daily <HH:MM>, at <when>, in <duration>, or cron <expr>); omitted means unchanged. Updates recompute next_run_at",
+    "zh-CN": "新的时间规则（every <duration>、daily <HH:MM>、at <when>、in <duration> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at"
+  },
+  "新的 IANA 时区名称（例如 Asia/Shanghai，传空字符串回落 Hub 本地时区）；省略时保持不变": {
+    "en": "New IANA timezone name (for example Asia/Shanghai; empty string falls back to Hub local time); omitted means unchanged",
+    "zh-CN": "新的 IANA 时区名称（例如 Asia/Shanghai，传空字符串回落 Hub 本地时区）；省略时保持不变"
+  },
   "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref，例如 builtin/codex 或 team/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口": {
     "en": "Agent Profile ref from amux.profile_list profiles[].ref, such as builtin/codex or team/push_sre; raw Agent Type strings are supported only for legacy callers",
     "zh-CN": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref，例如 builtin/codex 或 team/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口"
@@ -2614,6 +2678,14 @@
   "Schedule 的新显示名称；省略时保持不变": {
     "en": "New Schedule display name; omitted means unchanged",
     "zh-CN": "Schedule 的新显示名称；省略时保持不变"
+  },
+  "仅 session-prompt：更新到期投递到目标 Session 的提示词；省略时保持不变": {
+    "en": "session-prompt only: updated prompt delivered to the target Session when due; omitted means unchanged",
+    "zh-CN": "仅 session-prompt：更新到期投递到目标 Session 的提示词；省略时保持不变"
+  },
+  "仅 session-prompt：更新执行模式（reuse-session 或 new-session-per-run）；省略时保持不变": {
+    "en": "session-prompt only: updated execution mode (reuse-session or new-session-per-run); omitted means unchanged",
+    "zh-CN": "仅 session-prompt：更新执行模式（reuse-session 或 new-session-per-run）；省略时保持不变"
   },
   "新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at": {
     "en": "New time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); omitted means unchanged. Updates recompute next_run_at",
@@ -3266,6 +3338,10 @@
   "`tools/list` 正式工具：**51**。": {
     "en": "Official `tools/list` tools: **51**.",
     "zh-CN": "`tools/list` 正式工具：**51**。"
+  },
+  "`tools/list` 正式工具：**52**。": {
+    "en": "Official `tools/list` tools: **52**.",
+    "zh-CN": "`tools/list` 正式工具：**52**。"
   },
   "Optional deduplication key, at most 50 bytes. Reuse with identical destination, format and content on retries; Feishu deduplicates for one hour. 可选去重键，最多 50 字节。重试须保持相同目标、格式、内容与键；飞书在一小时内去重。": {
     "en": "Optional deduplication key, at most 50 bytes. Reuse with identical destination, format and content on retries; Feishu deduplicates for one hour.",

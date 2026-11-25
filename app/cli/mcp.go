@@ -139,6 +139,8 @@ func (h *mcpHandler) handle(ctx context.Context, name string, args json.RawMessa
 		return h.updateSchedule(ctx, args)
 	case "amux.schedule_set_enabled":
 		return h.setScheduleEnabled(ctx, args)
+	case "amux.schedule_trigger":
+		return h.triggerSchedule(ctx, args)
 	case "amux.instance_spawn":
 		return h.spawnAgent(ctx, args)
 	case "amux.instance_send":
@@ -407,6 +409,7 @@ const mcpProfileListPageSize = 10
 type mcpCreateScheduleArgs struct {
 	Name         string                     `json:"name"`
 	Spec         string                     `json:"spec"`
+	Timezone     string                     `json:"timezone"`
 	ScheduleType string                     `json:"schedule_type"`
 	Session      string                     `json:"session"`
 	Prompt       string                     `json:"prompt"`
@@ -676,11 +679,21 @@ func amuxTools() []mcp.Tool {
 		panic("build scheduled task schema: " + err.Error())
 	}
 	scheduledTaskSchema := json.RawMessage(scheduledTaskSchemaBytes)
+	var updateTaskSchemaObj map[string]any
+	if err := json.Unmarshal(scheduledTaskSchemaBytes, &updateTaskSchemaObj); err != nil {
+		panic("parse scheduled task schema for update: " + err.Error())
+	}
+	delete(updateTaskSchemaObj, "required")
+	updateTaskSchemaBytes, err := json.Marshal(updateTaskSchemaObj)
+	if err != nil {
+		panic("marshal scheduled task update schema: " + err.Error())
+	}
 	createScheduleSchema := json.RawMessage(`{
   "type": "object",
   "properties": {
     "name": {"type": "string", "description": "Schedule 的可选显示名称"},
-    "spec": {"type": "string", "description": "时间规则：every <duration>、daily <HH:MM>、at <when> 或 cron <expr>"},
+    "spec": {"type": "string", "description": "时间规则：every <duration>（支持 d/w）、daily <HH:MM>、at <when>、in <duration>（相对一次性）或 cron <expr>（支持 @daily 等描述符）"},
+    "timezone": {"type": "string", "description": "可选 IANA 时区名称（例如 Asia/Shanghai）；省略时使用 Hub 本地时区"},
     "schedule_type": {"type": "string", "enum": ["subtask", "session-prompt"], "description": "subtask（默认）创建临时子 Task；session-prompt 到期向目标 Session Submit 提示词并唤醒 Agent"},
     "session": {"type": "string", "description": "schedule_type=session-prompt 时的目标 session-ref（与 CLI amux schedule create <session-ref> 相同：target/name、Session ID 或名称）；省略时回落到 AMUX_SESSION_ID"},
     "prompt": {"type": "string", "description": "schedule_type=session-prompt 时到期投递到目标 Session 的提示词"},
@@ -696,8 +709,11 @@ func amuxTools() []mcp.Tool {
   "properties": {
     "schedule_id": {"type": "integer"},
     "name": {"type": "string", "description": "Schedule 的新显示名称；省略时保持不变"},
-    "spec": {"type": "string", "description": "新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at"},
-    "task": ` + string(scheduledTaskSchema) + `
+    "spec": {"type": "string", "description": "新的时间规则（every <duration>、daily <HH:MM>、at <when>、in <duration> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at"},
+    "timezone": {"type": "string", "description": "新的 IANA 时区名称（例如 Asia/Shanghai，传空字符串回落 Hub 本地时区）；省略时保持不变"},
+    "prompt": {"type": "string", "description": "仅 session-prompt：更新到期投递到目标 Session 的提示词；省略时保持不变"},
+    "run_mode": {"type": "string", "enum": ["reuse-session", "new-session-per-run"], "description": "仅 session-prompt：更新执行模式（reuse-session 或 new-session-per-run）；省略时保持不变"},
+    "task": ` + string(updateTaskSchemaBytes) + `
   },
   "required": ["schedule_id"]
 }`)
@@ -925,8 +941,9 @@ func amuxTools() []mcp.Tool {
 		{Name: "amux.schedule_list", Description: "分页列出 Schedule；沿 next_cursor 读取至 has_more=false。", InputSchema: scheduleListSchema},
 		{Name: "amux.schedule_get", Description: "获取 Schedule；include_runs=true 时包含运行历史及 task_id。", InputSchema: getScheduleSchema},
 		{Name: "amux.schedule_delete", Description: "删除 Schedule；既有运行对应的 Task 结果仍可读取。", InputSchema: scheduleIDSchema},
-		{Name: "amux.schedule_update", Description: "原地更新 Schedule 的名称、时间规则或 Task；省略字段保持不变，不允许 escalate-to-main。", InputSchema: updateScheduleSchema},
+		{Name: "amux.schedule_update", Description: "原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。", InputSchema: updateScheduleSchema},
 		{Name: "amux.schedule_set_enabled", Description: "启用或停用 Schedule。", InputSchema: setScheduleEnabledSchema},
+		{Name: "amux.schedule_trigger", Description: "立即手动触发一次 Schedule（不影响其启停状态与下次计划触发时间）。", InputSchema: scheduleIDSchema},
 		{Name: "amux.instance_spawn", Description: "非阻塞创建持久 Agent Instance（后台实例），返回稳定的 agent_instance_id。适用于你判断需要较长时间执行或大量工具调用的任务；短问题直接回答，不要委派。prompt 要自包含：写清目标、约束、交付物，并要求后台 Agent 结束时给出一段简洁的、面向用户的结论（放在最终回复末尾，可用「结论：」开头），不要把工作过程当作结论。调用后简短告诉用户已在后台开始，并继续响应用户的新消息；记住 agent_instance_id 与任务的对应关系，但对用户用自然语言描述任务，不要展示原始 id。任务结束时系统会自动向你送达一条「后台任务完成」通知，无需轮询或反复调用 task_get。", InputSchema: spawnAgentSchema},
 		{Name: "amux.instance_send", Description: "向持久 Agent mailbox 入队消息但不唤醒，不启动新 turn。", InputSchema: sendMessageSchema},
 		{Name: "amux.instance_steer", Description: "向持久 Agent 正在执行的 turn 注入纠正或补充，不中断当前工作，适用于用户纠正或补充某个后台任务时。实例无可注入的 turn 时回落到 mailbox（delivery=mailbox），此时改用 instance_followup 继续该任务；mailbox 中的纠正会先送达，prompt 里不要重复。", InputSchema: steerAgentSchema},

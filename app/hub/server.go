@@ -22,6 +22,7 @@ import (
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/registry"
 	"github.com/amuxos/amux/internal/schedule"
+	"github.com/amuxos/amux/internal/sessionlaunch"
 	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/amuxos/amux/internal/tunnel"
@@ -41,6 +42,8 @@ type hubServer struct {
 	consoleManagementControllers map[string]consoleManagementController
 	feishuMessageSenders         []feishuMessageSender
 	schedule                     *schedule.Store
+	schedulerNotify              func()
+	scheduleTrigger              func(context.Context, int64) (schedule.Execution, string, error)
 	scheduleRuntime              taskRouterHub
 	scheduleTasks                *bridgeSubtaskReader
 	creds                        task.CredentialProvider
@@ -1295,7 +1298,7 @@ func routeUnary[Req any, Resp any](s *hubServer, ctx context.Context, targetID, 
 
 // ── Schedule RPCs (hub-local; not routed to a runtime) ───────────────────────
 
-func scheduleItemFromTask(t schedule.Task, runs []schedule.Run) *pb.ScheduleItem {
+func scheduleItemFromTask(t schedule.Task, runs []schedule.Execution) *pb.ScheduleItem {
 	scheduleType := t.ScheduleType
 	if scheduleType == "" {
 		scheduleType = schedule.ScheduleTypeSessionPrompt
@@ -1309,6 +1312,8 @@ func scheduleItemFromTask(t schedule.Task, runs []schedule.Run) *pb.ScheduleItem
 		SessionName:  t.SessionName,
 		Spec:         t.Spec,
 		Kind:         t.Kind,
+		Timezone:     t.Timezone,
+		State:        t.LifecycleState(),
 		RunMode:      t.RunMode,
 		Prompt:       t.Prompt,
 		TaskSpecJson: append([]byte(nil), t.TaskSpecJson...),
@@ -1324,12 +1329,24 @@ func scheduleItemFromTask(t schedule.Task, runs []schedule.Run) *pb.ScheduleItem
 	if len(runs) > 0 {
 		item.Runs = make([]*pb.ScheduleRun, 0, len(runs))
 		for _, r := range runs {
+			firedAt := r.SubmittedAt
+			if firedAt == 0 {
+				firedAt = r.ScheduledAt
+			}
 			item.Runs = append(item.Runs, &pb.ScheduleRun{
-				Id:         r.ID,
-				ScheduleId: r.ScheduleID,
-				FiredAt:    r.FiredAt,
-				TaskId:     r.TaskID,
-				Status:     r.Status,
+				Id:            r.ID,
+				ScheduleId:    r.ScheduleID,
+				FiredAt:       firedAt,
+				TaskId:        r.TaskID,
+				Status:        r.Status,
+				ScheduledAt:   r.ScheduledAt,
+				StartedAt:     r.StartedAt,
+				FinishedAt:    r.FinishedAt,
+				SessionName:   r.SessionName,
+				TurnId:        r.TurnID,
+				Reason:        r.Reason,
+				ResultSummary: r.Result,
+				TriggerSource: r.TriggerSource,
 			})
 		}
 	}
@@ -1612,6 +1629,116 @@ func (s *hubServer) authorizeScheduledSessionPrompt(_ context.Context, row sched
 	return fmt.Errorf("session authorization: %w", decision.Err)
 }
 
+// stripScheduledSessionClonedArgs removes runtime-injected amux MCP flags
+// copied from a template session so the freshly created session receives its
+// own session ID, actor token, and MCP config instead of inheriting the
+// template's credentials.
+func stripScheduledSessionClonedArgs(args []string) []string {
+	if len(args) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := strings.TrimSpace(args[i])
+		if arg == "--mcp-config" {
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, "--mcp-config=") {
+			continue
+		}
+		if (arg == "-c" || arg == "--config") && i+1 < len(args) && strings.Contains(args[i+1], "mcp_servers.amux.") {
+			i++
+			continue
+		}
+		if strings.Contains(arg, "mcp_servers.amux.") {
+			continue
+		}
+		out = append(out, args[i])
+	}
+	return out
+}
+
+func stripScheduledSessionClonedEnv(env []string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(env))
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "AMUX_SESSION_ID=") ||
+			strings.HasPrefix(entry, "AMUX_ACTOR_TOKEN=") ||
+			strings.HasPrefix(entry, "AMUX_ACTOR_TOKEN_FILE=") ||
+			strings.HasPrefix(entry, "AMUX_MEMORY_BINDING=") {
+			continue
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+// prepareScheduledNewSession populates control-plane execution identity,
+// actor token, and resolved profile spec when run_mode=new-session-per-run
+// creates a fresh session from a template session.
+func (s *hubServer) prepareScheduledNewSession(_ context.Context, _ schedule.Task, template *pb.Session, req *sessionlaunch.StartRequest) error {
+	if template == nil || req == nil {
+		return nil
+	}
+	req.Launch.ExtraArgs = stripScheduledSessionClonedArgs(req.Launch.ExtraArgs)
+	req.Launch.Env = stripScheduledSessionClonedEnv(req.Launch.Env)
+	if ref := strings.TrimSpace(template.AgentProfile); ref != "" && req.Launch.ProfileSpec == nil {
+		resolve := s.resolveAgentProfile
+		if resolve == nil {
+			resolve = func(r string) (agentprofile.Profile, error) {
+				return agentprofile.ResolveProfile(agentprofile.DefaultPackRegistryPath(), r)
+			}
+		}
+		if profile, err := resolve(ref); err == nil {
+			// Populate runtime type and model from the template session so v2
+			// portable profiles (whose Type/Model are intentionally blank until
+			// projected) materialize cleanly without duplicating native args.
+			if strings.TrimSpace(profile.Type) == "" {
+				profile.Type = strings.TrimSpace(template.AgentType)
+			}
+			if strings.TrimSpace(profile.ExecutionRuntimeRef) == "" {
+				profile.ExecutionRuntimeRef = strings.TrimSpace(template.AgentType)
+			}
+			if strings.TrimSpace(profile.Model) == "" {
+				profile.Model = strings.TrimSpace(template.EffectiveModel)
+				if profile.Model == "" {
+					profile.Model, _ = agentprofile.AgentArgsModel(template.AgentType, req.Launch.ExtraArgs)
+				}
+			}
+			req.Launch.AgentProfile = profile.PinnedRef()
+			req.Launch.ProfileSpec = agentprofile.ToPBProfileSpec(profile)
+		}
+	}
+	if s.principals == nil {
+		return nil
+	}
+	identity := principal.FromProtoIdentity(template.GetExecutionIdentity())
+	if !identity.Identified() {
+		return nil
+	}
+	refreshed, err := s.principals.RefreshScheduledExecution(identity, "scheduled-session:"+uuid.NewString())
+	if err != nil {
+		return fmt.Errorf("refresh scheduled session identity: %w", err)
+	}
+	// Under Linux DAC isolation, template.Cwd points inside the principal's
+	// mode-0700 isolated directory, which the runtime service user cannot read
+	// to stage as a host source tree. Clear Cwd so the runtime allocates a fresh
+	// isolated workspace for this run under the same principal.
+	if identity.IsolationBackend == principal.BackendLinuxDAC || refreshed.IsolationBackend == principal.BackendLinuxDAC {
+		req.Workspace.Cwd = ""
+	}
+	launchID := "launch-" + uuid.NewString()
+	token, expiresAt := s.issueAgentActorToken(refreshed, sessionAgentCredentialSubject(req.TargetID, req.Name))
+	req.ExecutionIdentity = principal.ToProtoIdentity(refreshed)
+	req.LaunchID = launchID
+	req.AgentActorToken = token
+	req.AgentActorTokenExpiresAt = expiresAt
+	return nil
+}
+
 // authorizeScheduleAccess resolves the schedule and refuses callers other than
 // its owner. It reports NotFound before PermissionDenied so a missing schedule
 // never reads as someone else's. The ownership refusal applies only while fleet
@@ -1640,6 +1767,12 @@ func (s *hubServer) authorizeScheduleAccess(ctx context.Context, store *schedule
 	return row, nil
 }
 
+func (s *hubServer) notifyScheduler() {
+	if s != nil && s.schedulerNotify != nil {
+		s.schedulerNotify()
+	}
+}
+
 func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRequest) (*pb.CreateScheduleResponse, error) {
 	store, err := s.requireSchedule()
 	if err != nil {
@@ -1649,11 +1782,16 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	spec, err := schedule.ParseSpec(req.Spec)
+	loc, tzName, err := schedule.ParseLocation(req.Timezone)
 	if err != nil {
 		return &pb.CreateScheduleResponse{Error: err.Error()}, nil
 	}
-	next, err := schedule.FirstRun(spec, time.Now())
+	now := time.Now()
+	spec, err := schedule.ParseSpecInLocation(req.Spec, loc, now)
+	if err != nil {
+		return &pb.CreateScheduleResponse{Error: err.Error()}, nil
+	}
+	next, err := schedule.FirstRun(spec, now)
 	if err != nil {
 		return &pb.CreateScheduleResponse{Error: err.Error()}, nil
 	}
@@ -1666,6 +1804,7 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 		ScheduleType:     scheduleType,
 		Spec:             spec.Raw,
 		Kind:             spec.Kind,
+		Timezone:         tzName,
 		Enabled:          true,
 		NextRunAt:        next,
 		CreatedBy:        req.CreatedBy,
@@ -1727,6 +1866,7 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 	if t.NextRunAt != nil {
 		resp.NextRunAt = *t.NextRunAt
 	}
+	s.notifyScheduler()
 	return resp, nil
 }
 
@@ -1769,9 +1909,9 @@ func (s *hubServer) GetSchedule(ctx context.Context, req *pb.GetScheduleRequest)
 	if err != nil {
 		return nil, err
 	}
-	var runs []schedule.Run
+	var runs []schedule.Execution
 	if req.IncludeRuns {
-		runs, err = store.ListRuns(req.Id, schedule.DefaultRunHistoryLimit)
+		runs, err = store.RichRuns(req.Id, schedule.DefaultRunHistoryLimit)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "%v", err)
 		}
@@ -1799,14 +1939,59 @@ func (s *hubServer) SetScheduleEnabled(ctx context.Context, req *pb.SetScheduleE
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.authorizeScheduleAccess(ctx, store, req.Id); err != nil {
+	row, err := s.authorizeScheduleAccess(ctx, store, req.Id)
+	if err != nil {
 		return nil, err
 	}
-	ok, err := store.SetEnabled(req.Id, req.Enabled)
+	ok, err := s.setScheduleEnabledRow(store, row, req.Enabled, time.Now())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "%v", err)
+		return nil, err
 	}
 	return &pb.SetScheduleEnabledResponse{Ok: ok}, nil
+}
+
+// setScheduleEnabledRow toggles enabled and recomputes next_run_at when
+// re-enabling a schedule whose saved next_run_at is stale or unset, so paused
+// recurring schedules never misfire immediately upon resume.
+func (s *hubServer) setScheduleEnabledRow(store *schedule.Store, row schedule.Task, enabled bool, now time.Time) (bool, error) {
+	if !enabled {
+		ok, err := store.SetEnabled(row.ID, false)
+		if err != nil {
+			return false, status.Errorf(codes.Internal, "%v", err)
+		}
+		return ok, nil
+	}
+	if row.NextRunAt != nil && *row.NextRunAt > now.Unix() {
+		if row.Enabled {
+			return true, nil
+		}
+		ok, err := store.SetEnabled(row.ID, true)
+		if err != nil {
+			return false, status.Errorf(codes.Internal, "%v", err)
+		}
+		return ok, nil
+	}
+	loc, _, err := schedule.ParseLocation(row.Timezone)
+	if err != nil {
+		return false, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	spec, err := schedule.ParseSpecInLocation(row.Spec, loc, now)
+	if err != nil {
+		return false, status.Errorf(codes.InvalidArgument, "parse schedule spec: %v", err)
+	}
+	next, err := schedule.FirstRun(spec, now)
+	if err != nil {
+		return false, status.Errorf(codes.FailedPrecondition,
+			"cannot enable expired schedule #%d (%s): update the spec to a future time first", row.ID, row.Spec)
+	}
+	ok, err := store.SetEnabledWithNextRun(row.ID, true, next)
+	if err != nil {
+		return false, status.Errorf(codes.Internal, "%v", err)
+	}
+	if ok {
+		s.notifyScheduler()
+	}
+	return ok, nil
 }
 
 func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRequest) (*pb.UpdateScheduleResponse, error) {
@@ -1826,14 +2011,35 @@ func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRe
 	if req.Name != nil {
 		row.Name = *req.Name
 	}
-	if req.Spec != nil {
-		spec, err := schedule.ParseSpec(*req.Spec)
+	if req.Timezone != nil {
+		_, tzName, err := schedule.ParseLocation(*req.Timezone)
 		if err != nil {
 			return &pb.UpdateScheduleResponse{Error: err.Error()}, nil
 		}
-		next, err := schedule.FirstRun(spec, time.Now())
+		row.Timezone = tzName
+	}
+	if req.Spec != nil || req.Timezone != nil {
+		loc, _, err := schedule.ParseLocation(row.Timezone)
 		if err != nil {
 			return &pb.UpdateScheduleResponse{Error: err.Error()}, nil
+		}
+		rawSpec := row.Spec
+		if req.Spec != nil {
+			rawSpec = *req.Spec
+		}
+		now := time.Now()
+		spec, err := schedule.ParseSpecInLocation(rawSpec, loc, now)
+		if err != nil {
+			return &pb.UpdateScheduleResponse{Error: err.Error()}, nil
+		}
+		next, err := schedule.FirstRun(spec, now)
+		if err != nil {
+			// If only timezone changed on an already-consumed one-shot, allow it
+			// without forcing a future occurrence.
+			if req.Spec != nil {
+				return &pb.UpdateScheduleResponse{Error: err.Error()}, nil
+			}
+			next = nil
 		}
 		row.Spec = spec.Raw
 		row.Kind = spec.Kind
@@ -1878,5 +2084,44 @@ func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRe
 		}
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
+	if scheduleType == schedule.ScheduleTypeSubtask && len(req.TaskSpecJson) > 0 {
+		var spec task.Spec
+		if json.Unmarshal(updated.TaskSpecJson, &spec) == nil && spec.ExecutionIdentity != nil {
+			if encoded, mErr := json.Marshal(*spec.ExecutionIdentity); mErr == nil {
+				_ = store.UpdateCreatorAccessIdentity(updated.ID, string(encoded))
+			}
+		}
+	}
+	s.notifyScheduler()
 	return &pb.UpdateScheduleResponse{Schedule: scheduleItemFromTask(updated, nil)}, nil
+}
+
+func (s *hubServer) TriggerSchedule(ctx context.Context, req *pb.TriggerScheduleRequest) (*pb.TriggerScheduleResponse, error) {
+	store, err := s.requireSchedule()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.authorizeScheduleAccess(ctx, store, req.Id); err != nil {
+		return nil, err
+	}
+	if s.scheduleTrigger == nil {
+		return nil, status.Errorf(codes.Unavailable, "scheduler trigger not available")
+	}
+	exec, rawStatus, err := s.scheduleTrigger(ctx, req.Id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, status.Errorf(codes.NotFound, "schedule %d not found", req.Id)
+		}
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
+	resp := &pb.TriggerScheduleResponse{
+		Ok:          !strings.HasPrefix(rawStatus, "error:") && rawStatus != "missed" && rawStatus != "skipped:offline",
+		ExecutionId: exec.ID,
+		TaskId:      exec.TaskID,
+		Status:      rawStatus,
+	}
+	if !resp.Ok {
+		resp.Error = rawStatus
+	}
+	return resp, nil
 }

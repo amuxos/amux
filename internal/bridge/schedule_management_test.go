@@ -255,7 +255,7 @@ func TestScheduleForwardedCallbacksDoNotExposeOrChangeAnotherCreator(t *testing.
 		}
 		return "private-bob", "", nil
 	}
-	for _, op := range []string{"detail", "result", "pause", "resume", "off", "on", "ack", "snooze", "recheck"} {
+	for _, op := range []string{"detail", "result", "pause", "resume", "off", "on", "ack", "snooze", "recheck", "trigger"} {
 		response, handled, err := b.handleManagementCardAction(context.Background(), &callback.CardActionTriggerEvent{Event: &callback.CardActionTriggerRequest{Operator: &callback.Operator{OpenID: "bob"}, Context: &callback.Context{OpenMessageID: "forwarded"}, Action: &callback.CallBackAction{Value: map[string]interface{}{managementActionKey: "schedule." + op, "schedule_id": fmt.Sprint(row.ID)}}}})
 		if err != nil || !handled || response.Toast.Type != "error" {
 			t.Fatalf("%s not refused", op)
@@ -409,7 +409,7 @@ func TestScheduleAdministratorGetsAggregatedStatusWithoutCreatorAuthority(t *tes
 			t.Fatalf("non-admin action allowed: %s", action)
 		}
 	}
-	for _, action := range []string{"detail", "result", "pause", "resume", "alert_pause", "alert_result", "alert_off"} {
+	for _, action := range []string{"detail", "result", "pause", "resume", "trigger", "alert_pause", "alert_result", "alert_off"} {
 		resp, _, err := b.handleManagementCardAction(context.Background(), callbackFor("administrator", action))
 		if err != nil || resp.Toast.Type != "error" {
 			t.Fatalf("admin acquired task authority: %s", action)
@@ -433,5 +433,22 @@ func TestScheduleAdministratorGetsAggregatedStatusWithoutCreatorAuthority(t *tes
 	resp, _, err := b.handleManagementCardAction(context.Background(), callbackFor("administrator", "alert_recheck"))
 	if err != nil || resp.Toast.Type != "error" {
 		t.Fatal("old administrator retained access")
+	}
+}
+
+func TestScheduleCompletedFilterSeparatesFromPaused(t *testing.T) {
+	now := int64(1700000000)
+	entries := []schedule.Entry{
+		{Task: schedule.Task{ID: 1, Name: "active-job", Kind: schedule.KindDaily, Enabled: true}},
+		{Task: schedule.Task{ID: 2, Name: "paused-job", Kind: schedule.KindDaily, Enabled: false}},
+		{Task: schedule.Task{ID: 3, Name: "done-once", Kind: schedule.KindOnce, Enabled: false, LastRunAt: &now}},
+	}
+	pausedCard := selectManagementCardLocale(renderSchedules(entries, "paused", 0), i18n.English)
+	if !strings.Contains(pausedCard, "paused-job") || strings.Contains(pausedCard, "done-once") {
+		t.Fatalf("paused filter mixed completed one-shot: %s", pausedCard)
+	}
+	completedCard := selectManagementCardLocale(renderSchedules(entries, "completed", 0), i18n.English)
+	if !strings.Contains(completedCard, "done-once") || strings.Contains(completedCard, "paused-job") {
+		t.Fatalf("completed filter wrong: %s", completedCard)
 	}
 }

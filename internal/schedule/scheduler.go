@@ -27,12 +27,13 @@ const tickInterval = 20 * time.Second
 const submitTimeout = 60 * time.Second
 
 const (
-	subtaskSubmitTimeout = 30 * time.Second
-	subtaskSubmitWorkers = 8
-	promptDeliverWorkers = 8
-	observeWorkers       = 4
-	observeMaxAge        = 24 * time.Hour
-	observeMaxBackoff    = 15 * time.Minute
+	subtaskSubmitTimeout                      = 30 * time.Second
+	subtaskSubmitWorkers                      = 8
+	promptDeliverWorkers                      = 8
+	observeWorkers                            = 4
+	observeMaxAge                             = 24 * time.Hour
+	observeMaxBackoff                         = 15 * time.Minute
+	defaultScheduledSessionIdleTimeoutSeconds = int64(30 * time.Minute / time.Second)
 )
 
 // ErrObservationPermanent marks an observation failure that can never recover
@@ -58,19 +59,25 @@ type TaskSubmitter interface {
 // enforces that the injected decision runs on every delivery path.
 type SessionPromptAuthorizer func(ctx context.Context, task Task, session *pb.Session) error
 
+// NewSessionLaunchPreparer enriches a new-session-per-run launch request with
+// control-plane execution identity, actor token, and resolved profile spec
+// derived from the authorized template session.
+type NewSessionLaunchPreparer func(ctx context.Context, task Task, template *pb.Session, req *sessionlaunch.StartRequest) error
+
 // Scheduler runs due tasks on a background tick, injecting prompts into
 // sessions via the hub.
 type Scheduler struct {
-	sub            Submitter
-	sessionStarter sessionlaunch.Starter
-	store          *Store
-	taskSubmit     TaskSubmitter
-	authorize      SessionPromptAuthorizer
-	subtaskSem     chan struct{}
-	promptSem      chan struct{}
-	wakeCh         chan struct{}
-	deferred       atomic.Bool
-	observer       OutcomeReader
+	sub               Submitter
+	sessionStarter    sessionlaunch.Starter
+	store             *Store
+	taskSubmit        TaskSubmitter
+	authorize         SessionPromptAuthorizer
+	prepareNewSession NewSessionLaunchPreparer
+	subtaskSem        chan struct{}
+	promptSem         chan struct{}
+	wakeCh            chan struct{}
+	deferred          atomic.Bool
+	observer          OutcomeReader
 
 	inFlightMu sync.Mutex
 	inFlight   map[int64]struct{}
@@ -96,10 +103,73 @@ func (s *Scheduler) SetSessionPromptAuthorizer(authorize SessionPromptAuthorizer
 	s.authorize = authorize
 }
 
+// SetNewSessionLaunchPreparer installs the control-plane callback that prepares
+// identity, actor tokens, and resolved profile specs for new-session-per-run.
+func (s *Scheduler) SetNewSessionLaunchPreparer(prepare NewSessionLaunchPreparer) {
+	s.prepareNewSession = prepare
+}
+
 // Wait blocks until all in-flight asynchronous schedule deliveries, subtask
 // submissions, and observer routines have completed.
 func (s *Scheduler) Wait() {
 	s.wg.Wait()
+}
+
+// TriggerNow executes one immediate manual run for schedule `id` without
+// modifying its enabled state or next_run_at cadence.
+func (s *Scheduler) TriggerNow(ctx context.Context, id int64) (Execution, string, error) {
+	t, err := s.store.Get(id)
+	if err != nil {
+		return Execution{}, "", err
+	}
+	scheduleType, err := NormalizeScheduleType(t.ScheduleType)
+	if err != nil {
+		return Execution{}, "", err
+	}
+	now := time.Now()
+	run, err := s.store.JournalManualTrigger(t, now)
+	if err != nil {
+		return Execution{}, "", err
+	}
+	s.beginInFlight(run.ID)
+	defer s.endInFlight(run.ID)
+
+	if scheduleType == ScheduleTypeSubtask {
+		if s.taskSubmit == nil {
+			status := "error: scheduled subtask submitter unavailable"
+			run.Status = "missed"
+			run.Reason = "not_dispatched"
+			run.Terminal = true
+			s.recordTrackedSubtask(run, "", status)
+			return run, status, nil
+		}
+		submitCtx, cancel := context.WithTimeout(ctx, subtaskSubmitTimeout)
+		defer cancel()
+		taskID, submitErr := s.taskSubmit.SubmitScheduledTask(submitCtx, t.TaskSpecJson)
+		status := ""
+		if submitErr != nil {
+			markAdmissionError(&run, submitErr)
+			status = "error: " + submitErr.Error()
+			taskID = ""
+		} else if taskID == "" {
+			status = "error: empty task id"
+		} else {
+			status = "ok:task:" + taskID
+		}
+		s.recordTrackedSubtask(run, taskID, status)
+		run.TaskID = taskID
+		finishAdmission(&run, status, time.Now())
+		return run, status, nil
+	}
+
+	status := s.deliver(context.WithValue(ctx, executionKey{}, &run), t, now)
+	_, _ = s.store.UpdateLastStatusIfRun(t.ID, now.Unix(), status)
+	_ = s.store.RecordScheduleRun(t.ID, now.Unix(), "", status)
+	finishAdmission(&run, status, now)
+	if err := s.store.Observe(run, now); err != nil {
+		log.Warn().Err(err).Msg("scheduler: persist manual prompt observation")
+	}
+	return run, status, nil
 }
 
 func (s *Scheduler) beginInFlight(execID int64) {
@@ -124,8 +194,10 @@ func (s *Scheduler) isInFlight(execID int64) bool {
 	return ok
 }
 
-func (s *Scheduler) notifyIfDeferred() {
-	if !s.deferred.Swap(false) {
+// Notify wakes the scheduler loop immediately to re-evaluate the earliest due
+// schedule after a create, update, or enable mutation.
+func (s *Scheduler) Notify() {
+	if s == nil || s.wakeCh == nil {
 		return
 	}
 	select {
@@ -134,25 +206,68 @@ func (s *Scheduler) notifyIfDeferred() {
 	}
 }
 
-// Start runs the tick loop until ctx is cancelled, then waits for all in-flight
-// workers and the observer loop to finish before returning.
+func (s *Scheduler) notifyIfDeferred() {
+	if !s.deferred.Swap(false) {
+		return
+	}
+	s.Notify()
+}
+
+func (s *Scheduler) nextWait(now time.Time) time.Duration {
+	if s.store == nil {
+		return tickInterval
+	}
+	earliest, err := s.store.EarliestNextRun()
+	if err != nil || earliest == nil {
+		return tickInterval
+	}
+	wait := time.Until(time.Unix(*earliest, 0))
+	if !now.IsZero() {
+		wait = time.Unix(*earliest, 0).Sub(now)
+	}
+	if wait <= 0 {
+		// Guard against tight spin when due tasks are deferred waiting for busy workers.
+		if s.deferred.Load() {
+			return 250 * time.Millisecond
+		}
+		return 0
+	}
+	if wait > tickInterval {
+		return tickInterval
+	}
+	return wait
+}
+
+// Start runs the event-driven schedule loop until ctx is cancelled, then waits
+// for all in-flight workers and the observer loop to finish before returning.
 func (s *Scheduler) Start(ctx context.Context) {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
 		s.runObserver(ctx)
 	}()
-	ticker := time.NewTicker(tickInterval)
-	defer ticker.Stop()
+	timer := time.NewTimer(s.nextWait(time.Now()))
+	defer timer.Stop()
+	resetTimer := func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timer.Reset(s.nextWait(time.Now()))
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			s.wg.Wait()
 			return
-		case <-ticker.C:
+		case <-timer.C:
 			s.runDue(ctx, time.Now())
+			resetTimer()
 		case <-s.wakeCh:
 			s.runDue(ctx, time.Now())
+			resetTimer()
 		}
 	}
 }
@@ -173,7 +288,13 @@ func (s *Scheduler) runDue(ctx context.Context, now time.Time) {
 // fire attempts to deliver one task and records the outcome, advancing or
 // clearing its next run time.
 func (s *Scheduler) fire(ctx context.Context, t Task, now time.Time) {
-	spec, err := ParseSpec(t.Spec)
+	loc, _, err := ParseLocation(t.Timezone)
+	if err != nil {
+		log.Error().Err(err).Int64("id", t.ID).Str("timezone", t.Timezone).Msg("scheduler: invalid timezone, disabling")
+		_, _ = s.store.SetEnabled(t.ID, false)
+		return
+	}
+	spec, err := ParseSpecInLocation(t.Spec, loc, now)
 	if err != nil {
 		// A spec that no longer parses (e.g. corrupted row): disable it so we
 		// do not spin on it every tick.
@@ -204,7 +325,11 @@ func (s *Scheduler) fire(ctx context.Context, t Task, now time.Time) {
 
 	var next *int64
 	if spec.Recurring() {
-		if at, ok := spec.Next(now); ok {
+		var scheduledAt time.Time
+		if t.NextRunAt != nil {
+			scheduledAt = time.Unix(*t.NextRunAt, 0)
+		}
+		if at, ok := spec.NextAfterScheduled(scheduledAt, now); ok {
 			next = unixPtr(at)
 		}
 	}
@@ -249,7 +374,11 @@ const (
 func (s *Scheduler) fireSubtask(ctx context.Context, t Task, spec Spec, now time.Time) {
 	var next *int64
 	if spec.Recurring() {
-		if nextAt, ok := spec.Next(now); ok {
+		var scheduledAt time.Time
+		if t.NextRunAt != nil {
+			scheduledAt = time.Unix(*t.NextRunAt, 0)
+		}
+		if nextAt, ok := spec.NextAfterScheduled(scheduledAt, now); ok {
 			next = unixPtr(nextAt)
 		}
 	}
@@ -404,23 +533,44 @@ func (s *Scheduler) deliverNewSessionPerRun(ctx context.Context, t Task, now tim
 			return "error: " + err.Error()
 		}
 	}
-	name := scheduledSessionName(t.ID, now)
+	var execID int64
+	if r, _ := ctx.Value(executionKey{}).(*Execution); r != nil {
+		execID = r.ID
+	}
+	name := scheduledSessionName(t.ID, execID, now)
 	runCtx, cancel := context.WithTimeout(ctx, submitTimeout)
 	defer cancel()
-	session, err := s.sessionStarter.Start(runCtx, sessionlaunch.StartRequest{
+	idleTimeout := template.IdleTimeoutSeconds
+	if idleTimeout <= 0 {
+		idleTimeout = defaultScheduledSessionIdleTimeoutSeconds
+	}
+	startReq := sessionlaunch.StartRequest{
 		TargetID: t.TargetID,
 		Name:     name,
 		Launch: agentprofile.LaunchProjection{
-			AgentType: template.AgentType,
-			ExtraArgs: append([]string(nil), template.ExtraArgs...),
-			Env:       append([]string(nil), template.Env...),
+			AgentProfile: template.AgentProfile,
+			AgentType:    template.AgentType,
+			ExtraArgs:    append([]string(nil), template.ExtraArgs...),
+			Env:          append([]string(nil), template.Env...),
 		},
 		Workspace: sessionlaunch.WorkspaceRequest{
 			Cwd:    template.Cwd,
 			Source: template.WorkspaceSource,
 			Scope:  template.WorkspaceScope,
 		},
-	})
+		IdleTimeoutSeconds: &idleTimeout,
+		ExecutionIdentity:  template.GetExecutionIdentity(),
+	}
+	if s.prepareNewSession != nil {
+		if err := s.prepareNewSession(runCtx, t, template, &startReq); err != nil {
+			log.Warn().Err(err).Int64("id", t.ID).Str("session", name).Msg("scheduler: prepare new session failed")
+			if r, _ := ctx.Value(executionKey{}).(*Execution); r != nil {
+				r.Reason = "admission_rejected"
+			}
+			return "error: prepare: " + err.Error()
+		}
+	}
+	session, err := s.sessionStarter.Start(runCtx, startReq)
 	if err != nil {
 		log.Warn().Err(err).Int64("id", t.ID).Str("session", name).Msg("scheduler: run failed")
 		return "error: run: " + err.Error()
@@ -463,8 +613,12 @@ func (s *Scheduler) findSession(targetID, sessionName string) *pb.Session {
 	return nil
 }
 
-func scheduledSessionName(taskID int64, now time.Time) string {
-	return fmt.Sprintf("sched-%d-%s", taskID, strings.ToLower(now.UTC().Format("20060102-150405")))
+func scheduledSessionName(taskID, execID int64, now time.Time) string {
+	stamp := strings.ToLower(now.UTC().Format("20060102-150405"))
+	if execID > 0 {
+		return fmt.Sprintf("sched-%d-%s-%d", taskID, stamp, execID)
+	}
+	return fmt.Sprintf("sched-%d-%s", taskID, stamp)
 }
 
 // liveState reports whether a session state can accept input. Killed sessions

@@ -690,6 +690,26 @@ func (r *taskRouter) GetSubtask(ctx context.Context, req *pb.GetSubtaskRequest) 
 	return out, nil
 }
 
+// getSubtaskForControlPlane reads a TaskRun from its runtime for in-process
+// Hub control-plane loops (such as schedule outcome reconciliation) that run
+// without a caller gRPC actor context. Callers that surface task data to users
+// must still enforce their own ownership checks.
+func (r *taskRouter) getSubtaskForControlPlane(ctx context.Context, id string) ([]byte, error) {
+	target, err := r.resolve(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	resp, rerr := r.hub.Route(ctx, target, pb.TaskMethodGet, &pb.GetSubtaskRequest{Id: id})
+	if rerr != nil {
+		return nil, status.Errorf(codes.Internal, "%v", rerr)
+	}
+	out := &pb.GetSubtaskResponse{}
+	if jerr := json.Unmarshal(resp.Payload, out); jerr != nil {
+		return nil, status.Errorf(codes.Internal, "decode: %v", jerr)
+	}
+	return out.TaskJson, nil
+}
+
 // ListSubtasks fans out to every connected runtime and merges their tasks,
 // repopulating the placement index from what it learns (a recovery path after an
 // amuxd restart dropped the in-memory index).
