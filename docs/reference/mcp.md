@@ -1002,7 +1002,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
       "type": "string"
     },
     "spec": {
-      "description": "Time rule: every \u003cduration\u003e, daily \u003cHH:MM\u003e, at \u003cwhen\u003e, or cron \u003cexpr\u003e",
+      "description": "Time rule: every \u003cduration\u003e (supports d/w), daily \u003cHH:MM\u003e, at \u003cwhen\u003e, in \u003cduration\u003e (relative one-shot), or cron \u003cexpr\u003e (supports @daily descriptors)",
       "type": "string"
     },
     "task": {
@@ -1108,6 +1108,10 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
         "task"
       ],
       "type": "object"
+    },
+    "timezone": {
+      "description": "Optional IANA timezone name (for example Asia/Shanghai); omitted uses Hub local time",
+      "type": "string"
     }
   },
   "required": [
@@ -1232,7 +1236,7 @@ Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial 
       "type": "integer"
     },
     "spec": {
-      "description": "New time rule (every \u003cduration\u003e, daily \u003cHH:MM\u003e, at \u003cwhen\u003e, or cron \u003cexpr\u003e); omitted means unchanged. Updates recompute next_run_at",
+      "description": "New time rule (every \u003cduration\u003e, daily \u003cHH:MM\u003e, at \u003cwhen\u003e, in \u003cduration\u003e, or cron \u003cexpr\u003e); omitted means unchanged. Updates recompute next_run_at",
       "type": "string"
     },
     "task": {
@@ -1334,6 +1338,10 @@ Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial 
         }
       },
       "type": "object"
+    },
+    "timezone": {
+      "description": "New IANA timezone name (for example Asia/Shanghai; empty string falls back to Hub local time); omitted means unchanged",
+      "type": "string"
     }
   },
   "required": [

@@ -85,6 +85,15 @@ func TestPrepareScheduledNewSessionRefreshesIdentityAndMintsToken(t *testing.T) 
 	if len(req.Launch.Env) != 1 || req.Launch.Env[0] != "PATH=/usr/bin" {
 		t.Fatalf("expected session-scoped AMUX_* env stripped while preserving PATH, got %v", req.Launch.Env)
 	}
+	if req.Workspace.Cwd != "" {
+		t.Fatalf("expected Linux DAC isolated template Cwd to be cleared, got %q", req.Workspace.Cwd)
+	}
+	if len(req.Launch.ExtraArgs) != 2 || req.Launch.ExtraArgs[0] != "--model" || req.Launch.ExtraArgs[1] != "Seed-2.1-Turbo" {
+		t.Fatalf("expected stale mcp_servers.amux.* args stripped while preserving --model, got %v", req.Launch.ExtraArgs)
+	}
+	if len(req.Launch.Env) != 1 || req.Launch.Env[0] != "PATH=/usr/bin" {
+		t.Fatalf("expected session-scoped AMUX_* env stripped while preserving PATH, got %v", req.Launch.Env)
+	}
 	// Disabling the principal must cause prepareScheduledNewSession to refuse launch.
 	if err := principals.Disable(alice.ID); err != nil {
 		t.Fatal(err)
@@ -169,5 +178,61 @@ func TestSetScheduleEnabledRecomputesStaleNextRunAndRejectsExpiredOnce(t *testin
 	_, err = srv.SetScheduleEnabled(context.Background(), &pb.SetScheduleEnabledRequest{Id: onceRow.ID, Enabled: true})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("expired one-shot enable err = %v (code %v), want FailedPrecondition", err, status.Code(err))
+	}
+}
+
+func TestScheduleCreateUpdateTimezoneAndRelativeInNotifiesScheduler(t *testing.T) {
+	store := newScheduleTestStore(t)
+	notified := 0
+	srv := &hubServer{schedule: store, schedulerNotify: func() { notified++ }}
+
+	// 1) Create relative "in 10m" schedule in Asia/Shanghai.
+	resp, err := srv.CreateSchedule(context.Background(), &pb.CreateScheduleRequest{
+		Name:        "rel-once",
+		TargetId:    "t1",
+		SessionName: "s1",
+		Prompt:      "ping",
+		Spec:        "in 10m",
+		Timezone:    "Asia/Shanghai",
+	})
+	if err != nil || resp.Error != "" || resp.Id == 0 {
+		t.Fatalf("CreateSchedule(in 10m) = %+v, %v", resp, err)
+	}
+	if notified != 1 {
+		t.Fatalf("schedulerNotify calls = %d, want 1", notified)
+	}
+	got, err := srv.GetSchedule(context.Background(), &pb.GetScheduleRequest{Id: resp.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Schedule.Timezone != "Asia/Shanghai" || got.Schedule.Kind != schedule.KindOnce {
+		t.Fatalf("saved schedule = %+v", got.Schedule)
+	}
+
+	// 2) Update timezone on a daily schedule recomputes next_run_at.
+	dailyResp, err := srv.CreateSchedule(context.Background(), &pb.CreateScheduleRequest{
+		Name:        "morning",
+		TargetId:    "t1",
+		SessionName: "s1",
+		Prompt:      "morning",
+		Spec:        "daily 09:00",
+		Timezone:    "UTC",
+	})
+	if err != nil || dailyResp.Error != "" {
+		t.Fatalf("CreateSchedule daily = %+v, %v", dailyResp, err)
+	}
+	newTZ := "Asia/Shanghai"
+	upd, err := srv.UpdateSchedule(context.Background(), &pb.UpdateScheduleRequest{
+		Id:       dailyResp.Id,
+		Timezone: &newTZ,
+	})
+	if err != nil || upd.Error != "" {
+		t.Fatalf("UpdateSchedule timezone = %+v, %v", upd, err)
+	}
+	if upd.Schedule.Timezone != "Asia/Shanghai" || upd.Schedule.NextRunAt == dailyResp.NextRunAt {
+		t.Fatalf("expected timezone update to recompute next_run_at: old=%d new=%+v", dailyResp.NextRunAt, upd.Schedule)
+	}
+	if notified != 3 {
+		t.Fatalf("schedulerNotify calls = %d, want 3", notified)
 	}
 }

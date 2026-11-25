@@ -1002,7 +1002,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "spec": {
-      "description": "时间规则：every \u003cduration\u003e、daily \u003cHH:MM\u003e、at \u003cwhen\u003e 或 cron \u003cexpr\u003e",
+      "description": "时间规则：every \u003cduration\u003e（支持 d/w）、daily \u003cHH:MM\u003e、at \u003cwhen\u003e、in \u003cduration\u003e（相对一次性）或 cron \u003cexpr\u003e（支持 @daily 等描述符）",
       "type": "string"
     },
     "task": {
@@ -1108,6 +1108,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
         "task"
       ],
       "type": "object"
+    },
+    "timezone": {
+      "description": "可选 IANA 时区名称（例如 Asia/Shanghai）；省略时使用 Hub 本地时区",
+      "type": "string"
     }
   },
   "required": [
@@ -1232,7 +1236,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "integer"
     },
     "spec": {
-      "description": "新的时间规则（every \u003cduration\u003e、daily \u003cHH:MM\u003e、at \u003cwhen\u003e 或 cron \u003cexpr\u003e）；省略时保持不变，修改后会重新计算 next_run_at",
+      "description": "新的时间规则（every \u003cduration\u003e、daily \u003cHH:MM\u003e、at \u003cwhen\u003e、in \u003cduration\u003e 或 cron \u003cexpr\u003e）；省略时保持不变，修改后会重新计算 next_run_at",
       "type": "string"
     },
     "task": {
@@ -1334,6 +1338,10 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
         }
       },
       "type": "object"
+    },
+    "timezone": {
+      "description": "新的 IANA 时区名称（例如 Asia/Shanghai，传空字符串回落 Hub 本地时区）；省略时保持不变",
+      "type": "string"
     }
   },
   "required": [

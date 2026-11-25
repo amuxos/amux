@@ -42,6 +42,7 @@ type hubServer struct {
 	consoleManagementControllers map[string]consoleManagementController
 	feishuMessageSenders         []feishuMessageSender
 	schedule                     *schedule.Store
+	schedulerNotify              func()
 	scheduleRuntime              taskRouterHub
 	scheduleTasks                *bridgeSubtaskReader
 	creds                        task.CredentialProvider
@@ -1310,6 +1311,7 @@ func scheduleItemFromTask(t schedule.Task, runs []schedule.Run) *pb.ScheduleItem
 		SessionName:  t.SessionName,
 		Spec:         t.Spec,
 		Kind:         t.Kind,
+		Timezone:     t.Timezone,
 		RunMode:      t.RunMode,
 		Prompt:       t.Prompt,
 		TaskSpecJson: append([]byte(nil), t.TaskSpecJson...),
@@ -1751,6 +1753,12 @@ func (s *hubServer) authorizeScheduleAccess(ctx context.Context, store *schedule
 	return row, nil
 }
 
+func (s *hubServer) notifyScheduler() {
+	if s != nil && s.schedulerNotify != nil {
+		s.schedulerNotify()
+	}
+}
+
 func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRequest) (*pb.CreateScheduleResponse, error) {
 	store, err := s.requireSchedule()
 	if err != nil {
@@ -1760,11 +1768,16 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	spec, err := schedule.ParseSpec(req.Spec)
+	loc, tzName, err := schedule.ParseLocation(req.Timezone)
 	if err != nil {
 		return &pb.CreateScheduleResponse{Error: err.Error()}, nil
 	}
-	next, err := schedule.FirstRun(spec, time.Now())
+	now := time.Now()
+	spec, err := schedule.ParseSpecInLocation(req.Spec, loc, now)
+	if err != nil {
+		return &pb.CreateScheduleResponse{Error: err.Error()}, nil
+	}
+	next, err := schedule.FirstRun(spec, now)
 	if err != nil {
 		return &pb.CreateScheduleResponse{Error: err.Error()}, nil
 	}
@@ -1777,6 +1790,7 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 		ScheduleType:     scheduleType,
 		Spec:             spec.Raw,
 		Kind:             spec.Kind,
+		Timezone:         tzName,
 		Enabled:          true,
 		NextRunAt:        next,
 		CreatedBy:        req.CreatedBy,
@@ -1838,6 +1852,7 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 	if t.NextRunAt != nil {
 		resp.NextRunAt = *t.NextRunAt
 	}
+	s.notifyScheduler()
 	return resp, nil
 }
 
@@ -1942,7 +1957,11 @@ func (s *hubServer) setScheduleEnabledRow(store *schedule.Store, row schedule.Ta
 		}
 		return ok, nil
 	}
-	spec, err := schedule.ParseSpec(row.Spec)
+	loc, _, err := schedule.ParseLocation(row.Timezone)
+	if err != nil {
+		return false, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	spec, err := schedule.ParseSpecInLocation(row.Spec, loc, now)
 	if err != nil {
 		return false, status.Errorf(codes.InvalidArgument, "parse schedule spec: %v", err)
 	}
@@ -1954,6 +1973,9 @@ func (s *hubServer) setScheduleEnabledRow(store *schedule.Store, row schedule.Ta
 	ok, err := store.SetEnabledWithNextRun(row.ID, true, next)
 	if err != nil {
 		return false, status.Errorf(codes.Internal, "%v", err)
+	}
+	if ok {
+		s.notifyScheduler()
 	}
 	return ok, nil
 }
@@ -1975,14 +1997,35 @@ func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRe
 	if req.Name != nil {
 		row.Name = *req.Name
 	}
-	if req.Spec != nil {
-		spec, err := schedule.ParseSpec(*req.Spec)
+	if req.Timezone != nil {
+		_, tzName, err := schedule.ParseLocation(*req.Timezone)
 		if err != nil {
 			return &pb.UpdateScheduleResponse{Error: err.Error()}, nil
 		}
-		next, err := schedule.FirstRun(spec, time.Now())
+		row.Timezone = tzName
+	}
+	if req.Spec != nil || req.Timezone != nil {
+		loc, _, err := schedule.ParseLocation(row.Timezone)
 		if err != nil {
 			return &pb.UpdateScheduleResponse{Error: err.Error()}, nil
+		}
+		rawSpec := row.Spec
+		if req.Spec != nil {
+			rawSpec = *req.Spec
+		}
+		now := time.Now()
+		spec, err := schedule.ParseSpecInLocation(rawSpec, loc, now)
+		if err != nil {
+			return &pb.UpdateScheduleResponse{Error: err.Error()}, nil
+		}
+		next, err := schedule.FirstRun(spec, now)
+		if err != nil {
+			// If only timezone changed on an already-consumed one-shot, allow it
+			// without forcing a future occurrence.
+			if req.Spec != nil {
+				return &pb.UpdateScheduleResponse{Error: err.Error()}, nil
+			}
+			next = nil
 		}
 		row.Spec = spec.Raw
 		row.Kind = spec.Kind
@@ -2035,5 +2078,6 @@ func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRe
 			}
 		}
 	}
+	s.notifyScheduler()
 	return &pb.UpdateScheduleResponse{Schedule: scheduleItemFromTask(updated, nil)}, nil
 }

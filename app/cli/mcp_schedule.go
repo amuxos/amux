@@ -73,17 +73,21 @@ func (h *mcpHandler) createSchedule(ctx context.Context, args json.RawMessage) (
 	case schedule.ScheduleTypeSessionPrompt:
 		result, err = createMCPSessionPromptSchedule(ctx, client, a, sessionRef)
 	default:
-		result, err = clientop.ScheduleCreateTask(ctx, client, clientop.ScheduleCreateTaskRequest{Spec: a.Spec, Name: a.Name, CreatedBy: "mcp", Task: a.Task})
+		result, err = clientop.ScheduleCreateTask(ctx, client, clientop.ScheduleCreateTaskRequest{Spec: a.Spec, Timezone: a.Timezone, Name: a.Name, CreatedBy: "mcp", Task: a.Task})
 	}
 	if err != nil {
 		return mcp.ErrorText(mcpScheduleCreateError(err)), nil
 	}
-	return mcp.Text(toJSON(map[string]any{
+	resp := map[string]any{
 		"schedule_id":     result.ID,
 		"next_run_at":     result.NextRunAt,
 		"next_run_at_iso": mcpScheduleTimeISO(result.NextRunAt),
 		"schedule_type":   scheduleType,
-	})), nil
+	}
+	if tz := strings.TrimSpace(a.Timezone); tz != "" {
+		resp["timezone"] = tz
+	}
+	return mcp.Text(toJSON(resp)), nil
 }
 
 // normalizeMCPScheduleType keeps the MCP default as subtask so existing callers
@@ -130,6 +134,7 @@ func createMCPSessionPromptSchedule(ctx context.Context, client pb.AmuxdClient, 
 	}
 	return clientop.ScheduleCreateSessionPrompt(ctx, client, clientop.ScheduleCreateSessionPromptRequest{
 		Spec:        a.Spec,
+		Timezone:    a.Timezone,
 		Name:        a.Name,
 		TargetID:    resolved.Target.ID,
 		TargetName:  resolved.Target.Name,
@@ -217,6 +222,9 @@ string]any {
 		return nil
 	}
 	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	if item.Timezone != "" {
+		view["timezone"] = item.Timezone
+	}
 	if item.NextRunAt > 0 {
 		view["next_run_at_iso"] = mcpScheduleTimeISO(item.NextRunAt)
 	}
@@ -245,6 +253,9 @@ string]any {
 		return nil
 	}
 	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	if item.Timezone != "" {
+		view["timezone"] = item.Timezone
+	}
 	if item.NextRunAt > 0 {
 		view["next_run_at_iso"] = mcpScheduleTimeISO(item.NextRunAt)
 	}
@@ -447,11 +458,12 @@ func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (
 		return mcp.ErrorText(err.Error()), nil
 	}
 	var a struct {
-		Name    *string         `json:"name"`
-		Spec    *string         `json:"spec"`
-		Prompt  *string         `json:"prompt"`
-		RunMode *string         `json:"run_mode"`
-		Task    json.RawMessage `json:"task"`
+		Name     *string         `json:"name"`
+		Spec     *string         `json:"spec"`
+		Timezone *string         `json:"timezone"`
+		Prompt   *string         `json:"prompt"`
+		RunMode  *string         `json:"run_mode"`
+		Task     json.RawMessage `json:"task"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return mcp.ErrorText("invalid arguments: " + err.Error()), nil
@@ -473,11 +485,12 @@ func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (
 	}
 	defer closeFn()
 	req := clientop.ScheduleUpdateRequest{
-		ID:      id,
-		Name:    a.Name,
-		Spec:    a.Spec,
-		Prompt:  a.Prompt,
-		RunMode: a.RunMode,
+		ID:       id,
+		Name:     a.Name,
+		Spec:     a.Spec,
+		Timezone: a.Timezone,
+		Prompt:   a.Prompt,
+		RunMode:  a.RunMode,
 	}
 	if trimmedTask := strings.TrimSpace(string(a.Task)); trimmedTask != "" && trimmedTask != "null" {
 		current, err := clientop.ScheduleGet(ctx, client, clientop.ScheduleIDRequest{ID: id})
@@ -505,13 +518,17 @@ func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (
 		}
 		return mcp.ErrorText(err.Error()), nil
 	}
-	return mcp.Text(toJSON(map[string]any{
+	resp := map[string]any{
 		"schedule_id":     out.ID,
 		"name":            out.Name,
 		"spec":            out.Spec,
 		"next_run_at":     out.NextRunAt,
 		"next_run_at_iso": mcpScheduleTimeISO(out.NextRunAt),
-	})), nil
+	}
+	if out.Timezone != "" {
+		resp["timezone"] = out.Timezone
+	}
+	return mcp.Text(toJSON(resp)), nil
 }
 func (h *mcpHandler) setScheduleEnabled(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
 	var a struct {

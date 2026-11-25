@@ -1674,13 +1674,14 @@
       }
       const p = Object.assign({}, item || {}, values || {});
       const task = Object.assign({}, item && item.task || {}, values ? { agent: values.task_agent, task: values.task_text, runtime: values.runtime, model: values.model, reasoning_effort: values.reasoning_effort } : {});
-      const fields = [formField('name', 'name', 'text', p.name || ''), formField('spec', 'spec', 'text', p.spec || '', { required: true, help: 'specHelp' })];
+      const fields = [formField('name', 'name', 'text', p.name || ''), formField('spec', 'spec', 'text', p.spec || '', { required: true, help: 'specHelp' }), formField('timezone', 'timezone', 'text', p.timezone || '', { help: 'timezoneHelp' })];
       if (!edit) fields.unshift(formField('schedule_type', 'scheduleType', 'text', p.schedule_type || 'subtask', { options: [{ value: 'subtask', label: t('subtask') }, { value: 'session-prompt', label: t('sessionPrompt') }] }));
       if (!edit) fields.push(e('div', { id: 'session-schedule-fields', class: 'form' }, formField('target_id', 'target', 'text', p.target_id || ''), formField('session_name', 'sessionName', 'text', p.session_name || ''), formField('prompt', 'prompt', 'textarea', p.prompt || ''), formField('run_mode', 'runMode', 'text', p.run_mode || 'reuse-session', { options: ['reuse-session', 'new-session-per-run'].map(value => ({ value, label: value })) })));
       if (edit && item.schedule_type !== 'subtask') fields.push(e('div', { id: 'session-schedule-fields', class: 'form' }, formField('prompt', 'prompt', 'textarea', p.prompt || '', { required: true }), formField('run_mode', 'runMode', 'text', p.run_mode || 'reuse-session', { options: ['reuse-session', 'new-session-per-run'].map(value => ({ value, label: value })) })));
       if (!edit || item.schedule_type === 'subtask') fields.push(e('div', { id: 'task-schedule-fields', class: 'form' }, taskFields(task)));
       formDialog(edit ? 'edit' : 'newSchedule', fields, async data => {
         const payload = { name: data.name, spec: data.spec };
+        if (data.timezone || (edit && item.timezone)) payload.timezone = data.timezone || '';
         if (edit) payload.schedule_id = scheduleID(item);
         else payload.schedule_type = data.schedule_type;
         if ((!edit && data.schedule_type === 'subtask') || edit && item.schedule_type === 'subtask') {

@@ -1498,10 +1498,11 @@ amuxd 向目标 Session 注入 Prompt（等同于用户输入），或
 （amuxd）中，因此必须配置 Hub 地址。
 
 时间规则格式：
-  every <duration>   例如 "every 30m"、"every 2h"（最短 1m）
-  daily <HH:MM>      例如 "daily 09:00"（服务器本地时间）
+  every <duration>   例如 "every 30m"、"every 2h"、"every 1d"（最短 1m）
+  daily <HH:MM>      例如 "daily 09:00"（按 --timezone 或服务端本地时区）
   at <when>          例如 "at 2026-06-01 09:00"（仅执行一次）
-  cron <expr>        例如 "cron 0 9 * * 1-5"（标准五字段）
+  in <duration>      例如 "in 10m"、"in 2h"（相对一次性触发）
+  cron <expr>        例如 "cron 0 9 * * 1-5" 或 "cron @daily"
 
 **用法**
 
@@ -1554,6 +1555,7 @@ amux schedule create local/c1 "every 30m" "/daily-report run"
 | `-h, --help` | `bool` | `false` | create 帮助 |
 | `--name` | `string` | `""` | Schedule 的可选标签 |
 | `--run-mode` | `string` | `reuse-session` | 执行模式：reuse-session 或 new-session-per-run |
+| `--timezone` | `string` | `""` | 可选的 IANA 时区（例如 Asia/Shanghai），用于解析定时规则 |
 
 ## `amux schedule create-task`
 
@@ -1569,7 +1571,7 @@ amux schedule create-task <spec> [flags]
 
 ```bash
 amux schedule create-task "every 1h" --agent team/reviewer --task "review recent changes"
-  amux schedule create-task "daily 09:00" --agent builtin/codex --task "run smoke tests" --workspace-policy git-worktree --local-dir /path/to/repo
+  amux schedule create-task "daily 09:00" --timezone Asia/Shanghai --agent builtin/codex --task "run smoke tests" --workspace-policy git-worktree --local-dir /path/to/repo
 ```
 
 **选项**
@@ -1595,6 +1597,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `--runtime` | `string` | `""` | 执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置 |
 | `--task` | `string` | `""` | 每次 Schedule 触发时执行的任务 Prompt |
 | `--timeout` | `int` | `0` | 任务超时秒数（0 = Runtime 默认值） |
+| `--timezone` | `string` | `""` | 可选的 IANA 时区（例如 Asia/Shanghai），用于解析定时规则 |
 | `--trusted-mode-ack` | `bool` | `true` | 旧版空操作：弱隔离下默认注入长期密钥（v0.38） |
 | `--workspace-policy` | `string` | `temp-dir` | 工作区策略：temp-dir \| git-worktree |
 
@@ -1692,7 +1695,7 @@ amux schedule update <id> [flags]
 
 ```bash
 amux schedule update 8 --name nightly-report
-  amux schedule update 8 --spec "daily 09:00"
+  amux schedule update 8 --spec "daily 09:00" --timezone Asia/Shanghai
   amux schedule update 8 --prompt "summarize blockers" --run-mode new-session-per-run
   amux schedule update 8 --agent builtin/codex --task "run smoke tests"
   amux schedule update 8 --timeout 600 --reasoning-effort high
@@ -1721,9 +1724,10 @@ amux schedule update 8 --name nightly-report
 | `--run-as` | `string` | `""` | 以已注册的 Principal 别名运行（保存 Schedule 时解析并冻结） |
 | `--run-mode` | `string` | `""` | session-prompt Schedule 的新执行模式：reuse-session 或 new-session-per-run |
 | `--runtime` | `string` | `""` | 执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置 |
-| `--spec` | `string` | `""` | 新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；重新计算下次运行时间 |
+| `--spec` | `string` | `""` | 新的时间规则（every <duration>、daily <HH:MM>、at <when>、in <duration> 或 cron <expr>）；重新计算下次运行时间 |
 | `--task` | `string` | `""` | 每次 Schedule 触发时执行的任务 Prompt |
 | `--timeout` | `int` | `0` | 任务超时秒数（0 = Runtime 默认值） |
+| `--timezone` | `string` | `""` | 新的 IANA 时区（留空则使用 Hub 本地时区） |
 | `--trusted-mode-ack` | `bool` | `true` | 旧版空操作：弱隔离下默认注入长期密钥（v0.38） |
 | `--workspace-policy` | `string` | `temp-dir` | 工作区策略：temp-dir \| git-worktree |
 

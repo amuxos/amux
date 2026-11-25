@@ -64,6 +64,7 @@ type Task struct {
 	Prompt       string
 	Spec         string
 	Kind         string
+	Timezone     string
 	RunMode      string
 	ScheduleType string
 	TaskSpecJson []byte
@@ -152,6 +153,7 @@ func (s *Store) migrate() error {
 			prompt         TEXT    NOT NULL,
 			spec           TEXT    NOT NULL,
 			kind           TEXT    NOT NULL,
+			timezone       TEXT    NOT NULL DEFAULT '',
 			run_mode       TEXT    NOT NULL DEFAULT 'reuse-session',
 			schedule_type  TEXT    NOT NULL DEFAULT 'session-prompt',
 			task_spec_json BLOB,
@@ -179,6 +181,9 @@ func (s *Store) migrate() error {
 	}
 	if err := s.addColumnIfMissing(`ALTER TABLE scheduled_tasks ADD COLUMN owner_principal_id TEXT NOT NULL DEFAULT ''`); err != nil {
 		return fmt.Errorf("schedule migrate owner: %w", err)
+	}
+	if err := s.addColumnIfMissing(`ALTER TABLE scheduled_tasks ADD COLUMN timezone TEXT NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("schedule migrate timezone: %w", err)
 	}
 	if _, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS schedule_runs (
@@ -220,9 +225,9 @@ func (s *Store) Create(t Task) (Task, error) {
 	}
 	res, err := s.db.Exec(`
 		INSERT INTO scheduled_tasks
-			(name, target_id, target_name, session_name, prompt, spec, kind, run_mode, schedule_type, task_spec_json, enabled, next_run_at, created_by, owner_principal_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, t.Name, t.TargetID, t.TargetName, t.SessionName, t.Prompt, t.Spec, t.Kind, runMode, scheduleType, t.TaskSpecJson,
+			(name, target_id, target_name, session_name, prompt, spec, kind, timezone, run_mode, schedule_type, task_spec_json, enabled, next_run_at, created_by, owner_principal_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, t.Name, t.TargetID, t.TargetName, t.SessionName, t.Prompt, t.Spec, t.Kind, strings.TrimSpace(t.Timezone), runMode, scheduleType, t.TaskSpecJson,
 		util.BoolInt(t.Enabled), t.NextRunAt, t.CreatedBy, t.OwnerPrincipalID)
 	if err != nil {
 		return Task{}, fmt.Errorf("schedule create: %w", err)
@@ -252,10 +257,10 @@ func (s *Store) Update(t Task) (Task, error) {
 	res, err := s.db.Exec(`
 		UPDATE scheduled_tasks SET
 			name = ?, target_id = ?, target_name = ?, session_name = ?, prompt = ?,
-			spec = ?, kind = ?, run_mode = ?, schedule_type = ?, task_spec_json = ?,
+			spec = ?, kind = ?, timezone = ?, run_mode = ?, schedule_type = ?, task_spec_json = ?,
 			next_run_at = ?, updated_at = strftime('%s','now')
 		WHERE id = ?
-	`, t.Name, t.TargetID, t.TargetName, t.SessionName, t.Prompt, t.Spec, t.Kind, runMode,
+	`, t.Name, t.TargetID, t.TargetName, t.SessionName, t.Prompt, t.Spec, t.Kind, strings.TrimSpace(t.Timezone), runMode,
 		scheduleType, t.TaskSpecJson, t.NextRunAt, t.ID)
 	if err != nil {
 		return Task{}, fmt.Errorf("schedule update: %w", err)
@@ -266,7 +271,7 @@ func (s *Store) Update(t Task) (Task, error) {
 	return s.Get(t.ID)
 }
 
-const selectColumns = `id, name, target_id, target_name, session_name, prompt, spec, kind, run_mode,
+const selectColumns = `id, name, target_id, target_name, session_name, prompt, spec, kind, timezone, run_mode,
 	schedule_type, task_spec_json, enabled, next_run_at, last_run_at, last_status, created_by,
 	owner_principal_id, created_at`
 
@@ -372,6 +377,20 @@ func (s *Store) DueTasks(now int64) ([]Task, error) {
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+// EarliestNextRun returns the smallest next_run_at across enabled schedules, or
+// nil when no enabled schedule has a pending run.
+func (s *Store) EarliestNextRun() (*int64, error) {
+	var next sql.NullInt64
+	if err := s.db.QueryRow(`SELECT MIN(next_run_at) FROM scheduled_tasks WHERE enabled = 1 AND next_run_at IS NOT NULL`).Scan(&next); err != nil {
+		return nil, fmt.Errorf("schedule earliest next run: %w", err)
+	}
+	if !next.Valid {
+		return nil, nil
+	}
+	v := next.Int64
+	return &v, nil
 }
 
 // RecordRun updates a task after a (possibly skipped) trigger. nextRunAt is nil
@@ -484,15 +503,16 @@ func scanTask(sc scanner) (Task, error) {
 	var t Task
 	var enabled int
 	var taskSpec []byte
-	var name, targetName, runMode, scheduleType, lastStatus, createdBy, owner sql.NullString
+	var name, targetName, timezone, runMode, scheduleType, lastStatus, createdBy, owner sql.NullString
 	var nextRunAt, lastRunAt sql.NullInt64
 	if err := sc.Scan(&t.ID, &name, &t.TargetID, &targetName, &t.SessionName, &t.Prompt,
-		&t.Spec, &t.Kind, &runMode, &scheduleType, &taskSpec, &enabled, &nextRunAt, &lastRunAt, &lastStatus,
+		&t.Spec, &t.Kind, &timezone, &runMode, &scheduleType, &taskSpec, &enabled, &nextRunAt, &lastRunAt, &lastStatus,
 		&createdBy, &owner, &t.CreatedAt); err != nil {
 		return Task{}, err
 	}
 	t.Name = name.String
 	t.TargetName = targetName.String
+	t.Timezone = timezone.String
 	t.RunMode, _ = NormalizeRunMode(runMode.String)
 	var err error
 	t.ScheduleType, err = NormalizeScheduleType(scheduleType.String)

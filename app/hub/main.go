@@ -263,6 +263,8 @@ func newStartCmd() *cobra.Command {
 				scheduler.SetSessionPromptAuthorizer(hubRPC.authorizeScheduledSessionPrompt)
 				scheduler.SetNewSessionLaunchPreparer(hubRPC.prepareScheduledNewSession)
 				scheduler.SetOutcomeReader(scheduleControl)
+				hubRPC.schedulerNotify = scheduler.Notify
+				scheduleControl.server.schedulerNotify = scheduler.Notify
 				schedulerDone := make(chan struct{})
 				go func() {
 					defer close(schedulerDone)

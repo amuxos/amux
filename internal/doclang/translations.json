@@ -1023,6 +1023,22 @@
     "en": "every <duration>   e.g. \"every 30m\", \"every 2h\" (minimum 1m)",
     "zh-CN": "every <duration>   例如 \"every 30m\"、\"every 2h\"（最短 1m）"
   },
+  "every <duration>   e.g. \"every 30m\", \"every 2h\", \"every 1d\" (minimum 1m)": {
+    "en": "every <duration>   e.g. \"every 30m\", \"every 2h\", \"every 1d\" (minimum 1m)",
+    "zh-CN": "every <duration>   例如 \"every 30m\"、\"every 2h\"、\"every 1d\"（最短 1m）"
+  },
+  "daily <HH:MM>      e.g. \"daily 09:00\" (in --timezone or server local time)": {
+    "en": "daily <HH:MM>      e.g. \"daily 09:00\" (in --timezone or server local time)",
+    "zh-CN": "daily <HH:MM>      例如 \"daily 09:00\"（按 --timezone 或服务端本地时区）"
+  },
+  "in <duration>      e.g. \"in 10m\", \"in 2h\" (relative one-shot)": {
+    "en": "in <duration>      e.g. \"in 10m\", \"in 2h\" (relative one-shot)",
+    "zh-CN": "in <duration>      例如 \"in 10m\"、\"in 2h\"（相对一次性触发）"
+  },
+  "cron <expr>        e.g. \"cron 0 9 * * 1-5\" or \"cron @daily\"": {
+    "en": "cron <expr>        e.g. \"cron 0 9 * * 1-5\" or \"cron @daily\"",
+    "zh-CN": "cron <expr>        例如 \"cron 0 9 * * 1-5\" 或 \"cron @daily\""
+  },
   "daily <HH:MM>      e.g. \"daily 09:00\" (server local time)": {
     "en": "daily <HH:MM>      e.g. \"daily 09:00\" (server local time)",
     "zh-CN": "daily <HH:MM>      例如 \"daily 09:00\"（服务器本地时间）"
@@ -1142,6 +1158,18 @@
   "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run": {
     "en": "new time rule (every <duration>, daily <HH:MM>, at <when>, or cron <expr>); recomputes next run",
     "zh-CN": "新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；重新计算下次运行时间"
+  },
+  "new time rule (every <duration>, daily <HH:MM>, at <when>, in <duration>, or cron <expr>); recomputes next run": {
+    "en": "new time rule (every <duration>, daily <HH:MM>, at <when>, in <duration>, or cron <expr>); recomputes next run",
+    "zh-CN": "新的时间规则（every <duration>、daily <HH:MM>、at <when>、in <duration> 或 cron <expr>）；重新计算下次运行时间"
+  },
+  "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)": {
+    "en": "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)",
+    "zh-CN": "可选的 IANA 时区（例如 Asia/Shanghai），用于解析定时规则"
+  },
+  "new IANA timezone for evaluating the schedule (empty uses hub local time)": {
+    "en": "new IANA timezone for evaluating the schedule (empty uses hub local time)",
+    "zh-CN": "新的 IANA 时区（留空则使用 Hub 本地时区）"
   },
   "help for session": {
     "en": "help for session",
@@ -2562,6 +2590,22 @@
   "时间规则：every <duration>、daily <HH:MM>、at <when> 或 cron <expr>": {
     "en": "Time rule: every <duration>, daily <HH:MM>, at <when>, or cron <expr>",
     "zh-CN": "时间规则：every <duration>、daily <HH:MM>、at <when> 或 cron <expr>"
+  },
+  "时间规则：every <duration>（支持 d/w）、daily <HH:MM>、at <when>、in <duration>（相对一次性）或 cron <expr>（支持 @daily 等描述符）": {
+    "en": "Time rule: every <duration> (supports d/w), daily <HH:MM>, at <when>, in <duration> (relative one-shot), or cron <expr> (supports @daily descriptors)",
+    "zh-CN": "时间规则：every <duration>（支持 d/w）、daily <HH:MM>、at <when>、in <duration>（相对一次性）或 cron <expr>（支持 @daily 等描述符）"
+  },
+  "可选 IANA 时区名称（例如 Asia/Shanghai）；省略时使用 Hub 本地时区": {
+    "en": "Optional IANA timezone name (for example Asia/Shanghai); omitted uses Hub local time",
+    "zh-CN": "可选 IANA 时区名称（例如 Asia/Shanghai）；省略时使用 Hub 本地时区"
+  },
+  "新的时间规则（every <duration>、daily <HH:MM>、at <when>、in <duration> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at": {
+    "en": "New time rule (every <duration>, daily <HH:MM>, at <when>, in <duration>, or cron <expr>); omitted means unchanged. Updates recompute next_run_at",
+    "zh-CN": "新的时间规则（every <duration>、daily <HH:MM>、at <when>、in <duration> 或 cron <expr>）；省略时保持不变，修改后会重新计算 next_run_at"
+  },
+  "新的 IANA 时区名称（例如 Asia/Shanghai，传空字符串回落 Hub 本地时区）；省略时保持不变": {
+    "en": "New IANA timezone name (for example Asia/Shanghai; empty string falls back to Hub local time); omitted means unchanged",
+    "zh-CN": "新的 IANA 时区名称（例如 Asia/Shanghai，传空字符串回落 Hub 本地时区）；省略时保持不变"
   },
   "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref，例如 builtin/codex 或 team/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口": {
     "en": "Agent Profile ref from amux.profile_list profiles[].ref, such as builtin/codex or team/push_sre; raw Agent Type strings are supported only for legacy callers",

@@ -12,6 +12,7 @@ import (
 
 type ScheduleCreateTaskRequest struct {
 	Spec      string            `json:"spec"`
+	Timezone  string            `json:"timezone,omitempty"`
 	Name      string            `json:"name,omitempty"`
 	Task      ScheduledTaskSpec `json:"task"`
 	CreatedBy string            `json:"-"`
@@ -39,7 +40,7 @@ func ScheduleCreateTask(ctx context.Context, hub pb.AmuxdClient, req ScheduleCre
 		return ScheduleCreateResult{}, fmt.Errorf("encode task spec: %w", err)
 	}
 	resp, err := hub.CreateSchedule(ctx, &pb.CreateScheduleRequest{
-		ScheduleType: schedule.ScheduleTypeSubtask, Spec: strings.TrimSpace(req.Spec), Name: req.Name,
+		ScheduleType: schedule.ScheduleTypeSubtask, Spec: strings.TrimSpace(req.Spec), Timezone: strings.TrimSpace(req.Timezone), Name: req.Name,
 		TaskSpecJson: specJSON, CreatedBy: req.CreatedBy,
 	})
 	if err != nil {
@@ -56,6 +57,7 @@ func ScheduleCreateTask(ctx context.Context, hub pb.AmuxdClient, req ScheduleCre
 // or deliverNewSessionPerRun).
 type ScheduleCreateSessionPromptRequest struct {
 	Spec        string `json:"spec"`
+	Timezone    string `json:"timezone,omitempty"`
 	Name        string `json:"name,omitempty"`
 	TargetID    string `json:"target_id"`
 	TargetName  string `json:"target_name,omitempty"`
@@ -92,6 +94,7 @@ func ScheduleCreateSessionPrompt(ctx context.Context, hub pb.AmuxdClient, req Sc
 		TargetName:   strings.TrimSpace(req.TargetName),
 		SessionName:  strings.TrimSpace(req.SessionName),
 		Spec:         strings.TrimSpace(req.Spec),
+		Timezone:     strings.TrimSpace(req.Timezone),
 		RunMode:      runMode,
 		Prompt:       prompt,
 		Name:         req.Name,
@@ -153,12 +156,13 @@ func ScheduleSetEnabled(ctx context.Context, hub pb.AmuxdClient, id int64, enabl
 // session-prompt schedules; Task applies to subtask schedules and reuses the
 // same validation as create.
 type ScheduleUpdateRequest struct {
-	ID      int64
-	Name    *string
-	Spec    *string
-	Prompt  *string
-	RunMode *string
-	Task    *ScheduledTaskSpec
+	ID       int64
+	Name     *string
+	Spec     *string
+	Timezone *string
+	Prompt   *string
+	RunMode  *string
+	Task     *ScheduledTaskSpec
 }
 
 // ScheduleUpdateResult is what an update returns.
@@ -166,6 +170,7 @@ type ScheduleUpdateResult struct {
 	ID        int64  `json:"schedule_id"`
 	Name      string `json:"name,omitempty"`
 	Spec      string `json:"spec,omitempty"`
+	Timezone  string `json:"timezone,omitempty"`
 	NextRunAt int64  `json:"next_run_at,omitempty"`
 }
 
@@ -183,6 +188,11 @@ func ScheduleUpdate(ctx context.Context, hub pb.AmuxdClient, req ScheduleUpdateR
 			return ScheduleUpdateResult{}, RequiredError(FieldSpec)
 		}
 		wire.Spec = &spec
+		changed = true
+	}
+	if req.Timezone != nil {
+		tz := strings.TrimSpace(*req.Timezone)
+		wire.Timezone = &tz
 		changed = true
 	}
 	if req.Prompt != nil {
@@ -213,7 +223,7 @@ func ScheduleUpdate(ctx context.Context, hub pb.AmuxdClient, req ScheduleUpdateR
 		changed = true
 	}
 	if !changed {
-		return ScheduleUpdateResult{}, fmt.Errorf("at least one of name, spec, prompt, run_mode, or task is required")
+		return ScheduleUpdateResult{}, fmt.Errorf("at least one of name, spec, timezone, prompt, run_mode, or task is required")
 	}
 	resp, err := hub.UpdateSchedule(ctx, wire)
 	if err != nil {
@@ -226,6 +236,7 @@ func ScheduleUpdate(ctx context.Context, hub pb.AmuxdClient, req ScheduleUpdateR
 	if resp.Schedule != nil {
 		out.Name = resp.Schedule.Name
 		out.Spec = resp.Schedule.Spec
+		out.Timezone = resp.Schedule.Timezone
 		out.NextRunAt = resp.Schedule.NextRunAt
 	}
 	return out, nil

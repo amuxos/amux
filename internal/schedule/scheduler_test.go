@@ -500,8 +500,8 @@ func TestSchedulerSubtaskClaimThenAsyncSubmit(t *testing.T) {
 	if got.LastStatus != statusSubmitting {
 		t.Fatalf("immediate status = %q, want %q", got.LastStatus, statusSubmitting)
 	}
-	if got.NextRunAt == nil || *got.NextRunAt != now.Add(30*time.Minute).Unix() {
-		t.Fatalf("next_run_at = %v, want %d", got.NextRunAt, now.Add(30*time.Minute).Unix())
+	if got.NextRunAt == nil || *got.NextRunAt != time.Unix(due, 0).Add(30*time.Minute).Unix() {
+		t.Fatalf("next_run_at = %v, want %d", got.NextRunAt, time.Unix(due, 0).Add(30*time.Minute).Unix())
 	}
 
 	releaseSubmitter()
@@ -654,8 +654,8 @@ func TestSchedulerSubtaskSubmitErrorAdvancesRecurring(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.NextRunAt == nil || *got.NextRunAt != now.Add(30*time.Minute).Unix() {
-		t.Fatalf("next_run_at = %v, want %d", got.NextRunAt, now.Add(30*time.Minute).Unix())
+	if got.NextRunAt == nil || *got.NextRunAt != time.Unix(due, 0).Add(30*time.Minute).Unix() {
+		t.Fatalf("next_run_at = %v, want %d", got.NextRunAt, time.Unix(due, 0).Add(30*time.Minute).Unix())
 	}
 	if !strings.HasPrefix(got.LastStatus, "error:") {
 		t.Fatalf("last status = %q, want error", got.LastStatus)
@@ -716,7 +716,7 @@ func TestSchedulerFireOnlineRecurring(t *testing.T) {
 	if got.LastStatus != statusOK {
 		t.Errorf("status = %q, want ok", got.LastStatus)
 	}
-	if got.NextRunAt == nil || *got.NextRunAt != now.Add(30*time.Minute).Unix() {
+	if got.NextRunAt == nil || *got.NextRunAt != time.Unix(due, 0).Add(30*time.Minute).Unix() {
 		t.Errorf("next_run_at not advanced: %v", got.NextRunAt)
 	}
 }
@@ -750,7 +750,7 @@ func TestSchedulerAuthorizationDenialRoutesNothingAndRecordsError(t *testing.T) 
 	if got.LastStatus != "error: session authorization: owner no longer authorized" {
 		t.Fatalf("last status = %q", got.LastStatus)
 	}
-	if got.NextRunAt == nil || *got.NextRunAt != now.Add(30*time.Minute).Unix() {
+	if got.NextRunAt == nil || *got.NextRunAt != time.Unix(due, 0).Add(30*time.Minute).Unix() {
 		t.Fatalf("recurring denial did not advance next run: %v", got.NextRunAt)
 	}
 }
@@ -1374,5 +1374,47 @@ func TestSchedulerStartDrainsWorkersOnCancel(t *testing.T) {
 	runs, err := s.ListRuns(row.ID, 10)
 	if err != nil || len(runs) != 1 || runs[0].TaskID != "task-drain" {
 		t.Fatalf("worker receipt lost during drain: %+v %v", runs, err)
+	}
+}
+
+func TestSchedulerEventDrivenNotifyWakesWithinOneSecond(t *testing.T) {
+	s := newTestStore(t)
+	sub := &fakeSub{targets: onlineTarget()}
+	fired := make(chan struct{}, 1)
+	sub.routeFn = func(_ context.Context, _ string, _ string, _ interface{}) (*pb.TunnelMsg, error) {
+		select {
+		case fired <- struct{}{}:
+		default:
+		}
+		raw, _ := json.Marshal(&pb.SubmitResponse{Ok: true, TurnId: "turn-wake", SessionId: "s1"})
+		return &pb.TunnelMsg{Payload: raw}, nil
+	}
+	sched := newTestScheduler(sub, s)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		sched.Start(ctx)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
+
+	// Schedule a task due 1s from now and call Notify(); event-driven timer must
+	// fire it well before the 20s fallback tickInterval.
+	due := time.Now().Add(time.Second).Unix()
+	if _, err := s.Create(Task{
+		Name: "fast-wake", TargetID: "local", SessionName: "c1", Prompt: "ping",
+		Spec: "at " + time.Unix(due, 0).Format(time.RFC3339), Kind: KindOnce, Enabled: true, NextRunAt: &due,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	sched.Notify()
+
+	select {
+	case <-fired:
+	case <-time.After(3 * time.Second):
+		t.Fatal("event-driven scheduler did not wake promptly after Notify()")
 	}
 }
