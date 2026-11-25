@@ -54,6 +54,11 @@ The `SetupCommands` hook may return fresh Cobra commands for optional local
 component setup under `amux setup`. Registration must not perform installation;
 only explicit command execution may download or install the component.
 
+Structured launch preparation and native model discovery expose an optional,
+execution-bound HOME reader for Linux DAC. The reader uses the target UID and
+limits reads to HOME-relative files. The passthrough model gateway can also
+apply a distribution-owned request filter before forwarding model requests.
+
 For local integration, use a relative `replace` in the distribution's `go.mod` or
 an uncommitted `go.work`. After the public release, pin a released version of
 `github.com/amuxos/amux` and remove the local replacement. `v0.0.0` is a local

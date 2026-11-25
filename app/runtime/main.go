@@ -281,7 +281,17 @@ func runStructuredBroker(cmd *cobra.Command, args []string) error {
 		opts.Env = envVars
 		opts.ResponsesChat = &mux.ResponsesChatOptions{UpstreamBaseURL: responsesChatUpstream, APIKeyEnv: responsesChatAPIKeyEnv}
 	}
+	opts.ReadPrincipalHomeFiles = principalHomeReader(isolationRuntime, launchContext.Identity)
 	return mux.RunStructuredBroker(sockPath, pidFile, opts)
+}
+
+func principalHomeReader(rt *isolation.Runtime, identity *principal.ExecutionIdentity) func(context.Context, []string) (map[string][]byte, error) {
+	if identity == nil || identity.IsolationBackend != principal.BackendLinuxDAC {
+		return nil
+	}
+	return func(ctx context.Context, paths []string) (map[string][]byte, error) {
+		return rt.ReadPrincipalHomeFiles(ctx, *identity, paths)
+	}
 }
 
 func readOneShotSecretFile(path string) (string, error) {

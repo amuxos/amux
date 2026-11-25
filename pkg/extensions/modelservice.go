@@ -9,6 +9,7 @@ type ModelServiceModel = modelservice.Model
 var RegisterModelService = modelservice.Register
 var StartModelServiceGateway = modelservice.StartGateway
 var StartModelServicePassthroughGateway = modelservice.StartPassthroughGateway
+var StartFilteredModelServicePassthroughGateway = modelservice.StartFilteredPassthroughGateway
 
 var SetModelServiceSessionQuotaBorrowed = modelservice.SetSessionQuotaBorrowed
 var IsModelServiceSessionQuotaBorrowed = modelservice.IsSessionQuotaBorrowed

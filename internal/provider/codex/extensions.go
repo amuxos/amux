@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -11,9 +12,10 @@ import (
 // ProviderRegistration admits a compatible app-server implementation. Optional
 // modalities are explicit provider defaults when model discovery is unavailable.
 type ProviderRegistration struct {
-	DecorateNativeModels  func([]NativeModel) []NativeModel // Distribution-owned metadata, evaluated after discovery.
-	InputModalities       []string
-	InputCapabilitySource string
+	PrepareNativeModelDiscovery func(context.Context, *StartOptions) error
+	DecorateNativeModels        func([]NativeModel) []NativeModel // Distribution-owned metadata, evaluated after discovery.
+	InputModalities             []string
+	InputCapabilitySource       string
 }
 
 var providerMu sync.RWMutex

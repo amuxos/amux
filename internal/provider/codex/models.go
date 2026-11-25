@@ -37,6 +37,14 @@ type NativeModelVariant struct {
 func DiscoverModels(parent context.Context, opts StartOptions) ([]NativeModel, bool, error) {
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()
+	providerMu.RLock()
+	registration := registeredProviders[opts.ProviderName]
+	providerMu.RUnlock()
+	if prepare := registration.PrepareNativeModelDiscovery; prepare != nil {
+		if err := prepare(ctx, &opts); err != nil {
+			return nil, false, err
+		}
+	}
 	bin := opts.Executable
 	if bin == "" {
 		bin = "codex"
@@ -68,9 +76,6 @@ func DiscoverModels(parent context.Context, opts StartOptions) ([]NativeModel, b
 	go func() { _ = client.Run() }()
 	models, signedIn, err := discoverModels(ctx, client)
 	if err == nil && signedIn {
-		providerMu.RLock()
-		registration := registeredProviders[opts.ProviderName]
-		providerMu.RUnlock()
 		if registration.DecorateNativeModels != nil {
 			models = registration.DecorateNativeModels(models)
 		}

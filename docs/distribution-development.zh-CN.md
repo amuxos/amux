@@ -40,6 +40,10 @@ Task 权限决策属于 `permission_policy`。额外引擎通过 `PermissionMode
 `SetupCommands` hook 可返回新建的 Cobra 命令，在 `amux setup` 下提供可选本地组件
 安装入口。注册不能执行安装；仅用户显式执行命令时才允许下载或安装组件。
 
+Linux DAC 下，结构化启动准备和原生模型发现提供可选的执行身份 HOME 读取函数。
+该函数以目标 UID 读取，仅接受 HOME 相对路径。模型透传网关支持发行版在转发模型请求前
+进行请求过滤。
+
 本地联调可在发行版的 `go.mod` 使用相对 `replace` 或不提交的 `go.work`。
 公共版本发布后，发行版应锁定 `github.com/amuxos/amux` 的已发布版本，再移除本地
 replace。联调时使用的 `v0.0.0` 只是占位版本，不能作为已发布版本从网络解析。
