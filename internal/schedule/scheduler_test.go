@@ -1418,3 +1418,82 @@ func TestSchedulerEventDrivenNotifyWakesWithinOneSecond(t *testing.T) {
 		t.Fatal("event-driven scheduler did not wake promptly after Notify()")
 	}
 }
+
+func TestSchedulerTriggerNowPreservesNextRunAndSyncsAuthoritativeOutcome(t *testing.T) {
+	s := newTestStore(t)
+	future := time.Now().Add(4 * time.Hour).Unix()
+	row, err := s.Create(Task{
+		Name:         "manual-check",
+		ScheduleType: ScheduleTypeSubtask,
+		Spec:         "daily 09:00",
+		Kind:         KindDaily,
+		TaskSpecJson: []byte(`{"agent":"builtin/codex","task":"check"}`),
+		Enabled:      true,
+		NextRunAt:    &future,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeTaskSubmitter{ids: []string{"task-manual-1"}}
+	sched := newTestSchedulerWithTask(&fakeSub{}, s, fake)
+
+	exec, rawStatus, err := sched.TriggerNow(context.Background(), row.ID)
+	if err != nil {
+		t.Fatalf("TriggerNow: %v", err)
+	}
+	if exec.TaskID != "task-manual-1" || rawStatus != "ok:task:task-manual-1" || exec.TriggerSource != TriggerSourceManual {
+		t.Fatalf("TriggerNow = exec:%+v status:%q", exec, rawStatus)
+	}
+	got, err := s.Get(row.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.NextRunAt == nil || *got.NextRunAt != future {
+		t.Fatalf("TriggerNow mutated next_run_at: got %v want %d", got.NextRunAt, future)
+	}
+
+	// Simulate authoritative terminal failure observation; scheduled_tasks.last_status must sync.
+	exec.Status = "failed"
+	exec.Result = "exit code 1"
+	exec.Terminal = true
+	exec.FinishedAt = time.Now().Unix()
+	if err := s.Observe(exec, time.Now()); err != nil {
+		t.Fatalf("Observe terminal failure: %v", err)
+	}
+	got, err = s.Get(row.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.LastStatus != "failed" {
+		t.Fatalf("last_status after authoritative failure = %q, want failed", got.LastStatus)
+	}
+	rich, err := s.RichRuns(row.ID, 10)
+	if err != nil || len(rich) != 1 {
+		t.Fatalf("RichRuns = %+v %v", rich, err)
+	}
+	if rich[0].TriggerSource != TriggerSourceManual || rich[0].Result != "exit code 1" || rich[0].Status != "failed" {
+		t.Fatalf("rich run mismatch: %+v", rich[0])
+	}
+}
+
+func TestTaskLifecycleStateDistinguishesCompletedFromPaused(t *testing.T) {
+	future := time.Now().Add(time.Hour).Unix()
+	past := time.Now().Add(-time.Hour).Unix()
+	cases := []struct {
+		name string
+		task Task
+		want string
+	}{
+		{"active recurring", Task{Kind: KindInterval, Enabled: true, NextRunAt: &future}, StateEnabled},
+		{"paused recurring", Task{Kind: KindInterval, Enabled: false, NextRunAt: &future}, StatePaused},
+		{"pending once", Task{Kind: KindOnce, Enabled: true, NextRunAt: &future}, StateEnabled},
+		{"paused once before run", Task{Kind: KindOnce, Enabled: false, NextRunAt: &future}, StatePaused},
+		{"completed once", Task{Kind: KindOnce, Enabled: true, NextRunAt: nil, LastRunAt: &past}, StateCompleted},
+		{"completed once even if disabled", Task{Kind: KindOnce, Enabled: false, NextRunAt: nil, LastRunAt: &past}, StateCompleted},
+	}
+	for _, tc := range cases {
+		if got := tc.task.LifecycleState(); got != tc.want {
+			t.Errorf("%s: LifecycleState() = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

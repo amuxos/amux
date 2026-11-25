@@ -79,6 +79,7 @@ func TestScheduleActionsRegisteredOnBothSurfaces(t *testing.T) {
 		{"remove", "amux.schedule_delete"},
 		{"enable", "amux.schedule_set_enabled"},
 		{"disable", "amux.schedule_set_enabled"},
+		{"run", "amux.schedule_trigger"},
 	} {
 		t.Run(action.cli, func(t *testing.T) {
 			if clientopCoverageFindSubcommandOrNil(newScheduleCmd(), action.cli) == nil {

@@ -43,6 +43,7 @@ type hubServer struct {
 	feishuMessageSenders         []feishuMessageSender
 	schedule                     *schedule.Store
 	schedulerNotify              func()
+	scheduleTrigger              func(context.Context, int64) (schedule.Execution, string, error)
 	scheduleRuntime              taskRouterHub
 	scheduleTasks                *bridgeSubtaskReader
 	creds                        task.CredentialProvider
@@ -1297,7 +1298,7 @@ func routeUnary[Req any, Resp any](s *hubServer, ctx context.Context, targetID, 
 
 // ── Schedule RPCs (hub-local; not routed to a runtime) ───────────────────────
 
-func scheduleItemFromTask(t schedule.Task, runs []schedule.Run) *pb.ScheduleItem {
+func scheduleItemFromTask(t schedule.Task, runs []schedule.Execution) *pb.ScheduleItem {
 	scheduleType := t.ScheduleType
 	if scheduleType == "" {
 		scheduleType = schedule.ScheduleTypeSessionPrompt
@@ -1312,6 +1313,7 @@ func scheduleItemFromTask(t schedule.Task, runs []schedule.Run) *pb.ScheduleItem
 		Spec:         t.Spec,
 		Kind:         t.Kind,
 		Timezone:     t.Timezone,
+		State:        t.LifecycleState(),
 		RunMode:      t.RunMode,
 		Prompt:       t.Prompt,
 		TaskSpecJson: append([]byte(nil), t.TaskSpecJson...),
@@ -1327,12 +1329,24 @@ func scheduleItemFromTask(t schedule.Task, runs []schedule.Run) *pb.ScheduleItem
 	if len(runs) > 0 {
 		item.Runs = make([]*pb.ScheduleRun, 0, len(runs))
 		for _, r := range runs {
+			firedAt := r.SubmittedAt
+			if firedAt == 0 {
+				firedAt = r.ScheduledAt
+			}
 			item.Runs = append(item.Runs, &pb.ScheduleRun{
-				Id:         r.ID,
-				ScheduleId: r.ScheduleID,
-				FiredAt:    r.FiredAt,
-				TaskId:     r.TaskID,
-				Status:     r.Status,
+				Id:            r.ID,
+				ScheduleId:    r.ScheduleID,
+				FiredAt:       firedAt,
+				TaskId:        r.TaskID,
+				Status:        r.Status,
+				ScheduledAt:   r.ScheduledAt,
+				StartedAt:     r.StartedAt,
+				FinishedAt:    r.FinishedAt,
+				SessionName:   r.SessionName,
+				TurnId:        r.TurnID,
+				Reason:        r.Reason,
+				ResultSummary: r.Result,
+				TriggerSource: r.TriggerSource,
 			})
 		}
 	}
@@ -1895,9 +1909,9 @@ func (s *hubServer) GetSchedule(ctx context.Context, req *pb.GetScheduleRequest)
 	if err != nil {
 		return nil, err
 	}
-	var runs []schedule.Run
+	var runs []schedule.Execution
 	if req.IncludeRuns {
-		runs, err = store.ListRuns(req.Id, schedule.DefaultRunHistoryLimit)
+		runs, err = store.RichRuns(req.Id, schedule.DefaultRunHistoryLimit)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "%v", err)
 		}
@@ -2080,4 +2094,34 @@ func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRe
 	}
 	s.notifyScheduler()
 	return &pb.UpdateScheduleResponse{Schedule: scheduleItemFromTask(updated, nil)}, nil
+}
+
+func (s *hubServer) TriggerSchedule(ctx context.Context, req *pb.TriggerScheduleRequest) (*pb.TriggerScheduleResponse, error) {
+	store, err := s.requireSchedule()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.authorizeScheduleAccess(ctx, store, req.Id); err != nil {
+		return nil, err
+	}
+	if s.scheduleTrigger == nil {
+		return nil, status.Errorf(codes.Unavailable, "scheduler trigger not available")
+	}
+	exec, rawStatus, err := s.scheduleTrigger(ctx, req.Id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, status.Errorf(codes.NotFound, "schedule %d not found", req.Id)
+		}
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
+	resp := &pb.TriggerScheduleResponse{
+		Ok:          !strings.HasPrefix(rawStatus, "error:") && rawStatus != "missed" && rawStatus != "skipped:offline",
+		ExecutionId: exec.ID,
+		TaskId:      exec.TaskID,
+		Status:      rawStatus,
+	}
+	if !resp.Ok {
+		resp.Error = rawStatus
+	}
+	return resp, nil
 }

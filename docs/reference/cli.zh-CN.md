@@ -83,6 +83,7 @@
 | `amux schedule enable` | 启用定时 Prompt |
 | `amux schedule list` | 列出定时 Prompt 和子任务 |
 | `amux schedule remove` | 删除定时 Prompt |
+| `amux schedule run` | 立即触发一次 Schedule，不改变其下次计划运行时间 |
 | `amux schedule runs` | 列出某个 Schedule 的运行记录 |
 | `amux schedule update` | 原地更新定时 Prompt 或子任务 |
 | `amux session` | 管理智能体 Session |
@@ -1520,6 +1521,7 @@ amux schedule [flags]
 | `amux schedule enable` | 启用定时 Prompt |
 | `amux schedule list` | 列出定时 Prompt 和子任务 |
 | `amux schedule remove` | 删除定时 Prompt |
+| `amux schedule run` | 立即触发一次 Schedule，不改变其下次计划运行时间 |
 | `amux schedule runs` | 列出某个 Schedule 的运行记录 |
 | `amux schedule update` | 原地更新定时 Prompt 或子任务 |
 
@@ -1664,6 +1666,22 @@ amux schedule remove <id> [flags]
 | 选项 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | remove 帮助 |
+
+## `amux schedule run`
+
+立即触发一次 Schedule，不改变其下次计划运行时间
+
+**用法**
+
+```text
+amux schedule run <id> [flags]
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | run 帮助 |
 
 ## `amux schedule runs`
 

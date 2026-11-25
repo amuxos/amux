@@ -8,7 +8,7 @@
 
 MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-product-model.md`](../current/cli-product-model.zh-CN.md) 和 [`docs/distributed-task-model.md`](../distributed-task-model.zh-CN.md) 为准。运行时还会通过 [`amux.result_continue`](#amuxresult_continue) 对超过单页预算的成功结果续传；工具结果本身不是 `tools/list` 注册元数据，因此不在本文档中另维护一份可能漂移的输出 Schema。
 
-`tools/list` 正式工具：**51**。
+`tools/list` 正式工具：**52**。
 
 ## 正式工具索引
 
@@ -42,6 +42,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.schedule_get` | 获取 Schedule；include_runs=true 时包含运行历史及 task_id。 |
 | `amux.schedule_list` | 分页列出 Schedule；沿 next_cursor 读取至 has_more=false。 |
 | `amux.schedule_set_enabled` | 启用或停用 Schedule。 |
+| `amux.schedule_trigger` | 立即手动触发一次 Schedule（不影响其启停状态与下次计划触发时间）。 |
 | `amux.schedule_update` | 原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。 |
 | `amux.session_interrupt` | 中断 Session 当前 turn。 |
 | `amux.session_list` | 按 runtime 分组列出调用方可见的 Session；创建 Session 时不要预先调用，先省略 target 调用 session_run，仅在其报告多个 target 后用本工具选择。 |
@@ -1202,6 +1203,26 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
   "required": [
     "schedule_id",
     "enabled"
+  ],
+  "type": "object"
+}
+```
+
+## `amux.schedule_trigger`
+
+立即手动触发一次 Schedule（不影响其启停状态与下次计划触发时间）。
+
+**输入 JSON Schema**
+
+```json
+{
+  "properties": {
+    "schedule_id": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schedule_id"
   ],
   "type": "object"
 }

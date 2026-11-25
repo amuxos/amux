@@ -77,8 +77,14 @@ func TestScheduleUpdateSharesTaskFlagsWithCreateTask(t *testing.T) {
 
 type fakeScheduleUpdateHub struct {
 	pb.AmuxdClient
-	item      *pb.ScheduleItem
-	updateReq *pb.UpdateScheduleRequest
+	item       *pb.ScheduleItem
+	updateReq  *pb.UpdateScheduleRequest
+	triggerReq *pb.TriggerScheduleRequest
+}
+
+func (f *fakeScheduleUpdateHub) TriggerSchedule(_ context.Context, req *pb.TriggerScheduleRequest, _ ...grpc.CallOption) (*pb.TriggerScheduleResponse, error) {
+	f.triggerReq = req
+	return &pb.TriggerScheduleResponse{Ok: true, ExecutionId: 55, TaskId: "task-run-now", Status: "ok:task:task-run-now"}, nil
 }
 
 func (f *fakeScheduleUpdateHub) GetSchedule(_ context.Context, _ *pb.GetScheduleRequest, _ ...grpc.CallOption) (*pb.GetScheduleResponse, error) {
@@ -256,5 +262,43 @@ func TestMCPScheduleUpdateMergesPartialTaskSpec(t *testing.T) {
 	}
 	if updated.Agent != "team/reviewer" || updated.Task != "review commits" || updated.CredentialProfile != "corp" || updated.Workspace.LocalDir != "/srv/repo" {
 		t.Fatalf("untouched fields lost in MCP partial task update: %+v", updated)
+	}
+}
+
+func TestScheduleRunCLIAndMCPTrigger(t *testing.T) {
+	fake := &fakeScheduleUpdateHub{item: &pb.ScheduleItem{Id: 12}}
+	prevCLI := newScheduleClient
+	newScheduleClient = func() (pb.AmuxdClient, func() error, error) { return fake, func() error { return nil }, nil }
+	t.Cleanup(func() { newScheduleClient = prevCLI })
+
+	cmd := newRootCmd()
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetArgs([]string{"schedule", "run", "12", "--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("schedule run cli: %v", err)
+	}
+	if fake.triggerReq == nil || fake.triggerReq.Id != 12 {
+		t.Fatalf("triggerReq = %+v", fake.triggerReq)
+	}
+	var cliOut map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &cliOut); err != nil {
+		t.Fatalf("invalid json %q: %v", stdout.String(), err)
+	}
+	if cliOut["schema"] != "amux.schedule.run.v1" || cliOut["task_id"] != "task-run-now" {
+		t.Fatalf("cliOut = %+v", cliOut)
+	}
+
+	prevMCP := newScheduleClientForMCP
+	newScheduleClientForMCP = func() (pb.AmuxdClient, func() error, error) { return fake, func() error { return nil }, nil }
+	t.Cleanup(func() { newScheduleClientForMCP = prevMCP })
+
+	h := &mcpHandler{}
+	res, err := h.triggerSchedule(context.Background(), json.RawMessage(`{"schedule_id":12}`))
+	if err != nil || res.IsError {
+		t.Fatalf("mcp triggerSchedule: %v %+v", err, res)
+	}
+	if !strings.Contains(res.Content[0].Text, `"task_id":"task-run-now"`) {
+		t.Fatalf("mcp trigger output = %s", res.Content[0].Text)
 	}
 }

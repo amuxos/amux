@@ -115,6 +115,63 @@ func (s *Scheduler) Wait() {
 	s.wg.Wait()
 }
 
+// TriggerNow executes one immediate manual run for schedule `id` without
+// modifying its enabled state or next_run_at cadence.
+func (s *Scheduler) TriggerNow(ctx context.Context, id int64) (Execution, string, error) {
+	t, err := s.store.Get(id)
+	if err != nil {
+		return Execution{}, "", err
+	}
+	scheduleType, err := NormalizeScheduleType(t.ScheduleType)
+	if err != nil {
+		return Execution{}, "", err
+	}
+	now := time.Now()
+	run, err := s.store.JournalManualTrigger(t, now)
+	if err != nil {
+		return Execution{}, "", err
+	}
+	s.beginInFlight(run.ID)
+	defer s.endInFlight(run.ID)
+
+	if scheduleType == ScheduleTypeSubtask {
+		if s.taskSubmit == nil {
+			status := "error: scheduled subtask submitter unavailable"
+			run.Status = "missed"
+			run.Reason = "not_dispatched"
+			run.Terminal = true
+			s.recordTrackedSubtask(run, "", status)
+			return run, status, nil
+		}
+		submitCtx, cancel := context.WithTimeout(ctx, subtaskSubmitTimeout)
+		defer cancel()
+		taskID, submitErr := s.taskSubmit.SubmitScheduledTask(submitCtx, t.TaskSpecJson)
+		status := ""
+		if submitErr != nil {
+			markAdmissionError(&run, submitErr)
+			status = "error: " + submitErr.Error()
+			taskID = ""
+		} else if taskID == "" {
+			status = "error: empty task id"
+		} else {
+			status = "ok:task:" + taskID
+		}
+		s.recordTrackedSubtask(run, taskID, status)
+		run.TaskID = taskID
+		finishAdmission(&run, status, time.Now())
+		return run, status, nil
+	}
+
+	status := s.deliver(context.WithValue(ctx, executionKey{}, &run), t, now)
+	_, _ = s.store.UpdateLastStatusIfRun(t.ID, now.Unix(), status)
+	_ = s.store.RecordScheduleRun(t.ID, now.Unix(), "", status)
+	finishAdmission(&run, status, now)
+	if err := s.store.Observe(run, now); err != nil {
+		log.Warn().Err(err).Msg("scheduler: persist manual prompt observation")
+	}
+	return run, status, nil
+}
+
 func (s *Scheduler) beginInFlight(execID int64) {
 	s.inFlightMu.Lock()
 	if s.inFlight == nil {

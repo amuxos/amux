@@ -36,7 +36,7 @@ Time spec forms:
   in <duration>      e.g. "in 10m", "in 2h" (relative one-shot)
   cron <expr>        e.g. "cron 0 9 * * 1-5" or "cron @daily"`,
 	}
-	c.AddCommand(newScheduleCreateCmd(), newScheduleCreateTaskCmd(), newScheduleRunsCmd(), newScheduleListCmd(), newScheduleUpdateCmd(), newScheduleRemoveCommand("remove <id>"), newScheduleToggleCmd(true), newScheduleToggleCmd(false))
+	c.AddCommand(newScheduleCreateCmd(), newScheduleCreateTaskCmd(), newScheduleRunsCmd(), newScheduleRunCmd(), newScheduleListCmd(), newScheduleUpdateCmd(), newScheduleRemoveCommand("remove <id>"), newScheduleToggleCmd(true), newScheduleToggleCmd(false))
 	return c
 }
 
@@ -548,14 +548,59 @@ func newScheduleRunsCmd() *cobra.Command {
 				return nil
 			}
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "FIRED_AT\tTASK_ID\tSTATUS")
+			fmt.Fprintln(w, "FIRED_AT\tSOURCE\tTASK_ID\tSTATUS\tREASON")
 			for _, run := range item.Runs {
 				if run == nil {
 					continue
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\n", fmtUnix(run.FiredAt), dashIfEmpty(run.TaskId), dashIfEmpty(run.Status))
+				src := run.TriggerSource
+				if src == "" {
+					src = schedule.TriggerSourceScheduled
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", fmtUnix(run.FiredAt), src, dashIfEmpty(run.TaskId), dashIfEmpty(run.Status), dashIfEmpty(run.Reason))
 			}
 			return w.Flush()
+		},
+	})
+}
+
+func newScheduleRunCmd() *cobra.Command {
+	return supportsJSONOutput(&cobra.Command{
+		Use:               "run <id>",
+		Short:             "Trigger a schedule immediately once without changing its next run time",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeScheduleIDs(scheduleAny),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid schedule id %q", args[0])
+			}
+			client, closeClient, err := newScheduleClient()
+			if err != nil {
+				return err
+			}
+			defer closeClient()
+			result, err := clientop.ScheduleTrigger(cmdContext(cmd), client, id)
+			if err != nil {
+				return fmt.Errorf("trigger schedule: %w", err)
+			}
+			if jsonOutputEnabled(cmd) {
+				return printJSON(cmd.OutOrStdout(), map[string]any{
+					"schema":       "amux.schedule.run.v1",
+					"schedule_id":  result.ScheduleID,
+					"execution_id": result.ExecutionID,
+					"task_id":      result.TaskID,
+					"status":       result.Status,
+					"ok":           result.OK,
+					"error":        result.Error,
+				})
+			}
+			if result.TaskID != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "triggered schedule #%d (task: %s, status: %s)\n", result.ScheduleID, result.TaskID, dashIfEmpty(result.Status))
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "triggered schedule #%d (status: %s)\n", result.ScheduleID, dashIfEmpty(result.Status))
+			}
+			return nil
 		},
 	})
 }
@@ -593,15 +638,15 @@ func newScheduleListCmd() *cobra.Command {
 				return nil
 			}
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tTYPE\tTARGET\tMODE\tSPEC\tNEXT\tLAST\tSTATUS\tENABLED")
+			fmt.Fprintln(w, "ID\tNAME\tTYPE\tTARGET\tMODE\tSPEC\tNEXT\tLAST\tSTATUS\tSTATE")
 			for _, s := range items {
 				name := s.Name
 				if name == "" {
 					name = "—"
 				}
-				fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%v\n",
+				fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					s.Id, name, dashIfEmpty(s.ScheduleType), scheduleListTarget(s), scheduleListMode(s), s.Spec,
-					fmtUnix(s.NextRunAt), fmtUnix(s.LastRunAt), dashIfEmpty(s.LastStatus), s.Enabled)
+					fmtUnix(s.NextRunAt), fmtUnix(s.LastRunAt), dashIfEmpty(s.LastStatus), scheduleItemState(s))
 			}
 			return w.Flush()
 		},
@@ -709,6 +754,22 @@ func dashIfEmpty(s string) string {
 		return "—"
 	}
 	return s
+}
+
+func scheduleItemState(s *pb.ScheduleItem) string {
+	if s == nil {
+		return "—"
+	}
+	if strings.TrimSpace(s.State) != "" {
+		return s.State
+	}
+	if s.Kind == schedule.KindOnce && s.NextRunAt == 0 && s.LastRunAt > 0 {
+		return schedule.StateCompleted
+	}
+	if !s.Enabled {
+		return schedule.StatePaused
+	}
+	return schedule.StateEnabled
 }
 
 func scheduleListTarget(s *pb.ScheduleItem) string {

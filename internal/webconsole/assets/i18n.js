@@ -255,6 +255,8 @@
     specHelp: ['Use every <duration> (supports d/w), daily <HH:MM>, at <when>, in <duration>, or cron <expr> (supports @daily).', '支持 every <时长>（含 d/w）、daily <HH:MM>、at <时间>、in <相对时长> 或 cron <表达式>（支持 @daily 等描述符）。'],
     timezone: ['Timezone', '时区'],
     timezoneHelp: ['Optional IANA timezone (for example: Asia/Shanghai). Leave empty for Hub local time.', '可选 IANA 时区（例如 Asia/Shanghai），留空使用 Hub 本地时区。'],
+    runNow: ['Run now', '立即运行'],
+    manual: ['Manual', '手动'],
     sessionName: ['Session name', '会话名称'],
     ownerSession: ['Owner session ID', '所属会话 ID'],
     runMode: ['Delivery mode', '投递方式'],

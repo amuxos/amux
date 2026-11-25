@@ -2,12 +2,14 @@ package hub
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/schedule"
 	"github.com/amuxos/amux/internal/sessionlaunch"
+	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -66,6 +68,15 @@ func TestPrepareScheduledNewSessionRefreshesIdentityAndMintsToken(t *testing.T) 
 	}
 	if req.Launch.ProfileSpec == nil || req.Launch.ProfileSpec.Type != "codex" || req.Launch.ProfileSpec.Model != "Seed-2.1-Turbo" {
 		t.Fatalf("expected resolved codex profile spec with type & model, got %+v", req.Launch.ProfileSpec)
+	}
+	if req.Workspace.Cwd != "" {
+		t.Fatalf("expected Linux DAC isolated template Cwd to be cleared, got %q", req.Workspace.Cwd)
+	}
+	if len(req.Launch.ExtraArgs) != 2 || req.Launch.ExtraArgs[0] != "--model" || req.Launch.ExtraArgs[1] != "Seed-2.1-Turbo" {
+		t.Fatalf("expected stale mcp_servers.amux.* args stripped while preserving --model, got %v", req.Launch.ExtraArgs)
+	}
+	if len(req.Launch.Env) != 1 || req.Launch.Env[0] != "PATH=/usr/bin" {
+		t.Fatalf("expected session-scoped AMUX_* env stripped while preserving PATH, got %v", req.Launch.Env)
 	}
 	if req.Workspace.Cwd != "" {
 		t.Fatalf("expected Linux DAC isolated template Cwd to be cleared, got %q", req.Workspace.Cwd)
@@ -234,5 +245,129 @@ func TestScheduleCreateUpdateTimezoneAndRelativeInNotifiesScheduler(t *testing.T
 	}
 	if notified != 3 {
 		t.Fatalf("schedulerNotify calls = %d, want 3", notified)
+	}
+}
+
+func TestTriggerScheduleRPCAndCompletedStateAndErrorSummary(t *testing.T) {
+	store := newScheduleTestStore(t)
+	triggeredID := int64(0)
+	srv := &hubServer{
+		schedule: store,
+		scheduleTrigger: func(_ context.Context, id int64) (schedule.Execution, string, error) {
+			triggeredID = id
+			return schedule.Execution{ID: 77, ScheduleID: id, TaskID: "task-now", TriggerSource: schedule.TriggerSourceManual, Status: "submitted"}, "ok:task:task-now", nil
+		},
+	}
+	future := time.Now().Add(time.Hour).Unix()
+	row, err := store.Create(schedule.Task{
+		Name:         "nightly",
+		ScheduleType: schedule.ScheduleTypeSubtask,
+		Spec:         "daily 09:00",
+		Kind:         schedule.KindDaily,
+		TaskSpecJson: []byte(`{"agent":"builtin/codex","task":"check"}`),
+		Enabled:      true,
+		NextRunAt:    &future,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trigResp, err := srv.TriggerSchedule(context.Background(), &pb.TriggerScheduleRequest{Id: row.ID})
+	if err != nil {
+		t.Fatalf("TriggerSchedule: %v", err)
+	}
+	if !trigResp.Ok || trigResp.ExecutionId != 77 || trigResp.TaskId != "task-now" || triggeredID != row.ID {
+		t.Fatalf("TriggerSchedule resp = %+v", trigResp)
+	}
+
+	// Consumed one-shot reports state=completed in GetSchedule.
+	past := time.Now().Add(-time.Minute).Unix()
+	once, err := store.Create(schedule.Task{
+		Name:        "one-shot",
+		TargetID:    "t1",
+		SessionName: "s1",
+		Prompt:      "done",
+		Spec:        "at 2026-01-01 09:00",
+		Kind:        schedule.KindOnce,
+		Enabled:     true,
+		NextRunAt:   &past,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RecordRun(once.ID, past, nil, "completed"); err != nil {
+		t.Fatal(err)
+	}
+	gotOnce, err := srv.GetSchedule(context.Background(), &pb.GetScheduleRequest{Id: once.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotOnce.Schedule.State != schedule.StateCompleted {
+		t.Fatalf("consumed one-shot state = %q, want completed", gotOnce.Schedule.State)
+	}
+
+	// Failed subtask with nil Result falls back to run.Error (truncated at 500 runes).
+	obs, err := applyTaskRunObservation(schedule.Execution{TaskID: "task-err"}, task.TaskRun{
+		ID:     "task-err",
+		Status: task.StatusFailed,
+		Error:  "runtime launch failed: missing credential",
+	})
+	if err != nil {
+		t.Fatalf("applyTaskRunObservation: %v", err)
+	}
+	if obs.Status != "failed" || !obs.Terminal || obs.Result != "runtime launch failed: missing credential" {
+		t.Fatalf("obs = %+v, want failed with run.Error summary", obs)
+	}
+}
+
+func TestObserveScheduledSubtaskUnderFleetIsolation(t *testing.T) {
+	principals := agentTokenTestStore(t)
+	alice, err := principals.Create(principal.Principal{Kind: principal.KindHuman, DisplayName: "alice"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := principal.ExecutionIdentity{
+		IdentityMode:           principal.IdentityModeIdentified,
+		OriginActorPrincipalID: alice.ID,
+		EffectivePrincipalID:   alice.ID,
+		Source:                 principal.SourceSchedule,
+		IsolationBackend:       principal.BackendLinuxDAC,
+	}
+	runJSON, err := json.Marshal(task.TaskRun{
+		ID:                "task-iso-1",
+		Status:            task.StatusSucceeded,
+		TargetID:          "rt-1",
+		ExecutionIdentity: id,
+		Result:            &task.TaskResult{Status: task.ResultOK, Summary: "ISOLATED_OK"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub := &fakeRouterHub{
+		targets: isolatingTargets("rt-1"),
+		routeFn: func(_ string, method string, _ interface{}) (*pb.TunnelMsg, error) {
+			if method == pb.TaskMethodGet {
+				return respJSON(t, &pb.GetSubtaskResponse{TaskJson: runJSON}), nil
+			}
+			return nil, status.Error(codes.Unimplemented, method)
+		},
+	}
+	idx := newTaskIndex()
+	idx.put("task-iso-1", taskPlacement{TargetID: "rt-1"})
+	router := newTaskRouter(hub, &fakeScheduler{}, idx, nil)
+	router.principals = principals
+
+	// External gRPC GetSubtask without caller credentials must still reject.
+	if _, err := router.GetSubtask(context.Background(), &pb.GetSubtaskRequest{Id: "task-iso-1"}); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("GetSubtask(unauthenticated) err = %v, want Unauthenticated", err)
+	}
+
+	// Control-plane schedule observation must succeed, clear stale observation_unavailable reason, and surface the terminal summary.
+	ctrl := &bridgeSchedules{reader: &bridgeSubtaskReader{router: router}}
+	obs, err := ctrl.ObserveScheduleExecution(context.Background(), schedule.Execution{TaskID: "task-iso-1", Reason: "observation_unavailable"})
+	if err != nil {
+		t.Fatalf("ObserveScheduleExecution: %v", err)
+	}
+	if obs.Status != "completed" || !obs.Terminal || obs.Result != "ISOLATED_OK" || obs.Reason != "" {
+		t.Fatalf("obs = %+v, want completed/ISOLATED_OK with empty reason", obs)
 	}
 }

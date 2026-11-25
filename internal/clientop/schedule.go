@@ -150,6 +150,33 @@ func ScheduleSetEnabled(ctx context.Context, hub pb.AmuxdClient, id int64, enabl
 	return true, nil
 }
 
+// ScheduleTriggerResult reports the admission outcome of an immediate manual run.
+type ScheduleTriggerResult struct {
+	ScheduleID  int64  `json:"schedule_id"`
+	ExecutionID int64  `json:"execution_id,omitempty"`
+	TaskID      string `json:"task_id,omitempty"`
+	Status      string `json:"status,omitempty"`
+	OK          bool   `json:"ok"`
+	Error       string `json:"error,omitempty"`
+}
+
+// ScheduleTrigger executes one immediate manual run of a schedule without
+// altering its enabled state or next_run_at.
+func ScheduleTrigger(ctx context.Context, hub pb.AmuxdClient, id int64) (ScheduleTriggerResult, error) {
+	resp, err := hub.TriggerSchedule(ctx, &pb.TriggerScheduleRequest{Id: id})
+	if err != nil {
+		return ScheduleTriggerResult{}, err
+	}
+	return ScheduleTriggerResult{
+		ScheduleID:  id,
+		ExecutionID: resp.ExecutionId,
+		TaskID:      resp.TaskId,
+		Status:      resp.Status,
+		OK:          resp.Ok,
+		Error:       resp.Error,
+	}, nil
+}
+
 // ScheduleUpdateRequest updates one schedule in place. Any of Name, Spec,
 // Prompt, RunMode, or Task may be set; omitted fields keep their current value.
 // Setting Spec recomputes next_run_at on the hub. Prompt and RunMode apply to

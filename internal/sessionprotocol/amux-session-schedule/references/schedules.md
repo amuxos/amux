@@ -42,9 +42,11 @@ schedule should not depend on the Hub's local time zone.
 
 ## Management and evidence
 
-MCP: `schedule_list`, `schedule_get`, `schedule_set_enabled`, `schedule_update`
-and `schedule_delete`. Follow `next_cursor` while `has_more=true`.
-Update name, time, a session-prompt's `prompt` or `run_mode`, or partial
+MCP: `schedule_list`, `schedule_get`, `schedule_set_enabled`, `schedule_update`,
+`schedule_trigger` and `schedule_delete`. Follow `next_cursor` while `has_more=true`.
+Use `schedule_trigger` (CLI `amux schedule run <id>`) to verify a rule immediately
+once without changing its `next_run_at`.
+Update name, time, `timezone`, a session-prompt's `prompt` or `run_mode`, or partial
 fields of a subtask's `task` specification in place with `schedule_update`;
 omitted fields keep their current values and run history is preserved.
 

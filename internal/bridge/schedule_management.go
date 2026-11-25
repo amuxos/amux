@@ -83,7 +83,7 @@ func renderSchedules(entries []schedule.Entry, filter string, page int) string {
 	}
 	elements := []cardElement{scheduleBackToOverview(), managementDividerElement(), managementTextElement(scheduleSummary(entries), "normal", "default", nil), managementTextElement(scheduleText("policy"), "notation", "grey", nil)}
 	var filters []cardElement
-	for _, f := range []string{"all", "attention", "running", "paused"} {
+	for _, f := range []string{"all", "attention", "running", "paused", "completed"} {
 		btn := scheduleButton("filter."+f, "list", 0, map[string]string{"filter": f})
 		btn.Size = "small"
 		if f == filter {
@@ -100,10 +100,14 @@ func renderSchedules(entries []schedule.Entry, filter string, page int) string {
 			if e.Visibility.Latest.Status == "running" || e.Visibility.Latest.Status == "submitted" {
 				return 1
 			}
-			if e.Task.Enabled {
+			switch e.Task.LifecycleState() {
+			case schedule.StateEnabled:
 				return 2
+			case schedule.StatePaused:
+				return 3
+			default:
+				return 4
 			}
-			return 3
 		}
 		return rank(entries[i]) < rank(entries[j])
 	})
@@ -119,7 +123,11 @@ func renderSchedules(entries []schedule.Entry, filter string, page int) string {
 				continue
 			}
 		case "paused":
-			if e.Task.Enabled {
+			if e.Task.LifecycleState() != schedule.StatePaused {
+				continue
+			}
+		case "completed":
+			if e.Task.LifecycleState() != schedule.StateCompleted {
 				continue
 			}
 		}
@@ -231,6 +239,7 @@ func renderScheduleDetail(e schedule.Entry, result bool, pages ...int) string {
 	} else {
 		elements = append(elements, scheduleButton("results", "result", e.Task.ID, nil))
 	}
+	elements = append(elements, scheduleButton("trigger", "trigger", e.Task.ID, nil))
 	if e.Task.Enabled && e.Task.NextRunAt != nil {
 		elements = append(elements, scheduleButton("pause", "pause", e.Task.ID, nil))
 	} else if e.Task.Kind != schedule.KindOnce {

@@ -3019,6 +3019,9 @@
   "schedule.filter.paused": {
     "other": "Paused"
   },
+  "schedule.filter.completed": {
+    "other": "Completed"
+  },
   "schedule.blocked.230013": {
     "other": "Notification not delivered: the Bot administrator is outside application availability. Add the administrator to the available users and publish, then recheck."
   },
@@ -3045,6 +3048,9 @@
   },
   "schedule.pause": {
     "other": "Pause future runs"
+  },
+  "schedule.trigger": {
+    "other": "Run now"
   },
   "schedule.resume": {
     "other": "Resume schedule"

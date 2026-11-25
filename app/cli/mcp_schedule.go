@@ -221,7 +221,7 @@ string]any {
 	if item == nil {
 		return nil
 	}
-	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "state": scheduleItemState(item), "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
 	if item.Timezone != "" {
 		view["timezone"] = item.Timezone
 	}
@@ -252,7 +252,7 @@ string]any {
 	if item == nil {
 		return nil
 	}
-	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "state": scheduleItemState(item), "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
 	if item.Timezone != "" {
 		view["timezone"] = item.Timezone
 	}
@@ -345,7 +345,32 @@ func scheduleRunsMCPView(runs []*pb.ScheduleRun) []map[string]any {
 		if run == nil {
 			continue
 		}
-		out = append(out, map[string]any{"fired_at": run.FiredAt, "task_id": run.TaskId, "status": run.Status})
+		row := map[string]any{"fired_at": run.FiredAt, "task_id": run.TaskId, "status": run.Status}
+		if run.ScheduledAt > 0 {
+			row["scheduled_at"] = run.ScheduledAt
+		}
+		if run.StartedAt > 0 {
+			row["started_at"] = run.StartedAt
+		}
+		if run.FinishedAt > 0 {
+			row["finished_at"] = run.FinishedAt
+		}
+		if run.SessionName != "" {
+			row["session_name"] = run.SessionName
+		}
+		if run.TurnId != "" {
+			row["turn_id"] = run.TurnId
+		}
+		if run.TriggerSource != "" {
+			row["trigger_source"] = run.TriggerSource
+		}
+		if run.Reason != "" {
+			row["reason"] = run.Reason
+		}
+		if run.ResultSummary != "" {
+			row["result_summary"] = run.ResultSummary
+		}
+		out = append(out, row)
 	}
 	return out
 }
@@ -554,6 +579,23 @@ func (h *mcpHandler) setScheduleEnabled(ctx context.Context, args json.RawMessag
 		return mcp.ErrorText(err.Error()), nil
 	}
 	return mcp.Text(toJSON(map[string]any{"schedule_id": id, "enabled": *a.Enabled})), nil
+}
+
+func (h *mcpHandler) triggerSchedule(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
+	id, _, err := scheduleID(args)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	client, closeFn, err := newScheduleClientForMCP()
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	defer closeFn()
+	res, err := clientop.ScheduleTrigger(ctx, client, id)
+	if err != nil {
+		return mcp.ErrorText(err.Error()), nil
+	}
+	return mcp.Text(toJSON(res)), nil
 }
 var newScheduleClientForMCP = defaultScheduleClientForMCP
 
