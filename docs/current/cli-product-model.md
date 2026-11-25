@@ -7,20 +7,26 @@ The primary command groups are `setup`, `session`, `task`, `agent`, `schedule`,
 
 The owner's private `/amux` → Web management console page opens and closes one
 installation-wide temporary browser console. It is off by default. Opening binds
-`0.0.0.0:<console.port>` (7892 by default) for 30 minutes; reopening an active
+`0.0.0.0:<console.port>` (or `[::]:<console.port>` when the target origin is an
+IPv6 literal; port 7892 by default) for 30 minutes; reopening an active
 window does not extend it. Expiry, explicit close, or Hub shutdown stops the
 listener and invalidates all browser sessions. All Bots share this same manager.
 The card displays a reachable server URL, remaining time and a newly generated
 32-character temporary password only in the confirmed owner's private card.
 Passwords are passed to the child over stdin, never command arguments, URL,
 environment, logs or application persistence. Each new window rotates the password.
-`console.public_url` overrides the advertised origin; otherwise the Hub host IP
-and global port are used. Non-loopback HTTP is supported for trusted networks;
-it is not encrypted and public deployments should use HTTPS.
+`console.port` and `console.public_url` are read from current configuration when
+opening a window without restarting the Hub. `console.public_url` overrides the
+advertised origin; when unset, an active distribution-registered dynamic origin
+resolver may resolve the browser-facing origin after the listener binds, and
+otherwise the Hub host IP and global port are used. Non-loopback HTTP is
+supported for trusted networks; it is not encrypted and public deployments
+should use HTTPS.
 
 `amux console` remains available for operator diagnostics. It defaults to a local
 listener and a 30-minute lifetime. `--password-stdin` and a non-loopback
-`--public-url` are required to expose a non-loopback listener. `--duration` can
+`--public-url` (or an active post-listen public-origin resolver) are required to
+expose a non-loopback listener. `--duration` can
 shorten, but not extend beyond, 30 minutes. A local invocation without a password
 retains five-minute single-use fragment pairing. Password login exchanges the
 password for an HttpOnly, SameSite=Strict cookie whose lifetime cannot exceed the
@@ -28,7 +34,11 @@ open window. Logout revokes one browser session without stopping the console.
 All business reads and event streams require authentication; writes also require
 the exact Host/Origin and a session CSRF token. Browser secrets are not stored in
 localStorage. Agent and enrollment actor credentials cannot start this operator
-surface. A managed child verifies its direct parent against the recorded Hub PID
+surface. System daemon launches and maintenance restarts strip Agent/session
+context environment variables (`AMUX_ACTOR_TOKEN`, `AMUX_ACTOR_TOKEN_FILE`,
+`AMUX_SESSION_ID`, `AMUX_TASK_ID`, `AMUX_PRINCIPAL_ID`) so restarting or
+upgrading from inside an Agent session does not contaminate the Hub daemon.
+A managed child verifies its direct parent against the recorded Hub PID
 and installed sibling Hub executable before using a loopback operator connection.
 An enrollment file left in the host HOME does not change that managed child's
 identity; explicit Agent/session identity still rejects startup. The private

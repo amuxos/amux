@@ -363,3 +363,83 @@ func TestManagementConsoleLifecycleConfiguredAndAutomaticOrigins(t *testing.T) {
 		}
 	}
 }
+
+func TestManagementConsoleLifecycleReloadsConfigAndSupportsDynamicOriginAndIPv6(t *testing.T) {
+	t.Run("reloads config file without restarting hub", func(t *testing.T) {
+		cfgPath := t.TempDir() + "/config.toml"
+		if err := os.WriteFile(cfgPath, []byte("[console]\nport = 7892\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		a := newLocalManagementConsoleActionsWithConfig(context.Background(), "192.0.2.10", cfgPath)
+		a.hasDynamicOrigin = func() bool { return false }
+		port, origin := a.options()
+		if port != 7892 || origin != "http://192.0.2.10:7892" {
+			t.Fatalf("initial options = %d %q", port, origin)
+		}
+		if err := os.WriteFile(cfgPath, []byte("[console]\nport = 8899\npublic_url = 'https://console.example.com'\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		port, origin = a.options()
+		if port != 8899 || origin != "https://console.example.com" {
+			t.Fatalf("reloaded options = %d %q", port, origin)
+		}
+	})
+
+	t.Run("dynamic origin resolver omits public-url flag and validates ready origin", func(t *testing.T) {
+		a, p := newFakeConsoleLifecycle(t)
+		a.hasDynamicOrigin = func() bool { return true }
+		a.options = func() (int, string) { return 7892, "" }
+		var seenArgs []string
+		a.start = func(_ context.Context, _ string, args []string, _ string) (consoleLifecycleProcess, io.ReadCloser, error) {
+			seenArgs = append([]string(nil), args...)
+			data, _ := json.Marshal(consoleLifecycleReady{Addr: "0.0.0.0:7892", URL: "https://dynamic.example.com", ExpiresAt: time.Now().Add(managementConsoleDuration)})
+			return p, io.NopCloser(strings.NewReader("AMUX_CONSOLE_READY " + string(data) + "\n")), nil
+		}
+		info, err := a.Open(context.Background())
+		if err != nil {
+			t.Fatalf("dynamic open: %v", err)
+		}
+		wantArgs := []string{"console", "--addr", "0.0.0.0:7892", "--duration", "30m", "--password-stdin", "--managed-by-hub"}
+		if !reflect.DeepEqual(seenArgs, wantArgs) {
+			t.Fatalf("args = %v, want %v", seenArgs, wantArgs)
+		}
+		if info.URL != "https://dynamic.example.com" || !info.Enabled {
+			t.Fatalf("info = %+v", info)
+		}
+	})
+
+	t.Run("dynamic origin rejects unsafe loopback ready url", func(t *testing.T) {
+		a, p := newFakeConsoleLifecycle(t)
+		a.hasDynamicOrigin = func() bool { return true }
+		a.options = func() (int, string) { return 7892, "" }
+		a.start = func(context.Context, string, []string, string) (consoleLifecycleProcess, io.ReadCloser, error) {
+			data, _ := json.Marshal(consoleLifecycleReady{Addr: "0.0.0.0:7892", URL: "http://127.0.0.1:7892", ExpiresAt: time.Now().Add(managementConsoleDuration)})
+			return p, io.NopCloser(strings.NewReader("AMUX_CONSOLE_READY " + string(data) + "\n")), nil
+		}
+		if _, err := a.Open(context.Background()); err == nil {
+			t.Fatal("accepted loopback url in dynamic mode")
+		}
+	})
+
+	t.Run("ipv6 literal origin listens on wildcard ipv6", func(t *testing.T) {
+		a, p := newFakeConsoleLifecycle(t)
+		a.options = func() (int, string) { return 7892, "http://[2001:db8::10]:7892" }
+		var seenArgs []string
+		a.start = func(_ context.Context, _ string, args []string, _ string) (consoleLifecycleProcess, io.ReadCloser, error) {
+			seenArgs = append([]string(nil), args...)
+			data, _ := json.Marshal(consoleLifecycleReady{Addr: "[::]:7892", URL: "http://[2001:db8::10]:7892", ExpiresAt: time.Now().Add(managementConsoleDuration)})
+			return p, io.NopCloser(strings.NewReader("AMUX_CONSOLE_READY " + string(data) + "\n")), nil
+		}
+		info, err := a.Open(context.Background())
+		if err != nil {
+			t.Fatalf("ipv6 open: %v", err)
+		}
+		wantArgs := []string{"console", "--addr", "[::]:7892", "--duration", "30m", "--public-url", "http://[2001:db8::10]:7892", "--password-stdin", "--managed-by-hub"}
+		if !reflect.DeepEqual(seenArgs, wantArgs) {
+			t.Fatalf("args = %v, want %v", seenArgs, wantArgs)
+		}
+		if info.URL != "http://[2001:db8::10]:7892" {
+			t.Fatalf("info = %+v", info)
+		}
+	})
+}

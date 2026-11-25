@@ -68,7 +68,7 @@ func (a *localManagementSystemActions) Restart(ctx context.Context) error {
 	cmd.Stdin = nil
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
-	cmd.Env = os.Environ()
+	cmd.Env = stripHubAgentContextEnv(os.Environ())
 	// managedService.Stop terminates the amuxd process group. Start the
 	// lifecycle command in its own session so it survives long enough to bring
 	// the system back up.
@@ -175,7 +175,7 @@ func (a *localManagementSystemActions) Upgrade(ctx context.Context, expectedVers
 	cmd.Stdout = io.Discard
 	var diagnostic maintenanceStderr
 	cmd.Stderr = &diagnostic
-	cmd.Env = os.Environ()
+	cmd.Env = stripHubAgentContextEnv(os.Environ())
 	// The installed update command restarts amuxd. Keep it outside the amuxd
 	// process group so it survives the service stop and can finish the handoff.
 	configureDetachedCommand(cmd)
@@ -262,4 +262,32 @@ func (a *localManagementSystemActions) amuxExecutable() (string, error) {
 		return strings.TrimSpace(a.executable), nil
 	}
 	return localAmuxExecutable()
+}
+
+func stripHubAgentContextEnv(env []string) []string {
+	blocked := []string{
+		"AMUX_ACTOR_TOKEN",
+		"AMUX_ACTOR_TOKEN_FILE",
+		"AMUX_SESSION_ID",
+		"AMUX_TASK_ID",
+		"AMUX_PRINCIPAL_ID",
+	}
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		key, _, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		skip := false
+		for _, name := range blocked {
+			if strings.EqualFold(key, name) {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }

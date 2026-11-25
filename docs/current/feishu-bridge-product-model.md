@@ -571,7 +571,8 @@ Failures retain a bounded tail of CLI stderr in the operator log for diagnosis.
 
 The owner's private `/amux` overview includes Web management console. Opening the
 control page does not start a server. Enable starts one system-wide listener on
-`0.0.0.0:<console.port>` for 30 minutes (default port 7892); Close, expiry or Hub
+`0.0.0.0:<console.port>` (or `[::]:<console.port>` for direct IPv6 literal
+origins) for 30 minutes (default port 7892); Close, expiry or Hub
 shutdown stops it and invalidates browser sessions. All Bots share the same
 window, and repeated Enable does not renew an active window. Only the confirmed
 owner acting on a server-recorded private management card can view credentials or
@@ -580,8 +581,11 @@ change the listener. Group/shared/unknown cards and non-owner callbacks are deni
 The private control page shows the reachable URL, remaining time, a random
 32-character temporary password, refresh and close. Overview, callback values,
 URLs and application logs/persistence do not contain that password. A new window
-rotates it. Browser authentication and CSRF remain mandatory. The origin defaults
-to the Hub host IP/global port or `console.public_url`; HTTP is explicitly marked
+rotates it. Browser authentication and CSRF remain mandatory. `console.port` and
+`console.public_url` are read fresh on Enable without restarting the Hub; when
+`console.public_url` is unset, an active distribution-registered origin resolver
+may resolve the browser-facing origin after binding the listener, otherwise the
+Hub host IP and global port are used. HTTP is explicitly marked
 as unencrypted and suitable only for trusted networks. Use HTTPS for public access.
 Lifecycle work is asynchronous so callbacks acknowledge without waiting for process
 startup, and stale completion cannot replace newer navigation.

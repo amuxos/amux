@@ -71,11 +71,11 @@ func newStartCmd() *cobra.Command {
 		Short: "Start the amux hub daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Load config (ignore error — config file is optional).
-			if cfgFile != "" {
-				_ = config.Load(cfgFile)
-			} else {
-				_ = config.Load(amuxhome.ConfigPath())
+			resolvedConfigPath := cfgFile
+			if resolvedConfigPath == "" {
+				resolvedConfigPath = amuxhome.ConfigPath()
 			}
+			_ = config.Load(resolvedConfigPath)
 
 			if addr == "" {
 				addr = defaultHubListenAddr
@@ -196,7 +196,7 @@ func newStartCmd() *cobra.Command {
 			go localExpertAuthoring.runEvaluationReconciler(ctx)
 			managementActions := newLocalManagementSystemActions()
 			go managementActions.RunUpdateMonitor(ctx)
-			consoleActions := newLocalManagementConsoleActions(ctx, detectHubIP(lis.Addr()))
+			consoleActions := newLocalManagementConsoleActionsWithConfig(ctx, detectHubIP(lis.Addr()), resolvedConfigPath)
 			defer consoleActions.Close(context.Background())
 			scheduleControl := &bridgeSchedules{server: &hubServer{hub: hub, listTargets: hub.ListTargets, schedule: scheduleStore, principals: principalStore, scheduleRuntime: hub, scheduleTasks: subtaskReader, isolationConfig: config.GetIsolation}, reader: subtaskReader}
 			bridges := tryStartBridges(ctx, hub, sessionStarter, subtaskReader, principalStore, scheduleControl, webBaseURL, webToken, managementActions, consoleActions, bridge.ManagementSystemInfo{

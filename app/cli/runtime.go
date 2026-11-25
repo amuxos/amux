@@ -67,6 +67,7 @@ func runSiblingBinary(name string, args ...string) error {
 		return err
 	}
 	c := exec.Command(path, args...)
+	c.Env = stripAgentContextEnv(os.Environ())
 	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr

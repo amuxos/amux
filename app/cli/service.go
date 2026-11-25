@@ -81,6 +81,7 @@ func (s managedService) Start(foreground bool) error {
 		return err
 	}
 	cmd := exec.Command(path, s.Args...)
+	cmd.Env = stripAgentContextEnv(os.Environ())
 	cmd.Stdin = nil
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile

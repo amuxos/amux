@@ -7,19 +7,21 @@
 主要命令组为 `setup`、`session`、`task`、`agent`、`schedule`、`memory`、`isolation`、`console` 和 `system`。
 
 负责人私聊 `/amux` → Web 管理后台页负责开启、关闭系统级临时后台。缺省关闭，
-开启后监听 `0.0.0.0:<console.port>`（默认 7892），30 分钟后自动关闭；重复开启不续期。
+开启后监听 `0.0.0.0:<console.port>`（当目标 origin 为 IPv6 字面地址时监听 `[::]:<console.port>`；默认端口 7892），30 分钟后自动关闭；重复开启不续期。
 到期、手动关闭或 Hub 退出都会关闭监听并使所有浏览器会话失效，所有助手共用同一个管理器。
 仅向已确认负责人的私聊卡显示服务器访问地址、剩余时间和每次新生成的 32 字符临时密码。
 密码仅通过 stdin 传入子进程，不进入命令参数、URL、环境、日志或应用持久化；重新开启轮换密码。
-`console.public_url` 可覆盖对外访问 origin，否则使用 Hub 主机 IP 和系统端口。
+每次开启时直接读取最新的 `console.port` 和 `console.public_url` 配置，修改配置无需重启 Hub。
+`console.public_url` 可覆盖对外访问 origin；未配置时，若发行版注册了生效中的动态对外 origin 解析器，则在监听端口后解析实际浏览器入口，否则使用 Hub 主机 IP 和系统端口。
 非回环 HTTP 可用于可信网络，但不加密；公网部署应使用 HTTPS。
 
 `amux console` 保留为运维诊断命令，默认本机监听和 30 分钟寿命；非回环监听必须同时提供
-`--password-stdin` 和非回环 `--public-url`。`--duration` 可以缩短但不能超过 30 分钟。
+`--password-stdin` 和非回环 `--public-url`（或由生效中的监听后 origin 解析器提供）。`--duration` 可以缩短但不能超过 30 分钟。
 本机未提供密码时兼容五分钟有效的一次性 fragment 配对。临时密码换取 HttpOnly、
 SameSite=Strict Cookie，会话有效期不会晚于后台关闭时间。退出登录只撤销当前浏览器会话，
 不关闭后台。业务读取和事件流均需认证，写操作还要求精确 Host/Origin 和会话 CSRF token。
 浏览器不将秘密写入 localStorage。Agent 和 enrollment actor 凭据不能启动此运维入口。
+系统守护进程启动及维护重启/升级会剥离 Agent/Session 上下文环境变量（`AMUX_ACTOR_TOKEN`、`AMUX_ACTOR_TOKEN_FILE`、`AMUX_SESSION_ID`、`AMUX_TASK_ID`、`AMUX_PRINCIPAL_ID`），避免在会话内重启或升级时污染 Hub 进程。
 托管子进程先核对直接父进程、已记录的 Hub PID 及同安装目录的 Hub 可执行文件，
 再建立回环运维连接。宿主 HOME 遗留的 enrollment 文件不改变该托管子进程的身份；
 显式 Agent/Session 身份仍拒绝启动，单独传入私有托管 flag 不授予权限。

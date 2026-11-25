@@ -20,13 +20,44 @@ import (
 // an Agent process that happens to share a host HOME containing enrollment.
 // The private flag is insufficient: both process identity and ancestry must
 // match. Explicit Agent/session credentials always fail closed.
+var agentContextEnvKeys = []string{
+	"AMUX_ACTOR_TOKEN",
+	"AMUX_ACTOR_TOKEN_FILE",
+	"AMUX_SESSION_ID",
+	"AMUX_TASK_ID",
+	"AMUX_PRINCIPAL_ID",
+}
+
 func consoleHasAgentContext() bool {
-	for _, key := range []string{"AMUX_ACTOR_TOKEN", "AMUX_ACTOR_TOKEN_FILE", "AMUX_SESSION_ID", "AMUX_TASK_ID", "AMUX_PRINCIPAL_ID"} {
+	for _, key := range agentContextEnvKeys {
 		if strings.TrimSpace(os.Getenv(key)) != "" {
 			return true
 		}
 	}
 	return false
+}
+
+// stripAgentContextEnv removes per-session Agent identity markers so system
+// daemons spawned from inside an Agent session never inherit session identity.
+func stripAgentContextEnv(env []string) []string {
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		key, _, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		strip := false
+		for _, blocked := range agentContextEnvKeys {
+			if strings.EqualFold(key, blocked) {
+				strip = true
+				break
+			}
+		}
+		if !strip {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }
 func consoleManagedParentVerified() bool {
 	if consoleHasAgentContext() {

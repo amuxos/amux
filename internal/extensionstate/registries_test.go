@@ -12,6 +12,7 @@ import (
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/consoleentry"
 	"github.com/amuxos/amux/internal/distribution"
 	"github.com/amuxos/amux/internal/extensionstate"
 	"github.com/amuxos/amux/internal/mux"
@@ -60,6 +61,7 @@ func TestFreezeClosesAllRegistries(t *testing.T) {
 		"bridge":         func() error { return bridge.RegisterExtension(bridge.Extension{}) },
 		"CLI":            func() error { return cli.RegisterHooks(cli.Hooks{}) },
 		"runtime":        func() error { return runtime.RegisterHooks(runtime.Hooks{}) },
+		"console-origin": func() error { return consoleentry.RegisterPublicOriginResolver(nil) },
 	}
 	for name, register := range registries {
 		t.Run(name, func(t *testing.T) {

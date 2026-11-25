@@ -19,6 +19,7 @@ import (
 
 	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/consoleentry"
 )
 
 const managementConsoleDuration = 30 * time.Minute
@@ -49,30 +50,43 @@ type localManagementConsoleActions struct {
 	run  *consoleLifecycleRun
 	info bridge.ManagementConsoleInfo
 
-	options        func() (int, string)
-	executable     func() (string, error)
-	start          func(context.Context, string, []string, string) (consoleLifecycleProcess, io.ReadCloser, error)
-	random         io.Reader
-	now            func() time.Time
-	startupTimeout time.Duration
-	stopTimeout    time.Duration
+	options          func() (int, string)
+	hasDynamicOrigin func() bool
+	executable       func() (string, error)
+	start            func(context.Context, string, []string, string) (consoleLifecycleProcess, io.ReadCloser, error)
+	random           io.Reader
+	now              func() time.Time
+	startupTimeout   time.Duration
+	stopTimeout      time.Duration
 }
 
 func newLocalManagementConsoleActions(ctx context.Context, hubIP string) *localManagementConsoleActions {
-	return &localManagementConsoleActions{
+	return newLocalManagementConsoleActionsWithConfig(ctx, hubIP, "")
+}
+
+func newLocalManagementConsoleActionsWithConfig(ctx context.Context, hubIP, configPath string) *localManagementConsoleActions {
+	a := &localManagementConsoleActions{
 		ctx: ctx, gate: make(chan struct{}, 1),
-		options: func() (int, string) {
-			port := config.GetConsolePort()
-			origin := config.GetConsolePublicURL()
-			if origin == "" && strings.TrimSpace(hubIP) != "" {
-				origin = "http://" + net.JoinHostPort(hubIP, strconv.Itoa(port))
-			}
-			return port, origin
-		},
-		executable: localAmuxExecutable, start: startConsoleLifecycleProcess,
+		hasDynamicOrigin: consoleentry.HasActivePublicOriginResolver,
+		executable:       localAmuxExecutable, start: startConsoleLifecycleProcess,
 		random: rand.Reader, now: time.Now,
-		startupTimeout: 10 * time.Second, stopTimeout: 2 * time.Second,
+		startupTimeout: 12 * time.Second, stopTimeout: 2 * time.Second,
 	}
+	a.options = func() (int, string) {
+		port := config.GetConsolePort()
+		origin := config.GetConsolePublicURL()
+		if strings.TrimSpace(configPath) != "" {
+			if cfg, err := config.LoadConsoleFrom(configPath); err == nil {
+				port = cfg.Port
+				origin = cfg.PublicURL
+			}
+		}
+		if origin == "" && (a.hasDynamicOrigin == nil || !a.hasDynamicOrigin()) && strings.TrimSpace(hubIP) != "" {
+			origin = "http://" + net.JoinHostPort(hubIP, strconv.Itoa(port))
+		}
+		return port, origin
+	}
+	return a
 }
 
 func startConsoleLifecycleProcess(ctx context.Context, executable string, args []string, password string) (consoleLifecycleProcess, io.ReadCloser, error) {
@@ -132,9 +146,17 @@ func (a *localManagementConsoleActions) Open(ctx context.Context) (bridge.Manage
 		}
 	}
 	port, origin := a.options()
-	origin, err := managementConsoleOrigin(port, origin)
-	if err != nil {
-		return bridge.ManagementConsoleInfo{}, err
+	dynamicOrigin := origin == "" && a.hasDynamicOrigin != nil && a.hasDynamicOrigin()
+	if dynamicOrigin {
+		if port < 1 || port > 65535 {
+			return bridge.ManagementConsoleInfo{}, errors.New("console requires a reachable public origin")
+		}
+	} else {
+		var err error
+		origin, err = managementConsoleOrigin(port, origin)
+		if err != nil {
+			return bridge.ManagementConsoleInfo{}, err
+		}
 	}
 	executable, err := a.executable()
 	if err != nil {
@@ -145,11 +167,14 @@ func (a *localManagementConsoleActions) Open(ctx context.Context) (bridge.Manage
 		return bridge.ManagementConsoleInfo{}, errors.New("console password generation failed")
 	}
 	password := base64.RawURLEncoding.EncodeToString(secret)
-	addr := net.JoinHostPort("0.0.0.0", strconv.Itoa(port))
+	addr := consoleListenAddr(port, origin)
 	startedAt := a.now()
-	process, stdout, err := a.start(a.ctx, executable, []string{
-		"console", "--addr", addr, "--duration", "30m", "--public-url", origin, "--password-stdin", "--managed-by-hub",
-	}, password)
+	args := []string{"console", "--addr", addr, "--duration", "30m"}
+	if origin != "" {
+		args = append(args, "--public-url", origin)
+	}
+	args = append(args, "--password-stdin", "--managed-by-hub")
+	process, stdout, err := a.start(a.ctx, executable, args, password)
 	if err != nil {
 		return bridge.ManagementConsoleInfo{}, errors.New("console process could not start")
 	}
@@ -182,11 +207,19 @@ func (a *localManagementConsoleActions) Open(ctx context.Context) (bridge.Manage
 	if maximum := startedAt.Add(managementConsoleDuration); expiresAt.After(maximum) {
 		expiresAt = maximum
 	}
-	if result.Addr != addr || strings.TrimRight(result.URL, "/") != origin || !expiresAt.After(a.now()) || startupCtx.Err() != nil || a.ctx.Err() != nil {
+	resolvedOrigin := origin
+	if dynamicOrigin {
+		resolvedOrigin, err = managementConsoleOrigin(port, result.URL)
+		if err != nil {
+			_ = a.stopLocked(context.Background(), run)
+			return bridge.ManagementConsoleInfo{}, errors.New("console did not become ready")
+		}
+	}
+	if result.Addr != addr || strings.TrimRight(result.URL, "/") != resolvedOrigin || !expiresAt.After(a.now()) || startupCtx.Err() != nil || a.ctx.Err() != nil {
 		_ = a.stopLocked(context.Background(), run)
 		return bridge.ManagementConsoleInfo{}, errors.New("console did not become ready")
 	}
-	info = bridge.ManagementConsoleInfo{Enabled: true, URL: origin, Password: password, ExpiresAt: expiresAt}
+	info = bridge.ManagementConsoleInfo{Enabled: true, URL: resolvedOrigin, Password: password, ExpiresAt: expiresAt}
 	a.mu.Lock()
 	if a.run != run {
 		a.mu.Unlock()
@@ -284,6 +317,16 @@ func (a *localManagementConsoleActions) stopLocked(ctx context.Context, run *con
 	case <-timer.C:
 		return errors.New("console process did not stop")
 	}
+}
+
+func consoleListenAddr(port int, origin string) string {
+	host := "0.0.0.0"
+	if u, err := url.Parse(strings.TrimSpace(origin)); err == nil {
+		if ip := net.ParseIP(u.Hostname()); ip != nil && ip.To4() == nil {
+			host = "::"
+		}
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port))
 }
 
 func managementConsoleOrigin(port int, origin string) (string, error) {
