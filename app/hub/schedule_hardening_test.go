@@ -76,6 +76,15 @@ func TestPrepareScheduledNewSessionRefreshesIdentityAndMintsToken(t *testing.T) 
 	if len(req.Launch.Env) != 1 || req.Launch.Env[0] != "PATH=/usr/bin" {
 		t.Fatalf("expected session-scoped AMUX_* env stripped while preserving PATH, got %v", req.Launch.Env)
 	}
+	if req.Workspace.Cwd != "" {
+		t.Fatalf("expected Linux DAC isolated template Cwd to be cleared, got %q", req.Workspace.Cwd)
+	}
+	if len(req.Launch.ExtraArgs) != 2 || req.Launch.ExtraArgs[0] != "--model" || req.Launch.ExtraArgs[1] != "Seed-2.1-Turbo" {
+		t.Fatalf("expected stale mcp_servers.amux.* args stripped while preserving --model, got %v", req.Launch.ExtraArgs)
+	}
+	if len(req.Launch.Env) != 1 || req.Launch.Env[0] != "PATH=/usr/bin" {
+		t.Fatalf("expected session-scoped AMUX_* env stripped while preserving PATH, got %v", req.Launch.Env)
+	}
 	// Disabling the principal must cause prepareScheduledNewSession to refuse launch.
 	if err := principals.Disable(alice.ID); err != nil {
 		t.Fatal(err)

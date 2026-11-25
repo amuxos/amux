@@ -103,6 +103,24 @@ func (s *Store) saveVisibility(id int64, v Visibility) error {
 	_, e = s.db.Exec(`UPDATE schedule_visibility SET data=? WHERE schedule_id=?`, b, id)
 	return e
 }
+
+// UpdateCreatorAccessIdentity refreshes the frozen access-identity snapshot on
+// an existing creator visibility binding (for example after an authorized
+// subtask schedule update changes its effective run_as identity). No-op when
+// the schedule has no visibility binding.
+func (s *Store) UpdateCreatorAccessIdentity(id int64, accessIdentityJSON string) error {
+	s.visMu.Lock()
+	defer s.visMu.Unlock()
+	v, err := s.Visibility(id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	v.Creator.AccessIdentityJSON = accessIdentityJSON
+	return s.saveVisibility(id, v)
+}
 func (s *Store) Personal(bot, open string) ([]Entry, error) {
 	rows, err := s.db.Query(`SELECT schedule_id FROM schedule_visibility WHERE bot_id=? AND open_id=? ORDER BY schedule_id DESC`, bot, open)
 	if err != nil {

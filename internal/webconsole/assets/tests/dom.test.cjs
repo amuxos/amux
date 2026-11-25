@@ -178,6 +178,24 @@ test('schedule types generate distinct payloads without unrelated fields', async
   assert.equal('task' in second, false);
 });
 
+test('editing a session-prompt schedule submits prompt and run_mode in place', async () => {
+  const env = environment();
+  const existing = { id: 7, name: 'Standup', spec: 'daily 09:00', schedule_type: 'session-prompt', prompt: 'Old', run_mode: 'reuse-session', enabled: true };
+  mount(env, 'schedules', { schedules: [existing], actions: ['update'] });
+  await env.app.openScheduleForm(existing);
+  const form = env.document.querySelector('#dialogs form');
+  form.querySelector('[name=prompt]').value = 'Updated standup prompt';
+  form.querySelector('[name=run_mode]').value = 'new-session-per-run';
+  await form.fire('submit');
+  const post = env.calls.find(c => c.url === '/api/console/schedules' && c.options.method === 'POST');
+  const body = JSON.parse(post.options.body);
+  assert.equal(body.action, 'update');
+  assert.equal(body.data.schedule_id, 7);
+  assert.equal(body.data.prompt, 'Updated standup prompt');
+  assert.equal(body.data.run_mode, 'new-session-per-run');
+  assert.equal('task' in body.data, false);
+});
+
 test('settings save batches dirty keys as strings with CAS and reports restart', async () => {
   const env = environment();
   mount(env, 'settings', { settings: [{ key: 'a', value: 'false', writable: true }, { key: 'b', value: '1', writable: true }], version: 'sha', actions: ['save'] });

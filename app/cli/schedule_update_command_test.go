@@ -163,3 +163,98 @@ func TestScheduleUpdatePatchesOnlyChangedTaskFlagsAndSupportsJSON(t *testing.T) 
 		t.Fatalf("json schema = %v, want amux.schedule.update.v1", jsonOut["schema"])
 	}
 }
+
+func TestScheduleUpdateSessionPromptCLIAndMCP(t *testing.T) {
+	fake := &fakeScheduleUpdateHub{
+		item: &pb.ScheduleItem{
+			Id:           9,
+			Name:         "standup",
+			ScheduleType: schedule.ScheduleTypeSessionPrompt,
+			Spec:         "daily 09:00",
+			Prompt:       "old prompt",
+			RunMode:      schedule.RunModeReuseSession,
+		},
+	}
+	prevCLI := newScheduleClient
+	newScheduleClient = func() (pb.AmuxdClient, func() error, error) {
+		return fake, func() error { return nil }, nil
+	}
+	t.Cleanup(func() { newScheduleClient = prevCLI })
+
+	cmd := newRootCmd()
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetArgs([]string{"schedule", "update", "9", "--prompt", "new prompt", "--run-mode", "new-session-per-run"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("cli session-prompt update: %v", err)
+	}
+	if fake.updateReq == nil || fake.updateReq.Prompt == nil || *fake.updateReq.Prompt != "new prompt" {
+		t.Fatalf("cli prompt = %+v", fake.updateReq)
+	}
+	if fake.updateReq.RunMode == nil || *fake.updateReq.RunMode != schedule.RunModeNewSessionPerRun {
+		t.Fatalf("cli run_mode = %+v", fake.updateReq)
+	}
+
+	prevMCP := newScheduleClientForMCP
+	newScheduleClientForMCP = func() (pb.AmuxdClient, func() error, error) {
+		return fake, func() error { return nil }, nil
+	}
+	t.Cleanup(func() { newScheduleClientForMCP = prevMCP })
+
+	h := &mcpHandler{}
+	res, err := h.updateSchedule(context.Background(), json.RawMessage(`{"schedule_id":9,"prompt":"mcp prompt","run_mode":"reuse-session"}`))
+	if err != nil || res.IsError {
+		t.Fatalf("mcp session-prompt update: err=%v res=%+v", err, res)
+	}
+	if fake.updateReq.Prompt == nil || *fake.updateReq.Prompt != "mcp prompt" || fake.updateReq.RunMode == nil || *fake.updateReq.RunMode != schedule.RunModeReuseSession {
+		t.Fatalf("mcp updateReq = %+v", fake.updateReq)
+	}
+}
+
+func TestMCPScheduleUpdateMergesPartialTaskSpec(t *testing.T) {
+	existingSpec, err := json.Marshal(task.Spec{
+		Agent:             "team/reviewer",
+		Task:              "review commits",
+		Model:             "gpt-5",
+		PermissionPolicy:  task.PolicyAllow,
+		CredentialProfile: "corp",
+		TimeoutSeconds:    600,
+		Workspace: task.WorkspaceSpec{
+			Policy:   task.WorkspaceGitWorktree,
+			LocalDir: "/srv/repo",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeScheduleUpdateHub{
+		item: &pb.ScheduleItem{
+			Id:           11,
+			Name:         "review",
+			ScheduleType: schedule.ScheduleTypeSubtask,
+			Spec:         "daily 09:00",
+			TaskSpecJson: existingSpec,
+		},
+	}
+	prevMCP := newScheduleClientForMCP
+	newScheduleClientForMCP = func() (pb.AmuxdClient, func() error, error) {
+		return fake, func() error { return nil }, nil
+	}
+	t.Cleanup(func() { newScheduleClientForMCP = prevMCP })
+
+	h := &mcpHandler{}
+	res, err := h.updateSchedule(context.Background(), json.RawMessage(`{"schedule_id":11,"task":{"model":"gpt-5.2","timeout_seconds":900}}`))
+	if err != nil || res.IsError {
+		t.Fatalf("mcp partial task update: err=%v res=%+v", err, res)
+	}
+	var updated task.Spec
+	if err := json.Unmarshal(fake.updateReq.TaskSpecJson, &updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Model != "gpt-5.2" || updated.TimeoutSeconds != 900 {
+		t.Fatalf("patched fields not applied: %+v", updated)
+	}
+	if updated.Agent != "team/reviewer" || updated.Task != "review commits" || updated.CredentialProfile != "corp" || updated.Workspace.LocalDir != "/srv/repo" {
+		t.Fatalf("untouched fields lost in MCP partial task update: %+v", updated)
+	}
+}

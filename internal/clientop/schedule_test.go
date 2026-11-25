@@ -169,6 +169,33 @@ func TestScheduleUpdateRequiresAField(t *testing.T) {
 	}
 }
 
+func TestScheduleUpdateSendsPromptAndRunMode(t *testing.T) {
+	fake := &scheduleFakeAmuxd{updateResp: &pb.UpdateScheduleResponse{Schedule: &pb.ScheduleItem{Id: 5, Name: "standup", Spec: "daily 09:00", NextRunAt: 1800000000}}}
+	prompt := "  summarize blockers  "
+	runMode := "new-session-per-run"
+	out, err := ScheduleUpdate(context.Background(), fake, ScheduleUpdateRequest{ID: 5, Prompt: &prompt, RunMode: &runMode})
+	if err != nil {
+		t.Fatalf("ScheduleUpdate: %v", err)
+	}
+	if out.ID != 5 || fake.updateReq == nil {
+		t.Fatalf("out=%+v req=%+v", out, fake.updateReq)
+	}
+	if fake.updateReq.Prompt == nil || *fake.updateReq.Prompt != "summarize blockers" {
+		t.Fatalf("prompt = %v, want trimmed prompt", fake.updateReq.Prompt)
+	}
+	if fake.updateReq.RunMode == nil || *fake.updateReq.RunMode != "new-session-per-run" {
+		t.Fatalf("run_mode = %v, want new-session-per-run", fake.updateReq.RunMode)
+	}
+	empty := "   "
+	if _, err := ScheduleUpdate(context.Background(), fake, ScheduleUpdateRequest{ID: 5, Prompt: &empty}); err == nil {
+		t.Fatal("expected error for blank prompt")
+	}
+	badMode := "invalid-mode"
+	if _, err := ScheduleUpdate(context.Background(), fake, ScheduleUpdateRequest{ID: 5, RunMode: &badMode}); err == nil {
+		t.Fatal("expected error for invalid run_mode")
+	}
+}
+
 func TestScheduleCreateSessionPromptSendsReuseSessionRequest(t *testing.T) {
 	fake := &scheduleFakeAmuxd{createResp: &pb.CreateScheduleResponse{Id: 11, NextRunAt: 1700000001}}
 	out, err := ScheduleCreateSessionPrompt(context.Background(), fake, ScheduleCreateSessionPromptRequest{

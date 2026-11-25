@@ -42,11 +42,9 @@ and confirm the scheduler's time zone when it affects the requested time.
 
 MCP: `schedule_list`, `schedule_get`, `schedule_set_enabled`, `schedule_update`
 and `schedule_delete`. Follow `next_cursor` while `has_more=true`.
-Update the name or time with `schedule_update`; it can also replace a subtask's
-complete Task specification. It cannot change a session-prompt's prompt or
-run_mode. For those, read the old configuration, delete and recreate it while
-preserving the unchanged fields and intended enabled state. Report partial
-failure if recreation fails.
+Update name, time, a session-prompt's `prompt` or `run_mode`, or partial
+fields of a subtask's `task` specification in place with `schedule_update`;
+omitted fields keep their current values and run history is preserved.
 
 For session-prompt, `schedule_get` exposes only `last_run_at` and `last_status`,
 not complete trigger history. `ok` and `ok:new-session:<name>` mean input was

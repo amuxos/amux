@@ -1677,6 +1677,7 @@
       const fields = [formField('name', 'name', 'text', p.name || ''), formField('spec', 'spec', 'text', p.spec || '', { required: true, help: 'specHelp' })];
       if (!edit) fields.unshift(formField('schedule_type', 'scheduleType', 'text', p.schedule_type || 'subtask', { options: [{ value: 'subtask', label: t('subtask') }, { value: 'session-prompt', label: t('sessionPrompt') }] }));
       if (!edit) fields.push(e('div', { id: 'session-schedule-fields', class: 'form' }, formField('target_id', 'target', 'text', p.target_id || ''), formField('session_name', 'sessionName', 'text', p.session_name || ''), formField('prompt', 'prompt', 'textarea', p.prompt || ''), formField('run_mode', 'runMode', 'text', p.run_mode || 'reuse-session', { options: ['reuse-session', 'new-session-per-run'].map(value => ({ value, label: value })) })));
+      if (edit && item.schedule_type !== 'subtask') fields.push(e('div', { id: 'session-schedule-fields', class: 'form' }, formField('prompt', 'prompt', 'textarea', p.prompt || '', { required: true }), formField('run_mode', 'runMode', 'text', p.run_mode || 'reuse-session', { options: ['reuse-session', 'new-session-per-run'].map(value => ({ value, label: value })) })));
       if (!edit || item.schedule_type === 'subtask') fields.push(e('div', { id: 'task-schedule-fields', class: 'form' }, taskFields(task)));
       formDialog(edit ? 'edit' : 'newSchedule', fields, async data => {
         const payload = { name: data.name, spec: data.spec };
@@ -1688,6 +1689,9 @@
         } else if (!edit) {
           for (const key of ['target_id', 'session_name', 'prompt', 'run_mode']) payload[key] = data[key];
           if (!payload.target_id || !payload.session_name || !payload.prompt) throw new APIError(t('required'));
+        } else {
+          for (const key of ['prompt', 'run_mode']) payload[key] = data[key];
+          if (!payload.prompt) throw new APIError(t('required'));
         }
         await write('schedules', edit ? 'update' : 'create', payload);
       }, { submitKey: edit ? 'save' : 'create', draftKey: 'schedule:' + (item ? scheduleID(item) : 'new'), rebuild: saved => openScheduleForm(item, saved) });

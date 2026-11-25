@@ -42,7 +42,7 @@ Official `tools/list` tools: **51**.
 | `amux.schedule_get` | Get a Schedule; include_runs=true includes run history and task_id values. |
 | `amux.schedule_list` | List Schedules with pagination. Follow next_cursor until has_more=false. |
 | `amux.schedule_set_enabled` | Enable or disable a Schedule. |
-| `amux.schedule_update` | Update a Schedule's name, time rule, or Task in place. Omitted fields remain unchanged. escalate-to-main is not allowed. |
+| `amux.schedule_update` | Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial subtask Task fields in place. Omitted fields remain unchanged. escalate-to-main is not allowed. |
 | `amux.session_interrupt` | Interrupt the current Session turn. |
 | `amux.session_list` | List caller-visible Sessions grouped by Runtime. Do not call this before creating a Session: first call session_run without target, and use this tool to choose only if it reports multiple targets. |
 | `amux.session_prune` | Destructive operation: permanently delete archived Sessions. Only the enrollment operator may use it in isolated clusters; delegated agents may use it in non-isolated clusters. Use task_prune for Task history. |
@@ -1205,7 +1205,7 @@ Enable or disable a Schedule.
 
 ## `amux.schedule_update`
 
-Update a Schedule's name, time rule, or Task in place. Omitted fields remain unchanged. escalate-to-main is not allowed.
+Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial subtask Task fields in place. Omitted fields remain unchanged. escalate-to-main is not allowed.
 
 **Input JSON Schema**
 
@@ -1214,6 +1214,18 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
   "properties": {
     "name": {
       "description": "New Schedule display name; omitted means unchanged",
+      "type": "string"
+    },
+    "prompt": {
+      "description": "session-prompt only: updated prompt delivered to the target Session when due; omitted means unchanged",
+      "type": "string"
+    },
+    "run_mode": {
+      "description": "session-prompt only: updated execution mode (reuse-session or new-session-per-run); omitted means unchanged",
+      "enum": [
+        "reuse-session",
+        "new-session-per-run"
+      ],
       "type": "string"
     },
     "schedule_id": {
@@ -1321,10 +1333,6 @@ Update a Schedule's name, time rule, or Task in place. Omitted fields remain unc
           "type": "object"
         }
       },
-      "required": [
-        "agent",
-        "task"
-      ],
       "type": "object"
     }
   },

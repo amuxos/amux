@@ -354,15 +354,104 @@ func (h *mcpHandler) deleteSchedule(ctx context.Context, args json.RawMessage) (
 	}
 	return mcp.Text(toJSON(map[string]any{"schedule_id": id, "deleted": deleted})), nil
 }
+func mergeMCPTaskPatch(rawTask json.RawMessage, base clientop.ScheduledTaskSpec) (clientop.ScheduledTaskSpec, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(rawTask, &fields); err != nil {
+		return clientop.ScheduledTaskSpec{}, fmt.Errorf("invalid task object: %w", err)
+	}
+	var partial clientop.ScheduledTaskSpec
+	if err := json.Unmarshal(rawTask, &partial); err != nil {
+		return clientop.ScheduledTaskSpec{}, fmt.Errorf("invalid task arguments: %w", err)
+	}
+	if _, ok := fields["extra_args"]; ok {
+		base.ExtraArgs = append([]string(nil), partial.ExtraArgs...)
+	}
+	if _, ok := fields["agent"]; ok {
+		base.Agent = partial.Agent
+	}
+	if _, ok := fields["runtime"]; ok {
+		base.Runtime = partial.Runtime
+	}
+	if _, ok := fields["model"]; ok {
+		base.Model = partial.Model
+	}
+	if _, ok := fields["reasoning_effort"]; ok {
+		base.ReasoningEffort = partial.ReasoningEffort
+	}
+	if _, ok := fields["task"]; ok {
+		base.Task = partial.Task
+	}
+	if _, ok := fields["run_as"]; ok {
+		base.RunAs = partial.RunAs
+	}
+	if _, ok := fields["isolation"]; ok {
+		base.Isolation = partial.Isolation
+	}
+	if _, ok := fields["credential_profile"]; ok {
+		base.CredentialProfile = partial.CredentialProfile
+	}
+	if _, ok := fields["permission_policy"]; ok {
+		base.PermissionPolicy = partial.PermissionPolicy
+	}
+	if _, ok := fields["timeout_seconds"]; ok {
+		base.TimeoutSeconds = partial.TimeoutSeconds
+	}
+	if wsRaw, ok := fields["workspace"]; ok {
+		var wsFields map[string]json.RawMessage
+		if err := json.Unmarshal(wsRaw, &wsFields); err != nil {
+			return clientop.ScheduledTaskSpec{}, fmt.Errorf("invalid task.workspace: %w", err)
+		}
+		if _, ok := wsFields["policy"]; ok {
+			base.Workspace.Policy = partial.Workspace.Policy
+		}
+		if _, ok := wsFields["local_dir"]; ok {
+			base.Workspace.LocalDir = partial.Workspace.LocalDir
+		}
+		if repoRaw, ok := wsFields["repo"]; ok {
+			if strings.TrimSpace(string(repoRaw)) == "null" {
+				base.Workspace.Repo = nil
+			} else {
+				var repoFields map[string]json.RawMessage
+				if err := json.Unmarshal(repoRaw, &repoFields); err != nil {
+					return clientop.ScheduledTaskSpec{}, fmt.Errorf("invalid task.workspace.repo: %w", err)
+				}
+				if base.Workspace.Repo == nil {
+					base.Workspace.Repo = &clientop.RepoSpec{}
+				}
+				if partial.Workspace.Repo != nil {
+					if _, ok := repoFields["kind"]; ok {
+						base.Workspace.Repo.Kind = partial.Workspace.Repo.Kind
+					}
+					if _, ok := repoFields["remote"]; ok {
+						base.Workspace.Repo.Remote = partial.Workspace.Repo.Remote
+					}
+					if _, ok := repoFields["cache_key"]; ok {
+						base.Workspace.Repo.CacheKey = partial.Workspace.Repo.CacheKey
+					}
+					if _, ok := repoFields["commit"]; ok {
+						base.Workspace.Repo.Commit = partial.Workspace.Repo.Commit
+					}
+					if _, ok := repoFields["subdir"]; ok {
+						base.Workspace.Repo.Subdir = partial.Workspace.Repo.Subdir
+					}
+				}
+			}
+		}
+	}
+	return base, nil
+}
+
 func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
 	id, _, err := scheduleID(args)
 	if err != nil {
 		return mcp.ErrorText(err.Error()), nil
 	}
 	var a struct {
-		Name *string                     `json:"name"`
-		Spec *string                     `json:"spec"`
-		Task *clientop.ScheduledTaskSpec `json:"task"`
+		Name    *string         `json:"name"`
+		Spec    *string         `json:"spec"`
+		Prompt  *string         `json:"prompt"`
+		RunMode *string         `json:"run_mode"`
+		Task    json.RawMessage `json:"task"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return mcp.ErrorText("invalid arguments: " + err.Error()), nil
@@ -370,12 +459,45 @@ func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (
 	if a.Spec != nil && strings.TrimSpace(*a.Spec) == "" {
 		return mcp.ErrorText("spec must not be empty"), nil
 	}
+	if a.Prompt != nil && strings.TrimSpace(*a.Prompt) == "" {
+		return mcp.ErrorText("prompt must not be empty"), nil
+	}
+	if a.RunMode != nil {
+		if _, err := schedule.NormalizeRunMode(*a.RunMode); err != nil {
+			return mcp.ErrorText(err.Error()), nil
+		}
+	}
 	client, closeFn, err := newScheduleClientForMCP()
 	if err != nil {
 		return mcp.ErrorText(err.Error()), nil
 	}
 	defer closeFn()
-	out, err := clientop.ScheduleUpdate(ctx, client, clientop.ScheduleUpdateRequest{ID: id, Name: a.Name, Spec: a.Spec, Task: a.Task})
+	req := clientop.ScheduleUpdateRequest{
+		ID:      id,
+		Name:    a.Name,
+		Spec:    a.Spec,
+		Prompt:  a.Prompt,
+		RunMode: a.RunMode,
+	}
+	if trimmedTask := strings.TrimSpace(string(a.Task)); trimmedTask != "" && trimmedTask != "null" {
+		current, err := clientop.ScheduleGet(ctx, client, clientop.ScheduleIDRequest{ID: id})
+		if err != nil {
+			return mcp.ErrorText(err.Error()), nil
+		}
+		if current.ScheduleType != schedule.ScheduleTypeSubtask {
+			return mcp.ErrorText("task is only valid for subtask schedules"), nil
+		}
+		base, err := scheduledTaskSpecFromPB(current)
+		if err != nil {
+			return mcp.ErrorText(err.Error()), nil
+		}
+		merged, err := mergeMCPTaskPatch(a.Task, base)
+		if err != nil {
+			return mcp.ErrorText(err.Error()), nil
+		}
+		req.Task = &merged
+	}
+	out, err := clientop.ScheduleUpdate(ctx, client, req)
 	if err != nil {
 		var fe *clientop.FieldError
 		if errors.As(err, &fe) {
@@ -383,7 +505,13 @@ func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (
 		}
 		return mcp.ErrorText(err.Error()), nil
 	}
-	return mcp.Text(toJSON(map[string]any{"schedule_id": out.ID, "name": out.Name, "spec": out.Spec, "next_run_at": out.NextRunAt})), nil
+	return mcp.Text(toJSON(map[string]any{
+		"schedule_id":     out.ID,
+		"name":            out.Name,
+		"spec":            out.Spec,
+		"next_run_at":     out.NextRunAt,
+		"next_run_at_iso": mcpScheduleTimeISO(out.NextRunAt),
+	})), nil
 }
 func (h *mcpHandler) setScheduleEnabled(ctx context.Context, args json.RawMessage) (mcp.ToolResult, error) {
 	var a struct {
@@ -410,7 +538,9 @@ func (h *mcpHandler) setScheduleEnabled(ctx context.Context, args json.RawMessag
 	}
 	return mcp.Text(toJSON(map[string]any{"schedule_id": id, "enabled": *a.Enabled})), nil
 }
-func newScheduleClientForMCP() (pb.AmuxdClient, func() error, error) {
+var newScheduleClientForMCP = defaultScheduleClientForMCP
+
+func defaultScheduleClientForMCP() (pb.AmuxdClient, func() error, error) {
 	client, closeFn, err := newAmuxdClient()
 	if err != nil {
 		return nil, nil, fmt.Errorf("schedule requires hub: %w", err)

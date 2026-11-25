@@ -1693,6 +1693,7 @@ amux schedule update <id> [flags]
 ```bash
 amux schedule update 8 --name nightly-report
   amux schedule update 8 --spec "daily 09:00"
+  amux schedule update 8 --prompt "summarize blockers" --run-mode new-session-per-run
   amux schedule update 8 --agent builtin/codex --task "run smoke tests"
   amux schedule update 8 --timeout 600 --reasoning-effort high
 ```
@@ -1710,6 +1711,7 @@ amux schedule update 8 --name nightly-report
 | `--model` | `string` | `""` | 每次定时运行面向用户的模型覆盖；默认应传入当前会话模型，留空时使用 Profile 或 Agent 默认模型 |
 | `--name` | `string` | `""` | Schedule 的新标签 |
 | `--permission-policy` | `string` | `""` | Task 与原生权限的统一策略：default 或 policy-allow（默认），或 deny-all；定时 Task 不支持 escalate-to-main；覆盖原生权限参数 |
+| `--prompt` | `string` | `""` | session-prompt Schedule 的新提示词 |
 | `--reasoning-effort` | `string` | `""` | 每次定时运行面向用户的思考强度覆盖；默认应传入当前会话思考强度，留空时使用所选模型声明的默认值 |
 | `--repo-cache-key` | `string` | `""` | 工作区仓库缓存键 |
 | `--repo-commit` | `string` | `""` | 工作区仓库提交或 ref |
@@ -1717,6 +1719,7 @@ amux schedule update 8 --name nightly-report
 | `--repo-remote` | `string` | `""` | 工作区仓库远端 URL 或稳定 ID |
 | `--repo-subdir` | `string` | `""` | 工作区仓库子目录 |
 | `--run-as` | `string` | `""` | 以已注册的 Principal 别名运行（保存 Schedule 时解析并冻结） |
+| `--run-mode` | `string` | `""` | session-prompt Schedule 的新执行模式：reuse-session 或 new-session-per-run |
 | `--runtime` | `string` | `""` | 执行 Runtime 适配器；省略时使用 builtin 快捷入口预设，其他专家使用发行版默认执行配置 |
 | `--spec` | `string` | `""` | 新的时间规则（every <duration>、daily <HH:MM>、at <when> 或 cron <expr>）；重新计算下次运行时间 |
 | `--task` | `string` | `""` | 每次 Schedule 触发时执行的任务 Prompt |
