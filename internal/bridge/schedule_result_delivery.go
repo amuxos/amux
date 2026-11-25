@@ -123,30 +123,20 @@ func scheduleDeliverySummary(t schedule.Task) any {
 }
 
 func renderScheduleCreatedCard(entry schedule.Entry) string {
-	elements := []cardElement{
-		managementTextElement(
-			managementConcat(scheduleExecutionModeCopy(entry.Task), " · ", scheduleSpecDisplay(entry.Task)),
-			"normal",
-			"default",
-			nil,
+	infoBox := managementVerticalSummaryElement(
+		fmt.Sprintf("amux_schedule_created_%d", entry.Task.ID),
+		managementOverviewKeyValueRowElement(scheduleText("detail.field.schedule"), scheduleSpecDisplay(entry.Task)),
+		managementOverviewKeyValueRowElement(scheduleText("detail.field.next_run"), scheduleNext(entry)),
+		managementOverviewKeyValueRowElement(
+			scheduleText("detail.field.execution"),
+			managementConcat(scheduleExecutionModeCopy(entry.Task), " · ", scheduleDeliveryAgentLabel(entry.Task)),
 		),
-		managementTextElement(scheduleText("next", scheduleNext(entry)), "notation", "grey", nil),
-		managementTextElement(
-			managementConcat(scheduleText("created.agent_prefix"), scheduleDeliveryAgentLabel(entry.Task)),
-			"notation",
-			"grey",
-			nil,
-		),
-		managementTextElement(
-			managementConcat(scheduleText("detail.delivery_prefix"), scheduleDeliverySummary(entry.Task)),
-			"notation",
-			"grey",
-			nil,
-		),
-	}
+		managementOverviewKeyValueRowElement(scheduleText("detail.field.delivery"), scheduleDeliverySummary(entry.Task)),
+	)
+	infoBox.Columns[0].VerticalSpacing = "4px"
+	elements := []cardElement{infoBox}
 
 	if entry.Task.ID > 0 {
-		elements = append(elements, managementDividerElement())
 		runNowBtn := scheduleButton("created.action.run_now", "trigger", entry.Task.ID, map[string]string{"source": "delivery"})
 		runNowBtn.Size = "small"
 		actions := []cardElement{runNowBtn}
@@ -170,6 +160,7 @@ func renderScheduleCreatedCard(entry schedule.Entry) string {
 		Title:    title,
 		Summary:  title,
 		Theme:    "wathet",
+		Icon:     managementIcon("setting_outlined", "blue"),
 		Elements: elements,
 	})
 }

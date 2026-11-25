@@ -3097,9 +3097,6 @@
   "schedule.created.title": {
     "other": "Schedule created"
   },
-  "schedule.created.agent_prefix": {
-    "other": "Executor: "
-  },
   "schedule.created.action.run_now": {
     "other": "Run test"
   },
@@ -3112,17 +3109,50 @@
   "schedule.mode.reuse_session": {
     "other": "Current session"
   },
-  "schedule.detail.execution_prefix": {
-    "other": "Execution: "
-  },
-  "schedule.detail.delivery_prefix": {
-    "other": "Result delivery: "
-  },
   "schedule.detail.delivery_target_label": {
     "other": "Delivery target"
   },
   "schedule.detail.delivery_policy_label": {
     "other": "Delivery policy"
+  },
+  "schedule.detail.field.status": {
+    "other": "Status"
+  },
+  "schedule.detail.field.schedule": {
+    "other": "Schedule"
+  },
+  "schedule.detail.field.next_run": {
+    "other": "Next run"
+  },
+  "schedule.detail.field.last_completed": {
+    "other": "Last completed"
+  },
+  "schedule.detail.field.execution": {
+    "other": "Execution"
+  },
+  "schedule.detail.field.delivery": {
+    "other": "Result delivery"
+  },
+  "schedule.detail.section.delivery": {
+    "other": "Result delivery"
+  },
+  "schedule.detail.section.alerts": {
+    "other": "Status alerts"
+  },
+  "schedule.tag.enabled": {
+    "other": "Enabled"
+  },
+  "schedule.tag.paused": {
+    "other": "Paused"
+  },
+  "schedule.tag.completed": {
+    "other": "Completed"
+  },
+  "schedule.tag.attention": {
+    "other": "Attention"
+  },
+  "schedule.tag.auto_paused": {
+    "other": "Auto-paused"
   },
   "schedule.delivery_target.origin": {
     "other": "Origin chat"

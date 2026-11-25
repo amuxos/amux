@@ -3077,9 +3077,6 @@
   "schedule.created.title": {
     "other": "已创建定时任务"
   },
-  "schedule.created.agent_prefix": {
-    "other": "执行对象："
-  },
   "schedule.created.action.run_now": {
     "other": "立即试跑"
   },
@@ -3092,17 +3089,50 @@
   "schedule.mode.reuse_session": {
     "other": "当前会话执行"
   },
-  "schedule.detail.execution_prefix": {
-    "other": "执行方式："
-  },
-  "schedule.detail.delivery_prefix": {
-    "other": "结果推送："
-  },
   "schedule.detail.delivery_target_label": {
     "other": "推送目标"
   },
   "schedule.detail.delivery_policy_label": {
     "other": "推送条件"
+  },
+  "schedule.detail.field.status": {
+    "other": "运行状态"
+  },
+  "schedule.detail.field.schedule": {
+    "other": "调度规则"
+  },
+  "schedule.detail.field.next_run": {
+    "other": "下次计划"
+  },
+  "schedule.detail.field.last_completed": {
+    "other": "最近完成"
+  },
+  "schedule.detail.field.execution": {
+    "other": "执行方式"
+  },
+  "schedule.detail.field.delivery": {
+    "other": "结果推送"
+  },
+  "schedule.detail.section.delivery": {
+    "other": "结果推送"
+  },
+  "schedule.detail.section.alerts": {
+    "other": "异常状态提醒"
+  },
+  "schedule.tag.enabled": {
+    "other": "已启用"
+  },
+  "schedule.tag.paused": {
+    "other": "已暂停"
+  },
+  "schedule.tag.completed": {
+    "other": "已完成"
+  },
+  "schedule.tag.attention": {
+    "other": "需关注"
+  },
+  "schedule.tag.auto_paused": {
+    "other": "已自动暂停"
   },
   "schedule.delivery_target.origin": {
     "other": "原会话"
