@@ -171,9 +171,14 @@ func (c *Client) OnRequest(method string, h Handler) {
 }
 
 func (c *Client) Run() error {
+	return c.RunWithExtraFrameBytes(0)
+}
+
+// RunWithExtraFrameBytes allows a bounded additional payload in each frame.
+func (c *Client) RunWithExtraFrameBytes(extraFrameBytes int) error {
 	defer c.closePending()
 	scanner := bufio.NewScanner(c.r)
-	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	scanner.Buffer(make([]byte, 0, 64*1024), (16<<20)+extraFrameBytes)
 	for scanner.Scan() {
 		var msg Message
 		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {

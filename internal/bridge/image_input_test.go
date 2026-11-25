@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"image"
+	"image/color"
+	"image/gif"
 	"image/png"
 	"io"
 	"sync"
@@ -129,6 +131,55 @@ func TestMultipartSubmitDoesNotDownloadForUnsupportedModel(t *testing.T) {
 	_, submit, err = b.multipartSubmitParts(ctx, &LarkChat{TargetID: "t1", SessionName: "s1", RootMsgID: "root"}, "")
 	if err != nil || submit || fetches != 0 {
 		t.Fatalf("image-only submit=%v fetches=%d err=%v", submit, fetches, err)
+	}
+}
+
+func TestMultipartSubmitConvertsGIFToPNGPreview(t *testing.T) {
+	palette := color.Palette{color.RGBA{R: 255, A: 255}, color.RGBA{B: 255, A: 255}}
+	first := image.NewPaletted(image.Rect(0, 0, 2, 2), palette)
+	second := image.NewPaletted(image.Rect(0, 0, 2, 2), palette)
+	second.SetColorIndex(0, 0, 1)
+	var data bytes.Buffer
+	if err := gif.EncodeAll(&data, &gif.GIF{Image: []*image.Paletted{first, second}, Delay: []int{10, 10}}); err != nil {
+		t.Fatal(err)
+	}
+	b := &Bridge{hub: &bridgeTestHub{targets: []*pb.Target{{Id: "t1", Sessions: []*pb.Session{{
+		Name: "s1", InputModalities: []string{"text", "image"},
+	}}}}}}
+	b.imageResourceFetch = func(context.Context, string, string) (io.Reader, string, error) {
+		return bytes.NewReader(data.Bytes()), "example.gif", nil
+	}
+	ctx := withFeishuImages(context.Background(), feishuImageContext{refs: []feishuImageRef{{messageID: "om", imageKey: "key"}}})
+	parts, submit, err := b.multipartSubmitParts(ctx, &LarkChat{TargetID: "t1", SessionName: "s1"}, "inspect")
+	if err != nil || !submit || len(parts) != 2 || parts[0].GetText() != "inspect" {
+		t.Fatalf("parts=%d submit=%v err=%v", len(parts), submit, err)
+	}
+	preview := parts[1].GetImage()
+	if preview == nil || preview.MimeType != "image/png" || preview.DisplayName != "example.png" {
+		t.Fatal("expected a PNG preview from the GIF")
+	}
+	decoded, err := png.Decode(bytes.NewReader(preview.Data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := color.RGBAModel.Convert(decoded.At(0, 0)); got != palette[0] {
+		t.Fatalf("preview pixel = %v, want the first frame pixel %v", got, palette[0])
+	}
+}
+
+func TestGIFPreviewRejectsOversizedCanvas(t *testing.T) {
+	palette := color.Palette{color.Black, color.White}
+	frame := image.NewPaletted(image.Rect(0, 0, 2, 2), palette)
+	var data bytes.Buffer
+	if err := gif.EncodeAll(&data, &gif.GIF{
+		Image:  []*image.Paletted{frame},
+		Delay:  []int{0},
+		Config: image.Config{ColorModel: palette, Width: 6000, Height: 6000},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if preview, err := gifPNGPreview(data.Bytes()); len(preview) != 0 || err == nil {
+		t.Fatal("expected the GIF canvas to be rejected before encoding a preview")
 	}
 }
 
