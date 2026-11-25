@@ -248,6 +248,8 @@ Recovery attempts yield between Sessions. When an attempt reaches its deadline,
 the next pass starts with Sessions it had no time to try. Retry backoff increases
 only when a pass makes no progress, and resets when any pending Session is restored.
 The updater waits as long as the Runtime continues reducing the pending count.
+The updater refreshes the local Hub before the Runtime. Its final start checks
+leave the new Runtime running while it registers with the Hub.
 After a requested service restart, the updater allows up to five minutes for the local Runtime to become reachable. During session recovery, two minutes without observable progress ends the CLI wait. The Runtime keeps retrying.
 Native goal continuations pause admission during maintenance; the existing goal
 grant is retained and resumed afterward. Maintenance is a local administration RPC,

@@ -27,7 +27,7 @@ import (
 var installBinaryNames = []string{"amux", "amuxd", "amuxlet"}
 
 var updateHTTPClient = &http.Client{Timeout: 60 * time.Second}
-var updateSystemLifecycleOpener systemLifecycleOpener = openSystemLifecycle
+var updateSystemLifecycleOpener systemLifecycleOpener = openUpdateSystemLifecycle
 var updatePostInstallRunner = runUpdatePostInstallCommand
 var updateIsolationHelper = refreshInstalledIsolationHelper
 var updateAgentPackAutoSyncRefresher = func() error {
@@ -451,10 +451,10 @@ func completeUpdatePostInstall(cmd *cobra.Command, opts *installOptions, nextSte
 				}
 			}
 		}
-		if err := restartIfRunning(runtimeService()); err != nil {
+		if err := restartIfRunning(hubService()); err != nil {
 			return err
 		}
-		if err := restartIfRunning(hubService()); err != nil {
+		if err := restartIfRunning(runtimeService()); err != nil {
 			return err
 		}
 		if err := ensureUpdateSystemStarted(cmd); err != nil {

@@ -15,6 +15,14 @@ func openSystemLifecycle(out io.Writer) (system.Lifecycle, func() error, error) 
 	return openSystemLifecycleWithHooks(out, defaultLegacySystemMutationHooks())
 }
 
+func openUpdateSystemLifecycle(out io.Writer) (system.Lifecycle, func() error, error) {
+	hooks := defaultLegacySystemMutationHooks()
+	// The updater has already refreshed running services. The new Runtime
+	// can accept local requests while its Hub registration is still pending.
+	hooks.skipStaleRuntimeRestart = true
+	return openSystemLifecycleWithHooks(out, hooks)
+}
+
 func openSystemLifecycleWithHooks(out io.Writer, hooks legacySystemMutationHooks) (system.Lifecycle, func() error, error) {
 	journal, err := system.OpenJournal(system.DefaultJournalPath())
 	if err != nil {
@@ -29,16 +37,17 @@ func openSystemLifecycleWithHooks(out io.Writer, hooks legacySystemMutationHooks
 }
 
 type legacySystemMutationHooks struct {
-	runInit          func(io.Writer, initOptions) error
-	hubAddress       func() (string, error)
-	runtimeService   func() managedService
-	hubService       func() managedService
-	autoSyncService  func() managedService
-	serviceRunning   func(managedService) bool
-	startService     func(managedService) error
-	stopService      func(managedService) error
-	guardRuntimeStop func(context.Context, bool, string) error
-	guardHubStop     func(context.Context, bool) error
+	runInit                 func(io.Writer, initOptions) error
+	hubAddress              func() (string, error)
+	runtimeService          func() managedService
+	hubService              func() managedService
+	autoSyncService         func() managedService
+	serviceRunning          func(managedService) bool
+	startService            func(managedService) error
+	stopService             func(managedService) error
+	guardRuntimeStop        func(context.Context, bool, string) error
+	guardHubStop            func(context.Context, bool) error
+	skipStaleRuntimeRestart bool
 }
 
 func defaultLegacySystemMutationHooks() legacySystemMutationHooks {
@@ -91,7 +100,7 @@ func legacySystemExecutor(out io.Writer, hooks legacySystemMutationHooks) system
 			if err != nil {
 				return err
 			}
-			restartRuntime := legacySystemStartNeedsRuntimeRestart(plan.Before, manageHub)
+			restartRuntime := !hooks.skipStaleRuntimeRestart && legacySystemStartNeedsRuntimeRestart(plan.Before, manageHub)
 			return startLegacySystemServicesWithRuntimeRestart(ctx, manageHub, restartRuntime, request.Force, "amux system restart --force", hooks)
 		case system.ActionStop:
 			manageHub, err := resolveLegacySystemTopology(hooks)
