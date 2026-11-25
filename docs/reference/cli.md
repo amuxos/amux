@@ -83,6 +83,7 @@ After changing public command names, hierarchy, visibility, descriptions, argume
 | `amux schedule enable` | Enable a scheduled prompt |
 | `amux schedule list` | List scheduled prompts and subtasks |
 | `amux schedule remove` | Delete a scheduled prompt |
+| `amux schedule result` | Read the structured result of a scheduled execution |
 | `amux schedule run` | Trigger a schedule immediately once without changing its next run time |
 | `amux schedule runs` | List runs for a schedule |
 | `amux schedule update` | Update a scheduled prompt or subtask in place |
@@ -139,6 +140,8 @@ After changing public command names, hierarchy, visibility, descriptions, argume
 | `amux task respond` | Answer an escalated permission request (escalate-to-main) |
 | `amux task show` | Show a task's status and result |
 | `amux task submit` | Submit a subagent task |
+| `amux turn` | Inspect single-turn structured results |
+| `amux turn result` | Read the structured result of a single turn |
 
 ## `amux`
 
@@ -165,6 +168,7 @@ amux [flags]
 | `amux setup` | Set up this amux installation |
 | `amux system` | Inspect and manage this amux installation |
 | `amux task` | Run and manage subagent tasks |
+| `amux turn` | Inspect single-turn structured results |
 
 **Options**
 
@@ -1521,6 +1525,7 @@ amux schedule [flags]
 | `amux schedule enable` | Enable a scheduled prompt |
 | `amux schedule list` | List scheduled prompts and subtasks |
 | `amux schedule remove` | Delete a scheduled prompt |
+| `amux schedule result` | Read the structured result of a scheduled execution |
 | `amux schedule run` | Trigger a schedule immediately once without changing its next run time |
 | `amux schedule runs` | List runs for a schedule |
 | `amux schedule update` | Update a scheduled prompt or subtask in place |
@@ -1670,6 +1675,33 @@ amux schedule remove <id> [flags]
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | help for remove |
+
+## `amux schedule result`
+
+Read the structured result of a scheduled execution
+
+**Usage**
+
+```text
+amux schedule result <id> [flags]
+```
+
+**Examples**
+
+```bash
+amux schedule result 8
+  amux schedule result 8 --json
+  amux schedule result 8 --execution 42 --json
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--execution` | `int64` | `0` | execution ID from `amux schedule runs` (0 or omitted reads the latest execution) |
+| `-h, --help` | `bool` | `false` | help for result |
+| `--timeout` | `duration` | `1m0s` | maximum wait duration when --wait is set |
+| `--wait` | `bool` | `false` | poll read-only until the turn result settles or --timeout expires |
 
 ## `amux schedule run`
 
@@ -2784,3 +2816,54 @@ amux task submit <task prompt> [flags]
 | `--trusted-mode-ack` | `bool` | `true` | legacy no-op: long-lived secrets inject under weak isolation by default (v0.38) |
 | `--wait` | `bool` | `false` | block until the task finishes and print the result |
 | `--workspace` | `string` | `""` | workspace policy: temp-dir \| git-worktree (default temp-dir) |
+
+## `amux turn`
+
+Inspect single-turn structured results
+
+**Usage**
+
+```text
+amux turn [flags]
+```
+
+**Subcommands**
+
+| Command | Description |
+| --- | --- |
+| `amux turn result` | Read the structured result of a single turn |
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | help for turn |
+
+## `amux turn result`
+
+Read the structured result of a single turn
+
+**Usage**
+
+```text
+amux turn result [session-ref] [turn-id] [flags]
+```
+
+**Examples**
+
+```bash
+amux turn result local/chat turn_123 --json
+  amux turn result local/chat latest
+  amux turn result --feishu-message om_xxx --json
+  amux turn result local/chat turn_123 --wait --timeout 60s --json
+```
+
+**Options**
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--bridge` | `string` | `""` | optional Feishu bot/bridge ID to disambiguate --feishu-message |
+| `--feishu-message` | `string` | `""` | look up by triggering Feishu message ID (om_...) |
+| `-h, --help` | `bool` | `false` | help for result |
+| `--timeout` | `duration` | `1m0s` | maximum wait duration when --wait is set |
+| `--wait` | `bool` | `false` | poll read-only until the turn result settles or --timeout expires |

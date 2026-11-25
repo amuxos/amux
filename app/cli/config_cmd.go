@@ -343,6 +343,7 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		parseFeishuProfileGroupWatchKey(key) == "dedup.enabled" ||
 		key == "mcp.enabled" ||
 		key == "memory.enabled" ||
+		key == "turn_results.enabled" ||
 		key == "bridge.feishu.presentation.completion_notification_enabled" ||
 		key == "bridge.feishu.group_settings.enabled" ||
 		key == "bridge.feishu.experimental.steer_foreground" ||
@@ -388,6 +389,38 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		}
 		if err := config.ValidateModelRecoveryQueueWaitSeconds(parsed); err != nil {
 			return commandValidationError(err)
+		}
+		value = int64(parsed)
+	}
+	switch key {
+	case "turn_results.ttl_seconds":
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || (parsed != 0 && (parsed < config.MinTurnResultsTTLSeconds || parsed > config.MaxTurnResultsTTLSeconds)) {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.turn_results_ttl", key, config.MinTurnResultsTTLSeconds, config.MaxTurnResultsTTLSeconds)))
+		}
+		value = int64(parsed)
+	case "turn_results.pending_timeout_seconds":
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < config.MinTurnResultsPendingTimeoutSeconds || parsed > config.MaxTurnResultsPendingTimeoutSeconds {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.integer_range", key, config.MinTurnResultsPendingTimeoutSeconds, config.MaxTurnResultsPendingTimeoutSeconds)))
+		}
+		value = int64(parsed)
+	case "turn_results.max_entries":
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < config.MinTurnResultsMaxEntries || parsed > config.MaxTurnResultsMaxEntries {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.integer_range", key, config.MinTurnResultsMaxEntries, config.MaxTurnResultsMaxEntries)))
+		}
+		value = int64(parsed)
+	case "turn_results.max_total_bytes":
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed < config.MinTurnResultsMaxTotalBytes || parsed > config.MaxTurnResultsMaxTotalBytes {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.integer_range", key, config.MinTurnResultsMaxTotalBytes, config.MaxTurnResultsMaxTotalBytes)))
+		}
+		value = parsed
+	case "turn_results.max_content_bytes":
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < config.MinTurnResultsMaxContentBytes || parsed > config.MaxTurnResultsMaxContentBytes {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.integer_range", key, config.MinTurnResultsMaxContentBytes, config.MaxTurnResultsMaxContentBytes)))
 		}
 		value = int64(parsed)
 	}

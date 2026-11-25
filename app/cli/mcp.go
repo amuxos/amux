@@ -141,6 +141,10 @@ func (h *mcpHandler) handle(ctx context.Context, name string, args json.RawMessa
 		return h.setScheduleEnabled(ctx, args)
 	case "amux.schedule_trigger":
 		return h.triggerSchedule(ctx, args)
+	case "amux.turn_result_get":
+		return h.getTurnResult(ctx, args)
+	case "amux.schedule_result_get":
+		return h.getScheduleResult(ctx, args)
 	case "amux.instance_spawn":
 		return h.spawnAgent(ctx, args)
 	case "amux.instance_send":
@@ -985,5 +989,6 @@ func amuxTools() []mcp.Tool {
 	tools = append(tools, coordinationTools()...)
 	tools = append(tools, feishuMessageTool())
 	tools = append(tools, memoryTools()...)
+	tools = append(tools, turnResultTools()...)
 	return tools
 }

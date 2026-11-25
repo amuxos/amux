@@ -166,6 +166,7 @@ func (b *Bridge) submitToSessionMode(ctx context.Context, chat *LarkChat, text s
 			log.Warn().Err(err).Str("turn_id", receipt.TurnID).Msg("bridge: persist submit receipt")
 		}
 		b.observeSubmission(ctx, chat, receipt.TurnID, text, inputs)
+		b.recordTurnResultSubmission(chat, receipt, inputs)
 		if chat.topicRootPromptPending {
 			marked, markErr := b.db.MarkTopicRootPromptDelivered(chat.BridgeId, chat.RootMsgID, chat.TargetID, chat.SessionName)
 			if markErr != nil {

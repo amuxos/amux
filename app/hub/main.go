@@ -30,6 +30,7 @@ import (
 	"github.com/amuxos/amux/internal/transport"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/amuxos/amux/internal/tunnel"
+	"github.com/amuxos/amux/internal/turnresult"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -129,6 +130,13 @@ func newStartCmd() *cobra.Command {
 					fmt.Fprintf(os.Stderr, "hub: init memory store: %v\n", err)
 				}
 			}
+			var turnResultStore *turnresult.Store
+			if store, trErr := initTurnResultStore(config.GetTurnResults(), turnresult.DefaultPath()); trErr != nil {
+				fmt.Fprintf(os.Stderr, "hub: init turn results store: %v\n", trErr)
+			} else if store != nil {
+				turnResultStore = store
+				defer store.Close()
+			}
 			// Launch credentials outlive the sessions they were minted for when
 			// a host dies mid-session; issuing sweeps too, so this only matters
 			// for a daemon that stops launching anything.
@@ -215,6 +223,9 @@ func newStartCmd() *cobra.Command {
 			consoleManagementControllers := make(map[string]consoleManagementController, len(bridges))
 			var feishuMessageSenders []feishuMessageSender
 			for _, b := range bridges {
+				if turnResultStore != nil {
+					b.SetTurnResultRecorder(turnResultStore)
+				}
 				feishuBotSessionControllers[b.ProfileName()] = b
 				consoleManagementControllers[b.ProfileName()] = b
 				feishuMessageSenders = append(feishuMessageSenders, b)
@@ -251,6 +262,16 @@ func newStartCmd() *cobra.Command {
 				principals:                   principalStore,
 				memory:                       memoryStore,
 				memoryConfig:                 config.GetMemory,
+				turnResults:                  turnResultStore,
+				turnResultsConfig:            config.GetTurnResults,
+				turnResultBindingCheck: func(targetID, sessionName string) bool {
+					for _, b := range bridges {
+						if b.HasTurnBinding(targetID, sessionName) {
+							return true
+						}
+					}
+					return false
+				},
 				version:                      version,
 				startedAt:                    startedAt,
 				localExpertAuthoring:         localExpertAuthoring,
@@ -258,11 +279,15 @@ func newStartCmd() *cobra.Command {
 			}
 			hubRPC.dailyCleaner = newDailyCleaner(hubRPC, bridges)
 			go hubRPC.dailyCleaner.Run(ctx)
+			go hubRPC.runTurnResultSweeper(ctx)
 			if scheduleStore != nil {
 				scheduler := schedule.NewWithTaskSubmitter(hub, scheduleStore, sessionStarter, taskRouter)
 				scheduler.SetSessionPromptAuthorizer(hubRPC.authorizeScheduledSessionPrompt)
 				scheduler.SetNewSessionLaunchPreparer(hubRPC.prepareScheduledNewSession)
 				scheduler.SetOutcomeReader(scheduleControl)
+				if turnResultStore != nil {
+					scheduler.SetExecutionListener(hubRPC.observeScheduledExecution)
+				}
 				hubRPC.schedulerNotify = scheduler.Notify
 				hubRPC.scheduleTrigger = scheduler.TriggerNow
 				scheduleControl.server.schedulerNotify = scheduler.Notify

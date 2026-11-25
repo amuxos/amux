@@ -346,5 +346,77 @@
   },
   "console.password_ready": {
     "other": "Temporary management console: %s\nUse the temporary password from the owner’s private /amux card. The listener closes automatically; use HTTPS or a trusted network."
+  },
+  "config.turn_results_ttl": {
+    "other": "%s must be 0 or an integer from %d to %d"
+  },
+  "turn.cmd.short": {
+    "other": "Inspect single-turn structured results"
+  },
+  "turn.result.short": {
+    "other": "Read the structured result of a single turn"
+  },
+  "turn.result.flag.feishu_message": {
+    "other": "look up by triggering Feishu message ID (om_...)"
+  },
+  "turn.result.flag.bridge": {
+    "other": "optional Feishu bot/bridge ID to disambiguate --feishu-message"
+  },
+  "turn.result.flag.wait": {
+    "other": "poll read-only until the turn result settles or --timeout expires"
+  },
+  "turn.result.flag.timeout": {
+    "other": "maximum wait duration when --wait is set"
+  },
+  "turn.result.invalid_selector": {
+    "other": "provide either <session-ref> <turn-id> (or latest) or --feishu-message <message-id>"
+  },
+  "turn.result.invalid_timeout": {
+    "other": "--timeout must be a positive duration"
+  },
+  "schedule.result.short": {
+    "other": "Read the structured result of a scheduled execution"
+  },
+  "schedule.result.flag.execution": {
+    "other": "execution ID from `amux schedule runs` (0 or omitted reads the latest execution)"
+  },
+  "turn.result.label.status": {
+    "other": "Status"
+  },
+  "turn.result.label.reason": {
+    "other": "Reason"
+  },
+  "turn.result.label.session": {
+    "other": "Session"
+  },
+  "turn.result.label.turn": {
+    "other": "Turn"
+  },
+  "turn.result.label.source": {
+    "other": "Source"
+  },
+  "turn.result.label.execution": {
+    "other": "Execution"
+  },
+  "turn.result.label.output": {
+    "other": "Output"
+  },
+  "turn.result.label.deliveries": {
+    "other": "Deliveries"
+  },
+  "turn.result.deliveries.none": {
+    "other": "none"
+  },
+  "turn.result.disabled_hint": {
+    "other": "Single-turn result collection is disabled. Enable it with `amux system config set turn_results.enabled true` and restart amuxd."
+  },
+  "turn.result.not_found": {
+    "other": "No turn result found (unrecorded or expired)."
+  },
+  "turn.result.not_ready": {
+    "other": "Turn result is not settled yet; retry shortly or pass --wait."
+  },
+  "turn.result.unavailable": {
+    "other": "Turn result unavailable (%s)."
   }
 }

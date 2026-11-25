@@ -35,10 +35,23 @@ const (
 	replyCommandFlush
 	replyCommandFinalizeForBot
 	replyCommandConversationCard
+	replyCommandDeliveryReceipt
 	replyCommandCompleteTurn
 	replyCommandReset
 	replyCommandClose
 )
+
+type replyDeliveryCard struct {
+	Kind      string
+	MessageID string
+	Finished  bool
+}
+
+type replyDeliveryReceipt struct {
+	Cards          []replyDeliveryCard
+	FailedAttempts int
+	Superseded     bool
+}
 
 type replyCommand struct {
 	kind                   replyCommandKind
@@ -49,6 +62,7 @@ type replyCommand struct {
 	mentionOpenIDs         []string
 	botFinalResult         chan bool
 	conversationCardResult chan *ConversationCard
+	deliveryReceiptResult  chan replyDeliveryReceipt
 	done                   chan struct{}
 }
 
@@ -96,6 +110,7 @@ type replyStreamState struct {
 	finalNotified          bool
 	superseded             bool
 	messageBoundaryPending bool
+	failedAttempts         int
 }
 
 type replyCardRecord struct {
@@ -223,6 +238,23 @@ func (s *streamingReplySender) ConversationCard() *ConversationCard {
 	}
 }
 
+// DeliveryReceipt returns a snapshot of all reply cards sent during the current
+// turn along with whether each card completed cleanly.
+func (s *streamingReplySender) DeliveryReceipt() replyDeliveryReceipt {
+	result := make(chan replyDeliveryReceipt, 1)
+	select {
+	case s.commands <- replyCommand{kind: replyCommandDeliveryReceipt, deliveryReceiptResult: result}:
+	case <-s.done:
+		return replyDeliveryReceipt{}
+	}
+	select {
+	case receipt := <-result:
+		return receipt
+	case <-s.done:
+		return replyDeliveryReceipt{}
+	}
+}
+
 // FinalizeForBot completes a single reply card with a native CardKit mention
 // while keeping the logical Agent answer passed to onFinal undecorated. It
 // returns false when the answer spans multiple cards or the final card could
@@ -299,6 +331,8 @@ func (s *replyStreamState) handleCommand(cmd replyCommand) bool {
 		}
 	case replyCommandConversationCard:
 		cmd.conversationCardResult <- s.conversationCard()
+	case replyCommandDeliveryReceipt:
+		cmd.deliveryReceiptResult <- s.deliveryReceipt()
 	case replyCommandCompleteTurn:
 		finished := s.finishAll()
 		completed := s.conversationCard()
@@ -724,6 +758,7 @@ func (s *replyStreamState) send() {
 		handle, err := s.createCard(ctx, text)
 		s.lastSentAt = time.Now()
 		if err != nil {
+			s.failedAttempts++
 			log.Warn().Err(err).Msg("bridge: create streaming reply error")
 			return
 		}
@@ -736,6 +771,7 @@ func (s *replyStreamState) send() {
 		}
 	} else {
 		if err := s.sender.backend.Update(ctx, s.handle, text); err != nil {
+			s.failedAttempts++
 			s.lastSentAt = time.Now()
 			log.Warn().Err(err).
 				Str("card_id", s.handle.cardID).
@@ -885,6 +921,7 @@ func (s *replyStreamState) finishHandle(handle *replyCardHandle, text string) er
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := s.sender.backend.Finish(ctx, handle, text); err != nil {
+		s.failedAttempts++
 		log.Warn().Err(err).
 			Str("card_id", handle.cardID).
 			Str("msg_id", handle.messageID).
@@ -892,6 +929,37 @@ func (s *replyStreamState) finishHandle(handle *replyCardHandle, text string) er
 		return err
 	}
 	return nil
+}
+
+func (s *replyStreamState) deliveryReceipt() replyDeliveryReceipt {
+	receipt := replyDeliveryReceipt{
+		FailedAttempts: s.failedAttempts,
+		Superseded:     s.superseded,
+	}
+	seen := make(map[*replyCardHandle]struct{})
+	appendHandle := func(h *replyCardHandle) {
+		if h == nil {
+			return
+		}
+		if _, ok := seen[h]; ok {
+			return
+		}
+		seen[h] = struct{}{}
+		kind := "primary"
+		if len(receipt.Cards) > 0 {
+			kind = "continuation"
+		}
+		receipt.Cards = append(receipt.Cards, replyDeliveryCard{
+			Kind:      kind,
+			MessageID: h.messageID,
+			Finished:  h.finished,
+		})
+	}
+	for _, rec := range s.finalized {
+		appendHandle(rec.handle)
+	}
+	appendHandle(s.handle)
+	return receipt
 }
 
 func (s *replyStreamState) notifyFinal() {
@@ -920,6 +988,7 @@ func (s *replyStreamState) resetTurn() {
 	s.finalNotified = false
 	s.superseded = false
 	s.messageBoundaryPending = false
+	s.failedAttempts = 0
 }
 
 // splitMarkdownCards splits text into cards each within both the byte soft limit

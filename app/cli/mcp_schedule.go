@@ -446,6 +446,9 @@ func scheduleRunsMCPView(runs []*pb.ScheduleRun) []map[string]any {
 			continue
 		}
 		row := map[string]any{"fired_at": run.FiredAt, "task_id": run.TaskId, "status": run.Status}
+		if run.Id > 0 {
+			row["execution_id"] = run.Id
+		}
 		if run.ScheduledAt > 0 {
 			row["scheduled_at"] = run.ScheduledAt
 		}
@@ -454,6 +457,9 @@ func scheduleRunsMCPView(runs []*pb.ScheduleRun) []map[string]any {
 		}
 		if run.FinishedAt > 0 {
 			row["finished_at"] = run.FinishedAt
+		}
+		if run.SessionId != "" {
+			row["session_id"] = run.SessionId
 		}
 		if run.SessionName != "" {
 			row["session_name"] = run.SessionName

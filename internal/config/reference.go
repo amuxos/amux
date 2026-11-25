@@ -59,6 +59,13 @@ var configOptions = distributionConfigOptions([]ConfigOption{
 	{Section: "Hub 与调度", Key: "hub.token", Type: "string", Default: "空", Description: "Hub 与 runtime 共享鉴权令牌。", Managed: true, Sensitive: true},
 	{Section: "Hub 与调度", Key: "hub.allowed_targets", Type: "string array", Default: "[]", Description: "允许注册到 hub 的 target ID 白名单；空表示不限制。", Managed: true},
 
+	{Section: "单轮结果", Key: "turn_results.enabled", Type: "boolean", Default: "true", Description: "单轮结果（含定时任务）收集与只读查询总开关；默认开启，仅收集开启后新产生的轮次，关闭后重启 Hub 清空已缓存快照，不影响 Runtime 时间线。修改后重启生效。", Managed: true},
+	{Section: "单轮结果", Key: "turn_results.ttl_seconds", Type: "integer seconds", Default: strconv.Itoa(DefaultTurnResultsTTLSeconds) + "（7 天）", Constraints: fmt.Sprintf("0 或 %d–%d", MinTurnResultsTTLSeconds, MaxTurnResultsTTLSeconds), Description: "已落定单轮结果的保留时长；读取不续期；0 表示不按时间过期（仍受条数与总容量上限约束）。修改后重启生效。", Managed: true},
+	{Section: "单轮结果", Key: "turn_results.pending_timeout_seconds", Type: "integer seconds", Default: strconv.Itoa(DefaultTurnResultsPendingTimeoutSeconds) + "（5 分钟）", Constraints: fmt.Sprintf("%d–%d", MinTurnResultsPendingTimeoutSeconds, MaxTurnResultsPendingTimeoutSeconds), Description: "单轮执行完成后等待外部投递回执落定的超时时间；超时后标记为 unavailable（result_not_settled）。修改后重启生效。", Managed: true},
+	{Section: "单轮结果", Key: "turn_results.max_entries", Type: "integer count", Default: strconv.Itoa(DefaultTurnResultsMaxEntries), Constraints: fmt.Sprintf("%d–%d", MinTurnResultsMaxEntries, MaxTurnResultsMaxEntries), Description: "同时保留的单轮结果条数上限（含未落定）；超出时先淘汰最早记录。修改后重启生效。", Managed: true},
+	{Section: "单轮结果", Key: "turn_results.max_total_bytes", Type: "integer bytes", Default: strconv.Itoa(DefaultTurnResultsMaxTotalBytes) + "（32 MiB）", Constraints: fmt.Sprintf("%d–%d", MinTurnResultsMaxTotalBytes, MaxTurnResultsMaxTotalBytes), Description: "单轮结果缓存总容量上限；超出时先淘汰最早记录。修改后重启生效。", Managed: true},
+	{Section: "单轮结果", Key: "turn_results.max_content_bytes", Type: "integer bytes", Default: strconv.Itoa(DefaultTurnResultsMaxContentBytes) + "（1 MiB）", Constraints: fmt.Sprintf("%d–%d", MinTurnResultsMaxContentBytes, MaxTurnResultsMaxContentBytes), Description: "单条最终正文大小上限；超限时返回 unavailable（result_too_large），不截断正文。修改后重启生效。", Managed: true},
+
 	{Section: "Runtime", Key: "runtime.id", Type: "string", Default: "主机名", Description: "Runtime 稳定标识。", Managed: true},
 	{Section: "Runtime", Key: "runtime.name", Type: "string", Default: "runtime.id", Description: "Runtime 展示名称。", Managed: true},
 	{Section: "Runtime", Key: "runtime.auto_start", Type: "boolean", Default: "false", Description: "安装或系统启动时是否自动启动 runtime。", Managed: true},

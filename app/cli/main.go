@@ -176,6 +176,8 @@ func newRootCmdForPlatform(goos string) *cobra.Command {
 	agentCmd.GroupID = "work"
 	sessionCmd := newSessionCmd()
 	sessionCmd.GroupID = "work"
+	turnCmd := newTurnCmd()
+	turnCmd.GroupID = "work"
 	scheduleCmd := newScheduleCmd()
 	scheduleCmd.GroupID = "work"
 	bridgeCmd := newBridgeCmd()
@@ -200,6 +202,7 @@ func newRootCmdForPlatform(goos string) *cobra.Command {
 		updateCmd,
 		agentCmd,
 		sessionCmd,
+		turnCmd,
 		scheduleCmd,
 		taskCmd,
 		memoryCmd,

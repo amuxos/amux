@@ -634,6 +634,8 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 
 		var finalAnswerMu sync.Mutex
 		finalAnswer := ""
+		currentTurnSource := agentui.SourceFeishu
+		var currentTurnStartedAt int64
 		setFinalAnswer := func(text string) {
 			finalAnswerMu.Lock()
 			finalAnswer = text
@@ -864,6 +866,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						// SourceSubtask (background completion notice) keeps an
 						// empty question: neutral reply card, no raw notice.
 						subtaskReportTurn.Store(action.Source == agentui.SourceSubtask)
+						currentTurnSource = action.Source
+						currentTurnStartedAt = time.Now().Unix()
+						b.recordTurnResultTurnStarted(streamChat, action.Turn.ID, action.Source, ev.CanonicalJson)
 						meta := turn.Start(int(action.Turn.Seq), question)
 						providerFailureNoticePending = false
 						failureNoticeDelivered = false
@@ -1172,6 +1177,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							logSuppressedVisibleAction(action)
 							b.observeTurnFinished(rootMsgID, action.Turn.ID)
 							b.setTurnActive(rootMsgID, false)
+							b.recordTurnResultCompletion(streamChat, action.Turn.ID, currentTurnSource, action.Turn, "", false, true, replyDeliveryReceipt{}, false, currentTurnStartedAt, ev.CanonicalJson)
 							continue
 						}
 						// Capture recipients before retiring the Turn's sender records.
@@ -1241,6 +1247,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							b.discardPendingBotHandoff(rootMsgID)
 						}
 						completedCard := replyStream.ConversationCard()
+						deliveryReceipt := replyStream.DeliveryReceipt()
 						if !superseded {
 							// Only a successfully completed Turn publishes the mentioned
 							// final reply; failed, cancelled, handed-off or errored Turns
@@ -1248,13 +1255,35 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							if handoffEligible && pendingCardHandoff == nil && !failureNoticeDelivered &&
 								completionMeta.Status == "done" {
 								completedCard = replyStream.CompleteTurn(mentionOpenIDs)
+								if completedCard != nil && completedCard.MessageID != "" {
+									found := false
+									for _, card := range deliveryReceipt.Cards {
+										if card.MessageID == completedCard.MessageID {
+											found = true
+											break
+										}
+									}
+									if !found {
+										kind := "primary"
+										if len(deliveryReceipt.Cards) > 0 {
+											kind = "continuation"
+										}
+										deliveryReceipt.Cards = append(deliveryReceipt.Cards, replyDeliveryCard{
+											Kind:      kind,
+											MessageID: completedCard.MessageID,
+											Finished:  true,
+										})
+									}
+								}
 							} else {
 								replyStream.Reset()
 							}
 						}
+						artifactsPending := false
 						if handoffEligible {
-							b.dispatchArtifactDelivery(streamChat, action.Turn.ID, getFinalAnswer(), ev.CanonicalJson)
+							artifactsPending = b.dispatchArtifactDelivery(streamChat, action.Turn.ID, getFinalAnswer(), ev.CanonicalJson)
 						}
+						b.recordTurnResultCompletion(streamChat, action.Turn.ID, currentTurnSource, action.Turn, getFinalAnswer(), superseded, false, deliveryReceipt, artifactsPending, currentTurnStartedAt, ev.CanonicalJson)
 						b.observeCompletion(ctx, streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, getFinalAnswer(), superseded, completedCard)
 						setFinalAnswer("")
 						if !superseded && (completionMeta.Status != "failed" || !failureNoticeDelivered) {

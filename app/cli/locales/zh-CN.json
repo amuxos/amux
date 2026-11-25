@@ -346,5 +346,77 @@
   },
   "console.password_ready": {
     "other": "临时管理后台：%s\n请使用负责人私聊 /amux 卡片中的临时密码。监听会自动到期关闭；请使用 HTTPS 或可信网络。"
+  },
+  "config.turn_results_ttl": {
+    "other": "%s 必须为 0 或 %d 到 %d 之间的整数"
+  },
+  "turn.cmd.short": {
+    "other": "查看单轮结构化结果"
+  },
+  "turn.result.short": {
+    "other": "读取单轮对话的结构化结果"
+  },
+  "turn.result.flag.feishu_message": {
+    "other": "按触发该轮的飞书消息 ID（om_...）反查"
+  },
+  "turn.result.flag.bridge": {
+    "other": "可选飞书机器人/bridge ID，用于在 --feishu-message 下消歧"
+  },
+  "turn.result.flag.wait": {
+    "other": "只读轮询直到结果落定或达到 --timeout 超时"
+  },
+  "turn.result.flag.timeout": {
+    "other": "启用 --wait 时的最长等待时间"
+  },
+  "turn.result.invalid_selector": {
+    "other": "请提供 <session-ref> <turn-id>（或 latest），或提供 --feishu-message <message-id>"
+  },
+  "turn.result.invalid_timeout": {
+    "other": "--timeout 必须为正数时长"
+  },
+  "schedule.result.short": {
+    "other": "读取定时任务单次执行的结构化结果"
+  },
+  "schedule.result.flag.execution": {
+    "other": "执行 ID（来自 amux schedule runs；省略或 0 表示查最近一次执行）"
+  },
+  "turn.result.label.status": {
+    "other": "状态"
+  },
+  "turn.result.label.reason": {
+    "other": "原因"
+  },
+  "turn.result.label.session": {
+    "other": "会话"
+  },
+  "turn.result.label.turn": {
+    "other": "轮次"
+  },
+  "turn.result.label.source": {
+    "other": "来源"
+  },
+  "turn.result.label.execution": {
+    "other": "执行"
+  },
+  "turn.result.label.output": {
+    "other": "输出"
+  },
+  "turn.result.label.deliveries": {
+    "other": "投递"
+  },
+  "turn.result.deliveries.none": {
+    "other": "无外部投递"
+  },
+  "turn.result.disabled_hint": {
+    "other": "单轮结果功能未开启。可执行 `amux system config set turn_results.enabled true` 并重启 amuxd 后生效。"
+  },
+  "turn.result.not_found": {
+    "other": "未找到该轮结果（未收集或已过期清理）。"
+  },
+  "turn.result.not_ready": {
+    "other": "本轮结果尚未落定，请稍后重试或加上 --wait。"
+  },
+  "turn.result.unavailable": {
+    "other": "单轮结果不可用（%s）。"
   }
 }

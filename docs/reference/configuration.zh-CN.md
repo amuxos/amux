@@ -63,6 +63,17 @@ amux system config unset <key>
 | `hub.token` | 字符串 | 敏感值，不展示 | — | 是 | Hub 与 runtime 共享鉴权令牌。 |
 | `hub.allowed_targets` | 字符串数组 | [] | — | 是 | 允许注册到 hub 的 target ID 白名单；空表示不限制。 |
 
+## 单轮结果
+
+| 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `turn_results.enabled` | 布尔值 | true | — | 是 | 单轮结果（含定时任务）收集与只读查询总开关；默认开启，仅收集开启后新产生的轮次，关闭后重启 Hub 清空已缓存快照，不影响 Runtime 时间线。修改后重启生效。 |
+| `turn_results.ttl_seconds` | 整数秒数 | 604800（7 天） | 0 或 60–2592000 | 是 | 已落定单轮结果的保留时长；读取不续期；0 表示不按时间过期（仍受条数与总容量上限约束）。修改后重启生效。 |
+| `turn_results.pending_timeout_seconds` | 整数秒数 | 300（5 分钟） | 30–3600 | 是 | 单轮执行完成后等待外部投递回执落定的超时时间；超时后标记为 unavailable（result_not_settled）。修改后重启生效。 |
+| `turn_results.max_entries` | 整数计数 | 512 | 16–10000 | 是 | 同时保留的单轮结果条数上限（含未落定）；超出时先淘汰最早记录。修改后重启生效。 |
+| `turn_results.max_total_bytes` | 整数字节数 | 33554432（32 MiB） | 1048576–268435456 | 是 | 单轮结果缓存总容量上限；超出时先淘汰最早记录。修改后重启生效。 |
+| `turn_results.max_content_bytes` | 整数字节数 | 1048576（1 MiB） | 65536–16777216 | 是 | 单条最终正文大小上限；超限时返回 unavailable（result_too_large），不截断正文。修改后重启生效。 |
+
 ## Runtime
 
 | 配置键 | 类型 | 默认值 | 约束 | CLI 可管理 | 说明 |

@@ -123,6 +123,7 @@ type Bridge struct {
 	bridgeID       string
 	identityPort
 	schedules        ScheduleControl
+	turnResults      TurnResultRecorder
 	isolationSupport isolationSupportChecker
 
 	documentCommentController

@@ -8,7 +8,7 @@ This reference is generated from the actual `amux mcp` tools/list registry and c
 
 MCP product semantics, permissions, and lifecycle boundaries are defined by the [CLI product model](../current/cli-product-model.md) and [Task model](../distributed-task-model.md). At runtime, [`amux.result_continue`](#amuxresult_continue) continues successful results that exceed a page budget. Tool results are not tools/list registration metadata, so this reference does not maintain a separate output Schema that could drift.
 
-Official `tools/list` tools: **52**.
+Public tools in `tools/list`: **54**.
 
 ## Public tool index
 
@@ -41,6 +41,7 @@ Official `tools/list` tools: **52**.
 | `amux.schedule_delete` | Delete a Schedule. Task results from existing runs remain readable. |
 | `amux.schedule_get` | Get a Schedule; include_runs=true includes run history and task_id values. |
 | `amux.schedule_list` | List Schedules with pagination (includes created_at_iso and delivery settings; do not mistake an older completed schedule from another thread for a newly requested one); follow next_cursor until has_more=false. |
+| `amux.schedule_result_get` | Read-only structured result for one scheduled execution (covers both session-prompt and subtask, with execution status, final Markdown answer, and Feishu delivery receipts). Call this to inspect the latest or a specific execution_id outcome and delivery status of a schedule. |
 | `amux.schedule_set_enabled` | Enable or disable a Schedule. |
 | `amux.schedule_trigger` | Trigger a Schedule immediately once without changing its enabled state or next scheduled run time. |
 | `amux.schedule_update` | Update a Schedule in place: name, spec, timezone, result delivery (delivery_target/delivery_policy), session-prompt prompt/run_mode, or partial subtask Task fields; omitted fields remain unchanged, and escalate-to-main is not allowed. |
@@ -66,6 +67,7 @@ Official `tools/list` tools: **52**.
 | `amux.task_run` | Run a short Agent Task synchronously. Only policy-allow and deny-all are supported; escalate-to-main would deadlock. |
 | `amux.task_stream` | Long-poll Agent Task events from from_seq and return next_seq for lossless continuation. |
 | `amux.task_submit` | Submit an Agent Task asynchronously and immediately return task_id. Prefer a profile_list ref for agent; validate development Profiles with profile_get first. |
+| `amux.turn_result_get` | Read-only structured single-turn result (execution status, final Markdown answer, and Feishu card/attachment delivery receipts). Call this to verify whether a turn truly completed, retrieve the full Markdown answer, or confirm Feishu delivery status and message_ids; query by session+turn_id (or latest) or feishu_message_id. |
 
 ## `amux.collaborator_list`
 
@@ -1201,6 +1203,31 @@ List Schedules with pagination (includes created_at_iso and delivery settings; d
 }
 ```
 
+## `amux.schedule_result_get`
+
+Read-only structured result for one scheduled execution (covers both session-prompt and subtask, with execution status, final Markdown answer, and Feishu delivery receipts). Call this to inspect the latest or a specific execution_id outcome and delivery status of a schedule.
+
+**Input JSON Schema**
+
+```json
+{
+  "properties": {
+    "execution_id": {
+      "description": "Optional execution ID (from runs[].execution_id in amux.schedule_get); omit or pass 0 for the latest execution",
+      "type": "integer"
+    },
+    "schedule_id": {
+      "description": "Schedule ID",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schedule_id"
+  ],
+  "type": "object"
+}
+```
+
 ## `amux.schedule_set_enabled`
 
 Enable or disable a Schedule.
@@ -2188,6 +2215,36 @@ Submit an Agent Task asynchronously and immediately return task_id. Prefer a pro
     "agent",
     "task"
   ],
+  "type": "object"
+}
+```
+
+## `amux.turn_result_get`
+
+Read-only structured single-turn result (execution status, final Markdown answer, and Feishu card/attachment delivery receipts). Call this to verify whether a turn truly completed, retrieve the full Markdown answer, or confirm Feishu delivery status and message_ids; query by session+turn_id (or latest) or feishu_message_id.
+
+**Input JSON Schema**
+
+```json
+{
+  "properties": {
+    "bridge_id": {
+      "description": "Optional Feishu bot/bridge ID used to disambiguate feishu_message_id",
+      "type": "string"
+    },
+    "feishu_message_id": {
+      "description": "Triggering Feishu message ID (om_...); mutually exclusive with session+turn_id",
+      "type": "string"
+    },
+    "session": {
+      "description": "Session reference (such as target/name or session_id); falls back to AMUX_SESSION_ID when omitted without feishu_message_id",
+      "type": "string"
+    },
+    "turn_id": {
+      "description": "Turn ID, or pass latest for the session's most recent tracked turn",
+      "type": "string"
+    }
+  },
   "type": "object"
 }
 ```
