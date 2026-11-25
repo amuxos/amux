@@ -8,7 +8,7 @@
 
 MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-product-model.md`](../current/cli-product-model.zh-CN.md) 和 [`docs/distributed-task-model.md`](../distributed-task-model.zh-CN.md) 为准。运行时还会通过 [`amux.result_continue`](#amuxresult_continue) 对超过单页预算的成功结果续传；工具结果本身不是 `tools/list` 注册元数据，因此不在本文档中另维护一份可能漂移的输出 Schema。
 
-`tools/list` 正式工具：**52**。
+`tools/list` 正式工具：**54**。
 
 ## 正式工具索引
 
@@ -41,6 +41,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.schedule_delete` | 删除 Schedule；既有运行对应的 Task 结果仍可读取。 |
 | `amux.schedule_get` | 获取 Schedule；include_runs=true 时包含运行历史及 task_id。 |
 | `amux.schedule_list` | 分页列出 Schedule（含 created_at_iso 与投递设置；勿将更早或其他话题已完成的同名历史任务误当作本次新建）；沿 next_cursor 读取至 has_more=false。 |
+| `amux.schedule_result_get` | 只读获取定时任务单次执行的结构化结果（覆盖 session-prompt 与 subtask，含执行状态、最终 Markdown 正文与飞书送达回执）。当需要查看定时任务最近一次或指定 execution_id 的最终产出与送达情况时调用。 |
 | `amux.schedule_set_enabled` | 启用或停用 Schedule。 |
 | `amux.schedule_trigger` | 立即手动触发一次 Schedule（不影响其启停状态与下次计划触发时间）。 |
 | `amux.schedule_update` | 原地更新 Schedule 的名称、时间规则、时区、结果投递设置（delivery_target/delivery_policy）、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。 |
@@ -66,6 +67,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.task_run` | 阻塞运行短 Agent Task；仅支持 policy-allow 或 deny-all，escalate-to-main 会死锁。 |
 | `amux.task_stream` | 从 from_seq 长轮询 Agent Task 事件，返回 next_seq 供无损续读。 |
 | `amux.task_submit` | 异步提交 Agent Task，立即返回 task_id。agent 优先使用 profile_list 的 ref；开发版先经 profile_get 验证。 |
+| `amux.turn_result_get` | 只读获取单轮对话的结构化结果（执行状态、最终 Markdown 正文与飞书卡片/附件送达回执）。当需要核实某轮回答是否真正执行完成、取回完整正文、或确认飞书是否送达及对应 message_id 时调用；支持按 session+turn_id（可用 latest）或 feishu_message_id 查询。 |
 
 ## `amux.collaborator_list`
 
@@ -1201,6 +1203,31 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 }
 ```
 
+## `amux.schedule_result_get`
+
+只读获取定时任务单次执行的结构化结果（覆盖 session-prompt 与 subtask，含执行状态、最终 Markdown 正文与飞书送达回执）。当需要查看定时任务最近一次或指定 execution_id 的最终产出与送达情况时调用。
+
+**输入 JSON Schema**
+
+```json
+{
+  "properties": {
+    "execution_id": {
+      "description": "可选执行 ID（来自 amux.schedule_get 的 runs[].execution_id）；省略或 0 返回最近一次执行结果",
+      "type": "integer"
+    },
+    "schedule_id": {
+      "description": "定时任务 ID",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schedule_id"
+  ],
+  "type": "object"
+}
+```
+
 ## `amux.schedule_set_enabled`
 
 启用或停用 Schedule。
@@ -2188,6 +2215,36 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     "agent",
     "task"
   ],
+  "type": "object"
+}
+```
+
+## `amux.turn_result_get`
+
+只读获取单轮对话的结构化结果（执行状态、最终 Markdown 正文与飞书卡片/附件送达回执）。当需要核实某轮回答是否真正执行完成、取回完整正文、或确认飞书是否送达及对应 message_id 时调用；支持按 session+turn_id（可用 latest）或 feishu_message_id 查询。
+
+**输入 JSON Schema**
+
+```json
+{
+  "properties": {
+    "bridge_id": {
+      "description": "可选飞书机器人/bridge ID，配合 feishu_message_id 消歧",
+      "type": "string"
+    },
+    "feishu_message_id": {
+      "description": "触发该轮的飞书消息 ID（om_...）；与 session+turn_id 二选一",
+      "type": "string"
+    },
+    "session": {
+      "description": "Session 引用（如 target/name 或 session_id）；省略时若未传 feishu_message_id 则回落 AMUX_SESSION_ID",
+      "type": "string"
+    },
+    "turn_id": {
+      "description": "轮次 ID，或传 latest 查该会话最新一轮",
+      "type": "string"
+    }
+  },
   "type": "object"
 }
 ```

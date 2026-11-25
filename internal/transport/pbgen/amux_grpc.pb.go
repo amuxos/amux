@@ -41,6 +41,7 @@ const (
 	Amuxlet_QueueCancel_FullMethodName                 = "/amux.v1.Amuxlet/QueueCancel"
 	Amuxlet_RespondPermission_FullMethodName           = "/amux.v1.Amuxlet/RespondPermission"
 	Amuxlet_GetLocalExpertAuthoringTurn_FullMethodName = "/amux.v1.Amuxlet/GetLocalExpertAuthoringTurn"
+	Amuxlet_GetTurnResult_FullMethodName               = "/amux.v1.Amuxlet/GetTurnResult"
 	Amuxlet_RevokePrincipalLaunches_FullMethodName     = "/amux.v1.Amuxlet/RevokePrincipalLaunches"
 )
 
@@ -74,6 +75,7 @@ type AmuxletClient interface {
 	// Internal runtime query used by amuxd to verify that a local-expert write
 	// originates from the active Feishu Bot-owner turn.
 	GetLocalExpertAuthoringTurn(ctx context.Context, in *LocalExpertAuthoringTurnRequest, opts ...grpc.CallOption) (*LocalExpertAuthoringTurnResponse, error)
+	GetTurnResult(ctx context.Context, in *GetTurnResultRequest, opts ...grpc.CallOption) (*GetTurnResultResponse, error)
 	RevokePrincipalLaunches(ctx context.Context, in *RevokePrincipalLaunchesRequest, opts ...grpc.CallOption) (*RevokePrincipalLaunchesResponse, error)
 }
 
@@ -314,6 +316,16 @@ func (c *amuxletClient) GetLocalExpertAuthoringTurn(ctx context.Context, in *Loc
 	return out, nil
 }
 
+func (c *amuxletClient) GetTurnResult(ctx context.Context, in *GetTurnResultRequest, opts ...grpc.CallOption) (*GetTurnResultResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTurnResultResponse)
+	err := c.cc.Invoke(ctx, Amuxlet_GetTurnResult_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *amuxletClient) RevokePrincipalLaunches(ctx context.Context, in *RevokePrincipalLaunchesRequest, opts ...grpc.CallOption) (*RevokePrincipalLaunchesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RevokePrincipalLaunchesResponse)
@@ -354,6 +366,7 @@ type AmuxletServer interface {
 	// Internal runtime query used by amuxd to verify that a local-expert write
 	// originates from the active Feishu Bot-owner turn.
 	GetLocalExpertAuthoringTurn(context.Context, *LocalExpertAuthoringTurnRequest) (*LocalExpertAuthoringTurnResponse, error)
+	GetTurnResult(context.Context, *GetTurnResultRequest) (*GetTurnResultResponse, error)
 	RevokePrincipalLaunches(context.Context, *RevokePrincipalLaunchesRequest) (*RevokePrincipalLaunchesResponse, error)
 }
 
@@ -429,6 +442,9 @@ func (UnimplementedAmuxletServer) RespondPermission(context.Context, *RespondPer
 }
 func (UnimplementedAmuxletServer) GetLocalExpertAuthoringTurn(context.Context, *LocalExpertAuthoringTurnRequest) (*LocalExpertAuthoringTurnResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetLocalExpertAuthoringTurn not implemented")
+}
+func (UnimplementedAmuxletServer) GetTurnResult(context.Context, *GetTurnResultRequest) (*GetTurnResultResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTurnResult not implemented")
 }
 func (UnimplementedAmuxletServer) RevokePrincipalLaunches(context.Context, *RevokePrincipalLaunchesRequest) (*RevokePrincipalLaunchesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevokePrincipalLaunches not implemented")
@@ -842,6 +858,24 @@ func _Amuxlet_GetLocalExpertAuthoringTurn_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Amuxlet_GetTurnResult_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTurnResultRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxletServer).GetTurnResult(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxlet_GetTurnResult_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxletServer).GetTurnResult(ctx, req.(*GetTurnResultRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Amuxlet_RevokePrincipalLaunches_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RevokePrincipalLaunchesRequest)
 	if err := dec(in); err != nil {
@@ -952,6 +986,10 @@ var Amuxlet_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Amuxlet_GetLocalExpertAuthoringTurn_Handler,
 		},
 		{
+			MethodName: "GetTurnResult",
+			Handler:    _Amuxlet_GetTurnResult_Handler,
+		},
+		{
 			MethodName: "RevokePrincipalLaunches",
 			Handler:    _Amuxlet_RevokePrincipalLaunches_Handler,
 		},
@@ -1002,6 +1040,7 @@ const (
 	Amuxd_UpdateSchedule_FullMethodName               = "/amux.v1.Amuxd/UpdateSchedule"
 	Amuxd_SetScheduleEnabled_FullMethodName           = "/amux.v1.Amuxd/SetScheduleEnabled"
 	Amuxd_TriggerSchedule_FullMethodName              = "/amux.v1.Amuxd/TriggerSchedule"
+	Amuxd_GetTurnResult_FullMethodName                = "/amux.v1.Amuxd/GetTurnResult"
 	Amuxd_MaterializeCredential_FullMethodName        = "/amux.v1.Amuxd/MaterializeCredential"
 	Amuxd_SetCredential_FullMethodName                = "/amux.v1.Amuxd/SetCredential"
 	Amuxd_GetCredential_FullMethodName                = "/amux.v1.Amuxd/GetCredential"
@@ -1072,6 +1111,7 @@ type AmuxdClient interface {
 	UpdateSchedule(ctx context.Context, in *UpdateScheduleRequest, opts ...grpc.CallOption) (*UpdateScheduleResponse, error)
 	SetScheduleEnabled(ctx context.Context, in *SetScheduleEnabledRequest, opts ...grpc.CallOption) (*SetScheduleEnabledResponse, error)
 	TriggerSchedule(ctx context.Context, in *TriggerScheduleRequest, opts ...grpc.CallOption) (*TriggerScheduleResponse, error)
+	GetTurnResult(ctx context.Context, in *AmuxdGetTurnResultRequest, opts ...grpc.CallOption) (*AmuxdGetTurnResultResponse, error)
 	MaterializeCredential(ctx context.Context, in *MaterializeCredentialRequest, opts ...grpc.CallOption) (*MaterializeCredentialResponse, error)
 	SetCredential(ctx context.Context, in *SetCredentialRequest, opts ...grpc.CallOption) (*CredentialProfileMetadata, error)
 	GetCredential(ctx context.Context, in *GetCredentialRequest, opts ...grpc.CallOption) (*CredentialProfileMetadata, error)
@@ -1478,6 +1518,16 @@ func (c *amuxdClient) TriggerSchedule(ctx context.Context, in *TriggerScheduleRe
 	return out, nil
 }
 
+func (c *amuxdClient) GetTurnResult(ctx context.Context, in *AmuxdGetTurnResultRequest, opts ...grpc.CallOption) (*AmuxdGetTurnResultResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AmuxdGetTurnResultResponse)
+	err := c.cc.Invoke(ctx, Amuxd_GetTurnResult_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *amuxdClient) MaterializeCredential(ctx context.Context, in *MaterializeCredentialRequest, opts ...grpc.CallOption) (*MaterializeCredentialResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MaterializeCredentialResponse)
@@ -1774,6 +1824,7 @@ type AmuxdServer interface {
 	UpdateSchedule(context.Context, *UpdateScheduleRequest) (*UpdateScheduleResponse, error)
 	SetScheduleEnabled(context.Context, *SetScheduleEnabledRequest) (*SetScheduleEnabledResponse, error)
 	TriggerSchedule(context.Context, *TriggerScheduleRequest) (*TriggerScheduleResponse, error)
+	GetTurnResult(context.Context, *AmuxdGetTurnResultRequest) (*AmuxdGetTurnResultResponse, error)
 	MaterializeCredential(context.Context, *MaterializeCredentialRequest) (*MaterializeCredentialResponse, error)
 	SetCredential(context.Context, *SetCredentialRequest) (*CredentialProfileMetadata, error)
 	GetCredential(context.Context, *GetCredentialRequest) (*CredentialProfileMetadata, error)
@@ -1915,6 +1966,9 @@ func (UnimplementedAmuxdServer) SetScheduleEnabled(context.Context, *SetSchedule
 }
 func (UnimplementedAmuxdServer) TriggerSchedule(context.Context, *TriggerScheduleRequest) (*TriggerScheduleResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TriggerSchedule not implemented")
+}
+func (UnimplementedAmuxdServer) GetTurnResult(context.Context, *AmuxdGetTurnResultRequest) (*AmuxdGetTurnResultResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTurnResult not implemented")
 }
 func (UnimplementedAmuxdServer) MaterializeCredential(context.Context, *MaterializeCredentialRequest) (*MaterializeCredentialResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method MaterializeCredential not implemented")
@@ -2627,6 +2681,24 @@ func _Amuxd_TriggerSchedule_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Amuxd_GetTurnResult_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AmuxdGetTurnResultRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxdServer).GetTurnResult(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxd_GetTurnResult_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxdServer).GetTurnResult(ctx, req.(*AmuxdGetTurnResultRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Amuxd_MaterializeCredential_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MaterializeCredentialRequest)
 	if err := dec(in); err != nil {
@@ -3204,6 +3276,10 @@ var Amuxd_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TriggerSchedule",
 			Handler:    _Amuxd_TriggerSchedule_Handler,
+		},
+		{
+			MethodName: "GetTurnResult",
+			Handler:    _Amuxd_GetTurnResult_Handler,
 		},
 		{
 			MethodName: "MaterializeCredential",

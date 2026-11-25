@@ -83,6 +83,7 @@
 | `amux schedule enable` | 启用定时 Prompt |
 | `amux schedule list` | 列出定时 Prompt 和子任务 |
 | `amux schedule remove` | 删除定时 Prompt |
+| `amux schedule result` | 读取定时任务单次执行的结构化结果 |
 | `amux schedule run` | 立即触发一次 Schedule，不改变其下次计划运行时间 |
 | `amux schedule runs` | 列出某个 Schedule 的运行记录 |
 | `amux schedule update` | 原地更新定时 Prompt 或子任务 |
@@ -139,6 +140,8 @@
 | `amux task respond` | 响应升级的权限请求（escalate-to-main） |
 | `amux task show` | 显示任务状态和结果 |
 | `amux task submit` | 提交子智能体任务 |
+| `amux turn` | 查看单轮结构化结果 |
+| `amux turn result` | 读取单轮对话的结构化结果 |
 
 ## `amux`
 
@@ -165,6 +168,7 @@ amux [flags]
 | `amux setup` | 配置当前 amux 安装 |
 | `amux system` | 检查和管理当前 amux 安装 |
 | `amux task` | 运行和管理子智能体任务 |
+| `amux turn` | 查看单轮结构化结果 |
 
 **选项**
 
@@ -1521,6 +1525,7 @@ amux schedule [flags]
 | `amux schedule enable` | 启用定时 Prompt |
 | `amux schedule list` | 列出定时 Prompt 和子任务 |
 | `amux schedule remove` | 删除定时 Prompt |
+| `amux schedule result` | 读取定时任务单次执行的结构化结果 |
 | `amux schedule run` | 立即触发一次 Schedule，不改变其下次计划运行时间 |
 | `amux schedule runs` | 列出某个 Schedule 的运行记录 |
 | `amux schedule update` | 原地更新定时 Prompt 或子任务 |
@@ -1670,6 +1675,33 @@ amux schedule remove <id> [flags]
 | 选项 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `-h, --help` | `bool` | `false` | remove 帮助 |
+
+## `amux schedule result`
+
+读取定时任务单次执行的结构化结果
+
+**用法**
+
+```text
+amux schedule result <id> [flags]
+```
+
+**示例**
+
+```bash
+amux schedule result 8
+  amux schedule result 8 --json
+  amux schedule result 8 --execution 42 --json
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `--execution` | `int64` | `0` | 执行 ID（来自 `amux schedule runs`；省略或 0 表示读取最近一次执行） |
+| `-h, --help` | `bool` | `false` | result 的帮助信息 |
+| `--timeout` | `duration` | `1m0s` | 启用 --wait 时的最长等待时间 |
+| `--wait` | `bool` | `false` | 只读轮询直到结果落定或达到 --timeout 超时 |
 
 ## `amux schedule run`
 
@@ -2784,3 +2816,54 @@ amux task submit <task prompt> [flags]
 | `--trusted-mode-ack` | `bool` | `true` | 旧版空操作：弱隔离下默认注入长期密钥（v0.38） |
 | `--wait` | `bool` | `false` | 阻塞至任务结束并打印结果 |
 | `--workspace` | `string` | `""` | 工作区策略：temp-dir \| git-worktree（默认 temp-dir） |
+
+## `amux turn`
+
+查看单轮结构化结果
+
+**用法**
+
+```text
+amux turn [flags]
+```
+
+**子命令**
+
+| 命令 | 说明 |
+| --- | --- |
+| `amux turn result` | 读取单轮对话的结构化结果 |
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-h, --help` | `bool` | `false` | turn 的帮助信息 |
+
+## `amux turn result`
+
+读取单轮对话的结构化结果
+
+**用法**
+
+```text
+amux turn result [session-ref] [turn-id] [flags]
+```
+
+**示例**
+
+```bash
+amux turn result local/chat turn_123 --json
+  amux turn result local/chat latest
+  amux turn result --feishu-message om_xxx --json
+  amux turn result local/chat turn_123 --wait --timeout 60s --json
+```
+
+**选项**
+
+| 选项 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `--bridge` | `string` | `""` | 可选飞书机器人/bridge ID，用于在 --feishu-message 下消歧 |
+| `--feishu-message` | `string` | `""` | 按触发该轮的飞书消息 ID（om_...）反查 |
+| `-h, --help` | `bool` | `false` | result 的帮助信息 |
+| `--timeout` | `duration` | `1m0s` | 启用 --wait 时的最长等待时间 |
+| `--wait` | `bool` | `false` | 只读轮询直到结果落定或达到 --timeout 超时 |

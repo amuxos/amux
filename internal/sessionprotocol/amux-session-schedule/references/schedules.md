@@ -58,7 +58,7 @@ schedule should not depend on the Hub's local time zone.
 
 ## Management and evidence
 
-MCP: `schedule_list`, `schedule_get`, `schedule_set_enabled`, `schedule_update`,
+MCP: `schedule_list`, `schedule_get`, `schedule_result_get`, `schedule_set_enabled`, `schedule_update`,
 `schedule_trigger` and `schedule_delete`. Follow `next_cursor` while `has_more=true`.
 Use `schedule_trigger` (CLI `amux schedule run <id>`) to verify a rule immediately
 once without changing its `next_run_at`.
@@ -67,10 +67,14 @@ session-prompt's `prompt` or `run_mode`, or partial fields of a subtask's
 `task` specification in place with `schedule_update`; omitted fields keep their
 current values and run history is preserved.
 
-For subtask schedules, use `schedule_get(include_runs=true)` to inspect run
-records, `task_id`, `result_summary`, and `delivery_status`. For session-prompt
-schedules, `schedule_get` exposes `last_run_at` and `last_status` (`ok` means
-input was submitted, not that the requested work succeeded).
+For structured execution outcomes (canonical execution status, final Markdown
+answer, and Feishu delivery receipts) across both `subtask` and `session-prompt`
+schedules, call `schedule_result_get(schedule_id=...)` (optionally passing
+`execution_id` from `schedule_get(include_runs=true)`). For any single Session
+turn or Feishu message, use `turn_result_get`. For subtask schedules,
+`schedule_get(include_runs=true)` also exposes run records, `task_id`,
+`result_summary`, and `delivery_status`. For session-prompt schedules, `ok` on
+`last_status` means input was submitted, not that the requested work succeeded.
 
 CLI equivalents: `amux schedule create-task SPEC --agent ... --task ...
 [--delivery-target origin|creator_dm|none] [--delivery-policy always|on_failure|on_non_empty]`;

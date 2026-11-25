@@ -13948,6 +13948,7 @@ type ScheduleRun struct {
 	ResultSummary  string                 `protobuf:"bytes,12,opt,name=result_summary,json=resultSummary,proto3" json:"result_summary,omitempty"`
 	TriggerSource  string                 `protobuf:"bytes,13,opt,name=trigger_source,json=triggerSource,proto3" json:"trigger_source,omitempty"`
 	DeliveryStatus string                 `protobuf:"bytes,14,opt,name=delivery_status,json=deliveryStatus,proto3" json:"delivery_status,omitempty"`
+	SessionId      string                 `protobuf:"bytes,15,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -14076,6 +14077,13 @@ func (x *ScheduleRun) GetTriggerSource() string {
 func (x *ScheduleRun) GetDeliveryStatus() string {
 	if x != nil {
 		return x.DeliveryStatus
+	}
+	return ""
+}
+
+func (x *ScheduleRun) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
 	}
 	return ""
 }
@@ -16171,6 +16179,946 @@ func (x *ConsoleManagementResponse) GetPayloadJson() []byte {
 	return nil
 }
 
+type GetTurnResultRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Name            string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	SessionId       string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	TurnId          string                 `protobuf:"bytes,3,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	MaxContentBytes int32                  `protobuf:"varint,4,opt,name=max_content_bytes,json=maxContentBytes,proto3" json:"max_content_bytes,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetTurnResultRequest) Reset() {
+	*x = GetTurnResultRequest{}
+	mi := &file_amux_v1_amux_proto_msgTypes[233]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTurnResultRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTurnResultRequest) ProtoMessage() {}
+
+func (x *GetTurnResultRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[233]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTurnResultRequest.ProtoReflect.Descriptor instead.
+func (*GetTurnResultRequest) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{233}
+}
+
+func (x *GetTurnResultRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *GetTurnResultRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *GetTurnResultRequest) GetTurnId() string {
+	if x != nil {
+		return x.TurnId
+	}
+	return ""
+}
+
+func (x *GetTurnResultRequest) GetMaxContentBytes() int32 {
+	if x != nil {
+		return x.MaxContentBytes
+	}
+	return 0
+}
+
+type GetTurnResultResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Found           bool                   `protobuf:"varint,1,opt,name=found,proto3" json:"found,omitempty"`
+	Terminal        bool                   `protobuf:"varint,2,opt,name=terminal,proto3" json:"terminal,omitempty"`
+	SessionId       string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	SessionName     string                 `protobuf:"bytes,4,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
+	LaunchId        string                 `protobuf:"bytes,5,opt,name=launch_id,json=launchId,proto3" json:"launch_id,omitempty"`
+	TurnId          string                 `protobuf:"bytes,6,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	ExecutionStatus string                 `protobuf:"bytes,7,opt,name=execution_status,json=executionStatus,proto3" json:"execution_status,omitempty"`
+	ExecutionCode   string                 `protobuf:"bytes,8,opt,name=execution_code,json=executionCode,proto3" json:"execution_code,omitempty"`
+	StartedAt       int64                  `protobuf:"varint,9,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	FinishedAt      int64                  `protobuf:"varint,10,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	OutputStatus    string                 `protobuf:"bytes,11,opt,name=output_status,json=outputStatus,proto3" json:"output_status,omitempty"`
+	OutputReason    string                 `protobuf:"bytes,12,opt,name=output_reason,json=outputReason,proto3" json:"output_reason,omitempty"`
+	OutputContent   string                 `protobuf:"bytes,13,opt,name=output_content,json=outputContent,proto3" json:"output_content,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetTurnResultResponse) Reset() {
+	*x = GetTurnResultResponse{}
+	mi := &file_amux_v1_amux_proto_msgTypes[234]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTurnResultResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTurnResultResponse) ProtoMessage() {}
+
+func (x *GetTurnResultResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[234]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTurnResultResponse.ProtoReflect.Descriptor instead.
+func (*GetTurnResultResponse) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{234}
+}
+
+func (x *GetTurnResultResponse) GetFound() bool {
+	if x != nil {
+		return x.Found
+	}
+	return false
+}
+
+func (x *GetTurnResultResponse) GetTerminal() bool {
+	if x != nil {
+		return x.Terminal
+	}
+	return false
+}
+
+func (x *GetTurnResultResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *GetTurnResultResponse) GetSessionName() string {
+	if x != nil {
+		return x.SessionName
+	}
+	return ""
+}
+
+func (x *GetTurnResultResponse) GetLaunchId() string {
+	if x != nil {
+		return x.LaunchId
+	}
+	return ""
+}
+
+func (x *GetTurnResultResponse) GetTurnId() string {
+	if x != nil {
+		return x.TurnId
+	}
+	return ""
+}
+
+func (x *GetTurnResultResponse) GetExecutionStatus() string {
+	if x != nil {
+		return x.ExecutionStatus
+	}
+	return ""
+}
+
+func (x *GetTurnResultResponse) GetExecutionCode() string {
+	if x != nil {
+		return x.ExecutionCode
+	}
+	return ""
+}
+
+func (x *GetTurnResultResponse) GetStartedAt() int64 {
+	if x != nil {
+		return x.StartedAt
+	}
+	return 0
+}
+
+func (x *GetTurnResultResponse) GetFinishedAt() int64 {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return 0
+}
+
+func (x *GetTurnResultResponse) GetOutputStatus() string {
+	if x != nil {
+		return x.OutputStatus
+	}
+	return ""
+}
+
+func (x *GetTurnResultResponse) GetOutputReason() string {
+	if x != nil {
+		return x.OutputReason
+	}
+	return ""
+}
+
+func (x *GetTurnResultResponse) GetOutputContent() string {
+	if x != nil {
+		return x.OutputContent
+	}
+	return ""
+}
+
+type AmuxdGetTurnResultRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TargetId        string                 `protobuf:"bytes,1,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
+	SessionId       string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	SessionName     string                 `protobuf:"bytes,3,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
+	TurnId          string                 `protobuf:"bytes,4,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	FeishuMessageId string                 `protobuf:"bytes,5,opt,name=feishu_message_id,json=feishuMessageId,proto3" json:"feishu_message_id,omitempty"`
+	BridgeId        string                 `protobuf:"bytes,6,opt,name=bridge_id,json=bridgeId,proto3" json:"bridge_id,omitempty"`
+	ScheduleId      int64                  `protobuf:"varint,7,opt,name=schedule_id,json=scheduleId,proto3" json:"schedule_id,omitempty"`
+	ExecutionId     int64                  `protobuf:"varint,8,opt,name=execution_id,json=executionId,proto3" json:"execution_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *AmuxdGetTurnResultRequest) Reset() {
+	*x = AmuxdGetTurnResultRequest{}
+	mi := &file_amux_v1_amux_proto_msgTypes[235]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AmuxdGetTurnResultRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AmuxdGetTurnResultRequest) ProtoMessage() {}
+
+func (x *AmuxdGetTurnResultRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[235]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AmuxdGetTurnResultRequest.ProtoReflect.Descriptor instead.
+func (*AmuxdGetTurnResultRequest) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{235}
+}
+
+func (x *AmuxdGetTurnResultRequest) GetTargetId() string {
+	if x != nil {
+		return x.TargetId
+	}
+	return ""
+}
+
+func (x *AmuxdGetTurnResultRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *AmuxdGetTurnResultRequest) GetSessionName() string {
+	if x != nil {
+		return x.SessionName
+	}
+	return ""
+}
+
+func (x *AmuxdGetTurnResultRequest) GetTurnId() string {
+	if x != nil {
+		return x.TurnId
+	}
+	return ""
+}
+
+func (x *AmuxdGetTurnResultRequest) GetFeishuMessageId() string {
+	if x != nil {
+		return x.FeishuMessageId
+	}
+	return ""
+}
+
+func (x *AmuxdGetTurnResultRequest) GetBridgeId() string {
+	if x != nil {
+		return x.BridgeId
+	}
+	return ""
+}
+
+func (x *AmuxdGetTurnResultRequest) GetScheduleId() int64 {
+	if x != nil {
+		return x.ScheduleId
+	}
+	return 0
+}
+
+func (x *AmuxdGetTurnResultRequest) GetExecutionId() int64 {
+	if x != nil {
+		return x.ExecutionId
+	}
+	return 0
+}
+
+type TurnResultRef struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetId      string                 `protobuf:"bytes,1,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	SessionName   string                 `protobuf:"bytes,3,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
+	LaunchId      string                 `protobuf:"bytes,4,opt,name=launch_id,json=launchId,proto3" json:"launch_id,omitempty"`
+	TurnId        string                 `protobuf:"bytes,5,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TurnResultRef) Reset() {
+	*x = TurnResultRef{}
+	mi := &file_amux_v1_amux_proto_msgTypes[236]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TurnResultRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TurnResultRef) ProtoMessage() {}
+
+func (x *TurnResultRef) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[236]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TurnResultRef.ProtoReflect.Descriptor instead.
+func (*TurnResultRef) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{236}
+}
+
+func (x *TurnResultRef) GetTargetId() string {
+	if x != nil {
+		return x.TargetId
+	}
+	return ""
+}
+
+func (x *TurnResultRef) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *TurnResultRef) GetSessionName() string {
+	if x != nil {
+		return x.SessionName
+	}
+	return ""
+}
+
+func (x *TurnResultRef) GetLaunchId() string {
+	if x != nil {
+		return x.LaunchId
+	}
+	return ""
+}
+
+func (x *TurnResultRef) GetTurnId() string {
+	if x != nil {
+		return x.TurnId
+	}
+	return ""
+}
+
+type TurnResultSource struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	BridgeId      string                 `protobuf:"bytes,2,opt,name=bridge_id,json=bridgeId,proto3" json:"bridge_id,omitempty"`
+	ChatId        string                 `protobuf:"bytes,3,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
+	RootMessageId string                 `protobuf:"bytes,4,opt,name=root_message_id,json=rootMessageId,proto3" json:"root_message_id,omitempty"`
+	MessageIds    []string               `protobuf:"bytes,5,rep,name=message_ids,json=messageIds,proto3" json:"message_ids,omitempty"`
+	ScheduleId    int64                  `protobuf:"varint,6,opt,name=schedule_id,json=scheduleId,proto3" json:"schedule_id,omitempty"`
+	ExecutionId   int64                  `protobuf:"varint,7,opt,name=execution_id,json=executionId,proto3" json:"execution_id,omitempty"`
+	ScheduleType  string                 `protobuf:"bytes,8,opt,name=schedule_type,json=scheduleType,proto3" json:"schedule_type,omitempty"`
+	RunMode       string                 `protobuf:"bytes,9,opt,name=run_mode,json=runMode,proto3" json:"run_mode,omitempty"`
+	ScheduledAt   int64                  `protobuf:"varint,10,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
+	TaskId        string                 `protobuf:"bytes,11,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TurnResultSource) Reset() {
+	*x = TurnResultSource{}
+	mi := &file_amux_v1_amux_proto_msgTypes[237]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TurnResultSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TurnResultSource) ProtoMessage() {}
+
+func (x *TurnResultSource) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[237]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TurnResultSource.ProtoReflect.Descriptor instead.
+func (*TurnResultSource) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{237}
+}
+
+func (x *TurnResultSource) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *TurnResultSource) GetBridgeId() string {
+	if x != nil {
+		return x.BridgeId
+	}
+	return ""
+}
+
+func (x *TurnResultSource) GetChatId() string {
+	if x != nil {
+		return x.ChatId
+	}
+	return ""
+}
+
+func (x *TurnResultSource) GetRootMessageId() string {
+	if x != nil {
+		return x.RootMessageId
+	}
+	return ""
+}
+
+func (x *TurnResultSource) GetMessageIds() []string {
+	if x != nil {
+		return x.MessageIds
+	}
+	return nil
+}
+
+func (x *TurnResultSource) GetScheduleId() int64 {
+	if x != nil {
+		return x.ScheduleId
+	}
+	return 0
+}
+
+func (x *TurnResultSource) GetExecutionId() int64 {
+	if x != nil {
+		return x.ExecutionId
+	}
+	return 0
+}
+
+func (x *TurnResultSource) GetScheduleType() string {
+	if x != nil {
+		return x.ScheduleType
+	}
+	return ""
+}
+
+func (x *TurnResultSource) GetRunMode() string {
+	if x != nil {
+		return x.RunMode
+	}
+	return ""
+}
+
+func (x *TurnResultSource) GetScheduledAt() int64 {
+	if x != nil {
+		return x.ScheduledAt
+	}
+	return 0
+}
+
+func (x *TurnResultSource) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+type TurnResultExecution struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	StartedAt     int64                  `protobuf:"varint,3,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	FinishedAt    int64                  `protobuf:"varint,4,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TurnResultExecution) Reset() {
+	*x = TurnResultExecution{}
+	mi := &file_amux_v1_amux_proto_msgTypes[238]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TurnResultExecution) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TurnResultExecution) ProtoMessage() {}
+
+func (x *TurnResultExecution) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[238]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TurnResultExecution.ProtoReflect.Descriptor instead.
+func (*TurnResultExecution) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{238}
+}
+
+func (x *TurnResultExecution) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *TurnResultExecution) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *TurnResultExecution) GetStartedAt() int64 {
+	if x != nil {
+		return x.StartedAt
+	}
+	return 0
+}
+
+func (x *TurnResultExecution) GetFinishedAt() int64 {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return 0
+}
+
+type TurnResultOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	Format        string                 `protobuf:"bytes,3,opt,name=format,proto3" json:"format,omitempty"`
+	Content       string                 `protobuf:"bytes,4,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TurnResultOutput) Reset() {
+	*x = TurnResultOutput{}
+	mi := &file_amux_v1_amux_proto_msgTypes[239]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TurnResultOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TurnResultOutput) ProtoMessage() {}
+
+func (x *TurnResultOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[239]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TurnResultOutput.ProtoReflect.Descriptor instead.
+func (*TurnResultOutput) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{239}
+}
+
+func (x *TurnResultOutput) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *TurnResultOutput) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *TurnResultOutput) GetFormat() string {
+	if x != nil {
+		return x.Format
+	}
+	return ""
+}
+
+func (x *TurnResultOutput) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+type TurnResultDeliveryMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	MessageId     string                 `protobuf:"bytes,2,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TurnResultDeliveryMessage) Reset() {
+	*x = TurnResultDeliveryMessage{}
+	mi := &file_amux_v1_amux_proto_msgTypes[240]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TurnResultDeliveryMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TurnResultDeliveryMessage) ProtoMessage() {}
+
+func (x *TurnResultDeliveryMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[240]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TurnResultDeliveryMessage.ProtoReflect.Descriptor instead.
+func (*TurnResultDeliveryMessage) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{240}
+}
+
+func (x *TurnResultDeliveryMessage) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *TurnResultDeliveryMessage) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *TurnResultDeliveryMessage) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type TurnResultDelivery struct {
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Channel       string                       `protobuf:"bytes,1,opt,name=channel,proto3" json:"channel,omitempty"`
+	Status        string                       `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Reason        string                       `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	BridgeId      string                       `protobuf:"bytes,4,opt,name=bridge_id,json=bridgeId,proto3" json:"bridge_id,omitempty"`
+	ChatId        string                       `protobuf:"bytes,5,opt,name=chat_id,json=chatId,proto3" json:"chat_id,omitempty"`
+	RootMessageId string                       `protobuf:"bytes,6,opt,name=root_message_id,json=rootMessageId,proto3" json:"root_message_id,omitempty"`
+	Messages      []*TurnResultDeliveryMessage `protobuf:"bytes,7,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TurnResultDelivery) Reset() {
+	*x = TurnResultDelivery{}
+	mi := &file_amux_v1_amux_proto_msgTypes[241]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TurnResultDelivery) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TurnResultDelivery) ProtoMessage() {}
+
+func (x *TurnResultDelivery) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[241]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TurnResultDelivery.ProtoReflect.Descriptor instead.
+func (*TurnResultDelivery) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{241}
+}
+
+func (x *TurnResultDelivery) GetChannel() string {
+	if x != nil {
+		return x.Channel
+	}
+	return ""
+}
+
+func (x *TurnResultDelivery) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *TurnResultDelivery) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *TurnResultDelivery) GetBridgeId() string {
+	if x != nil {
+		return x.BridgeId
+	}
+	return ""
+}
+
+func (x *TurnResultDelivery) GetChatId() string {
+	if x != nil {
+		return x.ChatId
+	}
+	return ""
+}
+
+func (x *TurnResultDelivery) GetRootMessageId() string {
+	if x != nil {
+		return x.RootMessageId
+	}
+	return ""
+}
+
+func (x *TurnResultDelivery) GetMessages() []*TurnResultDeliveryMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+type TurnResultPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Version       int32                  `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Ref           *TurnResultRef         `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
+	Source        *TurnResultSource      `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	Execution     *TurnResultExecution   `protobuf:"bytes,4,opt,name=execution,proto3" json:"execution,omitempty"`
+	Output        *TurnResultOutput      `protobuf:"bytes,5,opt,name=output,proto3" json:"output,omitempty"`
+	Deliveries    []*TurnResultDelivery  `protobuf:"bytes,6,rep,name=deliveries,proto3" json:"deliveries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TurnResultPayload) Reset() {
+	*x = TurnResultPayload{}
+	mi := &file_amux_v1_amux_proto_msgTypes[242]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TurnResultPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TurnResultPayload) ProtoMessage() {}
+
+func (x *TurnResultPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[242]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TurnResultPayload.ProtoReflect.Descriptor instead.
+func (*TurnResultPayload) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{242}
+}
+
+func (x *TurnResultPayload) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *TurnResultPayload) GetRef() *TurnResultRef {
+	if x != nil {
+		return x.Ref
+	}
+	return nil
+}
+
+func (x *TurnResultPayload) GetSource() *TurnResultSource {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *TurnResultPayload) GetExecution() *TurnResultExecution {
+	if x != nil {
+		return x.Execution
+	}
+	return nil
+}
+
+func (x *TurnResultPayload) GetOutput() *TurnResultOutput {
+	if x != nil {
+		return x.Output
+	}
+	return nil
+}
+
+func (x *TurnResultPayload) GetDeliveries() []*TurnResultDelivery {
+	if x != nil {
+		return x.Deliveries
+	}
+	return nil
+}
+
+type AmuxdGetTurnResultResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	Result        *TurnResultPayload     `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AmuxdGetTurnResultResponse) Reset() {
+	*x = AmuxdGetTurnResultResponse{}
+	mi := &file_amux_v1_amux_proto_msgTypes[243]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AmuxdGetTurnResultResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AmuxdGetTurnResultResponse) ProtoMessage() {}
+
+func (x *AmuxdGetTurnResultResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[243]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AmuxdGetTurnResultResponse.ProtoReflect.Descriptor instead.
+func (*AmuxdGetTurnResultResponse) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{243}
+}
+
+func (x *AmuxdGetTurnResultResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *AmuxdGetTurnResultResponse) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *AmuxdGetTurnResultResponse) GetResult() *TurnResultPayload {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
 var File_amux_v1_amux_proto protoreflect.FileDescriptor
 
 const file_amux_v1_amux_proto_rawDesc = "" +
@@ -17357,7 +18305,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x0fdelivery_target\x18\x13 \x01(\tR\x0edeliveryTarget\x12'\n" +
 	"\x0fdelivery_policy\x18\x14 \x01(\tR\x0edeliveryPolicy\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x15 \x01(\x03R\tcreatedAt\"\xb8\x03\n" +
+	"created_at\x18\x15 \x01(\x03R\tcreatedAt\"\xd7\x03\n" +
 	"\vScheduleRun\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
 	"\vschedule_id\x18\x02 \x01(\x03R\n" +
@@ -17376,7 +18324,9 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x06reason\x18\v \x01(\tR\x06reason\x12%\n" +
 	"\x0eresult_summary\x18\f \x01(\tR\rresultSummary\x12%\n" +
 	"\x0etrigger_source\x18\r \x01(\tR\rtriggerSource\x12'\n" +
-	"\x0fdelivery_status\x18\x0e \x01(\tR\x0edeliveryStatus\"\xab\x03\n" +
+	"\x0fdelivery_status\x18\x0e \x01(\tR\x0edeliveryStatus\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x0f \x01(\tR\tsessionId\"\xab\x03\n" +
 	"\x15CreateScheduleRequest\x12\x1b\n" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x1f\n" +
 	"\vtarget_name\x18\x02 \x01(\tR\n" +
@@ -17551,7 +18501,102 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\fpayload_json\x18\x03 \x01(\fR\vpayloadJson\"V\n" +
 	"\x19ConsoleManagementResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12!\n" +
-	"\fpayload_json\x18\x02 \x01(\fR\vpayloadJson2\xb7\f\n" +
+	"\fpayload_json\x18\x02 \x01(\fR\vpayloadJson\"\x8e\x01\n" +
+	"\x14GetTurnResultRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x17\n" +
+	"\aturn_id\x18\x03 \x01(\tR\x06turnId\x12*\n" +
+	"\x11max_content_bytes\x18\x04 \x01(\x05R\x0fmaxContentBytes\"\xc4\x03\n" +
+	"\x15GetTurnResultResponse\x12\x14\n" +
+	"\x05found\x18\x01 \x01(\bR\x05found\x12\x1a\n" +
+	"\bterminal\x18\x02 \x01(\bR\bterminal\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x03 \x01(\tR\tsessionId\x12!\n" +
+	"\fsession_name\x18\x04 \x01(\tR\vsessionName\x12\x1b\n" +
+	"\tlaunch_id\x18\x05 \x01(\tR\blaunchId\x12\x17\n" +
+	"\aturn_id\x18\x06 \x01(\tR\x06turnId\x12)\n" +
+	"\x10execution_status\x18\a \x01(\tR\x0fexecutionStatus\x12%\n" +
+	"\x0eexecution_code\x18\b \x01(\tR\rexecutionCode\x12\x1d\n" +
+	"\n" +
+	"started_at\x18\t \x01(\x03R\tstartedAt\x12\x1f\n" +
+	"\vfinished_at\x18\n" +
+	" \x01(\x03R\n" +
+	"finishedAt\x12#\n" +
+	"\routput_status\x18\v \x01(\tR\foutputStatus\x12#\n" +
+	"\routput_reason\x18\f \x01(\tR\foutputReason\x12%\n" +
+	"\x0eoutput_content\x18\r \x01(\tR\routputContent\"\xa0\x02\n" +
+	"\x19AmuxdGetTurnResultRequest\x12\x1b\n" +
+	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12!\n" +
+	"\fsession_name\x18\x03 \x01(\tR\vsessionName\x12\x17\n" +
+	"\aturn_id\x18\x04 \x01(\tR\x06turnId\x12*\n" +
+	"\x11feishu_message_id\x18\x05 \x01(\tR\x0ffeishuMessageId\x12\x1b\n" +
+	"\tbridge_id\x18\x06 \x01(\tR\bbridgeId\x12\x1f\n" +
+	"\vschedule_id\x18\a \x01(\x03R\n" +
+	"scheduleId\x12!\n" +
+	"\fexecution_id\x18\b \x01(\x03R\vexecutionId\"\xa4\x01\n" +
+	"\rTurnResultRef\x12\x1b\n" +
+	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12!\n" +
+	"\fsession_name\x18\x03 \x01(\tR\vsessionName\x12\x1b\n" +
+	"\tlaunch_id\x18\x04 \x01(\tR\blaunchId\x12\x17\n" +
+	"\aturn_id\x18\x05 \x01(\tR\x06turnId\"\xe5\x02\n" +
+	"\x10TurnResultSource\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1b\n" +
+	"\tbridge_id\x18\x02 \x01(\tR\bbridgeId\x12\x17\n" +
+	"\achat_id\x18\x03 \x01(\tR\x06chatId\x12&\n" +
+	"\x0froot_message_id\x18\x04 \x01(\tR\rrootMessageId\x12\x1f\n" +
+	"\vmessage_ids\x18\x05 \x03(\tR\n" +
+	"messageIds\x12\x1f\n" +
+	"\vschedule_id\x18\x06 \x01(\x03R\n" +
+	"scheduleId\x12!\n" +
+	"\fexecution_id\x18\a \x01(\x03R\vexecutionId\x12#\n" +
+	"\rschedule_type\x18\b \x01(\tR\fscheduleType\x12\x19\n" +
+	"\brun_mode\x18\t \x01(\tR\arunMode\x12!\n" +
+	"\fscheduled_at\x18\n" +
+	" \x01(\x03R\vscheduledAt\x12\x17\n" +
+	"\atask_id\x18\v \x01(\tR\x06taskId\"\x81\x01\n" +
+	"\x13TurnResultExecution\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\x12\x1d\n" +
+	"\n" +
+	"started_at\x18\x03 \x01(\x03R\tstartedAt\x12\x1f\n" +
+	"\vfinished_at\x18\x04 \x01(\x03R\n" +
+	"finishedAt\"t\n" +
+	"\x10TurnResultOutput\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x16\n" +
+	"\x06format\x18\x03 \x01(\tR\x06format\x12\x18\n" +
+	"\acontent\x18\x04 \x01(\tR\acontent\"b\n" +
+	"\x19TurnResultDeliveryMessage\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x02 \x01(\tR\tmessageId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"\xfc\x01\n" +
+	"\x12TurnResultDelivery\x12\x18\n" +
+	"\achannel\x18\x01 \x01(\tR\achannel\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\x12\x1b\n" +
+	"\tbridge_id\x18\x04 \x01(\tR\bbridgeId\x12\x17\n" +
+	"\achat_id\x18\x05 \x01(\tR\x06chatId\x12&\n" +
+	"\x0froot_message_id\x18\x06 \x01(\tR\rrootMessageId\x12>\n" +
+	"\bmessages\x18\a \x03(\v2\".amux.v1.TurnResultDeliveryMessageR\bmessages\"\xb6\x02\n" +
+	"\x11TurnResultPayload\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\x05R\aversion\x12(\n" +
+	"\x03ref\x18\x02 \x01(\v2\x16.amux.v1.TurnResultRefR\x03ref\x121\n" +
+	"\x06source\x18\x03 \x01(\v2\x19.amux.v1.TurnResultSourceR\x06source\x12:\n" +
+	"\texecution\x18\x04 \x01(\v2\x1c.amux.v1.TurnResultExecutionR\texecution\x121\n" +
+	"\x06output\x18\x05 \x01(\v2\x19.amux.v1.TurnResultOutputR\x06output\x12;\n" +
+	"\n" +
+	"deliveries\x18\x06 \x03(\v2\x1b.amux.v1.TurnResultDeliveryR\n" +
+	"deliveries\"\x80\x01\n" +
+	"\x1aAmuxdGetTurnResultResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x122\n" +
+	"\x06result\x18\x03 \x01(\v2\x1a.amux.v1.TurnResultPayloadR\x06result2\x87\r\n" +
 	"\aAmuxlet\x12<\n" +
 	"\aCleanup\x12\x17.amux.v1.CleanupRequest\x1a\x18.amux.v1.CleanupResponse\x12W\n" +
 	"\x10ListNativeModels\x12 .amux.v1.ListNativeModelsRequest\x1a!.amux.v1.ListNativeModelsResponse\x12K\n" +
@@ -17575,8 +18620,9 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"QueueClear\x12\x1a.amux.v1.QueueClearRequest\x1a\x1b.amux.v1.QueueClearResponse\x12H\n" +
 	"\vQueueCancel\x12\x1b.amux.v1.QueueCancelRequest\x1a\x1c.amux.v1.QueueCancelResponse\x12Z\n" +
 	"\x11RespondPermission\x12!.amux.v1.RespondPermissionRequest\x1a\".amux.v1.RespondPermissionResponse\x12r\n" +
-	"\x1bGetLocalExpertAuthoringTurn\x12(.amux.v1.LocalExpertAuthoringTurnRequest\x1a).amux.v1.LocalExpertAuthoringTurnResponse\x12l\n" +
-	"\x17RevokePrincipalLaunches\x12'.amux.v1.RevokePrincipalLaunchesRequest\x1a(.amux.v1.RevokePrincipalLaunchesResponse2\x97&\n" +
+	"\x1bGetLocalExpertAuthoringTurn\x12(.amux.v1.LocalExpertAuthoringTurnRequest\x1a).amux.v1.LocalExpertAuthoringTurnResponse\x12N\n" +
+	"\rGetTurnResult\x12\x1d.amux.v1.GetTurnResultRequest\x1a\x1e.amux.v1.GetTurnResultResponse\x12l\n" +
+	"\x17RevokePrincipalLaunches\x12'.amux.v1.RevokePrincipalLaunchesRequest\x1a(.amux.v1.RevokePrincipalLaunchesResponse2\xf1&\n" +
 	"\x05Amuxd\x12<\n" +
 	"\aCleanup\x12\x17.amux.v1.CleanupRequest\x1a\x18.amux.v1.CleanupResponse\x12Z\n" +
 	"\x11ConsoleManagement\x12!.amux.v1.ConsoleManagementRequest\x1a\".amux.v1.ConsoleManagementResponse\x12D\n" +
@@ -17615,7 +18661,8 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x0eDeleteSchedule\x12\x1e.amux.v1.DeleteScheduleRequest\x1a\x1f.amux.v1.DeleteScheduleResponse\x12Q\n" +
 	"\x0eUpdateSchedule\x12\x1e.amux.v1.UpdateScheduleRequest\x1a\x1f.amux.v1.UpdateScheduleResponse\x12]\n" +
 	"\x12SetScheduleEnabled\x12\".amux.v1.SetScheduleEnabledRequest\x1a#.amux.v1.SetScheduleEnabledResponse\x12T\n" +
-	"\x0fTriggerSchedule\x12\x1f.amux.v1.TriggerScheduleRequest\x1a .amux.v1.TriggerScheduleResponse\x12f\n" +
+	"\x0fTriggerSchedule\x12\x1f.amux.v1.TriggerScheduleRequest\x1a .amux.v1.TriggerScheduleResponse\x12X\n" +
+	"\rGetTurnResult\x12\".amux.v1.AmuxdGetTurnResultRequest\x1a#.amux.v1.AmuxdGetTurnResultResponse\x12f\n" +
 	"\x15MaterializeCredential\x12%.amux.v1.MaterializeCredentialRequest\x1a&.amux.v1.MaterializeCredentialResponse\x12R\n" +
 	"\rSetCredential\x12\x1d.amux.v1.SetCredentialRequest\x1a\".amux.v1.CredentialProfileMetadata\x12R\n" +
 	"\rGetCredential\x12\x1d.amux.v1.GetCredentialRequest\x1a\".amux.v1.CredentialProfileMetadata\x12T\n" +
@@ -17682,7 +18729,7 @@ func file_amux_v1_amux_proto_rawDescGZIP() []byte {
 }
 
 var file_amux_v1_amux_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_amux_v1_amux_proto_msgTypes = make([]protoimpl.MessageInfo, 244)
+var file_amux_v1_amux_proto_msgTypes = make([]protoimpl.MessageInfo, 255)
 var file_amux_v1_amux_proto_goTypes = []any{
 	(AttachRequest_TimelineMode)(0),           // 0: amux.v1.AttachRequest.TimelineMode
 	(AttachEvent_Kind)(0),                     // 1: amux.v1.AttachEvent.Kind
@@ -17919,17 +18966,28 @@ var file_amux_v1_amux_proto_goTypes = []any{
 	(*SendFeishuMessageResponse)(nil),         // 232: amux.v1.SendFeishuMessageResponse
 	(*ConsoleManagementRequest)(nil),          // 233: amux.v1.ConsoleManagementRequest
 	(*ConsoleManagementResponse)(nil),         // 234: amux.v1.ConsoleManagementResponse
-	nil,                                       // 235: amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
-	nil,                                       // 236: amux.v1.AgentProfileProvider.ThinkingEntry
-	nil,                                       // 237: amux.v1.MaterializeCredentialResponse.FilesEntry
-	nil,                                       // 238: amux.v1.TargetCapabilities.LabelsEntry
-	nil,                                       // 239: amux.v1.TargetCapabilities.CredentialProfilesEntry
-	nil,                                       // 240: amux.v1.RuntimeLoad.PerAgentRunningEntry
-	nil,                                       // 241: amux.v1.RuntimeLoad.PerAgentReservedEntry
-	nil,                                       // 242: amux.v1.Principal.MetadataEntry
-	nil,                                       // 243: amux.v1.CreatePrincipalRequest.MetadataEntry
-	nil,                                       // 244: amux.v1.ProxyModelRequest.HeadersEntry
-	nil,                                       // 245: amux.v1.ProxyModelChunk.HeadersEntry
+	(*GetTurnResultRequest)(nil),              // 235: amux.v1.GetTurnResultRequest
+	(*GetTurnResultResponse)(nil),             // 236: amux.v1.GetTurnResultResponse
+	(*AmuxdGetTurnResultRequest)(nil),         // 237: amux.v1.AmuxdGetTurnResultRequest
+	(*TurnResultRef)(nil),                     // 238: amux.v1.TurnResultRef
+	(*TurnResultSource)(nil),                  // 239: amux.v1.TurnResultSource
+	(*TurnResultExecution)(nil),               // 240: amux.v1.TurnResultExecution
+	(*TurnResultOutput)(nil),                  // 241: amux.v1.TurnResultOutput
+	(*TurnResultDeliveryMessage)(nil),         // 242: amux.v1.TurnResultDeliveryMessage
+	(*TurnResultDelivery)(nil),                // 243: amux.v1.TurnResultDelivery
+	(*TurnResultPayload)(nil),                 // 244: amux.v1.TurnResultPayload
+	(*AmuxdGetTurnResultResponse)(nil),        // 245: amux.v1.AmuxdGetTurnResultResponse
+	nil,                                       // 246: amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
+	nil,                                       // 247: amux.v1.AgentProfileProvider.ThinkingEntry
+	nil,                                       // 248: amux.v1.MaterializeCredentialResponse.FilesEntry
+	nil,                                       // 249: amux.v1.TargetCapabilities.LabelsEntry
+	nil,                                       // 250: amux.v1.TargetCapabilities.CredentialProfilesEntry
+	nil,                                       // 251: amux.v1.RuntimeLoad.PerAgentRunningEntry
+	nil,                                       // 252: amux.v1.RuntimeLoad.PerAgentReservedEntry
+	nil,                                       // 253: amux.v1.Principal.MetadataEntry
+	nil,                                       // 254: amux.v1.CreatePrincipalRequest.MetadataEntry
+	nil,                                       // 255: amux.v1.ProxyModelRequest.HeadersEntry
+	nil,                                       // 256: amux.v1.ProxyModelChunk.HeadersEntry
 }
 var file_amux_v1_amux_proto_depIdxs = []int32{
 	5,   // 0: amux.v1.MemorySearchResponse.matches:type_name -> amux.v1.MemoryMatch
@@ -17937,9 +18995,9 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	18,  // 2: amux.v1.AgentProfilePlacement.requires:type_name -> amux.v1.AgentProfileRequirements
 	19,  // 3: amux.v1.AgentProfileSpec.placement:type_name -> amux.v1.AgentProfilePlacement
 	22,  // 4: amux.v1.AgentProfileSpec.provider:type_name -> amux.v1.AgentProfileProvider
-	235, // 5: amux.v1.AgentProfileSpec.credential_env_suggestions:type_name -> amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
+	246, // 5: amux.v1.AgentProfileSpec.credential_env_suggestions:type_name -> amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
 	21,  // 6: amux.v1.AgentProfileSpec.snapshot_skill_files:type_name -> amux.v1.AgentProfileSkillFile
-	236, // 7: amux.v1.AgentProfileProvider.thinking:type_name -> amux.v1.AgentProfileProvider.ThinkingEntry
+	247, // 7: amux.v1.AgentProfileProvider.thinking:type_name -> amux.v1.AgentProfileProvider.ThinkingEntry
 	20,  // 8: amux.v1.AgentProfileInfo.profile:type_name -> amux.v1.AgentProfileSpec
 	23,  // 9: amux.v1.AgentProfileInfo.skills:type_name -> amux.v1.AgentProfileSkillInfo
 	24,  // 10: amux.v1.ListAgentProfilesResponse.profiles:type_name -> amux.v1.AgentProfileInfo
@@ -17947,13 +19005,13 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	20,  // 12: amux.v1.RunRequest.profile_spec:type_name -> amux.v1.AgentProfileSpec
 	17,  // 13: amux.v1.RunRequest.execution_identity:type_name -> amux.v1.ExecutionIdentity
 	13,  // 14: amux.v1.RunResponse.session:type_name -> amux.v1.Session
-	237, // 15: amux.v1.MaterializeCredentialResponse.files:type_name -> amux.v1.MaterializeCredentialResponse.FilesEntry
+	248, // 15: amux.v1.MaterializeCredentialResponse.files:type_name -> amux.v1.MaterializeCredentialResponse.FilesEntry
 	36,  // 16: amux.v1.ListCredentialsResponse.profiles:type_name -> amux.v1.CredentialProfileMetadata
-	238, // 17: amux.v1.TargetCapabilities.labels:type_name -> amux.v1.TargetCapabilities.LabelsEntry
+	249, // 17: amux.v1.TargetCapabilities.labels:type_name -> amux.v1.TargetCapabilities.LabelsEntry
 	39,  // 18: amux.v1.TargetCapabilities.agents:type_name -> amux.v1.AgentCapacity
-	239, // 19: amux.v1.TargetCapabilities.credential_profiles:type_name -> amux.v1.TargetCapabilities.CredentialProfilesEntry
-	240, // 20: amux.v1.RuntimeLoad.per_agent_running:type_name -> amux.v1.RuntimeLoad.PerAgentRunningEntry
-	241, // 21: amux.v1.RuntimeLoad.per_agent_reserved:type_name -> amux.v1.RuntimeLoad.PerAgentReservedEntry
+	250, // 19: amux.v1.TargetCapabilities.credential_profiles:type_name -> amux.v1.TargetCapabilities.CredentialProfilesEntry
+	251, // 20: amux.v1.RuntimeLoad.per_agent_running:type_name -> amux.v1.RuntimeLoad.PerAgentRunningEntry
+	252, // 21: amux.v1.RuntimeLoad.per_agent_reserved:type_name -> amux.v1.RuntimeLoad.PerAgentReservedEntry
 	38,  // 22: amux.v1.Target.capabilities:type_name -> amux.v1.TargetCapabilities
 	13,  // 23: amux.v1.Target.sessions:type_name -> amux.v1.Session
 	41,  // 24: amux.v1.Target.load:type_name -> amux.v1.RuntimeLoad
@@ -17996,8 +19054,8 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	156, // 61: amux.v1.PruneSubtasksResponse.tasks:type_name -> amux.v1.PrunedSubtask
 	157, // 62: amux.v1.PruneSubtasksResponse.skipped:type_name -> amux.v1.SkippedSubtask
 	17,  // 63: amux.v1.AgentInstance.execution_identity:type_name -> amux.v1.ExecutionIdentity
-	242, // 64: amux.v1.Principal.metadata:type_name -> amux.v1.Principal.MetadataEntry
-	243, // 65: amux.v1.CreatePrincipalRequest.metadata:type_name -> amux.v1.CreatePrincipalRequest.MetadataEntry
+	253, // 64: amux.v1.Principal.metadata:type_name -> amux.v1.Principal.MetadataEntry
+	254, // 65: amux.v1.CreatePrincipalRequest.metadata:type_name -> amux.v1.CreatePrincipalRequest.MetadataEntry
 	166, // 66: amux.v1.PrincipalResponse.principal:type_name -> amux.v1.Principal
 	171, // 67: amux.v1.ListPrincipalAliasesResponse.aliases:type_name -> amux.v1.PrincipalAlias
 	166, // 68: amux.v1.ListPrincipalsResponse.principals:type_name -> amux.v1.Principal
@@ -18008,229 +19066,240 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	201, // 73: amux.v1.ListSchedulesResponse.schedules:type_name -> amux.v1.ScheduleItem
 	201, // 74: amux.v1.GetScheduleResponse.schedule:type_name -> amux.v1.ScheduleItem
 	201, // 75: amux.v1.UpdateScheduleResponse.schedule:type_name -> amux.v1.ScheduleItem
-	244, // 76: amux.v1.ProxyModelRequest.headers:type_name -> amux.v1.ProxyModelRequest.HeadersEntry
-	245, // 77: amux.v1.ProxyModelChunk.headers:type_name -> amux.v1.ProxyModelChunk.HeadersEntry
+	255, // 76: amux.v1.ProxyModelRequest.headers:type_name -> amux.v1.ProxyModelRequest.HeadersEntry
+	256, // 77: amux.v1.ProxyModelChunk.headers:type_name -> amux.v1.ProxyModelChunk.HeadersEntry
 	17,  // 78: amux.v1.ListNativeModelsRequest.execution_identity:type_name -> amux.v1.ExecutionIdentity
 	223, // 79: amux.v1.NativeModel.variants:type_name -> amux.v1.NativeModelVariant
 	222, // 80: amux.v1.ListNativeModelsResponse.models:type_name -> amux.v1.NativeModel
 	228, // 81: amux.v1.CleanupReport.steps:type_name -> amux.v1.CleanupStep
 	229, // 82: amux.v1.CleanupResponse.reports:type_name -> amux.v1.CleanupReport
-	40,  // 83: amux.v1.TargetCapabilities.CredentialProfilesEntry.value:type_name -> amux.v1.CredentialProfileList
-	227, // 84: amux.v1.Amuxlet.Cleanup:input_type -> amux.v1.CleanupRequest
-	221, // 85: amux.v1.Amuxlet.ListNativeModels:input_type -> amux.v1.ListNativeModelsRequest
-	217, // 86: amux.v1.Amuxlet.PutSessionFile:input_type -> amux.v1.SessionFileRequest
-	217, // 87: amux.v1.Amuxlet.ReadSessionArtifact:input_type -> amux.v1.SessionFileRequest
-	29,  // 88: amux.v1.Amuxlet.Run:input_type -> amux.v1.RunRequest
-	45,  // 89: amux.v1.Amuxlet.Info:input_type -> amux.v1.InfoRequest
-	43,  // 90: amux.v1.Amuxlet.List:input_type -> amux.v1.ListRequest
-	49,  // 91: amux.v1.Amuxlet.Kill:input_type -> amux.v1.KillRequest
-	51,  // 92: amux.v1.Amuxlet.Restart:input_type -> amux.v1.RestartRequest
-	52,  // 93: amux.v1.Amuxlet.ChangeCwd:input_type -> amux.v1.ChangeCwdRequest
-	54,  // 94: amux.v1.Amuxlet.Sleep:input_type -> amux.v1.SleepRequest
-	56,  // 95: amux.v1.Amuxlet.Resume:input_type -> amux.v1.ResumeRequest
-	57,  // 96: amux.v1.Amuxlet.Prune:input_type -> amux.v1.PruneRequest
-	59,  // 97: amux.v1.Amuxlet.Interrupt:input_type -> amux.v1.InterruptRequest
-	61,  // 98: amux.v1.Amuxlet.Attach:input_type -> amux.v1.AttachRequest
-	65,  // 99: amux.v1.Amuxlet.Submit:input_type -> amux.v1.SubmitRequest
-	14,  // 100: amux.v1.Amuxlet.Goal:input_type -> amux.v1.GoalRequest
-	80,  // 101: amux.v1.Amuxlet.QueueList:input_type -> amux.v1.QueueListRequest
-	82,  // 102: amux.v1.Amuxlet.QueueClear:input_type -> amux.v1.QueueClearRequest
-	84,  // 103: amux.v1.Amuxlet.QueueCancel:input_type -> amux.v1.QueueCancelRequest
-	63,  // 104: amux.v1.Amuxlet.RespondPermission:input_type -> amux.v1.RespondPermissionRequest
-	72,  // 105: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:input_type -> amux.v1.LocalExpertAuthoringTurnRequest
-	185, // 106: amux.v1.Amuxlet.RevokePrincipalLaunches:input_type -> amux.v1.RevokePrincipalLaunchesRequest
-	227, // 107: amux.v1.Amuxd.Cleanup:input_type -> amux.v1.CleanupRequest
-	233, // 108: amux.v1.Amuxd.ConsoleManagement:input_type -> amux.v1.ConsoleManagementRequest
-	219, // 109: amux.v1.Amuxd.ProxyModel:input_type -> amux.v1.ProxyModelRequest
-	116, // 110: amux.v1.Amuxd.Run:input_type -> amux.v1.AmuxdRunRequest
-	47,  // 111: amux.v1.Amuxd.Info:input_type -> amux.v1.HubInfoRequest
-	97,  // 112: amux.v1.Amuxd.ListTargets:input_type -> amux.v1.ListTargetsRequest
-	99,  // 113: amux.v1.Amuxd.FeishuStatus:input_type -> amux.v1.FeishuStatusRequest
-	102, // 114: amux.v1.Amuxd.FeishuBindings:input_type -> amux.v1.FeishuBindingsRequest
-	105, // 115: amux.v1.Amuxd.FeishuBots:input_type -> amux.v1.FeishuBotsRequest
-	231, // 116: amux.v1.Amuxd.SendFeishuMessage:input_type -> amux.v1.SendFeishuMessageRequest
-	108, // 117: amux.v1.Amuxd.FeishuBotSessionStatus:input_type -> amux.v1.FeishuBotSessionStatusRequest
-	109, // 118: amux.v1.Amuxd.FeishuBotSessionBind:input_type -> amux.v1.FeishuBotSessionBindRequest
-	110, // 119: amux.v1.Amuxd.FeishuBotSessionOff:input_type -> amux.v1.FeishuBotSessionOffRequest
-	112, // 120: amux.v1.Amuxd.FeishuContextExplain:input_type -> amux.v1.FeishuContextExplainRequest
-	117, // 121: amux.v1.Amuxd.Kill:input_type -> amux.v1.AmuxdKillRequest
-	118, // 122: amux.v1.Amuxd.Restart:input_type -> amux.v1.AmuxdRestartRequest
-	119, // 123: amux.v1.Amuxd.ChangeCwd:input_type -> amux.v1.AmuxdChangeCwdRequest
-	120, // 124: amux.v1.Amuxd.Sleep:input_type -> amux.v1.AmuxdSleepRequest
-	121, // 125: amux.v1.Amuxd.Resume:input_type -> amux.v1.AmuxdResumeRequest
-	122, // 126: amux.v1.Amuxd.Prune:input_type -> amux.v1.AmuxdPruneRequest
-	123, // 127: amux.v1.Amuxd.Interrupt:input_type -> amux.v1.AmuxdInterruptRequest
-	124, // 128: amux.v1.Amuxd.Attach:input_type -> amux.v1.AmuxdAttachRequest
-	125, // 129: amux.v1.Amuxd.Submit:input_type -> amux.v1.AmuxdSubmitRequest
-	15,  // 130: amux.v1.Amuxd.Goal:input_type -> amux.v1.AmuxdGoalRequest
-	126, // 131: amux.v1.Amuxd.QueueList:input_type -> amux.v1.AmuxdQueueListRequest
-	127, // 132: amux.v1.Amuxd.QueueClear:input_type -> amux.v1.AmuxdQueueClearRequest
-	128, // 133: amux.v1.Amuxd.QueueCancel:input_type -> amux.v1.AmuxdQueueCancelRequest
-	129, // 134: amux.v1.Amuxd.RespondPermission:input_type -> amux.v1.AmuxdRespondPermissionRequest
-	203, // 135: amux.v1.Amuxd.CreateSchedule:input_type -> amux.v1.CreateScheduleRequest
-	205, // 136: amux.v1.Amuxd.ListSchedules:input_type -> amux.v1.ListSchedulesRequest
-	207, // 137: amux.v1.Amuxd.GetSchedule:input_type -> amux.v1.GetScheduleRequest
-	209, // 138: amux.v1.Amuxd.DeleteSchedule:input_type -> amux.v1.DeleteScheduleRequest
-	211, // 139: amux.v1.Amuxd.UpdateSchedule:input_type -> amux.v1.UpdateScheduleRequest
-	213, // 140: amux.v1.Amuxd.SetScheduleEnabled:input_type -> amux.v1.SetScheduleEnabledRequest
-	215, // 141: amux.v1.Amuxd.TriggerSchedule:input_type -> amux.v1.TriggerScheduleRequest
-	31,  // 142: amux.v1.Amuxd.MaterializeCredential:input_type -> amux.v1.MaterializeCredentialRequest
-	33,  // 143: amux.v1.Amuxd.SetCredential:input_type -> amux.v1.SetCredentialRequest
-	34,  // 144: amux.v1.Amuxd.GetCredential:input_type -> amux.v1.GetCredentialRequest
-	35,  // 145: amux.v1.Amuxd.ListCredentials:input_type -> amux.v1.ListCredentialsRequest
-	167, // 146: amux.v1.Amuxd.CreatePrincipal:input_type -> amux.v1.CreatePrincipalRequest
-	169, // 147: amux.v1.Amuxd.ListPrincipals:input_type -> amux.v1.ListPrincipalsRequest
-	170, // 148: amux.v1.Amuxd.ListPrincipalAliases:input_type -> amux.v1.ListPrincipalAliasesRequest
-	174, // 149: amux.v1.Amuxd.DisablePrincipal:input_type -> amux.v1.DisablePrincipalRequest
-	175, // 150: amux.v1.Amuxd.BindPrincipalAlias:input_type -> amux.v1.BindPrincipalAliasRequest
-	176, // 151: amux.v1.Amuxd.GrantPrincipalDelegation:input_type -> amux.v1.GrantPrincipalDelegationRequest
-	178, // 152: amux.v1.Amuxd.RevokePrincipalDelegation:input_type -> amux.v1.RevokePrincipalDelegationRequest
-	179, // 153: amux.v1.Amuxd.GrantServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
-	179, // 154: amux.v1.Amuxd.RevokeServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
-	181, // 155: amux.v1.Amuxd.CreatePrincipalEnrollment:input_type -> amux.v1.CreatePrincipalEnrollmentRequest
-	183, // 156: amux.v1.Amuxd.GetIsolationStatus:input_type -> amux.v1.GetIsolationStatusRequest
-	25,  // 157: amux.v1.Amuxd.ListAgentProfiles:input_type -> amux.v1.ListAgentProfilesRequest
-	27,  // 158: amux.v1.Amuxd.GetAgentProfile:input_type -> amux.v1.GetAgentProfileRequest
-	75,  // 159: amux.v1.Amuxd.ReadLocalExpert:input_type -> amux.v1.ReadLocalExpertRequest
-	77,  // 160: amux.v1.Amuxd.ChangeLocalExpert:input_type -> amux.v1.ChangeLocalExpertRequest
-	2,   // 161: amux.v1.Amuxd.GetMemoryBinding:input_type -> amux.v1.MemoryBindingRequest
-	4,   // 162: amux.v1.Amuxd.MemorySearch:input_type -> amux.v1.MemorySearchRequest
-	7,   // 163: amux.v1.Amuxd.MemoryGet:input_type -> amux.v1.MemoryGetRequest
-	9,   // 164: amux.v1.Amuxd.MemoryUpsert:input_type -> amux.v1.MemoryUpsertRequest
-	11,  // 165: amux.v1.Amuxd.MemoryForget:input_type -> amux.v1.MemoryForgetRequest
-	87,  // 166: amux.v1.Amuxd.Tunnel:input_type -> amux.v1.TunnelMsg
-	67,  // 167: amux.v1.AmuxTask.ResolveParentTurn:input_type -> amux.v1.ActiveTurnRequest
-	149, // 168: amux.v1.AmuxTask.SubmitSubtask:input_type -> amux.v1.SubmitSubtaskRequest
-	151, // 169: amux.v1.AmuxTask.GetSubtask:input_type -> amux.v1.GetSubtaskRequest
-	153, // 170: amux.v1.AmuxTask.ListSubtasks:input_type -> amux.v1.ListSubtasksRequest
-	155, // 171: amux.v1.AmuxTask.PruneSubtasks:input_type -> amux.v1.PruneSubtasksRequest
-	159, // 172: amux.v1.AmuxTask.CancelSubtask:input_type -> amux.v1.CancelSubtaskRequest
-	161, // 173: amux.v1.AmuxTask.RespondSubtaskPermission:input_type -> amux.v1.RespondSubtaskPermissionRequest
-	163, // 174: amux.v1.AmuxTask.StreamSubtask:input_type -> amux.v1.StreamSubtaskRequest
-	187, // 175: amux.v1.AmuxTask.ListAgentInstances:input_type -> amux.v1.ListAgentInstancesRequest
-	189, // 176: amux.v1.AmuxTask.GetAgentInstance:input_type -> amux.v1.GetAgentInstanceRequest
-	191, // 177: amux.v1.AmuxTask.SendAgentMessage:input_type -> amux.v1.SendAgentMessageRequest
-	193, // 178: amux.v1.AmuxTask.InterruptAgentInstance:input_type -> amux.v1.InterruptAgentInstanceRequest
-	195, // 179: amux.v1.AmuxTask.WaitAgentInstance:input_type -> amux.v1.WaitAgentInstanceRequest
-	197, // 180: amux.v1.AmuxTask.DescribeAgentInstance:input_type -> amux.v1.DescribeAgentInstanceRequest
-	199, // 181: amux.v1.AmuxTask.CleanupAgentInstance:input_type -> amux.v1.CleanupAgentInstanceRequest
-	130, // 182: amux.v1.CoordinationService.ListCollaborators:input_type -> amux.v1.ListCollaboratorsRequest
-	139, // 183: amux.v1.CoordinationService.Delegate:input_type -> amux.v1.DelegateRequest
-	141, // 184: amux.v1.CoordinationService.GetDelegation:input_type -> amux.v1.GetDelegationRequest
-	143, // 185: amux.v1.CoordinationService.WaitDelegation:input_type -> amux.v1.WaitDelegationRequest
-	145, // 186: amux.v1.CoordinationService.InterveneDelegation:input_type -> amux.v1.InterveneDelegationRequest
-	147, // 187: amux.v1.CoordinationService.CancelDelegation:input_type -> amux.v1.CancelDelegationRequest
-	225, // 188: amux.v1.RuntimeMaintenance.Maintain:input_type -> amux.v1.MaintenanceRequest
-	230, // 189: amux.v1.Amuxlet.Cleanup:output_type -> amux.v1.CleanupResponse
-	224, // 190: amux.v1.Amuxlet.ListNativeModels:output_type -> amux.v1.ListNativeModelsResponse
-	218, // 191: amux.v1.Amuxlet.PutSessionFile:output_type -> amux.v1.SessionFileResponse
-	218, // 192: amux.v1.Amuxlet.ReadSessionArtifact:output_type -> amux.v1.SessionFileResponse
-	30,  // 193: amux.v1.Amuxlet.Run:output_type -> amux.v1.RunResponse
-	46,  // 194: amux.v1.Amuxlet.Info:output_type -> amux.v1.InfoResponse
-	44,  // 195: amux.v1.Amuxlet.List:output_type -> amux.v1.ListResponse
-	50,  // 196: amux.v1.Amuxlet.Kill:output_type -> amux.v1.KillResponse
-	30,  // 197: amux.v1.Amuxlet.Restart:output_type -> amux.v1.RunResponse
-	53,  // 198: amux.v1.Amuxlet.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
-	55,  // 199: amux.v1.Amuxlet.Sleep:output_type -> amux.v1.SleepResponse
-	30,  // 200: amux.v1.Amuxlet.Resume:output_type -> amux.v1.RunResponse
-	58,  // 201: amux.v1.Amuxlet.Prune:output_type -> amux.v1.PruneResponse
-	60,  // 202: amux.v1.Amuxlet.Interrupt:output_type -> amux.v1.InterruptResponse
-	62,  // 203: amux.v1.Amuxlet.Attach:output_type -> amux.v1.AttachEvent
-	66,  // 204: amux.v1.Amuxlet.Submit:output_type -> amux.v1.SubmitResponse
-	16,  // 205: amux.v1.Amuxlet.Goal:output_type -> amux.v1.GoalResponse
-	81,  // 206: amux.v1.Amuxlet.QueueList:output_type -> amux.v1.QueueListResponse
-	83,  // 207: amux.v1.Amuxlet.QueueClear:output_type -> amux.v1.QueueClearResponse
-	85,  // 208: amux.v1.Amuxlet.QueueCancel:output_type -> amux.v1.QueueCancelResponse
-	64,  // 209: amux.v1.Amuxlet.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
-	73,  // 210: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:output_type -> amux.v1.LocalExpertAuthoringTurnResponse
-	186, // 211: amux.v1.Amuxlet.RevokePrincipalLaunches:output_type -> amux.v1.RevokePrincipalLaunchesResponse
-	230, // 212: amux.v1.Amuxd.Cleanup:output_type -> amux.v1.CleanupResponse
-	234, // 213: amux.v1.Amuxd.ConsoleManagement:output_type -> amux.v1.ConsoleManagementResponse
-	220, // 214: amux.v1.Amuxd.ProxyModel:output_type -> amux.v1.ProxyModelChunk
-	30,  // 215: amux.v1.Amuxd.Run:output_type -> amux.v1.RunResponse
-	48,  // 216: amux.v1.Amuxd.Info:output_type -> amux.v1.HubInfoResponse
-	98,  // 217: amux.v1.Amuxd.ListTargets:output_type -> amux.v1.ListTargetsResponse
-	100, // 218: amux.v1.Amuxd.FeishuStatus:output_type -> amux.v1.FeishuStatusResponse
-	103, // 219: amux.v1.Amuxd.FeishuBindings:output_type -> amux.v1.FeishuBindingsResponse
-	106, // 220: amux.v1.Amuxd.FeishuBots:output_type -> amux.v1.FeishuBotsResponse
-	232, // 221: amux.v1.Amuxd.SendFeishuMessage:output_type -> amux.v1.SendFeishuMessageResponse
-	111, // 222: amux.v1.Amuxd.FeishuBotSessionStatus:output_type -> amux.v1.FeishuBotSessionStatusResponse
-	111, // 223: amux.v1.Amuxd.FeishuBotSessionBind:output_type -> amux.v1.FeishuBotSessionStatusResponse
-	111, // 224: amux.v1.Amuxd.FeishuBotSessionOff:output_type -> amux.v1.FeishuBotSessionStatusResponse
-	115, // 225: amux.v1.Amuxd.FeishuContextExplain:output_type -> amux.v1.FeishuContextExplainResponse
-	50,  // 226: amux.v1.Amuxd.Kill:output_type -> amux.v1.KillResponse
-	30,  // 227: amux.v1.Amuxd.Restart:output_type -> amux.v1.RunResponse
-	53,  // 228: amux.v1.Amuxd.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
-	55,  // 229: amux.v1.Amuxd.Sleep:output_type -> amux.v1.SleepResponse
-	30,  // 230: amux.v1.Amuxd.Resume:output_type -> amux.v1.RunResponse
-	58,  // 231: amux.v1.Amuxd.Prune:output_type -> amux.v1.PruneResponse
-	60,  // 232: amux.v1.Amuxd.Interrupt:output_type -> amux.v1.InterruptResponse
-	62,  // 233: amux.v1.Amuxd.Attach:output_type -> amux.v1.AttachEvent
-	66,  // 234: amux.v1.Amuxd.Submit:output_type -> amux.v1.SubmitResponse
-	16,  // 235: amux.v1.Amuxd.Goal:output_type -> amux.v1.GoalResponse
-	81,  // 236: amux.v1.Amuxd.QueueList:output_type -> amux.v1.QueueListResponse
-	83,  // 237: amux.v1.Amuxd.QueueClear:output_type -> amux.v1.QueueClearResponse
-	85,  // 238: amux.v1.Amuxd.QueueCancel:output_type -> amux.v1.QueueCancelResponse
-	64,  // 239: amux.v1.Amuxd.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
-	204, // 240: amux.v1.Amuxd.CreateSchedule:output_type -> amux.v1.CreateScheduleResponse
-	206, // 241: amux.v1.Amuxd.ListSchedules:output_type -> amux.v1.ListSchedulesResponse
-	208, // 242: amux.v1.Amuxd.GetSchedule:output_type -> amux.v1.GetScheduleResponse
-	210, // 243: amux.v1.Amuxd.DeleteSchedule:output_type -> amux.v1.DeleteScheduleResponse
-	212, // 244: amux.v1.Amuxd.UpdateSchedule:output_type -> amux.v1.UpdateScheduleResponse
-	214, // 245: amux.v1.Amuxd.SetScheduleEnabled:output_type -> amux.v1.SetScheduleEnabledResponse
-	216, // 246: amux.v1.Amuxd.TriggerSchedule:output_type -> amux.v1.TriggerScheduleResponse
-	32,  // 247: amux.v1.Amuxd.MaterializeCredential:output_type -> amux.v1.MaterializeCredentialResponse
-	36,  // 248: amux.v1.Amuxd.SetCredential:output_type -> amux.v1.CredentialProfileMetadata
-	36,  // 249: amux.v1.Amuxd.GetCredential:output_type -> amux.v1.CredentialProfileMetadata
-	37,  // 250: amux.v1.Amuxd.ListCredentials:output_type -> amux.v1.ListCredentialsResponse
-	168, // 251: amux.v1.Amuxd.CreatePrincipal:output_type -> amux.v1.PrincipalResponse
-	173, // 252: amux.v1.Amuxd.ListPrincipals:output_type -> amux.v1.ListPrincipalsResponse
-	172, // 253: amux.v1.Amuxd.ListPrincipalAliases:output_type -> amux.v1.ListPrincipalAliasesResponse
-	168, // 254: amux.v1.Amuxd.DisablePrincipal:output_type -> amux.v1.PrincipalResponse
-	168, // 255: amux.v1.Amuxd.BindPrincipalAlias:output_type -> amux.v1.PrincipalResponse
-	177, // 256: amux.v1.Amuxd.GrantPrincipalDelegation:output_type -> amux.v1.GrantPrincipalDelegationResponse
-	180, // 257: amux.v1.Amuxd.RevokePrincipalDelegation:output_type -> amux.v1.EmptyResponse
-	180, // 258: amux.v1.Amuxd.GrantServicePrincipalMember:output_type -> amux.v1.EmptyResponse
-	180, // 259: amux.v1.Amuxd.RevokeServicePrincipalMember:output_type -> amux.v1.EmptyResponse
-	182, // 260: amux.v1.Amuxd.CreatePrincipalEnrollment:output_type -> amux.v1.CreatePrincipalEnrollmentResponse
-	184, // 261: amux.v1.Amuxd.GetIsolationStatus:output_type -> amux.v1.GetIsolationStatusResponse
-	26,  // 262: amux.v1.Amuxd.ListAgentProfiles:output_type -> amux.v1.ListAgentProfilesResponse
-	28,  // 263: amux.v1.Amuxd.GetAgentProfile:output_type -> amux.v1.GetAgentProfileResponse
-	76,  // 264: amux.v1.Amuxd.ReadLocalExpert:output_type -> amux.v1.ReadLocalExpertResponse
-	78,  // 265: amux.v1.Amuxd.ChangeLocalExpert:output_type -> amux.v1.ChangeLocalExpertResponse
-	3,   // 266: amux.v1.Amuxd.GetMemoryBinding:output_type -> amux.v1.MemoryBindingResponse
-	6,   // 267: amux.v1.Amuxd.MemorySearch:output_type -> amux.v1.MemorySearchResponse
-	8,   // 268: amux.v1.Amuxd.MemoryGet:output_type -> amux.v1.MemoryDocument
-	10,  // 269: amux.v1.Amuxd.MemoryUpsert:output_type -> amux.v1.MemoryWriteResponse
-	12,  // 270: amux.v1.Amuxd.MemoryForget:output_type -> amux.v1.MemoryForgetResponse
-	87,  // 271: amux.v1.Amuxd.Tunnel:output_type -> amux.v1.TunnelMsg
-	68,  // 272: amux.v1.AmuxTask.ResolveParentTurn:output_type -> amux.v1.ActiveTurnResponse
-	150, // 273: amux.v1.AmuxTask.SubmitSubtask:output_type -> amux.v1.SubmitSubtaskResponse
-	152, // 274: amux.v1.AmuxTask.GetSubtask:output_type -> amux.v1.GetSubtaskResponse
-	154, // 275: amux.v1.AmuxTask.ListSubtasks:output_type -> amux.v1.ListSubtasksResponse
-	158, // 276: amux.v1.AmuxTask.PruneSubtasks:output_type -> amux.v1.PruneSubtasksResponse
-	160, // 277: amux.v1.AmuxTask.CancelSubtask:output_type -> amux.v1.CancelSubtaskResponse
-	162, // 278: amux.v1.AmuxTask.RespondSubtaskPermission:output_type -> amux.v1.RespondSubtaskPermissionResponse
-	164, // 279: amux.v1.AmuxTask.StreamSubtask:output_type -> amux.v1.SubtaskEvent
-	188, // 280: amux.v1.AmuxTask.ListAgentInstances:output_type -> amux.v1.ListAgentInstancesResponse
-	190, // 281: amux.v1.AmuxTask.GetAgentInstance:output_type -> amux.v1.GetAgentInstanceResponse
-	192, // 282: amux.v1.AmuxTask.SendAgentMessage:output_type -> amux.v1.SendAgentMessageResponse
-	194, // 283: amux.v1.AmuxTask.InterruptAgentInstance:output_type -> amux.v1.InterruptAgentInstanceResponse
-	196, // 284: amux.v1.AmuxTask.WaitAgentInstance:output_type -> amux.v1.WaitAgentInstanceResponse
-	198, // 285: amux.v1.AmuxTask.DescribeAgentInstance:output_type -> amux.v1.DescribeAgentInstanceResponse
-	200, // 286: amux.v1.AmuxTask.CleanupAgentInstance:output_type -> amux.v1.CleanupAgentInstanceResponse
-	132, // 287: amux.v1.CoordinationService.ListCollaborators:output_type -> amux.v1.ListCollaboratorsResponse
-	140, // 288: amux.v1.CoordinationService.Delegate:output_type -> amux.v1.DelegateResponse
-	142, // 289: amux.v1.CoordinationService.GetDelegation:output_type -> amux.v1.GetDelegationResponse
-	144, // 290: amux.v1.CoordinationService.WaitDelegation:output_type -> amux.v1.WaitDelegationResponse
-	146, // 291: amux.v1.CoordinationService.InterveneDelegation:output_type -> amux.v1.InterveneDelegationResponse
-	148, // 292: amux.v1.CoordinationService.CancelDelegation:output_type -> amux.v1.CancelDelegationResponse
-	226, // 293: amux.v1.RuntimeMaintenance.Maintain:output_type -> amux.v1.MaintenanceResponse
-	189, // [189:294] is the sub-list for method output_type
-	84,  // [84:189] is the sub-list for method input_type
-	84,  // [84:84] is the sub-list for extension type_name
-	84,  // [84:84] is the sub-list for extension extendee
-	0,   // [0:84] is the sub-list for field type_name
+	242, // 83: amux.v1.TurnResultDelivery.messages:type_name -> amux.v1.TurnResultDeliveryMessage
+	238, // 84: amux.v1.TurnResultPayload.ref:type_name -> amux.v1.TurnResultRef
+	239, // 85: amux.v1.TurnResultPayload.source:type_name -> amux.v1.TurnResultSource
+	240, // 86: amux.v1.TurnResultPayload.execution:type_name -> amux.v1.TurnResultExecution
+	241, // 87: amux.v1.TurnResultPayload.output:type_name -> amux.v1.TurnResultOutput
+	243, // 88: amux.v1.TurnResultPayload.deliveries:type_name -> amux.v1.TurnResultDelivery
+	244, // 89: amux.v1.AmuxdGetTurnResultResponse.result:type_name -> amux.v1.TurnResultPayload
+	40,  // 90: amux.v1.TargetCapabilities.CredentialProfilesEntry.value:type_name -> amux.v1.CredentialProfileList
+	227, // 91: amux.v1.Amuxlet.Cleanup:input_type -> amux.v1.CleanupRequest
+	221, // 92: amux.v1.Amuxlet.ListNativeModels:input_type -> amux.v1.ListNativeModelsRequest
+	217, // 93: amux.v1.Amuxlet.PutSessionFile:input_type -> amux.v1.SessionFileRequest
+	217, // 94: amux.v1.Amuxlet.ReadSessionArtifact:input_type -> amux.v1.SessionFileRequest
+	29,  // 95: amux.v1.Amuxlet.Run:input_type -> amux.v1.RunRequest
+	45,  // 96: amux.v1.Amuxlet.Info:input_type -> amux.v1.InfoRequest
+	43,  // 97: amux.v1.Amuxlet.List:input_type -> amux.v1.ListRequest
+	49,  // 98: amux.v1.Amuxlet.Kill:input_type -> amux.v1.KillRequest
+	51,  // 99: amux.v1.Amuxlet.Restart:input_type -> amux.v1.RestartRequest
+	52,  // 100: amux.v1.Amuxlet.ChangeCwd:input_type -> amux.v1.ChangeCwdRequest
+	54,  // 101: amux.v1.Amuxlet.Sleep:input_type -> amux.v1.SleepRequest
+	56,  // 102: amux.v1.Amuxlet.Resume:input_type -> amux.v1.ResumeRequest
+	57,  // 103: amux.v1.Amuxlet.Prune:input_type -> amux.v1.PruneRequest
+	59,  // 104: amux.v1.Amuxlet.Interrupt:input_type -> amux.v1.InterruptRequest
+	61,  // 105: amux.v1.Amuxlet.Attach:input_type -> amux.v1.AttachRequest
+	65,  // 106: amux.v1.Amuxlet.Submit:input_type -> amux.v1.SubmitRequest
+	14,  // 107: amux.v1.Amuxlet.Goal:input_type -> amux.v1.GoalRequest
+	80,  // 108: amux.v1.Amuxlet.QueueList:input_type -> amux.v1.QueueListRequest
+	82,  // 109: amux.v1.Amuxlet.QueueClear:input_type -> amux.v1.QueueClearRequest
+	84,  // 110: amux.v1.Amuxlet.QueueCancel:input_type -> amux.v1.QueueCancelRequest
+	63,  // 111: amux.v1.Amuxlet.RespondPermission:input_type -> amux.v1.RespondPermissionRequest
+	72,  // 112: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:input_type -> amux.v1.LocalExpertAuthoringTurnRequest
+	235, // 113: amux.v1.Amuxlet.GetTurnResult:input_type -> amux.v1.GetTurnResultRequest
+	185, // 114: amux.v1.Amuxlet.RevokePrincipalLaunches:input_type -> amux.v1.RevokePrincipalLaunchesRequest
+	227, // 115: amux.v1.Amuxd.Cleanup:input_type -> amux.v1.CleanupRequest
+	233, // 116: amux.v1.Amuxd.ConsoleManagement:input_type -> amux.v1.ConsoleManagementRequest
+	219, // 117: amux.v1.Amuxd.ProxyModel:input_type -> amux.v1.ProxyModelRequest
+	116, // 118: amux.v1.Amuxd.Run:input_type -> amux.v1.AmuxdRunRequest
+	47,  // 119: amux.v1.Amuxd.Info:input_type -> amux.v1.HubInfoRequest
+	97,  // 120: amux.v1.Amuxd.ListTargets:input_type -> amux.v1.ListTargetsRequest
+	99,  // 121: amux.v1.Amuxd.FeishuStatus:input_type -> amux.v1.FeishuStatusRequest
+	102, // 122: amux.v1.Amuxd.FeishuBindings:input_type -> amux.v1.FeishuBindingsRequest
+	105, // 123: amux.v1.Amuxd.FeishuBots:input_type -> amux.v1.FeishuBotsRequest
+	231, // 124: amux.v1.Amuxd.SendFeishuMessage:input_type -> amux.v1.SendFeishuMessageRequest
+	108, // 125: amux.v1.Amuxd.FeishuBotSessionStatus:input_type -> amux.v1.FeishuBotSessionStatusRequest
+	109, // 126: amux.v1.Amuxd.FeishuBotSessionBind:input_type -> amux.v1.FeishuBotSessionBindRequest
+	110, // 127: amux.v1.Amuxd.FeishuBotSessionOff:input_type -> amux.v1.FeishuBotSessionOffRequest
+	112, // 128: amux.v1.Amuxd.FeishuContextExplain:input_type -> amux.v1.FeishuContextExplainRequest
+	117, // 129: amux.v1.Amuxd.Kill:input_type -> amux.v1.AmuxdKillRequest
+	118, // 130: amux.v1.Amuxd.Restart:input_type -> amux.v1.AmuxdRestartRequest
+	119, // 131: amux.v1.Amuxd.ChangeCwd:input_type -> amux.v1.AmuxdChangeCwdRequest
+	120, // 132: amux.v1.Amuxd.Sleep:input_type -> amux.v1.AmuxdSleepRequest
+	121, // 133: amux.v1.Amuxd.Resume:input_type -> amux.v1.AmuxdResumeRequest
+	122, // 134: amux.v1.Amuxd.Prune:input_type -> amux.v1.AmuxdPruneRequest
+	123, // 135: amux.v1.Amuxd.Interrupt:input_type -> amux.v1.AmuxdInterruptRequest
+	124, // 136: amux.v1.Amuxd.Attach:input_type -> amux.v1.AmuxdAttachRequest
+	125, // 137: amux.v1.Amuxd.Submit:input_type -> amux.v1.AmuxdSubmitRequest
+	15,  // 138: amux.v1.Amuxd.Goal:input_type -> amux.v1.AmuxdGoalRequest
+	126, // 139: amux.v1.Amuxd.QueueList:input_type -> amux.v1.AmuxdQueueListRequest
+	127, // 140: amux.v1.Amuxd.QueueClear:input_type -> amux.v1.AmuxdQueueClearRequest
+	128, // 141: amux.v1.Amuxd.QueueCancel:input_type -> amux.v1.AmuxdQueueCancelRequest
+	129, // 142: amux.v1.Amuxd.RespondPermission:input_type -> amux.v1.AmuxdRespondPermissionRequest
+	203, // 143: amux.v1.Amuxd.CreateSchedule:input_type -> amux.v1.CreateScheduleRequest
+	205, // 144: amux.v1.Amuxd.ListSchedules:input_type -> amux.v1.ListSchedulesRequest
+	207, // 145: amux.v1.Amuxd.GetSchedule:input_type -> amux.v1.GetScheduleRequest
+	209, // 146: amux.v1.Amuxd.DeleteSchedule:input_type -> amux.v1.DeleteScheduleRequest
+	211, // 147: amux.v1.Amuxd.UpdateSchedule:input_type -> amux.v1.UpdateScheduleRequest
+	213, // 148: amux.v1.Amuxd.SetScheduleEnabled:input_type -> amux.v1.SetScheduleEnabledRequest
+	215, // 149: amux.v1.Amuxd.TriggerSchedule:input_type -> amux.v1.TriggerScheduleRequest
+	237, // 150: amux.v1.Amuxd.GetTurnResult:input_type -> amux.v1.AmuxdGetTurnResultRequest
+	31,  // 151: amux.v1.Amuxd.MaterializeCredential:input_type -> amux.v1.MaterializeCredentialRequest
+	33,  // 152: amux.v1.Amuxd.SetCredential:input_type -> amux.v1.SetCredentialRequest
+	34,  // 153: amux.v1.Amuxd.GetCredential:input_type -> amux.v1.GetCredentialRequest
+	35,  // 154: amux.v1.Amuxd.ListCredentials:input_type -> amux.v1.ListCredentialsRequest
+	167, // 155: amux.v1.Amuxd.CreatePrincipal:input_type -> amux.v1.CreatePrincipalRequest
+	169, // 156: amux.v1.Amuxd.ListPrincipals:input_type -> amux.v1.ListPrincipalsRequest
+	170, // 157: amux.v1.Amuxd.ListPrincipalAliases:input_type -> amux.v1.ListPrincipalAliasesRequest
+	174, // 158: amux.v1.Amuxd.DisablePrincipal:input_type -> amux.v1.DisablePrincipalRequest
+	175, // 159: amux.v1.Amuxd.BindPrincipalAlias:input_type -> amux.v1.BindPrincipalAliasRequest
+	176, // 160: amux.v1.Amuxd.GrantPrincipalDelegation:input_type -> amux.v1.GrantPrincipalDelegationRequest
+	178, // 161: amux.v1.Amuxd.RevokePrincipalDelegation:input_type -> amux.v1.RevokePrincipalDelegationRequest
+	179, // 162: amux.v1.Amuxd.GrantServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
+	179, // 163: amux.v1.Amuxd.RevokeServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
+	181, // 164: amux.v1.Amuxd.CreatePrincipalEnrollment:input_type -> amux.v1.CreatePrincipalEnrollmentRequest
+	183, // 165: amux.v1.Amuxd.GetIsolationStatus:input_type -> amux.v1.GetIsolationStatusRequest
+	25,  // 166: amux.v1.Amuxd.ListAgentProfiles:input_type -> amux.v1.ListAgentProfilesRequest
+	27,  // 167: amux.v1.Amuxd.GetAgentProfile:input_type -> amux.v1.GetAgentProfileRequest
+	75,  // 168: amux.v1.Amuxd.ReadLocalExpert:input_type -> amux.v1.ReadLocalExpertRequest
+	77,  // 169: amux.v1.Amuxd.ChangeLocalExpert:input_type -> amux.v1.ChangeLocalExpertRequest
+	2,   // 170: amux.v1.Amuxd.GetMemoryBinding:input_type -> amux.v1.MemoryBindingRequest
+	4,   // 171: amux.v1.Amuxd.MemorySearch:input_type -> amux.v1.MemorySearchRequest
+	7,   // 172: amux.v1.Amuxd.MemoryGet:input_type -> amux.v1.MemoryGetRequest
+	9,   // 173: amux.v1.Amuxd.MemoryUpsert:input_type -> amux.v1.MemoryUpsertRequest
+	11,  // 174: amux.v1.Amuxd.MemoryForget:input_type -> amux.v1.MemoryForgetRequest
+	87,  // 175: amux.v1.Amuxd.Tunnel:input_type -> amux.v1.TunnelMsg
+	67,  // 176: amux.v1.AmuxTask.ResolveParentTurn:input_type -> amux.v1.ActiveTurnRequest
+	149, // 177: amux.v1.AmuxTask.SubmitSubtask:input_type -> amux.v1.SubmitSubtaskRequest
+	151, // 178: amux.v1.AmuxTask.GetSubtask:input_type -> amux.v1.GetSubtaskRequest
+	153, // 179: amux.v1.AmuxTask.ListSubtasks:input_type -> amux.v1.ListSubtasksRequest
+	155, // 180: amux.v1.AmuxTask.PruneSubtasks:input_type -> amux.v1.PruneSubtasksRequest
+	159, // 181: amux.v1.AmuxTask.CancelSubtask:input_type -> amux.v1.CancelSubtaskRequest
+	161, // 182: amux.v1.AmuxTask.RespondSubtaskPermission:input_type -> amux.v1.RespondSubtaskPermissionRequest
+	163, // 183: amux.v1.AmuxTask.StreamSubtask:input_type -> amux.v1.StreamSubtaskRequest
+	187, // 184: amux.v1.AmuxTask.ListAgentInstances:input_type -> amux.v1.ListAgentInstancesRequest
+	189, // 185: amux.v1.AmuxTask.GetAgentInstance:input_type -> amux.v1.GetAgentInstanceRequest
+	191, // 186: amux.v1.AmuxTask.SendAgentMessage:input_type -> amux.v1.SendAgentMessageRequest
+	193, // 187: amux.v1.AmuxTask.InterruptAgentInstance:input_type -> amux.v1.InterruptAgentInstanceRequest
+	195, // 188: amux.v1.AmuxTask.WaitAgentInstance:input_type -> amux.v1.WaitAgentInstanceRequest
+	197, // 189: amux.v1.AmuxTask.DescribeAgentInstance:input_type -> amux.v1.DescribeAgentInstanceRequest
+	199, // 190: amux.v1.AmuxTask.CleanupAgentInstance:input_type -> amux.v1.CleanupAgentInstanceRequest
+	130, // 191: amux.v1.CoordinationService.ListCollaborators:input_type -> amux.v1.ListCollaboratorsRequest
+	139, // 192: amux.v1.CoordinationService.Delegate:input_type -> amux.v1.DelegateRequest
+	141, // 193: amux.v1.CoordinationService.GetDelegation:input_type -> amux.v1.GetDelegationRequest
+	143, // 194: amux.v1.CoordinationService.WaitDelegation:input_type -> amux.v1.WaitDelegationRequest
+	145, // 195: amux.v1.CoordinationService.InterveneDelegation:input_type -> amux.v1.InterveneDelegationRequest
+	147, // 196: amux.v1.CoordinationService.CancelDelegation:input_type -> amux.v1.CancelDelegationRequest
+	225, // 197: amux.v1.RuntimeMaintenance.Maintain:input_type -> amux.v1.MaintenanceRequest
+	230, // 198: amux.v1.Amuxlet.Cleanup:output_type -> amux.v1.CleanupResponse
+	224, // 199: amux.v1.Amuxlet.ListNativeModels:output_type -> amux.v1.ListNativeModelsResponse
+	218, // 200: amux.v1.Amuxlet.PutSessionFile:output_type -> amux.v1.SessionFileResponse
+	218, // 201: amux.v1.Amuxlet.ReadSessionArtifact:output_type -> amux.v1.SessionFileResponse
+	30,  // 202: amux.v1.Amuxlet.Run:output_type -> amux.v1.RunResponse
+	46,  // 203: amux.v1.Amuxlet.Info:output_type -> amux.v1.InfoResponse
+	44,  // 204: amux.v1.Amuxlet.List:output_type -> amux.v1.ListResponse
+	50,  // 205: amux.v1.Amuxlet.Kill:output_type -> amux.v1.KillResponse
+	30,  // 206: amux.v1.Amuxlet.Restart:output_type -> amux.v1.RunResponse
+	53,  // 207: amux.v1.Amuxlet.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
+	55,  // 208: amux.v1.Amuxlet.Sleep:output_type -> amux.v1.SleepResponse
+	30,  // 209: amux.v1.Amuxlet.Resume:output_type -> amux.v1.RunResponse
+	58,  // 210: amux.v1.Amuxlet.Prune:output_type -> amux.v1.PruneResponse
+	60,  // 211: amux.v1.Amuxlet.Interrupt:output_type -> amux.v1.InterruptResponse
+	62,  // 212: amux.v1.Amuxlet.Attach:output_type -> amux.v1.AttachEvent
+	66,  // 213: amux.v1.Amuxlet.Submit:output_type -> amux.v1.SubmitResponse
+	16,  // 214: amux.v1.Amuxlet.Goal:output_type -> amux.v1.GoalResponse
+	81,  // 215: amux.v1.Amuxlet.QueueList:output_type -> amux.v1.QueueListResponse
+	83,  // 216: amux.v1.Amuxlet.QueueClear:output_type -> amux.v1.QueueClearResponse
+	85,  // 217: amux.v1.Amuxlet.QueueCancel:output_type -> amux.v1.QueueCancelResponse
+	64,  // 218: amux.v1.Amuxlet.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
+	73,  // 219: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:output_type -> amux.v1.LocalExpertAuthoringTurnResponse
+	236, // 220: amux.v1.Amuxlet.GetTurnResult:output_type -> amux.v1.GetTurnResultResponse
+	186, // 221: amux.v1.Amuxlet.RevokePrincipalLaunches:output_type -> amux.v1.RevokePrincipalLaunchesResponse
+	230, // 222: amux.v1.Amuxd.Cleanup:output_type -> amux.v1.CleanupResponse
+	234, // 223: amux.v1.Amuxd.ConsoleManagement:output_type -> amux.v1.ConsoleManagementResponse
+	220, // 224: amux.v1.Amuxd.ProxyModel:output_type -> amux.v1.ProxyModelChunk
+	30,  // 225: amux.v1.Amuxd.Run:output_type -> amux.v1.RunResponse
+	48,  // 226: amux.v1.Amuxd.Info:output_type -> amux.v1.HubInfoResponse
+	98,  // 227: amux.v1.Amuxd.ListTargets:output_type -> amux.v1.ListTargetsResponse
+	100, // 228: amux.v1.Amuxd.FeishuStatus:output_type -> amux.v1.FeishuStatusResponse
+	103, // 229: amux.v1.Amuxd.FeishuBindings:output_type -> amux.v1.FeishuBindingsResponse
+	106, // 230: amux.v1.Amuxd.FeishuBots:output_type -> amux.v1.FeishuBotsResponse
+	232, // 231: amux.v1.Amuxd.SendFeishuMessage:output_type -> amux.v1.SendFeishuMessageResponse
+	111, // 232: amux.v1.Amuxd.FeishuBotSessionStatus:output_type -> amux.v1.FeishuBotSessionStatusResponse
+	111, // 233: amux.v1.Amuxd.FeishuBotSessionBind:output_type -> amux.v1.FeishuBotSessionStatusResponse
+	111, // 234: amux.v1.Amuxd.FeishuBotSessionOff:output_type -> amux.v1.FeishuBotSessionStatusResponse
+	115, // 235: amux.v1.Amuxd.FeishuContextExplain:output_type -> amux.v1.FeishuContextExplainResponse
+	50,  // 236: amux.v1.Amuxd.Kill:output_type -> amux.v1.KillResponse
+	30,  // 237: amux.v1.Amuxd.Restart:output_type -> amux.v1.RunResponse
+	53,  // 238: amux.v1.Amuxd.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
+	55,  // 239: amux.v1.Amuxd.Sleep:output_type -> amux.v1.SleepResponse
+	30,  // 240: amux.v1.Amuxd.Resume:output_type -> amux.v1.RunResponse
+	58,  // 241: amux.v1.Amuxd.Prune:output_type -> amux.v1.PruneResponse
+	60,  // 242: amux.v1.Amuxd.Interrupt:output_type -> amux.v1.InterruptResponse
+	62,  // 243: amux.v1.Amuxd.Attach:output_type -> amux.v1.AttachEvent
+	66,  // 244: amux.v1.Amuxd.Submit:output_type -> amux.v1.SubmitResponse
+	16,  // 245: amux.v1.Amuxd.Goal:output_type -> amux.v1.GoalResponse
+	81,  // 246: amux.v1.Amuxd.QueueList:output_type -> amux.v1.QueueListResponse
+	83,  // 247: amux.v1.Amuxd.QueueClear:output_type -> amux.v1.QueueClearResponse
+	85,  // 248: amux.v1.Amuxd.QueueCancel:output_type -> amux.v1.QueueCancelResponse
+	64,  // 249: amux.v1.Amuxd.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
+	204, // 250: amux.v1.Amuxd.CreateSchedule:output_type -> amux.v1.CreateScheduleResponse
+	206, // 251: amux.v1.Amuxd.ListSchedules:output_type -> amux.v1.ListSchedulesResponse
+	208, // 252: amux.v1.Amuxd.GetSchedule:output_type -> amux.v1.GetScheduleResponse
+	210, // 253: amux.v1.Amuxd.DeleteSchedule:output_type -> amux.v1.DeleteScheduleResponse
+	212, // 254: amux.v1.Amuxd.UpdateSchedule:output_type -> amux.v1.UpdateScheduleResponse
+	214, // 255: amux.v1.Amuxd.SetScheduleEnabled:output_type -> amux.v1.SetScheduleEnabledResponse
+	216, // 256: amux.v1.Amuxd.TriggerSchedule:output_type -> amux.v1.TriggerScheduleResponse
+	245, // 257: amux.v1.Amuxd.GetTurnResult:output_type -> amux.v1.AmuxdGetTurnResultResponse
+	32,  // 258: amux.v1.Amuxd.MaterializeCredential:output_type -> amux.v1.MaterializeCredentialResponse
+	36,  // 259: amux.v1.Amuxd.SetCredential:output_type -> amux.v1.CredentialProfileMetadata
+	36,  // 260: amux.v1.Amuxd.GetCredential:output_type -> amux.v1.CredentialProfileMetadata
+	37,  // 261: amux.v1.Amuxd.ListCredentials:output_type -> amux.v1.ListCredentialsResponse
+	168, // 262: amux.v1.Amuxd.CreatePrincipal:output_type -> amux.v1.PrincipalResponse
+	173, // 263: amux.v1.Amuxd.ListPrincipals:output_type -> amux.v1.ListPrincipalsResponse
+	172, // 264: amux.v1.Amuxd.ListPrincipalAliases:output_type -> amux.v1.ListPrincipalAliasesResponse
+	168, // 265: amux.v1.Amuxd.DisablePrincipal:output_type -> amux.v1.PrincipalResponse
+	168, // 266: amux.v1.Amuxd.BindPrincipalAlias:output_type -> amux.v1.PrincipalResponse
+	177, // 267: amux.v1.Amuxd.GrantPrincipalDelegation:output_type -> amux.v1.GrantPrincipalDelegationResponse
+	180, // 268: amux.v1.Amuxd.RevokePrincipalDelegation:output_type -> amux.v1.EmptyResponse
+	180, // 269: amux.v1.Amuxd.GrantServicePrincipalMember:output_type -> amux.v1.EmptyResponse
+	180, // 270: amux.v1.Amuxd.RevokeServicePrincipalMember:output_type -> amux.v1.EmptyResponse
+	182, // 271: amux.v1.Amuxd.CreatePrincipalEnrollment:output_type -> amux.v1.CreatePrincipalEnrollmentResponse
+	184, // 272: amux.v1.Amuxd.GetIsolationStatus:output_type -> amux.v1.GetIsolationStatusResponse
+	26,  // 273: amux.v1.Amuxd.ListAgentProfiles:output_type -> amux.v1.ListAgentProfilesResponse
+	28,  // 274: amux.v1.Amuxd.GetAgentProfile:output_type -> amux.v1.GetAgentProfileResponse
+	76,  // 275: amux.v1.Amuxd.ReadLocalExpert:output_type -> amux.v1.ReadLocalExpertResponse
+	78,  // 276: amux.v1.Amuxd.ChangeLocalExpert:output_type -> amux.v1.ChangeLocalExpertResponse
+	3,   // 277: amux.v1.Amuxd.GetMemoryBinding:output_type -> amux.v1.MemoryBindingResponse
+	6,   // 278: amux.v1.Amuxd.MemorySearch:output_type -> amux.v1.MemorySearchResponse
+	8,   // 279: amux.v1.Amuxd.MemoryGet:output_type -> amux.v1.MemoryDocument
+	10,  // 280: amux.v1.Amuxd.MemoryUpsert:output_type -> amux.v1.MemoryWriteResponse
+	12,  // 281: amux.v1.Amuxd.MemoryForget:output_type -> amux.v1.MemoryForgetResponse
+	87,  // 282: amux.v1.Amuxd.Tunnel:output_type -> amux.v1.TunnelMsg
+	68,  // 283: amux.v1.AmuxTask.ResolveParentTurn:output_type -> amux.v1.ActiveTurnResponse
+	150, // 284: amux.v1.AmuxTask.SubmitSubtask:output_type -> amux.v1.SubmitSubtaskResponse
+	152, // 285: amux.v1.AmuxTask.GetSubtask:output_type -> amux.v1.GetSubtaskResponse
+	154, // 286: amux.v1.AmuxTask.ListSubtasks:output_type -> amux.v1.ListSubtasksResponse
+	158, // 287: amux.v1.AmuxTask.PruneSubtasks:output_type -> amux.v1.PruneSubtasksResponse
+	160, // 288: amux.v1.AmuxTask.CancelSubtask:output_type -> amux.v1.CancelSubtaskResponse
+	162, // 289: amux.v1.AmuxTask.RespondSubtaskPermission:output_type -> amux.v1.RespondSubtaskPermissionResponse
+	164, // 290: amux.v1.AmuxTask.StreamSubtask:output_type -> amux.v1.SubtaskEvent
+	188, // 291: amux.v1.AmuxTask.ListAgentInstances:output_type -> amux.v1.ListAgentInstancesResponse
+	190, // 292: amux.v1.AmuxTask.GetAgentInstance:output_type -> amux.v1.GetAgentInstanceResponse
+	192, // 293: amux.v1.AmuxTask.SendAgentMessage:output_type -> amux.v1.SendAgentMessageResponse
+	194, // 294: amux.v1.AmuxTask.InterruptAgentInstance:output_type -> amux.v1.InterruptAgentInstanceResponse
+	196, // 295: amux.v1.AmuxTask.WaitAgentInstance:output_type -> amux.v1.WaitAgentInstanceResponse
+	198, // 296: amux.v1.AmuxTask.DescribeAgentInstance:output_type -> amux.v1.DescribeAgentInstanceResponse
+	200, // 297: amux.v1.AmuxTask.CleanupAgentInstance:output_type -> amux.v1.CleanupAgentInstanceResponse
+	132, // 298: amux.v1.CoordinationService.ListCollaborators:output_type -> amux.v1.ListCollaboratorsResponse
+	140, // 299: amux.v1.CoordinationService.Delegate:output_type -> amux.v1.DelegateResponse
+	142, // 300: amux.v1.CoordinationService.GetDelegation:output_type -> amux.v1.GetDelegationResponse
+	144, // 301: amux.v1.CoordinationService.WaitDelegation:output_type -> amux.v1.WaitDelegationResponse
+	146, // 302: amux.v1.CoordinationService.InterveneDelegation:output_type -> amux.v1.InterveneDelegationResponse
+	148, // 303: amux.v1.CoordinationService.CancelDelegation:output_type -> amux.v1.CancelDelegationResponse
+	226, // 304: amux.v1.RuntimeMaintenance.Maintain:output_type -> amux.v1.MaintenanceResponse
+	198, // [198:305] is the sub-list for method output_type
+	91,  // [91:198] is the sub-list for method input_type
+	91,  // [91:91] is the sub-list for extension type_name
+	91,  // [91:91] is the sub-list for extension extendee
+	0,   // [0:91] is the sub-list for field type_name
 }
 
 func init() { file_amux_v1_amux_proto_init() }
@@ -18252,7 +19321,7 @@ func file_amux_v1_amux_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_amux_v1_amux_proto_rawDesc), len(file_amux_v1_amux_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   244,
+			NumMessages:   255,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

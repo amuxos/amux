@@ -115,3 +115,46 @@ func (db *DB) LoadAgentEvents(ctx context.Context, sessionID string) ([]agentstr
 	}
 	return events, rows.Err()
 }
+
+// LoadTurnEvents loads only the canonical events belonging to one Turn within a
+// Session, ordered by sequence.
+func (db *DB) LoadTurnEvents(ctx context.Context, sessionID, turnID string) ([]agentstream.Event, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT seq, epoch, turn_id, turn_seq, kind, event_json, at_unix_nano
+		FROM session_timeline_events WHERE session_id=? AND turn_id=? ORDER BY seq`, sessionID, turnID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var events []agentstream.Event
+	for rows.Next() {
+		var (
+			seq        uint64
+			epoch      string
+			rowTurn    string
+			turnSeq    uint64
+			kind       string
+			raw        string
+			atUnixNano int64
+		)
+		if err := rows.Scan(&seq, &epoch, &rowTurn, &turnSeq, &kind, &raw, &atUnixNano); err != nil {
+			return nil, err
+		}
+		event, err := agentstream.UnmarshalEvent([]byte(raw))
+		if err != nil {
+			return nil, err
+		}
+		evTurnID := ""
+		var evTurnSeq uint64
+		if event.Turn != nil {
+			evTurnID = event.Turn.ID
+			evTurnSeq = event.Turn.Seq
+		}
+		if event.SessionID != sessionID || event.Cursor.Seq != seq || event.Cursor.Epoch != epoch ||
+			evTurnID != rowTurn || evTurnSeq != turnSeq || string(event.Body.Kind()) != kind || event.At.UnixNano() != atUnixNano {
+			return nil, fmt.Errorf("%w: indexed envelope mismatch at seq %d", agentstream.ErrCorruptJournal, seq)
+		}
+		events = append(events, event)
+	}
+	return events, rows.Err()
+}

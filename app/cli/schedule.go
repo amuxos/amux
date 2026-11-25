@@ -36,7 +36,7 @@ Time spec forms:
   in <duration>      e.g. "in 10m", "in 2h" (relative one-shot)
   cron <expr>        e.g. "cron 0 9 * * 1-5" or "cron @daily"`,
 	}
-	c.AddCommand(newScheduleCreateCmd(), newScheduleCreateTaskCmd(), newScheduleRunsCmd(), newScheduleRunCmd(), newScheduleListCmd(), newScheduleUpdateCmd(), newScheduleRemoveCommand("remove <id>"), newScheduleToggleCmd(true), newScheduleToggleCmd(false))
+	c.AddCommand(newScheduleCreateCmd(), newScheduleCreateTaskCmd(), newScheduleRunsCmd(), newScheduleResultCmd(), newScheduleRunCmd(), newScheduleListCmd(), newScheduleUpdateCmd(), newScheduleRemoveCommand("remove <id>"), newScheduleToggleCmd(true), newScheduleToggleCmd(false))
 	return c
 }
 
@@ -603,17 +603,21 @@ func newScheduleRunsCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "no runs")
 				return nil
 			}
-			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "FIRED_AT\tSOURCE\tTASK_ID\tSTATUS\tDELIVERY\tREASON")
+			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 2, 2, ' ', 0)
+			fmt.Fprintln(w, "EXECUTION_ID\tFIRED_AT\tSOURCE\tTURN_ID\tTASK_ID\tSTATUS\tDELIVERY\tREASON")
 			for _, run := range item.Runs {
 				if run == nil {
 					continue
+				}
+				execID := "—"
+				if run.Id > 0 {
+					execID = strconv.FormatInt(run.Id, 10)
 				}
 				src := run.TriggerSource
 				if src == "" {
 					src = schedule.TriggerSourceScheduled
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", fmtUnix(run.FiredAt), src, dashIfEmpty(run.TaskId), dashIfEmpty(run.Status), dashIfEmpty(run.DeliveryStatus), dashIfEmpty(run.Reason))
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", execID, fmtUnix(run.FiredAt), src, dashIfEmpty(run.TurnId), dashIfEmpty(run.TaskId), dashIfEmpty(run.Status), dashIfEmpty(run.DeliveryStatus), dashIfEmpty(run.Reason))
 			}
 			return w.Flush()
 		},

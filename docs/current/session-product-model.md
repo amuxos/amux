@@ -188,3 +188,33 @@ to finish. TAIL Attach includes the active canonical turn's start snapshot from
 the atomic read head. Bridge restores only a goal turn matching its persisted
 destination and current binding, authorizing subsequent replies and permission
 requests without replaying earlier output.
+
+## Single-turn results
+
+Single-turn result collection is enabled by default (`turn_results.enabled=true`) with
+bounded retention and can be disabled with `turn_results.enabled=false`. When disabled,
+read queries return `unavailable` (`reason=disabled`) and any previously cached snapshots
+in Hub storage are cleared on startup; Runtime canonical timelines remain unaffected.
+
+When enabled, Hub records read-only structured snapshots for turns and scheduled
+executions started after enabling, separating three independent facts:
+
+- **Execution** (`execution.status`): derived strictly from canonical `TurnFinished`,
+  `TaskRun` terminal state, or schedule admission failure (`missed`), never inferred
+  from answer text.
+- **Output** (`output.status`, `output.content`): the final accepted Markdown answer
+  without thinking or intermediate tool progress. Non-completed executions do not return
+  partial answers; outputs exceeding `turn_results.max_content_bytes` (default 1 MiB)
+  return `unavailable` (`reason=result_too_large`) without silent truncation.
+- **Deliveries** (`deliveries[]`): confirmed external delivery receipts (for example,
+  Feishu primary/continuation cards and `amux-artifact` attachments with confirmed
+  `message_id` values, or `suppressed`/`partial`/`failed`/`unknown`). Turns without an
+  external IM binding (such as CLI-only sessions, `new-session-per-run` schedules, or
+  `subtask` schedules) settle with an empty `deliveries` list rather than waiting.
+
+Snapshots are bounded by `turn_results.ttl_seconds` (default 7 days, `0` disables time
+expiry), `turn_results.max_entries`, `turn_results.max_total_bytes`, and
+`turn_results.pending_timeout_seconds` (unsettled records expire to
+`unavailable`/`result_not_settled`). Reads never trigger model retries, resend IM
+messages, or extend retention, and enforce the same Principal session and schedule
+authorization boundaries as ordinary reads.

@@ -3582,5 +3582,161 @@
   "结果主动投递策略（delivery_target 非 none 时生效）：always（默认，每次终态都推送）、on_failure（仅失败或超时推送）、on_non_empty（仅失败或产出非静默内容时推送，忽略空内容/NO_ALERT/SILENT/HEARTBEAT_OK）": {
     "en": "Proactive result delivery policy (applies when delivery_target is not none): always (default, push every terminal run), on_failure (push only on failure or timeout), or on_non_empty (push on failure or non-silent output, suppressing empty/NO_ALERT/SILENT/HEARTBEAT_OK)",
     "zh-CN": "结果主动投递策略（delivery_target 非 none 时生效）：always（默认，每次终态都推送）、on_failure（仅失败或超时推送）、on_non_empty（仅失败或产出非静默内容时推送，忽略空内容/NO_ALERT/SILENT/HEARTBEAT_OK）"
+  },
+  "## 单轮结果": {
+    "en": "## Single-turn results",
+    "zh-CN": "## 单轮结果"
+  },
+  "单轮结果": {
+    "en": "Single-turn results",
+    "zh-CN": "单轮结果"
+  },
+  "0 或 60–2592000": {
+    "en": "0 or 60–2592000",
+    "zh-CN": "0 或 60–2592000"
+  },
+  "30–3600": {
+    "en": "30–3600",
+    "zh-CN": "30–3600"
+  },
+  "16–10000": {
+    "en": "16–10000",
+    "zh-CN": "16–10000"
+  },
+  "1048576–268435456": {
+    "en": "1048576–268435456",
+    "zh-CN": "1048576–268435456"
+  },
+  "65536–16777216": {
+    "en": "65536–16777216",
+    "zh-CN": "65536–16777216"
+  },
+  "512": {
+    "en": "512",
+    "zh-CN": "512"
+  },
+  "1048576（1 MiB）": {
+    "en": "1048576 (1 MiB)",
+    "zh-CN": "1048576（1 MiB）"
+  },
+  "300（5 分钟）": {
+    "en": "300 (5 minutes)",
+    "zh-CN": "300（5 分钟）"
+  },
+  "33554432（32 MiB）": {
+    "en": "33554432 (32 MiB)",
+    "zh-CN": "33554432（32 MiB）"
+  },
+  "integer bytes": {
+    "en": "integer bytes",
+    "zh-CN": "整数字节数"
+  },
+  "单条最终正文大小上限；超限时返回 unavailable（result_too_large），不截断正文。修改后重启生效。": {
+    "en": "Maximum size of a single turn's final answer body; oversized answers return unavailable (result_too_large) without truncation. Restart after changing it.",
+    "zh-CN": "单条最终正文大小上限；超限时返回 unavailable（result_too_large），不截断正文。修改后重启生效。"
+  },
+  "单轮执行完成后等待外部投递回执落定的超时时间；超时后标记为 unavailable（result_not_settled）。修改后重启生效。": {
+    "en": "Timeout for waiting on external delivery receipts after turn execution finishes; timed-out records become unavailable (result_not_settled). Restart after changing it.",
+    "zh-CN": "单轮执行完成后等待外部投递回执落定的超时时间；超时后标记为 unavailable（result_not_settled）。修改后重启生效。"
+  },
+  "单轮结果缓存总容量上限；超出时先淘汰最早记录。修改后重启生效。": {
+    "en": "Total byte budget for cached single-turn results; oldest records are evicted first when exceeded. Restart after changing it.",
+    "zh-CN": "单轮结果缓存总容量上限；超出时先淘汰最早记录。修改后重启生效。"
+  },
+  "单轮结果（含定时任务）收集与只读查询总开关；默认开启，仅收集开启后新产生的轮次，关闭后重启 Hub 清空已缓存快照，不影响 Runtime 时间线。修改后重启生效。": {
+    "en": "Master switch for collecting and querying single-turn results (including scheduled tasks). Enabled by default; collects only turns started after enabling, and clears cached snapshots on Hub restart when disabled without affecting Runtime timelines. Restart after changing it.",
+    "zh-CN": "单轮结果（含定时任务）收集与只读查询总开关；默认开启，仅收集开启后新产生的轮次，关闭后重启 Hub 清空已缓存快照，不影响 Runtime 时间线。修改后重启生效。"
+  },
+  "同时保留的单轮结果条数上限（含未落定）；超出时先淘汰最早记录。修改后重启生效。": {
+    "en": "Maximum number of single-turn results retained at once (including unsettled ones); oldest records are evicted first when exceeded. Restart after changing it.",
+    "zh-CN": "同时保留的单轮结果条数上限（含未落定）；超出时先淘汰最早记录。修改后重启生效。"
+  },
+  "已落定单轮结果的保留时长；读取不续期；0 表示不按时间过期（仍受条数与总容量上限约束）。修改后重启生效。": {
+    "en": "Retention duration for settled single-turn results. Reads do not extend TTL; 0 disables time-based expiry (count and total byte limits still apply). Restart after changing it.",
+    "zh-CN": "已落定单轮结果的保留时长；读取不续期；0 表示不按时间过期（仍受条数与总容量上限约束）。修改后重启生效。"
+  },
+  "Inspect single-turn structured results": {
+    "en": "Inspect single-turn structured results",
+    "zh-CN": "查看单轮结构化结果"
+  },
+  "Read the structured result of a scheduled execution": {
+    "en": "Read the structured result of a scheduled execution",
+    "zh-CN": "读取定时任务单次执行的结构化结果"
+  },
+  "Read the structured result of a single turn": {
+    "en": "Read the structured result of a single turn",
+    "zh-CN": "读取单轮对话的结构化结果"
+  },
+  "execution ID from `amux schedule runs` (0 or omitted reads the latest execution)": {
+    "en": "execution ID from `amux schedule runs` (0 or omitted reads the latest execution)",
+    "zh-CN": "执行 ID（来自 `amux schedule runs`；省略或 0 表示读取最近一次执行）"
+  },
+  "help for result": {
+    "en": "help for result",
+    "zh-CN": "result 的帮助信息"
+  },
+  "help for turn": {
+    "en": "help for turn",
+    "zh-CN": "turn 的帮助信息"
+  },
+  "look up by triggering Feishu message ID (om_...)": {
+    "en": "look up by triggering Feishu message ID (om_...)",
+    "zh-CN": "按触发该轮的飞书消息 ID（om_...）反查"
+  },
+  "maximum wait duration when --wait is set": {
+    "en": "maximum wait duration when --wait is set",
+    "zh-CN": "启用 --wait 时的最长等待时间"
+  },
+  "optional Feishu bot/bridge ID to disambiguate --feishu-message": {
+    "en": "optional Feishu bot/bridge ID to disambiguate --feishu-message",
+    "zh-CN": "可选飞书机器人/bridge ID，用于在 --feishu-message 下消歧"
+  },
+  "poll read-only until the turn result settles or --timeout expires": {
+    "en": "poll read-only until the turn result settles or --timeout expires",
+    "zh-CN": "只读轮询直到结果落定或达到 --timeout 超时"
+  },
+  "定时任务 ID": {
+    "en": "Schedule ID",
+    "zh-CN": "定时任务 ID"
+  },
+  "Session 引用（如 target/name 或 session_id）；省略时若未传 feishu_message_id 则回落 AMUX_SESSION_ID": {
+    "en": "Session reference (such as target/name or session_id); falls back to AMUX_SESSION_ID when omitted without feishu_message_id",
+    "zh-CN": "Session 引用（如 target/name 或 session_id）；省略时若未传 feishu_message_id 则回落 AMUX_SESSION_ID"
+  },
+  "只读获取单轮对话的结构化结果（执行状态、最终 Markdown 正文与飞书卡片/附件送达回执）。当需要核实某轮回答是否真正执行完成、取回完整正文、或确认飞书是否送达及对应 message_id 时调用；支持按 session+turn_id（可用 latest）或 feishu_message_id 查询。": {
+    "en": "Read-only structured single-turn result (execution status, final Markdown answer, and Feishu card/attachment delivery receipts). Call this to verify whether a turn truly completed, retrieve the full Markdown answer, or confirm Feishu delivery status and message_ids; query by session+turn_id (or latest) or feishu_message_id.",
+    "zh-CN": "只读获取单轮对话的结构化结果（执行状态、最终 Markdown 正文与飞书卡片/附件送达回执）。当需要核实某轮回答是否真正执行完成、取回完整正文、或确认飞书是否送达及对应 message_id 时调用；支持按 session+turn_id（可用 latest）或 feishu_message_id 查询。"
+  },
+  "只读获取定时任务单次执行的结构化结果（覆盖 session-prompt 与 subtask，含执行状态、最终 Markdown 正文与飞书送达回执）。当需要查看定时任务最近一次或指定 execution_id 的最终产出与送达情况时调用。": {
+    "en": "Read-only structured result for one scheduled execution (covers both session-prompt and subtask, with execution status, final Markdown answer, and Feishu delivery receipts). Call this to inspect the latest or a specific execution_id outcome and delivery status of a schedule.",
+    "zh-CN": "只读获取定时任务单次执行的结构化结果（覆盖 session-prompt 与 subtask，含执行状态、最终 Markdown 正文与飞书送达回执）。当需要查看定时任务最近一次或指定 execution_id 的最终产出与送达情况时调用。"
+  },
+  "可选执行 ID（来自 amux.schedule_get 的 runs[].execution_id）；省略或 0 返回最近一次执行结果": {
+    "en": "Optional execution ID (from runs[].execution_id in amux.schedule_get); omit or pass 0 for the latest execution",
+    "zh-CN": "可选执行 ID（来自 amux.schedule_get 的 runs[].execution_id）；省略或 0 返回最近一次执行结果"
+  },
+  "可选飞书机器人/bridge ID，配合 feishu_message_id 消歧": {
+    "en": "Optional Feishu bot/bridge ID used to disambiguate feishu_message_id",
+    "zh-CN": "可选飞书机器人/bridge ID，配合 feishu_message_id 消歧"
+  },
+  "触发该轮的飞书消息 ID（om_...）；与 session+turn_id 二选一": {
+    "en": "Triggering Feishu message ID (om_...); mutually exclusive with session+turn_id",
+    "zh-CN": "触发该轮的飞书消息 ID（om_...）；与 session+turn_id 二选一"
+  },
+  "轮次 ID，或传 latest 查该会话最新一轮": {
+    "en": "Turn ID, or pass latest for the session's most recent tracked turn",
+    "zh-CN": "轮次 ID，或传 latest 查该会话最新一轮"
+  },
+  "`tools/list` 正式工具：**47**。": {
+    "en": "Public tools in `tools/list`: **47**.",
+    "zh-CN": "`tools/list` 正式工具：**47**。"
+  },
+  "`tools/list` 正式工具：**53**。": {
+    "en": "Public tools in `tools/list`: **53**.",
+    "zh-CN": "`tools/list` 正式工具：**53**。"
+  },
+  "`tools/list` 正式工具：**54**。": {
+    "en": "Public tools in `tools/list`: **54**.",
+    "zh-CN": "`tools/list` 正式工具：**54**。"
   }
 }

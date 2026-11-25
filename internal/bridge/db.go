@@ -329,6 +329,9 @@ func (b *bridgeDB) migrate() error {
 	if err := b.addColumnIfMissing(`ALTER TABLE feishu_permission_audits ADD COLUMN claim_until INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
+	if err := b.addColumnIfMissing(`ALTER TABLE feishu_artifact_deliveries ADD COLUMN message_id TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
 	if _, err := b.db.Exec(`
 		CREATE TABLE IF NOT EXISTS feishu_operational_permission_issues (
 			bridge_id   TEXT NOT NULL,

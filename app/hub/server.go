@@ -26,6 +26,7 @@ import (
 	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"github.com/amuxos/amux/internal/tunnel"
+	"github.com/amuxos/amux/internal/turnresult"
 	"github.com/google/uuid"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -50,6 +51,10 @@ type hubServer struct {
 	principals                   *principal.Store
 	memory                       *memory.Store
 	memoryConfig                 func() config.MemoryConfig
+	turnResults                  *turnresult.Store
+	turnResultsConfig            func() config.TurnResultsConfig
+	turnResultBindingCheck       func(targetID, sessionName string) bool
+	runtimeGetTurnResult         func(ctx context.Context, targetID string, req *pb.GetTurnResultRequest) (*pb.GetTurnResultResponse, error)
 	version                      string
 	startedAt                    time.Time
 	credentialRotationHook       func(principalID, reason string) error
@@ -1107,11 +1112,15 @@ func (s *hubServer) Submit(ctx context.Context, req *pb.AmuxdSubmitRequest) (*pb
 	if err := s.authorizeSessionMutation(ctx, req.TargetId, req.Name); err != nil {
 		return nil, err
 	}
-	return routeUnary[pb.SubmitRequest, pb.SubmitResponse](s, ctx, req.TargetId, "Submit", &pb.SubmitRequest{
+	resp, err := routeUnary[pb.SubmitRequest, pb.SubmitResponse](s, ctx, req.TargetId, "Submit", &pb.SubmitRequest{
 		Name: req.Name, Text: req.Text, Source: req.Source, Async: req.Async, Preempt: req.Preempt,
 		PreemptAlreadyInterrupted: req.PreemptAlreadyInterrupted, Control: req.Control, Parts: req.Parts,
 		Steer: req.Steer,
 	})
+	if err == nil && resp != nil && resp.Ok {
+		s.registerSubmittedTurn(req.TargetId, req.Name, req.Source, resp)
+	}
+	return resp, err
 }
 
 func (s *hubServer) QueueList(ctx context.Context, req *pb.AmuxdQueueListRequest) (*pb.QueueListResponse, error) {
@@ -1345,8 +1354,9 @@ func scheduleItemFromTask(t schedule.Task, runs []schedule.Execution) *pb.Schedu
 				ScheduledAt:   r.ScheduledAt,
 				StartedAt:     r.StartedAt,
 				FinishedAt:    r.FinishedAt,
-				SessionName:   r.SessionName,
-				TurnId:        r.TurnID,
+				SessionId:      r.SessionID,
+				SessionName:    r.SessionName,
+				TurnId:         r.TurnID,
 				Reason:         r.Reason,
 				ResultSummary:  r.Result,
 				TriggerSource:  r.TriggerSource,

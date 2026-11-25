@@ -147,3 +147,26 @@ Goal 权限请求沿用与该 Turn 回复相同的冻结绑定。已接收的普
 goal 接续准入；普通输入执行期间收到的 goal 准入直接拒绝，不等待该输入结束。TAIL
 Attach 在原子读取边界携带当前 canonical Turn 的开始快照。Bridge 仅恢复与持久化
 目的地和当前绑定匹配的 goal Turn，授权其后续回复与权限请求，不重发之前的输出。
+
+## 单轮结果
+
+单轮结果收集默认开启（`turn_results.enabled=true`）并采用有界保留，可通过设置
+`turn_results.enabled=false` 关闭。关闭时查询返回 `unavailable`（`reason=disabled`），
+并在 Hub 启动时清空已缓存的单轮结果快照，不影响 Runtime 原有的 canonical timeline。
+
+开启后，Hub 仅为开启之后新产生的 Turn 与定时任务执行记录只读结构化快照，并将三个独立事实分开表达：
+
+- **执行态（`execution.status`）**：严格来自 canonical `TurnFinished`、`TaskRun` 终态或
+  Schedule 准入失败（`missed`），绝不从回答文本反推成功。
+- **最终输出（`output.status`、`output.content`）**：本轮最终采纳的 Markdown 正文，不含
+  思考过程与工具中间进度。非完成态不返回半截正文；正文超过 `turn_results.max_content_bytes`
+  （默认 1 MiB）时返回 `unavailable`（`reason=result_too_large`），不静默截断。
+- **外部投递（`deliveries[]`）**：仅记录确认送达的外部回执（例如飞书主卡、拆分续卡及
+  `amux-artifact` 附件的 `message_id`，以及 `delivered`/`partial`/`failed`/`suppressed`/`unknown`
+  状态）。未绑定外部 IM 的轮次（如纯 CLI 会话、`new-session-per-run` 与 `subtask` 定时任务）
+  以空 `deliveries` 直接落定，不阻塞 `ready`。
+
+结果受 `turn_results.ttl_seconds`（默认 7 天，`0` 表示不按时间过期）、`turn_results.max_entries`、
+`turn_results.max_total_bytes` 与 `turn_results.pending_timeout_seconds`（超时未凑齐转为
+`unavailable`/`result_not_settled`）约束。读取始终只读，不会重跑模型、不会补发消息、不延长保留期，
+并沿用与普通读取一致的 Principal Session 与 Schedule 权限边界。

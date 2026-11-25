@@ -82,6 +82,36 @@ type MemoryConfig struct {
 	Enabled bool
 }
 
+const (
+	DefaultTurnResultsTTLSeconds            = 7 * 24 * 60 * 60 // 7 days
+	MinTurnResultsTTLSeconds                = 60
+	MaxTurnResultsTTLSeconds                = 30 * 24 * 60 * 60 // 30 days
+	DefaultTurnResultsPendingTimeoutSeconds = 300               // 5 minutes
+	MinTurnResultsPendingTimeoutSeconds     = 30
+	MaxTurnResultsPendingTimeoutSeconds     = 3600
+	DefaultTurnResultsMaxEntries            = 512
+	MinTurnResultsMaxEntries                = 16
+	MaxTurnResultsMaxEntries                = 10000
+	DefaultTurnResultsMaxTotalBytes         = 32 << 20 // 32 MiB
+	MinTurnResultsMaxTotalBytes             = 1 << 20
+	MaxTurnResultsMaxTotalBytes             = 256 << 20
+	DefaultTurnResultsMaxContentBytes       = 1 << 20 // 1 MiB
+	MinTurnResultsMaxContentBytes           = 64 << 10
+	MaxTurnResultsMaxContentBytes           = 16 << 20
+)
+
+// TurnResultsConfig controls Hub single-turn result collection and bounded
+// retention. Enabled defaults to true with bounded TTL/count/byte limits and
+// can be opted out by setting turn_results.enabled = false.
+type TurnResultsConfig struct {
+	Enabled               bool
+	TTLSeconds            int
+	PendingTimeoutSeconds int
+	MaxEntries            int
+	MaxTotalBytes         int64
+	MaxContentBytes       int
+}
+
 type IsolationHardeningConfig struct {
 	PIDNamespace   bool
 	MountNamespace bool
@@ -362,6 +392,65 @@ func GetMCP() MCPConfig {
 
 func GetMemory() MemoryConfig {
 	return MemoryConfig{Enabled: viper.GetBool("memory.enabled")}
+}
+
+// GetTurnResults reads the Hub single-turn result collection and bounded
+// retention settings. Enabled defaults to true; invalid/out-of-range numeric
+// values clamp to safe defaults.
+func GetTurnResults() TurnResultsConfig {
+	enabled := true
+	if viper.IsSet("turn_results.enabled") {
+		enabled = viper.GetBool("turn_results.enabled")
+	}
+
+	ttl := DefaultTurnResultsTTLSeconds
+	if viper.IsSet("turn_results.ttl_seconds") {
+		raw := viper.GetInt("turn_results.ttl_seconds")
+		if raw == 0 || (raw >= MinTurnResultsTTLSeconds && raw <= MaxTurnResultsTTLSeconds) {
+			ttl = raw
+		}
+	}
+
+	pendingTimeout := DefaultTurnResultsPendingTimeoutSeconds
+	if viper.IsSet("turn_results.pending_timeout_seconds") {
+		raw := viper.GetInt("turn_results.pending_timeout_seconds")
+		if raw >= MinTurnResultsPendingTimeoutSeconds && raw <= MaxTurnResultsPendingTimeoutSeconds {
+			pendingTimeout = raw
+		}
+	}
+
+	maxEntries := DefaultTurnResultsMaxEntries
+	if viper.IsSet("turn_results.max_entries") {
+		raw := viper.GetInt("turn_results.max_entries")
+		if raw >= MinTurnResultsMaxEntries && raw <= MaxTurnResultsMaxEntries {
+			maxEntries = raw
+		}
+	}
+
+	maxTotalBytes := int64(DefaultTurnResultsMaxTotalBytes)
+	if viper.IsSet("turn_results.max_total_bytes") {
+		raw := viper.GetInt64("turn_results.max_total_bytes")
+		if raw >= MinTurnResultsMaxTotalBytes && raw <= MaxTurnResultsMaxTotalBytes {
+			maxTotalBytes = raw
+		}
+	}
+
+	maxContentBytes := DefaultTurnResultsMaxContentBytes
+	if viper.IsSet("turn_results.max_content_bytes") {
+		raw := viper.GetInt("turn_results.max_content_bytes")
+		if raw >= MinTurnResultsMaxContentBytes && raw <= MaxTurnResultsMaxContentBytes {
+			maxContentBytes = raw
+		}
+	}
+
+	return TurnResultsConfig{
+		Enabled:               enabled,
+		TTLSeconds:            ttl,
+		PendingTimeoutSeconds: pendingTimeout,
+		MaxEntries:            maxEntries,
+		MaxTotalBytes:         maxTotalBytes,
+		MaxContentBytes:       maxContentBytes,
+	}
 }
 
 func GetIsolation() (IsolationConfig, error) {

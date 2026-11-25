@@ -64,6 +64,10 @@ type SessionPromptAuthorizer func(ctx context.Context, task Task, session *pb.Se
 // derived from the authorized template session.
 type NewSessionLaunchPreparer func(ctx context.Context, task Task, template *pb.Session, req *sessionlaunch.StartRequest) error
 
+// ExecutionListener receives read-only notifications when a scheduled execution
+// is persisted or observed. It never alters scheduling or retry behavior.
+type ExecutionListener func(task Task, exec Execution)
+
 // Scheduler runs due tasks on a background tick, injecting prompts into
 // sessions via the hub.
 type Scheduler struct {
@@ -78,6 +82,7 @@ type Scheduler struct {
 	wakeCh            chan struct{}
 	deferred          atomic.Bool
 	observer          OutcomeReader
+	onExecution       ExecutionListener
 
 	inFlightMu sync.Mutex
 	inFlight   map[int64]struct{}
@@ -168,6 +173,8 @@ func (s *Scheduler) TriggerNow(ctx context.Context, id int64) (Execution, string
 	finishAdmission(&run, status, now)
 	if err := s.store.Observe(run, now); err != nil {
 		log.Warn().Err(err).Msg("scheduler: persist manual prompt observation")
+	} else {
+		s.notifyExecution(t, run)
 	}
 	return run, status, nil
 }
@@ -361,6 +368,8 @@ func (s *Scheduler) deliverSessionPrompt(ctx context.Context, t Task, spec Spec,
 	finishAdmission(&run, status, now)
 	if err := s.store.Observe(run, now); err != nil {
 		log.Warn().Err(err).Msg("scheduler: persist prompt observation")
+	} else {
+		s.notifyExecution(t, run)
 	}
 }
 
@@ -573,6 +582,9 @@ func (s *Scheduler) deliverNewSessionPerRun(ctx context.Context, t Task, now tim
 	session, err := s.sessionStarter.Start(runCtx, startReq)
 	if err != nil {
 		log.Warn().Err(err).Int64("id", t.ID).Str("session", name).Msg("scheduler: run failed")
+		if r, _ := ctx.Value(executionKey{}).(*Execution); r != nil {
+			markAdmissionError(r, err)
+		}
 		return "error: run: " + err.Error()
 	}
 	resp, err := s.sub.Route(runCtx, t.TargetID, "Submit", &pb.SubmitRequest{
@@ -650,6 +662,16 @@ type OutcomeReader interface {
 
 func (s *Scheduler) SetOutcomeReader(r OutcomeReader) { s.observer = r }
 
+// SetExecutionListener installs a read-only listener invoked after scheduled
+// execution admission and observation updates.
+func (s *Scheduler) SetExecutionListener(fn ExecutionListener) { s.onExecution = fn }
+
+func (s *Scheduler) notifyExecution(t Task, exec Execution) {
+	if s.onExecution != nil {
+		s.onExecution(t, exec)
+	}
+}
+
 type executionKey struct{}
 
 func captureSubmission(ctx context.Context, msg *pb.TunnelMsg, name string) {
@@ -703,6 +725,8 @@ func (s *Scheduler) recordTrackedSubtask(r Execution, taskID, status string) {
 	finishAdmission(&r, status, time.Now())
 	if err := s.store.Observe(r, time.Now()); err != nil {
 		log.Warn().Err(err).Msg("scheduler: persist task observation")
+	} else if t, getErr := s.store.Get(r.ScheduleID); getErr == nil {
+		s.notifyExecution(t, r)
 	}
 }
 
@@ -797,13 +821,35 @@ func (s *Scheduler) reconcileOne(ctx context.Context, r Execution, now time.Time
 	}
 	if err := s.store.Observe(r, now); err != nil {
 		log.Warn().Err(err).Msg("scheduler: reconcile observation")
+	} else if t, getErr := s.store.Get(r.ScheduleID); getErr == nil {
+		s.notifyExecution(t, r)
 	}
 }
 
 func markAdmissionError(r *Execution, err error) {
-	switch grpcstatus.Code(err) {
-	case codes.InvalidArgument, codes.PermissionDenied, codes.Unauthenticated, codes.FailedPrecondition, codes.NotFound, codes.ResourceExhausted:
-		r.Reason = "admission_rejected"
+	if err == nil {
+		return
+	}
+	for cur := err; cur != nil; cur = errors.Unwrap(cur) {
+		switch grpcstatus.Code(cur) {
+		case codes.InvalidArgument, codes.PermissionDenied, codes.Unauthenticated, codes.FailedPrecondition, codes.NotFound, codes.ResourceExhausted:
+			r.Reason = "admission_rejected"
+			return
+		}
+	}
+	msg := err.Error()
+	for _, marker := range []string{
+		"code = InvalidArgument",
+		"code = PermissionDenied",
+		"code = Unauthenticated",
+		"code = FailedPrecondition",
+		"code = NotFound",
+		"code = ResourceExhausted",
+	} {
+		if strings.Contains(msg, marker) {
+			r.Reason = "admission_rejected"
+			return
+		}
 	}
 }
 

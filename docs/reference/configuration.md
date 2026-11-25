@@ -63,6 +63,17 @@ amux system config unset <key>
 | `hub.token` | string | Sensitive; omitted | — | Yes | Shared authentication token for the Hub and Runtime. |
 | `hub.allowed_targets` | string array | [] | — | Yes | Allowlist of target IDs that may register with the Hub; empty means unrestricted. |
 
+## Single-turn results
+
+| Configuration key | Type | Default | Constraints | CLI-managed | Description |
+| --- | --- | --- | --- | --- | --- |
+| `turn_results.enabled` | boolean | true | — | Yes | Master switch for collecting and querying single-turn results (including scheduled tasks). Enabled by default; collects only turns started after enabling, and clears cached snapshots on Hub restart when disabled without affecting Runtime timelines. Restart after changing it. |
+| `turn_results.ttl_seconds` | integer seconds | 604800 (7 days) | 0 or 60–2592000 | Yes | Retention duration for settled single-turn results. Reads do not extend TTL; 0 disables time-based expiry (count and total byte limits still apply). Restart after changing it. |
+| `turn_results.pending_timeout_seconds` | integer seconds | 300 (5 minutes) | 30–3600 | Yes | Timeout for waiting on external delivery receipts after turn execution finishes; timed-out records become unavailable (result_not_settled). Restart after changing it. |
+| `turn_results.max_entries` | integer count | 512 | 16–10000 | Yes | Maximum number of single-turn results retained at once (including unsettled ones); oldest records are evicted first when exceeded. Restart after changing it. |
+| `turn_results.max_total_bytes` | integer bytes | 33554432 (32 MiB) | 1048576–268435456 | Yes | Total byte budget for cached single-turn results; oldest records are evicted first when exceeded. Restart after changing it. |
+| `turn_results.max_content_bytes` | integer bytes | 1048576 (1 MiB) | 65536–16777216 | Yes | Maximum size of a single turn's final answer body; oversized answers return unavailable (result_too_large) without truncation. Restart after changing it. |
+
 ## Runtime
 
 | Configuration key | Type | Default | Constraints | CLI-managed | Description |
