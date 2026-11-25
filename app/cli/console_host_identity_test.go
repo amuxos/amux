@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -117,4 +119,131 @@ func TestConsoleOperatorConnectionDoesNotInheritEnrollment(t *testing.T) {
 	if _, err := newConsoleOperatorHub(time.Second); err == nil {
 		t.Fatal("managed operator dialed a remote Hub")
 	}
+}
+
+func TestStripAgentContextEnvRemovesSessionMarkersOnly(t *testing.T) {
+	input := []string{
+		"HOME=/tmp/home",
+		"AMUX_HOME=/tmp/home/.amux",
+		"AMUX_HUB_ADDR=127.0.0.1:7100",
+		"AMUX_ACTOR_TOKEN=secret",
+		"AMUX_ACTOR_TOKEN_FILE=/tmp/token",
+		"AMUX_SESSION_ID=sess-1",
+		"AMUX_TASK_ID=task-1",
+		"AMUX_PRINCIPAL_ID=p-1",
+		"amux_session_id=lower-case",
+		"PATH=/usr/bin",
+	}
+	got := stripAgentContextEnv(input)
+	want := []string{
+		"HOME=/tmp/home",
+		"AMUX_HOME=/tmp/home/.amux",
+		"AMUX_HUB_ADDR=127.0.0.1:7100",
+		"PATH=/usr/bin",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("stripAgentContextEnv = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("stripAgentContextEnv[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestConsoleDynamicOriginResolverAfterListen(t *testing.T) {
+	consoleTestOperator(t)
+	for _, key := range agentContextEnvKeys {
+		t.Setenv(key, "")
+	}
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	hubListener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := grpc.NewServer()
+	pb.RegisterAmuxdServer(server, &consoleHostIdentityHub{t: t})
+	go server.Serve(hubListener)
+	defer server.Stop()
+	t.Setenv("AMUX_HUB_ADDR", hubListener.Addr().String())
+	t.Setenv("AMUX_HUB_TOKEN", "test-hub-auth")
+
+	prevActive := consoleHasActiveOriginResolver
+	prevResolve := consoleResolvePublicOrigin
+	t.Cleanup(func() {
+		consoleHasActiveOriginResolver = prevActive
+		consoleResolvePublicOrigin = prevResolve
+	})
+	consoleHasActiveOriginResolver = func() bool { return true }
+
+	t.Run("resolves bound port after listen", func(t *testing.T) {
+		var observedPort int
+		consoleResolvePublicOrigin = func(_ context.Context, port int) (string, error) {
+			observedPort = port
+			return "https://preview.example.test", nil
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		outReader, outWriter := io.Pipe()
+		defer outReader.Close()
+		cmd := &cobra.Command{}
+		cmd.SetContext(ctx)
+		cmd.SetIn(strings.NewReader("temporary-password-1234567890\n"))
+		cmd.SetOut(outWriter)
+		cmd.SetErr(io.Discard)
+		done := make(chan error, 1)
+		go func() {
+			err := runConsoleWithOptions(cmd, consoleServeOptions{
+				Addr:          "0.0.0.0:0",
+				Duration:      time.Minute,
+				PasswordStdin: true,
+			})
+			_ = outWriter.Close()
+			done <- err
+		}()
+		readyCh := make(chan string, 1)
+		go func() {
+			scanner := bufio.NewScanner(outReader)
+			for scanner.Scan() {
+				if strings.HasPrefix(scanner.Text(), "AMUX_CONSOLE_READY ") {
+					readyCh <- scanner.Text()
+					return
+				}
+			}
+		}()
+		var readyLine string
+		select {
+		case readyLine = <-readyCh:
+		case err := <-done:
+			t.Fatalf("console exited before ready: %v", err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("console did not emit ready line")
+		}
+		cancel()
+		if err := <-done; err != nil {
+			t.Fatalf("console exited with error: %v", err)
+		}
+		if observedPort < 1 {
+			t.Fatalf("resolver port = %d, want bound TCP port", observedPort)
+		}
+		if !strings.Contains(readyLine, `"url":"https://preview.example.test"`) {
+			t.Fatalf("ready output missing resolved origin: %s", readyLine)
+		}
+	})
+
+	t.Run("fails closed when resolver returns empty", func(t *testing.T) {
+		consoleResolvePublicOrigin = func(context.Context, int) (string, error) { return "", nil }
+		cmd := &cobra.Command{}
+		cmd.SetContext(t.Context())
+		cmd.SetIn(strings.NewReader("temporary-password-1234567890\n"))
+		err := runConsoleWithOptions(cmd, consoleServeOptions{
+			Addr:          "0.0.0.0:0",
+			Duration:      time.Minute,
+			PasswordStdin: true,
+		})
+		if err == nil {
+			t.Fatal("expected error when dynamic origin resolution returned empty")
+		}
+	})
 }

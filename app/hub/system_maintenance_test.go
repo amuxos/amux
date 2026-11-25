@@ -268,3 +268,18 @@ func TestManagementUpgradeRetainsBoundedFailureDiagnostic(t *testing.T) {
 		t.Fatalf("error=%v", err)
 	}
 }
+
+func TestStripHubAgentContextEnvRemovesSessionIdentity(t *testing.T) {
+	got := stripHubAgentContextEnv([]string{
+		"HOME=/tmp/home",
+		"AMUX_SESSION_ID=sess-1",
+		"AMUX_ACTOR_TOKEN=tok-1",
+		"AMUX_ACTOR_TOKEN_FILE=/tmp/tok",
+		"AMUX_TASK_ID=task-1",
+		"AMUX_PRINCIPAL_ID=principal-1",
+		"PATH=/usr/bin",
+	})
+	if len(got) != 2 || got[0] != "HOME=/tmp/home" || got[1] != "PATH=/usr/bin" {
+		t.Fatalf("stripHubAgentContextEnv = %v", got)
+	}
+}

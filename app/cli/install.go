@@ -520,7 +520,7 @@ func runUpdatePostInstallCommand(cmd *cobra.Command, binary string, args []strin
 	child.Stdin = os.Stdin
 	child.Stdout = cmd.OutOrStdout()
 	child.Stderr = cmd.ErrOrStderr()
-	child.Env = os.Environ()
+	child.Env = stripAgentContextEnv(os.Environ())
 	if err := child.Run(); err != nil {
 		return fmt.Errorf("complete update with installed amux %s: %w", binary, err)
 	}

@@ -25,7 +25,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var errConsoleResourceNotFound = webconsole.ErrNotFound
+var (
+	errConsoleResourceNotFound     = webconsole.ErrNotFound
+	consoleOriginResolveTimeout    = 8 * time.Second
+	consoleHasActiveOriginResolver = consoleentry.HasActivePublicOriginResolver
+	consoleResolvePublicOrigin     = consoleentry.ResolvePublicOrigin
+)
 
 type consoleBackend struct {
 	sessions        *sessionClientBackend
@@ -85,7 +90,8 @@ func runConsoleWithOptions(cmd *cobra.Command, options consoleServeOptions) erro
 			return fmt.Errorf("%s", commandCatalog.Format(commandLocale(cmd), "console.invalid_public_url"))
 		}
 	}
-	if !ip.IsLoopback() && (!options.PasswordStdin || publicURL == "" || consoleentry.LocalURL(publicURL)) {
+	dynamicPublicURL := !ip.IsLoopback() && publicURL == "" && consoleHasActiveOriginResolver()
+	if !ip.IsLoopback() && (!options.PasswordStdin || (!dynamicPublicURL && (publicURL == "" || consoleentry.LocalURL(publicURL)))) {
 		return fmt.Errorf("%s", commandCatalog.Format(commandLocale(cmd), "console.remote_auth_required"))
 	}
 	password := ""
@@ -120,6 +126,23 @@ func runConsoleWithOptions(cmd *cobra.Command, options consoleServeOptions) erro
 		return err
 	}
 	defer listener.Close()
+	if dynamicPublicURL {
+		tcpAddr, ok := listener.Addr().(*net.TCPAddr)
+		if !ok || tcpAddr.Port < 1 {
+			return fmt.Errorf("%s", commandCatalog.Format(commandLocale(cmd), "console.remote_auth_required"))
+		}
+		parentCtx := cmd.Context()
+		if parentCtx == nil {
+			parentCtx = context.Background()
+		}
+		resolveCtx, cancelResolve := context.WithTimeout(parentCtx, consoleOriginResolveTimeout)
+		resolved, resolveErr := consoleResolvePublicOrigin(resolveCtx, tcpAddr.Port)
+		cancelResolve()
+		if resolveErr != nil || resolved == "" {
+			return fmt.Errorf("%s", commandCatalog.Format(commandLocale(cmd), "console.remote_auth_required"))
+		}
+		publicURL = resolved
+	}
 	code := ""
 	if password == "" {
 		code, err = webconsole.RandomSecret()
