@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -146,9 +147,37 @@ func TestMaintenanceHandoffPreservesLeaseAndTimeout(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRestartWithoutHelperFallsBackToLegacyDrain(t *testing.T) {
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+		t.Skip("broker handoff is only requested on Linux and macOS")
+	}
+	// An older Runtime returns idle for an unknown begin action. The
+	// updater should still acquire a drain lease before touching services.
+	f := &maintenanceFixture{phase: "idle"}
+	setupMaintenanceFixture(t, f)
+	updateMaintenanceNeeded = func() (bool, error) { return false, nil }
+	cmd := newUpdateCmd()
+	cmd.SetContext(t.Context())
+	m, err := beginUpdateMaintenance(cmd, &installOptions{restart: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m == nil {
+		t.Fatal("update did not acquire a maintenance lease")
+	}
+	if err := m.finish(); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if got := strings.Join(f.actions, ","); got != "begin-handoff,begin,poll,end" {
+		t.Fatalf("maintenance actions = %s", got)
+	}
+}
 func TestMaintenanceCopyLanguages(t *testing.T) {
 	cmd := newUpdateCmd()
-	for _, key := range []string{"draining", "ready", "failed", "legacy", "timeout", "recovery_failed", "drain_timeout_help", "invalid_timeout", "expired", "restored"} {
+	for _, key := range []string{"draining", "ready", "failed", "legacy", "legacy_restart", "timeout", "recovery_failed", "drain_timeout_help", "invalid_timeout", "expired", "restored"} {
 		t.Setenv("AMUX_LANGUAGE", "en")
 		en := maintenanceText(cmd, key)
 		t.Setenv("AMUX_LANGUAGE", "zh-CN")

@@ -53,6 +53,12 @@ func (p *brokerTurnClient) turnCorrelationEnabled() bool {
 	return p.turnCorrelation
 }
 
+func (p *brokerTurnClient) SupportsTurnRebind() bool {
+	p.eventMu.Lock()
+	defer p.eventMu.Unlock()
+	return p.turnCorrelation && p.turnReplayVersion >= brokerTurnReplayV1
+}
+
 func (p *brokerTurnClient) DispatchTurn(ctx context.Context, req session.TurnDispatchRequest, sink func(agentstream.ProducerEmission) bool) error {
 	if strings.TrimSpace(req.TurnToken) == "" {
 		return fmt.Errorf("turn token is required")

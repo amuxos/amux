@@ -571,6 +571,13 @@ has moved the running Hub executable into a removed backup directory. The
 installation metadata and default binary directory provide fallback paths.
 Failures retain a bounded tail of CLI stderr in the operator log for diagnosis.
 
+When the Bridge reattaches to a topic whose turn is still active, it resumes
+presentation after checking the durable Feishu submit receipt against the
+current topic, Session, launch and turn. The original initiators are restored
+from those receipts. The attach starts at the current Timeline head. Output
+recorded while the Bridge was offline remains in Session history. A Bot
+singleton's mutable reply destination does not authorize recovered output.
+
 ## Temporary Web management console
 
 The owner's private `/amux` overview includes Web management console. Opening the

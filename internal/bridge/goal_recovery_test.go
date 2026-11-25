@@ -70,8 +70,8 @@ func TestGoalPermissionRequestKeepsPrivateDestinationAfterGroupQuery(t *testing.
 	}
 }
 
-func TestGoalTailAttachRestoresRepliesAndPermissions(t *testing.T) {
-	for _, scenario := range []string{"topic", "singleton", "wrong-session", "wrong-origin", "wrong-objective"} {
+func TestTailAttachRestoresRepliesAndPermissions(t *testing.T) {
+	for _, scenario := range []string{"topic", "singleton", "wrong-session", "wrong-origin", "wrong-objective", "feishu-turn", "missing-receipt", "wrong-receipt-binding"} {
 		t.Run(scenario, func(t *testing.T) {
 			var mu sync.Mutex
 			var bodies []string
@@ -125,6 +125,20 @@ func TestGoalTailAttachRestoresRepliesAndPermissions(t *testing.T) {
 				started.Origin.NativeType = "unrelated-native-turn"
 			case "wrong-objective":
 				started.Body = agentstream.TurnStarted{InputSummary: "another goal"}
+			case "feishu-turn", "missing-receipt", "wrong-receipt-binding":
+				started.Origin = agentstream.Origin{Actor: agentstream.ActorUser, Channel: "lark", LaunchID: "launch-1"}
+				started.Turn.ID = "feishu-turn"
+				started.Body = agentstream.TurnStarted{InputSummary: "original Feishu question"}
+				if scenario != "missing-receipt" {
+					link := TurnLink{BridgeID: chat.BridgeId, RootMsgID: chat.RootMsgID, MessageID: "input-1", OpenID: "owner",
+						TargetID: chat.TargetID, SessionName: chat.SessionName, SessionID: started.SessionID, LaunchID: "launch-1", TurnID: started.Turn.ID}
+					if scenario == "wrong-receipt-binding" {
+						link.RootMsgID = "other-topic"
+					}
+					if err := b.db.RecordTurnLinks([]TurnLink{link}); err != nil {
+						t.Fatal(err)
+					}
+				}
 			}
 			if scenario == "singleton" {
 				b.startSingletonStream(&bs, "owner")
@@ -139,7 +153,7 @@ func TestGoalTailAttachRestoresRepliesAndPermissions(t *testing.T) {
 			stream.events <- &pb.AttachEvent{Kind: pb.AttachEvent_HEARTBEAT, CaughtUp: true, ActiveTurnStartJson: raw}
 			for index, body := range []agentstream.Body{
 				agentstream.PermissionRequested{Request: agentstream.PermissionRequest{ID: "restored-permission", Options: []agentstream.PermissionOption{{ID: "allow", Name: "Allow", Kind: "allow_once"}}}},
-				agentstream.ResultObserved{Text: "Recovered goal result"},
+				agentstream.ResultObserved{Text: "Recovered turn result"},
 				agentstream.TurnFinished{Terminal: agentstream.Terminal{Outcome: agentstream.OutcomeSuccess}},
 			} {
 				event := started
@@ -163,15 +177,15 @@ func TestGoalTailAttachRestoresRepliesAndPermissions(t *testing.T) {
 			mu.Lock()
 			defer mu.Unlock()
 			all := strings.Join(bodies, "\n")
-			allowed := scenario == "topic" || scenario == "singleton"
+			allowed := scenario == "topic" || scenario == "singleton" || scenario == "feishu-turn"
 			if !allowed {
 				if len(bodies) != 0 {
 					t.Fatalf("invalid recovery authorized output: %v", bodies)
 				}
 				return
 			}
-			if !strings.Contains(all, "Recovered goal result") || !strings.Contains(all, "restored-permission") {
-				t.Fatalf("recovered goal output/permission suppressed: %s", all)
+			if !strings.Contains(all, "Recovered turn result") || !strings.Contains(all, "restored-permission") {
+				t.Fatalf("recovered turn output/permission suppressed: %s", all)
 			}
 			if scenario == "singleton" {
 				for _, recipient := range recipients {

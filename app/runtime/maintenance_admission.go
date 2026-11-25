@@ -102,6 +102,22 @@ func (s *maintenanceSessionServer) PutSessionFile(ctx context.Context, req *pb.S
 	defer done()
 	return s.AmuxletServer.PutSessionFile(ctx, req)
 }
+func (s *maintenanceSessionServer) Interrupt(ctx context.Context, req *pb.InterruptRequest) (*pb.InterruptResponse, error) {
+	done, err := s.maintenance.enter(false)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	return s.AmuxletServer.Interrupt(ctx, req)
+}
+func (s *maintenanceSessionServer) RespondPermission(ctx context.Context, req *pb.RespondPermissionRequest) (*pb.RespondPermissionResponse, error) {
+	done, err := s.maintenance.enter(false)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	return s.AmuxletServer.RespondPermission(ctx, req)
+}
 func (s *maintenanceSessionServer) ReadSessionArtifact(ctx context.Context, req *pb.SessionFileRequest) (*pb.SessionFileResponse, error) {
 	done, err := s.maintenance.enter(false)
 	if err != nil {

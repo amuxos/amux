@@ -31,16 +31,28 @@ func (s *Session) RebindRecoveredTurn() error {
 	proc := s.proc
 	s.runtimeMu.RUnlock()
 
+	s.queueMu.Lock()
 	s.turnMu.Lock()
 	if s.canonicalTurn != nil {
 		s.turnMu.Unlock()
+		s.queueMu.Unlock()
 		return ErrTurnSinkActive
 	}
 	s.canonicalTurn = active
 	s.canonicalAuth = TurnAuthorization{}
 	s.turnMu.Unlock()
+	s.queueBusy = true
+	s.queueGoal = active.StartedEvent().Origin.Channel == sourceframe.SourceGoal
+	s.queueIdle = make(chan struct{})
+	s.queueMu.Unlock()
 
-	s.waitForCanonicalCompletion(active, nil)
+	done := make(chan struct{})
+	s.waitForCanonicalCompletion(active, done)
+	go func() {
+		<-done
+		s.advanceInputQueue()
+		s.resumeGoalAfterInput()
+	}()
 
 	rebinder, ok := proc.(CorrelatedTurnRebinder)
 	if !ok {
@@ -53,6 +65,7 @@ func (s *Session) RebindRecoveredTurn() error {
 		finishErr := s.finishRecoveredTurn(active, "runtime_rebind_failed", err.Error())
 		return errors.Join(err, finishErr)
 	}
+	s.markTurnDispatched(active)
 	if ready, ok := proc.(GoalTurnReadyProvider); ok {
 		ready.EnableGoalTurns()
 	}
@@ -142,12 +155,23 @@ func (s *Session) submitCorrelatedTurn(
 		if dispatchErr != nil && handoff != "" {
 			s.restoreHandoffContext(handoff)
 		}
+		if dispatchErr == nil {
+			s.markTurnDispatched(turn)
+		}
 		return dispatchErr
 	})
 	if turn == nil {
 		return nil, err
 	}
 	return done, err
+}
+
+func (s *Session) markTurnDispatched(turn *agentstream.Turn) {
+	s.turnMu.Lock()
+	defer s.turnMu.Unlock()
+	if s.canonicalTurn == turn {
+		s.canonicalDispatched = true
+	}
 }
 
 func (s *Session) waitForCanonicalCompletion(turn *agentstream.Turn, done chan struct{}) {
@@ -325,6 +349,7 @@ func (s *Session) completeCanonicalTurn(ref agentstream.TurnRef) {
 	}
 	s.canonicalTurn = nil
 	s.canonicalAuth = TurnAuthorization{}
+	s.canonicalDispatched = false
 	s.turnMu.Unlock()
 	s.activityMu.Lock()
 	s.pendingPermissions = nil

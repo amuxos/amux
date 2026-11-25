@@ -117,7 +117,7 @@
     "other": "Another helper update is running; retry after it finishes."
   },
   "update.maintenance.draining": {
-    "other": "Waiting for accepted work to finish before updating…"
+    "other": "Preparing running sessions for the update…"
   },
   "update.maintenance.ready": {
     "other": "Upgrade maintenance ready; %d sessions will be restored afterward."
@@ -128,6 +128,9 @@
   "update.maintenance.legacy": {
     "other": "This Runtime predates coordinated upgrades. The helper safety guard still applies; active isolated launches require a one-time maintenance upgrade."
   },
+  "update.maintenance.legacy_restart": {
+    "other": "This Runtime predates coordinated upgrades. Restarting it may interrupt active turns."
+  },
   "update.maintenance.timeout": {
     "other": "Upgrade wait timed out after %s (%d busy sessions, %d active tasks). No active turn was cancelled."
   },
@@ -135,7 +138,7 @@
     "other": "Session recovery is incomplete. The Runtime retains the recovery list and retries automatically; check runtime logs."
   },
   "update.maintenance.drain_timeout_help": {
-    "other": "Maximum wait for accepted work to finish before a Linux helper update"
+    "other": "Maximum wait for sessions and tasks to reach a safe upgrade boundary"
   },
   "update.maintenance.invalid_timeout": {
     "other": "--drain-timeout must be positive"

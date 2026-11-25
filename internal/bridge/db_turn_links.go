@@ -155,6 +155,28 @@ func (b *bridgeDB) TurnNotificationRecipients(bridgeID, turnID string) ([]string
 	return recipients, rows.Err()
 }
 
+func (b *bridgeDB) boundTurnInputs(chat *LarkChat, sessionID, launchID, turnID string) ([]turnInputRef, error) {
+	rows, err := b.db.Query(`
+		SELECT message_id, open_id
+		FROM feishu_turn_links
+		WHERE bridge_id = ? AND root_msg_id = ? AND target_id = ? AND session_name = ?
+		  AND session_id = ? AND launch_id = ? AND turn_id = ?
+		ORDER BY submitted_at, message_id`, chat.BridgeId, chat.RootMsgID, chat.TargetID, chat.SessionName, sessionID, launchID, turnID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var inputs []turnInputRef
+	for rows.Next() {
+		var input turnInputRef
+		if err := rows.Scan(&input.MessageID, &input.OpenID); err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, input)
+	}
+	return inputs, rows.Err()
+}
+
 func (b *bridgeDB) TurnSubmittedAt(bridgeID, turnID string) (time.Time, error) {
 	if b == nil || b.db == nil {
 		return time.Time{}, nil

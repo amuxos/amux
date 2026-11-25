@@ -65,20 +65,36 @@ func beginUpdateMaintenance(cmd *cobra.Command, opts *installOptions) (*updateMa
 	if err != nil {
 		return nil, err
 	}
-	if !needed {
+	if !needed && !opts.restart && !opts.restartSessions && opts.maintenanceToken == "" {
 		return nil, nil
 	}
 	token := opts.maintenanceToken
+	action := "begin"
 	if token == "" {
 		token = uuid.NewString()
+		if opts.restart && !opts.restartSessions && (runtime.GOOS == "linux" || runtime.GOOS == "darwin") {
+			action = "begin-handoff"
+			if needed {
+				action = "begin-helper-handoff"
+			}
+		}
 	}
 	m := &updateMaintenance{cmd: cmd, token: token, done: make(chan struct{})}
 	ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
-	_, err = m.call(ctx, "begin")
+	response, err := m.call(ctx, action)
+	// Older Runtimes respond idle to unknown actions when no lease exists.
+	// They still support draining the workload before a service restart.
+	if action != "begin" && (status.Code(err) == codes.InvalidArgument || response.GetPhase() == "idle") {
+		_, err = m.call(ctx, "begin")
+	}
 	cancel()
 	if status.Code(err) == codes.Unimplemented {
 		// Bootstrapping an old Runtime must never remove the helper's final guard.
-		fmt.Fprintln(cmd.OutOrStdout(), maintenanceText(cmd, "legacy"))
+		key := "legacy_restart"
+		if needed {
+			key = "legacy"
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), maintenanceText(cmd, key))
 		return nil, nil
 	}
 	if err != nil {
@@ -173,6 +189,23 @@ func (m *updateMaintenance) finish() error {
 		}
 	})
 	return result
+}
+
+func (m *updateMaintenance) armHandoff() error {
+	ctx, cancel := context.WithTimeout(m.cmd.Context(), 5*time.Second)
+	defer cancel()
+	response, err := m.call(ctx, "arm-handoff")
+	if status.Code(err) == codes.InvalidArgument {
+		// Drain-only Runtimes have already slept their sessions.
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", maintenanceText(m.cmd, "failed"), err)
+	}
+	if response.GetPhase() != "ready" {
+		return errors.New(maintenanceText(m.cmd, "expired"))
+	}
+	return nil
 }
 
 // Bound the time without progress. A large recovery can span several RPCs.

@@ -18,7 +18,9 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/agentprofile"
+	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/amuxhome/amuxhometest"
+	"github.com/amuxos/amux/internal/store"
 	"github.com/amuxos/amux/internal/system"
 )
 
@@ -489,6 +491,131 @@ func TestSystemStartReconcilesRuntimeStartedBeforeHubConfigChangeE2E(t *testing.
 	}
 	if status := e.systemStatus(t); status.State != system.StateHealthy {
 		t.Fatalf("system status after runtime reconciliation = %q, want healthy", status.State)
+	}
+}
+
+func TestUpdateRestartContinuesOriginalTurnE2E(t *testing.T) {
+	requireLongTest(t)
+	t.Parallel()
+
+	e := newCLIE2E(t)
+	e.env = append(e.env, "AGENT_PACK_CONTRACT_SCM_URL=http://127.0.0.1:0", "AMUX_LANGUAGE=en")
+	e.writeFakeClaude(t)
+	startLog := filepath.Join(e.amuxHome, "turn-dispatches")
+	release := filepath.Join(e.amuxHome, "finish-turn")
+	e.env = append(e.env, "E2E_DISPATCH_LOG="+startLog, "E2E_FINISH_TURN="+release)
+	sidecar := `#!/usr/bin/env python3
+import json, os, sys, time
+def emit(event):
+    event['provider'] = 'claude'
+    print(json.dumps({'jsonrpc':'2.0','method':'event','params':{'event':event}}), flush=True)
+for line in sys.stdin:
+    msg = json.loads(line)
+    method = msg['method']
+    if method == 'turn.start':
+        text = msg['params']['text']
+        with open(os.environ['E2E_DISPATCH_LOG'], 'a') as log:
+            log.write(text + '\n')
+    print(json.dumps({'jsonrpc':'2.0','id':msg.get('id'),'result':{'ok':True}}), flush=True)
+    if method == 'turn.start':
+        if text == 'first':
+            emit({'type':'assistant_text_delta','text':'before update'})
+            while not os.path.exists(os.environ['E2E_FINISH_TURN']):
+                time.sleep(0.025)
+            emit({'type':'assistant_text_delta','text':'after update'})
+        emit({'type':'turn_done','state':{'state':'turn_done','stop_reason':'end_turn'}})
+    elif method == 'shutdown':
+        break
+`
+	if err := os.WriteFile(filepath.Join(e.fakeBin, "amux-claude-sdk-sidecar"), []byte(sidecar), 0755); err != nil {
+		t.Fatal(err)
+	}
+	e.run(t, "setup", "--no-start")
+	e.config(t, "runtime.id", "e2e-target")
+	e.startSystemOnFreePort(t)
+	t.Cleanup(func() { _ = os.WriteFile(release, nil, 0600) })
+	e.waitForCommandOutput(t, "hub target", "e2e-target", "system", "target", "list")
+	e.run(t, "session", "run", "claude", "-n", "claude-e2e", "--on", "e2e-target")
+	e.run(t, "session", "send", "e2e-target/claude-e2e", "first")
+
+	db, err := store.Open(filepath.Join(e.amuxHome, "runtime.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	currentSession := func() store.SessionRow {
+		t.Helper()
+		rows, err := db.AllSessions()
+		if err != nil || len(rows) != 1 {
+			t.Fatalf("read session: count=%d, error=%v", len(rows), err)
+		}
+		return rows[0]
+	}
+	before := currentSession()
+	oldRuntimePID, ok := readPIDFile(filepath.Join(e.amuxHome, "runtime.pid"))
+	if !ok {
+		t.Fatal("initial Runtime PID unavailable")
+	}
+	var originalTurn string
+	events := func() []agentstream.Event {
+		t.Helper()
+		out, err := db.LoadAgentEvents(t.Context(), before.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	e.waitForOutput(t, "original turn output", func() string {
+		for _, event := range events() {
+			if delta, ok := event.Body.(agentstream.AssistantDelta); ok && delta.Text == "before update" {
+				originalTurn = event.Turn.ID
+				return delta.Text
+			}
+		}
+		return ""
+	}, "before update")
+
+	e.run(t, "update", "--source", filepath.Dir(e.amux), "--restart", "--drain-timeout", "5s")
+	newRuntimePID, ok := readPIDFile(filepath.Join(e.amuxHome, "runtime.pid"))
+	if !ok || newRuntimePID == oldRuntimePID {
+		t.Fatalf("Runtime did not restart, PID before=%d after=%d", oldRuntimePID, newRuntimePID)
+	}
+	after := currentSession()
+	if after.ID != before.ID || after.LaunchID != before.LaunchID || after.PID != before.PID || after.State != "running" {
+		t.Fatal("the upgrade did not retain the broker's running session")
+	}
+	for _, event := range events() {
+		if event.Body.Kind() == agentstream.KindTurnFinished {
+			t.Fatal("the upgrade finished an active turn")
+		}
+	}
+	e.waitForCommandOutput(t, "hub target after update", "e2e-target", "system", "target", "list")
+	e.run(t, "session", "send", "e2e-target/claude-e2e", "second")
+	e.waitForCommandOutput(t, "queued follow-up", "second", "session", "queue", "e2e-target/claude-e2e")
+	if err := os.WriteFile(release, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	e.waitForOutput(t, "original and queued turns finish", func() string {
+		var completed []string
+		var resumedOutput bool
+		for _, event := range events() {
+			switch body := event.Body.(type) {
+			case agentstream.AssistantDelta:
+				resumedOutput = resumedOutput || (event.Turn.ID == originalTurn && body.Text == "after update")
+			case agentstream.TurnFinished:
+				if body.Terminal.Outcome != agentstream.OutcomeSuccess {
+					t.Fatalf("turn %s outcome: %s", event.Turn.ID, body.Terminal.Outcome)
+				}
+				completed = append(completed, event.Turn.ID)
+			}
+		}
+		if resumedOutput && len(completed) == 2 && completed[0] == originalTurn && completed[1] != originalTurn {
+			return "both finished"
+		}
+		return fmt.Sprintf("resumed output=%t, completed=%v", resumedOutput, completed)
+	}, "both finished")
+	if data, err := os.ReadFile(startLog); err != nil || string(data) != "first\nsecond\n" {
+		t.Fatalf("provider dispatches = %q, err=%v", data, err)
 	}
 }
 

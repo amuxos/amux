@@ -199,6 +199,12 @@ selected agent's capabilities. Codex and ACP agents that provide an execution
 configuration mapping support in-process reconfiguration when their eligibility
 conditions are met; other changes restart with handoff.
 
+During a coordinated upgrade, the Runtime can leave a broker and its native
+turn running. The successor restores the same Timeline turn, holds the Session
+queue until that turn finishes, and rebinds from the last durable broker
+sequence. If the broker is lost, the Timeline records an interruption and the
+Session is recovered using available conversation history.
+
 When an ACP or structured agent's output closes, the broker stops accepting requests and drains
 requests already being handled before closing client connections. Pending prompt
 results, terminal emissions and acknowledgements retain their order. Connection

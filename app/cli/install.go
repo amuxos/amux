@@ -443,11 +443,16 @@ func completeUpdatePostInstall(cmd *cobra.Command, opts *installOptions, nextSte
 		if err := updateAgentPackAutoSyncRefresher(); err != nil {
 			return fmt.Errorf("refresh Agent Pack auto sync: %w", err)
 		}
-		if err := restartIfRunning(runtimeService()); err != nil {
-			return err
-		}
 		if opts.maintenance != nil {
 			opts.maintenance.waitForRuntimeStart = true
+			if opts.restart && !opts.restartSessions {
+				if err := opts.maintenance.armHandoff(); err != nil {
+					return err
+				}
+			}
+		}
+		if err := restartIfRunning(runtimeService()); err != nil {
+			return err
 		}
 		if err := restartIfRunning(hubService()); err != nil {
 			return err
