@@ -1312,9 +1312,12 @@ func scheduleItemFromTask(t schedule.Task, runs []schedule.Execution) *pb.Schedu
 		SessionName:  t.SessionName,
 		Spec:         t.Spec,
 		Kind:         t.Kind,
-		Timezone:     t.Timezone,
-		State:        t.LifecycleState(),
-		RunMode:      t.RunMode,
+		Timezone:       t.Timezone,
+		State:          t.LifecycleState(),
+		DeliveryTarget: t.DeliveryTarget,
+		DeliveryPolicy: t.DeliveryPolicy,
+		CreatedAt:      t.CreatedAt,
+		RunMode:        t.RunMode,
 		Prompt:       t.Prompt,
 		TaskSpecJson: append([]byte(nil), t.TaskSpecJson...),
 		Enabled:      t.Enabled,
@@ -1344,9 +1347,10 @@ func scheduleItemFromTask(t schedule.Task, runs []schedule.Execution) *pb.Schedu
 				FinishedAt:    r.FinishedAt,
 				SessionName:   r.SessionName,
 				TurnId:        r.TurnID,
-				Reason:        r.Reason,
-				ResultSummary: r.Result,
-				TriggerSource: r.TriggerSource,
+				Reason:         r.Reason,
+				ResultSummary:  r.Result,
+				TriggerSource:  r.TriggerSource,
+				DeliveryStatus: r.DeliveryStatus,
 			})
 		}
 	}
@@ -1799,12 +1803,23 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 	if err != nil {
 		return nil, err
 	}
+	deliveryTargetRaw := strings.TrimSpace(req.DeliveryTarget)
+	deliveryTarget, err := schedule.NormalizeDeliveryTarget(deliveryTargetRaw)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	deliveryPolicy, err := schedule.NormalizeDeliveryPolicy(req.DeliveryPolicy)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
 	taskRow := schedule.Task{
 		Name:             req.Name,
 		ScheduleType:     scheduleType,
 		Spec:             spec.Raw,
 		Kind:             spec.Kind,
 		Timezone:         tzName,
+		DeliveryTarget:   deliveryTarget,
+		DeliveryPolicy:   deliveryPolicy,
 		Enabled:          true,
 		NextRunAt:        next,
 		CreatedBy:        req.CreatedBy,
@@ -1821,6 +1836,9 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 		runMode, err := schedule.NormalizeRunMode(req.RunMode)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
+		if runMode == schedule.RunModeReuseSession && deliveryTarget == schedule.DeliveryTargetOrigin {
+			return nil, status.Errorf(codes.InvalidArgument, "delivery_target %q is not needed for reuse-session schedules (replies already post into the target session); use none or creator_dm", deliveryTarget)
 		}
 		if err := s.authorizeScheduleSessionTarget(ctx, req.TargetId, req.SessionName, ownerPrincipalID); err != nil {
 			return nil, err
@@ -1840,6 +1858,15 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 	creator, err := s.resolveScheduleCreator(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "resolve schedule creator: %v", err)
+	}
+	// Default Feishu-originated MCP subtask schedules to delivering results back
+	// to their originating Feishu conversation when delivery_target is omitted.
+	if deliveryTargetRaw == "" && scheduleType == schedule.ScheduleTypeSubtask && req.CreatedBy == "mcp" &&
+		creator.BotID != "" && (creator.OriginRootMsgID != "" || creator.OriginChatID != "" || creator.OpenID != "") {
+		taskRow.DeliveryTarget = schedule.DeliveryTargetOrigin
+	}
+	if taskRow.DeliveryTarget != schedule.DeliveryTargetNone && creator.BotID == "" {
+		return nil, status.Errorf(codes.FailedPrecondition, "delivery_target %q requires a verified Feishu creator or conversation origin", taskRow.DeliveryTarget)
 	}
 	t, err := store.Create(taskRow)
 	if err != nil {
@@ -1862,7 +1889,11 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 			return nil, status.Errorf(codes.Internal, "persist schedule creator: %v", err)
 		}
 	}
-	resp := &pb.CreateScheduleResponse{Id: t.ID}
+	resp := &pb.CreateScheduleResponse{
+		Id:             t.ID,
+		DeliveryTarget: t.DeliveryTarget,
+		DeliveryPolicy: t.DeliveryPolicy,
+	}
 	if t.NextRunAt != nil {
 		resp.NextRunAt = *t.NextRunAt
 	}
@@ -2063,6 +2094,9 @@ func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRe
 				return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 			}
 			row.RunMode = runMode
+			if runMode == schedule.RunModeReuseSession && req.DeliveryTarget == nil && row.DeliveryTarget == schedule.DeliveryTargetOrigin {
+				row.DeliveryTarget = schedule.DeliveryTargetNone
+			}
 		}
 	case schedule.ScheduleTypeSubtask:
 		if req.Prompt != nil || req.RunMode != nil {
@@ -2075,6 +2109,29 @@ func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRe
 			}
 			row.TaskSpecJson = normalizedSpecJson
 		}
+	}
+
+	if req.DeliveryTarget != nil {
+		deliveryTarget, err := schedule.NormalizeDeliveryTarget(*req.DeliveryTarget)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
+		if scheduleType == schedule.ScheduleTypeSessionPrompt && row.RunMode == schedule.RunModeReuseSession && deliveryTarget == schedule.DeliveryTargetOrigin {
+			return nil, status.Errorf(codes.InvalidArgument, "delivery_target %q is not needed for reuse-session schedules (replies already post into the target session); use none or creator_dm", deliveryTarget)
+		}
+		if deliveryTarget != schedule.DeliveryTargetNone {
+			if vis, vErr := store.Visibility(row.ID); vErr != nil || vis.Creator.BotID == "" {
+				return nil, status.Errorf(codes.FailedPrecondition, "delivery_target %q requires a verified Feishu creator or conversation origin", deliveryTarget)
+			}
+		}
+		row.DeliveryTarget = deliveryTarget
+	}
+	if req.DeliveryPolicy != nil {
+		deliveryPolicy, err := schedule.NormalizeDeliveryPolicy(*req.DeliveryPolicy)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
+		row.DeliveryPolicy = deliveryPolicy
 	}
 
 	updated, err := store.Update(row)

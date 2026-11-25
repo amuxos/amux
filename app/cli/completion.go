@@ -48,6 +48,22 @@ func scheduleRunModeCompletions(toComplete string) []string {
 	}, toComplete)
 }
 
+func completeScheduleDeliveryTargets(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return filterCompletionValues([]string{
+		schedule.DeliveryTargetNone + "\tdo not proactively send run results",
+		schedule.DeliveryTargetOrigin + "\tsend run results back to the originating chat/thread",
+		schedule.DeliveryTargetCreatorDM + "\tsend run results to the schedule creator via DM",
+	}, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeScheduleDeliveryPolicies(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return filterCompletionValues([]string{
+		schedule.DeliveryPolicyAlways + "\tsend on every terminal run",
+		schedule.DeliveryPolicyOnFailure + "\tsend only when a run fails or times out",
+		schedule.DeliveryPolicyOnNonEmpty + "\tsend only when a run fails or produces non-silent output",
+	}, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
 func scheduleSpecCompletions(toComplete string) []string {
 	candidates := []string{
 		`every	interval, e.g. "every 30m"`,

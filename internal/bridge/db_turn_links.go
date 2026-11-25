@@ -94,6 +94,40 @@ func LookupTurnLinks(path string, query TurnLinkQuery) ([]TurnLink, error) {
 	return links, rows.Err()
 }
 
+// LookupOriginChatID resolves the Feishu chat_id associated with a turn's
+// root message or session binding by opening the Bridge DB read-only.
+// Returns empty string when no matching chat binding exists.
+func LookupOriginChatID(path, bridgeID, rootMsgID, targetID, sessionName string) string {
+	path = strings.TrimSpace(path)
+	bridgeID = strings.TrimSpace(bridgeID)
+	if path == "" || bridgeID == "" {
+		return ""
+	}
+	db, err := sql.Open("sqlite", bridgeReadOnlyDSN(path))
+	if err != nil {
+		return ""
+	}
+	defer db.Close()
+
+	if root := strings.TrimSpace(rootMsgID); root != "" && !strings.HasPrefix(root, "singleton:") {
+		var chatID string
+		if err := db.QueryRow(`SELECT chat_id FROM lark_chats WHERE bridge_id=? AND root_msg_id=? AND chat_id<>'' ORDER BY rowid DESC LIMIT 1`, bridgeID, root).Scan(&chatID); err == nil && strings.TrimSpace(chatID) != "" {
+			return strings.TrimSpace(chatID)
+		}
+	}
+	if target := strings.TrimSpace(targetID); target != "" && strings.TrimSpace(sessionName) != "" {
+		var chatID string
+		if err := db.QueryRow(`SELECT chat_id FROM lark_chats WHERE bridge_id=? AND target_id=? AND session_name=? AND chat_id<>'' ORDER BY rowid DESC LIMIT 1`, bridgeID, target, strings.TrimSpace(sessionName)).Scan(&chatID); err == nil && strings.TrimSpace(chatID) != "" {
+			return strings.TrimSpace(chatID)
+		}
+		var replyKind, lastChatID string
+		if err := db.QueryRow(`SELECT last_reply_kind, last_reply_chat_id FROM feishu_bot_sessions WHERE bridge_id=? AND target_id=? AND session_name=? AND enabled=1 LIMIT 1`, bridgeID, target, strings.TrimSpace(sessionName)).Scan(&replyKind, &lastChatID); err == nil && replyKind == botSessionReplyGroup && strings.TrimSpace(lastChatID) != "" {
+			return strings.TrimSpace(lastChatID)
+		}
+	}
+	return ""
+}
+
 func (b *bridgeDB) TurnNotificationRecipients(bridgeID, turnID string) ([]string, error) {
 	if b == nil || b.db == nil || strings.TrimSpace(turnID) == "" {
 		return nil, nil

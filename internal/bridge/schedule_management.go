@@ -343,6 +343,20 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	if privateCard {
 		return b.managementCardResponse(open, message, card, version, cardToast("success", scheduleText("updated"))), true, nil
 	}
+	// Quick actions on a result delivery card give an immediate toast without
+	// dumping an unsolicited management card into DM, except when the user
+	// explicitly asks to open management details.
+	if managementCallbackString(event.Event.Action, "source") == "delivery" {
+		switch op {
+		case "trigger":
+			return cardToast("success", scheduleText("delivery.triggered")), true, nil
+		case "pause":
+			return cardToast("success", scheduleText("delivery.paused")), true, nil
+		case "detail":
+			err = b.sendManagementCardToDM(ctx, open, card)
+			return cardToast("success", scheduleText("delivery.detail_sent")), true, err
+		}
+	}
 	err = b.sendManagementCardToDM(ctx, open, card)
 	return cardToast("success", scheduleText("updated")), true, err
 }
@@ -350,15 +364,23 @@ func (b *Bridge) runScheduleNotices(ctx context.Context) {
 	if b.schedules == nil {
 		return
 	}
-	ticker := time.NewTicker(20 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+	ticks := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := b.deliverScheduleNotices(ctx, time.Now()); err != nil {
-				log.Warn().Err(err).Msg("bridge: schedule notifications")
+			now := time.Now()
+			if err := b.deliverScheduleResults(ctx, now); err != nil {
+				log.Warn().Err(err).Msg("bridge: schedule result delivery")
+			}
+			ticks++
+			if ticks%4 == 0 {
+				if err := b.deliverScheduleNotices(ctx, now); err != nil {
+					log.Warn().Err(err).Msg("bridge: schedule notifications")
+				}
 			}
 		}
 	}

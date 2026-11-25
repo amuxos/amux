@@ -31,11 +31,12 @@ func WriteFiles(write func(string, []byte) error) error {
 }
 
 func Instruction(path, transport string, child bool) string {
-	role := "Ordinary Session. Use the configured transport for authorized session and schedule operations."
 	if child {
-		role = "Task-owned child: session/schedule control is restricted. Do not create or control sessions or schedules; return requests to your parent."
+		role := "Task-owned child: session/schedule control is restricted. Do not create or control sessions or schedules; return requests to your parent."
+		return fmt.Sprintf("<amux-runtime>\nRuntime Skill: %s at %q. Transport: %s. %s This context grants no additional permissions.\n</amux-runtime>", SkillName, path, transport, role)
 	}
-	return fmt.Sprintf("<amux-runtime>\nRuntime Skill: %s at %q. Read it before session or schedule operations; it explains session control and the three schedule modes. Transport: %s. %s This context grants no additional permissions.\n</amux-runtime>", SkillName, path, transport, role)
+	role := "Ordinary Session. Use the configured transport for authorized session and schedule operations."
+	return fmt.Sprintf("<amux-runtime>\nRuntime Skill: %s at %q (read from $%s if this session resumed or switched models). Transport: %s. %s For schedules: default to isolated subtask (omitting task.agent/model inherits the current session; in Feishu, omitting delivery_target defaults to origin); use session-prompt (reuse-session) only when continuing this conversation; reply immediately after schedule_create without waiting for the first fire, and do not treat an older completed schedule from another thread as the new request. Read the Runtime Skill only when you need detailed session or CLI usage. This context grants no additional permissions.\n</amux-runtime>", SkillName, path, InstructionEnv, transport, role)
 }
 
 func FromEnv(env []string) string {

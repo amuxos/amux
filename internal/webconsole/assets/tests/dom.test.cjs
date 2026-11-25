@@ -211,6 +211,40 @@ test('completed one-shot schedule renders completed state without pause toggle a
   assert.equal(JSON.parse(post.options.body).action, 'trigger');
 });
 
+test('schedule form submits delivery target/policy and detail view renders delivery status', async () => {
+  const env = environment();
+  mount(env, 'schedules', { schedules: [], actions: ['create'] });
+  await env.app.openScheduleForm();
+  const form = env.document.querySelector('#dialogs form');
+  form.querySelector('[name=spec]').value = 'daily 09:00';
+  form.querySelector('[name=delivery_target]').value = 'origin';
+  form.querySelector('[name=delivery_policy]').value = 'on_non_empty';
+  form.querySelector('[name=task_agent]').value = 'builtin/general';
+  form.querySelector('[name=task_text]').value = 'Check status';
+  await form.fire('submit');
+  const post = env.calls.find(c => c.url === '/api/console/schedules' && c.options.method === 'POST');
+  const data = JSON.parse(post.options.body).data;
+  assert.equal(data.delivery_target, 'origin');
+  assert.equal(data.delivery_policy, 'on_non_empty');
+
+  mount(env, 'schedule', {
+    schedule: {
+      id: 22,
+      name: 'Morning check',
+      spec: 'daily 09:00',
+      schedule_type: 'subtask',
+      delivery_target: 'origin',
+      delivery_policy: 'on_non_empty',
+      enabled: true,
+      runs: [{ fired_at: 1767229200, status: 'completed', delivery_status: 'delivered', result_summary: 'All clear' }]
+    }
+  });
+  const detailText = env.document.body.textContent;
+  assert.match(detailText, /Origin chat \/ thread/);
+  assert.match(detailText, /Non-empty or failure/);
+  assert.match(detailText, /Delivered/);
+});
+
 test('settings save batches dirty keys as strings with CAS and reports restart', async () => {
   const env = environment();
   mount(env, 'settings', { settings: [{ key: 'a', value: 'false', writable: true }, { key: 'b', value: '1', writable: true }], version: 'sha', actions: ['save'] });

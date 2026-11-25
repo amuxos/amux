@@ -73,7 +73,16 @@ func (h *mcpHandler) createSchedule(ctx context.Context, args json.RawMessage) (
 	case schedule.ScheduleTypeSessionPrompt:
 		result, err = createMCPSessionPromptSchedule(ctx, client, a, sessionRef)
 	default:
-		result, err = clientop.ScheduleCreateTask(ctx, client, clientop.ScheduleCreateTaskRequest{Spec: a.Spec, Timezone: a.Timezone, Name: a.Name, CreatedBy: "mcp", Task: a.Task})
+		inheritCurrentSessionTaskDefaults(ctx, &a.Task)
+		result, err = clientop.ScheduleCreateTask(ctx, client, clientop.ScheduleCreateTaskRequest{
+			Spec:           a.Spec,
+			Timezone:       a.Timezone,
+			Name:           a.Name,
+			DeliveryTarget: a.DeliveryTarget,
+			DeliveryPolicy: a.DeliveryPolicy,
+			CreatedBy:      "mcp",
+			Task:           a.Task,
+		})
 	}
 	if err != nil {
 		return mcp.ErrorText(mcpScheduleCreateError(err)), nil
@@ -83,11 +92,80 @@ func (h *mcpHandler) createSchedule(ctx context.Context, args json.RawMessage) (
 		"next_run_at":     result.NextRunAt,
 		"next_run_at_iso": mcpScheduleTimeISO(result.NextRunAt),
 		"schedule_type":   scheduleType,
+		"execution_mode":  mcpScheduleExecutionMode(scheduleType, a.RunMode),
 	}
 	if tz := strings.TrimSpace(a.Timezone); tz != "" {
 		resp["timezone"] = tz
 	}
+	if result.DeliveryTarget != "" {
+		resp["delivery_target"] = result.DeliveryTarget
+	}
+	if result.DeliveryPolicy != "" {
+		resp["delivery_policy"] = result.DeliveryPolicy
+	}
+	if scheduleType == schedule.ScheduleTypeSubtask {
+		if agent := strings.TrimSpace(a.Task.Agent); agent != "" {
+			resp["agent"] = agent
+		}
+		if model := strings.TrimSpace(a.Task.Model); model != "" {
+			resp["model"] = model
+		}
+	}
 	return mcp.Text(toJSON(resp)), nil
+}
+
+// inheritCurrentSessionTaskDefaults fills missing task.agent (and matching
+// task.model) deterministically from the live session identified by
+// AMUX_SESSION_ID so callers inside a session do not have to guess or drift
+// from their current agent/model. It only inherits EffectiveModel when task.agent
+// was omitted or explicitly matches the current session's profile/type so an
+// explicit override to a different specialist profile never receives an
+// incompatible model.
+func inheritCurrentSessionTaskDefaults(ctx context.Context, spec *clientop.ScheduledTaskSpec) {
+	if spec == nil {
+		return
+	}
+	needAgent := strings.TrimSpace(spec.Agent) == ""
+	needModel := strings.TrimSpace(spec.Model) == ""
+	if !needAgent && !needModel {
+		return
+	}
+	sessionID := strings.TrimSpace(os.Getenv("AMUX_SESSION_ID"))
+	if sessionID == "" {
+		return
+	}
+	r, err := newScheduleSessionResolverForMCP()
+	if err != nil {
+		return
+	}
+	defer r.Close()
+	resolved, err := r.ResolveSession(ctx, sessionID)
+	if err != nil || resolved == nil {
+		return
+	}
+	sessionAgent := strings.TrimSpace(resolved.Session.AgentProfile)
+	if sessionAgent == "" {
+		sessionAgent = strings.TrimSpace(resolved.Session.AgentType)
+	}
+	if needAgent && sessionAgent != "" {
+		spec.Agent = sessionAgent
+	}
+	if needModel {
+		effectiveModel := strings.TrimSpace(resolved.Session.EffectiveModel)
+		if effectiveModel != "" && (needAgent || strings.TrimSpace(spec.Agent) == sessionAgent) {
+			spec.Model = effectiveModel
+		}
+	}
+}
+
+func mcpScheduleExecutionMode(scheduleType, runMode string) string {
+	if scheduleType == schedule.ScheduleTypeSubtask {
+		return "isolated"
+	}
+	if strings.TrimSpace(runMode) == schedule.RunModeNewSessionPerRun {
+		return schedule.RunModeNewSessionPerRun
+	}
+	return "in-session"
 }
 
 // normalizeMCPScheduleType keeps the MCP default as subtask so existing callers
@@ -133,15 +211,17 @@ func createMCPSessionPromptSchedule(ctx context.Context, client pb.AmuxdClient, 
 		return clientop.ScheduleCreateResult{}, err
 	}
 	return clientop.ScheduleCreateSessionPrompt(ctx, client, clientop.ScheduleCreateSessionPromptRequest{
-		Spec:        a.Spec,
-		Timezone:    a.Timezone,
-		Name:        a.Name,
-		TargetID:    resolved.Target.ID,
-		TargetName:  resolved.Target.Name,
-		SessionName: resolved.Session.Name,
-		Prompt:      a.Prompt,
-		RunMode:     a.RunMode,
-		CreatedBy:   "mcp",
+		Spec:           a.Spec,
+		Timezone:       a.Timezone,
+		Name:           a.Name,
+		TargetID:       resolved.Target.ID,
+		TargetName:     resolved.Target.Name,
+		SessionName:    resolved.Session.Name,
+		Prompt:         a.Prompt,
+		RunMode:        a.RunMode,
+		DeliveryTarget: a.DeliveryTarget,
+		DeliveryPolicy: a.DeliveryPolicy,
+		CreatedBy:      "mcp",
 	})
 }
 
@@ -221,9 +301,19 @@ string]any {
 	if item == nil {
 		return nil
 	}
-	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "state": scheduleItemState(item), "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "execution_mode": mcpScheduleExecutionMode(item.ScheduleType, item.RunMode), "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "state": scheduleItemState(item), "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
 	if item.Timezone != "" {
 		view["timezone"] = item.Timezone
+	}
+	if item.DeliveryTarget != "" {
+		view["delivery_target"] = item.DeliveryTarget
+	}
+	if item.DeliveryPolicy != "" {
+		view["delivery_policy"] = item.DeliveryPolicy
+	}
+	if item.CreatedAt > 0 {
+		view["created_at"] = item.CreatedAt
+		view["created_at_iso"] = mcpScheduleTimeISO(item.CreatedAt)
 	}
 	if item.NextRunAt > 0 {
 		view["next_run_at_iso"] = mcpScheduleTimeISO(item.NextRunAt)
@@ -252,9 +342,19 @@ string]any {
 	if item == nil {
 		return nil
 	}
-	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "state": scheduleItemState(item), "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
+	view := map[string]any{"id": item.Id, "name": item.Name, "schedule_type": item.ScheduleType, "execution_mode": mcpScheduleExecutionMode(item.ScheduleType, item.RunMode), "spec": item.Spec, "kind": item.Kind, "enabled": item.Enabled, "state": scheduleItemState(item), "next_run_at": item.NextRunAt, "last_run_at": item.LastRunAt, "last_status": item.LastStatus}
 	if item.Timezone != "" {
 		view["timezone"] = item.Timezone
+	}
+	if item.DeliveryTarget != "" {
+		view["delivery_target"] = item.DeliveryTarget
+	}
+	if item.DeliveryPolicy != "" {
+		view["delivery_policy"] = item.DeliveryPolicy
+	}
+	if item.CreatedAt > 0 {
+		view["created_at"] = item.CreatedAt
+		view["created_at_iso"] = mcpScheduleTimeISO(item.CreatedAt)
 	}
 	if item.NextRunAt > 0 {
 		view["next_run_at_iso"] = mcpScheduleTimeISO(item.NextRunAt)
@@ -370,6 +470,9 @@ func scheduleRunsMCPView(runs []*pb.ScheduleRun) []map[string]any {
 		if run.ResultSummary != "" {
 			row["result_summary"] = run.ResultSummary
 		}
+		if run.DeliveryStatus != "" {
+			row["delivery_status"] = run.DeliveryStatus
+		}
 		out = append(out, row)
 	}
 	return out
@@ -483,12 +586,14 @@ func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (
 		return mcp.ErrorText(err.Error()), nil
 	}
 	var a struct {
-		Name     *string         `json:"name"`
-		Spec     *string         `json:"spec"`
-		Timezone *string         `json:"timezone"`
-		Prompt   *string         `json:"prompt"`
-		RunMode  *string         `json:"run_mode"`
-		Task     json.RawMessage `json:"task"`
+		Name           *string         `json:"name"`
+		Spec           *string         `json:"spec"`
+		Timezone       *string         `json:"timezone"`
+		Prompt         *string         `json:"prompt"`
+		RunMode        *string         `json:"run_mode"`
+		DeliveryTarget *string         `json:"delivery_target"`
+		DeliveryPolicy *string         `json:"delivery_policy"`
+		Task           json.RawMessage `json:"task"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return mcp.ErrorText("invalid arguments: " + err.Error()), nil
@@ -504,18 +609,30 @@ func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (
 			return mcp.ErrorText(err.Error()), nil
 		}
 	}
+	if a.DeliveryTarget != nil {
+		if _, err := schedule.NormalizeDeliveryTarget(*a.DeliveryTarget); err != nil {
+			return mcp.ErrorText(err.Error()), nil
+		}
+	}
+	if a.DeliveryPolicy != nil {
+		if _, err := schedule.NormalizeDeliveryPolicy(*a.DeliveryPolicy); err != nil {
+			return mcp.ErrorText(err.Error()), nil
+		}
+	}
 	client, closeFn, err := newScheduleClientForMCP()
 	if err != nil {
 		return mcp.ErrorText(err.Error()), nil
 	}
 	defer closeFn()
 	req := clientop.ScheduleUpdateRequest{
-		ID:       id,
-		Name:     a.Name,
-		Spec:     a.Spec,
-		Timezone: a.Timezone,
-		Prompt:   a.Prompt,
-		RunMode:  a.RunMode,
+		ID:             id,
+		Name:           a.Name,
+		Spec:           a.Spec,
+		Timezone:       a.Timezone,
+		Prompt:         a.Prompt,
+		RunMode:        a.RunMode,
+		DeliveryTarget: a.DeliveryTarget,
+		DeliveryPolicy: a.DeliveryPolicy,
 	}
 	if trimmedTask := strings.TrimSpace(string(a.Task)); trimmedTask != "" && trimmedTask != "null" {
 		current, err := clientop.ScheduleGet(ctx, client, clientop.ScheduleIDRequest{ID: id})
@@ -552,6 +669,12 @@ func (h *mcpHandler) updateSchedule(ctx context.Context, args json.RawMessage) (
 	}
 	if out.Timezone != "" {
 		resp["timezone"] = out.Timezone
+	}
+	if out.DeliveryTarget != "" {
+		resp["delivery_target"] = out.DeliveryTarget
+	}
+	if out.DeliveryPolicy != "" {
+		resp["delivery_policy"] = out.DeliveryPolicy
 	}
 	return mcp.Text(toJSON(resp)), nil
 }
@@ -598,6 +721,7 @@ func (h *mcpHandler) triggerSchedule(ctx context.Context, args json.RawMessage) 
 	return mcp.Text(toJSON(res)), nil
 }
 var newScheduleClientForMCP = defaultScheduleClientForMCP
+var newScheduleSessionResolverForMCP = newSessionResolver
 
 func defaultScheduleClientForMCP() (pb.AmuxdClient, func() error, error) {
 	client, closeFn, err := newAmuxdClient()

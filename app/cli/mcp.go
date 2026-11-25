@@ -407,14 +407,16 @@ const mcpProfileListPageSize = 10
 // fleet isolation is active; non-isolated fleets accept valid agent credentials.
 
 type mcpCreateScheduleArgs struct {
-	Name         string                     `json:"name"`
-	Spec         string                     `json:"spec"`
-	Timezone     string                     `json:"timezone"`
-	ScheduleType string                     `json:"schedule_type"`
-	Session      string                     `json:"session"`
-	Prompt       string                     `json:"prompt"`
-	RunMode      string                     `json:"run_mode"`
-	Task         clientop.ScheduledTaskSpec `json:"task"`
+	Name           string                     `json:"name"`
+	Spec           string                     `json:"spec"`
+	Timezone       string                     `json:"timezone"`
+	ScheduleType   string                     `json:"schedule_type"`
+	Session        string                     `json:"session"`
+	Prompt         string                     `json:"prompt"`
+	RunMode        string                     `json:"run_mode"`
+	DeliveryTarget string                     `json:"delivery_target"`
+	DeliveryPolicy string                     `json:"delivery_policy"`
+	Task           clientop.ScheduledTaskSpec `json:"task"`
 }
 
 // mcpScheduleFieldNames renders clientop validation errors in JSON-path
@@ -435,6 +437,8 @@ var mcpScheduleFieldNames = map[clientop.Field]string{
 	clientop.FieldPrompt:            "prompt",
 	clientop.FieldScheduleType:      "schedule_type",
 	clientop.FieldRunMode:           "run_mode",
+	clientop.FieldDeliveryTarget:    "delivery_target",
+	clientop.FieldDeliveryPolicy:    "delivery_policy",
 	clientop.FieldTargetID:          "target_id",
 	clientop.FieldScheduledSession:  "session_name",
 	clientop.FieldSessionName:       "session",
@@ -672,6 +676,14 @@ func amuxTools() []mcp.Tool {
 		text := commandCatalog.Text(key)
 		scheduledTaskInput["properties"].(map[string]any)[field].(map[string]any)["description"] = text.For(i18n.English) + "\n" + text.For(i18n.Chinese)
 	}
+	// Inside a live Session (AMUX_SESSION_ID set), schedule_create deterministically
+	// inherits the current Session's Agent Profile and model when task.agent is omitted.
+	scheduledTaskInput["required"] = []string{"task"}
+	if props, ok := scheduledTaskInput["properties"].(map[string]any); ok {
+		if agentProp, ok := props["agent"].(map[string]any); ok {
+			agentProp["description"] = "Agent Profile 引用（取自 amux.profile_list 的 profiles[].ref）；在当前会话内创建时可省略，默认自动继承当前会话的 Agent Profile 与模型"
+		}
+	}
 	scheduledTaskSchemaBytes, err := json.Marshal(scheduledTaskInput)
 	if err != nil {
 		// A schema that cannot be built means the tool surface would advertise
@@ -694,10 +706,12 @@ func amuxTools() []mcp.Tool {
     "name": {"type": "string", "description": "Schedule 的可选显示名称"},
     "spec": {"type": "string", "description": "时间规则：every <duration>（支持 d/w）、daily <HH:MM>、at <when>、in <duration>（相对一次性）或 cron <expr>（支持 @daily 等描述符）"},
     "timezone": {"type": "string", "description": "可选 IANA 时区名称（例如 Asia/Shanghai）；省略时使用 Hub 本地时区"},
-    "schedule_type": {"type": "string", "enum": ["subtask", "session-prompt"], "description": "subtask（默认）创建临时子 Task；session-prompt 到期向目标 Session Submit 提示词并唤醒 Agent"},
+    "schedule_type": {"type": "string", "enum": ["subtask", "session-prompt"], "description": "subtask（默认，推荐用于大多数定时任务）：每次隔离执行临时子 Task，自动继承当前会话的 Agent/模型（未显式指定时），结果按 delivery_target/delivery_policy 主动送达；session-prompt：向目标 Session Submit 提示词并唤醒 Agent（适合依赖当前会话上下文的后续跟进）"},
     "session": {"type": "string", "description": "schedule_type=session-prompt 时的目标 session-ref（与 CLI amux schedule create <session-ref> 相同：target/name、Session ID 或名称）；省略时回落到 AMUX_SESSION_ID"},
     "prompt": {"type": "string", "description": "schedule_type=session-prompt 时到期投递到目标 Session 的提示词"},
-    "run_mode": {"type": "string", "enum": ["reuse-session", "new-session-per-run"], "description": "仅 session-prompt：reuse-session（默认）复用目标 Session；new-session-per-run 每次按模板新开 Session"},
+    "run_mode": {"type": "string", "enum": ["reuse-session", "new-session-per-run"], "description": "仅 session-prompt：reuse-session（默认）复用目标 Session 延续对话上下文；new-session-per-run（旧版兼容）每次按模板新开 Session"},
+    "delivery_target": {"type": "string", "enum": ["none", "origin", "creator_dm"], "description": "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、creator_dm（私聊创建者）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin"},
+    "delivery_policy": {"type": "string", "enum": ["always", "on_failure", "on_non_empty"], "description": "结果主动投递策略（delivery_target 非 none 时生效）：always（默认，每次终态都推送）、on_failure（仅失败或超时推送）、on_non_empty（仅失败或产出非静默内容时推送，忽略空内容/NO_ALERT/SILENT/HEARTBEAT_OK）"},
     "task": ` + string(scheduledTaskSchema) + `
   },
   "required": ["spec"]
@@ -713,6 +727,8 @@ func amuxTools() []mcp.Tool {
     "timezone": {"type": "string", "description": "新的 IANA 时区名称（例如 Asia/Shanghai，传空字符串回落 Hub 本地时区）；省略时保持不变"},
     "prompt": {"type": "string", "description": "仅 session-prompt：更新到期投递到目标 Session 的提示词；省略时保持不变"},
     "run_mode": {"type": "string", "enum": ["reuse-session", "new-session-per-run"], "description": "仅 session-prompt：更新执行模式（reuse-session 或 new-session-per-run）；省略时保持不变"},
+    "delivery_target": {"type": "string", "enum": ["none", "origin", "creator_dm"], "description": "更新结果主动投递目标（none、origin 或 creator_dm）；省略时保持不变"},
+    "delivery_policy": {"type": "string", "enum": ["always", "on_failure", "on_non_empty"], "description": "更新结果主动投递策略（always、on_failure 或 on_non_empty）；省略时保持不变"},
     "task": ` + string(updateTaskSchemaBytes) + `
   },
   "required": ["schedule_id"]
@@ -937,11 +953,11 @@ func amuxTools() []mcp.Tool {
 		{Name: "amux.task_respond_permission", Description: "应答 escalate-to-main Task 上抛的权限请求。", InputSchema: respondSchema},
 		{Name: "amux.task_list", Description: "列出调用方可见的 Agent Task 及状态、session_ref 和可用结果。", InputSchema: empty},
 		{Name: "amux.task_prune", Description: "清理终态 Task 历史；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent。", InputSchema: taskPruneSchema},
-		{Name: "amux.schedule_create", Description: "创建 hub 定时规则。默认 schedule_type=subtask（临时子 Task，结果用 task_get/task_stream，不允许 escalate-to-main）；schedule_type=session-prompt 时向目标 Session（显式 session 参数为 session-ref，或回落 AMUX_SESSION_ID）Submit 提示词并唤醒 Agent。", InputSchema: createScheduleSchema},
-		{Name: "amux.schedule_list", Description: "分页列出 Schedule；沿 next_cursor 读取至 has_more=false。", InputSchema: scheduleListSchema},
+		{Name: "amux.schedule_create", Description: "创建 hub 定时规则。默认 schedule_type=subtask（推荐用于大多数定时任务：每次隔离运行临时子 Task，自动继承当前会话的 Agent 与模型，不允许 escalate-to-main；在飞书会话内省略 delivery_target 时自动投递回来源话题 origin，也可用 delivery_policy 控制 always/on_failure/on_non_empty）；仅需延续当前对话上下文时使用 schedule_type=session-prompt（默认 reuse-session，向目标 Session Submit 提示词并唤醒 Agent）。创建成功后请立即回复用户，不要在当前回合等待首次触发。", InputSchema: createScheduleSchema},
+		{Name: "amux.schedule_list", Description: "分页列出 Schedule（含 created_at_iso 与投递设置；勿将更早或其他话题已完成的同名历史任务误当作本次新建）；沿 next_cursor 读取至 has_more=false。", InputSchema: scheduleListSchema},
 		{Name: "amux.schedule_get", Description: "获取 Schedule；include_runs=true 时包含运行历史及 task_id。", InputSchema: getScheduleSchema},
 		{Name: "amux.schedule_delete", Description: "删除 Schedule；既有运行对应的 Task 结果仍可读取。", InputSchema: scheduleIDSchema},
-		{Name: "amux.schedule_update", Description: "原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。", InputSchema: updateScheduleSchema},
+		{Name: "amux.schedule_update", Description: "原地更新 Schedule 的名称、时间规则、时区、结果投递设置（delivery_target/delivery_policy）、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。", InputSchema: updateScheduleSchema},
 		{Name: "amux.schedule_set_enabled", Description: "启用或停用 Schedule。", InputSchema: setScheduleEnabledSchema},
 		{Name: "amux.schedule_trigger", Description: "立即手动触发一次 Schedule（不影响其启停状态与下次计划触发时间）。", InputSchema: scheduleIDSchema},
 		{Name: "amux.instance_spawn", Description: "非阻塞创建持久 Agent Instance（后台实例），返回稳定的 agent_instance_id。适用于你判断需要较长时间执行或大量工具调用的任务；短问题直接回答，不要委派。prompt 要自包含：写清目标、约束、交付物，并要求后台 Agent 结束时给出一段简洁的、面向用户的结论（放在最终回复末尾，可用「结论：」开头），不要把工作过程当作结论。调用后简短告诉用户已在后台开始，并继续响应用户的新消息；记住 agent_instance_id 与任务的对应关系，但对用户用自然语言描述任务，不要展示原始 id。任务结束时系统会自动向你送达一条「后台任务完成」通知，无需轮询或反复调用 task_get。", InputSchema: spawnAgentSchema},

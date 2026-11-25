@@ -37,13 +37,13 @@ Official `tools/list` tools: **52**.
 | `amux.profile_get` | Get complete Agent Profile details by exact ref, including development namespaces. |
 | `amux.profile_list` | List non-development Agent Profiles with pagination. Submit tasks using profiles[].ref and fetch details with profile_get. Follow next_cursor until has_more=false. |
 | `amux.result_continue` | Continue reading a paginated result. Concatenate content_chunk values in order until complete=true. Cursors are short-lived and valid only in the current MCP process. |
-| `amux.schedule_create` | Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use task_get/task_stream for results; escalate-to-main is not allowed). With schedule_type=session-prompt, Submit a prompt into the target Session (explicit session session-ref parameter, or AMUX_SESSION_ID fallback) and wake the Agent. |
+| `amux.schedule_create` | Create a Hub schedule. Default schedule_type=subtask (recommended for most schedules: runs an isolated ephemeral child Task each fire, inherits the current Session's Agent and model when omitted, escalate-to-main is not allowed; in Feishu chats, omitting delivery_target defaults to origin, with delivery_policy always/on_failure/on_non_empty). Use schedule_type=session-prompt (default reuse-session) only when continuing the target Session's conversation context. Reply to the user immediately after creation without waiting for the first fire. |
 | `amux.schedule_delete` | Delete a Schedule. Task results from existing runs remain readable. |
 | `amux.schedule_get` | Get a Schedule; include_runs=true includes run history and task_id values. |
-| `amux.schedule_list` | List Schedules with pagination. Follow next_cursor until has_more=false. |
+| `amux.schedule_list` | List Schedules with pagination (includes created_at_iso and delivery settings; do not mistake an older completed schedule from another thread for a newly requested one); follow next_cursor until has_more=false. |
 | `amux.schedule_set_enabled` | Enable or disable a Schedule. |
 | `amux.schedule_trigger` | Trigger a Schedule immediately once without changing its enabled state or next scheduled run time. |
-| `amux.schedule_update` | Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial subtask Task fields in place. Omitted fields remain unchanged. escalate-to-main is not allowed. |
+| `amux.schedule_update` | Update a Schedule in place: name, spec, timezone, result delivery (delivery_target/delivery_policy), session-prompt prompt/run_mode, or partial subtask Task fields; omitted fields remain unchanged, and escalate-to-main is not allowed. |
 | `amux.session_interrupt` | Interrupt the current Session turn. |
 | `amux.session_list` | List caller-visible Sessions grouped by Runtime. Do not call this before creating a Session: first call session_run without target, and use this tool to choose only if it reports multiple targets. |
 | `amux.session_prune` | Destructive operation: permanently delete archived Sessions. Only the enrollment operator may use it in isolated clusters; delegated agents may use it in non-isolated clusters. Use task_prune for Task history. |
@@ -967,13 +967,31 @@ Continue reading a paginated result. Concatenate content_chunk values in order u
 
 ## `amux.schedule_create`
 
-Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use task_get/task_stream for results; escalate-to-main is not allowed). With schedule_type=session-prompt, Submit a prompt into the target Session (explicit session session-ref parameter, or AMUX_SESSION_ID fallback) and wake the Agent.
+Create a Hub schedule. Default schedule_type=subtask (recommended for most schedules: runs an isolated ephemeral child Task each fire, inherits the current Session's Agent and model when omitted, escalate-to-main is not allowed; in Feishu chats, omitting delivery_target defaults to origin, with delivery_policy always/on_failure/on_non_empty). Use schedule_type=session-prompt (default reuse-session) only when continuing the target Session's conversation context. Reply to the user immediately after creation without waiting for the first fire.
 
 **Input JSON Schema**
 
 ```json
 {
   "properties": {
+    "delivery_policy": {
+      "description": "Proactive result delivery policy (applies when delivery_target is not none): always (default, push every terminal run), on_failure (push only on failure or timeout), or on_non_empty (push on failure or non-silent output, suppressing empty/NO_ALERT/SILENT/HEARTBEAT_OK)",
+      "enum": [
+        "always",
+        "on_failure",
+        "on_non_empty"
+      ],
+      "type": "string"
+    },
+    "delivery_target": {
+      "description": "Proactive result delivery target: origin (reply back to the originating Feishu chat/thread; auto-default for Feishu subtask schedules when omitted), creator_dm (DM the schedule creator), or none (record only without proactive push). Note: origin is disallowed for session-prompt + reuse-session",
+      "enum": [
+        "none",
+        "origin",
+        "creator_dm"
+      ],
+      "type": "string"
+    },
     "name": {
       "description": "Optional Schedule display name",
       "type": "string"
@@ -983,7 +1001,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
       "type": "string"
     },
     "run_mode": {
-      "description": "session-prompt only: reuse-session (default) reuses the target Session; new-session-per-run starts a new Session from the template each fire",
+      "description": "session-prompt only: reuse-session (default) reuses the target Session to retain conversation context; new-session-per-run (legacy compatibility) starts a new Session from the template each fire",
       "enum": [
         "reuse-session",
         "new-session-per-run"
@@ -991,7 +1009,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
       "type": "string"
     },
     "schedule_type": {
-      "description": "subtask (default) creates an ephemeral child Task; session-prompt Submit-s a prompt into the target Session on fire and wakes the Agent",
+      "description": "subtask (default, recommended for most schedules): runs an isolated ephemeral child Task each fire, inheriting the current Session's Agent/model when omitted, with proactive delivery controlled by delivery_target/delivery_policy; session-prompt: Submits a prompt into the target Session and wakes the Agent (for follow-ups needing conversation history)",
       "enum": [
         "subtask",
         "session-prompt"
@@ -1009,7 +1027,7 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
     "task": {
       "properties": {
         "agent": {
-          "description": "Agent Profile ref from amux.profile_list profiles[].ref, such as builtin/codex or team/push_sre; raw Agent Type strings are supported only for legacy callers",
+          "description": "Agent Profile ref from amux.profile_list profiles[].ref; optional when called inside a live Session (automatically inherits the current Session's Agent Profile and model)",
           "type": "string"
         },
         "credential_profile": {
@@ -1105,7 +1123,6 @@ Create a Hub schedule. Default schedule_type=subtask (ephemeral child Task; use 
         }
       },
       "required": [
-        "agent",
         "task"
       ],
       "type": "object"
@@ -1168,7 +1185,7 @@ Get a Schedule; include_runs=true includes run history and task_id values.
 
 ## `amux.schedule_list`
 
-List Schedules with pagination. Follow next_cursor until has_more=false.
+List Schedules with pagination (includes created_at_iso and delivery settings; do not mistake an older completed schedule from another thread for a newly requested one); follow next_cursor until has_more=false.
 
 **Input JSON Schema**
 
@@ -1230,13 +1247,31 @@ Trigger a Schedule immediately once without changing its enabled state or next s
 
 ## `amux.schedule_update`
 
-Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial subtask Task fields in place. Omitted fields remain unchanged. escalate-to-main is not allowed.
+Update a Schedule in place: name, spec, timezone, result delivery (delivery_target/delivery_policy), session-prompt prompt/run_mode, or partial subtask Task fields; omitted fields remain unchanged, and escalate-to-main is not allowed.
 
 **Input JSON Schema**
 
 ```json
 {
   "properties": {
+    "delivery_policy": {
+      "description": "Updated proactive result delivery policy (always, on_failure, or on_non_empty); omitted means unchanged",
+      "enum": [
+        "always",
+        "on_failure",
+        "on_non_empty"
+      ],
+      "type": "string"
+    },
+    "delivery_target": {
+      "description": "Updated proactive result delivery target (none, origin, or creator_dm); omitted means unchanged",
+      "enum": [
+        "none",
+        "origin",
+        "creator_dm"
+      ],
+      "type": "string"
+    },
     "name": {
       "description": "New Schedule display name; omitted means unchanged",
       "type": "string"
@@ -1263,7 +1298,7 @@ Update a Schedule's name, time rule, session-prompt prompt/run_mode, or partial 
     "task": {
       "properties": {
         "agent": {
-          "description": "Agent Profile ref from amux.profile_list profiles[].ref, such as builtin/codex or team/push_sre; raw Agent Type strings are supported only for legacy callers",
+          "description": "Agent Profile ref from amux.profile_list profiles[].ref; optional when called inside a live Session (automatically inherits the current Session's Agent Profile and model)",
           "type": "string"
         },
         "credential_profile": {

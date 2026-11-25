@@ -44,6 +44,8 @@ func newScheduleCreateCmd() *cobra.Command {
 	var name string
 	var runMode string
 	var timezone string
+	var deliveryTarget string
+	var deliveryPolicy string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:   "create <session-ref> <spec> <prompt>",
 		Short: "Create a scheduled prompt",
@@ -77,15 +79,17 @@ func newScheduleCreateCmd() *cobra.Command {
 			defer closeClient()
 
 			result, err := clientop.ScheduleCreateSessionPrompt(ctx, client, clientop.ScheduleCreateSessionPromptRequest{
-				TargetID:    resolved.Target.ID,
-				TargetName:  resolved.Target.Name,
-				SessionName: resolved.Session.Name,
-				Spec:        args[1],
-				Timezone:    timezone,
-				RunMode:     runMode,
-				Prompt:      args[2],
-				Name:        name,
-				CreatedBy:   "cli",
+				TargetID:       resolved.Target.ID,
+				TargetName:     resolved.Target.Name,
+				SessionName:    resolved.Session.Name,
+				Spec:           args[1],
+				Timezone:       timezone,
+				RunMode:        runMode,
+				DeliveryTarget: deliveryTarget,
+				DeliveryPolicy: deliveryPolicy,
+				Prompt:         args[2],
+				Name:           name,
+				CreatedBy:      "cli",
 			})
 			if err != nil {
 				return fmt.Errorf("create schedule: %s", cliScheduleCreateError(err))
@@ -95,11 +99,18 @@ func newScheduleCreateCmd() *cobra.Command {
 				next = time.Unix(result.NextRunAt, 0).Format("2006-01-02 15:04")
 			}
 			if jsonOutputEnabled(cmd) {
-				return printJSON(cmd.OutOrStdout(), map[string]any{
+				payload := map[string]any{
 					"schema":      "amux.schedule.create.v1",
 					"schedule_id": result.ID,
 					"next_run_at": result.NextRunAt,
-				})
+				}
+				if result.DeliveryTarget != "" {
+					payload["delivery_target"] = result.DeliveryTarget
+				}
+				if result.DeliveryPolicy != "" {
+					payload["delivery_policy"] = result.DeliveryPolicy
+				}
+				return printJSON(cmd.OutOrStdout(), payload)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "created schedule #%d (next run: %s)\n", result.ID, next)
 			return nil
@@ -108,9 +119,13 @@ func newScheduleCreateCmd() *cobra.Command {
 	c.Flags().StringVar(&name, "name", "", "optional label for the schedule")
 	c.Flags().StringVar(&runMode, "run-mode", schedule.RunModeReuseSession, "execution mode: reuse-session or new-session-per-run")
 	c.Flags().StringVar(&timezone, "timezone", "", "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)")
+	c.Flags().StringVar(&deliveryTarget, "delivery-target", "", "result delivery target: none | origin | creator_dm")
+	c.Flags().StringVar(&deliveryPolicy, "delivery-policy", "", "result delivery policy: always | on_failure | on_non_empty")
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("run-mode", completeScheduleRunModes)
 	_ = c.RegisterFlagCompletionFunc("timezone", completeNoFiles)
+	_ = c.RegisterFlagCompletionFunc("delivery-target", completeScheduleDeliveryTargets)
+	_ = c.RegisterFlagCompletionFunc("delivery-policy", completeScheduleDeliveryPolicies)
 	return c
 }
 
@@ -150,6 +165,8 @@ var cliScheduleFieldNames = map[clientop.Field]string{
 	clientop.FieldPermissionPolicy:  "permission policy",
 	clientop.FieldWorkspaceLocalDir: "--local-dir",
 	clientop.FieldRepoCacheKey:      "--repo-cache-key",
+	clientop.FieldDeliveryTarget:    "--delivery-target",
+	clientop.FieldDeliveryPolicy:    "--delivery-policy",
 }
 
 func (f scheduleTaskFlags) clientopSpec() clientop.ScheduledTaskSpec {
@@ -212,6 +229,8 @@ func cliScheduleValidationMessage(err *clientop.FieldError) string {
 func newScheduleCreateTaskCmd() *cobra.Command {
 	flags := scheduleTaskFlags{workspacePolicy: string(task.WorkspaceTempDir)}
 	var timezone string
+	var deliveryTarget string
+	var deliveryPolicy string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:   "create-task <spec>",
 		Short: "Create a scheduled subtask",
@@ -224,7 +243,15 @@ func newScheduleCreateTaskCmd() *cobra.Command {
 				return err
 			}
 			defer closeClient()
-			result, err := clientop.ScheduleCreateTask(cmdContext(cmd), client, clientop.ScheduleCreateTaskRequest{Spec: args[0], Timezone: timezone, Name: flags.name, CreatedBy: "cli", Task: flags.clientopSpec()})
+			result, err := clientop.ScheduleCreateTask(cmdContext(cmd), client, clientop.ScheduleCreateTaskRequest{
+				Spec:           args[0],
+				Timezone:       timezone,
+				Name:           flags.name,
+				DeliveryTarget: deliveryTarget,
+				DeliveryPolicy: deliveryPolicy,
+				CreatedBy:      "cli",
+				Task:           flags.clientopSpec(),
+			})
 			if err != nil {
 				return fmt.Errorf("create scheduled subtask: %s", cliScheduleCreateError(err))
 			}
@@ -233,11 +260,18 @@ func newScheduleCreateTaskCmd() *cobra.Command {
 				next = time.Unix(result.NextRunAt, 0).Format("2006-01-02 15:04")
 			}
 			if jsonOutputEnabled(cmd) {
-				return printJSON(cmd.OutOrStdout(), map[string]any{
+				payload := map[string]any{
 					"schema":      "amux.schedule.create.v1",
 					"schedule_id": result.ID,
 					"next_run_at": result.NextRunAt,
-				})
+				}
+				if result.DeliveryTarget != "" {
+					payload["delivery_target"] = result.DeliveryTarget
+				}
+				if result.DeliveryPolicy != "" {
+					payload["delivery_policy"] = result.DeliveryPolicy
+				}
+				return printJSON(cmd.OutOrStdout(), payload)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "created scheduled subtask #%d (next run: %s)\n", result.ID, next)
 			return nil
@@ -245,10 +279,14 @@ func newScheduleCreateTaskCmd() *cobra.Command {
 	})
 	c.Flags().StringVar(&flags.name, "name", "", "optional label for the schedule")
 	c.Flags().StringVar(&timezone, "timezone", "", "optional IANA timezone for evaluating the schedule (for example: Asia/Shanghai)")
+	c.Flags().StringVar(&deliveryTarget, "delivery-target", "", "result delivery target: none | origin | creator_dm")
+	c.Flags().StringVar(&deliveryPolicy, "delivery-policy", "", "result delivery policy: always | on_failure | on_non_empty")
 	registerScheduleTaskFlags(c, &flags)
 	registerScheduleTaskFlagCompletions(c)
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("timezone", completeNoFiles)
+	_ = c.RegisterFlagCompletionFunc("delivery-target", completeScheduleDeliveryTargets)
+	_ = c.RegisterFlagCompletionFunc("delivery-policy", completeScheduleDeliveryPolicies)
 	return c
 }
 
@@ -415,13 +453,14 @@ func (f scheduleTaskFlags) applyChangedFlags(cmd *cobra.Command, dst *clientop.S
 
 func newScheduleUpdateCmd() *cobra.Command {
 	flags := scheduleTaskFlags{workspacePolicy: string(task.WorkspaceTempDir)}
-	var name, spec, timezone, prompt, runMode string
+	var name, spec, timezone, prompt, runMode, deliveryTarget, deliveryPolicy string
 	c := supportsJSONOutput(&cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a scheduled prompt or subtask in place",
 		Example: `  amux schedule update 8 --name nightly-report
   amux schedule update 8 --spec "daily 09:00" --timezone Asia/Shanghai
   amux schedule update 8 --prompt "summarize blockers" --run-mode new-session-per-run
+  amux schedule update 8 --delivery-target origin --delivery-policy on_non_empty
   amux schedule update 8 --agent builtin/codex --task "run smoke tests"
   amux schedule update 8 --timeout 600 --reasoning-effort high`,
 		Args:              cobra.ExactArgs(1),
@@ -446,6 +485,12 @@ func newScheduleUpdateCmd() *cobra.Command {
 			}
 			if cmd.Flags().Changed("run-mode") {
 				req.RunMode = &runMode
+			}
+			if cmd.Flags().Changed("delivery-target") {
+				req.DeliveryTarget = &deliveryTarget
+			}
+			if cmd.Flags().Changed("delivery-policy") {
+				req.DeliveryPolicy = &deliveryPolicy
 			}
 			ctx := cmdContext(cmd)
 			client, closeClient, err := newScheduleClient()
@@ -477,14 +522,21 @@ func newScheduleUpdateCmd() *cobra.Command {
 				return err
 			}
 			if jsonOutputEnabled(cmd) {
-				return printJSON(cmd.OutOrStdout(), map[string]any{
+				payload := map[string]any{
 					"schema":      "amux.schedule.update.v1",
 					"schedule_id": out.ID,
 					"name":        out.Name,
 					"spec":        out.Spec,
 					"timezone":    out.Timezone,
 					"next_run_at": out.NextRunAt,
-				})
+				}
+				if out.DeliveryTarget != "" {
+					payload["delivery_target"] = out.DeliveryTarget
+				}
+				if out.DeliveryPolicy != "" {
+					payload["delivery_policy"] = out.DeliveryPolicy
+				}
+				return printJSON(cmd.OutOrStdout(), payload)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "updated schedule #%d", out.ID)
 			if out.NextRunAt > 0 {
@@ -499,6 +551,8 @@ func newScheduleUpdateCmd() *cobra.Command {
 	c.Flags().StringVar(&timezone, "timezone", "", "new IANA timezone for evaluating the schedule (empty uses hub local time)")
 	c.Flags().StringVar(&prompt, "prompt", "", "new prompt for a session-prompt schedule")
 	c.Flags().StringVar(&runMode, "run-mode", "", "new execution mode for a session-prompt schedule: reuse-session or new-session-per-run")
+	c.Flags().StringVar(&deliveryTarget, "delivery-target", "", "new result delivery target: none | origin | creator_dm")
+	c.Flags().StringVar(&deliveryPolicy, "delivery-policy", "", "new result delivery policy: always | on_failure | on_non_empty")
 	registerScheduleTaskFlags(c, &flags)
 	registerScheduleTaskFlagCompletions(c)
 	_ = c.RegisterFlagCompletionFunc("name", completeNoFiles)
@@ -506,6 +560,8 @@ func newScheduleUpdateCmd() *cobra.Command {
 	_ = c.RegisterFlagCompletionFunc("timezone", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("prompt", completeNoFiles)
 	_ = c.RegisterFlagCompletionFunc("run-mode", completeScheduleRunModes)
+	_ = c.RegisterFlagCompletionFunc("delivery-target", completeScheduleDeliveryTargets)
+	_ = c.RegisterFlagCompletionFunc("delivery-policy", completeScheduleDeliveryPolicies)
 	return c
 }
 func newScheduleRunsCmd() *cobra.Command {
@@ -548,7 +604,7 @@ func newScheduleRunsCmd() *cobra.Command {
 				return nil
 			}
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "FIRED_AT\tSOURCE\tTASK_ID\tSTATUS\tREASON")
+			fmt.Fprintln(w, "FIRED_AT\tSOURCE\tTASK_ID\tSTATUS\tDELIVERY\tREASON")
 			for _, run := range item.Runs {
 				if run == nil {
 					continue
@@ -557,7 +613,7 @@ func newScheduleRunsCmd() *cobra.Command {
 				if src == "" {
 					src = schedule.TriggerSourceScheduled
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", fmtUnix(run.FiredAt), src, dashIfEmpty(run.TaskId), dashIfEmpty(run.Status), dashIfEmpty(run.Reason))
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", fmtUnix(run.FiredAt), src, dashIfEmpty(run.TaskId), dashIfEmpty(run.Status), dashIfEmpty(run.DeliveryStatus), dashIfEmpty(run.Reason))
 			}
 			return w.Flush()
 		},

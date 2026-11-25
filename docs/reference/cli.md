@@ -1554,6 +1554,8 @@ amux schedule create local/c1 "every 30m" "/daily-report run"
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
+| `--delivery-policy` | `string` | `""` | result delivery policy: always \| on_failure \| on_non_empty |
+| `--delivery-target` | `string` | `""` | result delivery target: none \| origin \| creator_dm |
 | `-h, --help` | `bool` | `false` | help for create |
 | `--name` | `string` | `""` | optional label for the schedule |
 | `--run-mode` | `string` | `reuse-session` | execution mode: reuse-session or new-session-per-run |
@@ -1583,6 +1585,8 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `--agent` | `string` | `""` | agent profile ref or legacy agent type to run |
 | `--arg` | `stringArray` | `[]` | native agent argument (repeatable) |
 | `--credential-profile` | `string` | `""` | credential profile name (control-plane resolved) |
+| `--delivery-policy` | `string` | `""` | result delivery policy: always \| on_failure \| on_non_empty |
+| `--delivery-target` | `string` | `""` | result delivery target: none \| origin \| creator_dm |
 | `-h, --help` | `bool` | `false` | help for create-task |
 | `--isolation` | `string` | `""` | isolation: process \| private-home (default process) |
 | `--local-dir` | `string` | `""` | target-local working directory override |
@@ -1715,6 +1719,7 @@ amux schedule update <id> [flags]
 amux schedule update 8 --name nightly-report
   amux schedule update 8 --spec "daily 09:00" --timezone Asia/Shanghai
   amux schedule update 8 --prompt "summarize blockers" --run-mode new-session-per-run
+  amux schedule update 8 --delivery-target origin --delivery-policy on_non_empty
   amux schedule update 8 --agent builtin/codex --task "run smoke tests"
   amux schedule update 8 --timeout 600 --reasoning-effort high
 ```
@@ -1726,6 +1731,8 @@ amux schedule update 8 --name nightly-report
 | `--agent` | `string` | `""` | agent profile ref or legacy agent type to run |
 | `--arg` | `stringArray` | `[]` | native agent argument (repeatable) |
 | `--credential-profile` | `string` | `""` | credential profile name (control-plane resolved) |
+| `--delivery-policy` | `string` | `""` | new result delivery policy: always \| on_failure \| on_non_empty |
+| `--delivery-target` | `string` | `""` | new result delivery target: none \| origin \| creator_dm |
 | `-h, --help` | `bool` | `false` | help for update |
 | `--isolation` | `string` | `""` | isolation: process \| private-home (default process) |
 | `--local-dir` | `string` | `""` | target-local working directory override |

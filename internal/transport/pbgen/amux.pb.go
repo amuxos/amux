@@ -13729,27 +13729,30 @@ func (x *CleanupAgentInstanceResponse) GetOk() bool {
 }
 
 type ScheduleItem struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	ScheduleType  string                 `protobuf:"bytes,3,opt,name=schedule_type,json=scheduleType,proto3" json:"schedule_type,omitempty"`
-	TargetId      string                 `protobuf:"bytes,4,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
-	TargetName    string                 `protobuf:"bytes,5,opt,name=target_name,json=targetName,proto3" json:"target_name,omitempty"`
-	SessionName   string                 `protobuf:"bytes,6,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
-	Spec          string                 `protobuf:"bytes,7,opt,name=spec,proto3" json:"spec,omitempty"`
-	Kind          string                 `protobuf:"bytes,8,opt,name=kind,proto3" json:"kind,omitempty"`
-	RunMode       string                 `protobuf:"bytes,9,opt,name=run_mode,json=runMode,proto3" json:"run_mode,omitempty"`
-	Prompt        string                 `protobuf:"bytes,10,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	TaskSpecJson  []byte                 `protobuf:"bytes,11,opt,name=task_spec_json,json=taskSpecJson,proto3" json:"task_spec_json,omitempty"`
-	Enabled       bool                   `protobuf:"varint,12,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	NextRunAt     int64                  `protobuf:"varint,13,opt,name=next_run_at,json=nextRunAt,proto3" json:"next_run_at,omitempty"`
-	LastRunAt     int64                  `protobuf:"varint,14,opt,name=last_run_at,json=lastRunAt,proto3" json:"last_run_at,omitempty"`
-	LastStatus    string                 `protobuf:"bytes,15,opt,name=last_status,json=lastStatus,proto3" json:"last_status,omitempty"`
-	Runs          []*ScheduleRun         `protobuf:"bytes,16,rep,name=runs,proto3" json:"runs,omitempty"`
-	Timezone      string                 `protobuf:"bytes,17,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	State         string                 `protobuf:"bytes,18,opt,name=state,proto3" json:"state,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	ScheduleType   string                 `protobuf:"bytes,3,opt,name=schedule_type,json=scheduleType,proto3" json:"schedule_type,omitempty"`
+	TargetId       string                 `protobuf:"bytes,4,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
+	TargetName     string                 `protobuf:"bytes,5,opt,name=target_name,json=targetName,proto3" json:"target_name,omitempty"`
+	SessionName    string                 `protobuf:"bytes,6,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
+	Spec           string                 `protobuf:"bytes,7,opt,name=spec,proto3" json:"spec,omitempty"`
+	Kind           string                 `protobuf:"bytes,8,opt,name=kind,proto3" json:"kind,omitempty"`
+	RunMode        string                 `protobuf:"bytes,9,opt,name=run_mode,json=runMode,proto3" json:"run_mode,omitempty"`
+	Prompt         string                 `protobuf:"bytes,10,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	TaskSpecJson   []byte                 `protobuf:"bytes,11,opt,name=task_spec_json,json=taskSpecJson,proto3" json:"task_spec_json,omitempty"`
+	Enabled        bool                   `protobuf:"varint,12,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	NextRunAt      int64                  `protobuf:"varint,13,opt,name=next_run_at,json=nextRunAt,proto3" json:"next_run_at,omitempty"`
+	LastRunAt      int64                  `protobuf:"varint,14,opt,name=last_run_at,json=lastRunAt,proto3" json:"last_run_at,omitempty"`
+	LastStatus     string                 `protobuf:"bytes,15,opt,name=last_status,json=lastStatus,proto3" json:"last_status,omitempty"`
+	Runs           []*ScheduleRun         `protobuf:"bytes,16,rep,name=runs,proto3" json:"runs,omitempty"`
+	Timezone       string                 `protobuf:"bytes,17,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	State          string                 `protobuf:"bytes,18,opt,name=state,proto3" json:"state,omitempty"`
+	DeliveryTarget string                 `protobuf:"bytes,19,opt,name=delivery_target,json=deliveryTarget,proto3" json:"delivery_target,omitempty"`
+	DeliveryPolicy string                 `protobuf:"bytes,20,opt,name=delivery_policy,json=deliveryPolicy,proto3" json:"delivery_policy,omitempty"`
+	CreatedAt      int64                  `protobuf:"varint,21,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ScheduleItem) Reset() {
@@ -13908,23 +13911,45 @@ func (x *ScheduleItem) GetState() string {
 	return ""
 }
 
+func (x *ScheduleItem) GetDeliveryTarget() string {
+	if x != nil {
+		return x.DeliveryTarget
+	}
+	return ""
+}
+
+func (x *ScheduleItem) GetDeliveryPolicy() string {
+	if x != nil {
+		return x.DeliveryPolicy
+	}
+	return ""
+}
+
+func (x *ScheduleItem) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
 type ScheduleRun struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	ScheduleId    int64                  `protobuf:"varint,2,opt,name=schedule_id,json=scheduleId,proto3" json:"schedule_id,omitempty"`
-	FiredAt       int64                  `protobuf:"varint,3,opt,name=fired_at,json=firedAt,proto3" json:"fired_at,omitempty"`
-	TaskId        string                 `protobuf:"bytes,4,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
-	ScheduledAt   int64                  `protobuf:"varint,6,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
-	StartedAt     int64                  `protobuf:"varint,7,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	FinishedAt    int64                  `protobuf:"varint,8,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
-	SessionName   string                 `protobuf:"bytes,9,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
-	TurnId        string                 `protobuf:"bytes,10,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
-	Reason        string                 `protobuf:"bytes,11,opt,name=reason,proto3" json:"reason,omitempty"`
-	ResultSummary string                 `protobuf:"bytes,12,opt,name=result_summary,json=resultSummary,proto3" json:"result_summary,omitempty"`
-	TriggerSource string                 `protobuf:"bytes,13,opt,name=trigger_source,json=triggerSource,proto3" json:"trigger_source,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ScheduleId     int64                  `protobuf:"varint,2,opt,name=schedule_id,json=scheduleId,proto3" json:"schedule_id,omitempty"`
+	FiredAt        int64                  `protobuf:"varint,3,opt,name=fired_at,json=firedAt,proto3" json:"fired_at,omitempty"`
+	TaskId         string                 `protobuf:"bytes,4,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Status         string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	ScheduledAt    int64                  `protobuf:"varint,6,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
+	StartedAt      int64                  `protobuf:"varint,7,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	FinishedAt     int64                  `protobuf:"varint,8,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	SessionName    string                 `protobuf:"bytes,9,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
+	TurnId         string                 `protobuf:"bytes,10,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	Reason         string                 `protobuf:"bytes,11,opt,name=reason,proto3" json:"reason,omitempty"`
+	ResultSummary  string                 `protobuf:"bytes,12,opt,name=result_summary,json=resultSummary,proto3" json:"result_summary,omitempty"`
+	TriggerSource  string                 `protobuf:"bytes,13,opt,name=trigger_source,json=triggerSource,proto3" json:"trigger_source,omitempty"`
+	DeliveryStatus string                 `protobuf:"bytes,14,opt,name=delivery_status,json=deliveryStatus,proto3" json:"delivery_status,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ScheduleRun) Reset() {
@@ -14048,21 +14073,30 @@ func (x *ScheduleRun) GetTriggerSource() string {
 	return ""
 }
 
+func (x *ScheduleRun) GetDeliveryStatus() string {
+	if x != nil {
+		return x.DeliveryStatus
+	}
+	return ""
+}
+
 type CreateScheduleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TargetId      string                 `protobuf:"bytes,1,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
-	TargetName    string                 `protobuf:"bytes,2,opt,name=target_name,json=targetName,proto3" json:"target_name,omitempty"`
-	SessionName   string                 `protobuf:"bytes,3,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
-	Spec          string                 `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
-	RunMode       string                 `protobuf:"bytes,5,opt,name=run_mode,json=runMode,proto3" json:"run_mode,omitempty"`
-	Prompt        string                 `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	Name          string                 `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	ScheduleType  string                 `protobuf:"bytes,9,opt,name=schedule_type,json=scheduleType,proto3" json:"schedule_type,omitempty"`
-	TaskSpecJson  []byte                 `protobuf:"bytes,10,opt,name=task_spec_json,json=taskSpecJson,proto3" json:"task_spec_json,omitempty"`
-	Timezone      string                 `protobuf:"bytes,11,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TargetId       string                 `protobuf:"bytes,1,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
+	TargetName     string                 `protobuf:"bytes,2,opt,name=target_name,json=targetName,proto3" json:"target_name,omitempty"`
+	SessionName    string                 `protobuf:"bytes,3,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
+	Spec           string                 `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	RunMode        string                 `protobuf:"bytes,5,opt,name=run_mode,json=runMode,proto3" json:"run_mode,omitempty"`
+	Prompt         string                 `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Name           string                 `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
+	CreatedBy      string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	ScheduleType   string                 `protobuf:"bytes,9,opt,name=schedule_type,json=scheduleType,proto3" json:"schedule_type,omitempty"`
+	TaskSpecJson   []byte                 `protobuf:"bytes,10,opt,name=task_spec_json,json=taskSpecJson,proto3" json:"task_spec_json,omitempty"`
+	Timezone       string                 `protobuf:"bytes,11,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	DeliveryTarget string                 `protobuf:"bytes,12,opt,name=delivery_target,json=deliveryTarget,proto3" json:"delivery_target,omitempty"`
+	DeliveryPolicy string                 `protobuf:"bytes,13,opt,name=delivery_policy,json=deliveryPolicy,proto3" json:"delivery_policy,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateScheduleRequest) Reset() {
@@ -14172,13 +14206,29 @@ func (x *CreateScheduleRequest) GetTimezone() string {
 	return ""
 }
 
+func (x *CreateScheduleRequest) GetDeliveryTarget() string {
+	if x != nil {
+		return x.DeliveryTarget
+	}
+	return ""
+}
+
+func (x *CreateScheduleRequest) GetDeliveryPolicy() string {
+	if x != nil {
+		return x.DeliveryPolicy
+	}
+	return ""
+}
+
 type CreateScheduleResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	NextRunAt     int64                  `protobuf:"varint,2,opt,name=next_run_at,json=nextRunAt,proto3" json:"next_run_at,omitempty"`
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	NextRunAt      int64                  `protobuf:"varint,2,opt,name=next_run_at,json=nextRunAt,proto3" json:"next_run_at,omitempty"`
+	Error          string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	DeliveryTarget string                 `protobuf:"bytes,4,opt,name=delivery_target,json=deliveryTarget,proto3" json:"delivery_target,omitempty"`
+	DeliveryPolicy string                 `protobuf:"bytes,5,opt,name=delivery_policy,json=deliveryPolicy,proto3" json:"delivery_policy,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateScheduleResponse) Reset() {
@@ -14228,6 +14278,20 @@ func (x *CreateScheduleResponse) GetNextRunAt() int64 {
 func (x *CreateScheduleResponse) GetError() string {
 	if x != nil {
 		return x.Error
+	}
+	return ""
+}
+
+func (x *CreateScheduleResponse) GetDeliveryTarget() string {
+	if x != nil {
+		return x.DeliveryTarget
+	}
+	return ""
+}
+
+func (x *CreateScheduleResponse) GetDeliveryPolicy() string {
+	if x != nil {
+		return x.DeliveryPolicy
 	}
 	return ""
 }
@@ -14516,16 +14580,18 @@ func (x *DeleteScheduleResponse) GetOk() bool {
 // whose presence is set are changed; omitted fields keep their current value.
 // task_spec_json is treated as present when non-empty (subtask schedules only).
 type UpdateScheduleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Spec          *string                `protobuf:"bytes,3,opt,name=spec,proto3,oneof" json:"spec,omitempty"`
-	RunMode       *string                `protobuf:"bytes,4,opt,name=run_mode,json=runMode,proto3,oneof" json:"run_mode,omitempty"`
-	Prompt        *string                `protobuf:"bytes,5,opt,name=prompt,proto3,oneof" json:"prompt,omitempty"`
-	TaskSpecJson  []byte                 `protobuf:"bytes,6,opt,name=task_spec_json,json=taskSpecJson,proto3" json:"task_spec_json,omitempty"`
-	Timezone      *string                `protobuf:"bytes,7,opt,name=timezone,proto3,oneof" json:"timezone,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Spec           *string                `protobuf:"bytes,3,opt,name=spec,proto3,oneof" json:"spec,omitempty"`
+	RunMode        *string                `protobuf:"bytes,4,opt,name=run_mode,json=runMode,proto3,oneof" json:"run_mode,omitempty"`
+	Prompt         *string                `protobuf:"bytes,5,opt,name=prompt,proto3,oneof" json:"prompt,omitempty"`
+	TaskSpecJson   []byte                 `protobuf:"bytes,6,opt,name=task_spec_json,json=taskSpecJson,proto3" json:"task_spec_json,omitempty"`
+	Timezone       *string                `protobuf:"bytes,7,opt,name=timezone,proto3,oneof" json:"timezone,omitempty"`
+	DeliveryTarget *string                `protobuf:"bytes,8,opt,name=delivery_target,json=deliveryTarget,proto3,oneof" json:"delivery_target,omitempty"`
+	DeliveryPolicy *string                `protobuf:"bytes,9,opt,name=delivery_policy,json=deliveryPolicy,proto3,oneof" json:"delivery_policy,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UpdateScheduleRequest) Reset() {
@@ -14603,6 +14669,20 @@ func (x *UpdateScheduleRequest) GetTaskSpecJson() []byte {
 func (x *UpdateScheduleRequest) GetTimezone() string {
 	if x != nil && x.Timezone != nil {
 		return *x.Timezone
+	}
+	return ""
+}
+
+func (x *UpdateScheduleRequest) GetDeliveryTarget() string {
+	if x != nil && x.DeliveryTarget != nil {
+		return *x.DeliveryTarget
+	}
+	return ""
+}
+
+func (x *UpdateScheduleRequest) GetDeliveryPolicy() string {
+	if x != nil && x.DeliveryPolicy != nil {
+		return *x.DeliveryPolicy
 	}
 	return ""
 }
@@ -17251,7 +17331,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x1bCleanupAgentInstanceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\".\n" +
 	"\x1cCleanupAgentInstanceResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x90\x04\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x81\x05\n" +
 	"\fScheduleItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12#\n" +
@@ -17273,7 +17353,11 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"lastStatus\x12(\n" +
 	"\x04runs\x18\x10 \x03(\v2\x14.amux.v1.ScheduleRunR\x04runs\x12\x1a\n" +
 	"\btimezone\x18\x11 \x01(\tR\btimezone\x12\x14\n" +
-	"\x05state\x18\x12 \x01(\tR\x05state\"\x8f\x03\n" +
+	"\x05state\x18\x12 \x01(\tR\x05state\x12'\n" +
+	"\x0fdelivery_target\x18\x13 \x01(\tR\x0edeliveryTarget\x12'\n" +
+	"\x0fdelivery_policy\x18\x14 \x01(\tR\x0edeliveryPolicy\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x15 \x01(\x03R\tcreatedAt\"\xb8\x03\n" +
 	"\vScheduleRun\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
 	"\vschedule_id\x18\x02 \x01(\x03R\n" +
@@ -17291,7 +17375,8 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	" \x01(\tR\x06turnId\x12\x16\n" +
 	"\x06reason\x18\v \x01(\tR\x06reason\x12%\n" +
 	"\x0eresult_summary\x18\f \x01(\tR\rresultSummary\x12%\n" +
-	"\x0etrigger_source\x18\r \x01(\tR\rtriggerSource\"\xd9\x02\n" +
+	"\x0etrigger_source\x18\r \x01(\tR\rtriggerSource\x12'\n" +
+	"\x0fdelivery_status\x18\x0e \x01(\tR\x0edeliveryStatus\"\xab\x03\n" +
 	"\x15CreateScheduleRequest\x12\x1b\n" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12\x1f\n" +
 	"\vtarget_name\x18\x02 \x01(\tR\n" +
@@ -17306,11 +17391,15 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\rschedule_type\x18\t \x01(\tR\fscheduleType\x12$\n" +
 	"\x0etask_spec_json\x18\n" +
 	" \x01(\fR\ftaskSpecJson\x12\x1a\n" +
-	"\btimezone\x18\v \x01(\tR\btimezone\"^\n" +
+	"\btimezone\x18\v \x01(\tR\btimezone\x12'\n" +
+	"\x0fdelivery_target\x18\f \x01(\tR\x0edeliveryTarget\x12'\n" +
+	"\x0fdelivery_policy\x18\r \x01(\tR\x0edeliveryPolicy\"\xb0\x01\n" +
 	"\x16CreateScheduleResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1e\n" +
 	"\vnext_run_at\x18\x02 \x01(\x03R\tnextRunAt\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"V\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12'\n" +
+	"\x0fdelivery_target\x18\x04 \x01(\tR\x0edeliveryTarget\x12'\n" +
+	"\x0fdelivery_policy\x18\x05 \x01(\tR\x0edeliveryPolicy\"V\n" +
 	"\x14ListSchedulesRequest\x12\x1b\n" +
 	"\ttarget_id\x18\x01 \x01(\tR\btargetId\x12!\n" +
 	"\fsession_name\x18\x02 \x01(\tR\vsessionName\"L\n" +
@@ -17324,7 +17413,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x15DeleteScheduleRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"(\n" +
 	"\x16DeleteScheduleResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x94\x02\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x98\x03\n" +
 	"\x15UpdateScheduleRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x17\n" +
@@ -17332,12 +17421,16 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\brun_mode\x18\x04 \x01(\tH\x02R\arunMode\x88\x01\x01\x12\x1b\n" +
 	"\x06prompt\x18\x05 \x01(\tH\x03R\x06prompt\x88\x01\x01\x12$\n" +
 	"\x0etask_spec_json\x18\x06 \x01(\fR\ftaskSpecJson\x12\x1f\n" +
-	"\btimezone\x18\a \x01(\tH\x04R\btimezone\x88\x01\x01B\a\n" +
+	"\btimezone\x18\a \x01(\tH\x04R\btimezone\x88\x01\x01\x12,\n" +
+	"\x0fdelivery_target\x18\b \x01(\tH\x05R\x0edeliveryTarget\x88\x01\x01\x12,\n" +
+	"\x0fdelivery_policy\x18\t \x01(\tH\x06R\x0edeliveryPolicy\x88\x01\x01B\a\n" +
 	"\x05_nameB\a\n" +
 	"\x05_specB\v\n" +
 	"\t_run_modeB\t\n" +
 	"\a_promptB\v\n" +
-	"\t_timezone\"a\n" +
+	"\t_timezoneB\x12\n" +
+	"\x10_delivery_targetB\x12\n" +
+	"\x10_delivery_policy\"a\n" +
 	"\x16UpdateScheduleResponse\x121\n" +
 	"\bschedule\x18\x01 \x01(\v2\x15.amux.v1.ScheduleItemR\bschedule\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"E\n" +

@@ -1211,12 +1211,14 @@
           section('scheduleContent', e('div', { class: 'panel-body stack' }, content)),
           section('history', dataTable([
             { key: 'firedAt', render: row => e('div', { class: 'badges' }, timeCell(row.fired_at), row.trigger_source === 'manual' ? chip(t('manual'), 'info') : null) },
-            { key: 'status', render: row => { const parsed = parseRunStatus(row.status); const detail = row.result_summary || row.reason || parsed.detail; return e('div', {}, badge(parsed.status), detail ? e('p', { class: 'cell-sub', text: detail }) : null); } },
+            { key: 'status', render: row => { const parsed = parseRunStatus(row.status); const detail = row.result_summary || row.reason || parsed.detail; return e('div', {}, e('div', { class: 'badges' }, badge(parsed.status), row.delivery_status ? chip(t('deliveryStatus_' + row.delivery_status) || row.delivery_status, row.delivery_status === 'delivered' ? 'good' : (row.delivery_status === 'failed' || row.delivery_status === 'denied' ? 'bad' : 'info')) : null), detail ? e('p', { class: 'cell-sub', text: detail }) : null); } },
             { key: 'taskID', render: row => { const tid = row.task_id || parseRunStatus(row.status).taskID; return tid ? linkTo(shortID(tid), 'task', { task_id: tid }) : dash(); } }
           ], runs, { pageSize: 20, emptyKey: 'noRuns', emptyHint: false }))),
         e('aside', { class: 'stack' }, section('details', e('div', { class: 'panel-body' }, definition([
           ['id', '#' + id], ['status', badge(st)], ['spec', e('code', { class: 'spec', text: item.spec || '' })], ['timezone', item.timezone || ''],
           ['target', item.target_name || item.target_id], ['sessionName', item.session_name], ['runMode', item.run_mode],
+          ['deliveryTarget', item.delivery_target ? t('deliveryTarget_' + item.delivery_target) : ''],
+          ['deliveryPolicy', item.delivery_target && item.delivery_target !== 'none' && item.delivery_policy ? t('deliveryPolicy_' + item.delivery_policy) : ''],
           ['nextRun', st === 'enabled' ? timeCell(item.next_run_at) : ''], ['lastRun', timeCell(item.last_run_at)],
           ['lastResult', last.status ? e('div', { class: 'stack tight' }, e('div', { class: 'badges' }, badge(last.status), last.taskID ? linkTo(shortID(last.taskID), 'task', { task_id: last.taskID }) : null), last.detail ? e('p', { class: 'cell-sub', text: last.detail }) : null) : '']]))),
           e('p', { class: 'note', text: t('schedulePauseNote') })))];
@@ -1686,7 +1688,27 @@
       }
       const p = Object.assign({}, item || {}, values || {});
       const task = Object.assign({}, item && item.task || {}, values ? { agent: values.task_agent, task: values.task_text, runtime: values.runtime, model: values.model, reasoning_effort: values.reasoning_effort } : {});
-      const fields = [formField('name', 'name', 'text', p.name || ''), formField('spec', 'spec', 'text', p.spec || '', { required: true, help: 'specHelp' }), formField('timezone', 'timezone', 'text', p.timezone || '', { help: 'timezoneHelp' })];
+      const fields = [
+        formField('name', 'name', 'text', p.name || ''),
+        formField('spec', 'spec', 'text', p.spec || '', { required: true, help: 'specHelp' }),
+        formField('timezone', 'timezone', 'text', p.timezone || '', { help: 'timezoneHelp' }),
+        formField('delivery_target', 'deliveryTarget', 'text', p.delivery_target || '', {
+          options: [
+            { value: '', label: t('deliveryTargetDefault') },
+            { value: 'none', label: t('deliveryTarget_none') },
+            { value: 'origin', label: t('deliveryTarget_origin') },
+            { value: 'creator_dm', label: t('deliveryTarget_creator_dm') }
+          ]
+        }),
+        formField('delivery_policy', 'deliveryPolicy', 'text', p.delivery_policy || '', {
+          options: [
+            { value: '', label: t('deliveryPolicyDefault') },
+            { value: 'always', label: t('deliveryPolicy_always') },
+            { value: 'on_failure', label: t('deliveryPolicy_on_failure') },
+            { value: 'on_non_empty', label: t('deliveryPolicy_on_non_empty') }
+          ]
+        })
+      ];
       if (!edit) fields.unshift(formField('schedule_type', 'scheduleType', 'text', p.schedule_type || 'subtask', { options: [{ value: 'subtask', label: t('subtask') }, { value: 'session-prompt', label: t('sessionPrompt') }] }));
       if (!edit) fields.push(e('div', { id: 'session-schedule-fields', class: 'form' }, formField('target_id', 'target', 'text', p.target_id || ''), formField('session_name', 'sessionName', 'text', p.session_name || ''), formField('prompt', 'prompt', 'textarea', p.prompt || ''), formField('run_mode', 'runMode', 'text', p.run_mode || 'reuse-session', { options: ['reuse-session', 'new-session-per-run'].map(value => ({ value, label: value })) })));
       if (edit && item.schedule_type !== 'subtask') fields.push(e('div', { id: 'session-schedule-fields', class: 'form' }, formField('prompt', 'prompt', 'textarea', p.prompt || '', { required: true }), formField('run_mode', 'runMode', 'text', p.run_mode || 'reuse-session', { options: ['reuse-session', 'new-session-per-run'].map(value => ({ value, label: value })) })));
@@ -1694,6 +1716,8 @@
       formDialog(edit ? 'edit' : 'newSchedule', fields, async data => {
         const payload = { name: data.name, spec: data.spec };
         if (data.timezone || (edit && item.timezone)) payload.timezone = data.timezone || '';
+        if (data.delivery_target) payload.delivery_target = data.delivery_target;
+        if (data.delivery_policy) payload.delivery_policy = data.delivery_policy;
         if (edit) payload.schedule_id = scheduleID(item);
         else payload.schedule_type = data.schedule_type;
         if ((!edit && data.schedule_type === 'subtask') || edit && item.schedule_type === 'subtask') {

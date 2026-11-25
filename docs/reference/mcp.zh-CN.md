@@ -37,13 +37,13 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.profile_get` | 按精确 ref 获取 Agent Profile 完整详情，支持开发版 namespace。 |
 | `amux.profile_list` | 分页列出非开发版 Agent Profile；用 profiles[].ref 提交任务，详情用 profile_get。沿 next_cursor 读取至 has_more=false。 |
 | `amux.result_continue` | 续读分页结果；按序拼接 content_chunk，直到 complete=true。游标仅当前 MCP 进程短期有效。 |
-| `amux.schedule_create` | 创建 hub 定时规则。默认 schedule_type=subtask（临时子 Task，结果用 task_get/task_stream，不允许 escalate-to-main）；schedule_type=session-prompt 时向目标 Session（显式 session 参数为 session-ref，或回落 AMUX_SESSION_ID）Submit 提示词并唤醒 Agent。 |
+| `amux.schedule_create` | 创建 hub 定时规则。默认 schedule_type=subtask（推荐用于大多数定时任务：每次隔离运行临时子 Task，自动继承当前会话的 Agent 与模型，不允许 escalate-to-main；在飞书会话内省略 delivery_target 时自动投递回来源话题 origin，也可用 delivery_policy 控制 always/on_failure/on_non_empty）；仅需延续当前对话上下文时使用 schedule_type=session-prompt（默认 reuse-session，向目标 Session Submit 提示词并唤醒 Agent）。创建成功后请立即回复用户，不要在当前回合等待首次触发。 |
 | `amux.schedule_delete` | 删除 Schedule；既有运行对应的 Task 结果仍可读取。 |
 | `amux.schedule_get` | 获取 Schedule；include_runs=true 时包含运行历史及 task_id。 |
-| `amux.schedule_list` | 分页列出 Schedule；沿 next_cursor 读取至 has_more=false。 |
+| `amux.schedule_list` | 分页列出 Schedule（含 created_at_iso 与投递设置；勿将更早或其他话题已完成的同名历史任务误当作本次新建）；沿 next_cursor 读取至 has_more=false。 |
 | `amux.schedule_set_enabled` | 启用或停用 Schedule。 |
 | `amux.schedule_trigger` | 立即手动触发一次 Schedule（不影响其启停状态与下次计划触发时间）。 |
-| `amux.schedule_update` | 原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。 |
+| `amux.schedule_update` | 原地更新 Schedule 的名称、时间规则、时区、结果投递设置（delivery_target/delivery_policy）、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。 |
 | `amux.session_interrupt` | 中断 Session 当前 turn。 |
 | `amux.session_list` | 按 runtime 分组列出调用方可见的 Session；创建 Session 时不要预先调用，先省略 target 调用 session_run，仅在其报告多个 target 后用本工具选择。 |
 | `amux.session_prune` | 破坏性操作：永久删除已归档 Session；隔离集群仅 enrollment operator 可用，非隔离集群允许 delegated agent；Task 历史使用 task_prune。 |
@@ -967,13 +967,31 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.schedule_create`
 
-创建 hub 定时规则。默认 schedule_type=subtask（临时子 Task，结果用 task_get/task_stream，不允许 escalate-to-main）；schedule_type=session-prompt 时向目标 Session（显式 session 参数为 session-ref，或回落 AMUX_SESSION_ID）Submit 提示词并唤醒 Agent。
+创建 hub 定时规则。默认 schedule_type=subtask（推荐用于大多数定时任务：每次隔离运行临时子 Task，自动继承当前会话的 Agent 与模型，不允许 escalate-to-main；在飞书会话内省略 delivery_target 时自动投递回来源话题 origin，也可用 delivery_policy 控制 always/on_failure/on_non_empty）；仅需延续当前对话上下文时使用 schedule_type=session-prompt（默认 reuse-session，向目标 Session Submit 提示词并唤醒 Agent）。创建成功后请立即回复用户，不要在当前回合等待首次触发。
 
 **输入 JSON Schema**
 
 ```json
 {
   "properties": {
+    "delivery_policy": {
+      "description": "结果主动投递策略（delivery_target 非 none 时生效）：always（默认，每次终态都推送）、on_failure（仅失败或超时推送）、on_non_empty（仅失败或产出非静默内容时推送，忽略空内容/NO_ALERT/SILENT/HEARTBEAT_OK）",
+      "enum": [
+        "always",
+        "on_failure",
+        "on_non_empty"
+      ],
+      "type": "string"
+    },
+    "delivery_target": {
+      "description": "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、creator_dm（私聊创建者）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin",
+      "enum": [
+        "none",
+        "origin",
+        "creator_dm"
+      ],
+      "type": "string"
+    },
     "name": {
       "description": "Schedule 的可选显示名称",
       "type": "string"
@@ -983,7 +1001,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "run_mode": {
-      "description": "仅 session-prompt：reuse-session（默认）复用目标 Session；new-session-per-run 每次按模板新开 Session",
+      "description": "仅 session-prompt：reuse-session（默认）复用目标 Session 延续对话上下文；new-session-per-run（旧版兼容）每次按模板新开 Session",
       "enum": [
         "reuse-session",
         "new-session-per-run"
@@ -991,7 +1009,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "schedule_type": {
-      "description": "subtask（默认）创建临时子 Task；session-prompt 到期向目标 Session Submit 提示词并唤醒 Agent",
+      "description": "subtask（默认，推荐用于大多数定时任务）：每次隔离执行临时子 Task，自动继承当前会话的 Agent/模型（未显式指定时），结果按 delivery_target/delivery_policy 主动送达；session-prompt：向目标 Session Submit 提示词并唤醒 Agent（适合依赖当前会话上下文的后续跟进）",
       "enum": [
         "subtask",
         "session-prompt"
@@ -1009,7 +1027,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     "task": {
       "properties": {
         "agent": {
-          "description": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref，例如 builtin/codex 或 team/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口",
+          "description": "Agent Profile 引用（取自 amux.profile_list 的 profiles[].ref）；在当前会话内创建时可省略，默认自动继承当前会话的 Agent Profile 与模型",
           "type": "string"
         },
         "credential_profile": {
@@ -1105,7 +1123,6 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
         }
       },
       "required": [
-        "agent",
         "task"
       ],
       "type": "object"
@@ -1168,7 +1185,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.schedule_list`
 
-分页列出 Schedule；沿 next_cursor 读取至 has_more=false。
+分页列出 Schedule（含 created_at_iso 与投递设置；勿将更早或其他话题已完成的同名历史任务误当作本次新建）；沿 next_cursor 读取至 has_more=false。
 
 **输入 JSON Schema**
 
@@ -1230,13 +1247,31 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.schedule_update`
 
-原地更新 Schedule 的名称、时间规则、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。
+原地更新 Schedule 的名称、时间规则、时区、结果投递设置（delivery_target/delivery_policy）、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。
 
 **输入 JSON Schema**
 
 ```json
 {
   "properties": {
+    "delivery_policy": {
+      "description": "更新结果主动投递策略（always、on_failure 或 on_non_empty）；省略时保持不变",
+      "enum": [
+        "always",
+        "on_failure",
+        "on_non_empty"
+      ],
+      "type": "string"
+    },
+    "delivery_target": {
+      "description": "更新结果主动投递目标（none、origin 或 creator_dm）；省略时保持不变",
+      "enum": [
+        "none",
+        "origin",
+        "creator_dm"
+      ],
+      "type": "string"
+    },
     "name": {
       "description": "Schedule 的新显示名称；省略时保持不变",
       "type": "string"
@@ -1263,7 +1298,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
     "task": {
       "properties": {
         "agent": {
-          "description": "Agent Profile 引用，取自 amux.profile_list 的 profiles[].ref，例如 builtin/codex 或 team/push_sre；raw Agent Type 字符串仅作为旧调用方兼容入口",
+          "description": "Agent Profile 引用（取自 amux.profile_list 的 profiles[].ref）；在当前会话内创建时可省略，默认自动继承当前会话的 Agent Profile 与模型",
           "type": "string"
         },
         "credential_profile": {
