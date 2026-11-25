@@ -409,7 +409,7 @@ func runServer(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("load maintenance journal: %w", err)
 	}
 	// Reconnect to broker sockets for sessions that survived the restart.
-	if err := restoreRunningSessions(mgr); err != nil {
+	if err := localSrv.restoreRunningSessions(); err != nil {
 		return fmt.Errorf("restore running sessions: %w", err)
 	}
 
@@ -491,11 +491,16 @@ func runServer(cmd *cobra.Command, _ []string) error {
 	// amuxlet was down). Best-effort: log failures and move on.
 	go func() {
 		for sess := range mgr.PendingRestart() {
-			fmt.Fprintf(os.Stderr, "runtime: auto-restarting session %s\n", sess.Name)
 			for {
+				// The maintenance journal owns these retries. Starting the
+				// same Session here could race recovery and restart it twice.
+				if maintenance.ownsSession(sess.ID) {
+					break
+				}
 				done, err := maintenance.enter(true)
 				if err == nil {
 					if sess.StateSnapshot() == session.StateCreated {
+						fmt.Fprintf(os.Stderr, "runtime: auto-restarting session %s\n", sess.Name)
 						_, err = localSrv.Restart(context.Background(), &pb.RestartRequest{Name: sess.Name})
 					}
 					done()
@@ -544,22 +549,16 @@ func runServer(cmd *cobra.Command, _ []string) error {
 	go func() {
 		<-sigCh
 		fmt.Fprintln(os.Stderr, runtimeShuttingDownMessage())
-		// Kill all active session broker processes before stopping the server.
-		// Without this, broker processes become orphans (reparented to init)
-		// because they block waiting on a socket that will never connect.
-		if localSrv != nil {
-			// Mark shutdown before killing so the per-session drain goroutines
-			// do not persist Archived for processes we are killing ourselves.
-			// The DB must keep these sessions Running so the next amuxlet's
-			// LoadFromDB queues them for auto-restart (service update flow).
-			localSrv.shuttingDown.Store(true)
-			for _, sess := range localSrv.mgr.List() {
-				_ = sess.Kill()
-			}
-		}
+		keep := maintenance.handoffBrokers()
+		localSrv.shutdownSessions(keep)
 		cancel()
+		if len(keep) > 0 {
+			// Admission is closed and mutations have drained. Close streams so
+			// subscribers reconnect against the successor's durable Timeline.
+			grpcSrv.Stop()
+			return
+		}
 		grpcSrv.GracefulStop()
-		os.Remove(sockPath)
 	}()
 
 	fmt.Fprintln(os.Stderr, runtimeListeningMessage(sockPath))
@@ -769,8 +768,19 @@ func startBrokerReapWatcher(ctx context.Context, srv *server, cfg config.Runtime
 	}()
 }
 
-func restoreRunningSessions(mgr *session.Manager) error {
-	for _, sess := range mgr.List() {
+func (s *server) shutdownSessions(keep map[string]bool) {
+	// Keep DB state routable for recovery and avoid orphaning brokers on a
+	// normal stop. A prepared upgrade explicitly hands selected brokers over.
+	s.shuttingDown.Store(true)
+	for _, sess := range s.mgr.List() {
+		if !keep[sess.ID] {
+			_ = sess.Kill()
+		}
+	}
+}
+
+func (s *server) restoreRunningSessions() error {
+	for _, sess := range s.mgr.List() {
 		if sess.State != session.StateRunning {
 			continue
 		}
@@ -778,36 +788,31 @@ func restoreRunningSessions(mgr *session.Manager) error {
 			if err := sess.FinishRecoveredTurn("runtime_reconnect_failed", "running session had no broker socket during recovery"); err != nil {
 				return fmt.Errorf("finish recovered turn for session %q: %w", sess.Name, err)
 			}
-			if err := mgr.SetSleeping(sess, session.SleepReasonRestartFailed); err != nil {
+			if err := s.mgr.SetSleeping(sess, session.SleepReasonRestartFailed); err != nil {
 				return fmt.Errorf("sleep recovered session %q: %w", sess.Name, err)
 			}
 			continue
 		}
-		if err := reconnectSessionBroker(mgr, sess); err != nil {
+		if err := s.reconnectSessionBroker(sess); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func reconnectSessionBroker(mgr *session.Manager, sess *session.Session) error {
+func (s *server) reconnectSessionBroker(sess *session.Session) error {
 	proc, procDone, err := reconnectProc(sess)
 	if err != nil {
 		if finishErr := sess.FinishRecoveredTurn("runtime_reconnect_failed", err.Error()); finishErr != nil {
 			return fmt.Errorf("finish recovered turn for session %q: %w", sess.Name, finishErr)
 		}
-		if sleepErr := mgr.SetSleeping(sess, session.SleepReasonRestartFailed); sleepErr != nil {
+		if sleepErr := s.mgr.SetSleeping(sess, session.SleepReasonRestartFailed); sleepErr != nil {
 			return fmt.Errorf("sleep recovered session %q: %w", sess.Name, sleepErr)
 		}
 		fmt.Fprintln(os.Stderr, runtimeReconnectSleepMessage(sess.Name, err))
 		return nil
 	}
-	sess.SetEventTap(func(ev agentstream.Event) bool {
-		if err := mgr.RecordAgentEvent(sess, ev); err != nil {
-			fmt.Fprintf(os.Stderr, "runtime: record session event: %v\n", err)
-		}
-		return handleRunSessionPermission(sess, ev)
-	})
+	s.wireSessionEventTap(sess)
 	sess.SetProc(proc)
 	procGeneration := sess.ProcessGeneration()
 	if err := sess.RebindRecoveredTurn(); err != nil {
@@ -815,19 +820,14 @@ func reconnectSessionBroker(mgr *session.Manager, sess *session.Session) error {
 		if errors.Is(err, agentstream.ErrJournalFault) {
 			return fmt.Errorf("rebind recovered turn for session %q: %w", sess.Name, err)
 		}
-		if sleepErr := mgr.SetSleeping(sess, session.SleepReasonRestartFailed); sleepErr != nil {
+		if sleepErr := s.mgr.SetSleeping(sess, session.SleepReasonRestartFailed); sleepErr != nil {
 			return fmt.Errorf("sleep recovered session %q: %w", sess.Name, sleepErr)
 		}
 		fmt.Fprintln(os.Stderr, runtimeReconnectSleepMessage(sess.Name, err))
 		return nil
 	}
-	go func() {
-		<-procDone
-		sess.FailActiveTurnForProcess(procGeneration, "process_exit")
-		if err := mgr.SetState(sess, session.StateArchived); err != nil {
-			fmt.Fprintf(os.Stderr, "runtime: archive disconnected session %s: %v\n", sess.Name, err)
-		}
-	}()
+	snap := sess.Snapshot()
+	go s.waitForSessionProcess(sess, procDone, snap.LaunchID, snap.ExecutionIdentity, procGeneration)
 	fmt.Fprintln(os.Stderr, runtimeReconnectedMessage(sess.Name, sess.PID))
 	return nil
 }

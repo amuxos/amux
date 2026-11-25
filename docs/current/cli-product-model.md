@@ -227,14 +227,21 @@ matching helper. When an older installer hands off to the new CLI, post-install
 completion can recover a skipped helper from its still-present source bundle
 only after verifying that its CLI and runtime match the installed binaries.
 
-Linux updates with an installed helper coordinate through the local Runtime before
-installing binaries. Maintenance rejects new launches, inputs and TaskRuns while
-allowing permission replies and interrupts. Already accepted queues and TaskRuns
-drain without cancellation. The default wait is five minutes (`--drain-timeout`);
-on timeout the update aborts before replacement and restores admission. Once
-quiescent, running Sessions are slept and durably recorded, the helper is updated,
-and requested service restarts complete before those Sessions resume. Sessions
-already sleeping are not awakened. A renewable lease and durable recovery list
+Updates that restart services or replace an installed Linux helper coordinate
+through the local Runtime before installing binaries. Maintenance rejects new
+launches, inputs and TaskRuns while accepted work drains. Permission replies and
+interrupts remain available during draining. With `amux update --restart`, an
+eligible running Session keeps its broker across the Runtime restart. The new
+Runtime reconnects to the same active turn and resumes delivery from its durable
+event cursor without resubmitting the request. Pending inputs and TaskRuns drain
+first. Sessions with an in-flight dispatch, a pending permission, turn-specific
+write authorization, or a turn that cannot be rebound wait until a safe boundary. An installed Linux helper
+needs its isolated launches drained, and `--restart-sessions` drains and relaunches
+the Session processes. The default wait is five minutes (`--drain-timeout`);
+on timeout the update aborts before replacement and restores admission. Sessions
+that need relaunch are slept and durably recorded before their processes stop.
+They resume after the requested service restarts. Sessions already sleeping stay
+asleep. A renewable lease and durable recovery list
 survive CLI handoff and Runtime restart; abandonment triggers recovery. Resume
 failures are reported and retried, without silently discarding the recovery list.
 Recovery attempts yield between Sessions. When an attempt reaches its deadline,
@@ -244,8 +251,9 @@ The updater waits as long as the Runtime continues reducing the pending count.
 After a requested service restart, the updater allows up to five minutes for the local Runtime to become reachable. During session recovery, two minutes without observable progress ends the CLI wait. The Runtime keeps retrying.
 Native goal continuations pause admission during maintenance; the existing goal
 grant is retained and resumed afterward. Maintenance is a local administration RPC,
-not a Hub or tunnel operation. An older Runtime without this protocol still uses
-the helper's safe guard; active launches require a one-time maintenance upgrade.
+not a Hub or tunnel operation. Runtimes that support only drain-based maintenance
+use that path on the first upgrade. An older Runtime without the protocol still
+uses the helper's safe guard; active launches require a one-time maintenance upgrade.
 The helper's final guard remains authoritative, including for orphan processes.
 
 Public updates use the platform manifest

@@ -16,6 +16,7 @@ import (
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/agentui"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/sourceframe"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
@@ -729,14 +730,13 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			if ev == nil {
 				return
 			}
-			// TAIL excludes the already accepted start event. Restore goal
-			// presentation from the atomic read snapshot, never from goal state
-			// alone. The normal start path validates its persisted destination.
+			// TAIL excludes the already accepted start event. Restore presentation
+			// only when the active turn still has an authorized Feishu destination.
 			if len(ev.ActiveTurnStartJson) > 0 {
 				started, err := agentstream.UnmarshalEvent(ev.ActiveTurnStartJson)
-				if err == nil && started.Turn != nil && started.Turn.ID != "" && started.Body.Kind() == agentstream.KindTurnStarted && started.Origin.Channel == "goal" {
+				if err == nil && started.Turn != nil && started.Turn.ID != "" && started.Body.Kind() == agentstream.KindTurnStarted {
 					action := agentui.Action{Kind: agentui.ActionTurnStarted, Turn: agentui.TurnEvent{ID: started.Turn.ID, Seq: int64(started.Turn.Seq)}}
-					if !visibilityGate.Allow(action) {
+					if !visibilityGate.Allow(action) && (started.Origin.Channel == sourceframe.SourceGoal || b.restoreTopicTurnSenders(streamChat, session, started)) {
 						handleAttachEvent(&pb.AttachEvent{CanonicalJson: ev.ActiveTurnStartJson})
 					}
 				}
@@ -1403,6 +1403,25 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			}
 		}
 	}()
+}
+
+func (b *Bridge) restoreTopicTurnSenders(chat *LarkChat, current *pb.Session, started agentstream.Event) bool {
+	if b.db == nil || chat.Status != ChatStatusActive || chat.RootMsgID == singletonStreamKey(chat.BridgeId) ||
+		started.Origin.Channel != sourceframe.SourceLark || started.Origin.Actor != agentstream.ActorUser ||
+		started.SessionID == "" || started.SessionID != current.GetId() ||
+		started.Origin.LaunchID == "" || started.Origin.LaunchID != current.GetLaunchId() {
+		return false
+	}
+	inputs, err := b.db.boundTurnInputs(chat, started.SessionID, started.Origin.LaunchID, started.Turn.ID)
+	if err != nil {
+		log.Warn().Err(err).Str("turn_id", started.Turn.ID).Msg("bridge: read active turn submit receipts")
+		return false
+	}
+	if len(inputs) == 0 {
+		return false
+	}
+	b.recordTurnSenders(chat.RootMsgID, started.Turn.ID, inputs)
+	return true
 }
 
 func (b *Bridge) streamThinkingProcess(groupWatch bool, chatIDs ...string) string {

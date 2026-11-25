@@ -99,7 +99,7 @@ func TestRestoreRunningSessionsSleepsSessionsWithoutBrokerSocket(t *testing.T) {
 		t.Fatalf("set running: %v", err)
 	}
 
-	if err := restoreRunningSessions(mgr); err != nil {
+	if err := (&server{mgr: mgr}).restoreRunningSessions(); err != nil {
 		t.Fatalf("restore running sessions: %v", err)
 	}
 
@@ -132,7 +132,7 @@ func TestRestoreRunningSessionsSleepsSessionsWhenReconnectFails(t *testing.T) {
 		t.Fatalf("set running: %v", err)
 	}
 
-	if err := restoreRunningSessions(mgr); err != nil {
+	if err := (&server{mgr: mgr}).restoreRunningSessions(); err != nil {
 		t.Fatalf("restore running sessions: %v", err)
 	}
 
@@ -176,7 +176,7 @@ func TestRestoreRunningSessionsReturnsDurableTerminalFailure(t *testing.T) {
 		t.Fatalf("close store: %v", err)
 	}
 
-	err = restoreRunningSessions(mgr)
+	err = (&server{mgr: mgr}).restoreRunningSessions()
 	if !errors.Is(err, agentstream.ErrJournalFault) {
 		t.Fatalf("restore running sessions error = %v, want ErrJournalFault", err)
 	}
@@ -208,7 +208,7 @@ func TestRestoreRunningSessionsReturnsReconnectTerminalFailure(t *testing.T) {
 		t.Fatalf("close store: %v", err)
 	}
 
-	err = restoreRunningSessions(mgr)
+	err = (&server{mgr: mgr}).restoreRunningSessions()
 	if !errors.Is(err, agentstream.ErrJournalFault) {
 		t.Fatalf("restore running sessions error = %v, want ErrJournalFault", err)
 	}
@@ -234,7 +234,7 @@ func TestRestoreRunningSessionsReturnsSleepStateFailure(t *testing.T) {
 		t.Fatalf("close store: %v", err)
 	}
 
-	err = restoreRunningSessions(mgr)
+	err = (&server{mgr: mgr}).restoreRunningSessions()
 	if err == nil || !strings.Contains(err.Error(), "sleep recovered session") {
 		t.Fatalf("restore running sessions error = %v, want sleep state failure", err)
 	}

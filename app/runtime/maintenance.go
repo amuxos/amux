@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/session"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	"google.golang.org/grpc/codes"
@@ -21,14 +22,17 @@ const maintenanceLease = 90 * time.Second
 const maintenanceSleepReason = "upgrade"
 
 type maintenanceSession struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	KeepBroker bool   `json:"keep_broker,omitempty"`
 }
 type maintenanceRecord struct {
-	Token    string               `json:"token"`
-	Phase    string               `json:"phase"`
-	Expires  time.Time            `json:"expires"`
-	Sessions []maintenanceSession `json:"sessions"`
+	Token           string               `json:"token"`
+	Phase           string               `json:"phase"`
+	Expires         time.Time            `json:"expires"`
+	Handoff         bool                 `json:"handoff,omitempty"`
+	ReplacingHelper bool                 `json:"replacing_helper,omitempty"`
+	Sessions        []maintenanceSession `json:"sessions"`
 }
 
 // The local administration service is deliberately separate from Amuxlet:
@@ -43,6 +47,7 @@ type runtimeMaintenance struct {
 	record         *maintenanceRecord
 	requests       int
 	recoveryActive bool
+	handoffArmed   bool
 	now            func() time.Time
 	resume         func(context.Context, *session.Session) error
 }
@@ -122,8 +127,11 @@ func (m *runtimeMaintenance) Maintain(ctx context.Context, req *pb.MaintenanceRe
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if req.Action == "begin" && m.record == nil {
-		m.record = &maintenanceRecord{Token: req.Token, Phase: "draining", Expires: m.now().Add(maintenanceLease)}
+	if (req.Action == "begin" || req.Action == "begin-handoff" || req.Action == "begin-helper-handoff") && m.record == nil {
+		m.record = &maintenanceRecord{
+			Token: req.Token, Phase: "draining", Expires: m.now().Add(maintenanceLease),
+			Handoff: req.Action != "begin", ReplacingHelper: req.Action == "begin-helper-handoff",
+		}
 		if err := m.save(); err != nil {
 			m.record = nil
 			return nil, err
@@ -137,7 +145,7 @@ func (m *runtimeMaintenance) Maintain(ctx context.Context, req *pb.MaintenanceRe
 		return nil, status.Error(codes.AlreadyExists, maintenanceMessage("held"))
 	}
 	switch req.Action {
-	case "begin", "renew":
+	case "begin", "begin-handoff", "begin-helper-handoff", "renew":
 		m.record.Expires = m.now().Add(maintenanceLease)
 		if err := m.save(); err != nil {
 			return nil, err
@@ -146,6 +154,9 @@ func (m *runtimeMaintenance) Maintain(ctx context.Context, req *pb.MaintenanceRe
 		return m.response(), nil
 	case "poll":
 		return m.drain(ctx)
+	case "arm-handoff":
+		m.handoffArmed = m.record.Handoff && m.record.Phase == "ready"
+		return m.response(), nil
 	case "end":
 		return m.recover(ctx)
 	default:
@@ -168,6 +179,9 @@ func (m *runtimeMaintenance) drain(ctx context.Context) (*pb.MaintenanceResponse
 		out.ActiveTasks = int32(m.tasks())
 	}
 	for _, sess := range m.srv.mgr.List() {
+		if m.canKeepBroker(sess, sess.Snapshot()) && sess.ReadyForUpgradeHandoff() {
+			continue
+		}
 		busy, pending := sess.QueueState()
 		if busy || pending > 0 || sess.AgentTimeline().ActiveTurn() != nil || sess.PendingPermissionCount() > 0 {
 			out.BusySessions = append(out.BusySessions, sess.Name)
@@ -181,12 +195,21 @@ func (m *runtimeMaintenance) drain(ctx context.Context) (*pb.MaintenanceResponse
 	m.srv.relaunchMu.Lock()
 	defer m.srv.relaunchMu.Unlock()
 	batchDeadline := time.Now().Add(time.Second)
+	var handoff []maintenanceSession
 	for _, sess := range m.srv.mgr.List() {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		snap := sess.Snapshot()
 		if snap.State != session.StateRunning && snap.State != session.StateCreated && snap.State != session.StateIdle {
+			continue
+		}
+		if m.canKeepBroker(sess, snap) {
+			if sess.ReadyForUpgradeHandoff() {
+				handoff = append(handoff, maintenanceSession{ID: snap.ID, Name: snap.Name, KeepBroker: true})
+			} else {
+				out.BusySessions = append(out.BusySessions, snap.Name)
+			}
 			continue
 		}
 		// Native continuations and internal notices also share the queue barrier.
@@ -207,12 +230,52 @@ func (m *runtimeMaintenance) drain(ctx context.Context) (*pb.MaintenanceResponse
 	if len(out.BusySessions) != 0 {
 		return out, nil
 	}
+	sleeping := m.record.Sessions
+	m.record.Sessions = append(sleeping, handoff...)
 	m.record.Phase = "ready"
 	if err := m.save(); err != nil {
+		m.record.Phase = "draining"
+		m.record.Sessions = sleeping
 		return nil, err
 	}
 	return m.response(), nil
 }
+
+func (m *runtimeMaintenance) canKeepBroker(sess *session.Session, snap session.Snapshot) bool {
+	return m.record.Handoff && snap.State == session.StateRunning && snap.PID > 0 && snap.BrokerSocket != "" && sess.HasProcess() &&
+		(!m.record.ReplacingHelper || snap.ExecutionIdentity.IsolationBackend != principal.BackendLinuxDAC)
+}
+
+// handoffBrokers is read only by the shutdown path. An expired, aborted or
+// incomplete lease must not change the normal stop semantics.
+func (m *runtimeMaintenance) handoffBrokers() map[string]bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if !m.handoffArmed || m.record == nil || m.record.Phase != "ready" || !m.now().Before(m.record.Expires) {
+		return nil
+	}
+	keep := make(map[string]bool)
+	for _, entry := range m.record.Sessions {
+		if entry.KeepBroker {
+			keep[entry.ID] = true
+		}
+	}
+	return keep
+}
+
+func (m *runtimeMaintenance) ownsSession(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.record != nil {
+		for _, entry := range m.record.Sessions {
+			if entry.ID == id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (m *runtimeMaintenance) sleepLocked(sess *session.Session, snap session.Snapshot) error {
 	found := false
 	for _, entry := range m.record.Sessions {
@@ -224,6 +287,7 @@ func (m *runtimeMaintenance) sleepLocked(sess *session.Session, snap session.Sna
 	if !found {
 		m.record.Sessions = append(m.record.Sessions, maintenanceSession{ID: snap.ID, Name: snap.Name})
 		if err := m.save(); err != nil {
+			m.record.Sessions = m.record.Sessions[:len(m.record.Sessions)-1]
 			return err
 		}
 	}
@@ -237,6 +301,7 @@ func (m *runtimeMaintenance) recover(ctx context.Context) (*pb.MaintenanceRespon
 		return m.response(), nil
 	}
 	m.record.Phase = "recovering"
+	m.handoffArmed = false
 	// Recovery errors must not leave normal admission disabled indefinitely.
 	m.srv.mgr.SetMaintenance(false)
 	if err := m.save(); err != nil {
@@ -293,6 +358,9 @@ func (m *runtimeMaintenance) recoverSession(ctx context.Context, entry maintenan
 		return nil
 	}
 	if snap.State == session.StateRunning && sess.HasProcess() {
+		if entry.KeepBroker {
+			return nil
+		}
 		// A prior resume may have failed to persist Running. Retry the write
 		// without interrupting any work accepted since the process started.
 		return m.srv.mgr.SetRunning(sess)

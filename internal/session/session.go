@@ -123,9 +123,10 @@ type Session struct {
 	lastActivityPersist time.Time
 	pendingPermissions  map[string]struct{}
 
-	turnMu        sync.Mutex
-	canonicalTurn *agentstream.Turn
-	canonicalAuth TurnAuthorization
+	turnMu              sync.Mutex
+	canonicalTurn       *agentstream.Turn
+	canonicalAuth       TurnAuthorization
+	canonicalDispatched bool
 	// canonicalInterruptedTurn records the turn whose cancellation was
 	// accepted, so later input is never steered into a turn that is ending.
 	canonicalInterruptedTurn string
@@ -414,6 +415,29 @@ func (s *Session) TryLockIdleQueue() (unlock func(), busy bool, pending int) {
 		return nil, busy, pending
 	}
 	return s.queueMu.Unlock, false, 0
+}
+
+// ReadyForUpgradeHandoff reports whether the queue can be reconstructed from
+// the durable Timeline and the live broker. Callers must first block admission.
+func (s *Session) ReadyForUpgradeHandoff() bool {
+	s.queueMu.Lock()
+	defer s.queueMu.Unlock()
+	if len(s.queuePending) > 0 || len(s.parkedNotices) > 0 || s.PendingPermissionCount() > 0 {
+		return false
+	}
+	active := s.AgentTimeline().ActiveTurn()
+	if active == nil {
+		return !s.queueBusy
+	}
+	s.turnMu.Lock()
+	bound := s.canonicalTurn != nil && s.canonicalTurn.Ref() == active.Ref() &&
+		s.canonicalDispatched && s.canonicalAuth == (TurnAuthorization{})
+	s.turnMu.Unlock()
+	s.runtimeMu.RLock()
+	proc := s.proc
+	s.runtimeMu.RUnlock()
+	replay, ok := proc.(interface{ SupportsTurnRebind() bool })
+	return bound && ok && replay.SupportsTurnRebind()
 }
 
 func (s *Session) AutoSleepEligible(now time.Time) bool {

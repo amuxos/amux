@@ -148,6 +148,10 @@ Session 有明确的生命周期：`created`、`running`、`idle`、`sleeping`�
 能力：Codex 以及提供执行配置映射的 ACP Agent 在满足各自条件时支持进程内重配；
 其他变更通过交接重启完成。
 
+协调升级时，Runtime 可以保留 broker 和其中执行的原生轮次。新 Runtime 恢复同一个
+Timeline 轮次，从最后一个持久化的 broker 序号重连接收事件，并在原轮次结束后继续
+派发队列。如果 broker 已退出，Timeline 会记录中断，Session 使用可用的历史恢复。
+
 ACP 或 structured Agent 的输出关闭后，broker 停止接收新请求，等待正在处理的请求收尾后再关闭
 客户端连接。待处理的 prompt 结果、终态事件和确认响应保持原有顺序。连接写入有
 退出超时保护，避免不响应的客户端阻止 broker 退出；传输失败仍按错误处理。

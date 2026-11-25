@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/i18n"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/store"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
@@ -115,6 +116,67 @@ func TestMaintenanceDrainsAcceptedQueueAndPreservesSleepingSessions(t *testing.T
 	if _, err := os.Stat(m.path()); !os.IsNotExist(err) {
 		t.Fatalf("journal not cleared: %v", err)
 	}
+}
+
+type handoffTestProc struct{ serverTestProc }
+
+func (*handoffTestProc) SupportsTurnRebind() bool { return true }
+
+func TestMaintenanceHelperHandoffPreservesHostTurnAndDrainsIsolatedTurn(t *testing.T) {
+	m, mgr := newMaintenanceTest(t)
+	start := func(name string, identity principal.ExecutionIdentity) (*session.Session, *handoffTestProc) {
+		sess, err := mgr.Create(name, "claude")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := mgr.SetExecutionIdentity(sess, identity, name+"-launch"); err != nil {
+			t.Fatal(err)
+		}
+		proc := &handoffTestProc{serverTestProc: serverTestProc{holdTurnOpen: true}}
+		sess.SetProc(proc)
+		sess.SetBrokerSocket(filepath.Join(m.srv.amuxDir, name+".sock"))
+		if err := mgr.SetRunning(sess); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := sess.SubmitInput(t.Context(), "cli", session.TextUserInput(name)); err != nil {
+			t.Fatal(err)
+		}
+		return sess, proc
+	}
+	host, hostProc := start("host", principal.LegacyHostIdentity(principal.SourceCLI))
+	isolated, isolatedProc := start("isolated", principal.ExecutionIdentity{
+		IdentityMode:           principal.IdentityModeIdentified,
+		Source:                 principal.SourceCLI,
+		OriginActorPrincipalID: "96d3a2d2-3b8a-4cd1-96aa-fe5660001000",
+		EffectivePrincipalID:   "96d3a2d2-3b8a-4cd1-96aa-fe5660001000",
+		IsolationBackend:       principal.BackendLinuxDAC,
+	})
+	maintenanceCall(t, m, "begin-helper-handoff")
+	out := maintenanceCall(t, m, "poll")
+	if out.Phase != "draining" || len(out.BusySessions) != 1 || out.BusySessions[0] != isolated.Name || isolatedProc.closed {
+		t.Fatalf("helper did not wait for the isolated turn: %v", out)
+	}
+	isolatedProc.turnSink(testSuccessEmission())
+	for deadline := time.Now().Add(time.Second); out.Phase != "ready"; {
+		if time.Now().After(deadline) {
+			t.Fatalf("isolated session did not drain: %v", out)
+		}
+		time.Sleep(time.Millisecond)
+		out = maintenanceCall(t, m, "poll")
+	}
+	if len(m.handoffBrokers()) != 0 {
+		t.Fatal("broker handoff was enabled before the updater requested a restart")
+	}
+	maintenanceCall(t, m, "arm-handoff")
+	keep := m.handoffBrokers()
+	if !keep[host.ID] || keep[isolated.ID] || !isolatedProc.closed {
+		t.Fatalf("incorrect handoff set: %v", keep)
+	}
+	m.srv.shutdownSessions(keep)
+	if hostProc.closed || host.AgentTimeline().ActiveTurn() == nil {
+		t.Fatal("host turn was stopped during handoff")
+	}
+	hostProc.turnSink(testSuccessEmission())
 }
 func TestMaintenanceWaitsForAcceptedRequestsAndTaskCleanup(t *testing.T) {
 	m, _ := newMaintenanceTest(t)
