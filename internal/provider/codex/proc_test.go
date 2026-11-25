@@ -5,9 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/amuxos/amux/internal/agentstream"
-	"github.com/amuxos/amux/internal/config"
-	"github.com/amuxos/amux/internal/session"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +14,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/amuxos/amux/internal/agentstream"
+	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/principal"
+	"github.com/amuxos/amux/internal/session"
+	"github.com/amuxos/amux/internal/sessioninput"
 )
 
 func startTestProc(t *testing.T, opts StartOptions) (*Proc, <-chan []byte, error) {
@@ -138,6 +142,42 @@ func TestProcDiscoversImageCapabilityAndSendsLocalImage(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("image staging directory was not removed after turn completion")
+}
+
+func TestProcSendsInlineImagesForLinuxDAC(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fake provider is unix-only")
+	}
+	fake := writeFakeCodex(t, fakeCodexImageScript)
+	stagingRoot := t.TempDir()
+	proc, out, err := startTestProc(t, StartOptions{
+		Cwd:             t.TempDir(),
+		CodexExecutable: fake,
+		Env:             append(os.Environ(), "TMPDIR="+stagingRoot, "AMUX_TEST_EXPECT_INLINE_IMAGES=1"),
+		LaunchContext:   isolation.LaunchContext{Backend: principal.BackendLinuxDAC},
+		ResumeSessionID: "t-image",
+	})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer proc.Close()
+
+	input := session.UserInput{Parts: []session.InputPart{
+		{Text: "inspect"},
+		{Image: &session.ImageInput{Data: bytes.Repeat([]byte{1}, sessioninput.MaxImageBytes), MIMEType: "image/png"}},
+		{Text: "and"},
+		{Image: &session.ImageInput{Data: bytes.Repeat([]byte{2}, sessioninput.MaxImageBytes), MIMEType: " image/jpeg "}},
+	}}
+	if err := proc.SubmitInput(input); err != nil {
+		t.Fatalf("SubmitInput: %v", err)
+	}
+	if got := waitFor(t, out, 10*time.Second); got != "image received" {
+		t.Fatalf("delta = %q, want image received", got)
+	}
+	entries, err := os.ReadDir(stagingRoot)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("staging root should be empty, entries=%v err=%v", entries, err)
+	}
 }
 
 func TestProcStreamsDeltaAndCompletesTurn(t *testing.T) {
@@ -755,7 +795,7 @@ func waitForPermissionEvent(t *testing.T, ch <-chan testEmission, d time.Duratio
 }
 
 const fakeCodexImageScript = `#!/usr/bin/env python3
-import json, os, sys
+import base64, json, os, sys, time
 for line in sys.stdin:
     msg = json.loads(line)
     mid = msg.get("id")
@@ -764,19 +804,36 @@ for line in sys.stdin:
         print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"userAgent":"fake"}}), flush=True)
     elif method == "thread/start":
         print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"thread":{"id":"t-image"},"model":"vision-model"}}), flush=True)
+    elif method == "thread/resume":
+        assert msg["params"]["threadId"] == "t-image"
+        assert msg["params"]["excludeTurns"] is True
+        print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"thread":{"id":"t-image"},"model":"vision-model"}}), flush=True)
     elif method == "model/list":
         print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"data":[{"id":"vision-model","model":"vision-model","inputModalities":["text","image"]}]}}), flush=True)
     elif method == "turn/start":
         inputs = msg["params"]["input"]
         assert inputs[0] == {"type":"text","text":"inspect"}
-        assert inputs[1]["type"] == "localImage"
-        path = inputs[1]["path"]
+        path = None
+        if os.getenv("AMUX_TEST_EXPECT_INLINE_IMAGES") == "1":
+            assert len(inputs) == 4
+            assert inputs[2] == {"type":"text","text":"and"}
+            for part, mime, fill in [(inputs[1], "image/png", 1), (inputs[3], "image/jpeg", 2)]:
+                assert part["type"] == "image"
+                header, payload = part["url"].split(",", 1)
+                assert header == "data:" + mime + ";base64"
+                assert base64.b64decode(payload) == bytes([fill]) * (10 * 1024 * 1024)
+        else:
+            assert len(inputs) == 2
+            assert inputs[1]["type"] == "localImage"
+            path = inputs[1]["path"]
         print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"turn":{"id":"u-image"}}}), flush=True)
-        import time
-        time.sleep(0.1)
-        assert os.path.exists(path)
-        assert open(path, "rb").read() == b"image-bytes"
+        if path is not None:
+            time.sleep(0.1)
+            assert os.path.exists(path)
+            assert open(path, "rb").read() == b"image-bytes"
         print(json.dumps({"jsonrpc":"2.0","method":"turn/started","params":{"threadId":"t-image","turn":{"id":"u-image"}}}), flush=True)
+        if path is None:
+            print(json.dumps({"jsonrpc":"2.0","method":"item/completed","params":{"threadId":"t-image","turnId":"u-image","item":{"type":"userMessage","id":"u-input","content":inputs}}}), flush=True)
         print(json.dumps({"jsonrpc":"2.0","method":"item/agentMessage/delta","params":{"delta":"image received","threadId":"t-image","turnId":"u-image","itemId":"i-image"}}), flush=True)
         print(json.dumps({"jsonrpc":"2.0","method":"turn/completed","params":{"threadId":"t-image","turn":{"id":"u-image"}}}), flush=True)
     else:

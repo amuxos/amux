@@ -129,6 +129,10 @@ reconnects; older brokers without modality metadata remain text-only. Image-only
 and mixed text/image submissions preserve content order and use ACP inline
 base64 image blocks after the shared MIME, size and dimension checks.
 
+Under Linux DAC, image-capable app-server sessions receive validated images as
+inline data URLs in turn input. The isolated agent reads the image through the
+app-server connection with its existing execution identity and file permissions.
+
 ACP adapters may map the caller's model and reasoning selection to native
 `configOptions` select values. New and resumed native conversations apply those
 frozen settings before becoming available. Every requested value must be offered

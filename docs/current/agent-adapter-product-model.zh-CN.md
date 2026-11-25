@@ -96,6 +96,9 @@ Session，包括 Runtime 重连；未携带输入类型元数据的旧 Broker �
 纯图片及图文混合输入保留内容顺序，通过共享的 MIME、大小和像素检查后，使用 ACP
 内联 base64 图片块传递。
 
+在 Linux DAC 下，支持图片输入的 app-server 会话通过轮次输入中的内联 data URL 接收
+已校验的图片。隔离 Agent 通过 app-server 连接读取图片，沿用原有执行身份和文件权限。
+
 ACP Adapter 可将调用方的模型和推理强度映射为原生 `configOptions` 的 select 值。
 新建和恢复的原生会话在可用前应用冻结的执行设置。所有请求值都必须出现在 Agent
 公布的选项中，并由当前选择或 `session/set_config_option` 回读确认；选项缺失或设置失败时

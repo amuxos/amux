@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -118,6 +119,13 @@ func (p *Proc) stageTurnInput(input session.UserInput) ([]map[string]any, string
 			if part.Text != "" {
 				parts = append(parts, map[string]any{"type": "text", "text": part.Text})
 			}
+			continue
+		}
+		if p.inlineImages {
+			// The isolated app-server cannot read files owned by the broker UID.
+			mimeType := strings.TrimSpace(part.Image.MIMEType)
+			url := "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(part.Image.Data)
+			parts = append(parts, map[string]any{"type": "image", "url": url})
 			continue
 		}
 		if stagingDir == "" {

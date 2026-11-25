@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,9 +20,11 @@ import (
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/provider"
 	providerjsonrpc "github.com/amuxos/amux/internal/provider/jsonrpc"
 	"github.com/amuxos/amux/internal/session"
+	"github.com/amuxos/amux/internal/sessioninput"
 )
 
 // Proc drives a `codex app-server` subprocess over the JSON-RPC protocol
@@ -87,6 +90,7 @@ type Proc struct {
 	memoryOptions StartOptions
 	cwd           string
 	inputTempDir  string
+	inlineImages  bool
 	turnModel     string
 	turnEffort    string
 	stagingMu     sync.Mutex
@@ -628,6 +632,7 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	p.providerName = providerName
 	p.turnFailureHint = opts.TurnFailureHint
 	p.inputTempDir = environmentValue(opts.Env, "TMPDIR")
+	p.inlineImages = opts.LaunchContext.Backend == principal.BackendLinuxDAC
 	p.turnModel = strings.TrimSpace(opts.ResumeModel)
 	p.turnEffort = strings.TrimSpace(opts.ResumeReasoningEffort)
 	p.discoverSkills = opts.DiscoverSkills
@@ -640,7 +645,12 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	p.registerHandlers(out)
 
 	go func() {
-		_ = p.client.Run()
+		extraFrameBytes := 0
+		if p.inlineImages {
+			// App-server notifications can echo the entire submitted image set.
+			extraFrameBytes = base64.StdEncoding.EncodedLen(sessioninput.MaxTotalBytes)
+		}
+		_ = p.client.RunWithExtraFrameBytes(extraFrameBytes)
 		p.notificationMu.Lock()
 		p.notificationQueue = nil
 		p.notificationMu.Unlock()
@@ -763,6 +773,11 @@ func (p *Proc) startOrResumeThread(ctx context.Context, opts StartOptions) (prov
 	p.userInputThreadParams(params)
 	if resumeID := strings.TrimSpace(opts.ResumeSessionID); resumeID != "" {
 		params["threadId"] = resumeID
+		if p.inlineImages {
+			// App-server restores its own history. The broker only needs the
+			// thread identity and settings, without echoing prior image payloads.
+			params["excludeTurns"] = true
+		}
 		if model := strings.TrimSpace(opts.ResumeModel); model != "" {
 			params["model"] = model
 		}

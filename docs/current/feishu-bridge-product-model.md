@@ -279,6 +279,10 @@ container are expanded. A descendant's original message ID may retrieve its
 resources only when Feishu explicitly reports the same chat as the container;
 otherwise retrieval keeps the top-level container ID.
 
+For image-capable sessions, Bridge submits the first frame of an inbound GIF
+as one PNG preview. The downloaded GIF and the PNG preview must fit the
+existing image limits.
+
 Agent-produced outbox artifacts follow Feishu IM upload limits independently of
 inbound material limits. Each file may be at most 30 MB, with at most ten files
 and 300 MB total per turn. Recognized images up to 10 MB use the image upload

@@ -1,10 +1,14 @@
 package bridge
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"image/gif"
+	"image/png"
 	"io"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -223,11 +227,51 @@ func (b *Bridge) fetchFeishuImage(ctx context.Context, ref feishuImageRef) ([]by
 	if len(data) > sessioninput.MaxImageBytes {
 		return nil, "", "", fmt.Errorf("image exceeds %d bytes", sessioninput.MaxImageBytes)
 	}
+	if bytes.HasPrefix(data, []byte("GIF87a")) || bytes.HasPrefix(data, []byte("GIF89a")) {
+		preview, err := gifPNGPreview(data)
+		if err != nil {
+			return nil, "", "", err
+		}
+		if name == "" {
+			name = "gif-preview"
+		}
+		return preview, "image/png", strings.TrimSuffix(name, path.Ext(name)) + ".png", nil
+	}
 	mimeType := detectImageMIME(data)
 	if mimeType == "" {
 		return nil, "", "", fmt.Errorf("unsupported image format")
 	}
 	return data, mimeType, name, nil
+}
+
+func gifPNGPreview(data []byte) ([]byte, error) {
+	config, err := gif.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	// Check the logical canvas before decoding the first frame. The GIF
+	// decoder bounds that frame by the logical canvas.
+	if config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > sessioninput.MaxPixels {
+		return nil, fmt.Errorf("GIF dimensions %dx%d exceed %d pixels", config.Width, config.Height, sessioninput.MaxPixels)
+	}
+	frame, err := gif.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	var preview gifPreviewBuffer
+	if err := png.Encode(&preview, frame); err != nil {
+		return nil, err
+	}
+	return preview.Bytes(), nil
+}
+
+type gifPreviewBuffer struct{ bytes.Buffer }
+
+func (b *gifPreviewBuffer) Write(data []byte) (int, error) {
+	if len(data) > sessioninput.MaxImageBytes-b.Len() {
+		return 0, fmt.Errorf("GIF preview exceeds %d bytes", sessioninput.MaxImageBytes)
+	}
+	return b.Buffer.Write(data)
 }
 
 func detectImageMIME(data []byte) string {
