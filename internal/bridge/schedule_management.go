@@ -429,49 +429,61 @@ func renderScheduleDetailWithViewer(e schedule.Entry, result bool, page int, vie
 		// Section 1: Result delivery configuration (clearly grouped in a shaded panel).
 		isReuseSession := e.Task.ScheduleType != schedule.ScheduleTypeSubtask && (e.Task.RunMode == "" || e.Task.RunMode == schedule.RunModeReuseSession)
 		effectiveTarget := scheduleEffectiveDeliveryTarget(e.Task)
-		targetOptions := []string{schedule.DeliveryTargetOrigin, schedule.DeliveryTargetCreatorDM, schedule.DeliveryTargetNone}
+		var targetOptions []string
 		if isReuseSession {
-			targetOptions = []string{schedule.DeliveryTargetCreatorDM, schedule.DeliveryTargetNone}
-		}
-		var targetRow []cardElement
-		for _, target := range targetOptions {
-			btn := scheduleButton("delivery_target."+target, "delivery_target", e.Task.ID, map[string]string{"value": target})
-			btn.Size = "small"
-			if target == effectiveTarget {
-				btn.Type = "primary"
-				btn.Text = managementPlainTextPtr(managementConcat("✓ ", scheduleDeliveryTargetCopy(target)))
+			// creator_dm is currently hidden; only expose "none" if a legacy
+			// reuse-session schedule still has creator_dm enabled so the user
+			// can switch it off.
+			if effectiveTarget == schedule.DeliveryTargetCreatorDM {
+				targetOptions = []string{schedule.DeliveryTargetNone}
 			}
-			targetRow = append(targetRow, btn)
+		} else {
+			targetOptions = []string{schedule.DeliveryTargetOrigin, schedule.DeliveryTargetNone}
 		}
-		deliveryRows := []cardElement{
-			managementTextElement(scheduleText("detail.delivery_target_label"), "notation", "grey", nil),
-			managementFormButtonRowElement(targetRow...),
-		}
-		if effectiveTarget != schedule.DeliveryTargetNone {
-			effectivePolicy := scheduleEffectiveDeliveryPolicy(e.Task)
-			var policyRow []cardElement
-			for _, policy := range []string{schedule.DeliveryPolicyAlways, schedule.DeliveryPolicyOnNonEmpty, schedule.DeliveryPolicyOnFailure} {
-				btn := scheduleButton("delivery_policy."+policy, "delivery_policy", e.Task.ID, map[string]string{"value": policy})
-				btn.Size = "small"
-				if policy == effectivePolicy {
-					btn.Type = "primary"
-					btn.Text = managementPlainTextPtr(managementConcat("✓ ", scheduleDeliveryPolicyCopy(policy)))
+		if len(targetOptions) > 0 || effectiveTarget != schedule.DeliveryTargetNone {
+			var deliveryRows []cardElement
+			if len(targetOptions) > 0 {
+				var targetRow []cardElement
+				for _, target := range targetOptions {
+					btn := scheduleButton("delivery_target."+target, "delivery_target", e.Task.ID, map[string]string{"value": target})
+					btn.Size = "small"
+					if target == effectiveTarget {
+						btn.Type = "primary"
+						btn.Text = managementPlainTextPtr(managementConcat("✓ ", scheduleDeliveryTargetCopy(target)))
+					}
+					targetRow = append(targetRow, btn)
 				}
-				policyRow = append(policyRow, btn)
+				deliveryRows = append(deliveryRows,
+					managementTextElement(scheduleText("detail.delivery_target_label"), "notation", "grey", nil),
+					managementFormButtonRowElement(targetRow...),
+				)
 			}
-			deliveryRows = append(deliveryRows,
-				managementTextElement(scheduleText("detail.delivery_policy_label"), "notation", "grey", nil),
-				managementFormButtonRowElement(policyRow...),
+			if effectiveTarget != schedule.DeliveryTargetNone {
+				effectivePolicy := scheduleEffectiveDeliveryPolicy(e.Task)
+				var policyRow []cardElement
+				for _, policy := range []string{schedule.DeliveryPolicyAlways, schedule.DeliveryPolicyOnNonEmpty, schedule.DeliveryPolicyOnFailure} {
+					btn := scheduleButton("delivery_policy."+policy, "delivery_policy", e.Task.ID, map[string]string{"value": policy})
+					btn.Size = "small"
+					if policy == effectivePolicy {
+						btn.Type = "primary"
+						btn.Text = managementPlainTextPtr(managementConcat("✓ ", scheduleDeliveryPolicyCopy(policy)))
+					}
+					policyRow = append(policyRow, btn)
+				}
+				deliveryRows = append(deliveryRows,
+					managementTextElement(scheduleText("detail.delivery_policy_label"), "notation", "grey", nil),
+					managementFormButtonRowElement(policyRow...),
+				)
+			}
+			deliveryPanel := managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_delivery_%d", e.Task.ID), deliveryRows...)
+			deliveryPanel.Columns[0].VerticalSpacing = "6px"
+
+			elements = append(elements,
+				managementDividerElement(),
+				managementSectionTitleElement(managementConcat(scheduleText("detail.section.delivery"), " · ", scheduleDeliverySummary(e.Task))),
+				deliveryPanel,
 			)
 		}
-		deliveryPanel := managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_delivery_%d", e.Task.ID), deliveryRows...)
-		deliveryPanel.Columns[0].VerticalSpacing = "6px"
-
-		elements = append(elements,
-			managementDividerElement(),
-			managementSectionTitleElement(managementConcat(scheduleText("detail.section.delivery"), " · ", scheduleDeliverySummary(e.Task))),
-			deliveryPanel,
-		)
 
 		// Section 2: Admin status alerts (clearly separated from result delivery).
 		alertRows := []cardElement{

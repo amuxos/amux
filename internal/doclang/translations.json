@@ -3527,17 +3527,17 @@
     "en": "After a Feishu turn has no visible output and stays in upstream retry or queue wait for this many seconds, show same-engine model switch retry buttons and an \"Other models...\" dropdown on the progress card. Default is 60 seconds; set to 0 to disable queued-wait controls while keeping rate-limit/usage-limit error recovery cards. Only the Bot owner can edit this in the Experiments card, and changes apply immediately after saving.",
     "zh-CN": "飞书回合无可见输出且处于上游重试或排队等待达到该秒数后，在进展卡片上展示同引擎切换模型重试按钮及「其他模型…」下拉；默认 60 秒，设为 0 关闭排队等待按钮（仍保留限流/额度耗尽报错恢复卡）。仅负责人可在实验功能卡片中修改，保存后立即生效。"
   },
-  "result delivery target: none \\| origin \\| creator_dm": {
-    "en": "result delivery target: none \\| origin \\| creator_dm",
-    "zh-CN": "结果主动投递目标：none \\| origin \\| creator_dm"
+  "result delivery target: none \\| origin": {
+    "en": "result delivery target: none \\| origin",
+    "zh-CN": "结果主动投递目标：none \\| origin"
   },
   "result delivery policy: always \\| on_failure \\| on_non_empty": {
     "en": "result delivery policy: always \\| on_failure \\| on_non_empty",
     "zh-CN": "结果主动投递策略：always \\| on_failure \\| on_non_empty"
   },
-  "new result delivery target: none \\| origin \\| creator_dm": {
-    "en": "new result delivery target: none \\| origin \\| creator_dm",
-    "zh-CN": "新的结果主动投递目标：none \\| origin \\| creator_dm"
+  "new result delivery target: none \\| origin": {
+    "en": "new result delivery target: none \\| origin",
+    "zh-CN": "新的结果主动投递目标：none \\| origin"
   },
   "new result delivery policy: always \\| on_failure \\| on_non_empty": {
     "en": "new result delivery policy: always \\| on_failure \\| on_non_empty",
@@ -3567,17 +3567,17 @@
     "en": "Update a Schedule in place: name, spec, timezone, result delivery (delivery_target/delivery_policy), session-prompt prompt/run_mode, or partial subtask Task fields; omitted fields remain unchanged, and escalate-to-main is not allowed.",
     "zh-CN": "原地更新 Schedule 的名称、时间规则、时区、结果投递设置（delivery_target/delivery_policy）、session-prompt 的 prompt/run_mode 或 subtask 的局部 Task 字段；省略字段保持不变，不允许 escalate-to-main。"
   },
-  "更新结果主动投递目标（none、origin 或 creator_dm）；省略时保持不变": {
-    "en": "Updated proactive result delivery target (none, origin, or creator_dm); omitted means unchanged",
-    "zh-CN": "更新结果主动投递目标（none、origin 或 creator_dm）；省略时保持不变"
+  "更新结果主动投递目标（none 或 origin）；省略时保持不变": {
+    "en": "Updated proactive result delivery target (none or origin); omitted means unchanged",
+    "zh-CN": "更新结果主动投递目标（none 或 origin）；省略时保持不变"
   },
   "更新结果主动投递策略（always、on_failure 或 on_non_empty）；省略时保持不变": {
     "en": "Updated proactive result delivery policy (always, on_failure, or on_non_empty); omitted means unchanged",
     "zh-CN": "更新结果主动投递策略（always、on_failure 或 on_non_empty）；省略时保持不变"
   },
-  "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、creator_dm（私聊创建者）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin": {
-    "en": "Proactive result delivery target: origin (reply back to the originating Feishu chat/thread; auto-default for Feishu subtask schedules when omitted), creator_dm (DM the schedule creator), or none (record only without proactive push). Note: origin is disallowed for session-prompt + reuse-session",
-    "zh-CN": "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、creator_dm（私聊创建者）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin"
+  "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin": {
+    "en": "Proactive result delivery target: origin (reply back to the originating Feishu chat/thread; auto-default for Feishu subtask schedules when omitted), or none (record only without proactive push). Note: origin is disallowed for session-prompt + reuse-session",
+    "zh-CN": "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin"
   },
   "结果主动投递策略（delivery_target 非 none 时生效）：always（默认，每次终态都推送）、on_failure（仅失败或超时推送）、on_non_empty（仅失败或产出非静默内容时推送，忽略空内容/NO_ALERT/SILENT/HEARTBEAT_OK）": {
     "en": "Proactive result delivery policy (applies when delivery_target is not none): always (default, push every terminal run), on_failure (push only on failure or timeout), or on_non_empty (push on failure or non-silent output, suppressing empty/NO_ALERT/SILENT/HEARTBEAT_OK)",

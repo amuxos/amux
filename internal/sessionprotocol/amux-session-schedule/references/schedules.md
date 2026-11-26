@@ -6,8 +6,8 @@ Schedules separate **execution** from **result delivery**.
 
 | Mode | When to use | On each trigger | Result delivery |
 | --- | --- | --- | --- |
-| **Isolated** (`schedule_type="subtask"`, default) | Most recurring or one-shot jobs (reports, monitoring, reminders, checks, batch tasks) that should not pollute the current chat context | Runs an independent bounded Task; inside a live Session (`AMUX_SESSION_ID` set), omitting `task.agent` automatically inherits the current Session's Agent Profile and model | Controlled by `delivery_target` (`origin` / `creator_dm` / `none`) and `delivery_policy` (`always` / `on_failure` / `on_non_empty`). In Feishu chats, omitting `delivery_target` defaults to `origin` (`always`) |
-| **In-session** (`schedule_type="session-prompt"`, `run_mode="reuse-session"`) | Follow-ups and progress checks that explicitly need the current Session's conversation history | Submits the prompt into the existing Session and wakes the Agent | Output appears directly in that Session (`delivery_target="origin"` is disallowed; `creator_dm` or `none` is allowed) |
+| **Isolated** (`schedule_type="subtask"`, default) | Most recurring or one-shot jobs (reports, monitoring, reminders, checks, batch tasks) that should not pollute the current chat context | Runs an independent bounded Task; inside a live Session (`AMUX_SESSION_ID` set), omitting `task.agent` automatically inherits the current Session's Agent Profile and model | Controlled by `delivery_target` (`origin` / `none`) and `delivery_policy` (`always` / `on_failure` / `on_non_empty`). In Feishu chats, omitting `delivery_target` defaults to `origin` (`always`) |
+| **In-session** (`schedule_type="session-prompt"`, `run_mode="reuse-session"`) | Follow-ups and progress checks that explicitly need the current Session's conversation history | Submits the prompt into the existing Session and wakes the Agent | Output appears directly in that Session (`delivery_target="origin"` is disallowed; omit or use `none`) |
 
 Legacy compatibility: `schedule_type="session-prompt"` with
 `run_mode="new-session-per-run"` creates a fresh Session from an existing
@@ -27,7 +27,6 @@ specify a dedicated specialist profile explicitly. Set `delivery_target` and
 
 - `delivery_target`:
   - `origin`: post the run result card back to the originating chat/thread (auto-default for Feishu-originated `subtask` schedules when omitted).
-  - `creator_dm`: send the run result card directly to the schedule creator via DM.
   - `none`: record execution history without proactive chat delivery.
 - `delivery_policy`:
   - `always` (default): deliver on every terminal run.
@@ -77,7 +76,7 @@ turn or Feishu message, use `turn_result_get`. For subtask schedules,
 `last_status` means input was submitted, not that the requested work succeeded.
 
 CLI equivalents: `amux schedule create-task SPEC --agent ... --task ...
-[--delivery-target origin|creator_dm|none] [--delivery-policy always|on_failure|on_non_empty]`;
+[--delivery-target origin|none] [--delivery-policy always|on_failure|on_non_empty]`;
 `amux schedule create "$AMUX_SESSION_ID" SPEC PROMPT --run-mode reuse-session`.
 Use CLI only when the Runtime context selects CLI, or the user explicitly
 requests an operator CLI action.

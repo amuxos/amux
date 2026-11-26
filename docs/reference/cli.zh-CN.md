@@ -1560,7 +1560,7 @@ amux schedule create local/c1 "every 30m" "/daily-report run"
 | 选项 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `--delivery-policy` | `string` | `""` | 结果主动投递策略：always \| on_failure \| on_non_empty |
-| `--delivery-target` | `string` | `""` | 结果主动投递目标：none \| origin \| creator_dm |
+| `--delivery-target` | `string` | `""` | 结果主动投递目标：none \| origin |
 | `-h, --help` | `bool` | `false` | create 帮助 |
 | `--name` | `string` | `""` | Schedule 的可选标签 |
 | `--run-mode` | `string` | `reuse-session` | 执行模式：reuse-session 或 new-session-per-run |
@@ -1591,7 +1591,7 @@ amux schedule create-task "every 1h" --agent team/reviewer --task "review recent
 | `--arg` | `stringArray` | `[]` | 原生 Agent 参数（可重复） |
 | `--credential-profile` | `string` | `""` | 凭据 Profile 名称（由控制面解析） |
 | `--delivery-policy` | `string` | `""` | 结果主动投递策略：always \| on_failure \| on_non_empty |
-| `--delivery-target` | `string` | `""` | 结果主动投递目标：none \| origin \| creator_dm |
+| `--delivery-target` | `string` | `""` | 结果主动投递目标：none \| origin |
 | `-h, --help` | `bool` | `false` | create-task 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |
 | `--local-dir` | `string` | `""` | 覆盖目标机器上的工作目录 |
@@ -1764,7 +1764,7 @@ amux schedule update 8 --name nightly-report
 | `--arg` | `stringArray` | `[]` | 原生 Agent 参数（可重复） |
 | `--credential-profile` | `string` | `""` | 凭据 Profile 名称（由控制面解析） |
 | `--delivery-policy` | `string` | `""` | 新的结果主动投递策略：always \| on_failure \| on_non_empty |
-| `--delivery-target` | `string` | `""` | 新的结果主动投递目标：none \| origin \| creator_dm |
+| `--delivery-target` | `string` | `""` | 新的结果主动投递目标：none \| origin |
 | `-h, --help` | `bool` | `false` | update 帮助 |
 | `--isolation` | `string` | `""` | 隔离模式：process \| private-home（默认 process） |
 | `--local-dir` | `string` | `""` | 覆盖目标机器上的工作目录 |

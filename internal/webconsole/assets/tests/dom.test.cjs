@@ -216,6 +216,8 @@ test('schedule form submits delivery target/policy and detail view renders deliv
   mount(env, 'schedules', { schedules: [], actions: ['create'] });
   await env.app.openScheduleForm();
   const form = env.document.querySelector('#dialogs form');
+  const createTargetValues = form.querySelectorAll('[name=delivery_target] option').map(opt => opt.value);
+  assert.deepEqual(createTargetValues, ['', 'none', 'origin']);
   form.querySelector('[name=spec]').value = 'daily 09:00';
   form.querySelector('[name=delivery_target]').value = 'origin';
   form.querySelector('[name=delivery_policy]').value = 'on_non_empty';
@@ -226,6 +228,20 @@ test('schedule form submits delivery target/policy and detail view renders deliv
   const data = JSON.parse(post.options.body).data;
   assert.equal(data.delivery_target, 'origin');
   assert.equal(data.delivery_policy, 'on_non_empty');
+
+  await env.app.openScheduleForm({
+    id: 23,
+    name: 'Legacy DM check',
+    spec: 'daily 09:00',
+    schedule_type: 'subtask',
+    delivery_target: 'creator_dm',
+    delivery_policy: 'on_failure',
+    task: { agent: 'builtin/general', task: 'Check status' }
+  });
+  const editForm = env.document.querySelector('#dialogs form');
+  const editTargetValues = editForm.querySelectorAll('[name=delivery_target] option').map(opt => opt.value);
+  assert.deepEqual(editTargetValues, ['', 'none', 'origin', 'creator_dm']);
+  assert.equal(editForm.querySelector('[name=delivery_target]').value, 'creator_dm');
 
   mount(env, 'schedule', {
     schedule: {

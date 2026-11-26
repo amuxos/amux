@@ -1688,17 +1688,20 @@
       }
       const p = Object.assign({}, item || {}, values || {});
       const task = Object.assign({}, item && item.task || {}, values ? { agent: values.task_agent, task: values.task_text, runtime: values.runtime, model: values.model, reasoning_effort: values.reasoning_effort } : {});
+      const deliveryTargetOptions = [
+        { value: '', label: t('deliveryTargetDefault') },
+        { value: 'none', label: t('deliveryTarget_none') },
+        { value: 'origin', label: t('deliveryTarget_origin') }
+      ];
+      if (p.delivery_target === 'creator_dm') {
+        deliveryTargetOptions.push({ value: 'creator_dm', label: t('deliveryTarget_creator_dm') });
+      }
       const fields = [
         formField('name', 'name', 'text', p.name || ''),
         formField('spec', 'spec', 'text', p.spec || '', { required: true, help: 'specHelp' }),
         formField('timezone', 'timezone', 'text', p.timezone || '', { help: 'timezoneHelp' }),
         formField('delivery_target', 'deliveryTarget', 'text', p.delivery_target || '', {
-          options: [
-            { value: '', label: t('deliveryTargetDefault') },
-            { value: 'none', label: t('deliveryTarget_none') },
-            { value: 'origin', label: t('deliveryTarget_origin') },
-            { value: 'creator_dm', label: t('deliveryTarget_creator_dm') }
-          ]
+          options: deliveryTargetOptions
         }),
         formField('delivery_policy', 'deliveryPolicy', 'text', p.delivery_policy || '', {
           options: [
