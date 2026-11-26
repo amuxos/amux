@@ -82,6 +82,12 @@ func renderSchedules(entries []schedule.Entry, filter string, page int) string {
 		filter = "all"
 	}
 	elements := []cardElement{scheduleBackToOverview(), managementDividerElement(), managementTextElement(scheduleSummary(entries), "normal", "default", nil), managementTextElement(scheduleText("policy"), "notation", "grey", nil)}
+	completedCount := 0
+	for _, e := range entries {
+		if e.Task.LifecycleState() == schedule.StateCompleted {
+			completedCount++
+		}
+	}
 	var filters []cardElement
 	for _, f := range []string{"all", "attention", "running", "paused", "completed"} {
 		btn := scheduleButton("filter."+f, "list", 0, map[string]string{"filter": f})
@@ -92,6 +98,17 @@ func renderSchedules(entries []schedule.Entry, filter string, page int) string {
 		filters = append(filters, btn)
 	}
 	elements = append(elements, managementFormButtonRowElement(filters...))
+	if completedCount > 0 && (filter == "all" || filter == "completed") {
+		pruneBtn := managementButtonElement(managementButton{
+			Text:   scheduleText("prune_completed", completedCount),
+			Type:   "default",
+			Action: "schedule.prune_completed",
+			Name:   "schedule.prune_completed.0",
+			Values: map[string]string{"filter": filter},
+		})
+		pruneBtn.Size = "small"
+		elements = append(elements, managementFormButtonRowElement(pruneBtn))
+	}
 	sort.SliceStable(entries, func(i, j int) bool {
 		rank := func(e schedule.Entry) int {
 			if scheduleNeedsAttention(e) {
@@ -149,10 +166,24 @@ func renderSchedules(entries []schedule.Entry, filter string, page int) string {
 				{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{detailBtn}},
 			},
 		}
+		statusEl := managementTextElement(scheduleStatus(e), "notation", "default", nil)
+		if e.Visibility.AutoPausedAt > 0 {
+			statusEl = managementTextElement(
+				managementConcat(scheduleStatus(e), " · ", scheduleText("auto_paused_short")),
+				"notation",
+				"orange",
+				nil,
+			)
+		}
 		item := managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_%d", e.Task.ID),
 			header,
-			managementTextElement(scheduleStatus(e), "notation", "default", nil),
-			managementTextElement(scheduleText("next", scheduleNext(e)), "notation", "grey", nil),
+			statusEl,
+			managementTextElement(
+				managementConcat(scheduleText("next", scheduleNext(e)), " · ", scheduleDeliverySummary(e.Task)),
+				"notation",
+				"grey",
+				nil,
+			),
 		)
 		item.Columns[0].VerticalSpacing = "2px"
 		elements = append(elements, item)
@@ -179,14 +210,35 @@ func renderSchedules(entries []schedule.Entry, filter string, page int) string {
 	elements = append(elements, cardElement{Tag: "column_set", FlexMode: "none", HorizontalSpacing: "8px", Columns: pageColumns})
 	return marshalNativeManagementCard(managementCardView{Title: scheduleText("title"), Summary: scheduleText("title"), Theme: "wathet", Icon: managementIcon("setting_outlined", "blue"), Elements: elements})
 }
+func scheduleLifecycleTag(e schedule.Entry) cardTextTag {
+	if e.Visibility.AutoPausedAt > 0 {
+		return cardTextTag{Tag: "text_tag", Text: managementPlainText(scheduleText("tag.auto_paused")), Color: "orange"}
+	}
+	if scheduleNeedsAttention(e) {
+		return cardTextTag{Tag: "text_tag", Text: managementPlainText(scheduleText("tag.attention")), Color: "orange"}
+	}
+	switch e.Task.LifecycleState() {
+	case schedule.StatePaused:
+		return cardTextTag{Tag: "text_tag", Text: managementPlainText(scheduleText("tag.paused")), Color: "neutral"}
+	case schedule.StateCompleted:
+		return cardTextTag{Tag: "text_tag", Text: managementPlainText(scheduleText("tag.completed")), Color: "blue"}
+	default:
+		return cardTextTag{Tag: "text_tag", Text: managementPlainText(scheduleText("tag.enabled")), Color: "green"}
+	}
+}
+
 func renderScheduleDetail(e schedule.Entry, result bool, pages ...int) string {
 	page := 0
 	if len(pages) > 0 {
 		page = pages[0]
 	}
+	return renderScheduleDetailWithViewer(e, result, page, nil)
+}
+
+func renderScheduleDetailWithViewer(e schedule.Entry, result bool, page int, viewerURL func(targetID, sessionName string) string) string {
 	page = max(0, min(page, max(0, (len(e.Runs)-1)/5)))
 	v := e.Visibility
-	elements := []cardElement{managementTextElement(scheduleName(e.Task), "heading-3", "default", nil), managementTextElement(scheduleStatus(e), "normal", "default", nil), managementTextElement(scheduleText("recipient"), "notation", "grey", nil), managementTextElement(e.Task.Spec, "normal", "default", nil), managementTextElement(scheduleText("next", scheduleNext(e)), "normal", "default", nil), managementTextElement(scheduleText("last_completed", scheduleTime(v.LastCompletedAt)), "normal", "default", nil)}
+
 	back := managementNavigationBackElement(scheduleText("back"), "schedule.list", "schedule.back.list")
 	if result {
 		back = managementButtonRowElement([]managementButton{{Text: scheduleText("back_detail"), Type: "text", Action: "schedule.detail", Name: "schedule.back.detail", Values: map[string]string{"schedule_id": strconv.FormatInt(e.Task.ID, 10)}, Icon: managementIconPtr("left_outlined", "grey")}})
@@ -196,62 +248,272 @@ func renderScheduleDetail(e schedule.Entry, result bool, pages ...int) string {
 	}
 	breadcrumb := scheduleBackToOverview()
 	breadcrumb.Columns = append(breadcrumb.Columns, back.Columns...)
-	elements = append([]cardElement{breadcrumb, managementDividerElement()}, elements...)
-	if v.IncidentAt != 0 {
-		elements = append(elements, managementTextElement(scheduleText("incident", v.IncidentCount, scheduleTime(v.IncidentAt)), "normal", "orange", nil))
+
+	titleRow := cardElement{
+		Tag:               "column_set",
+		FlexMode:          "none",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(scheduleName(e.Task), "heading-3", "default", nil)}},
+		},
 	}
-	if v.Acknowledged {
-		elements = append(elements, managementTextElement(scheduleText("acknowledged"), "notation", "grey", nil))
+	if e.Task.ID > 0 {
+		titleRow.Columns = append(titleRow.Columns, cardColumn{
+			Tag:           "column",
+			Width:         "auto",
+			VerticalAlign: "center",
+			Elements:      []cardElement{managementTextElement(fmt.Sprintf("#%d", e.Task.ID), "notation", "grey", nil)},
+		})
+	}
+
+	elements := []cardElement{breadcrumb, managementDividerElement(), titleRow}
+
+	// Surface warnings prominently at the top only when action or attention is needed.
+	var warnings []cardElement
+	if v.AutoPausedAt > 0 {
+		failures := v.ConsecutiveFailures
+		if failures < schedule.DefaultAutoPauseFailureThreshold {
+			failures = schedule.DefaultAutoPauseFailureThreshold
+		}
+		warnings = append(warnings, managementTextElement(scheduleText("auto_paused", failures, scheduleTime(v.AutoPausedAt)), "notation", "orange", managementIconPtr("warning_outlined", "orange")))
+	}
+	if v.IncidentAt != 0 {
+		warnings = append(warnings, managementTextElement(scheduleText("incident", v.IncidentCount, scheduleTime(v.IncidentAt)), "notation", "orange", managementIconPtr("warning_outlined", "orange")))
 	}
 	if v.DeliveryError == "missing_admin" {
-		elements = append(elements, managementTextElement(scheduleText("missing_admin"), "normal", "orange", nil))
+		warnings = append(warnings, managementTextElement(scheduleText("missing_admin"), "notation", "orange", managementIconPtr("warning_outlined", "orange")))
 	} else if v.Blocked {
-		elements = append(elements, managementTextElement(scheduleText("blocked."+v.DeliveryError), "normal", "orange", nil), scheduleButton("recheck", "recheck", e.Task.ID, nil))
+		recheckBtn := scheduleButton("recheck", "recheck", e.Task.ID, nil)
+		recheckBtn.Size = "small"
+		warnings = append(warnings, managementTextElement(scheduleText("blocked."+v.DeliveryError), "notation", "orange", managementIconPtr("warning_outlined", "orange")), managementFormButtonRowElement(recheckBtn))
 	} else if v.DeliveryError != "" {
-		elements = append(elements, managementTextElement(scheduleText("delivery_retry"), "normal", "orange", nil))
+		warnings = append(warnings, managementTextElement(scheduleText("delivery_retry"), "notation", "orange", managementIconPtr("warning_outlined", "orange")))
 	}
-	if v.SnoozeUntil > time.Now().Unix() {
-		elements = append(elements, managementTextElement(scheduleText("snoozed", scheduleTime(v.SnoozeUntil)), "notation", "grey", nil))
+	if len(warnings) > 0 {
+		warnBox := managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_warn_%d", e.Task.ID), warnings...)
+		warnBox.Columns[0].BackgroundStyle = "orange-50"
+		elements = append(elements, warnBox)
 	}
+
+	// Structured 2-column summary card matching /amux overview styling.
+	infoRows := []cardElement{
+		managementOverviewKeyValueRowElement(scheduleText("detail.field.status"), scheduleStatus(e)),
+		managementOverviewKeyValueRowElement(scheduleText("detail.field.schedule"), scheduleSpecDisplay(e.Task)),
+	}
+	if e.Task.LifecycleState() != schedule.StateCompleted {
+		infoRows = append(infoRows, managementOverviewKeyValueRowElement(scheduleText("detail.field.next_run"), scheduleNext(e)))
+	}
+	if v.LastCompletedAt > 0 {
+		infoRows = append(infoRows, managementOverviewKeyValueRowElement(scheduleText("detail.field.last_completed"), scheduleTime(v.LastCompletedAt)))
+	}
+	infoRows = append(infoRows, managementOverviewKeyValueRowElement(
+		scheduleText("detail.field.execution"),
+		managementConcat(scheduleExecutionModeCopy(e.Task), " · ", scheduleDeliveryAgentLabel(e.Task)),
+	))
+	infoBox := managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_info_%d", e.Task.ID), infoRows...)
+	infoBox.Columns[0].BackgroundStyle = "blue-50"
+	infoBox.Columns[0].VerticalSpacing = "4px"
+	elements = append(elements, infoBox)
+
+	// Primary task actions right below the summary box.
+	var primaryRow []cardElement
+	if !result {
+		btn := scheduleButton("results", "result", e.Task.ID, nil)
+		btn.Size = "small"
+		primaryRow = append(primaryRow, btn)
+	}
+	triggerBtn := scheduleButton("trigger", "trigger", e.Task.ID, nil)
+	triggerBtn.Size = "small"
+	primaryRow = append(primaryRow, triggerBtn)
+	if e.Task.Enabled && e.Task.NextRunAt != nil {
+		pauseBtn := scheduleButton("pause", "pause", e.Task.ID, nil)
+		pauseBtn.Size = "small"
+		primaryRow = append(primaryRow, pauseBtn)
+	} else if e.Task.Kind != schedule.KindOnce {
+		resumeBtn := scheduleButton("resume", "resume", e.Task.ID, nil)
+		resumeBtn.Size = "small"
+		primaryRow = append(primaryRow, resumeBtn)
+	}
+	deleteBtn := scheduleButton("delete", "delete", e.Task.ID, nil)
+	deleteBtn.Size = "small"
+	deleteBtn.Type = "danger"
+	primaryRow = append(primaryRow, deleteBtn)
+	elements = append(elements, managementFormButtonRowElement(primaryRow...))
+
 	if result {
+		elements = append(elements, managementDividerElement(), managementSectionTitleElement(scheduleText("results")))
 		if len(e.Runs) == 0 {
 			elements = append(elements, managementTextElement(scheduleText("no_result"), "normal", "grey", nil))
 		}
-		for _, r := range e.Runs[page*5 : min(len(e.Runs), (page+1)*5)] {
-			elements = append(elements, managementDividerElement(), managementTextElement(scheduleText("run_times", scheduleTime(r.ScheduledAt), scheduleTime(r.StartedAt), scheduleTime(r.FinishedAt)), "notation", "grey", nil), managementTextElement(scheduleText("status."+r.Status), "normal", "default", nil))
-			elements = append(elements, managementTextElement(scheduleText("execution_ref", r.TaskID, r.SessionName, r.TurnID), "notation", "grey", nil))
+		for idx, r := range e.Runs[page*5 : min(len(e.Runs), (page+1)*5)] {
+			runIdx := page*5 + idx
+			viewBtn := managementButtonElement(managementButton{
+				Text:   scheduleText("run.view_full"),
+				Type:   "primary_text",
+				Action: "schedule.run_detail",
+				Name:   fmt.Sprintf("schedule.run_detail.%d.%d", e.Task.ID, runIdx),
+				Values: map[string]string{
+					"schedule_id": strconv.FormatInt(e.Task.ID, 10),
+					"run_id":      strconv.FormatInt(r.ID, 10),
+					"run_index":   strconv.Itoa(runIdx),
+					"page":        strconv.Itoa(page),
+				},
+			})
+			viewBtn.Size = "small"
+			runHeader := cardElement{
+				Tag:               "column_set",
+				FlexMode:          "none",
+				HorizontalSpacing: "8px",
+				Columns: []cardColumn{
+					{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(scheduleText("status."+r.Status), "normal", "default", nil)}},
+					{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{viewBtn}},
+				},
+			}
+			runTime := r.FinishedAt
+			if runTime <= 0 {
+				runTime = r.StartedAt
+			}
+			if runTime <= 0 {
+				runTime = r.ScheduledAt
+			}
+			metaParts := []any{scheduleTime(runTime)}
+			switch r.DeliveryStatus {
+			case schedule.DeliveryStatusDelivered, schedule.DeliveryStatusFailed, schedule.DeliveryStatusDenied, schedule.DeliveryStatusSkipped, schedule.DeliveryStatusPending:
+				metaParts = append(metaParts, " · ", scheduleText("delivery_status."+r.DeliveryStatus))
+			}
+			runRows := []cardElement{
+				runHeader,
+				managementTextElement(managementConcat(metaParts...), "notation", "grey", nil),
+			}
 			if r.Result != "" {
-				elements = append(elements, managementTextElement(truncateScheduleResult(r.Result), "normal", "default", nil))
+				runRows = append(runRows, managementTextElement(truncateScheduleResult(r.Result), "normal", "default", nil))
 			}
 			if r.Reason != "" {
-				elements = append(elements, managementTextElement(scheduleReason(r.Reason), "notation", "grey", nil))
+				runRows = append(runRows, managementTextElement(scheduleReason(r.Reason), "notation", "grey", nil))
 			}
-			if len(elements) > 65 {
+			if viewerURL != nil {
+				if link := strings.TrimSpace(viewerURL(r.TargetID, r.SessionName)); link != "" {
+					sessionBtn := managementButtonElement(managementButton{
+						Text: scheduleText("run.view_session"),
+						Type: "default",
+						Name: fmt.Sprintf("schedule.run_session.%d.%d", e.Task.ID, runIdx),
+						URL:  link,
+					})
+					sessionBtn.Name = fmt.Sprintf("schedule.run_session.%d.%d", e.Task.ID, runIdx)
+					sessionBtn.Size = "small"
+					runRows = append(runRows, managementFormButtonRowElement(sessionBtn))
+				}
+			}
+			elements = append(elements, managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_run_%d_%d", e.Task.ID, idx), runRows...))
+			if len(elements) > 55 {
 				break
 			}
 		}
+		var pageBtns []cardElement
 		if page > 0 {
-			elements = append(elements, scheduleButton("previous", "result", e.Task.ID, map[string]string{"page": strconv.Itoa(page - 1)}))
+			prev := scheduleButton("previous", "result", e.Task.ID, map[string]string{"page": strconv.Itoa(page - 1)})
+			prev.Size = "small"
+			pageBtns = append(pageBtns, prev)
 		}
 		if (page+1)*5 < len(e.Runs) {
-			elements = append(elements, scheduleButton("next_page", "result", e.Task.ID, map[string]string{"page": strconv.Itoa(page + 1)}))
+			next := scheduleButton("next_page", "result", e.Task.ID, map[string]string{"page": strconv.Itoa(page + 1)})
+			next.Size = "small"
+			pageBtns = append(pageBtns, next)
+		}
+		if len(pageBtns) > 0 {
+			elements = append(elements, managementFormButtonRowElement(pageBtns...))
 		}
 	} else {
-		elements = append(elements, scheduleButton("results", "result", e.Task.ID, nil))
+		// Section 1: Result delivery configuration (clearly grouped in a shaded panel).
+		isReuseSession := e.Task.ScheduleType != schedule.ScheduleTypeSubtask && (e.Task.RunMode == "" || e.Task.RunMode == schedule.RunModeReuseSession)
+		effectiveTarget := scheduleEffectiveDeliveryTarget(e.Task)
+		targetOptions := []string{schedule.DeliveryTargetOrigin, schedule.DeliveryTargetCreatorDM, schedule.DeliveryTargetNone}
+		if isReuseSession {
+			targetOptions = []string{schedule.DeliveryTargetCreatorDM, schedule.DeliveryTargetNone}
+		}
+		var targetRow []cardElement
+		for _, target := range targetOptions {
+			btn := scheduleButton("delivery_target."+target, "delivery_target", e.Task.ID, map[string]string{"value": target})
+			btn.Size = "small"
+			if target == effectiveTarget {
+				btn.Type = "primary"
+			}
+			targetRow = append(targetRow, btn)
+		}
+		deliveryRows := []cardElement{
+			managementTextElement(scheduleText("detail.delivery_target_label"), "notation", "grey", nil),
+			managementFormButtonRowElement(targetRow...),
+		}
+		if effectiveTarget != schedule.DeliveryTargetNone {
+			effectivePolicy := scheduleEffectiveDeliveryPolicy(e.Task)
+			var policyRow []cardElement
+			for _, policy := range []string{schedule.DeliveryPolicyAlways, schedule.DeliveryPolicyOnNonEmpty, schedule.DeliveryPolicyOnFailure} {
+				btn := scheduleButton("delivery_policy."+policy, "delivery_policy", e.Task.ID, map[string]string{"value": policy})
+				btn.Size = "small"
+				if policy == effectivePolicy {
+					btn.Type = "primary"
+				}
+				policyRow = append(policyRow, btn)
+			}
+			deliveryRows = append(deliveryRows,
+				managementTextElement(scheduleText("detail.delivery_policy_label"), "notation", "grey", nil),
+				managementFormButtonRowElement(policyRow...),
+			)
+		}
+		deliveryPanel := managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_delivery_%d", e.Task.ID), deliveryRows...)
+		deliveryPanel.Columns[0].VerticalSpacing = "6px"
+
+		elements = append(elements,
+			managementDividerElement(),
+			managementSectionTitleElement(scheduleText("detail.section.delivery")),
+			deliveryPanel,
+		)
+
+		// Section 2: Admin status alerts (clearly separated from result delivery).
+		alertRows := []cardElement{
+			managementTextElement(scheduleText("recipient"), "notation", "grey", nil),
+		}
+		if v.Acknowledged {
+			alertRows = append(alertRows, managementTextElement(scheduleText("acknowledged"), "notation", "grey", nil))
+		}
+		if v.SnoozeUntil > time.Now().Unix() {
+			alertRows = append(alertRows, managementTextElement(scheduleText("snoozed", scheduleTime(v.SnoozeUntil)), "notation", "grey", nil))
+		}
+		var noticeRow []cardElement
+		if v.NotificationsOff {
+			btn := scheduleButton("on", "on", e.Task.ID, nil)
+			btn.Size = "small"
+			noticeRow = append(noticeRow, btn)
+		} else {
+			btn := scheduleButton("off", "off", e.Task.ID, nil)
+			btn.Size = "small"
+			noticeRow = append(noticeRow, btn)
+		}
+		ackBtn := scheduleButton("ack", "ack", e.Task.ID, nil)
+		ackBtn.Size = "small"
+		snoozeBtn := scheduleButton("snooze", "snooze", e.Task.ID, nil)
+		snoozeBtn.Size = "small"
+		noticeRow = append(noticeRow, ackBtn, snoozeBtn)
+		alertRows = append(alertRows, managementFormButtonRowElement(noticeRow...))
+		alertPanel := managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_alerts_%d", e.Task.ID), alertRows...)
+		alertPanel.Columns[0].VerticalSpacing = "6px"
+
+		elements = append(elements,
+			managementDividerElement(),
+			managementSectionTitleElement(scheduleText("detail.section.alerts")),
+			alertPanel,
+		)
 	}
-	elements = append(elements, scheduleButton("trigger", "trigger", e.Task.ID, nil))
-	if e.Task.Enabled && e.Task.NextRunAt != nil {
-		elements = append(elements, scheduleButton("pause", "pause", e.Task.ID, nil))
-	} else if e.Task.Kind != schedule.KindOnce {
-		elements = append(elements, scheduleButton("resume", "resume", e.Task.ID, nil))
-	}
-	if v.NotificationsOff {
-		elements = append(elements, scheduleButton("on", "on", e.Task.ID, nil))
-	} else {
-		elements = append(elements, scheduleButton("off", "off", e.Task.ID, nil))
-	}
-	elements = append(elements, scheduleButton("ack", "ack", e.Task.ID, nil), scheduleButton("snooze", "snooze", e.Task.ID, nil), managementTextElement(scheduleText("pause_note"), "notation", "grey", nil))
-	return marshalNativeManagementCard(managementCardView{Title: scheduleText("title"), Summary: scheduleText("title"), Theme: "blue", Elements: elements})
+
+	elements = append(elements, managementHintElement(scheduleText("pause_note")))
+	return marshalNativeManagementCard(managementCardView{
+		Title:    scheduleText("title"),
+		Summary:  scheduleText("title"),
+		Theme:    "wathet",
+		Icon:     managementIcon("setting_outlined", "blue"),
+		Tags:     []cardTextTag{scheduleLifecycleTag(e)},
+		Elements: elements,
+	})
 }
 func truncateScheduleResult(s string) string {
 	r := []rune(s)
@@ -259,6 +521,157 @@ func truncateScheduleResult(s string) string {
 		return string(r[:400]) + "…"
 	}
 	return s
+}
+
+func scheduleRunStatusTag(status string) cardTextTag {
+	color := "blue"
+	switch status {
+	case "completed":
+		color = "green"
+	case "partial":
+		color = "orange"
+	case "failed", "timed_out", "cancelled", "missed", "not_dispatched":
+		color = "red"
+	}
+	key := "status." + status
+	if status == "" {
+		key = "status.not_run"
+	}
+	return cardTextTag{Tag: "text_tag", Text: managementPlainText(scheduleText(key)), Color: color}
+}
+
+func findScheduleRun(runs []schedule.Execution, runID int64, runIndex int) (schedule.Execution, bool) {
+	if runID > 0 {
+		for _, r := range runs {
+			if r.ID == runID {
+				return r, true
+			}
+		}
+	}
+	if runIndex >= 0 && runIndex < len(runs) {
+		return runs[runIndex], true
+	}
+	return schedule.Execution{}, false
+}
+
+func renderScheduleRunDetail(e schedule.Entry, r schedule.Execution, page int, viewerURL string) string {
+	backHistory := managementButtonRowElement([]managementButton{{
+		Text:   scheduleText("run.back_history"),
+		Type:   "text",
+		Action: "schedule.result",
+		Name:   "schedule.back.result",
+		Values: map[string]string{
+			"schedule_id": strconv.FormatInt(e.Task.ID, 10),
+			"page":        strconv.Itoa(max(0, page)),
+		},
+		Icon: managementIconPtr("left_outlined", "grey"),
+	}})
+	if len(backHistory.Columns) > 0 && len(backHistory.Columns[0].Elements) > 0 {
+		backHistory.Columns[0].Elements[0].Size = "small"
+	}
+	breadcrumb := scheduleBackToOverview()
+	breadcrumb.Columns = append(breadcrumb.Columns, backHistory.Columns...)
+
+	titleRow := cardElement{
+		Tag:               "column_set",
+		FlexMode:          "none",
+		HorizontalSpacing: "8px",
+		Columns: []cardColumn{
+			{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(scheduleName(e.Task), "heading-3", "default", nil)}},
+		},
+	}
+	if e.Task.ID > 0 {
+		titleRow.Columns = append(titleRow.Columns, cardColumn{
+			Tag:           "column",
+			Width:         "auto",
+			VerticalAlign: "center",
+			Elements:      []cardElement{managementTextElement(fmt.Sprintf("#%d", e.Task.ID), "notation", "grey", nil)},
+		})
+	}
+
+	statusVal := scheduleText("status." + r.Status)
+	if r.Status == "" {
+		statusVal = scheduleText("status.not_run")
+	}
+	if r.TriggerSource == schedule.TriggerSourceManual {
+		statusVal = managementConcat(statusVal, " · ", scheduleText("delivery.source.manual"))
+	} else if r.TriggerSource == schedule.TriggerSourceScheduled {
+		statusVal = managementConcat(statusVal, " · ", scheduleText("delivery.source.scheduled"))
+	}
+
+	metaRows := []cardElement{
+		managementOverviewKeyValueRowElement(scheduleText("detail.field.status"), statusVal),
+		managementOverviewKeyValueRowElement(scheduleText("run.field.planned"), scheduleTime(r.ScheduledAt)),
+		managementOverviewKeyValueRowElement(scheduleText("run.field.duration"), scheduleTime(r.StartedAt)+" → "+scheduleTime(r.FinishedAt)),
+	}
+	switch r.DeliveryStatus {
+	case schedule.DeliveryStatusDelivered, schedule.DeliveryStatusFailed, schedule.DeliveryStatusDenied, schedule.DeliveryStatusSkipped, schedule.DeliveryStatusPending:
+		metaRows = append(metaRows, managementOverviewKeyValueRowElement(scheduleText("detail.field.delivery"), scheduleText("delivery_status."+r.DeliveryStatus)))
+	}
+	if strings.TrimSpace(r.TaskID) != "" {
+		metaRows = append(metaRows, managementOverviewKeyValueRowElement(scheduleText("run.field.task"), strings.TrimSpace(r.TaskID)))
+	}
+	if strings.TrimSpace(r.SessionName) != "" {
+		metaRows = append(metaRows, managementOverviewKeyValueRowElement(scheduleText("run.field.session"), strings.TrimSpace(r.SessionName)))
+	}
+	if strings.TrimSpace(r.TurnID) != "" {
+		metaRows = append(metaRows, managementOverviewKeyValueRowElement(scheduleText("run.field.turn"), strings.TrimSpace(r.TurnID)))
+	}
+	metaBox := managementVerticalSummaryElement(fmt.Sprintf("amux_schedule_run_meta_%d_%d", e.Task.ID, r.ID), metaRows...)
+	metaBox.Columns[0].BackgroundStyle = "blue-50"
+	metaBox.Columns[0].VerticalSpacing = "4px"
+
+	elements := []cardElement{
+		breadcrumb,
+		managementDividerElement(),
+		titleRow,
+		metaBox,
+		managementDividerElement(),
+		managementSectionTitleElement(scheduleText("run.section.output")),
+	}
+
+	body := truncateScheduleDeliveryBody(r.Result)
+	if body != "" {
+		elements = append(elements, cardElement{Tag: "markdown", Content: body})
+	} else if r.Reason != "" {
+		elements = append(elements, managementTextElement(scheduleReason(r.Reason), "normal", "default", nil))
+	} else {
+		elements = append(elements, managementTextElement(scheduleText("delivery.no_output"), "normal", "grey", nil))
+	}
+	if r.Reason != "" && body != "" {
+		elements = append(elements, managementTextElement(scheduleReason(r.Reason), "notation", "orange", managementIconPtr("warning_outlined", "orange")))
+	}
+
+	var actions []cardElement
+	if link := strings.TrimSpace(viewerURL); link != "" {
+		openBtn := managementButtonElement(managementButton{
+			Text: scheduleText("run.view_session"),
+			Type: "primary",
+			Name: fmt.Sprintf("schedule.run_open_session.%d.%d", e.Task.ID, r.ID),
+			URL:  link,
+		})
+		openBtn.Name = fmt.Sprintf("schedule.run_open_session.%d.%d", e.Task.ID, r.ID)
+		openBtn.Size = "small"
+		actions = append(actions, openBtn)
+	}
+	backBtn := scheduleButton("run.back_history", "result", e.Task.ID, map[string]string{"page": strconv.Itoa(max(0, page))})
+	backBtn.Size = "small"
+	detailBtn := scheduleButton("detail", "detail", e.Task.ID, nil)
+	detailBtn.Size = "small"
+	actions = append(actions, backBtn, detailBtn)
+	elements = append(elements, managementDividerElement(), managementFormButtonRowElement(actions...))
+	if strings.TrimSpace(viewerURL) == "" {
+		elements = append(elements, managementHintElement(scheduleText("run.timeline_hint")))
+	}
+
+	return marshalNativeManagementCard(managementCardView{
+		Title:    scheduleText("title"),
+		Summary:  scheduleText("title"),
+		Theme:    "wathet",
+		Icon:     managementIcon("setting_outlined", "blue"),
+		Tags:     []cardTextTag{scheduleRunStatusTag(r.Status)},
+		Elements: elements,
+	})
 }
 func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardActionTriggerEvent, action string) (*callback.CardActionTriggerResponse, bool, error) {
 	if !strings.HasPrefix(action, "schedule.") {
@@ -280,6 +693,8 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	}
 	op := strings.TrimPrefix(action, "schedule.")
 	id, _ := strconv.ParseInt(managementCallbackString(event.Event.Action, "schedule_id"), 10, 64)
+	source := managementCallbackString(event.Event.Action, "source")
+	toastKey := "updated"
 	var card string
 	var err error
 	if op == "home" {
@@ -323,16 +738,75 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 		entries, err = b.schedules.List(ctx, bot, open)
 		page, _ := strconv.Atoi(managementCallbackString(event.Event.Action, "page"))
 		card = renderSchedules(entries, managementCallbackString(event.Event.Action, "filter"), page)
+	} else if op == "prune_completed" {
+		err = b.schedules.Act(ctx, bot, open, 0, "prune_completed")
+		if err == nil {
+			var entries []schedule.Entry
+			entries, err = b.schedules.List(ctx, bot, open)
+			card = renderSchedules(entries, managementCallbackString(event.Event.Action, "filter"), 0)
+			toastKey = "pruned"
+		}
+	} else if op == "delete" {
+		err = b.schedules.Act(ctx, bot, open, id, "delete")
+		if err == nil {
+			if !privateCard && source == "delivery" {
+				return cardToast("success", scheduleText("delivery.deleted")), true, nil
+			}
+			var entries []schedule.Entry
+			entries, err = b.schedules.List(ctx, bot, open)
+			card = renderSchedules(entries, "all", 0)
+			toastKey = "deleted"
+		}
+	} else if op == "pause" && !privateCard && source == "delivery" {
+		// On shared result/created delivery cards, the creator can pause normally;
+		// the Bot owner also has a scoped emergency pause that only disables
+		// future runs without exposing private details or execution authority.
+		if actErr := b.schedules.Act(ctx, bot, open, id, "pause"); actErr == nil {
+			return cardToast("success", scheduleText("delivery.paused")), true, nil
+		}
+		if b.isBotOwner(open) {
+			if adminErr := b.schedules.Act(ctx, bot, open, id, "admin_pause"); adminErr == nil {
+				return cardToast("success", scheduleText("delivery.admin_paused")), true, nil
+			}
+		}
+		return cardToast("error", scheduleText("unavailable")), true, nil
+	} else if op == "trigger" && !privateCard && source == "delivery" {
+		if actErr := b.schedules.Act(ctx, bot, open, id, "trigger"); actErr != nil {
+			return cardToast("error", scheduleText("unavailable")), true, nil
+		}
+		return cardToast("success", scheduleText("delivery.triggered")), true, nil
+	} else if op == "run_detail" {
+		var e schedule.Entry
+		e, err = b.schedules.Get(ctx, bot, open, id)
+		if err == nil {
+			runID, _ := strconv.ParseInt(managementCallbackString(event.Event.Action, "run_id"), 10, 64)
+			runIndex := -1
+			if rawIdx := managementCallbackString(event.Event.Action, "run_index"); rawIdx != "" {
+				if parsed, parseErr := strconv.Atoi(rawIdx); parseErr == nil {
+					runIndex = parsed
+				}
+			}
+			page, _ := strconv.Atoi(managementCallbackString(event.Event.Action, "page"))
+			run, ok := findScheduleRun(e.Runs, runID, runIndex)
+			if !ok {
+				return cardToast("error", scheduleText("unavailable")), true, nil
+			}
+			card = renderScheduleRunDetail(e, run, page, b.sessionViewerURL(run.TargetID, run.SessionName))
+		}
 	} else {
 		if op != "detail" && op != "result" {
-			err = b.schedules.Act(ctx, bot, open, id, op)
+			actOp := op
+			if op == "delivery_target" || op == "delivery_policy" {
+				actOp = op + ":" + managementCallbackString(event.Event.Action, "value")
+			}
+			err = b.schedules.Act(ctx, bot, open, id, actOp)
 		}
 		if err == nil {
 			var e schedule.Entry
 			e, err = b.schedules.Get(ctx, bot, open, id)
 			if err == nil {
 				page, _ := strconv.Atoi(managementCallbackString(event.Event.Action, "page"))
-				card = renderScheduleDetail(e, op == "result", page)
+				card = renderScheduleDetailWithViewer(e, op == "result", page, b.sessionViewerURL)
 			}
 		}
 	}
@@ -341,29 +815,23 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	}
 	// Never write a private view into a forwarded/shared card.
 	if privateCard {
-		return b.managementCardResponse(open, message, card, version, cardToast("success", scheduleText("updated"))), true, nil
+		return b.managementCardResponse(open, message, card, version, cardToast("success", scheduleText(toastKey))), true, nil
 	}
 	// Quick actions on a result delivery card give an immediate toast without
 	// dumping an unsolicited management card into DM, except when the user
 	// explicitly asks to open management details.
-	if managementCallbackString(event.Event.Action, "source") == "delivery" {
-		switch op {
-		case "trigger":
-			return cardToast("success", scheduleText("delivery.triggered")), true, nil
-		case "pause":
-			return cardToast("success", scheduleText("delivery.paused")), true, nil
-		case "detail":
-			err = b.sendManagementCardToDM(ctx, open, card)
-			return cardToast("success", scheduleText("delivery.detail_sent")), true, err
-		}
+	if source == "delivery" && op == "detail" {
+		err = b.sendManagementCardToDM(ctx, open, card)
+		return cardToast("success", scheduleText("delivery.detail_sent")), true, err
 	}
 	err = b.sendManagementCardToDM(ctx, open, card)
-	return cardToast("success", scheduleText("updated")), true, err
+	return cardToast("success", scheduleText(toastKey)), true, err
 }
 func (b *Bridge) runScheduleNotices(ctx context.Context) {
 	if b.schedules == nil {
 		return
 	}
+	wake := b.ensureDeliveryWake()
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	ticks := 0
@@ -371,6 +839,10 @@ func (b *Bridge) runScheduleNotices(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-wake:
+			if err := b.deliverScheduleResults(ctx, time.Now()); err != nil {
+				log.Warn().Err(err).Msg("bridge: schedule result delivery")
+			}
 		case <-ticker.C:
 			now := time.Now()
 			if err := b.deliverScheduleResults(ctx, now); err != nil {

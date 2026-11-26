@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/amuxos/amux/internal/agentprofile"
@@ -44,6 +45,8 @@ type hubServer struct {
 	feishuMessageSenders         []feishuMessageSender
 	schedule                     *schedule.Store
 	schedulerNotify              func()
+	scheduleDeliveryWakeMu       sync.Mutex
+	scheduleDeliveryWakers       []func()
 	scheduleTrigger              func(context.Context, int64) (schedule.Execution, string, error)
 	scheduleRuntime              taskRouterHub
 	scheduleTasks                *bridgeSubtaskReader
@@ -1898,6 +1901,11 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 			_, _ = store.Delete(t.ID)
 			return nil, status.Errorf(codes.Internal, "persist schedule creator: %v", err)
 		}
+		if req.CreatedBy == "mcp" && creator.BotID != "" && creator.OpenID != "" {
+			if err := store.EnqueueCreatedCard(t, creator, time.Now()); err == nil {
+				s.notifyScheduleDelivery()
+			}
+		}
 	}
 	resp := &pb.CreateScheduleResponse{
 		Id:             t.ID,
@@ -1994,6 +2002,27 @@ func (s *hubServer) SetScheduleEnabled(ctx context.Context, req *pb.SetScheduleE
 // setScheduleEnabledRow toggles enabled and recomputes next_run_at when
 // re-enabling a schedule whose saved next_run_at is stale or unset, so paused
 // recurring schedules never misfire immediately upon resume.
+func (s *hubServer) RegisterScheduleDeliveryWaker(fn func()) {
+	if s == nil || fn == nil {
+		return
+	}
+	s.scheduleDeliveryWakeMu.Lock()
+	s.scheduleDeliveryWakers = append(s.scheduleDeliveryWakers, fn)
+	s.scheduleDeliveryWakeMu.Unlock()
+}
+
+func (s *hubServer) notifyScheduleDelivery() {
+	if s == nil {
+		return
+	}
+	s.scheduleDeliveryWakeMu.Lock()
+	wakers := append([]func(){}, s.scheduleDeliveryWakers...)
+	s.scheduleDeliveryWakeMu.Unlock()
+	for _, fn := range wakers {
+		fn()
+	}
+}
+
 func (s *hubServer) setScheduleEnabledRow(store *schedule.Store, row schedule.Task, enabled bool, now time.Time) (bool, error) {
 	if !enabled {
 		ok, err := store.SetEnabled(row.ID, false)
@@ -2004,11 +2033,15 @@ func (s *hubServer) setScheduleEnabledRow(store *schedule.Store, row schedule.Ta
 	}
 	if row.NextRunAt != nil && *row.NextRunAt > now.Unix() {
 		if row.Enabled {
+			_ = store.ResetAutoPause(row.ID)
 			return true, nil
 		}
 		ok, err := store.SetEnabled(row.ID, true)
 		if err != nil {
 			return false, status.Errorf(codes.Internal, "%v", err)
+		}
+		if ok {
+			_ = store.ResetAutoPause(row.ID)
 		}
 		return ok, nil
 	}
@@ -2030,6 +2063,7 @@ func (s *hubServer) setScheduleEnabledRow(store *schedule.Store, row schedule.Ta
 		return false, status.Errorf(codes.Internal, "%v", err)
 	}
 	if ok {
+		_ = store.ResetAutoPause(row.ID)
 		s.notifyScheduler()
 	}
 	return ok, nil

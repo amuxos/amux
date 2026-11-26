@@ -99,14 +99,25 @@ func TestVisibilityIncidentUpdatesRecoveryAndNewIncident(t *testing.T) {
 	if e := s.NoticeResult(n[0], "card", 0, nil, now.Add(time.Minute)); e != nil {
 		t.Fatal(e)
 	}
-	for i := 1; i < 20; i++ {
+	for i := 1; i < DefaultAutoPauseFailureThreshold; i++ {
 		visibilityFire(t, s, row, now.Add(time.Duration(i)*time.Minute), "failed")
+	}
+	// Reaching DefaultAutoPauseFailureThreshold consecutive failures auto-pauses
+	// the schedule; the repeated failures still patch the existing incident card.
+	if got, e := s.Get(row.ID); e != nil || got.Enabled {
+		t.Fatalf("expected auto-pause after %d consecutive failures: err=%v enabled=%v", DefaultAutoPauseFailureThreshold, e, got.Enabled)
 	}
 	n = visibilityPrepare(t, s, now.Add(21*time.Minute))
 	if len(n) != 1 || n[0].MessageID != "card" {
 		t.Fatalf("repeated failure did not patch: %+v", n)
 	}
 	if e := s.NoticeResult(n[0], "card", 0, nil, now.Add(21*time.Minute)); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := s.SetEnabled(row.ID, true); e != nil {
+		t.Fatal(e)
+	}
+	if e := s.ResetAutoPause(row.ID); e != nil {
 		t.Fatal(e)
 	}
 	visibilityFire(t, s, row, now.Add(22*time.Minute), "completed")

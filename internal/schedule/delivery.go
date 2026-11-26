@@ -29,7 +29,10 @@ const (
 )
 
 const (
-	resultDeliveryMaxAttempts = 5
+	resultDeliveryMaxAttempts        = 5
+	DeliveryKindResult               = ""
+	DeliveryKindCreated              = "created"
+	DefaultAutoPauseFailureThreshold = 5
 )
 
 // NormalizeDeliveryTarget validates a schedule result delivery target.
@@ -110,19 +113,57 @@ func ShouldDeliverResult(target, policy string, run Execution) bool {
 // ResultDelivery is one queued proactive result delivery for a terminal
 // schedule execution, keyed uniquely by RunID for idempotency across restarts.
 type ResultDelivery struct {
-	RunID           int64  `json:"run_id"`
-	ScheduleID      int64  `json:"schedule_id"`
-	BotID           string `json:"bot_id"`
-	OpenID          string `json:"open_id"`
-	Target          string `json:"target"`
-	Policy          string `json:"policy"`
-	OriginRootMsgID string `json:"origin_root_msg_id,omitempty"`
-	OriginChatID    string `json:"origin_chat_id,omitempty"`
+	Kind            string    `json:"kind,omitempty"`
+	RunID           int64     `json:"run_id"`
+	ScheduleID      int64     `json:"schedule_id"`
+	BotID           string    `json:"bot_id"`
+	OpenID          string    `json:"open_id"`
+	Target          string    `json:"target"`
+	Policy          string    `json:"policy"`
+	OriginRootMsgID string    `json:"origin_root_msg_id,omitempty"`
+	OriginChatID    string    `json:"origin_chat_id,omitempty"`
 	Run             Execution `json:"run"`
-	CreatedAt       int64  `json:"created_at"`
-	RetryAt         int64  `json:"retry_at"`
-	Attempts        int    `json:"attempts"`
-	LastError       string `json:"last_error,omitempty"`
+	CreatedAt       int64     `json:"created_at"`
+	RetryAt         int64     `json:"retry_at"`
+	Attempts        int       `json:"attempts"`
+	LastError       string    `json:"last_error,omitempty"`
+}
+
+// EnqueueCreatedCard durably queues a one-time creation confirmation card for
+// a newly created schedule, keyed by -t.ID so it never collides with positive
+// execution run_id values and cascades cleanly if the schedule is deleted.
+func (s *Store) EnqueueCreatedCard(t Task, c Creator, now time.Time) error {
+	if t.ID <= 0 || strings.TrimSpace(c.BotID) == "" || strings.TrimSpace(c.OpenID) == "" {
+		return nil
+	}
+	s.visMu.Lock()
+	defer s.visMu.Unlock()
+	target := DeliveryTargetOrigin
+	if strings.TrimSpace(c.OriginRootMsgID) == "" && strings.TrimSpace(c.OriginChatID) == "" {
+		target = DeliveryTargetCreatorDM
+	}
+	d := ResultDelivery{
+		Kind:            DeliveryKindCreated,
+		RunID:           -t.ID,
+		ScheduleID:      t.ID,
+		BotID:           c.BotID,
+		OpenID:          c.OpenID,
+		Target:          target,
+		Policy:          DeliveryPolicyAlways,
+		OriginRootMsgID: c.OriginRootMsgID,
+		OriginChatID:    c.OriginChatID,
+		CreatedAt:       now.Unix(),
+		RetryAt:         now.Unix(),
+	}
+	raw, err := json.Marshal(d)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(
+		`INSERT OR IGNORE INTO schedule_result_deliveries(run_id, schedule_id, bot_id, data) VALUES(?, ?, ?, ?)`,
+		d.RunID, d.ScheduleID, d.BotID, raw,
+	)
+	return err
 }
 
 func (s *Store) migrateResultDeliveries() error {
@@ -221,7 +262,7 @@ func (s *Store) MarkResultDelivery(runID int64, status string, permanent bool, e
 		}
 	}
 
-	if finalStatus != "" {
+	if finalStatus != "" && runID > 0 {
 		var execRaw []byte
 		if err := tx.QueryRow(`SELECT data FROM schedule_executions WHERE id=?`, runID).Scan(&execRaw); err == nil {
 			var exec Execution

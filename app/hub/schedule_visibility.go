@@ -257,20 +257,76 @@ func (c *bridgeSchedules) recoverLegacyCreators() error {
 	return nil
 }
 func (c *bridgeSchedules) Act(ctx context.Context, bot, open string, id int64, action string) error {
+	if action == "prune_completed" {
+		entries, err := c.List(ctx, bot, open)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if entry.Task.LifecycleState() == schedule.StateCompleted {
+				if _, err := c.server.schedule.Delete(entry.Task.ID); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	if action == "admin_pause" {
+		// Scoped emergency pause called by the Bridge only after verifying the
+		// operator is the Bot owner clicking Pause on a shared delivery card.
+		// It verifies the schedule belongs to this Bot and only disables future
+		// runs; it never reads private execution details or reuses the creator's
+		// execution principal.
+		t, err := c.server.schedule.Get(id)
+		if err != nil {
+			return errors.New("schedule unavailable")
+		}
+		v, err := c.server.schedule.Visibility(id)
+		if err != nil || v.Creator.BotID != bot {
+			return errors.New("schedule unavailable")
+		}
+		_, err = c.server.setScheduleEnabledRow(c.server.schedule, t, false, time.Now())
+		return err
+	}
 	e, err := c.Get(ctx, bot, open, id)
 	if err != nil {
 		return err
 	}
-	switch action {
-	case "pause":
+	switch {
+	case action == "pause":
 		_, err = c.server.setScheduleEnabledRow(c.server.schedule, e.Task, false, time.Now())
-	case "resume":
+	case action == "resume":
 		_, err = c.server.setScheduleEnabledRow(c.server.schedule, e.Task, true, time.Now())
-	case "trigger":
+	case action == "trigger":
 		if c.server.scheduleTrigger == nil {
 			return errors.New("scheduler trigger unavailable")
 		}
 		_, _, err = c.server.scheduleTrigger(ctx, id)
+	case action == "delete":
+		_, err = c.server.schedule.Delete(id)
+	case strings.HasPrefix(action, "delivery_target:"):
+		target, normErr := schedule.NormalizeDeliveryTarget(strings.TrimPrefix(action, "delivery_target:"))
+		if normErr != nil {
+			return normErr
+		}
+		runMode := e.Task.RunMode
+		if runMode == "" {
+			runMode = schedule.RunModeReuseSession
+		}
+		if e.Task.ScheduleType != schedule.ScheduleTypeSubtask && runMode == schedule.RunModeReuseSession && target == schedule.DeliveryTargetOrigin {
+			return errors.New("delivery_target origin is not supported for reuse-session schedules")
+		}
+		t := e.Task
+		t.DeliveryTarget = target
+		_, err = c.server.schedule.Update(t)
+	case strings.HasPrefix(action, "delivery_policy:"):
+		policy, normErr := schedule.NormalizeDeliveryPolicy(strings.TrimPrefix(action, "delivery_policy:"))
+		if normErr != nil {
+			return normErr
+		}
+		t := e.Task
+		t.DeliveryPolicy = policy
+		_, err = c.server.schedule.Update(t)
 	default:
 		err = c.server.schedule.ChangeVisibility(id, action, time.Now())
 	}

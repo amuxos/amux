@@ -122,9 +122,11 @@ type Bridge struct {
 	profile        string
 	bridgeID       string
 	identityPort
-	schedules        ScheduleControl
-	turnResults      TurnResultRecorder
-	isolationSupport isolationSupportChecker
+	schedules              ScheduleControl
+	scheduleDeliveryWakeMu sync.Mutex
+	scheduleDeliveryWake   chan struct{}
+	turnResults            TurnResultRecorder
+	isolationSupport       isolationSupportChecker
 
 	documentCommentController
 	documentCommentAPI

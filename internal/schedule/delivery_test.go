@@ -338,3 +338,171 @@ func TestOneShotCompletedSuppressesAdminDigestWhenProactiveDeliveryEnabled(t *te
 		t.Fatalf("one-shot completed with delivery_target=none should still schedule legacy admin digest")
 	}
 }
+
+func TestAutoPauseCircuitBreakerAfterFiveConsecutiveFailuresAndResetOnResume(t *testing.T) {
+	store, err := OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	now := time.Unix(1700000000, 0)
+	nextRun := now.Unix()
+	tsk, err := store.Create(Task{
+		Name:           "flaky-monitor",
+		Spec:           "every 10m",
+		Kind:           KindInterval,
+		ScheduleType:   ScheduleTypeSubtask,
+		DeliveryTarget: DeliveryTargetOrigin,
+		DeliveryPolicy: DeliveryPolicyAlways,
+		Enabled:        true,
+		NextRunAt:      &nextRun,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.BindCreator(tsk.ID, Creator{
+		BotID:       "bot-1",
+		OpenID:      "ou_alice",
+		PrincipalID: "p_alice",
+		Source:      "turn:1",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// 2 failures followed by 1 success must reset the consecutive failure counter.
+	for i := 0; i < 2; i++ {
+		at := now.Add(time.Duration(i+1) * time.Minute)
+		next := at.Add(10 * time.Minute).Unix()
+		run, ok, err := store.ClaimTracked(tsk, at, &next)
+		if err != nil || !ok {
+			t.Fatalf("claim %d: ok=%v err=%v", i, ok, err)
+		}
+		run.Status = "failed"
+		run.Terminal = true
+		run.FinishedAt = at.Unix() + 5
+		if err := store.Observe(run, at.Add(5*time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		tsk, _ = store.Get(tsk.ID)
+	}
+	if v, _ := store.Visibility(tsk.ID); v.ConsecutiveFailures != 2 || v.AutoPausedAt != 0 {
+		t.Fatalf("after 2 failures: %+v", v)
+	}
+	okAt := now.Add(3 * time.Minute)
+	okNext := okAt.Add(10 * time.Minute).Unix()
+	okRun, ok, err := store.ClaimTracked(tsk, okAt, &okNext)
+	if err != nil || !ok {
+		t.Fatalf("claim success: ok=%v err=%v", ok, err)
+	}
+	okRun.Status = "completed"
+	okRun.Terminal = true
+	okRun.FinishedAt = okAt.Unix() + 5
+	if err := store.Observe(okRun, okAt.Add(5*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := store.Visibility(tsk.ID); v.ConsecutiveFailures != 0 || v.AutoPausedAt != 0 {
+		t.Fatalf("success did not reset consecutive failures: %+v", v)
+	}
+
+	// Now 4 consecutive failures keep the schedule enabled; the 5th auto-pauses it.
+	for i := 1; i <= DefaultAutoPauseFailureThreshold; i++ {
+		tsk, _ = store.Get(tsk.ID)
+		at := now.Add(time.Duration(10+i) * time.Minute)
+		next := at.Add(10 * time.Minute).Unix()
+		run, claimed, err := store.ClaimTracked(tsk, at, &next)
+		if err != nil || !claimed {
+			t.Fatalf("claim fail %d: claimed=%v err=%v", i, claimed, err)
+		}
+		run.Status = "timed_out"
+		run.Terminal = true
+		run.FinishedAt = at.Unix() + 5
+		if err := store.Observe(run, at.Add(5*time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		got, err := store.Get(tsk.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := store.Visibility(tsk.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i < DefaultAutoPauseFailureThreshold {
+			if !got.Enabled || v.AutoPausedAt != 0 || v.ConsecutiveFailures != i {
+				t.Fatalf("at failure %d: enabled=%v vis=%+v", i, got.Enabled, v)
+			}
+		} else {
+			if got.Enabled || v.AutoPausedAt == 0 || v.ConsecutiveFailures != DefaultAutoPauseFailureThreshold || v.AutoPausedReason == "" {
+				t.Fatalf("at failure %d expected auto-pause: enabled=%v vis=%+v", i, got.Enabled, v)
+			}
+		}
+	}
+
+	// ResetAutoPause clears counter and auto-paused marker on resume.
+	if err := store.ResetAutoPause(tsk.ID); err != nil {
+		t.Fatal(err)
+	}
+	v, err := store.Visibility(tsk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.ConsecutiveFailures != 0 || v.AutoPausedAt != 0 || v.AutoPausedReason != "" {
+		t.Fatalf("ResetAutoPause did not clear fields: %+v", v)
+	}
+}
+
+func TestEnqueueCreatedCardIdempotencyAndMarkDelivery(t *testing.T) {
+	store, err := OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	now := time.Unix(1700000000, 0)
+	nextRun := now.Add(time.Hour).Unix()
+	tsk, err := store.Create(Task{
+		Name:           "created-card-job",
+		Spec:           "every 1h",
+		Kind:           KindInterval,
+		ScheduleType:   ScheduleTypeSubtask,
+		DeliveryTarget: DeliveryTargetNone,
+		Enabled:        true,
+		NextRunAt:      &nextRun,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	creator := Creator{
+		BotID:           "bot-1",
+		OpenID:          "ou_alice",
+		PrincipalID:     "p_alice",
+		OriginRootMsgID: "om_root_1",
+		OriginChatID:    "oc_chat_1",
+		Source:          "turn:1",
+	}
+	if err := store.EnqueueCreatedCard(tsk, creator, now); err != nil {
+		t.Fatal(err)
+	}
+	// Duplicate enqueue is idempotent.
+	if err := store.EnqueueCreatedCard(tsk, creator, now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := store.PendingResultDeliveries("bot-1", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 1 {
+		t.Fatalf("expected 1 created card delivery, got %d", len(pending))
+	}
+	if pending[0].Kind != DeliveryKindCreated || pending[0].RunID != -tsk.ID || pending[0].Target != DeliveryTargetOrigin {
+		t.Fatalf("unexpected created card row: %+v", pending[0])
+	}
+	if err := store.MarkResultDelivery(pending[0].RunID, DeliveryStatusDelivered, true, "", now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	pendingAfter, err := store.PendingResultDeliveries("bot-1", now.Add(time.Minute))
+	if err != nil || len(pendingAfter) != 0 {
+		t.Fatalf("expected empty queue after mark delivered, got err=%v len=%d", err, len(pendingAfter))
+	}
+}
