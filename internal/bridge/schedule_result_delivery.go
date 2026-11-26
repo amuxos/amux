@@ -148,6 +148,7 @@ func renderScheduleCreatedCard(entry schedule.Entry) string {
 		undoBtn := scheduleButton("created.action.undo", "delete", entry.Task.ID, map[string]string{"source": "delivery"})
 		undoBtn.Size = "small"
 		undoBtn.Type = "danger"
+		undoBtn.Confirm = managementConfirm(scheduleText("confirm.delete.title"), scheduleText("confirm.delete.text", scheduleName(entry.Task)))
 		actions = append(actions, undoBtn)
 		manageBtn := scheduleButton("delivery.action.manage", "detail", entry.Task.ID, map[string]string{"source": "delivery"})
 		manageBtn.Size = "small"

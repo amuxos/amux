@@ -3184,6 +3184,39 @@
   "schedule.run.timeline_hint": {
     "other": "Full tool calls and timeline stay in the execution session. Open /amux → Web console and search the session name above, or ask this assistant to inspect it."
   },
+  "schedule.toast.delivery_target_prefix": {
+    "other": "Delivery target updated: "
+  },
+  "schedule.toast.delivery_policy_prefix": {
+    "other": "Delivery policy updated: "
+  },
+  "schedule.toast.resumed": {
+    "other": "Schedule resumed"
+  },
+  "schedule.toast.alerts_off": {
+    "other": "Status alerts disabled"
+  },
+  "schedule.toast.alerts_on": {
+    "other": "Status alerts enabled"
+  },
+  "schedule.toast.acknowledged": {
+    "other": "Incident acknowledged"
+  },
+  "schedule.toast.snoozed": {
+    "other": "Status alerts snoozed for 24 hours"
+  },
+  "schedule.confirm.delete.title": {
+    "other": "Delete scheduled task?"
+  },
+  "schedule.confirm.delete.text": {
+    "other": "This permanently deletes “%s” and stops future runs."
+  },
+  "schedule.confirm.prune.title": {
+    "other": "Clean completed tasks?"
+  },
+  "schedule.confirm.prune.text": {
+    "other": "This permanently removes %d completed one-shot schedule(s) you created."
+  },
   "schedule.delivery_target.origin": {
     "other": "Origin chat"
   },

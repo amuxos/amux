@@ -3164,6 +3164,39 @@
   "schedule.run.timeline_hint": {
     "other": "完整过程与工具调用保留在执行会话中。可在 /amux → Web 管理后台按上方执行会话名查看，或直接让我帮你查询该次执行。"
   },
+  "schedule.toast.delivery_target_prefix": {
+    "other": "推送目标已切换为："
+  },
+  "schedule.toast.delivery_policy_prefix": {
+    "other": "推送条件已切换为："
+  },
+  "schedule.toast.resumed": {
+    "other": "已恢复后续执行"
+  },
+  "schedule.toast.alerts_off": {
+    "other": "已关闭状态提醒"
+  },
+  "schedule.toast.alerts_on": {
+    "other": "已开启状态提醒"
+  },
+  "schedule.toast.acknowledged": {
+    "other": "已确认本次异常"
+  },
+  "schedule.toast.snoozed": {
+    "other": "状态提醒已静默 24 小时"
+  },
+  "schedule.confirm.delete.title": {
+    "other": "确认删除定时任务？"
+  },
+  "schedule.confirm.delete.text": {
+    "other": "删除「%s」后不可恢复，后续计划将停止执行。"
+  },
+  "schedule.confirm.prune.title": {
+    "other": "确认清理已完成任务？"
+  },
+  "schedule.confirm.prune.text": {
+    "other": "将永久移除你创建的 %d 个已完成一次性任务。"
+  },
   "schedule.delivery_target.origin": {
     "other": "原会话"
   },
