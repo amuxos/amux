@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amuxos/amux/internal/config"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 	"github.com/rs/zerolog/log"
 )
@@ -95,7 +94,7 @@ func (b *Bridge) runGroupSettingsSave(openID, messageID, chatName string, scope 
 		stage = "cleanup"
 		cleanupStarted := time.Now()
 		if managementUsesThreadRouting(submitted.InteractionMode) && draft["daily_cleanup"] != "" {
-			err = config.SaveDailyCleanupEnabledContext(ctx, draft["daily_cleanup"] == "true")
+			err = b.managementConfigActions().SaveDailyCleanupEnabled(ctx, draft["daily_cleanup"] == "true")
 		}
 		log.Debug().Str("chat_id", scope.ChatID).Dur("cleanup_ms", time.Since(cleanupStarted)).Msg("bridge: group settings save cleanup completed")
 		if err != nil {

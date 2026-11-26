@@ -13,7 +13,7 @@ import (
 )
 
 func supportsMemory(agent string) bool {
-	return agent == "codex" || agent == "claude" || agent == "pi"
+	return adapter.ExecutionCapabilitiesFor(agent).Memory.Supported
 }
 
 // Only fresh execution creation resolves a binding. Resumes replay the stored
@@ -47,11 +47,12 @@ func validateMemoryBinding(binding string, identity principal.ExecutionIdentity)
 
 func (s *server) configureSessionMemory(ctx context.Context, sess *session.Session, args, env []string) ([]string, []string, error) {
 	snap := sess.Snapshot()
+	exec := adapter.ExecutionCapabilitiesFor(snap.AgentType)
 	binding := memoryprotocol.Binding(snap.Env)
-	if binding != "" && !supportsMemory(snap.AgentType) {
+	if binding != "" && !exec.Memory.Supported {
 		s.reportLaunchWarning(sess)("amux memory is unavailable for this agent provider; its original binding remains frozen.")
 		env = memoryprotocol.SetEnv(env, memoryprotocol.BindingEnv, "")
-		if adapter.IsCodexCompatible(snap.AgentType) && runArgsContainAmuxMCP(snap.AgentType, args) {
+		if exec.MCPArgSurface == adapter.MCPArgSurfaceCodexConfig && runArgsContainAmuxMCP(snap.AgentType, args) {
 			args = append(append([]string(nil), args...), "-c", "mcp_servers.amux.env.AMUX_MEMORY_BINDING=\"\"")
 		}
 		return args, env, nil
@@ -74,13 +75,11 @@ func (s *server) configureSessionMemory(ctx context.Context, sess *session.Sessi
 	} else {
 		env = memoryprotocol.SetEnv(env, "AMUX_MEMORY_CLI", "")
 	}
-	switch snap.AgentType {
-	case "claude":
-		args = memoryprotocol.AppendPrompt(args, memoryprotocol.Instruction(cli))
-		env = memoryprotocol.SetEnv(env, "CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1")
-	case "pi":
-		args = memoryprotocol.AppendPrompt(args, memoryprotocol.Instruction(true))
-
+	if exec.Memory.PromptInjection {
+		args = memoryprotocol.AppendPrompt(args, memoryprotocol.Instruction(cli || exec.Memory.AlwaysUseCLIInstruction))
+	}
+	if exec.Memory.DisableNativeAutoMemoryEnv != "" {
+		env = memoryprotocol.SetEnv(env, exec.Memory.DisableNativeAutoMemoryEnv, "1")
 	}
 	return args, env, nil
 }
@@ -109,7 +108,7 @@ func launchEnvValue(env []string, key string) string {
 // A user-supplied Claude MCP config does not necessarily contain amux. Use
 // the CLI protocol unless this is the Runtime's generated built-in config.
 func memoryMCPConfigured(agent string, args []string) bool {
-	if agent != "claude" {
+	if adapter.ExecutionCapabilitiesFor(agent).MCPArgSurface != adapter.MCPArgSurfaceClaudeConfig {
 		return runArgsContainAmuxMCP(agent, args)
 	}
 	for i, arg := range args {

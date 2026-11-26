@@ -105,7 +105,7 @@ func (b *Bridge) groupSettingsManagementStateContext(ctx context.Context, settin
 	if err != nil {
 		return managementState{}, err
 	}
-	cleanup, err := config.ReadDailyCleanupSettingsContext(ctx)
+	cleanup, err := b.managementConfigActions().ReadDailyCleanupSettings(ctx)
 	if err != nil {
 		return managementState{}, err
 	}

@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/amuxos/amux/internal/adapter"
 )
 
 var providerEnvNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
@@ -131,8 +133,8 @@ func permissionModeArgs(agentType, mode string) ([]string, error) {
 	default:
 		return nil, profileError("runtime_permission_invalid", mode)
 	}
-	switch profileConfigProtocol(agentType) {
-	case "codex":
+	switch adapter.ExecutionCapabilitiesFor(agentType).PermissionSurface {
+	case adapter.PermissionSurfaceCodexConfig:
 		value := map[string]map[string]string{
 			"default": {"approval_policy": "never", "sandbox_mode": "workspace-write"},
 			"plan":    {"approval_policy": "on-request", "sandbox_mode": "read-only"},
@@ -142,13 +144,15 @@ func permissionModeArgs(agentType, mode string) ([]string, error) {
 			"-c", fmt.Sprintf("approval_policy=%q", value["approval_policy"]),
 			"-c", fmt.Sprintf("sandbox_mode=%q", value["sandbox_mode"]),
 		}, nil
-	case "claude":
+	case adapter.PermissionSurfaceClaudeMode:
 		value := map[string]string{
 			"default": "default",
 			"plan":    "plan",
 			"bypass":  "bypassPermissions",
 		}[mode]
 		return []string{"--permission-mode", value}, nil
+	case adapter.PermissionSurfaceNone:
+		return nil, nil
 	default:
 		return distributionPermissionModeArgs(agentType, mode)
 	}

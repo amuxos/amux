@@ -3,6 +3,7 @@ package agentprofile
 import (
 	"strings"
 
+	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/task"
 )
 
@@ -28,9 +29,9 @@ func taskPermissionArgs(agentType string, policy task.PermissionPolicy, args []s
 	default:
 		return nil, profileError("task_permission_invalid", policy)
 	}
-	protocol := profileConfigProtocol(agentType)
-	switch protocol {
-	case "codex":
+	surface := adapter.ExecutionCapabilitiesFor(agentType).PermissionSurface
+	switch surface {
+	case adapter.PermissionSurfaceCodexConfig:
 		approval, sandbox := "never", "danger-full-access"
 		if policy == task.PolicyDenyAll {
 			sandbox = "read-only"
@@ -38,7 +39,7 @@ func taskPermissionArgs(agentType string, policy task.PermissionPolicy, args []s
 			approval = "on-request"
 		}
 		native = []string{"-c", `approval_policy="` + approval + `"`, "-c", `sandbox_mode="` + sandbox + `"`}
-	case "pi":
+	case adapter.PermissionSurfaceNone:
 		if policy != task.PolicyAllow {
 			return nil, profileError("task_permission_unsupported", agentType, policy)
 		}
@@ -58,7 +59,7 @@ func taskPermissionArgs(agentType string, policy task.PermissionPolicy, args []s
 			return nil, profileError("task_permission_unsupported", agentType, policy)
 		}
 	}
-	args = stripTaskPermissionArgs(args, protocol)
+	args = stripTaskPermissionArgs(args, surface)
 	if customization.StripTaskPermissionArgs != nil {
 		args = customization.StripTaskPermissionArgs(agentType, args)
 	}
@@ -72,18 +73,19 @@ func taskPermissionArgs(agentType string, policy task.PermissionPolicy, args []s
 
 // Legacy native permission flags remain readable in saved definitions, but
 // cannot override permission_policy. Non-permission arguments keep their order.
-func stripTaskPermissionArgs(args []string, protocol string) []string {
-	return stripNativePermissionArgs(args, protocol, true)
+func stripTaskPermissionArgs(args []string, surface adapter.PermissionSurface) []string {
+	return stripNativePermissionArgs(args, surface, true)
 }
 
-func stripNativePermissionArgs(args []string, protocol string, stripAddDirs bool) []string {
+func stripNativePermissionArgs(args []string, surface adapter.PermissionSurface, stripAddDirs bool) []string {
+	isCodex := surface == adapter.PermissionSurfaceCodexConfig
 	out := make([]string, 0, len(args))
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		flag, inline, hasInline := strings.Cut(arg, "=")
 		switch flag {
 		case "-c", "--config":
-			if protocol != "codex" {
+			if !isCodex {
 				break
 			}
 			value := inline
@@ -99,7 +101,7 @@ func stripNativePermissionArgs(args []string, protocol string, stripAddDirs bool
 				continue
 			}
 		case "-a", "-s":
-			if protocol != "codex" {
+			if !isCodex {
 				break
 			}
 			if !hasInline && i+1 < len(args) {
@@ -122,11 +124,11 @@ func stripNativePermissionArgs(args []string, protocol string, stripAddDirs bool
 		case "--full-auto", "--dangerously-bypass-approvals-and-sandbox", "--yolo", "--dangerously-skip-permissions", "--bypass-permissions", "--allow-dangerously-skip-permissions":
 			continue
 		}
-		if protocol == "codex" && len(arg) > 2 && (strings.HasPrefix(arg, "-a") || strings.HasPrefix(arg, "-s")) && !strings.HasPrefix(arg, "--") {
+		if isCodex && len(arg) > 2 && (strings.HasPrefix(arg, "-a") || strings.HasPrefix(arg, "-s")) && !strings.HasPrefix(arg, "--") {
 			continue
 		}
 		// Common compact short-option forms such as -capproval_policy="never".
-		if protocol == "codex" && strings.HasPrefix(arg, "-c") && len(arg) > 2 {
+		if isCodex && strings.HasPrefix(arg, "-c") && len(arg) > 2 {
 			key, _, _ := strings.Cut(arg[2:], "=")
 			if key == "approval_policy" || key == "sandbox_mode" || key == "sandbox_workspace_write" || strings.HasPrefix(key, "sandbox_workspace_write.") {
 				continue

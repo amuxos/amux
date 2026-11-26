@@ -75,7 +75,7 @@ func instructionsHash(text string) string {
 }
 
 func supportsSessionInstructions(agent string) bool {
-	return agent == "claude" || agent == "pi" || adapter.IsCodexCompatible(agent)
+	return adapter.ExecutionCapabilitiesFor(agent).SessionInstructions != adapter.SessionInstructionsNone
 }
 
 // appliedInstructions records, per session, the instructions hash the
@@ -114,13 +114,14 @@ func (a *appliedInstructions) get(sessionID string, generation uint64) (string, 
 func (s *server) configureSessionInstructions(snap session.Snapshot, args, env []string) ([]string, []string, string) {
 	text := readSessionInstructions(s.amuxDir, snap.ID)
 	env = memoryprotocol.SetEnv(env, SessionInstructionsEnv, "")
-	if text == "" || !supportsSessionInstructions(snap.AgentType) {
+	mode := adapter.ExecutionCapabilitiesFor(snap.AgentType).SessionInstructions
+	if text == "" || mode == adapter.SessionInstructionsNone {
 		return args, env, ""
 	}
-	switch {
-	case snap.AgentType == "claude" || snap.AgentType == "pi":
+	switch mode {
+	case adapter.SessionInstructionsSystemPrompt:
 		args = memoryprotocol.AppendPrompt(args, text)
-	default:
+	case adapter.SessionInstructionsEnv:
 		env = memoryprotocol.SetEnv(env, SessionInstructionsEnv, text)
 	}
 	return args, env, instructionsHash(text)

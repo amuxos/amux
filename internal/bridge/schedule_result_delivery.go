@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/schedule"
-	"github.com/amuxos/amux/internal/task"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	"github.com/rs/zerolog/log"
 )
@@ -176,7 +175,10 @@ func truncateScheduleDeliveryBody(s string) string {
 
 func scheduleDeliveryAgentLabel(t schedule.Task) string {
 	if t.ScheduleType == schedule.ScheduleTypeSubtask && len(t.TaskSpecJson) > 0 {
-		var spec task.Spec
+		var spec struct {
+			Agent string `json:"agent"`
+			Model string `json:"model"`
+		}
 		if json.Unmarshal(t.TaskSpecJson, &spec) == nil {
 			agent := strings.TrimSpace(spec.Agent)
 			model := strings.TrimSpace(spec.Model)

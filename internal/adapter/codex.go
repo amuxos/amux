@@ -22,5 +22,15 @@ func (a *CodexAdapter) Capabilities() Capabilities {
 			SurfaceSkills: {Supported: true, Kind: "cwd-rel", Path: ".agents/skills"},
 			SurfaceMCP:    {Supported: true, Kind: "extra-arg", Path: "-c"},
 		},
+		Execution: ExecutionCapabilities{
+			IsolatedHomeEnv: []IsolationEnvBinding{
+				{Key: "CODEX_HOME", HomeRel: ".codex", EnsureDir: true},
+			},
+			PermissionSurface:   PermissionSurfaceCodexConfig,
+			MCPArgSurface:       MCPArgSurfaceCodexConfig,
+			Memory:              MemoryContract{Supported: true},
+			SessionInstructions: SessionInstructionsEnv,
+			IsolatedTrust:       IsolatedTrustPolicy{SkipHostTrustUnderDAC: true},
+		},
 	})
 }

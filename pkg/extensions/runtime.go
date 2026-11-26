@@ -14,6 +14,14 @@ import (
 
 type Adapter = adapter.Adapter
 type Capabilities = adapter.Capabilities
+type ExecutionCapabilities = adapter.ExecutionCapabilities
+type ExecutionMatrixEntry = adapter.ExecutionMatrixEntry
+type IsolationEnvBinding = adapter.IsolationEnvBinding
+type PermissionSurface = adapter.PermissionSurface
+type MCPArgSurface = adapter.MCPArgSurface
+type MemoryContract = adapter.MemoryContract
+type SessionInstructionsMode = adapter.SessionInstructionsMode
+type IsolatedTrustPolicy = adapter.IsolatedTrustPolicy
 type Protocol = adapter.Protocol
 type ProtocolRegistration = adapter.ProtocolRegistration
 type Surface = adapter.Surface
@@ -63,10 +71,21 @@ const (
 	InterruptACP           = adapter.InterruptACP
 	CwdSwitchResume        = adapter.CwdSwitchResume
 	CwdSwitchUnsupported   = adapter.CwdSwitchUnsupported
-	SurfaceSkills          = adapter.SurfaceSkills
-	SurfaceRules           = adapter.SurfaceRules
-	SurfaceSystemPrompt    = adapter.SurfaceSystemPrompt
-	SurfaceMCP             = adapter.SurfaceMCP
+	SurfaceSkills                     = adapter.SurfaceSkills
+	SurfaceRules                      = adapter.SurfaceRules
+	SurfaceSystemPrompt               = adapter.SurfaceSystemPrompt
+	SurfaceMCP                        = adapter.SurfaceMCP
+	PermissionSurfaceUnspecified      = adapter.PermissionSurfaceUnspecified
+	PermissionSurfaceNone             = adapter.PermissionSurfaceNone
+	PermissionSurfaceCodexConfig      = adapter.PermissionSurfaceCodexConfig
+	PermissionSurfaceClaudeMode       = adapter.PermissionSurfaceClaudeMode
+	PermissionSurfaceCustom           = adapter.PermissionSurfaceCustom
+	MCPArgSurfaceNone                 = adapter.MCPArgSurfaceNone
+	MCPArgSurfaceClaudeConfig         = adapter.MCPArgSurfaceClaudeConfig
+	MCPArgSurfaceCodexConfig          = adapter.MCPArgSurfaceCodexConfig
+	SessionInstructionsNone           = adapter.SessionInstructionsNone
+	SessionInstructionsSystemPrompt   = adapter.SessionInstructionsSystemPrompt
+	SessionInstructionsEnv            = adapter.SessionInstructionsEnv
 )
 
 func RegisterAdapter(name string, factory func() Adapter) error {
@@ -78,6 +97,10 @@ func RegisterProtocol(protocol Protocol, registration ProtocolRegistration) erro
 func GetAdapter(name string) (Adapter, error)                  { return adapter.Get(name) }
 func AdapterNames() []string                                   { return adapter.Names() }
 func AdapterLayout(name string) (map[Surface]Placement, error) { return adapter.Layout(name) }
+func ExecutionCapabilitiesFor(name string) ExecutionCapabilities {
+	return adapter.ExecutionCapabilitiesFor(name)
+}
+func ExecutionMatrix() []ExecutionMatrixEntry { return adapter.ExecutionMatrix() }
 func RegisterAppServerProvider(name string, registration AppServerProviderRegistration) error {
 	return codex.RegisterProvider(name, registration)
 }

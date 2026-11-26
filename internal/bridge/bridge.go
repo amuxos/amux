@@ -159,6 +159,7 @@ type Bridge struct {
 
 	managementSystemInfo   ManagementSystemInfo
 	managementActions      ManagementSystemActions
+	managementConfig       ManagementConfigActions
 	managementConsole      ManagementConsoleActions
 	managementPackActions  ManagementAgentPackActions
 	managementRestartDelay time.Duration

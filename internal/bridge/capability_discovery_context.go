@@ -40,7 +40,7 @@ func (b *Bridge) discoverySnapshot() map[string]any {
 		"native_model_availability":         "not_checked",
 		"current_work_session_goal_support": "unknown",
 	}
-	if saved, err := config.ReadExperimentsSettings(); err == nil {
+	if saved, err := b.managementConfigActions().ReadExperimentsSettings(); err == nil {
 		data["experiments_saved_status"] = "ok"
 		data["experiments_saved"] = discoveryExperimentSnapshot(saved)
 	}

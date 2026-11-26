@@ -77,7 +77,8 @@ func (s *server) configureSessionCapability(ctx context.Context, sess *session.S
 // and user settings. Under DAC that file belongs to the principal: use the
 // scoped CLI rather than replacing it with a newly rendered partial file.
 func sessionCapabilityUsesCLI(snap session.Snapshot) bool {
-	return snap.AgentType == "pi" || (snap.ExecutionIdentity.IsolationBackend == principal.BackendLinuxDAC && snap.AgentType != "claude" && !adapter.IsCodexCompatible(snap.AgentType))
+	exec := adapter.ExecutionCapabilitiesFor(snap.AgentType)
+	return exec.AlwaysUseCLIForCapabilities || (snap.ExecutionIdentity.IsolationBackend == principal.BackendLinuxDAC && exec.MCPArgSurface == adapter.MCPArgSurfaceNone)
 }
 
 func (s *server) sessionMCPConfigured(snap session.Snapshot, args []string) bool {
@@ -86,7 +87,7 @@ func (s *server) sessionMCPConfigured(snap session.Snapshot, args []string) bool
 			return false
 		}
 	}
-	if snap.AgentType == "claude" {
+	if adapter.ExecutionCapabilitiesFor(snap.AgentType).MCPArgSurface == adapter.MCPArgSurfaceClaudeConfig {
 		return memoryMCPConfigured(snap.AgentType, args)
 	}
 	if runArgsContainAmuxMCP(snap.AgentType, args) {

@@ -144,64 +144,11 @@ func materializeAmuxMCPForRun(agentType, sessionID, amuxDir, cwd, actorToken str
 	return agentprofile.MaterializeAmuxMCP(agentType, sb, adapter.Layout, amuxDir, actorToken, sessionActorTokenPath(amuxDir, sessionID), memoryBinding...)
 }
 func runArgsContainAmuxMCP(agentType string, args []string) bool {
-	switch {
-	case strings.TrimSpace(agentType) == "claude":
-		for _, arg := range args {
-			arg = strings.TrimSpace(arg)
-			if arg == "--mcp-config" || strings.HasPrefix(arg, "--mcp-config=") {
-				return true
-			}
-		}
-	case adapter.IsCodexCompatible(agentType):
-		for i, arg := range args {
-			arg = strings.TrimSpace(arg)
-			if strings.Contains(arg, "mcp_servers.amux.") {
-				return true
-			}
-			if (arg == "-c" || arg == "--config") && i+1 < len(args) && strings.Contains(args[i+1], "mcp_servers.amux.") {
-				return true
-			}
-		}
-	}
-	return false
+	return adapter.ArgsContainAmuxMCP(agentType, args)
 }
 
-func stripAmuxMCPArgs(agentType string, args []string) []string { // stripAmuxMCPArgs removes a previously injected amux MCP server entry from
-	// launch args so a relaunch can re-materialize it with the current credential.
-	// It removes only the entries our own injection writes (the app-server `-c
-	// mcp_servers.amux.*` triplets and the claude `--mcp-config` pair); every other
-	// arg is preserved verbatim.
-
-	out := make([]string, 0, len(args))
-	switch {
-	case strings.TrimSpace(agentType) == "claude":
-		for i := 0; i < len(args); i++ {
-			arg := strings.TrimSpace(args[i])
-			if arg == "--mcp-config" {
-				i++
-				continue
-			}
-			if strings.HasPrefix(arg, "--mcp-config=") {
-				continue
-			}
-			out = append(out, args[i])
-		}
-	case adapter.IsCodexCompatible(agentType):
-		for i := 0; i < len(args); i++ {
-			arg := strings.TrimSpace(args[i])
-			if (arg == "-c" || arg == "--config") && i+1 < len(args) && strings.Contains(args[i+1], "mcp_servers.amux.") {
-				i++
-				continue
-			}
-			if strings.HasPrefix(arg, "mcp_servers.amux.") {
-				continue
-			}
-			out = append(out, args[i])
-		}
-	default:
-		return args
-	}
-	return out
+func stripAmuxMCPArgs(agentType string, args []string) []string {
+	return adapter.StripAmuxMCPArgs(agentType, args)
 }
 func profileSessionDir(amuxDir, sessionID string) string {
 	return filepath.Join(amuxDir, "sessions", sessionID)

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/amuxos/amux/internal/adapter"
 )
 
 // SandboxesDir returns the per-task sandbox root under the amux directory. The
@@ -86,11 +88,11 @@ func PrepareSandbox(amuxDir, taskID, agentInstanceID string, iso IsolationMode) 
 func (s *Sandbox) BaseEnv() []string {
 	env := []string{"TMPDIR=" + s.Tmp}
 	if s.Isolation == IsolationPrivateHome && s.Home != "" {
+		env = append(env, "HOME="+s.Home)
+		for _, binding := range adapter.AllIsolatedHomeEnvBindings() {
+			env = append(env, binding.Key+"="+binding.ValueForHome(s.Home))
+		}
 		env = append(env,
-			"HOME="+s.Home,
-			"CODEX_HOME="+filepath.Join(s.Home, ".codex"),
-			"CLAUDE_CONFIG_DIR=", // use the isolated HOME's native default layout
-			"PI_CODING_AGENT_DIR="+filepath.Join(s.Home, ".pi", "agent"),
 			"XDG_CONFIG_HOME="+filepath.Join(s.Home, ".config"),
 			"XDG_CACHE_HOME="+filepath.Join(s.Home, ".cache"),
 		)

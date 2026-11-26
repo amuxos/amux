@@ -13,11 +13,22 @@ import (
 
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/coordination"
+	"github.com/amuxos/amux/internal/coordination/feishuexchange"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func newExternalBotCoordinationAdapterForTest(bridges []*Bridge) (*feishuexchange.Adapter, error) {
+	hosts := make([]feishuexchange.Host, 0, len(bridges))
+	for _, b := range bridges {
+		if b != nil {
+			hosts = append(hosts, b.ExternalBotHost())
+		}
+	}
+	return feishuexchange.NewAdapter(hosts)
+}
 
 func prepareExternalBotPeerForCreate(t *testing.T, b *Bridge, peer externalBotPeer) {
 	t.Helper()
@@ -82,7 +93,7 @@ func TestExternalBotCoordinationAdapterRepliesInInitiatorThread(t *testing.T) {
 		t.Fatal(err)
 	}
 	hub.targets = []*pb.Target{{Id: "target-1", Sessions: []*pb.Session{{Id: "session-id-main", Name: "session-main"}}}}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,12 +155,12 @@ func TestExternalBotCoordinationAdapterRejectsCrossGroupInitiator(t *testing.T) 
 		sent = true
 		return "om-cross-group", "", nil
 	}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = adapter.Create(context.Background(), &coordination.Route{
-		ID: "cross-group", CollaboratorID: peer.CollaboratorID, TargetRef: encodeExternalBotTarget(peer),
+		ID: "cross-group", CollaboratorID: peer.CollaboratorID, TargetRef: feishuexchange.EncodeTarget(peer),
 		InitiatorRef: "amux-session:session-id-main", ScopeRef: "turn:1", Input: "review",
 		Deadline: time.Now().Add(time.Minute), CreatedAt: time.Now(),
 	})
@@ -202,7 +213,7 @@ func TestExternalBotCoordinationAdapterListsOnlyInitiatorCurrentGroup(t *testing
 			return externalBotCatalogSnapshot{}, fmt.Errorf("unexpected chat %q", chatID)
 		}
 	}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +245,7 @@ func TestExternalBotCoordinationAdapterHidesAndRejectsWithoutCurrentGroup(t *tes
 	if err := b.db.UpsertExternalBotPeer(peer); err != nil {
 		t.Fatal(err)
 	}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +263,7 @@ func TestExternalBotCoordinationAdapterHidesAndRejectsWithoutCurrentGroup(t *tes
 		return "om-should-not-send", "", nil
 	}
 	_, err = adapter.Create(context.Background(), &coordination.Route{
-		ID: "no-current-group", CollaboratorID: peer.CollaboratorID, TargetRef: encodeExternalBotTarget(peer),
+		ID: "no-current-group", CollaboratorID: peer.CollaboratorID, TargetRef: feishuexchange.EncodeTarget(peer),
 		InitiatorRef: scope.InitiatorRef, ScopeRef: "turn:1", Input: "review", Deadline: time.Now().Add(time.Minute),
 	})
 	if status.Code(err) != codes.FailedPrecondition || !strings.Contains(err.Error(), "current Feishu group") {
@@ -283,12 +294,12 @@ func TestExternalBotCoordinationAdapterCreatesAndCompletesExchange(t *testing.T)
 		sentChat, sentRoot, sentBot, sentTask = chatID, rootMsgID, botOpenID, task
 		return "om-exchange-root", "omt-exchange", nil
 	}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatalf("NewExternalBotCoordinationAdapter: %v", err)
 	}
 	now := time.Unix(200, 0).UTC()
-	adapter.now = func() time.Time { return now }
+	adapter.SetNow(func() time.Time { return now })
 	scope := bindExternalBotInitiator(t, b, hub, peer.ChatID)
 
 	items, err := adapter.List(context.Background(), scope)
@@ -376,7 +387,7 @@ func TestExternalBotCoordinationAdapterSerializesSameThreadBot(t *testing.T) {
 		}
 		return fmt.Sprintf("om-request-%d", sendCount), "omt-origin", nil
 	}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -423,12 +434,12 @@ func TestExternalBotCoordinationAdapterRecordsDeliveryFailureAndTimeout(t *testi
 	if err := b.db.UpsertExternalBotPeer(peer); err != nil {
 		t.Fatal(err)
 	}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
 	now := time.Unix(300, 0).UTC()
-	adapter.now = func() time.Time { return now }
+	adapter.SetNow(func() time.Time { return now })
 	scope := bindExternalBotInitiator(t, b, hub, peer.ChatID)
 	resolved, _ := adapter.ResolveTarget(context.Background(), peer.CollaboratorID, scope)
 	route := &coordination.Route{ID: "delivery-fails", CollaboratorID: peer.CollaboratorID, TargetRef: resolved.TargetRef, InitiatorRef: scope.InitiatorRef, Input: "task", Deadline: now.Add(time.Minute), CreatedAt: now}
@@ -477,16 +488,16 @@ func TestExternalBotCoordinationRecoveryFailsOnlyAmbiguousPendingSend(t *testing
 	if err := b.db.MarkExternalBotExchangeRunning("feishu-exchange:running", "om-root", now); err != nil {
 		t.Fatal(err)
 	}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter.now = func() time.Time { return now }
-	pending, _, _, err := b.db.ReadExternalBotExchange("feishu-exchange:pending", 0, now)
+	adapter.SetNow(func() time.Time { return now })
+	pending, _, _, err := b.db.externalBotStore().ReadExchange("feishu-exchange:pending", 0, now)
 	if err != nil || pending.Status != coordination.StatusFailed || !strings.Contains(pending.FailureMessage, "unknown after restart") {
 		t.Fatalf("pending recovery = %+v, %v", pending, err)
 	}
-	running, _, _, err := b.db.ReadExternalBotExchange("feishu-exchange:running", 0, now)
+	running, _, _, err := b.db.externalBotStore().ReadExchange("feishu-exchange:running", 0, now)
 	if err != nil || running.Status != coordination.StatusRunning || running.RootMessageID != "om-root" {
 		t.Fatalf("running recovery = %+v, %v", running, err)
 	}
@@ -500,7 +511,7 @@ func TestExternalBotCoordinationIsHiddenWhenBotToBotIsDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	b.botToBot.Enabled = true
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -533,7 +544,7 @@ func TestExternalBotCoordinationCreateRejectsBotThatLeftGroup(t *testing.T) {
 	if err := b.db.UpsertExternalBotPeer(peer); err != nil {
 		t.Fatal(err)
 	}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -574,7 +585,7 @@ func TestExternalBotReplyIsConsumedByExchangeBeforeLegacyBotToBot(t *testing.T) 
 	b.externalBotDelegation = func(context.Context, string, string, string, string) (string, string, error) {
 		return "om-exchange-root", "", nil
 	}
-	adapter, err := NewExternalBotCoordinationAdapter([]*Bridge{b})
+	adapter, err := newExternalBotCoordinationAdapterForTest([]*Bridge{b})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -610,7 +621,7 @@ func TestFailedExternalBotExchangeWithKnownRootConsumesLateReply(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := b.db.FailExternalBotExchangeWithRoot(ref, "om-known-root", coordination.FailureBackendFailed, "local correlation write failed", now); err != nil {
+	if err := b.db.externalBotStore().FailExchangeWithRoot(ref, "om-known-root", coordination.FailureBackendFailed, "local correlation write failed", now); err != nil {
 		t.Fatal(err)
 	}
 	event := feishuBotMessageEvent("topic_group", "oc-shared", "om-known-root", "om-late", "ou-reviewer", "@_bot late result")
@@ -641,7 +652,7 @@ func TestPendingExternalBotExchangeDoesNotConsumeReply(t *testing.T) {
 	if err != nil || handled {
 		t.Fatalf("pending reply match = %v, %v; want unhandled", handled, err)
 	}
-	exchange, _, _, err := b.db.ReadExternalBotExchange(ref, 0, now)
+	exchange, _, _, err := b.db.externalBotStore().ReadExchange(ref, 0, now)
 	if err != nil || exchange.Status != coordination.StatusPending {
 		t.Fatalf("pending exchange = %+v, %v", exchange, err)
 	}

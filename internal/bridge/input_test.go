@@ -2144,7 +2144,7 @@ func TestBotToBotStripsAmuxDelegationTransportEnvelopeBeforeSubmit(t *testing.T)
 	if len(hub.routes) != 1 || hub.routes[0].method != "Submit" {
 		t.Fatalf("routes = %+v, want one Submit", hub.routes)
 	}
-	exchange, _, _, err := b.db.ReadExternalBotExchange(exchangeRef, 0, now.Add(time.Second))
+	exchange, _, _, err := b.db.externalBotStore().ReadExchange(exchangeRef, 0, now.Add(time.Second))
 	if err != nil {
 		t.Fatalf("ReadExternalBotExchange: %v", err)
 	}
@@ -2353,7 +2353,7 @@ func TestExternalBotExchangeReplyPreservesLineBreaksAndIndentation(t *testing.T)
 	if err != nil || !handled {
 		t.Fatalf("tryCompleteExternalBotExchange = %v, %v", handled, err)
 	}
-	exchange, _, _, err := b.db.ReadExternalBotExchange(backendRef, 0, now)
+	exchange, _, _, err := b.db.externalBotStore().ReadExchange(backendRef, 0, now)
 	if err != nil {
 		t.Fatalf("ReadExternalBotExchange: %v", err)
 	}

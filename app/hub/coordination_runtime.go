@@ -11,6 +11,7 @@ import (
 	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/coordination"
 	"github.com/amuxos/amux/internal/coordination/amuxadapter"
+	"github.com/amuxos/amux/internal/coordination/feishuexchange"
 	"github.com/rs/zerolog/log"
 )
 
@@ -24,7 +25,13 @@ func newProductionCoordinationRuntime(ctx context.Context, router coordinationTa
 	if err != nil {
 		return nil, err
 	}
-	external, err := bridge.NewExternalBotCoordinationAdapter(bridges)
+	hosts := make([]feishuexchange.Host, 0, len(bridges))
+	for _, b := range bridges {
+		if b != nil {
+			hosts = append(hosts, b.ExternalBotHost())
+		}
+	}
+	external, err := feishuexchange.NewAdapter(hosts)
 	if err != nil {
 		log.Warn().Err(err).Msg("hub: external Bot coordination adapter unavailable; continuing with internal collaborators")
 		return openCoordinationRuntime(ctx, filepath.Join(amuxhome.Dir(), "coordination.db"), tasks, loadCoordinationProfiles)
