@@ -204,10 +204,11 @@ func newStartCmd() *cobra.Command {
 			go localExpertAuthoring.runEvaluationReconciler(ctx)
 			managementActions := newLocalManagementSystemActions()
 			go managementActions.RunUpdateMonitor(ctx)
+			configActions := newLocalManagementConfigActions()
 			consoleActions := newLocalManagementConsoleActionsWithConfig(ctx, detectHubIP(lis.Addr()), resolvedConfigPath)
 			defer consoleActions.Close(context.Background())
 			scheduleControl := &bridgeSchedules{server: &hubServer{hub: hub, listTargets: hub.ListTargets, schedule: scheduleStore, principals: principalStore, scheduleRuntime: hub, scheduleTasks: subtaskReader, isolationConfig: config.GetIsolation}, reader: subtaskReader}
-			bridges := tryStartBridges(ctx, hub, sessionStarter, subtaskReader, principalStore, scheduleControl, webBaseURL, webToken, managementActions, consoleActions, bridge.ManagementSystemInfo{
+			bridges := tryStartBridges(ctx, hub, sessionStarter, subtaskReader, principalStore, scheduleControl, webBaseURL, webToken, managementActions, configActions, consoleActions, bridge.ManagementSystemInfo{
 				Version:   version,
 				StartedAt: startedAt,
 				HubIP:     detectHubIP(lis.Addr()),
@@ -437,6 +438,7 @@ func tryStartBridges(
 	webBaseURL,
 	webToken string,
 	managementActions bridge.ManagementSystemActions,
+	configActions *localManagementConfigActions,
 	consoleActions bridge.ManagementConsoleActions,
 	systemInfo bridge.ManagementSystemInfo,
 ) []*bridge.Bridge {
@@ -490,6 +492,10 @@ func tryStartBridges(
 		}
 		b.SetSessionViewer(webBaseURL, webToken)
 		b.SetManagementSystemActions(managementActions)
+		if configActions != nil {
+			b.SetManagementConfigActions(configActions)
+			configActions.RegisterTarget(b)
+		}
 		b.SetManagementConsoleActions(consoleActions)
 		pending = append(pending, pendingBridge{profile: profile, appID: secrets.AppId, bridge: b})
 	}

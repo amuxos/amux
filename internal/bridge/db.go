@@ -11,6 +11,7 @@ import (
 
 	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/coordination/feishuexchange"
 	"github.com/amuxos/amux/internal/session"
 	_ "modernc.org/sqlite"
 )
@@ -592,82 +593,7 @@ func (b *bridgeDB) migrate() error {
 	`); err != nil {
 		return err
 	}
-	if _, err := b.db.Exec(`
-		CREATE TABLE IF NOT EXISTS feishu_external_bot_peers (
-			collaborator_id TEXT PRIMARY KEY,
-			bridge_id TEXT NOT NULL,
-			chat_id TEXT NOT NULL,
-			bot_open_id TEXT NOT NULL,
-			bot_app_id TEXT NOT NULL DEFAULT '',
-			bot_display_name TEXT NOT NULL DEFAULT '',
-			chat_display_name TEXT NOT NULL DEFAULT '',
-			last_seen_at INTEGER NOT NULL,
-			UNIQUE (bridge_id, chat_id, bot_open_id)
-		)
-	`); err != nil {
-		return err
-	}
-	if err := b.addColumnIfMissing(`ALTER TABLE feishu_external_bot_peers ADD COLUMN bot_app_id TEXT NOT NULL DEFAULT ''`); err != nil {
-		return err
-	}
-	if err := b.addColumnIfMissing(`ALTER TABLE feishu_external_bot_peers ADD COLUMN bot_display_name TEXT NOT NULL DEFAULT ''`); err != nil {
-		return err
-	}
-	if err := b.addColumnIfMissing(`ALTER TABLE feishu_external_bot_peers ADD COLUMN chat_display_name TEXT NOT NULL DEFAULT ''`); err != nil {
-		return err
-	}
-	if _, err := b.db.Exec(`
-		CREATE INDEX IF NOT EXISTS idx_feishu_external_bot_peers_bridge
-		ON feishu_external_bot_peers(bridge_id, last_seen_at DESC)
-	`); err != nil {
-		return err
-	}
-	if _, err := b.db.Exec(`
-		CREATE TABLE IF NOT EXISTS feishu_external_bot_exchanges (
-			backend_ref TEXT PRIMARY KEY,
-			bridge_id TEXT NOT NULL,
-			collaborator_id TEXT NOT NULL,
-			chat_id TEXT NOT NULL,
-			bot_open_id TEXT NOT NULL,
-			root_msg_id TEXT NOT NULL DEFAULT '',
-			status TEXT NOT NULL,
-			deadline_at INTEGER NOT NULL,
-			result_content TEXT NOT NULL DEFAULT '',
-			result_message_id TEXT NOT NULL DEFAULT '',
-			failure_code TEXT NOT NULL DEFAULT '',
-			failure_message TEXT NOT NULL DEFAULT '',
-			created_at INTEGER NOT NULL,
-			updated_at INTEGER NOT NULL,
-			finished_at INTEGER NOT NULL DEFAULT 0
-		)
-	`); err != nil {
-		return err
-	}
-	if _, err := b.db.Exec(`DROP INDEX IF EXISTS idx_feishu_external_bot_exchange_root`); err != nil {
-		return err
-	}
-	if _, err := b.db.Exec(`
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_feishu_external_bot_exchange_active_root
-		ON feishu_external_bot_exchanges(bridge_id, root_msg_id, bot_open_id)
-		WHERE root_msg_id <> '' AND status IN ('pending', 'running')
-	`); err != nil {
-		return err
-	}
-	if _, err := b.db.Exec(`
-		CREATE TABLE IF NOT EXISTS feishu_external_bot_events (
-			backend_ref TEXT NOT NULL,
-			seq INTEGER NOT NULL,
-			kind TEXT NOT NULL,
-			status TEXT NOT NULL DEFAULT '',
-			content TEXT NOT NULL DEFAULT '',
-			result_content TEXT NOT NULL DEFAULT '',
-			result_message_id TEXT NOT NULL DEFAULT '',
-			failure_code TEXT NOT NULL DEFAULT '',
-			failure_message TEXT NOT NULL DEFAULT '',
-			at INTEGER NOT NULL,
-			PRIMARY KEY (backend_ref, seq)
-		)
-	`); err != nil {
+	if err := feishuexchange.EnsureSchema(b.db); err != nil {
 		return err
 	}
 	if _, err := b.db.Exec(`

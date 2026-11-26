@@ -310,7 +310,7 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 	}
 	switch action {
 	case managementActionExperimentsOpen, managementActionExperimentsSave, managementActionExperimentsSaveRestart:
-		saved, err := config.ReadExperimentsSettings()
+		saved, err := b.managementConfigActions().ReadExperimentsSettings()
 		if err != nil {
 			return cardToast("error", managementCopy("management.cannot.read.experiment.settings.check.the.configuration.file")), true, nil
 		}
@@ -319,15 +319,12 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			if err != nil {
 				return cardToast("error", managementErrorText(err)), true, nil
 			}
-			saved, err = config.UpdateExperimentsSettings(update)
+			saved, err = b.managementConfigActions().UpdateExperimentsSettings(update)
 			if err != nil {
 				return cardToast("error", managementCopy("management.cannot.save.experiment.settings.check.the.configuration.file")), true, nil
 			}
-			// steer_foreground is reloadable: apply the persisted value now.
-			b.setSteerForeground(saved.SteerForeground)
-			b.showBackgroundTasks.Store(saved.ShowBackgroundTasks)
-			b.mentionTurnInitiator.Store(saved.MentionTurnInitiator)
-			b.setModelRecoveryQueueWaitSeconds(saved.ModelRecoveryQueueWaitSeconds)
+			// Apply live-reloadable experiments immediately.
+			b.ApplyLiveExperimentSettings(saved)
 			for _, toggle := range bridgeExtensions.snapshot().ExperimentToggles {
 				if toggle.SetEnabled == nil || strings.TrimSpace(toggle.FieldName) == "" {
 					continue
@@ -941,7 +938,7 @@ func (b *Bridge) managementState() managementState {
 
 	state := managementState{
 		ProfileName:  b.ProfileName(),
-		DailyCleanup: dailyCleanupSettingValue(),
+		DailyCleanup: b.dailyCleanupSettingValue(),
 		SystemStatus: managementSystemAttention,
 	}
 	if b != nil {

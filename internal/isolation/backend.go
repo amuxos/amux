@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/principal"
 )
@@ -412,11 +413,9 @@ func (b *linuxDACBackend) Start(ctx context.Context, spec LaunchSpec) (ProcessHa
 // a dedicated uid.
 func principalLaunchEnv(env []string, account string, paths PrincipalPaths, dir string) []string {
 	env = replaceLaunchEnv(env, "HOME", paths.Home)
-	env = replaceLaunchEnv(env, "CODEX_HOME", paths.Home+"/.codex")
-	// Empty preserves Claude's default layout (including HOME/.claude.json)
-	// while masking a shared service-user override.
-	env = replaceLaunchEnv(env, "CLAUDE_CONFIG_DIR", "")
-	env = replaceLaunchEnv(env, "PI_CODING_AGENT_DIR", paths.Home+"/.pi/agent")
+	for _, binding := range adapter.AllIsolatedHomeEnvBindings() {
+		env = replaceLaunchEnv(env, binding.Key, binding.ValueForHome(paths.Home))
+	}
 	env = replaceLaunchEnv(env, "XDG_CONFIG_HOME", paths.Home+"/.config")
 	env = replaceLaunchEnv(env, "XDG_CACHE_HOME", paths.Home+"/.cache")
 	env = replaceLaunchEnv(env, "AMUX_ISOLATION_BACKEND", principal.BackendLinuxDAC)

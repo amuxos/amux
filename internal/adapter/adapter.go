@@ -75,6 +75,10 @@ type Capabilities struct {
 	// and where each materializes. nil means "no surfaces supported" (a nil-map
 	// read yields the zero Placement, i.e. Supported=false). See internal/agentprofile.
 	ConfigLayout map[Surface]Placement
+	// Execution declares the Engine × Permission × Isolation capability vector
+	// consumed by isolation, task sandboxes, permission projection, MCP wiring,
+	// memory, and session capability/instructions subsystems.
+	Execution ExecutionCapabilities
 }
 
 // Adapter builds the exec.Cmd for a specific agent type.

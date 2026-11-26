@@ -383,7 +383,7 @@ func (b *Bridge) runManagementSettingsTransition(openID, messageID string, previ
 		result, err := b.ApplyBotSettings(transitionCtx, req)
 		transitionCancel()
 		if err == nil && result.Status == BotSettingsStatusSuccess && managementUsesThreadRouting(draft.Interaction) && draft.DailyCleanupSubmitted {
-			err = saveDailyCleanupChoice(draft.DailyCleanup)
+			err = b.saveDailyCleanupChoice(draft.DailyCleanup)
 		}
 		if err == nil && result.Status == BotSettingsStatusSuccess &&
 			draft.ThinkingProcess != previous.ThinkingProcess {

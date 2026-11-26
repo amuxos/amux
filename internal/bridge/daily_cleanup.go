@@ -10,11 +10,10 @@ import (
 	"strings"
 
 	"github.com/amuxos/amux/internal/cleanup"
-	"github.com/amuxos/amux/internal/config"
 )
 
-func dailyCleanupSettingValue() string {
-	settings, err := config.ReadDailyCleanupSettings()
+func (b *Bridge) dailyCleanupSettingValue() string {
+	settings, err := b.managementConfigActions().ReadDailyCleanupSettings(context.Background())
 	if err != nil {
 		return ""
 	}
@@ -32,7 +31,7 @@ func dailyCleanupInitial(value string) string {
 	}
 	return "true"
 }
-func saveDailyCleanupChoice(value string) error {
+func (b *Bridge) saveDailyCleanupChoice(value string) error {
 	if value == "" {
 		return nil
 	}
@@ -40,7 +39,7 @@ func saveDailyCleanupChoice(value string) error {
 	if err != nil {
 		return managementLocalizedError("cleanup.invalid")
 	}
-	if err := config.SaveDailyCleanupEnabled(enabled); err != nil {
+	if err := b.managementConfigActions().SaveDailyCleanupEnabled(context.Background(), enabled); err != nil {
 		return fmt.Errorf("%s: %w", managementDefaultText(managementCopy("cleanup.save_failed")), err)
 	}
 	return nil

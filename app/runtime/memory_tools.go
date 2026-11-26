@@ -30,6 +30,7 @@ func (s *server) prepareAmuxTools(ctx context.Context, snap session.Snapshot, ar
 	hub := config.GetHub()
 	toolHome := s.amuxDir
 	configPath := filepath.Join(profileSessionDir(s.amuxDir, snap.ID), "agent-config", "memory", "claude-mcp.json")
+	mcpSurface := adapter.ExecutionCapabilitiesFor(snap.AgentType).MCPArgSurface
 	if snap.ExecutionIdentity.IsolationBackend == principal.BackendLinuxDAC {
 		if s.isolationRuntime == nil {
 			return nil, nil, fmt.Errorf("memory tools require the selected linux-dac materializer")
@@ -49,7 +50,7 @@ func (s *server) prepareAmuxTools(ctx context.Context, snap session.Snapshot, ar
 		defer os.RemoveAll(stage)
 		env = memoryToolEnvironment(env, toolHome, hub)
 		env = memoryprotocol.SetEnv(env, "AMUX_ACTOR_TOKEN_FILE", "")
-		if !cli && snap.AgentType == "claude" {
+		if !cli && mcpSurface == adapter.MCPArgSurfaceClaudeConfig {
 			if err := writeMemoryMCPConfig(filepath.Join(stage, "memory", "claude-mcp.json"), projectedCommand, snap.ID, env); err != nil {
 				return nil, nil, err
 			}
@@ -62,7 +63,7 @@ func (s *server) prepareAmuxTools(ctx context.Context, snap session.Snapshot, ar
 		configPath = filepath.Join(toolHome, "claude-mcp.json")
 	} else {
 		env = memoryToolEnvironment(env, toolHome, hub)
-		if !cli && snap.AgentType == "claude" {
+		if !cli && mcpSurface == adapter.MCPArgSurfaceClaudeConfig {
 			if err := writeMemoryMCPConfig(configPath, command, snap.ID, env); err != nil {
 				return nil, nil, err
 			}
@@ -77,9 +78,10 @@ func (s *server) prepareAmuxTools(ctx context.Context, snap session.Snapshot, ar
 	env = memoryprotocol.SetEnv(env, "PATH", path)
 	if !cli {
 		args = stripAmuxMCPArgs(snap.AgentType, args)
-		if snap.AgentType == "claude" {
+		switch mcpSurface {
+		case adapter.MCPArgSurfaceClaudeConfig:
 			args = append(args, "--mcp-config", configPath)
-		} else if adapter.IsCodexCompatible(snap.AgentType) {
+		case adapter.MCPArgSurfaceCodexConfig:
 			args = append(args, "-c", "mcp_servers.amux.command="+strconv.Quote(command), "-c", `mcp_servers.amux.args=["mcp"]`, "-c", "mcp_servers.amux.tool_timeout_sec=7200")
 			// Explicit values survive Codex's curated MCP subprocess env.
 			for _, key := range memoryToolEnvKeys {

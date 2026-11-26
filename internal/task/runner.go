@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/credentialref"
 	"github.com/amuxos/amux/internal/principal"
@@ -923,26 +924,7 @@ func (r *Runner) prepare(ctx context.Context, run *TaskRun, spec Spec) (p prepar
 }
 
 func taskArgsContainAmuxMCP(agentType string, args []string) bool {
-	switch {
-	case strings.TrimSpace(agentType) == "claude":
-		for _, arg := range args {
-			arg = strings.TrimSpace(arg)
-			if arg == "--mcp-config" || strings.HasPrefix(arg, "--mcp-config=") {
-				return true
-			}
-		}
-	case taskUsesCodexMCP(agentType):
-		for i, arg := range args {
-			arg = strings.TrimSpace(arg)
-			if strings.Contains(arg, "mcp_servers.amux.") {
-				return true
-			}
-			if (arg == "-c" || arg == "--config") && i+1 < len(args) && strings.Contains(args[i+1], "mcp_servers.amux.") {
-				return true
-			}
-		}
-	}
-	return false
+	return adapter.ArgsContainAmuxMCP(agentType, args)
 }
 
 func sandboxHasAmuxMCP(agentType string, sb *Sandbox) bool {

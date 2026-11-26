@@ -37,5 +37,27 @@ func (a *PiAdapter) Capabilities() Capabilities {
 			SurfaceSkills:       {Supported: true, Kind: "cwd-rel", Path: ".pi/skills"},
 			SurfaceSystemPrompt: {Supported: true, Kind: "extra-arg", Path: "--append-system-prompt"},
 		},
+		Execution: ExecutionCapabilities{
+			IsolatedHomeEnv: []IsolationEnvBinding{
+				{Key: "PI_CODING_AGENT_DIR", HomeRel: ".pi/agent"},
+			},
+			PermissionSurface:           PermissionSurfaceNone,
+			MCPArgSurface:               MCPArgSurfaceNone,
+			AlwaysUseCLIForCapabilities: true,
+			Memory: MemoryContract{
+				Supported:               true,
+				PromptInjection:         true,
+				AlwaysUseCLIInstruction: true,
+			},
+			SessionInstructions: SessionInstructionsSystemPrompt,
+			IsolatedTrust: IsolatedTrustPolicy{
+				SkipHostTrustUnderDAC: true,
+				// Pi RPC mode does not prompt and otherwise ignores untrusted
+				// project resources. Use its launch-local override rather than
+				// writing host trust; an explicit user decision wins.
+				LaunchApproveArg:     "--approve",
+				ExplicitApproveFlags: []string{"--approve", "-a", "--no-approve", "-na"},
+			},
+		},
 	})
 }

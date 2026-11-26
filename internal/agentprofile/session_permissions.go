@@ -3,6 +3,7 @@ package agentprofile
 import (
 	"strings"
 
+	"github.com/amuxos/amux/internal/adapter"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
@@ -32,7 +33,7 @@ func SessionPermissionDefaults(agentType string, args []string, spec *pb.AgentPr
 }
 
 func hasSessionPermissionArgs(agentType string, args []string) bool {
-	stripped := stripNativePermissionArgs(args, profileConfigProtocol(agentType), false)
+	stripped := stripNativePermissionArgs(args, adapter.ExecutionCapabilitiesFor(agentType).PermissionSurface, false)
 	if customization.StripTaskPermissionArgs != nil {
 		stripped = customization.StripTaskPermissionArgs(agentType, stripped)
 	}

@@ -22,5 +22,21 @@ func (a *ClaudeAdapter) Capabilities() Capabilities {
 			SurfaceSystemPrompt: {Supported: true, Kind: "extra-arg", Path: "--append-system-prompt"},
 			SurfaceMCP:          {Supported: true, Kind: "agent-config-rel", Path: "claude-mcp.json"},
 		},
+		Execution: ExecutionCapabilities{
+			IsolatedHomeEnv: []IsolationEnvBinding{
+				// Empty masks any shared service-user override so Claude uses
+				// the isolated HOME's native default layout (including HOME/.claude.json).
+				{Key: "CLAUDE_CONFIG_DIR", HomeRel: ""},
+			},
+			PermissionSurface: PermissionSurfaceClaudeMode,
+			MCPArgSurface:     MCPArgSurfaceClaudeConfig,
+			Memory: MemoryContract{
+				Supported:                  true,
+				PromptInjection:            true,
+				DisableNativeAutoMemoryEnv: "CLAUDE_CODE_DISABLE_AUTO_MEMORY",
+			},
+			SessionInstructions: SessionInstructionsSystemPrompt,
+			IsolatedTrust:       IsolatedTrustPolicy{SkipHostTrustUnderDAC: true},
+		},
 	})
 }
