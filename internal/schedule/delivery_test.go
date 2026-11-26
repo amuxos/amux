@@ -439,7 +439,11 @@ func TestAutoPauseCircuitBreakerAfterFiveConsecutiveFailuresAndResetOnResume(t *
 		}
 	}
 
-	// ResetAutoPause clears counter and auto-paused marker on resume.
+	// ResetAutoPause clears counter and auto-paused marker on resume and advances
+	// the watermark so the first post-resume failure starts from 1 (not 6).
+	if _, err := store.SetEnabled(tsk.ID, true); err != nil {
+		t.Fatal(err)
+	}
 	if err := store.ResetAutoPause(tsk.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -447,9 +451,179 @@ func TestAutoPauseCircuitBreakerAfterFiveConsecutiveFailuresAndResetOnResume(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.ConsecutiveFailures != 0 || v.AutoPausedAt != 0 || v.AutoPausedReason != "" {
-		t.Fatalf("ResetAutoPause did not clear fields: %+v", v)
+	if v.ConsecutiveFailures != 0 || v.AutoPausedAt != 0 || v.AutoPausedReason != "" || v.AutoPauseResetScheduledAt == 0 {
+		t.Fatalf("ResetAutoPause did not clear fields or advance watermark: %+v", v)
 	}
+	tsk, _ = store.Get(tsk.ID)
+	afterAt := now.Add(30 * time.Minute)
+	afterNext := afterAt.Add(10 * time.Minute).Unix()
+	postResumeRun, claimed, err := store.ClaimTracked(tsk, afterAt, &afterNext)
+	if err != nil || !claimed {
+		t.Fatalf("claim post-resume: claimed=%v err=%v", claimed, err)
+	}
+	postResumeRun.Status = "failed"
+	postResumeRun.Terminal = true
+	postResumeRun.FinishedAt = afterAt.Unix() + 5
+	if err := store.Observe(postResumeRun, afterAt.Add(5*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := store.Get(tsk.ID); !got.Enabled {
+		t.Fatalf("first failure after resume must not immediately re-pause")
+	}
+	if v, _ := store.Visibility(tsk.ID); v.ConsecutiveFailures != 1 || v.AutoPausedAt != 0 {
+		t.Fatalf("expected streak=1 after first post-resume failure, got %+v", v)
+	}
+}
+
+func TestAutoPauseCircuitBreakerOutOfOrderTerminalObservations(t *testing.T) {
+	t.Run("newer success observed before older failures does not falsely pause", func(t *testing.T) {
+		store, err := OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer store.Close()
+
+		base := time.Unix(1700000000, 0)
+		nextRun := base.Unix()
+		tsk, err := store.Create(Task{
+			Name:         "concurrent-job-a",
+			Spec:         "every 1m",
+			Kind:         KindInterval,
+			ScheduleType: ScheduleTypeSubtask,
+			Enabled:      true,
+			NextRunAt:    &nextRun,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.BindCreator(tsk.ID, Creator{BotID: "bot-1", OpenID: "ou_alice", PrincipalID: "p_alice", Source: "turn:1"}); err != nil {
+			t.Fatal(err)
+		}
+
+		// Claim 6 overlapping occurrences (ScheduledAt = base + 0..5m).
+		runs := make([]Execution, 6)
+		for i := 0; i < 6; i++ {
+			tsk, _ = store.Get(tsk.ID)
+			at := base.Add(time.Duration(i) * time.Minute)
+			next := at.Add(time.Minute).Unix()
+			r, ok, err := store.ClaimTracked(tsk, at, &next)
+			if err != nil || !ok {
+				t.Fatalf("claim %d: ok=%v err=%v", i, ok, err)
+			}
+			runs[i] = r
+		}
+
+		// Run 6 (newest ScheduledAt) completes FIRST.
+		runs[5].Status = "completed"
+		runs[5].Terminal = true
+		runs[5].FinishedAt = base.Add(6 * time.Minute).Unix()
+		if err := store.Observe(runs[5], base.Add(6*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+
+		// Runs 1..5 (older ScheduledAt) fail AFTER run 6 completed.
+		for i := 0; i < 5; i++ {
+			runs[i].Status = "failed"
+			runs[i].Terminal = true
+			runs[i].FinishedAt = base.Add(time.Duration(7+i) * time.Minute).Unix()
+			if err := store.Observe(runs[i], base.Add(time.Duration(7+i)*time.Minute)); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		got, err := store.Get(tsk.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := store.Visibility(tsk.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !got.Enabled || v.ConsecutiveFailures != 0 || v.AutoPausedAt != 0 {
+			t.Fatalf("older failures arriving after newer success falsely paused/counted: enabled=%v vis=%+v", got.Enabled, v)
+		}
+	})
+
+	t.Run("older success observed after newer failures does not clear consecutive failure streak", func(t *testing.T) {
+		store, err := OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer store.Close()
+
+		base := time.Unix(1700000000, 0)
+		nextRun := base.Unix()
+		tsk, err := store.Create(Task{
+			Name:         "concurrent-job-b",
+			Spec:         "every 1m",
+			Kind:         KindInterval,
+			ScheduleType: ScheduleTypeSubtask,
+			Enabled:      true,
+			NextRunAt:    &nextRun,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.BindCreator(tsk.ID, Creator{BotID: "bot-1", OpenID: "ou_alice", PrincipalID: "p_alice", Source: "turn:1"}); err != nil {
+			t.Fatal(err)
+		}
+
+		// Claim 6 overlapping occurrences (run 0 will succeed late; runs 1..5 will fail).
+		runs := make([]Execution, 6)
+		for i := 0; i < 6; i++ {
+			tsk, _ = store.Get(tsk.ID)
+			at := base.Add(time.Duration(i) * time.Minute)
+			next := at.Add(time.Minute).Unix()
+			r, ok, err := store.ClaimTracked(tsk, at, &next)
+			if err != nil || !ok {
+				t.Fatalf("claim %d: ok=%v err=%v", i, ok, err)
+			}
+			runs[i] = r
+		}
+
+		// Runs 1..4 (newer than run 0) fail first -> streak=4.
+		for i := 1; i <= 4; i++ {
+			runs[i].Status = "failed"
+			runs[i].Terminal = true
+			runs[i].FinishedAt = base.Add(time.Duration(10+i) * time.Minute).Unix()
+			if err := store.Observe(runs[i], base.Add(time.Duration(10+i)*time.Minute)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if v, _ := store.Visibility(tsk.ID); v.ConsecutiveFailures != 4 {
+			t.Fatalf("expected streak=4 before late success, got %+v", v)
+		}
+
+		// Older run 0 completes LATE -> must NOT wipe out the 4 newer consecutive failures!
+		runs[0].Status = "completed"
+		runs[0].Terminal = true
+		runs[0].FinishedAt = base.Add(15 * time.Minute).Unix()
+		if err := store.Observe(runs[0], base.Add(15*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+		if v, _ := store.Visibility(tsk.ID); v.ConsecutiveFailures != 4 || v.AutoPausedAt != 0 {
+			t.Fatalf("older success cleared newer failure streak: %+v", v)
+		}
+
+		// Run 5 (newest) fails -> streak reaches 5 and auto-pauses.
+		runs[5].Status = "timed_out"
+		runs[5].Terminal = true
+		runs[5].FinishedAt = base.Add(16 * time.Minute).Unix()
+		if err := store.Observe(runs[5], base.Add(16*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+		got, err := store.Get(tsk.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v, err := store.Visibility(tsk.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Enabled || v.ConsecutiveFailures != 5 || v.AutoPausedAt == 0 {
+			t.Fatalf("expected auto-pause on 5th consecutive newest failure, got enabled=%v vis=%+v", got.Enabled, v)
+		}
+	})
 }
 
 func TestEnqueueCreatedCardIdempotencyAndMarkDelivery(t *testing.T) {

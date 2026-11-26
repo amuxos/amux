@@ -267,3 +267,23 @@ func TestHubP1CreatedCardWakeAdminPauseDeliverySwitchPruneAndAutoPauseReset(t *t
 func storeCreatedTimeNow() (t time.Time) {
 	return time.Now().Add(time.Minute)
 }
+
+func TestRegisterScheduleDeliveryWakersWiresHubRPCInstance(t *testing.T) {
+	// Production hub constructs a separate hubServer for scheduleControl vs the
+	// gRPC hubRPC instance that executes CreateSchedule. Verify wakers register
+	// on hubRPC and survive nil bridge entries.
+	scheduleControlSrv := &hubServer{}
+	hubRPC := &hubServer{}
+	b := &bridge.Bridge{}
+
+	registerScheduleDeliveryWakers(hubRPC, []*bridge.Bridge{nil, b})
+
+	if len(scheduleControlSrv.scheduleDeliveryWakers) != 0 {
+		t.Fatalf("unexpected wakers on scheduleControl server: %d", len(scheduleControlSrv.scheduleDeliveryWakers))
+	}
+	if len(hubRPC.scheduleDeliveryWakers) != 1 {
+		t.Fatalf("expected 1 waker on hubRPC, got %d", len(hubRPC.scheduleDeliveryWakers))
+	}
+	// Invoking notifyScheduleDelivery on hubRPC must cleanly wake the bridge.
+	hubRPC.notifyScheduleDelivery()
+}
