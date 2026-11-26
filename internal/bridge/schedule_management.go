@@ -100,11 +100,12 @@ func renderSchedules(entries []schedule.Entry, filter string, page int) string {
 	elements = append(elements, managementFormButtonRowElement(filters...))
 	if completedCount > 0 && (filter == "all" || filter == "completed") {
 		pruneBtn := managementButtonElement(managementButton{
-			Text:   scheduleText("prune_completed", completedCount),
-			Type:   "default",
-			Action: "schedule.prune_completed",
-			Name:   "schedule.prune_completed.0",
-			Values: map[string]string{"filter": filter},
+			Text:    scheduleText("prune_completed", completedCount),
+			Type:    "default",
+			Action:  "schedule.prune_completed",
+			Name:    "schedule.prune_completed.0",
+			Values:  map[string]string{"filter": filter},
+			Confirm: managementConfirm(scheduleText("confirm.prune.title"), scheduleText("confirm.prune.text", completedCount)),
 		})
 		pruneBtn.Size = "small"
 		elements = append(elements, managementFormButtonRowElement(pruneBtn))
@@ -337,6 +338,7 @@ func renderScheduleDetailWithViewer(e schedule.Entry, result bool, page int, vie
 	deleteBtn := scheduleButton("delete", "delete", e.Task.ID, nil)
 	deleteBtn.Size = "small"
 	deleteBtn.Type = "danger"
+	deleteBtn.Confirm = managementConfirm(scheduleText("confirm.delete.title"), scheduleText("confirm.delete.text", scheduleName(e.Task)))
 	primaryRow = append(primaryRow, deleteBtn)
 	elements = append(elements, managementFormButtonRowElement(primaryRow...))
 
@@ -437,6 +439,7 @@ func renderScheduleDetailWithViewer(e schedule.Entry, result bool, page int, vie
 			btn.Size = "small"
 			if target == effectiveTarget {
 				btn.Type = "primary"
+				btn.Text = managementPlainTextPtr(managementConcat("✓ ", scheduleDeliveryTargetCopy(target)))
 			}
 			targetRow = append(targetRow, btn)
 		}
@@ -452,6 +455,7 @@ func renderScheduleDetailWithViewer(e schedule.Entry, result bool, page int, vie
 				btn.Size = "small"
 				if policy == effectivePolicy {
 					btn.Type = "primary"
+					btn.Text = managementPlainTextPtr(managementConcat("✓ ", scheduleDeliveryPolicyCopy(policy)))
 				}
 				policyRow = append(policyRow, btn)
 			}
@@ -465,7 +469,7 @@ func renderScheduleDetailWithViewer(e schedule.Entry, result bool, page int, vie
 
 		elements = append(elements,
 			managementDividerElement(),
-			managementSectionTitleElement(scheduleText("detail.section.delivery")),
+			managementSectionTitleElement(managementConcat(scheduleText("detail.section.delivery"), " · ", scheduleDeliverySummary(e.Task))),
 			deliveryPanel,
 		)
 
@@ -694,7 +698,7 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	op := strings.TrimPrefix(action, "schedule.")
 	id, _ := strconv.ParseInt(managementCallbackString(event.Event.Action, "schedule_id"), 10, 64)
 	source := managementCallbackString(event.Event.Action, "source")
-	toastKey := "updated"
+	var toastContent any = scheduleText("updated")
 	var card string
 	var err error
 	if op == "home" {
@@ -744,7 +748,7 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 			var entries []schedule.Entry
 			entries, err = b.schedules.List(ctx, bot, open)
 			card = renderSchedules(entries, managementCallbackString(event.Event.Action, "filter"), 0)
-			toastKey = "pruned"
+			toastContent = scheduleText("pruned")
 		}
 	} else if op == "delete" {
 		err = b.schedules.Act(ctx, bot, open, id, "delete")
@@ -755,7 +759,7 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 			var entries []schedule.Entry
 			entries, err = b.schedules.List(ctx, bot, open)
 			card = renderSchedules(entries, "all", 0)
-			toastKey = "deleted"
+			toastContent = scheduleText("deleted")
 		}
 	} else if op == "pause" && !privateCard && source == "delivery" {
 		// On shared result/created delivery cards, the creator can pause normally;
@@ -796,10 +800,33 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	} else {
 		if op != "detail" && op != "result" {
 			actOp := op
+			val := managementCallbackString(event.Event.Action, "value")
 			if op == "delivery_target" || op == "delivery_policy" {
-				actOp = op + ":" + managementCallbackString(event.Event.Action, "value")
+				actOp = op + ":" + val
 			}
 			err = b.schedules.Act(ctx, bot, open, id, actOp)
+			if err == nil {
+				switch op {
+				case "delivery_target":
+					toastContent = managementConcat(scheduleText("toast.delivery_target_prefix"), scheduleDeliveryTargetCopy(val))
+				case "delivery_policy":
+					toastContent = managementConcat(scheduleText("toast.delivery_policy_prefix"), scheduleDeliveryPolicyCopy(val))
+				case "pause":
+					toastContent = scheduleText("delivery.paused")
+				case "resume":
+					toastContent = scheduleText("toast.resumed")
+				case "trigger":
+					toastContent = scheduleText("delivery.triggered")
+				case "off":
+					toastContent = scheduleText("toast.alerts_off")
+				case "on":
+					toastContent = scheduleText("toast.alerts_on")
+				case "ack":
+					toastContent = scheduleText("toast.acknowledged")
+				case "snooze":
+					toastContent = scheduleText("toast.snoozed")
+				}
+			}
 		}
 		if err == nil {
 			var e schedule.Entry
@@ -815,7 +842,7 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	}
 	// Never write a private view into a forwarded/shared card.
 	if privateCard {
-		return b.managementCardResponse(open, message, card, version, cardToast("success", scheduleText(toastKey))), true, nil
+		return b.managementCardResponse(open, message, card, version, cardToast("success", toastContent)), true, nil
 	}
 	// Quick actions on a result delivery card give an immediate toast without
 	// dumping an unsolicited management card into DM, except when the user
@@ -825,7 +852,7 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 		return cardToast("success", scheduleText("delivery.detail_sent")), true, err
 	}
 	err = b.sendManagementCardToDM(ctx, open, card)
-	return cardToast("success", scheduleText(toastKey)), true, err
+	return cardToast("success", toastContent), true, err
 }
 func (b *Bridge) runScheduleNotices(ctx context.Context) {
 	if b.schedules == nil {

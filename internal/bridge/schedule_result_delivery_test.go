@@ -732,11 +732,16 @@ func TestScheduleP1ActionsAdminEmergencyPauseDeliverySwitchDeleteAndPrune(t *tes
 	}
 
 	// 2) Creator switches delivery_target and delivery_policy from detail card.
-	if resp := click("ou_alice", "delivery_target", "", active.ID, map[string]interface{}{"value": "creator_dm"}); resp.Toast.Type != "success" {
-		t.Fatalf("creator delivery_target switch failed: %+v", resp.Toast)
+	respTarget := click("ou_alice", "delivery_target", "", active.ID, map[string]interface{}{"value": "creator_dm"})
+	if respTarget.Toast.Type != "success" || !strings.Contains(respTarget.Toast.I18nContent["en_us"], "Creator DM") || !strings.Contains(respTarget.Toast.I18nContent["zh_cn"], "创建人私聊") {
+		t.Fatalf("creator delivery_target switch failed or lacked specific toast: %+v", respTarget.Toast)
 	}
-	if resp := click("ou_alice", "delivery_policy", "", active.ID, map[string]interface{}{"value": "on_failure"}); resp.Toast.Type != "success" {
-		t.Fatalf("creator delivery_policy switch failed: %+v", resp.Toast)
+	respPolicy := click("ou_alice", "delivery_policy", "", active.ID, map[string]interface{}{"value": "on_failure"})
+	if respPolicy.Toast.Type != "success" || !strings.Contains(respPolicy.Toast.I18nContent["en_us"], "Only on failure") || !strings.Contains(respPolicy.Toast.I18nContent["zh_cn"], "仅失败推送") {
+		t.Fatalf("creator delivery_policy switch failed or lacked specific toast: %+v", respPolicy.Toast)
+	}
+	if !strings.Contains(lastDMCard, "✓ ") || !strings.Contains(lastDMCard, `"confirm"`) {
+		t.Fatalf("expected active checkmark and delete confirmation dialog in detail card")
 	}
 	got, _ := store.Get(active.ID)
 	if got.DeliveryTarget != schedule.DeliveryTargetCreatorDM || got.DeliveryPolicy != schedule.DeliveryPolicyOnFailure {
