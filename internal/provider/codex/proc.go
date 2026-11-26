@@ -96,10 +96,11 @@ type Proc struct {
 	stagingMu     sync.Mutex
 	stagingDir    string
 
-	threadMu       sync.Mutex
-	threadID       string
-	effectiveModel string
-	turnID         string
+	threadMu          sync.Mutex
+	threadID          string
+	effectiveModel    string
+	turnID            string
+	interruptedTurnID string
 	idleTimer      *time.Timer
 	idleGeneration uint64
 	// idleCompletionDelay is the thread-idle debounce. Production uses
@@ -1150,6 +1151,10 @@ func (p *Proc) ReconfigureExecution(model, reasoningEffort string) error {
 	}
 	p.turnModel = model
 	p.turnEffort = reasoningEffort
+	p.threadMu.Lock()
+	p.effectiveModel = model
+	p.threadMu.Unlock()
+	p.emitSessionMetadata(tid, model)
 	return nil
 }
 
@@ -1236,6 +1241,7 @@ func (p *Proc) clearThread() error {
 	p.threadID = threadID
 	p.effectiveModel = effectiveModel
 	p.turnID = ""
+	p.interruptedTurnID = ""
 	p.lastFailureTurnID = ""
 	p.zombieTurnID = ""
 	p.zombieTurnIDs = make(map[string]struct{})
@@ -1442,7 +1448,9 @@ func (p *Proc) Interrupt() error {
 	p.threadMu.Lock()
 	tid, turn := p.threadID, p.turnID
 	live := turn != ""
-	if !live {
+	if live {
+		p.interruptedTurnID = turn
+	} else {
 		// No live turn: fall back to the most recently failed turn, which may
 		// still be running server-side. Prefer zombieTurnID (watchdog-declared,
 		// cleared once a terminal frame confirms death); otherwise lastFailureTurnID
@@ -1477,6 +1485,13 @@ func (p *Proc) Interrupt() error {
 		"threadId": tid,
 		"turnId":   turn,
 	})
+	if err != nil {
+		p.threadMu.Lock()
+		if p.interruptedTurnID == turn {
+			p.interruptedTurnID = ""
+		}
+		p.threadMu.Unlock()
+	}
 	return err
 }
 

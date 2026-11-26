@@ -530,12 +530,22 @@ func (t *toolActivityTurn) Start(seq int, question string) toolActivityCardMeta 
 }
 
 func (t *toolActivityTurn) Complete(failed bool) toolActivityCardMeta {
+	if failed {
+		return t.CompleteWithStatus("failed")
+	}
+	return t.CompleteWithStatus("done")
+}
+
+func (t *toolActivityTurn) CompleteWithStatus(status string) toolActivityCardMeta {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if failed {
-		t.status = "failed"
-	} else if t.status != "waiting" {
-		t.status = "done"
+	switch status {
+	case "failed", "stopped":
+		t.status = status
+	default:
+		if t.status != "waiting" {
+			t.status = "done"
+		}
 	}
 	t.active = false
 	return t.metaLocked()

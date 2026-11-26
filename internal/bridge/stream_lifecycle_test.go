@@ -170,7 +170,7 @@ func TestStreamStartupReusesConcurrentBindingAndSessionAdded(t *testing.T) {
 }
 
 func TestStreamStartupReattachesChangedOrEndedSession(t *testing.T) {
-	for _, reason := range []string{"session", "root", "target", "agent", "profile", "model", "ended", "cancelled"} {
+	for _, reason := range []string{"session", "root", "target", "agent", "profile", "model", "hot-model", "ended", "cancelled"} {
 		t.Run(reason, func(t *testing.T) {
 			b, hub, chat := newStreamLifecycleBridge(t)
 			chat.AgentProfile, chat.EffectiveModel = "builtin/codex", "model-1"
@@ -207,6 +207,14 @@ func TestStreamStartupReattachesChangedOrEndedSession(t *testing.T) {
 					t.Fatal(err)
 				}
 				hub.setSession(chat, "session-id-1", "launch-2")
+			case "hot-model":
+				// In-place hot reconfigure keeps the same launchID while
+				// changing the session's effective model.
+				chat.EffectiveModel = "model-2"
+				if err := b.db.UpsertChat(*chat); err != nil {
+					t.Fatal(err)
+				}
+				hub.setSession(chat, "session-id-1", "launch-1")
 			case "ended":
 				close(first.end)
 				waitLifecycleSignal(t, first.ctx.Done())

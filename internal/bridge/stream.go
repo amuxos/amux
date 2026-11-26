@@ -373,11 +373,12 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 	// snapshot also prevents a delayed callback from restoring an older launch.
 	session := b.boundSession(targetID, sessionName)
 	if previous, ok := b.streamSessions[sessionKey]; ok {
-		// Explicit reconfiguration still needs fresh presentation closures. A
-		// provider confirming metadata within the same launch does not.
-		samePresentation := previous.launchID == "" || session.GetLaunchId() == "" || previous.launchID == session.GetLaunchId() ||
-			(previous.agentType == streamChat.AgentType && previous.agentProfile == streamChat.AgentProfile &&
-				(previous.effectiveModel == "" || streamChat.EffectiveModel == "" || previous.effectiveModel == streamChat.EffectiveModel))
+		// Explicit reconfiguration still needs fresh presentation closures,
+		// including in-place hot model switches that keep the same launchID. A
+		// provider confirming initial metadata (empty -> known) does not.
+		sameModel := previous.effectiveModel == "" || streamChat.EffectiveModel == "" || previous.effectiveModel == streamChat.EffectiveModel
+		samePresentation := sameModel && (previous.launchID == "" || session.GetLaunchId() == "" || previous.launchID == session.GetLaunchId() ||
+			(previous.agentType == streamChat.AgentType && previous.agentProfile == streamChat.AgentProfile))
 		if previous.rootMsgID == rootMsgID && previous.ctx.Err() == nil &&
 			(previous.sessionID == "" || session.GetId() == "" || previous.sessionID == session.GetId()) && samePresentation {
 			// Run can return before the first session snapshot arrives. Fill in
@@ -391,8 +392,17 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			if session.GetLaunchId() != "" {
 				previous.launchID = session.GetLaunchId()
 			}
+			backfillModel := ""
+			if previous.effectiveModel == "" && strings.TrimSpace(streamChat.EffectiveModel) != "" {
+				backfillModel = strings.TrimSpace(streamChat.EffectiveModel)
+				previous.effectiveModel = backfillModel
+			}
+			setModel := previous.setEffectiveModel
 			b.streamSessions[sessionKey] = previous
 			b.streamMu.Unlock()
+			if backfillModel != "" && setModel != nil {
+				setModel(backfillModel)
+			}
 			return
 		}
 		if cancel := b.removeStreamLocked(previous.rootMsgID); cancel != nil {
@@ -414,6 +424,26 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 	// Only a new attachment invalidates advertised commands. Reusing a live
 	// stream must retain its discovery state as well as its presentation state.
 	b.clearAdvertisedAgentCommands(targetID, sessionName)
+	var modelMu sync.RWMutex
+	liveEffectiveModel := strings.TrimSpace(streamChat.EffectiveModel)
+	getEffectiveModel := func() string {
+		modelMu.RLock()
+		defer modelMu.RUnlock()
+		return liveEffectiveModel
+	}
+	setEffectiveModel := func(model string) bool {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			return false
+		}
+		modelMu.Lock()
+		changed := model != liveEffectiveModel
+		if changed {
+			liveEffectiveModel = model
+		}
+		modelMu.Unlock()
+		return changed
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	ready := make(chan struct{})
 	b.nextStreamToken++
@@ -425,7 +455,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 		rootMsgID: rootMsgID, token: token, ctx: ctx,
 		sessionID: session.GetId(), launchID: session.GetLaunchId(),
 		agentType: streamChat.AgentType, agentProfile: streamChat.AgentProfile,
-		effectiveModel: streamChat.EffectiveModel,
+		effectiveModel: liveEffectiveModel, setEffectiveModel: setEffectiveModel,
 	}
 	b.streamSessionID[rootMsgID] = sessionKey
 	b.streamMu.Unlock()
@@ -594,7 +624,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			meta.SubtaskReport = subtaskReportTurn.Load()
 			meta.AgentProfile = streamChat.AgentProfile
 			meta.AgentType = streamChat.AgentType
-			meta.EffectiveModel = streamChat.EffectiveModel
+			meta.EffectiveModel = getEffectiveModel()
 			meta.QuotaBorrowed = b.sessionQuotaBorrowed(targetID, sessionName)
 			meta.Activity = getActivityView()
 			meta.Subtasks = activity.Subtasks()
@@ -604,7 +634,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 				if meta.Activity.TurnSeq > 0 {
 					meta.TurnSeq = int(meta.Activity.TurnSeq)
 				}
-				if meta.Status != "waiting" && meta.Activity.Status != "" {
+				if meta.Status != "waiting" && meta.Status != "stopped" && meta.Activity.Status != "" {
 					meta.Status = meta.Activity.Status
 				}
 			}
@@ -743,8 +773,8 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 					}
 				}
 			}
-			if model := strings.TrimSpace(ev.EffectiveModel); model != "" && model != strings.TrimSpace(streamChat.EffectiveModel) {
-				streamChat.EffectiveModel = model
+			if model := strings.TrimSpace(ev.EffectiveModel); model != "" && setEffectiveModel(model) {
+				b.setRegisteredStreamEffectiveModel(sessionKey, token, model)
 				if b.db != nil {
 					if err := b.db.RefreshSessionIdentity(bridgeID, targetID, sessionName, "", "", model); err != nil {
 						log.Warn().Err(err).Str("session", sessionName).Str("effective_model", model).
@@ -839,7 +869,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							replyStream.Flush()
 							replyStream.Reset()
 							activitySender.Reset()
-							ordinaryChat.EffectiveModel = streamChat.EffectiveModel
+							ordinaryChat.EffectiveModel = getEffectiveModel()
 							*streamChat = ordinaryChat
 						}
 						// submitToSession marks the topic turn active before the
@@ -1117,7 +1147,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						rateLimited := providerUsageLimited(action.Text, providerCode)
 						if rateLimited {
-							b.markTurnRecoveryRateLimited(errTurnID, streamChat, streamChat.EffectiveModel)
+							b.markTurnRecoveryRateLimited(errTurnID, streamChat, getEffectiveModel())
 						}
 						text := ""
 						if !providerFailureNoticePending {
@@ -1153,7 +1183,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 									Status:         "failed",
 									AgentProfile:   streamChat.AgentProfile,
 									AgentType:      streamChat.AgentType,
-									EffectiveModel: streamChat.EffectiveModel,
+									EffectiveModel: getEffectiveModel(),
 									SubtaskReport:  subtaskReportTurn.Load(),
 								}
 								if prompt := b.modelRecoveryPromptForActivity(streamChat, errTurnID, failedMeta); prompt != nil {
@@ -1189,7 +1219,15 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						b.setQueueNotice(rootMsgID, 0, false)
 						b.refreshSubtaskProgress(activity, targetID, sessionName)
 						b.startSubtaskCards(subtaskChat, activity.Subtasks())
-						completionMeta := turn.Complete(action.Turn.State == "failed")
+						recoveryClaimed := b.isTurnRecoveryClaimed(action.Turn.ID)
+						turnStatus := "done"
+						switch {
+						case action.Turn.State == "failed":
+							turnStatus = "failed"
+						case action.Turn.State == "interrupted" || turnCompletionCancelled(action.Turn.StopReason) || recoveryClaimed:
+							turnStatus = "stopped"
+						}
+						completionMeta := turn.CompleteWithStatus(turnStatus)
 						turnElapsed := time.Duration(0)
 						if startedAt := activity.TurnStartedAt(); !startedAt.IsZero() {
 							turnElapsed = activity.now().Sub(startedAt)
@@ -1210,7 +1248,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						agg.Flush()
 						b.observeTurnFinished(rootMsgID, action.Turn.ID)
 						superseded := b.isTurnSuperseded(rootMsgID)
-						handoffEligible := !superseded && shouldUseAssistantResultFallback(action.Turn)
+						handoffEligible := !superseded && !recoveryClaimed && shouldUseAssistantResultFallback(action.Turn)
 						var pendingCardHandoff *PendingBotHandoff
 						cardHandoffDelivered := false
 						if handoffEligible && getStreamsReplyCards() {
@@ -1286,15 +1324,17 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						b.recordTurnResultCompletion(streamChat, action.Turn.ID, currentTurnSource, action.Turn, getFinalAnswer(), superseded, false, deliveryReceipt, artifactsPending, currentTurnStartedAt, ev.CanonicalJson)
 						b.observeCompletion(ctx, streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, getFinalAnswer(), superseded, completedCard)
 						setFinalAnswer("")
-						if !superseded && (completionMeta.Status != "failed" || !failureNoticeDelivered) {
+						if !superseded && !recoveryClaimed && turnStatus != "stopped" && (completionMeta.Status != "failed" || !failureNoticeDelivered) {
 							b.dispatchTurnCompletionNotification(streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, turnElapsed)
 						}
-						if text := turnDoneNotice(action.Turn.StopReason, view != nil); text != "" {
-							sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-							_, _, err := b.sendTextToBinding(sendCtx, streamChat, text)
-							cancel()
-							if err != nil {
-								log.Warn().Err(err).Str("session", sessionName).Msg("bridge: sendTextToBinding (turn done) error")
+						if !recoveryClaimed {
+							if text := turnDoneNotice(action.Turn.StopReason, view != nil); text != "" {
+								sendCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+								_, _, err := b.sendTextToBinding(sendCtx, streamChat, text)
+								cancel()
+								if err != nil {
+									log.Warn().Err(err).Str("session", sessionName).Msg("bridge: sendTextToBinding (turn done) error")
+								}
 							}
 						}
 						activity.Reset()
@@ -1639,6 +1679,43 @@ func (c *streamController) StopStream(rootMsgID string) {
 	defer c.streamMu.Unlock()
 	if cancel := c.removeStreamLocked(rootMsgID); cancel != nil {
 		cancel()
+	}
+}
+
+func (c *streamController) setRegisteredStreamEffectiveModel(sessionKey string, token uint64, effectiveModel string) {
+	effectiveModel = strings.TrimSpace(effectiveModel)
+	if c == nil || effectiveModel == "" {
+		return
+	}
+	c.streamMu.Lock()
+	if current, ok := c.streamSessions[sessionKey]; ok && current.token == token {
+		current.effectiveModel = effectiveModel
+		c.streamSessions[sessionKey] = current
+	}
+	c.streamMu.Unlock()
+}
+
+// updateLiveStreamEffectiveModel immediately updates the model displayed by an
+// already-attached stream after an in-place model switch, without waiting for
+// an asynchronous metadata event or tearing down the live Attach subscription.
+func (b *Bridge) updateLiveStreamEffectiveModel(targetID, sessionName, effectiveModel string) {
+	if b == nil {
+		return
+	}
+	effectiveModel = strings.TrimSpace(effectiveModel)
+	if effectiveModel == "" {
+		return
+	}
+	sessionKey := strings.TrimSpace(targetID) + "\x00" + strings.TrimSpace(sessionName)
+	b.streamMu.Lock()
+	reg, ok := b.streamSessions[sessionKey]
+	if ok {
+		reg.effectiveModel = effectiveModel
+		b.streamSessions[sessionKey] = reg
+	}
+	b.streamMu.Unlock()
+	if ok && reg.setEffectiveModel != nil {
+		reg.setEffectiveModel(effectiveModel)
 	}
 }
 

@@ -342,6 +342,12 @@ completion_notification_after_seconds = 60
 	if err := b.notifyTurnCompletion(context.Background(), chat, "turn-cancelled", "done", "cancelled", time.Minute); err != nil {
 		t.Fatal(err)
 	}
+	if err := b.notifyTurnCompletion(context.Background(), chat, "turn-session-closed", "done", "session_closed", time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.notifyTurnCompletion(context.Background(), chat, "turn-stopped", "stopped", "", time.Minute); err != nil {
+		t.Fatal(err)
+	}
 	if len(notices) != 2 || !strings.Contains(notices[0], "需要你补充") || !strings.Contains(notices[1], "处理失败") {
 		t.Fatalf("notices = %q, want waiting and failure only", notices)
 	}
