@@ -281,6 +281,7 @@ func newStartCmd() *cobra.Command {
 			go hubRPC.dailyCleaner.Run(ctx)
 			go hubRPC.runTurnResultSweeper(ctx)
 			if scheduleStore != nil {
+				registerScheduleDeliveryWakers(hubRPC, bridges)
 				scheduler := schedule.NewWithTaskSubmitter(hub, scheduleStore, sessionStarter, taskRouter)
 				scheduler.SetSessionPromptAuthorizer(hubRPC.authorizeScheduledSessionPrompt)
 				scheduler.SetNewSessionLaunchPreparer(hubRPC.prepareScheduledNewSession)
@@ -397,6 +398,17 @@ func incomingHubToken(ctx context.Context) string {
 	return ""
 }
 
+func registerScheduleDeliveryWakers(srv *hubServer, bridges []*bridge.Bridge) {
+	if srv == nil {
+		return
+	}
+	for _, b := range bridges {
+		if b != nil {
+			srv.RegisterScheduleDeliveryWaker(b.NotifyScheduleDelivery)
+		}
+	}
+}
+
 func isDistributedHubAddr(addr string) bool {
 	host, _, err := net.SplitHostPort(strings.TrimSpace(addr))
 	if err != nil {
@@ -467,7 +479,6 @@ func tryStartBridges(
 		b.SetSubtaskReader(subtasks)
 		if schedules != nil && schedules.server.schedule != nil {
 			b.SetScheduleControl(schedules)
-			schedules.server.RegisterScheduleDeliveryWaker(b.NotifyScheduleDelivery)
 		}
 		if principals != nil {
 			bridgeID := bridge.BridgeIdFromAppId(secrets.AppId)

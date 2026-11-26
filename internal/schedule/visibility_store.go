@@ -50,9 +50,10 @@ type Visibility struct {
 	MessageID, DeliveredStatus, DeliveryError string
 	Blocked                                   bool
 	Version                                   int64
-	ConsecutiveFailures                       int    `json:",omitempty"`
-	AutoPausedAt                              int64  `json:",omitempty"`
-	AutoPausedReason                          string `json:",omitempty"`
+	ConsecutiveFailures       int    `json:",omitempty"`
+	AutoPausedAt              int64  `json:",omitempty"`
+	AutoPausedReason          string `json:",omitempty"`
+	AutoPauseResetScheduledAt int64  `json:",omitempty"`
 }
 type RecentCounts struct{ Completed, Failed, Missed int }
 type Entry struct {
@@ -126,7 +127,9 @@ func (s *Store) saveVisibility(id int64, v Visibility) error {
 // subtask schedule update changes its effective run_as identity). No-op when
 // the schedule has no visibility binding.
 // ResetAutoPause clears consecutive-failure circuit-breaker state when a
-// schedule is explicitly resumed or re-enabled.
+// schedule is explicitly resumed or re-enabled, advancing the watermark past
+// any already-recorded executions so pre-resume failures cannot re-trigger a
+// pause after resume.
 func (s *Store) ResetAutoPause(id int64) error {
 	s.visMu.Lock()
 	defer s.visMu.Unlock()
@@ -137,12 +140,21 @@ func (s *Store) ResetAutoPause(id int64) error {
 		}
 		return err
 	}
-	if v.ConsecutiveFailures == 0 && v.AutoPausedAt == 0 && v.AutoPausedReason == "" {
+	var maxScheduled sql.NullInt64
+	if err := s.db.QueryRow(`SELECT MAX(scheduled_at) FROM schedule_executions WHERE schedule_id=?`, id).Scan(&maxScheduled); err != nil {
+		return err
+	}
+	watermark := v.AutoPauseResetScheduledAt
+	if maxScheduled.Valid && maxScheduled.Int64 > watermark {
+		watermark = maxScheduled.Int64
+	}
+	if v.ConsecutiveFailures == 0 && v.AutoPausedAt == 0 && v.AutoPausedReason == "" && watermark == v.AutoPauseResetScheduledAt {
 		return nil
 	}
 	v.ConsecutiveFailures = 0
 	v.AutoPausedAt = 0
 	v.AutoPausedReason = ""
+	v.AutoPauseResetScheduledAt = watermark
 	return s.saveVisibility(id, v)
 }
 
@@ -434,22 +446,7 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 	}
 	r.AlertCounted = existing.AlertCounted
 	r.ObservedAt = now.Unix()
-	autoPause := false
 	if ve == nil {
-		if r.Terminal {
-			if r.Status == "completed" {
-				v.ConsecutiveFailures = 0
-				v.AutoPausedAt = 0
-				v.AutoPausedReason = ""
-			} else if Attention(r.Status) {
-				v.ConsecutiveFailures++
-				if t.Kind != KindOnce && t.Enabled && v.ConsecutiveFailures >= DefaultAutoPauseFailureThreshold {
-					autoPause = true
-					v.AutoPausedAt = now.Unix()
-					v.AutoPausedReason = "consecutive_failures"
-				}
-			}
-		}
 		if r.Status == "completed" {
 			if r.FinishedAt > v.LastCompletedAt {
 				v.LastCompletedAt = r.FinishedAt
@@ -555,9 +552,25 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 	if n == 0 {
 		return nil
 	}
-	if autoPause {
-		if _, e = tx.Exec(`UPDATE scheduled_tasks SET enabled=0 WHERE id=?`, r.ScheduleID); e != nil {
-			return e
+	if ve == nil && r.Terminal {
+		// Recompute consecutive failure streak monotonically by ScheduledAt DESC
+		// (ignoring executions at or before the last explicit resume watermark)
+		// so out-of-order terminal observations from concurrent runs never
+		// falsely pause a healthy schedule or clear newer consecutive failures.
+		streak, streakErr := consecutiveFailureStreakTx(tx, r.ScheduleID, v.AutoPauseResetScheduledAt)
+		if streakErr != nil {
+			return streakErr
+		}
+		v.ConsecutiveFailures = streak
+		if streak == 0 && t.Enabled {
+			v.AutoPausedAt = 0
+			v.AutoPausedReason = ""
+		} else if streak >= DefaultAutoPauseFailureThreshold && t.Kind != KindOnce && t.Enabled {
+			v.AutoPausedAt = now.Unix()
+			v.AutoPausedReason = "consecutive_failures"
+			if _, e = tx.Exec(`UPDATE scheduled_tasks SET enabled=0 WHERE id=?`, r.ScheduleID); e != nil {
+				return e
+			}
 		}
 	}
 	if enqueueDelivery != nil {
@@ -600,6 +613,35 @@ func (s *Store) Observe(r Execution, now time.Time) error {
 		}
 	}
 	return tx.Commit()
+}
+
+func consecutiveFailureStreakTx(tx *sql.Tx, scheduleID, afterScheduledAt int64) (int, error) {
+	rows, err := tx.Query(
+		`SELECT data FROM schedule_executions WHERE schedule_id=? AND terminal=1 AND scheduled_at>? ORDER BY scheduled_at DESC, id DESC LIMIT 50`,
+		scheduleID, afterScheduledAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	streak := 0
+	for rows.Next() {
+		var raw []byte
+		if err := rows.Scan(&raw); err != nil {
+			return 0, err
+		}
+		var exec Execution
+		if err := json.Unmarshal(raw, &exec); err != nil {
+			return 0, err
+		}
+		if exec.Status == "completed" {
+			break
+		}
+		if Attention(exec.Status) {
+			streak++
+		}
+	}
+	return streak, rows.Err()
 }
 
 func (s *Store) Outbox(bot string) ([]Notice, error) {
