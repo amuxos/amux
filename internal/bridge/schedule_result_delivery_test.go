@@ -954,3 +954,57 @@ func (c *runsAwareScheduleControl) Get(ctx context.Context, bot, open string, id
 	e.Runs, err = c.store.VisibleHistory(id)
 	return e, err
 }
+
+func TestScheduleDetailCardHidesCreatorDMOption(t *testing.T) {
+	subtaskCard := renderScheduleDetail(schedule.Entry{
+		Task: schedule.Task{
+			ID:             11,
+			Name:           "daily-check",
+			ScheduleType:   schedule.ScheduleTypeSubtask,
+			Spec:           "daily 09:00",
+			DeliveryTarget: schedule.DeliveryTargetOrigin,
+			DeliveryPolicy: schedule.DeliveryPolicyAlways,
+			Enabled:        true,
+		},
+	}, false)
+	if strings.Contains(subtaskCard, `"value":"creator_dm"`) {
+		t.Fatalf("subtask detail card should hide creator_dm option: %s", subtaskCard)
+	}
+	if !strings.Contains(subtaskCard, `"value":"origin"`) || !strings.Contains(subtaskCard, `"value":"none"`) {
+		t.Fatalf("subtask detail card should keep origin and none options: %s", subtaskCard)
+	}
+
+	reuseNoneCard := renderScheduleDetail(schedule.Entry{
+		Task: schedule.Task{
+			ID:             12,
+			Name:           "session-followup",
+			ScheduleType:   schedule.ScheduleTypeSessionPrompt,
+			RunMode:        schedule.RunModeReuseSession,
+			Spec:           "every 30m",
+			DeliveryTarget: schedule.DeliveryTargetNone,
+			Enabled:        true,
+		},
+	}, false)
+	if strings.Contains(reuseNoneCard, `"value":"creator_dm"`) || strings.Contains(reuseNoneCard, `"schedule.delivery_target"`) {
+		t.Fatalf("reuse-session detail card with none should hide delivery target selector: %s", reuseNoneCard)
+	}
+
+	reuseLegacyDMCard := renderScheduleDetail(schedule.Entry{
+		Task: schedule.Task{
+			ID:             13,
+			Name:           "legacy-dm-followup",
+			ScheduleType:   schedule.ScheduleTypeSessionPrompt,
+			RunMode:        schedule.RunModeReuseSession,
+			Spec:           "every 30m",
+			DeliveryTarget: schedule.DeliveryTargetCreatorDM,
+			DeliveryPolicy: schedule.DeliveryPolicyOnFailure,
+			Enabled:        true,
+		},
+	}, false)
+	if strings.Contains(reuseLegacyDMCard, `"value":"creator_dm"`) {
+		t.Fatalf("legacy reuse-session detail card should not offer creator_dm button: %s", reuseLegacyDMCard)
+	}
+	if !strings.Contains(reuseLegacyDMCard, `"value":"none"`) {
+		t.Fatalf("legacy reuse-session detail card should keep none button to disable creator_dm: %s", reuseLegacyDMCard)
+	}
+}

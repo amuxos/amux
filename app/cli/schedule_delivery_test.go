@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/amuxos/amux/internal/schedule"
@@ -223,5 +224,20 @@ func TestMCPListSchedulesIncludesCreatedAtAndDeliveryFields(t *testing.T) {
 	}
 	if rows[0]["delivery_target"] != "origin" || rows[0]["delivery_policy"] != "on_non_empty" || rows[0]["execution_mode"] != "isolated" {
 		t.Fatalf("unexpected delivery/mode fields: %+v", rows[0])
+	}
+}
+
+func TestScheduleDeliveryTargetHidesCreatorDMInMCPAndCompletion(t *testing.T) {
+	values, _ := completeScheduleDeliveryTargets(nil, nil, "")
+	for _, val := range values {
+		if strings.HasPrefix(val, schedule.DeliveryTargetCreatorDM+"\t") || val == schedule.DeliveryTargetCreatorDM {
+			t.Fatalf("shell completion should hide creator_dm: %+v", values)
+		}
+	}
+	for _, toolName := range []string{"amux.schedule_create", "amux.schedule_update"} {
+		tool := findMCPTool(t, amuxTools(), toolName)
+		if strings.Contains(string(tool.InputSchema), `"creator_dm"`) {
+			t.Fatalf("%s schema should hide creator_dm: %s", toolName, string(tool.InputSchema))
+		}
 	}
 }
