@@ -228,7 +228,7 @@ func (b *Bridge) handleGroupSettingsCardAction(ctx context.Context, event *callb
 		if err != nil {
 			return groupSettingsErrorToast(err), true, nil
 		}
-		if b.hub != nil || (len(modelservice.List()) > 0 && b.resolveModelServicePrincipal != nil) {
+		if b.hub != nil || (len(modelservice.List()) > 0 && b.resolveFeishuPrincipal != nil) {
 			state.NativeModelsTargetRef = draft["group_target"]
 			state.Mode = draft["group_interaction"]
 			runtimeRef := draft["group_runtime"]

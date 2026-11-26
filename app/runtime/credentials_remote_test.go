@@ -20,7 +20,7 @@ import (
 
 func TestSessionCredentialCommandMissingExecutable(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	output, err := runSessionCredentialCommand(context.Background(), nil, principal.ExecutionIdentity{}, "missing-credential-cli", nil, nil, nil)
+	output, err := runIsolatedCommand(context.Background(), nil, principal.ExecutionIdentity{}, "missing-credential-cli", nil, nil, "", nil)
 	if !errors.Is(err, exec.ErrNotFound) {
 		t.Fatalf("error = %v, want exec.ErrNotFound", err)
 	}

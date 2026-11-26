@@ -27,6 +27,8 @@ type placeholderHarness struct {
 	stream     *lifecycleAttach
 	session    *pb.Session
 	seq        uint64
+	bridge     *Bridge
+	chat       *LarkChat
 }
 
 func newPlaceholderHarness(t *testing.T) *placeholderHarness {
@@ -71,6 +73,7 @@ func newPlaceholderHarness(t *testing.T) *placeholderHarness {
 	}))
 	t.Cleanup(server.Close)
 	b, hub, chat := newStreamLifecycleBridge(t)
+	h.bridge, h.chat = b, chat
 	b.client = lark.NewClient("test-placeholder-app", "test-secret", lark.WithOpenBaseUrl(server.URL), lark.WithOAuthBaseUrl(server.URL))
 	h.session = hub.setSession(chat, "session-id-1", "launch-1")
 	b.startThreadStream(chat, "")

@@ -141,7 +141,7 @@ func TestManagementExperimentsCompactList(t *testing.T) {
 }
 
 func TestManagementExperimentsInvalidSwitchRejectsWholeForm(t *testing.T) {
-	for _, field := range []string{"memory_enabled", "group_settings_enabled", "mention_turn_initiator_enabled"} {
+	for _, field := range []string{"memory_enabled", "group_settings_enabled", "mention_turn_initiator_enabled", "reply_end_enabled"} {
 		for _, invalid := range []any{"", "yes", "TRUE", false, 1, nil} {
 			t.Run(fmt.Sprintf("%s_%T_%v", field, invalid, invalid), func(t *testing.T) {
 				loadBridgeTestConfig(t, "[memory]\nenabled = true\n[bridge.feishu.group_settings]\nenabled = true\n[hub]\naddr = \"localhost:7123\"\n")
@@ -168,6 +168,44 @@ func TestManagementExperimentsInvalidSwitchRejectsWholeForm(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestManagementReplyEndNotificationAppliesLiveAndOldFormsPreserveIt(t *testing.T) {
+	loadBridgeTestConfig(t, "")
+	b, _ := newBridgeForInputTest(t)
+	b.secrets = &Secrets{OpenId: "owner-open"}
+	other, _ := newBridgeForInputTest(t)
+	other.profile = "other-bot"
+	event := settingsCallback(managementActionExperimentsSaveRestart, map[string]any{managementSurfaceKey: string(managementSurfaceAmux)})
+	event.Event.Action.FormValue = map[string]any{"completion_enabled": "false", "reply_end_enabled": "true"}
+	response, err := b.handleCardAction(context.Background(), event)
+	if err != nil || response == nil || response.Toast.Type != "success" {
+		t.Fatalf("save = %+v %v", response, err)
+	}
+	saved, err := config.ReadExperimentsSettings()
+	if err != nil || !saved.ReplyEndNotification || !b.runningExperimentsSettings().ReplyEndNotification || !other.currentReplyEndNotification() {
+		t.Fatalf("saved/live = %+v / %+v (%v)", saved, b.runningExperimentsSettings(), err)
+	}
+	if config.GetBridgeFeishuReplyEndNotification() {
+		t.Fatal("live save must not mutate Viper startup state")
+	}
+	delete(event.Event.Action.FormValue, "reply_end_enabled")
+	response, err = b.handleCardAction(context.Background(), event)
+	if err != nil || response.Toast.Type != "success" || !b.replyEndNotification.Load() {
+		t.Fatalf("older form disabled live switch: %+v %v", response, err)
+	}
+	card := renderManagementExperimentsCard(saved, b.runningExperimentsSettings())
+	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese} {
+		selected := selectManagementCardLocale(card, locale)
+		if !strings.Contains(selected, "reply_end_enabled") || strings.Contains(selected, "management.reply.end.") {
+			t.Fatalf("missing localized reply-end switch (%s): %s", locale, selected)
+		}
+	}
+	event.Event.Action.FormValue["reply_end_enabled"] = "false"
+	response, err = b.handleCardAction(context.Background(), event)
+	if err != nil || response.Toast.Type != "success" || b.replyEndNotification.Load() || other.currentReplyEndNotification() {
+		t.Fatalf("disable = %+v %v", response, err)
 	}
 }
 

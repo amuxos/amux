@@ -14,6 +14,7 @@ import (
 
 	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/amuxhome"
+	"github.com/amuxos/amux/internal/feishumsg"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/registry"
 	"github.com/amuxos/amux/internal/session"
@@ -486,6 +487,25 @@ func (c *Client) handleRequest(ctx context.Context, sendFn func(*pb.TunnelMsg) e
 			return
 		}
 		sendResp(handler.IsolatedSessionCredential(reqCtx, input), "")
+	case feishumsg.PersonalRoute:
+		handler, ok := c.localSrv.(interface {
+			SendPersonalFeishuMessage(context.Context, feishumsg.PersonalRequest) (feishumsg.PersonalResult, error)
+		})
+		if !ok {
+			sendResp(nil, feishumsg.Copy("personal_unavailable"))
+			return
+		}
+		var input feishumsg.PersonalRequest
+		if err := unmarshalTunnelPayload(req.Payload, &input); err != nil {
+			sendResp(nil, feishumsg.Copy("invalid", err))
+			return
+		}
+		result, err := handler.SendPersonalFeishuMessage(reqCtx, input)
+		if err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		sendResp(result, "")
 	case "Run":
 		var r pb.RunRequest
 		if err := unmarshalTunnelPayload(req.Payload, &r); err != nil {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/config"
+	"github.com/amuxos/amux/internal/i18n"
 )
 
 func replaceCLIConfigFileForTest(cfg cliConfigFile) error {
@@ -356,6 +357,46 @@ func TestConfigSetBridgeFeishuCompletionNotificationThreshold(t *testing.T) {
 	cmd.SetArgs([]string{"set", "bridge.feishu.presentation.completion_notification_after_seconds", "--", "-1"})
 	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "non-negative integer") {
 		t.Fatalf("negative completion notification threshold error = %v", err)
+	}
+}
+
+func TestConfigSetReplyEndNotificationPersistsBooleanAndRejectsInvalidValues(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AMUX_HOME", "")
+	key := config.FeishuReplyEndNotificationKey
+	for _, raw := range []string{"true", "false"} {
+		cmd := newConfigCmd()
+		cmd.SetArgs([]string{"set", key, raw})
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := readCLIConfigFile()
+		if err != nil {
+			t.Fatal(err)
+		}
+		value, _ := nestedConfigValue(map[string]any(cfg), strings.Split(key, "."))
+		if got, ok := value.(bool); !ok || got != (raw == "true") {
+			t.Fatalf("saved value = %#v, want a boolean", value)
+		}
+	}
+	before, err := os.ReadFile(defaultConfigPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := newConfigCmd()
+	cmd.SetArgs([]string{"set", key, "yes"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("invalid boolean was accepted")
+	}
+	after, err := os.ReadFile(defaultConfigPath())
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("invalid boolean changed the configuration")
+	}
+	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese} {
+		err := setConfigValueLocale(cliConfigFile{}, key, "yes", locale)
+		if err == nil || err.Error() != commandCatalog.Format(locale, "config.boolean", key) {
+			t.Fatalf("%s validation error = %v", locale, err)
+		}
 	}
 }
 

@@ -23,16 +23,20 @@ const (
 
 // dispatchTurnCompletionNotification owns the best-effort notification separately
 // from the stream's mutable binding and event-processing state.
-func (b *Bridge) dispatchTurnCompletionNotification(chat *LarkChat, turnID, status, stopReason string, elapsed time.Duration) {
+func (b *Bridge) dispatchTurnCompletionNotification(chat *LarkChat, turnID, status, stopReason string, elapsed time.Duration, finalAnswer, sessionID string) {
 	if b == nil || chat == nil {
 		return
 	}
 	snapshot := *chat
 	finishedAt := time.Now()
 	send := func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		timeout := 15 * time.Second
+		if b.currentReplyEndNotification() {
+			timeout = 45 * time.Second
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		if err := b.notifyTurnCompletionAt(ctx, &snapshot, turnID, status, stopReason, elapsed, finishedAt); err != nil {
+		if err := b.notifyTurnCompletionAt(ctx, &snapshot, turnID, status, stopReason, elapsed, finishedAt, finalAnswer, sessionID); err != nil {
 			log.Warn().Err(err).Str("session", snapshot.SessionName).Str("turn_id", turnID).
 				Msg("bridge: send turn completion notification")
 		}
@@ -41,14 +45,15 @@ func (b *Bridge) dispatchTurnCompletionNotification(chat *LarkChat, turnID, stat
 }
 
 func (b *Bridge) notifyTurnCompletion(ctx context.Context, chat *LarkChat, turnID, status, stopReason string, elapsed time.Duration) error {
-	return b.notifyTurnCompletionAt(ctx, chat, turnID, status, stopReason, elapsed, time.Now())
+	return b.notifyTurnCompletionAt(ctx, chat, turnID, status, stopReason, elapsed, time.Now(), "", "")
 }
 
-func (b *Bridge) notifyTurnCompletionAt(ctx context.Context, chat *LarkChat, turnID, status, stopReason string, elapsed time.Duration, finishedAt time.Time) error {
+func (b *Bridge) notifyTurnCompletionAt(ctx context.Context, chat *LarkChat, turnID, status, stopReason string, elapsed time.Duration, finishedAt time.Time, finalAnswer, sessionID string) error {
 	if b == nil || b.db == nil || chat == nil || strings.TrimSpace(turnID) == "" || turnCompletionCancelled(stopReason) {
 		return nil
 	}
-	if !config.GetBridgeFeishuPresentation().CompletionNotificationEnabled {
+	replyEnd := b.currentReplyEndNotification()
+	if !replyEnd && !config.GetBridgeFeishuPresentation().CompletionNotificationEnabled {
 		return nil
 	}
 	kind := turnCompletionNotificationKind(status)
@@ -59,14 +64,16 @@ func (b *Bridge) notifyTurnCompletionAt(ctx context.Context, chat *LarkChat, tur
 	if bridgeID == "" {
 		bridgeID = b.currentBridgeId()
 	}
-	if submittedAt, err := b.db.TurnSubmittedAt(bridgeID, turnID); err != nil {
-		return err
-	} else if submittedElapsed := finishedAt.Sub(submittedAt); !submittedAt.IsZero() && submittedElapsed > elapsed {
-		elapsed = submittedElapsed
-	}
-	seconds := config.GetBridgeFeishuPresentationForProfile(b.ProfileName()).CompletionNotificationAfterSeconds
-	if seconds == 0 || elapsed < time.Duration(seconds)*time.Second {
-		return nil
+	if !replyEnd {
+		if submittedAt, err := b.db.TurnSubmittedAt(bridgeID, turnID); err != nil {
+			return err
+		} else if submittedElapsed := finishedAt.Sub(submittedAt); !submittedAt.IsZero() && submittedElapsed > elapsed {
+			elapsed = submittedElapsed
+		}
+		seconds := config.GetBridgeFeishuPresentationForProfile(b.ProfileName()).CompletionNotificationAfterSeconds
+		if seconds == 0 || elapsed < time.Duration(seconds)*time.Second {
+			return nil
+		}
 	}
 	if b.isSubtaskTurn(chat.RootMsgID, turnID) {
 		// Background-task notice turns have no Feishu source chat.
@@ -89,11 +96,14 @@ func (b *Bridge) notifyTurnCompletionAt(ctx context.Context, chat *LarkChat, tur
 			chat = &resolved
 		}
 	}
+	if replyEnd {
+		return b.notifyIsolatedReplyEnd(ctx, chat, bridgeID, sessionID, turnID, kind, finalAnswer)
+	}
 	jumpURL, err := b.completionNotificationURL(ctx, chat)
 	if err != nil {
 		return err
 	}
-	title := valueOrPlaceholder(chat.DisplayTitle, "任务结果")
+	title := managementValueOrPlaceholder(chat.DisplayTitle, sessionMessage("notification.task.result"))
 	var failures []error
 	for _, openID := range recipients {
 		// Keep the existing table while giving each DM its own delivery claim.
@@ -174,31 +184,35 @@ func turnCompletionCancelled(stopReason string) bool {
 	}
 }
 
-func renderTurnCompletionNotificationCard(kind, title, jumpURL, openID string) string {
-	heading, theme, button := "已完成", "green", "查看结果 →"
+func renderTurnCompletionNotificationCard(kind string, title any, jumpURL, openID string) string {
+	heading, theme, button := sessionMessage("notification.completed"), "green", sessionMessage("notification.view.result")
 	switch kind {
 	case turnNotificationWaiting:
-		heading, theme, button = "需要你补充信息", "orange", "继续处理 →"
+		heading, theme, button = sessionMessage("notification.waiting"), "orange", sessionMessage("notification.continue")
 	case turnNotificationFailed:
-		heading, theme = "处理失败", "red"
+		heading, theme = sessionMessage("notification.failed"), "red"
 	}
 	// Plain text prevents a task title from injecting mentions or links.
-	if runes := []rune(title); len(runes) > 80 {
-		title = string(runes[:80]) + "…"
-	}
+	title = managementTruncateText(title, 80)
 	label := sessionMessage("notification.sent.to")
 	footer := managementContentElement(i18n.Render(func(locale i18n.Locale) string {
 		return "<font color='grey'>" + label.For(locale) + "</font> " + renderTurnInitiatorMentionsMarkdown([]string{openID})
 	}), cardElement{Tag: "markdown", ElementID: amuxBrandFooterID, TextSize: "notation"})
-	doc := newCardDoc([]cardElement{
-		{Tag: "div", Text: &cardTitle{Tag: "plain_text", Content: title, TextSize: "normal", Lines: 2}, Margin: "0px"},
-		{Tag: "button", Text: &cardTitle{Tag: "plain_text", Content: button}, Type: "primary", Size: "small", Behaviors: []cardBehavior{{Type: "open_url", DefaultURL: jumpURL, PCURL: jumpURL, IOSURL: jumpURL, AndroidURL: jumpURL}}},
-		footer,
-	})
+	elements := []cardElement{
+		{Tag: "div", Text: managementStyledTextPtr(title, cardTitle{Tag: "plain_text", TextSize: "normal", Lines: 2}), Margin: "0px"},
+	}
+	linkButton := func(label any, link string) cardElement {
+		return cardElement{Tag: "button", Text: managementStyledTextPtr(label, cardTitle{Tag: "plain_text"}), Type: "primary", Size: "small", Behaviors: []cardBehavior{{Type: "open_url", DefaultURL: link, PCURL: link, IOSURL: link, AndroidURL: link}}}
+	}
+	if jumpURL != "" {
+		elements = append(elements, linkButton(button, jumpURL))
+	}
+	elements = append(elements, footer)
+	doc := newCardDoc(elements)
 	doc.Config.WidthMode = "compact"
 	doc.Config.WideScreenMode = false
-	doc.Config.Summary = &cardSummary{Content: heading + " · " + title}
-	doc.Header = &cardHeader{Title: cardTitle{Tag: "plain_text", Content: heading}, Template: theme, Padding: "8px 12px 8px 12px"}
+	doc.Config.Summary = managementSummary(managementConcat(heading, " · ", title))
+	doc.Header = &cardHeader{Title: managementPlainText(heading), Template: theme, Padding: "8px 12px 8px 12px"}
 	doc.Body.Padding = "8px 12px 8px 12px"
 	doc.Body.VerticalSpacing = "8px"
 	raw, _ := json.Marshal(doc)

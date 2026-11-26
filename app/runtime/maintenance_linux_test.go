@@ -38,7 +38,7 @@ func TestSessionCredentialCommandResolvesPATHInLinuxIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	executable := filepath.Join(root, "credential-cli")
-	if err := os.WriteFile(executable, []byte("#!/bin/sh\nprintf '%s\\n' \"$1\" \"$CHECK_VALUE\"\nprintf credential-stderr >&2\n"), 0755); err != nil {
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nprintf '%s\\n' \"$1\" \"$CHECK_VALUE\"\ncat ./input.json || exit 1\nprintf credential-stderr >&2\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", root+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -81,8 +81,9 @@ func TestSessionCredentialCommandResolvesPATHInLinuxIsolation(t *testing.T) {
 		IdentityMode: principal.IdentityModeIdentified, EffectivePrincipalID: principalID, OriginActorPrincipalID: principalID,
 		Source: principal.SourceFeishu, IsolationBackend: principal.BackendLinuxDAC,
 	}
-	output, err := runSessionCredentialCommand(ctx, rt, identity, "credential-cli", []string{"credential-stdout"}, []string{"CHECK_VALUE=credential-env"}, nil)
-	if err != nil || output.ExitCode != 0 || string(output.Stdout) != "credential-stdout\ncredential-env\n" || string(output.Stderr) != "credential-stderr" {
+	input := strings.Repeat("private content\n", 1365)
+	output, err := runIsolatedCommand(ctx, rt, identity, "credential-cli", []string{"credential-stdout"}, []string{"CHECK_VALUE=credential-env"}, input, nil)
+	if err != nil || output.ExitCode != 0 || string(output.Stdout) != "credential-stdout\ncredential-env\n"+input || string(output.Stderr) != "credential-stderr" {
 		t.Fatalf("output=%+v err=%v", output, err)
 	}
 }

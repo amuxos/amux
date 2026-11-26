@@ -47,7 +47,7 @@ New Feishu topic and document-comment Sessions inherit the selected Runtime’s 
 ## Bridge responsibilities
 
 Agents can use `amux.feishu_send_message` to send plain text or Markdown through
-their Session's bound Bot in group chats only. Direct messages are disabled. `format` defaults to `text`; `format=markdown` sends
+their Session's bound Bot in group chats. `format` defaults to `text`; `format=markdown` sends
 the `text` body as a Feishu `post` with an `md` element for both new messages and
 replies. The Markdown source is preserved; rendering follows Feishu's supported
 syntax, not a promise of full CommonMark/GFM support. Images are not fetched or
@@ -64,6 +64,16 @@ Private chats, unknown modes, missing metadata and failed lookups are rejected
 without sending. This restriction applies to this MCP tool; normal Bridge input
 and response routing is unchanged. Recipient permissions and Bot membership are
 enforced by Feishu.
+
+A distribution can also provide private delivery to the current isolated user's
+verified Feishu login. Select it with `receive_id_type=self` and omit `receive_id`
+and reply fields. The Hub authenticates the calling Session and resolves the
+active Bridge binding. The Runtime checks the Session's saved Feishu execution
+identity and runs the distribution's sender as that human principal under
+Linux DAC. The sender resolves the recipient from that principal's own login and
+uses the corresponding personal Bot. Delivery requires a working user login and
+Bot permissions. The public distribution does not supply a personal sender.
+
 This is an external side effect; the Agent must have user authorization for the
 destination and content. Successful calls return the platform message ID. An
 optional `uuid` supports Feishu's time-bounded duplicate suppression; retries
@@ -87,21 +97,45 @@ topology. Owner operations are distinct from ordinary conversation actions.
 
 The owner-only Experiments page contains separate switches for long-conversation
 completion notifications, per-group settings, Agent memory, foreground steering,
-background-task progress cards, and mentioning Turn initiators after final replies
-complete. All are off by default. Agent memory uses the installation-wide
-`memory.enabled` key.
+background-task progress cards, reply-end private notifications, and mentioning
+Turn initiators after final replies complete. All are off by default. Agent
+memory uses the installation-wide `memory.enabled` key.
 Each enabled long-conversation completion, waiting or failure notification is
 rendered separately for its private-message recipient and includes one native
 mention of that recipient. Background child-Agent completion turns remain
 excluded from these additional notification cards.
-It works without an Agent Profile; memory is global across Runtimes unless user
+The reply-end experiment (`bridge.feishu.experimental.reply_end_notification`)
+applies live across Bot Profiles when saved and replaces long-conversation
+notifications while enabled. It sends a private reminder after an attributed
+Turn succeeds, waits for input, or fails in a personal Linux DAC Feishu topic.
+The Hub resolves the topic creator to the same Principal frozen as both the
+origin and effective identity of the bound Session. Its Runtime revalidates
+that Session and runs the distribution sender in the creator's own isolated
+environment. The recipient is the signed-in personal CLI user, and their
+corresponding CLI Bot sends the message. Topic creators need not manage the
+conversation Bot. The delivery path is shared with the Agent's private
+`self` send. Ordinary topics, continuous conversations, cancelled and
+superseded Turns, and background child-Agent Turns do not send these reminders.
+A missing login or unavailable personal Bot does not switch the sender.
+
+The reminder contains a local extract of the frozen final answer and a link
+to the source topic. The title is limited to 12 characters. The extractor
+prefers an explicitly labeled result or conclusion, then the first usable
+sentence, removes code, URLs, paths and credential-like text, and limits the
+extract to 80 characters. If no prose is usable it shows a localized status.
+If the link cannot be resolved the reminder indicates that and still sends.
+Delivery runs asynchronously with a 45-second deadline and one durable claim
+per Session Turn. An uncertain delivery is not attempted again automatically.
+Older experiment forms preserve the saved reply-end switch when omitted.
+Agent memory works without an Agent Profile; it is global across Runtimes unless user
 isolation selects a separate store for each effective Principal. The page shows saved values and a
 pending-restart indicator for each experiment whose running value differs.
 Saving validates the whole form and updates submitted experiments atomically
 while preserving unrelated configuration. Older cards that omit the memory or
 per-group settings switch retain its latest saved value, resolved under the same
-file lock. Saving does not change running behavior: the owner confirms a separate
-system restart, and cancelling retains the saved settings.
+file lock. Saving startup settings does not change running behavior: the owner confirms a separate
+system restart, and cancelling retains the saved settings. The reply-end switch
+and other explicitly live experiments take effect on save without that restart.
 After enabling and restarting, new conversations can use memory; old unmanaged
 conversations do not adopt it. Disabling retains memory files and cannot erase
 memory already present in a conversation's context. Card titles do not add a

@@ -6,6 +6,7 @@ import (
 
 	"github.com/amuxos/amux/internal/adapter"
 	"github.com/amuxos/amux/internal/extensionstate"
+	"github.com/amuxos/amux/internal/feishumsg"
 	"github.com/amuxos/amux/internal/sessioncredential"
 	"github.com/spf13/cobra"
 )
@@ -33,6 +34,7 @@ type Hooks struct {
 	LogSelectedEndpoint       func(string, string, string)
 	AddCommands               func(*cobra.Command)
 	IsolatedSessionCredential sessioncredential.Policy
+	SendPersonalFeishuMessage feishumsg.PersonalSender
 }
 
 var distributionHooks Hooks

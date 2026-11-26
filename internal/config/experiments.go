@@ -25,6 +25,8 @@ type ExperimentsSettings struct {
 	// MentionTurnInitiator mirrors
 	// bridge.feishu.experimental.mention_turn_initiator and applies live.
 	MentionTurnInitiator bool
+	// ReplyEndNotification applies live and bypasses the long-turn threshold.
+	ReplyEndNotification bool
 	// ModelRecoveryQueueWaitSeconds mirrors
 	// bridge.feishu.experimental.model_recovery_queue_wait_seconds and applies live.
 	ModelRecoveryQueueWaitSeconds int
@@ -41,6 +43,7 @@ type ExperimentsSettingsUpdate struct {
 	SteerForeground               *bool
 	ShowBackgroundTasks           *bool
 	MentionTurnInitiator          *bool
+	ReplyEndNotification          *bool
 	ModelRecoveryQueueWaitSeconds *int
 }
 
@@ -58,14 +61,15 @@ func GetBridgeFeishuGroupSettingsEnabled() bool {
 func GetExperimentsSettings() ExperimentsSettings {
 	presentation := GetBridgeFeishuPresentation()
 	return ExperimentsSettings{
-		AgentExecutables:       executableSettings(viper.GetString),
-		CodexExecutable:        strings.TrimSpace(viper.GetString(CodexExecutableKey)),
-		CompletionNotification: CompletionNotificationSettings{Enabled: presentation.CompletionNotificationEnabled, AfterSeconds: presentation.CompletionNotificationAfterSeconds},
-		GroupSettingsEnabled:   GetBridgeFeishuGroupSettingsEnabled(),
-		MemoryEnabled:          GetMemory().Enabled,
+		AgentExecutables:              executableSettings(viper.GetString),
+		CodexExecutable:               strings.TrimSpace(viper.GetString(CodexExecutableKey)),
+		CompletionNotification:        CompletionNotificationSettings{Enabled: presentation.CompletionNotificationEnabled, AfterSeconds: presentation.CompletionNotificationAfterSeconds},
+		GroupSettingsEnabled:          GetBridgeFeishuGroupSettingsEnabled(),
+		MemoryEnabled:                 GetMemory().Enabled,
 		SteerForeground:               GetBridgeFeishuSteerForeground(),
 		ShowBackgroundTasks:           GetBridgeFeishuShowBackgroundTasks(),
 		MentionTurnInitiator:          GetBridgeFeishuMentionTurnInitiator(),
+		ReplyEndNotification:          GetBridgeFeishuReplyEndNotification(),
 		ModelRecoveryQueueWaitSeconds: GetBridgeFeishuModelRecoveryQueueWaitSeconds(),
 	}
 }
@@ -84,6 +88,7 @@ func experimentsSettingsFromConfig(raw map[string]any) (ExperimentsSettings, err
 		SteerForeground:               v.GetBool(FeishuSteerForegroundKey),
 		ShowBackgroundTasks:           v.GetBool(FeishuShowBackgroundTasksKey),
 		MentionTurnInitiator:          v.GetBool(FeishuMentionTurnInitiatorKey),
+		ReplyEndNotification:          v.GetBool(FeishuReplyEndNotificationKey),
 		ModelRecoveryQueueWaitSeconds: modelRecoveryQueueWaitSecondsFromViper(v),
 	}, nil
 }
@@ -110,6 +115,7 @@ func SaveExperimentsSettings(settings ExperimentsSettings) error {
 		SteerForeground:               &settings.SteerForeground,
 		ShowBackgroundTasks:           &settings.ShowBackgroundTasks,
 		MentionTurnInitiator:          &settings.MentionTurnInitiator,
+		ReplyEndNotification:          &settings.ReplyEndNotification,
 		ModelRecoveryQueueWaitSeconds: &settings.ModelRecoveryQueueWaitSeconds,
 	})
 	return err
@@ -157,6 +163,9 @@ func UpdateExperimentsSettings(update ExperimentsSettingsUpdate) (ExperimentsSet
 		}
 		if update.MentionTurnInitiator != nil {
 			setNestedConfigValue(raw, strings.Split(FeishuMentionTurnInitiatorKey, "."), *update.MentionTurnInitiator)
+		}
+		if update.ReplyEndNotification != nil {
+			setNestedConfigValue(raw, strings.Split(FeishuReplyEndNotificationKey, "."), *update.ReplyEndNotification)
 		}
 		if update.ModelRecoveryQueueWaitSeconds != nil {
 			setNestedConfigValue(raw, strings.Split(FeishuModelRecoveryQueueWaitSecondsKey, "."), *update.ModelRecoveryQueueWaitSeconds)

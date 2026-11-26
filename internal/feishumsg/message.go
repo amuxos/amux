@@ -1,5 +1,4 @@
-// Package feishumsg defines the Agent-facing Feishu send contract. Bot credentials
-// and platform delivery remain owned by Bridge.
+// Package feishumsg defines the Agent-facing Feishu send contract.
 package feishumsg
 
 import (
@@ -54,6 +53,12 @@ func (m Message) Validate() error {
 	}
 	if len(m.UUID) > 50 {
 		return errors.New(Copy("uuid_length"))
+	}
+	if m.ReceiveIDType == Self {
+		if m.ReceiveID != "" || m.ReplyToMessageID != "" || m.ReplyInThread {
+			return errors.New(Copy("self_destination"))
+		}
+		return nil
 	}
 	if strings.TrimSpace(m.ReplyToMessageID) != "" {
 		if m.ReceiveID != "" || m.ReceiveIDType != "" {

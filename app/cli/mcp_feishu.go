@@ -26,7 +26,7 @@ func feishuMessageTool() mcp.Tool {
 		}
 		properties[name] = map[string]any{"type": kind, "description": feishumsg.Copy(name)}
 	}
-	properties["receive_id_type"].(map[string]any)["enum"] = []string{"chat_id"}
+	properties["receive_id_type"].(map[string]any)["enum"] = []string{"chat_id", feishumsg.Self}
 	properties["format"].(map[string]any)["enum"] = []string{"text", "markdown"}
 	properties["format"].(map[string]any)["default"] = "text"
 	schema, _ := json.Marshal(map[string]any{"type": "object", "properties": properties, "required": []string{"text"}, "additionalProperties": false})

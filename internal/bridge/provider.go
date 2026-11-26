@@ -49,8 +49,8 @@ func (b *Bridge) handleDistributionTextCommand(ctx context.Context, openID, text
 		return "", false, nil
 	}
 	principalID := ""
-	if b != nil && b.resolveModelServicePrincipal != nil && strings.TrimSpace(openID) != "" {
-		if id, err := b.resolveModelServicePrincipal(openID); err == nil {
+	if b != nil && b.resolveFeishuPrincipal != nil && strings.TrimSpace(openID) != "" {
+		if id, err := b.resolveFeishuPrincipal(openID); err == nil {
 			principalID = strings.TrimSpace(id)
 		}
 	}

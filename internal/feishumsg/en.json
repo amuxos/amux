@@ -1,12 +1,12 @@
 {
   "description": {
-    "other": "Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user."
+    "other": "Send plain text or Markdown with Bot identity. Specify receive_id + receive_id_type=chat_id or a group reply_to_message_id to use the current Session’s bound Bot. For a private message to the login in the current isolated Feishu Session, use receive_id_type=self where a personal Bot is configured. Requires user authorization for the destination and content. Returns message_id."
   },
   "receive_id": {
-    "other": "Group chat ID; required for a new message, omitted for a reply. Private chats are rejected."
+    "other": "Group chat ID; omit for replies and receive_id_type=self."
   },
   "receive_id_type": {
-    "other": "Recipient ID type; only chat_id is supported. Required with receive_id."
+    "other": "Use chat_id with a group receive_id, or self without a receive_id or reply fields to reach the isolated user’s verified login."
   },
   "reply_to_message_id": {
     "other": "Group message ID to reply to; mutually exclusive with recipient fields. Private-chat replies are disabled."
@@ -33,7 +33,7 @@
     "other": "Specify receive_id and receive_id_type, or reply_to_message_id; do not combine them."
   },
   "id_type": {
-    "other": "receive_id_type must be chat_id. Direct messages are disabled."
+    "other": "receive_id_type must be chat_id or self."
   },
   "uuid_length": {
     "other": "uuid must not exceed 50 bytes."
@@ -72,12 +72,27 @@
     "other": "format must be text or markdown."
   },
   "group_only": {
-    "other": "This tool only sends to group chats; direct messages are disabled."
+    "other": "The Session’s bound Feishu Bot only sends to group chats."
   },
   "destination_lookup": {
     "other": "Cannot verify the destination group; no message was sent: %s"
   },
   "destination_metadata": {
     "other": "Feishu returned incomplete or unknown destination metadata; no message was sent."
+  },
+  "self_destination": {
+    "other": "Use receive_id_type=self without receive_id or reply fields."
+  },
+  "personal_session": {
+    "other": "Personal Bot delivery requires the calling user’s own Linux DAC isolated Feishu Session."
+  },
+  "personal_unavailable": {
+    "other": "Personal Bot delivery is unavailable on this Runtime."
+  },
+  "personal_login": {
+    "other": "Could not verify the isolated user’s Feishu login. Check the personal CLI profile and sign-in status."
+  },
+  "personal_bot": {
+    "other": "The personal Bot send did not return a confirmed delivery. Check the Bot’s send permission and availability. Retry only with the same uuid."
   }
 }

@@ -88,6 +88,16 @@ var (
 // sanitizeProviderErrorSummary reduces provider error text to one short line
 // with filesystem paths, URLs paths/queries and token-like strings redacted.
 func sanitizeProviderErrorSummary(text string) string {
+	s := redactProviderErrorText(text)
+	if utf8.RuneCountInString(s) > providerErrorSummaryMaxRunes {
+		runes := []rune(s)
+		s = strings.TrimSpace(string(runes[:providerErrorSummaryMaxRunes])) + "…"
+	}
+	return s
+}
+
+// Redact diagnostic and answer text before applying presentation limits.
+func redactProviderErrorText(text string) string {
 	s := strings.Join(strings.Fields(text), " ")
 	if s == "" {
 		return ""
@@ -100,10 +110,6 @@ func sanitizeProviderErrorSummary(text string) string {
 	s = errorSummaryPrefixedKey.ReplaceAllString(s, "<redacted>")
 	s = errorSummaryLongRunPattern.ReplaceAllString(s, "<redacted>")
 	s = strings.TrimSpace(s)
-	if utf8.RuneCountInString(s) > providerErrorSummaryMaxRunes {
-		runes := []rune(s)
-		s = strings.TrimSpace(string(runes[:providerErrorSummaryMaxRunes])) + "…"
-	}
 	return s
 }
 

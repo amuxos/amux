@@ -20,7 +20,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 | `amux.delegation_get` | 读取 Delegation 当前快照；增量事件使用 delegation_wait。 |
 | `amux.delegation_intervene` | 回答支持 permission_response 的 Delegation 权限请求。 |
 | `amux.delegation_wait` | 等待 Delegation；event 增量返回事件，actionable 避免普通进度反复唤醒主模型并保留权限/终态唤醒。wait_timed_out 不是 Delegation 终态；按返回状态维护实际创建的尝试账本。 |
-| `amux.feishu_send_message` | 使用当前 Session 绑定的飞书 Bot 向群聊发送纯文本或 Markdown，禁用私聊。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type=chat_id，或群消息的 reply_to_message_id。返回 message_id；始终使用 Bot 身份。 |
+| `amux.feishu_send_message` | 使用 Bot 身份发送纯文本或 Markdown。群聊通过当前 Session 绑定的 Bot 发送，指定 receive_id + receive_id_type=chat_id 或群消息的 reply_to_message_id。在配置了个人 Bot 的隔离飞书会话中，可用 receive_id_type=self 向当前登录的用户发私聊。须已获得用户对目标与内容的授权。返回 message_id。 |
 | `amux.instance_followup` | 向持久 Agent 交付任务并立即触发新 turn，保留 provider 对话上下文；适用于后台任务完成后继续、或失败后由你决定重试。实例上次失败后遗留的子会话会被复用；若实例已无法使用，会返回错误并建议改用 instance_spawn 新建实例。 |
 | `amux.instance_interrupt` | 中断持久 Agent 当前 turn。用于用户要求停止某个后台任务时；中断后简要告知用户，之后可用 instance_followup 继续。 |
 | `amux.instance_list` | 列出持久 Agent Instance 状态、child Session 状态和 mailbox 深度。 |
@@ -254,7 +254,7 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
 
 ## `amux.feishu_send_message`
 
-使用当前 Session 绑定的飞书 Bot 向群聊发送纯文本或 Markdown，禁用私聊。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type=chat_id，或群消息的 reply_to_message_id。返回 message_id；始终使用 Bot 身份。
+使用 Bot 身份发送纯文本或 Markdown。群聊通过当前 Session 绑定的 Bot 发送，指定 receive_id + receive_id_type=chat_id 或群消息的 reply_to_message_id。在配置了个人 Bot 的隔离飞书会话中，可用 receive_id_type=self 向当前登录的用户发私聊。须已获得用户对目标与内容的授权。返回 message_id。
 
 **输入 JSON Schema**
 
@@ -272,13 +272,14 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "receive_id": {
-      "description": "群聊 ID；新消息必填，回复时省略。拒绝私聊会话。",
+      "description": "群聊 ID。回复或使用 receive_id_type=self 时省略。",
       "type": "string"
     },
     "receive_id_type": {
-      "description": "接收者 ID 类型；仅支持 chat_id，与 receive_id 一起填写。",
+      "description": "向群聊发送时使用 chat_id 并填写 receive_id。向隔离环境中已核验的登录用户发送时使用 self，省略 receive_id 和回复字段。",
       "enum": [
-        "chat_id"
+        "chat_id",
+        "self"
       ],
       "type": "string"
     },
