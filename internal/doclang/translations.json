@@ -1,4 +1,8 @@
 {
+  "每轮回复结束私聊提醒：用户隔离话题中，由发起人自己的 CLI Bot 私聊本人，发送最终回答的本地短摘要和原话题链接。没有可用正文时显示本轮状态。成功、等待补充或失败均提醒，取消和后台子 Agent 回合不提醒。开启时替代长会话通知，不受耗时阈值限制；保存后立即生效。": {
+    "en": "Private reminder after every reply: in user-isolated topics, the creator’s own CLI Bot sends them a local summary of the final answer and a link to the original topic. Show the turn status when there is no usable reply text. Notify after success, waiting or failure, excluding cancelled and background child-Agent turns. Replaces long-conversation notifications with no duration threshold. Takes effect immediately on save.",
+    "zh-CN": "每轮回复结束私聊提醒：用户隔离话题中，由发起人自己的 CLI Bot 私聊本人，发送最终回答的本地短摘要和原话题链接。没有可用正文时显示本轮状态。成功、等待补充或失败均提醒，取消和后台子 Agent 回合不提醒。开启时替代长会话通知，不受耗时阈值限制；保存后立即生效。"
+  },
   "# amux CLI 命令参考": {
     "en": "# amux CLI Reference",
     "zh-CN": "# amux CLI 命令参考"
@@ -3359,17 +3363,17 @@
     "en": "Reply within a topic; only valid with reply_to_message_id. Defaults to false.",
     "zh-CN": "在话题内回复；仅可与 reply_to_message_id 一起使用，默认 false。"
   },
-  "Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user. 使用当前 Session 绑定的飞书 Bot 向群聊发送纯文本或 Markdown，禁用私聊。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type=chat_id，或群消息的 reply_to_message_id。返回 message_id；始终使用 Bot 身份。": {
-    "en": "Send plain text or Markdown to group chats with the current Session’s bound Feishu Bot. Direct messages are disabled. Requires user authorization for the destination and content. Specify receive_id + receive_id_type=chat_id, or a group reply_to_message_id. Returns message_id; never sends as a user.",
-    "zh-CN": "使用当前 Session 绑定的飞书 Bot 向群聊发送纯文本或 Markdown，禁用私聊。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type=chat_id，或群消息的 reply_to_message_id。返回 message_id；始终使用 Bot 身份。"
+  "Send plain text or Markdown with Bot identity. Specify receive_id + receive_id_type=chat_id or a group reply_to_message_id to use the current Session’s bound Bot. For a private message to the login in the current isolated Feishu Session, use receive_id_type=self where a personal Bot is configured. Requires user authorization for the destination and content. Returns message_id. 使用 Bot 身份发送纯文本或 Markdown。群聊通过当前 Session 绑定的 Bot 发送，指定 receive_id + receive_id_type=chat_id 或群消息的 reply_to_message_id。在配置了个人 Bot 的隔离飞书会话中，可用 receive_id_type=self 向当前登录的用户发私聊。须已获得用户对目标与内容的授权。返回 message_id。": {
+    "en": "Send plain text or Markdown with Bot identity. Specify receive_id + receive_id_type=chat_id or a group reply_to_message_id to use the current Session’s bound Bot. For a private message to the login in the current isolated Feishu Session, use receive_id_type=self where a personal Bot is configured. Requires user authorization for the destination and content. Returns message_id.",
+    "zh-CN": "使用 Bot 身份发送纯文本或 Markdown。群聊通过当前 Session 绑定的 Bot 发送，指定 receive_id + receive_id_type=chat_id 或群消息的 reply_to_message_id。在配置了个人 Bot 的隔离飞书会话中，可用 receive_id_type=self 向当前登录的用户发私聊。须已获得用户对目标与内容的授权。返回 message_id。"
   },
-  "Group chat ID; required for a new message, omitted for a reply. Private chats are rejected. 群聊 ID；新消息必填，回复时省略。拒绝私聊会话。": {
-    "en": "Group chat ID; required for a new message, omitted for a reply. Private chats are rejected.",
-    "zh-CN": "群聊 ID；新消息必填，回复时省略。拒绝私聊会话。"
+  "Group chat ID; omit for replies and receive_id_type=self. 群聊 ID。回复或使用 receive_id_type=self 时省略。": {
+    "en": "Group chat ID; omit for replies and receive_id_type=self.",
+    "zh-CN": "群聊 ID。回复或使用 receive_id_type=self 时省略。"
   },
-  "Recipient ID type; only chat_id is supported. Required with receive_id. 接收者 ID 类型；仅支持 chat_id，与 receive_id 一起填写。": {
-    "en": "Recipient ID type; only chat_id is supported. Required with receive_id.",
-    "zh-CN": "接收者 ID 类型；仅支持 chat_id，与 receive_id 一起填写。"
+  "Use chat_id with a group receive_id, or self without a receive_id or reply fields to reach the isolated user’s verified login. 向群聊发送时使用 chat_id 并填写 receive_id。向隔离环境中已核验的登录用户发送时使用 self，省略 receive_id 和回复字段。": {
+    "en": "Use chat_id with a group receive_id, or self without a receive_id or reply fields to reach the isolated user’s verified login.",
+    "zh-CN": "向群聊发送时使用 chat_id 并填写 receive_id。向隔离环境中已核验的登录用户发送时使用 self，省略 receive_id 和回复字段。"
   },
   "Group message ID to reply to; mutually exclusive with recipient fields. Private-chat replies are disabled. 要回复的群消息 ID；与接收者字段互斥。禁用私聊回复。": {
     "en": "Group message ID to reply to; mutually exclusive with recipient fields. Private-chat replies are disabled.",

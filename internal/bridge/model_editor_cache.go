@@ -168,8 +168,8 @@ func (b *Bridge) prepareEditorModelScope(base managementState, openID, messageID
 				i.GetRequestedRunAs(), i.GetPrincipalEnvironmentRef(), i.GetIsolationBackend(), i.GetCreationPolicyRevision())
 		}
 	}
-	if b.resolveModelServicePrincipal != nil {
-		principal, err := b.resolveModelServicePrincipal(openID)
+	if b.resolveFeishuPrincipal != nil {
+		principal, err := b.resolveFeishuPrincipal(openID)
 		if err != nil {
 			scope.cacheable = false
 		} else {

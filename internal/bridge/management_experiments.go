@@ -96,6 +96,15 @@ func managementExperimentsSettingsFromCallback(action *callback.CallBackAction, 
 		value := enabled == "true"
 		update.MentionTurnInitiator = &value
 	}
+	if raw, present := managementExperimentCallbackValue(action, "reply_end_enabled"); present {
+		enabled, ok := raw.(string)
+		enabled = strings.TrimSpace(enabled)
+		if !ok || enabled != "true" && enabled != "false" {
+			return config.ExperimentsSettingsUpdate{}, managementLocalizedError("management.reply.end.choose")
+		}
+		value := enabled == "true"
+		update.ReplyEndNotification = &value
+	}
 	if raw, present := managementExperimentCallbackValue(action, "recovery_wait_sec"); present {
 		text, ok := raw.(string)
 		if !ok {
@@ -207,6 +216,11 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
 	})
 	mentionItem := managementExperimentItemElement(managementCopy("management.mention.turn.initiator"), managementCopy("management.mention.turn.initiator.description"), mentionEnabled, saved.MentionTurnInitiator != running.MentionTurnInitiator, nil)
+	replyEndEnabled := managementSelectStaticElement("reply_end_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.ReplyEndNotification), []cardOption{
+		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
+		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
+	})
+	replyEndItem := managementExperimentItemElement(managementCopy("management.reply.end.title"), managementCopy("management.reply.end.description"), replyEndEnabled, saved.ReplyEndNotification != running.ReplyEndNotification, nil)
 	recoveryWaitInput := cardElement{Tag: "input", Name: "recovery_wait_sec", Placeholder: managementStyledTextPtr(managementCopy("management.currently.d.seconds.leave.blank.to.keep", saved.ModelRecoveryQueueWaitSeconds), cardTitle{Tag: "plain_text"})}
 	recoveryWaitSummary := managementCopy("management.model.recovery.queue.wait.summary", saved.ModelRecoveryQueueWaitSeconds)
 	if saved.ModelRecoveryQueueWaitSeconds == 0 {
@@ -228,7 +242,7 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 	)
 	executable := cardElement{Tag: "input", Name: "codex_executable", DefaultValue: saved.CodexExecutable, Placeholder: managementStyledTextPtr(managementCopy("management.codex.executable.placeholder"), cardTitle{Tag: "plain_text"})}
 	executableItem := managementExperimentItemElement(managementCopy("management.codex.executable.title"), managementCopy("management.codex.executable.description"), cardElement{Tag: "div", Text: managementStyledTextPtr("Codex", cardTitle{Tag: "plain_text"})}, saved.CodexExecutable != running.CodexExecutable, []cardElement{executable, managementHintElement(managementCopy("management.codex.executable.scope"))})
-	items := []cardElement{item, groupItem, memoryItem, steerItem, bgItem, mentionItem, recoveryWaitItem, executableItem}
+	items := []cardElement{replyEndItem, item, groupItem, memoryItem, steerItem, bgItem, mentionItem, recoveryWaitItem, executableItem}
 	for _, agent := range config.AgentExecutableNames() {
 		if agent == "codex" {
 			continue

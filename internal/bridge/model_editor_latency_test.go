@@ -300,7 +300,7 @@ func TestModelEditorCacheSeparatesCardLauncherServiceAndCatalog(t *testing.T) {
 	hub := &slowEditorModelsHub{release: release}
 	b := &Bridge{hub: hub}
 	principal := "principal-a"
-	b.SetModelServicePrincipalResolver(func(string) (string, error) { return principal, nil })
+	b.SetFeishuPrincipalResolver(func(string) (string, error) { return principal, nil })
 	old := viper.Get(config.CodexExecutableKey)
 	t.Cleanup(func() { viper.Set(config.CodexExecutableKey, old) })
 	viper.Set(config.CodexExecutableKey, "codex")

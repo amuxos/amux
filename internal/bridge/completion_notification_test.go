@@ -42,7 +42,7 @@ func TestCompletionNotificationDispatchDoesNotWaitForNetwork(t *testing.T) {
 	}
 	chat := &LarkChat{BridgeId: "feishu:test", ChatID: "oc_group", RootMsgID: "root", ThreadID: "omt_thread"}
 	go func() {
-		b.dispatchTurnCompletionNotification(chat, "turn", "done", "", time.Minute)
+		b.dispatchTurnCompletionNotification(chat, "turn", "done", "", time.Minute, "", "")
 		close(returned)
 	}()
 	select {
@@ -131,7 +131,7 @@ func TestCompletionNotificationDispatchFreezesBindingAndHasOwnDeadline(t *testin
 		return "sent", "", nil
 	}
 	chat := &LarkChat{BridgeId: "feishu:test", ChatID: "oc_original", RootMsgID: "root", DisplayTitle: "original task"}
-	b.dispatchTurnCompletionNotification(chat, "turn", "done", "", time.Minute)
+	b.dispatchTurnCompletionNotification(chat, "turn", "done", "", time.Minute, "", "")
 	select {
 	case <-lookupStarted:
 	case <-time.After(time.Second):
@@ -165,7 +165,7 @@ func TestCompletionNotificationThresholdUsesCompletionTimeNotDispatchDelay(t *te
 		return "", "", nil
 	}
 	chat := &LarkChat{BridgeId: "feishu:test", ChatID: "oc_original", RootMsgID: "root", ThreadID: "omt_original"}
-	if err := b.notifyTurnCompletionAt(context.Background(), chat, "turn", "done", "", 59*time.Second, finishedAt); err != nil {
+	if err := b.notifyTurnCompletionAt(context.Background(), chat, "turn", "done", "", 59*time.Second, finishedAt, "", ""); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -60,6 +60,7 @@ func (b *Bridge) runningExperimentsSettings() config.ExperimentsSettings {
 		running.SteerForeground = b.steerForeground.Load()
 		running.ShowBackgroundTasks = b.showBackgroundTasks.Load()
 		running.MentionTurnInitiator = b.mentionTurnInitiator.Load()
+		running.ReplyEndNotification = b.currentReplyEndNotification()
 		running.ModelRecoveryQueueWaitSeconds = b.currentModelRecoveryQueueWaitSeconds()
 	}
 	return running

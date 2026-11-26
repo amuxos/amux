@@ -28,6 +28,15 @@ on Agent capability and the caller's permissions. Ordinary users do not need a t
 
 ## Start work and follow up
 
+Bot owners can enable **Private reminder after every reply** from private
+`/amux` → **Experiments**. It is off by default and takes effect on save.
+In a user-isolated topic, the topic creator's own CLI Bot sends them a local
+summary and a link to the source topic after a turn. Waiting and failed turns
+also notify. Cancelled turns and background child-Agent turns are excluded.
+A personal CLI login and Bot are required. When enabled, the experiment replaces
+long-conversation notices and has no duration threshold. If the source link is
+unavailable, the reminder indicates that and still sends.
+
 This example uses independent topics in a group. Continuous-conversation scopes
 are explained below.
 

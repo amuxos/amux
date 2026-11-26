@@ -26,6 +26,9 @@ func (b *Bridge) SendAgentMessage(ctx context.Context, targetID, sessionName str
 	if err := msg.Validate(); err != nil {
 		return feishumsg.Result{}, err
 	}
+	if msg.ReceiveIDType == feishumsg.Self {
+		return feishumsg.Result{}, errors.New(feishumsg.Copy("group_only"))
+	}
 	bound, err := b.HasAgentMessageBinding(targetID, sessionName)
 	if err != nil {
 		return feishumsg.Result{}, errors.New(feishumsg.Copy("lookup", err))

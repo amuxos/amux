@@ -1,4 +1,46 @@
 {
+  "management.reply.end.title": {
+    "other": "Private reminder after every reply"
+  },
+  "management.reply.end.description": {
+    "other": "When your isolated topic finishes a turn, your own CLI Bot sends you a short local summary and a link to the topic. Replaces long-conversation notices and applies immediately on save."
+  },
+  "management.reply.end.choose": {
+    "other": "Choose whether to enable reply-end private reminders."
+  },
+  "session.notification.task.result": {
+    "other": "Task result"
+  },
+  "session.notification.completed": {
+    "other": "Completed"
+  },
+  "session.notification.waiting": {
+    "other": "Your input is needed"
+  },
+  "session.notification.failed": {
+    "other": "Processing failed"
+  },
+  "session.notification.view.result": {
+    "other": "View result →"
+  },
+  "session.notification.continue": {
+    "other": "Continue →"
+  },
+  "session.notification.source.open": {
+    "other": "Open source topic"
+  },
+  "session.notification.source.unavailable": {
+    "other": "Source topic link unavailable."
+  },
+  "session.notification.empty.completed": {
+    "other": "This turn finished. Open the original conversation for the full reply."
+  },
+  "session.notification.empty.waiting": {
+    "other": "This turn is waiting for your input. Continue in the original conversation."
+  },
+  "session.notification.empty.failed": {
+    "other": "This turn failed. Check the original conversation for details."
+  },
   "management.console.title": {
     "other": "Web management console"
   },
@@ -4172,7 +4214,7 @@
     "other": "Answer the user request above using this capability guide and the supplied snapshot first. Empty or not_checked/unknown values are not evidence of absence or availability. The snapshot does not grant permission or verify external integrations. For an explanation or draft, do not change settings, launch goals, create schedules, delegate, restart or publish. Use actual exposed tools for requested operations; never invent amux MCP tools, commands, config keys or successful results. Do not search installed source trees or repeatedly explore help to explain a card. Managed settings are changed through the corresponding /amux page and its confirmation, not direct TOML/SQLite edits. The Agent may run away from the Hub; its local registry/config cannot establish Hub truth. If a required operation is unavailable, explain the exact limitation and provide the supported management entry. Keep the answer practical and concise; describe the next action and how to verify its result. For feature explanations, usually use one small table or 3–6 short points. Do not echo internal JSON keys, Profile refs or execution paths. Refer only to management entries supplied in this guide; do not invent Target/Runtime management pages, unexposed model-list tools or offers to inspect unavailable state. Deliver an explanation/draft directly rather than ending with an unsolicited offer to continue. Bracketed placeholders such as [work] are missing user input, not actual materials. Ask for the missing input before acting; never treat this capability context as the user document. An untested integration has unknown authorization, not missing authorization. When amux tools are not exposed by the engine, use the terminal: amux mcp call <tool> --describe shows the actual schema without executing; pipe a JSON object to amux mcp call <tool> to call the SAME Hub tools with the current actor and permissions. The output is an MCP JSON envelope: check the exit code and isError, then read content[].text. Never replace amux tools with the engine CronCreate/CronList/CronDelete or GoalCreate/GoalUpdate. Do not use a local CLI registry as a substitute for Hub profile queries."
   },
   "discovery.experiments.guidance": {
-    "other": "Explain group settings, memory, foreground follow-ups, background-task display, reply-initiator mentions and completion notifications from experiments_saved and experiments_running. Equal values are effective; differing values are saved but not yet effective. Do not assert saved values unless experiments_saved_status=ok. steer_foreground, show_background_tasks and mention_turn_initiator apply live on save; follow the management page for restart confirmation of other changes. Entry: owner private chat /amux → Experiments. Do not ask the user to edit files or enable switches without a request. Reply-initiator mentions affect ordinary group-topic replies, DMs, and background-agent final replies that can be tied to their exact parent Turn; they do not change stored Agent output or conversation context. Foreground follow-up means the USER can add input while work is running; it does not mean the assistant automatically interviews the user. Completion notifications fire when a turn finishes AND that turn took at least the configured duration. They do not wait that long after completion and are unrelated to unread time. Completion notification settings require the management restart confirmation; do not claim every switch is live-applied."
+    "other": "Explain group settings, memory, foreground follow-ups, background-task display, reply-initiator mentions, reply-end private reminders and long-conversation notifications from experiments_saved and experiments_running. Equal values are effective; differing values are saved but not yet effective. Do not assert saved values unless experiments_saved_status=ok. steer_foreground, show_background_tasks, mention_turn_initiator and reply_end_notification apply live on save; follow the management page for restart confirmation of other changes. Entry: owner private chat /amux → Experiments. Do not ask the user to edit files or enable switches without a request. Reply-initiator mentions affect ordinary group-topic replies, DMs, and background-agent final replies that can be tied to their exact parent Turn; they do not change stored Agent output or conversation context. Foreground follow-up means the USER can add input while work is running; it does not mean the assistant automatically interviews the user. Long-conversation notifications fire when a turn finishes AND that turn took at least the configured duration. They do not wait that long after completion and are unrelated to unread time. Their settings require the management restart confirmation; do not claim every switch is live-applied. In an isolated topic, the creator's own CLI Bot sends them a local summary and source topic link. Ordinary topics and continuous conversations do not send these reminders. Notify after success, waiting or failure; exclude cancelled and background child-Agent turns. This replaces long-conversation notifications with no duration threshold; a missing source link still sends a reminder."
   },
   "discovery.group_agent.guidance": {
     "other": "Check the effective group-settings experiment in the snapshot. Entry: private /amux → Experiments, then after activation mention the actual bot with /amux in the target group and choose its group settings. A group name is not an ID; private chat does not establish that group configuration. Confirm the target group and use paginated amux.profile_list/profile_get to verify experts. Expert, engine, model and reasoning defaults apply to new group Sessions, not existing work or other groups. Verify settings using the group settings summary and the actual execution card, never by asking the model which model it thinks it is."
@@ -4202,7 +4244,7 @@
     "other": "Explain singleton as shared conversation and thread as separate chat histories per topic. Separate topics may still share files, credentials and machines. Execution isolation follows its actual principal/OS configuration and does not promise a separate filesystem per topic. Do not invent a topic directory/list in /amux. Change handling mode only via /amux → Assistant settings with confirmation; do not reset existing conversations."
   },
   "discovery.background.guidance": {
-    "other": "Use saved/running snapshot values for steer_foreground, show_background_tasks, mention_turn_initiator and completion_notification/after_seconds. Follow-up injection, background display, reply mentions and completion notifications are separate. Switches do not guarantee every engine supports every steering method. Entry: private /amux → Experiments. A request for a plan does not authorize delegation or changing switches. Foreground follow-up is user input during execution, not proactive questions. Background display uses progress cards, not a floating panel. Reply mentions apply live and decorate ordinary group-topic replies, DMs, and background-agent final replies linked to their parent Turn. A completion threshold of 60 seconds means a turn taking at least 60 seconds notifies WHEN IT FINISHES, not 60 seconds after it finishes. A separate topic can separate conversation histories, but same-session parallel execution is not guaranteed."
+    "other": "Use saved/running snapshot values for steer_foreground, show_background_tasks, mention_turn_initiator, reply_end_notification and completion_notification/after_seconds. Follow-up injection, background display, reply mentions, reply-end reminders and long-conversation notifications are separate. Switches do not guarantee every engine supports every steering method. Entry: private /amux → Experiments. A request for a plan does not authorize delegation or changing switches. Foreground follow-up is user input during execution, not proactive questions. Background display uses progress cards, not a floating panel. Reply mentions apply live and decorate ordinary group-topic replies, DMs, and background-agent final replies linked to their parent Turn. A completion threshold of 60 seconds means a turn taking at least 60 seconds notifies WHEN IT FINISHES, not 60 seconds after it finishes. Reply-end reminders apply live in isolated topics and are sent to the topic's creator by their own CLI Bot. They replace long-conversation notices with no duration threshold; background child-Agent turns do not send these private reminders. A separate topic can separate conversation histories, but same-session parallel execution is not guaranteed."
   },
   "discovery.goals.guidance": {
     "other": "This card only drafts objectives. Formal Feishu messages are goal <objective> to create, goal for status, goal pause, goal resume and goal clear, without a / prefix. There are no corresponding amux MCP goal tools; do not invent goal_create or amux goal CLI, or confuse your engine own goal tools with the Feishu Session goal. Support is discovered in the target Session; the Codex name does not prove support, and Claude SDK/Pi are unsupported. Do not invent an unspecified budget. Do not probe, create, replace or resume a goal here; draft a plain-text message with scope, allowed actions and completion criteria. This draft request must not access the filesystem or call tools. Use clear placeholders for an unknown repository/scope, not the test sandbox. The goal message contains only work, scope, permitted actions and completion criteria; keep questions, explanations and sandbox paths outside it. Bundle essential missing information in one question if needed. Providing more information is not authorization to start; do not promise to begin immediately afterward. If permission to clone, run tests, edit files or publish is unspecified, write [allowed operations: to be confirmed] in the draft. Do not grant those permissions on the user behalf."

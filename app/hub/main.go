@@ -273,10 +273,10 @@ func newStartCmd() *cobra.Command {
 					}
 					return false
 				},
-				version:                      version,
-				startedAt:                    startedAt,
-				localExpertAuthoring:         localExpertAuthoring,
-				isolationConfig:              config.GetIsolation,
+				version:              version,
+				startedAt:            startedAt,
+				localExpertAuthoring: localExpertAuthoring,
+				isolationConfig:      config.GetIsolation,
 			}
 			hubRPC.dailyCleaner = newDailyCleaner(hubRPC, bridges)
 			go hubRPC.dailyCleaner.Run(ctx)
@@ -485,7 +485,7 @@ func tryStartBridges(
 		if principals != nil {
 			bridgeID := bridge.BridgeIdFromAppId(secrets.AppId)
 			b.SetExecutionIdentityResolver(newFeishuLaunchIdentityResolver(principals, bridgeID, profile, identifiedFeishuLaunches))
-			b.SetModelServicePrincipalResolver(func(openID string) (string, error) {
+			b.SetFeishuPrincipalResolver(func(openID string) (string, error) {
 				actor, err := resolveFeishuLaunchActor(principals, bridgeID, openID, true)
 				return actor.ActorPrincipalID, err
 			})

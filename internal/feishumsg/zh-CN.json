@@ -1,12 +1,12 @@
 {
   "description": {
-    "other": "使用当前 Session 绑定的飞书 Bot 向群聊发送纯文本或 Markdown，禁用私聊。须已获得用户对目标与内容的授权。指定 receive_id + receive_id_type=chat_id，或群消息的 reply_to_message_id。返回 message_id；始终使用 Bot 身份。"
+    "other": "使用 Bot 身份发送纯文本或 Markdown。群聊通过当前 Session 绑定的 Bot 发送，指定 receive_id + receive_id_type=chat_id 或群消息的 reply_to_message_id。在配置了个人 Bot 的隔离飞书会话中，可用 receive_id_type=self 向当前登录的用户发私聊。须已获得用户对目标与内容的授权。返回 message_id。"
   },
   "receive_id": {
-    "other": "群聊 ID；新消息必填，回复时省略。拒绝私聊会话。"
+    "other": "群聊 ID。回复或使用 receive_id_type=self 时省略。"
   },
   "receive_id_type": {
-    "other": "接收者 ID 类型；仅支持 chat_id，与 receive_id 一起填写。"
+    "other": "向群聊发送时使用 chat_id 并填写 receive_id。向隔离环境中已核验的登录用户发送时使用 self，省略 receive_id 和回复字段。"
   },
   "reply_to_message_id": {
     "other": "要回复的群消息 ID；与接收者字段互斥。禁用私聊回复。"
@@ -33,7 +33,7 @@
     "other": "请指定 receive_id 和 receive_id_type，或 reply_to_message_id；不能混用。"
   },
   "id_type": {
-    "other": "receive_id_type 必须为 chat_id，禁用私聊发送。"
+    "other": "receive_id_type 必须为 chat_id 或 self。"
   },
   "uuid_length": {
     "other": "uuid 不能超过 50 字节。"
@@ -72,12 +72,27 @@
     "other": "format 必须为 text 或 markdown。"
   },
   "group_only": {
-    "other": "此工具仅支持群聊消息，禁用私聊发送。"
+    "other": "Session 绑定的飞书 Bot 仅支持向群聊发送消息。"
   },
   "destination_lookup": {
     "other": "无法确认目标群聊，未发送消息：%s"
   },
   "destination_metadata": {
     "other": "飞书返回的目标会话信息缺失或类型未知，未发送消息。"
+  },
+  "self_destination": {
+    "other": "使用 receive_id_type=self 时，请省略 receive_id 和回复字段。"
+  },
+  "personal_session": {
+    "other": "个人 Bot 投递需要调用用户自己的 Linux DAC 隔离飞书 Session。"
+  },
+  "personal_unavailable": {
+    "other": "当前 Runtime 无法使用个人 Bot 投递。"
+  },
+  "personal_login": {
+    "other": "无法核验隔离用户的飞书登录。请检查个人 CLI Profile 和登录状态。"
+  },
+  "personal_bot": {
+    "other": "个人 Bot 未返回确认送达的结果。请检查 Bot 发送权限和可用范围。重试须使用同一个 uuid。"
   }
 }

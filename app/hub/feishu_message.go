@@ -56,6 +56,18 @@ func (s *hubServer) SendFeishuMessage(ctx context.Context, req *pb.SendFeishuMes
 	if sender == nil {
 		return nil, status.Error(codes.FailedPrecondition, feishumsg.Copy("unbound"))
 	}
+	if msg.ReceiveIDType == feishumsg.Self {
+		if s.hub == nil {
+			return nil, status.Error(codes.Unavailable, feishumsg.Copy("personal_unavailable"))
+		}
+		result, err := routeUnary[feishumsg.PersonalRequest, feishumsg.PersonalResult](s, ctx, targetID, feishumsg.PersonalRoute, &feishumsg.PersonalRequest{
+			SessionID: session.Id, PrincipalID: actor.ActorPrincipalID, Message: msg,
+		})
+		if err != nil {
+			return nil, status.Error(codes.Unavailable, feishumsg.Copy("request_failed", msg.UUID, err))
+		}
+		return &pb.SendFeishuMessageResponse{MessageId: result.MessageID, ChatId: result.ChatID, ThreadId: result.ThreadID, BotProfile: result.BotProfile, Uuid: msg.UUID}, nil
+	}
 	result, err := sender.SendAgentMessage(ctx, targetID, session.Name, msg)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, feishumsg.Copy("request_failed", msg.UUID, err))

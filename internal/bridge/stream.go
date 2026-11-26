@@ -1323,9 +1323,11 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						b.recordTurnResultCompletion(streamChat, action.Turn.ID, currentTurnSource, action.Turn, getFinalAnswer(), superseded, false, deliveryReceipt, artifactsPending, currentTurnStartedAt, ev.CanonicalJson)
 						b.observeCompletion(ctx, streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, getFinalAnswer(), superseded, completedCard)
+						notificationAnswer := getFinalAnswer()
 						setFinalAnswer("")
-						if !superseded && !recoveryClaimed && turnStatus != "stopped" && (completionMeta.Status != "failed" || !failureNoticeDelivered) {
-							b.dispatchTurnCompletionNotification(streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, turnElapsed)
+						if !superseded && !recoveryClaimed && turnStatus != "stopped" &&
+							(completionMeta.Status != "failed" || !failureNoticeDelivered || b.currentReplyEndNotification()) {
+							b.dispatchTurnCompletionNotification(streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, turnElapsed, notificationAnswer, canonical.SessionID)
 						}
 						if !recoveryClaimed {
 							if text := turnDoneNotice(action.Turn.StopReason, view != nil); text != "" {

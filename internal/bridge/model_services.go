@@ -19,10 +19,10 @@ type managementModelService struct {
 	State   modelservice.State
 }
 
-// SetModelServicePrincipalResolver resolves the authenticated Feishu operator.
+// SetFeishuPrincipalResolver resolves the authenticated Feishu operator.
 // A card-supplied OpenID/principal is never accepted.
-func (b *Bridge) SetModelServicePrincipalResolver(fn func(string) (string, error)) {
-	b.resolveModelServicePrincipal = fn
+func (b *Bridge) SetFeishuPrincipalResolver(fn func(string) (string, error)) {
+	b.resolveFeishuPrincipal = fn
 }
 func serviceSupports(s modelservice.Service, runtime string) bool {
 	for _, r := range s.Runtimes {
@@ -41,10 +41,10 @@ func modelServiceStatusLabel(state string) any {
 	return managementCopy("management.model.service.status." + key)
 }
 func (b *Bridge) loadModelServices(ctx context.Context, state managementState, openID, selectedService, action string) managementState {
-	if b.resolveModelServicePrincipal == nil {
+	if b.resolveFeishuPrincipal == nil {
 		return state
 	}
-	principal, err := b.resolveModelServicePrincipal(openID)
+	principal, err := b.resolveFeishuPrincipal(openID)
 	if err != nil {
 		return state
 	}
@@ -219,7 +219,7 @@ func modelServiceSelection(action *callback.CallBackAction) (id, operation strin
 // SDK/network calls run outside the Feishu callback deadline. The existing card
 // is patched, and the unsaved editor draft remains the source of form values.
 func (b *Bridge) handleModelServiceEditor(event *callback.CardActionTriggerEvent, action, openID, messageID string, version uint64) (*callback.CardActionTriggerResponse, bool) {
-	if b.hub == nil && (len(modelservice.List()) == 0 || b.resolveModelServicePrincipal == nil) {
+	if b.hub == nil && (len(modelservice.List()) == 0 || b.resolveFeishuPrincipal == nil) {
 		return nil, false
 	}
 	if action != managementActionSettingsEdit && action != managementActionOnboardingEdit && action != managementActionDocumentCommentsEdit && action != managementActionGroupWatchEdit {

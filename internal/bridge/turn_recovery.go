@@ -445,8 +445,8 @@ func (b *Bridge) resolveTurnRecoveryCandidates(ctx context.Context, chat *LarkCh
 	}
 	if hook := bridgeExtensions.snapshot().RankFallbackModels; hook != nil {
 		principalID := ""
-		if b.resolveModelServicePrincipal != nil && openID != "" {
-			if id, err := b.resolveModelServicePrincipal(openID); err == nil {
+		if b.resolveFeishuPrincipal != nil && openID != "" {
+			if id, err := b.resolveFeishuPrincipal(openID); err == nil {
 				principalID = strings.TrimSpace(id)
 			}
 		}

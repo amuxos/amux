@@ -175,6 +175,36 @@ func TestExperimentsMentionTurnInitiatorDefaultOffPersistsAndOlderCardsPreserveI
 	}
 }
 
+func TestExperimentsReplyEndNotificationDefaultOffAndPersists(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	path := writeConfig(t, "[hub]\naddr = \"localhost:7123\"\n")
+	requireLoad(t, path)
+	if config.GetBridgeFeishuReplyEndNotification() {
+		t.Fatal("reply-end notification must default off")
+	}
+	on := true
+	if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{ReplyEndNotification: &on}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{})
+	if err != nil || !saved.ReplyEndNotification {
+		t.Fatalf("older form must preserve switch: %+v %v", saved, err)
+	}
+	requireLoad(t, path)
+	if !config.GetExperimentsSettings().ReplyEndNotification || config.GetHub().Addr != "localhost:7123" {
+		t.Fatal("saved experiment did not survive reload or changed unrelated settings")
+	}
+	off := false
+	if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{ReplyEndNotification: &off}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err = config.ReadExperimentsSettings()
+	if err != nil || saved.ReplyEndNotification {
+		t.Fatalf("explicit off did not persist: %+v %v", saved, err)
+	}
+}
+
 func TestExperimentsModelRecoveryQueueWaitDefaultsPersistsAndValidates(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)

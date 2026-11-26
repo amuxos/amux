@@ -40,7 +40,7 @@ func (s *server) IsolatedSessionCredential(ctx context.Context, request sessionc
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	return policy(ctx, s.credentialLifetime, request, func(ctx context.Context, name string, args, env []string, observeLine func(string)) (sessioncredential.CommandOutput, error) {
-		return runSessionCredentialCommand(ctx, s.isolationRuntime, identity, name, args, env, observeLine)
+		return runIsolatedCommand(ctx, s.isolationRuntime, identity, name, args, env, "", observeLine)
 	})
 }
 
@@ -57,7 +57,7 @@ func (s *maintenanceSessionServer) IsolatedSessionCredential(ctx context.Context
 	return runtime.IsolatedSessionCredential(ctx, request)
 }
 
-func runSessionCredentialCommand(ctx context.Context, rt *isolation.Runtime, identity principal.ExecutionIdentity, name string, args, env []string, observeLine func(string)) (sessioncredential.CommandOutput, error) {
+func runIsolatedCommand(ctx context.Context, rt *isolation.Runtime, identity principal.ExecutionIdentity, name string, args, env []string, input string, observeLine func(string)) (sessioncredential.CommandOutput, error) {
 	var output sessioncredential.CommandOutput
 	executable, err := exec.LookPath(name)
 	if err != nil {
@@ -81,6 +81,21 @@ func runSessionCredentialCommand(ctx context.Context, rt *isolation.Runtime, ide
 		_ = rt.RemoveRun(cleanupCtx, identity, launchID)
 		_ = rt.RemoveWorkspace(cleanupCtx, identity, paths.Workspace)
 	}()
+	if input != "" {
+		// The helper retains a copy of the stdin writer for process handoff.
+		// Commands that consume all of their input need a private regular file.
+		stage, err := os.MkdirTemp("", "amux-isolated-command-")
+		if err != nil {
+			return output, err
+		}
+		defer os.RemoveAll(stage)
+		if err := os.WriteFile(filepath.Join(stage, "input.json"), []byte(input), 0o600); err != nil {
+			return output, err
+		}
+		if err := rt.MaterializeExecution(ctx, identity, launchID, paths.Workspace, []isolation.BundleSource{{Source: stage, Prefix: "workspace"}}); err != nil {
+			return output, err
+		}
+	}
 	launch := isolation.LaunchContext{LaunchID: launchID, Identity: &identity, Backend: principal.BackendLinuxDAC}
 	backend, err := rt.BackendForContext(launch)
 	if err != nil {

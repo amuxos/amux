@@ -664,6 +664,14 @@ func GetBridgeFeishuMentionTurnInitiator() bool {
 	return viper.GetBool(FeishuMentionTurnInitiatorKey)
 }
 
+// FeishuReplyEndNotificationKey enables a private notification after each
+// human-initiated Turn. Default off; running bridges apply card edits live.
+const FeishuReplyEndNotificationKey = "bridge.feishu.experimental.reply_end_notification"
+
+func GetBridgeFeishuReplyEndNotification() bool {
+	return viper.GetBool(FeishuReplyEndNotificationKey)
+}
+
 // FeishuModelRecoveryQueueWaitSecondsKey controls how many seconds a Feishu
 // turn must remain in upstream retry or queue wait without visible output
 // before the progress card shows same-engine model recovery controls.

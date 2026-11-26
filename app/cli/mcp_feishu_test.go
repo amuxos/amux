@@ -58,6 +58,9 @@ func TestMCPFeishuSendMessage(t *testing.T) {
 		`{"receive_id":"recipient","receive_id_type":"user_id","text":"hello"}`,
 		`{"receive_id":"recipient","receive_id_type":"union_id","text":"hello"}`,
 		`{"receive_id":"recipient","receive_id_type":"email","text":"hello"}`,
+		`{"receive_id":"recipient","receive_id_type":"self","text":"hello"}`,
+		`{"reply_to_message_id":"om-a","receive_id_type":"self","text":"hello"}`,
+		`{"reply_in_thread":true,"receive_id_type":"self","text":"hello"}`,
 		`{"receive_id":"oc-a","receive_id_type":"chat_id","reply_to_message_id":"om-a","text":"hello"}`,
 		`{"reply_to_message_id":"om-a","text":"hello","session_id":"foreign"}`,
 		`{"reply_to_message_id":"om-a","text":"hello","bot_profile":"foreign"}`,
@@ -94,8 +97,8 @@ func TestMCPFeishuMessageFormats(t *testing.T) {
 	if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
 		t.Fatal(err)
 	}
-	if ids := schema.Properties["receive_id_type"].Enum; strings.Join(ids, ",") != "chat_id" {
-		t.Fatalf("private recipients exposed in schema: %v", ids)
+	if ids := schema.Properties["receive_id_type"].Enum; strings.Join(ids, ",") != "chat_id,self" {
+		t.Fatalf("destination types: %v", ids)
 	}
 	format := schema.Properties["format"]
 	if format.Default != "text" || strings.Join(format.Enum, ",") != "text,markdown" {
@@ -114,5 +117,9 @@ func TestMCPFeishuMessageFormats(t *testing.T) {
 				t.Fatalf("format lost in RPC: %+v, %v, %+v", result, err, fake.req)
 			}
 		})
+	}
+	result, err := (&mcpHandler{}).handle(context.Background(), tool.Name, json.RawMessage(`{"receive_id_type":"self","text":"hello"}`))
+	if err != nil || result.IsError || fake.req.GetReceiveIdType() != "self" || fake.req.GetReceiveId() != "" || fake.req.GetReplyToMessageId() != "" {
+		t.Fatalf("self destination lost in RPC: %+v, %v, %+v", result, err, fake.req)
 	}
 }

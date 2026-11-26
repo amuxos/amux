@@ -33,6 +33,7 @@ func (b *Bridge) ApplyLiveExperimentSettings(saved config.ExperimentsSettings) {
 	b.setSteerForeground(saved.SteerForeground)
 	b.showBackgroundTasks.Store(saved.ShowBackgroundTasks)
 	b.mentionTurnInitiator.Store(saved.MentionTurnInitiator)
+	b.replyEndNotification.Store(saved.ReplyEndNotification)
 	b.setModelRecoveryQueueWaitSeconds(saved.ModelRecoveryQueueWaitSeconds)
 }
 

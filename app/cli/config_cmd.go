@@ -349,13 +349,14 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		key == "bridge.feishu.experimental.steer_foreground" ||
 		key == config.FeishuShowBackgroundTasksKey ||
 		key == config.FeishuMentionTurnInitiatorKey ||
+		key == config.FeishuReplyEndNotificationKey ||
 		key == "runtime.task_cleanup.enabled" ||
 		key == "runtime.broker_reap.enabled" ||
 		key == "runtime.session_reclaim.enabled" ||
 		key == "mcp.auto_inject" {
 		parsed, err := strconv.ParseBool(raw)
 		if err != nil {
-			if groupWatchConfigField(key) == "dedup.enabled" {
+			if groupWatchConfigField(key) == "dedup.enabled" || key == config.FeishuReplyEndNotificationKey {
 				return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.boolean", key)))
 			}
 			return commandValidationError(fmt.Errorf("%s must be true or false", key))
