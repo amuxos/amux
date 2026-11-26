@@ -188,8 +188,18 @@ func (p *Proc) registerHandlers(out chan<- []byte) {
 			p.deferPendingIdleCompletion()
 			return
 		}
-		completed, hadTool := p.claimTurnCompletion()
+		var n struct {
+			Turn struct {
+				Status string `json:"status"`
+			} `json:"turn"`
+		}
+		_ = json.Unmarshal(msg.Params, &n)
+		completed, hadTool, wasInterrupted := p.claimTurnCompletion()
 		if !completed {
+			return
+		}
+		if wasInterrupted || strings.EqualFold(strings.TrimSpace(n.Turn.Status), "interrupted") {
+			p.emitTurnInterrupted()
 			return
 		}
 		p.emitTurnDone(hadTool)
@@ -812,6 +822,19 @@ func (p *Proc) emitTurnDone(hadTool bool) {
 	p.emit(agentstream.ProducerEmission{Origin: agentstream.Origin{Actor: agentstream.ActorAgent, Channel: "agent", Provider: p.provider(), NativeType: "turn_done"}, Terminal: &terminal})
 }
 
+func (p *Proc) emitTurnInterrupted() {
+	p.cleanupInputStaging()
+	p.msgMu.Lock()
+	p.curMsg.Reset()
+	p.curItemID = ""
+	p.msgMu.Unlock()
+	p.usageMu.Lock()
+	p.turnUsage = nil
+	p.usageMu.Unlock()
+	terminal := agentstream.Terminal{Outcome: agentstream.OutcomeInterrupted, Code: "interrupted"}
+	p.emit(agentstream.ProducerEmission{Origin: agentstream.Origin{Actor: agentstream.ActorAgent, Channel: "agent", Provider: p.provider(), NativeType: "turn_interrupted"}, Terminal: &terminal})
+}
+
 func (p *Proc) emitTurnFailure(reason, errorCode string) {
 	p.threadMu.Lock()
 	p.emitTurnFailureLocked(reason, errorCode)
@@ -833,6 +856,7 @@ func (p *Proc) emitTurnFailureLocked(reason, errorCode string) {
 		p.markTerminalTurnLocked(turnID)
 		p.turnID = ""
 	}
+	p.interruptedTurnID = ""
 	p.lastFailureTurnID = turnID
 	p.curTurnHadTool = false
 	p.clearPendingUserWaitsLocked()

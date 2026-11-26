@@ -82,10 +82,11 @@ type turnRecoveryEntry struct {
 }
 
 type turnRecoveryState struct {
-	mu      sync.Mutex
-	entries map[string]*turnRecoveryEntry
-	order   []string
-	nowFn   func() time.Time
+	mu           sync.Mutex
+	entries      map[string]*turnRecoveryEntry
+	claimedTurns map[string]time.Time
+	order        []string
+	nowFn        func() time.Time
 	// runAsync allows tests to run the background switch-and-retry synchronously.
 	runAsync func(func())
 	// sendNotice overrides sendTextToBinding in tests when no Lark client exists.
@@ -124,10 +125,15 @@ func (s *turnRecoveryState) dispatch(fn func()) {
 }
 
 func (s *turnRecoveryState) pruneLocked(now time.Time) {
+	cutoff := now.Add(-modelRecoveryCacheTTL)
+	for id, claimedAt := range s.claimedTurns {
+		if claimedAt.Before(cutoff) {
+			delete(s.claimedTurns, id)
+		}
+	}
 	if len(s.entries) == 0 {
 		return
 	}
-	cutoff := now.Add(-modelRecoveryCacheTTL)
 	kept := s.order[:0]
 	for _, id := range s.order {
 		entry, ok := s.entries[id]
@@ -146,6 +152,28 @@ func (s *turnRecoveryState) pruneLocked(now time.Time) {
 		delete(s.entries, evict)
 	}
 	s.order = kept
+}
+
+func (b *Bridge) isTurnRecoveryClaimed(turnID string) bool {
+	if b == nil {
+		return false
+	}
+	turnID = strings.TrimSpace(turnID)
+	if turnID == "" {
+		return false
+	}
+	b.turnRecovery.mu.Lock()
+	defer b.turnRecovery.mu.Unlock()
+	if claimedAt, ok := b.turnRecovery.claimedTurns[turnID]; ok {
+		if b.turnRecovery.now().Sub(claimedAt) <= modelRecoveryCacheTTL {
+			return true
+		}
+		delete(b.turnRecovery.claimedTurns, turnID)
+	}
+	if entry, ok := b.turnRecovery.entries[turnID]; ok && entry.Claimed {
+		return true
+	}
+	return false
 }
 
 func cloneRecoveryParts(parts []*pb.InputPart) ([]*pb.InputPart, bool) {
@@ -773,6 +801,10 @@ func (b *Bridge) handleModelRecoveryCardAction(ctx context.Context, event *callb
 		return cardToast("warning", sessionCopy([]i18n.Locale{locale}, "recovery.toast.invalid")), true, nil
 	}
 	entry.Claimed = true
+	if b.turnRecovery.claimedTurns == nil {
+		b.turnRecovery.claimedTurns = make(map[string]time.Time)
+	}
+	b.turnRecovery.claimedTurns[turnID] = b.turnRecovery.now()
 	snapshot := *entry
 	snapshot.Parts = append([]*pb.InputPart(nil), entry.Parts...)
 	snapshot.Inputs = append([]turnInputRef(nil), entry.Inputs...)
@@ -797,6 +829,7 @@ func (b *Bridge) executeModelRecoverySwitchRetry(ctx context.Context, entry turn
 		if cur, ok := b.turnRecovery.entries[entry.TurnID]; ok {
 			cur.Claimed = false
 		}
+		delete(b.turnRecovery.claimedTurns, entry.TurnID)
 		b.turnRecovery.mu.Unlock()
 	}
 
@@ -835,6 +868,11 @@ func (b *Bridge) executeModelRecoverySwitchRetry(ctx context.Context, entry turn
 		newEffectiveModel = targetModel
 	}
 	b.persistRecoveredSessionModel(entry, newEffectiveModel)
+	streamTargetID := strings.TrimSpace(entry.TargetID)
+	if streamTargetID == "" && chat != nil {
+		streamTargetID = strings.TrimSpace(chat.TargetID)
+	}
+	b.updateLiveStreamEffectiveModel(streamTargetID, entry.SessionName, newEffectiveModel)
 	if chat != nil {
 		chat.EffectiveModel = newEffectiveModel
 	}

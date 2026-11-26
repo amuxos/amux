@@ -562,12 +562,14 @@ func (p *Proc) acceptsActiveTurn(threadID, turnID string) bool {
 	return true
 }
 
-func (p *Proc) claimTurnCompletion() (bool, bool) {
+func (p *Proc) claimTurnCompletion() (bool, bool, bool) {
 	p.threadMu.Lock()
 	defer p.threadMu.Unlock()
 	if p.turnID == "" {
-		return false, false
+		return false, false, false
 	}
+	interrupted := p.interruptedTurnID == p.turnID
+	p.interruptedTurnID = ""
 	p.cancelIdleCompletionLocked()
 	p.stopTurnWatchdogLocked()
 	p.markTerminalTurnLocked(p.turnID)
@@ -575,7 +577,7 @@ func (p *Proc) claimTurnCompletion() (bool, bool) {
 	p.clearPendingUserWaitsLocked()
 	hadTool := p.curTurnHadTool
 	p.curTurnHadTool = false
-	return true, hadTool
+	return true, hadTool, interrupted
 }
 
 func (p *Proc) clearPendingUserWaitsLocked() {
@@ -635,6 +637,8 @@ func (p *Proc) scheduleIdleCompletionLocked() {
 		}
 		p.idleTimer = nil
 		p.idleGeneration++
+		wasInterrupted := p.interruptedTurnID == p.turnID
+		p.interruptedTurnID = ""
 		p.markTerminalTurnLocked(p.turnID)
 		p.turnID = ""
 		p.stopTurnWatchdogLocked()
@@ -642,6 +646,10 @@ func (p *Proc) scheduleIdleCompletionLocked() {
 		hadTool := p.curTurnHadTool
 		p.curTurnHadTool = false
 		p.threadMu.Unlock()
+		if wasInterrupted {
+			p.emitTurnInterrupted()
+			return
+		}
 		p.emitTurnDone(hadTool)
 	})
 }

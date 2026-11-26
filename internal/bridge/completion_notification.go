@@ -167,7 +167,7 @@ func turnCompletionNotificationKind(status string) string {
 
 func turnCompletionCancelled(stopReason string) bool {
 	switch strings.ToLower(strings.TrimSpace(stopReason)) {
-	case "cancelled", "canceled", "interrupted", "killed", "stopped", "superseded":
+	case "cancelled", "canceled", "interrupted", "killed", "stopped", "superseded", "session_closed":
 		return true
 	default:
 		return false

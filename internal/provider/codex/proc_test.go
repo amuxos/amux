@@ -494,6 +494,21 @@ func TestProcResumesThreadWhenResumeSessionIDProvided(t *testing.T) {
 	if err := proc.ReconfigureExecution("replacement-model", "high"); err != nil {
 		t.Fatalf("ReconfigureExecution: %v", err)
 	}
+	deadline := time.After(3 * time.Second)
+	for {
+		select {
+		case ev := <-events:
+			if ev.Metadata != nil && ev.Metadata.AgentSessionID == "existing-thread" && ev.Metadata.EffectiveModel == "replacement-model" {
+				goto gotReconfigureMetadata
+			}
+		case <-deadline:
+			t.Fatal("did not receive SessionMetadataChanged event with EffectiveModel=replacement-model after ReconfigureExecution")
+		}
+	}
+gotReconfigureMetadata:
+	if gotTID, gotModel := proc.snapshotThreadMetadata(); gotTID != "existing-thread" || gotModel != "replacement-model" {
+		t.Fatalf("snapshotThreadMetadata() = (%q, %q), want (existing-thread, replacement-model)", gotTID, gotModel)
+	}
 	if _, err := proc.Write([]byte("continue\r")); err != nil {
 		t.Fatalf("write resumed turn: %v", err)
 	}
@@ -549,6 +564,69 @@ func TestProcInterruptUsesThreadAndTurnID(t *testing.T) {
 	waitForNativeTurnID(t, proc, 2*time.Second)
 	if err := proc.Interrupt(); err != nil {
 		t.Fatalf("Interrupt: %v", err)
+	}
+}
+
+func TestProcInterruptEmitsOutcomeInterrupted(t *testing.T) {
+	t.Parallel()
+	const script = `#!/usr/bin/env python3
+import json, sys
+thread_id = "t1"
+turn_counter = 0
+for line in sys.stdin:
+    msg = json.loads(line)
+    mid = msg.get("id")
+    method = msg.get("method")
+    if method == "initialize":
+        print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"userAgent":"fake"}}), flush=True)
+    elif method == "thread/start":
+        print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"thread":{"id":thread_id}}}), flush=True)
+    elif method == "turn/start":
+        turn_counter += 1
+        turn_id = "u%d" % turn_counter
+        print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"turn":{"id":turn_id}}}), flush=True)
+        print(json.dumps({"jsonrpc":"2.0","method":"turn/started","params":{"threadId":thread_id,"turn":{"id":turn_id}}}), flush=True)
+        if turn_counter == 2:
+            # Provider-initiated interrupted status without client Interrupt().
+            print(json.dumps({"jsonrpc":"2.0","method":"turn/completed","params":{"threadId":thread_id,"turn":{"id":turn_id,"status":"interrupted"}}}), flush=True)
+    elif method == "turn/interrupt":
+        tid = msg["params"]["turnId"]
+        print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{}}), flush=True)
+        print(json.dumps({"jsonrpc":"2.0","method":"turn/completed","params":{"threadId":thread_id,"turn":{"id":tid}}}), flush=True)
+    else:
+        print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{}}), flush=True)
+`
+	fake := writeFakeCodex(t, script)
+	proc, _, err := startTestProc(t, StartOptions{
+		Cwd:             t.TempDir(),
+		CodexExecutable: fake,
+	})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer proc.Close()
+
+	events := make(chan testEmission, 16)
+	proc.SetEventSink(captureEventSink(events))
+
+	// Turn 1: interrupted via proc.Interrupt() before turn/completed without status.
+	if _, err := proc.Write([]byte("wait\r")); err != nil {
+		t.Fatalf("Write turn 1: %v", err)
+	}
+	waitForNativeTurnID(t, proc, 2*time.Second)
+	if err := proc.Interrupt(); err != nil {
+		t.Fatalf("Interrupt: %v", err)
+	}
+	if !waitForOutcome(t, events, agentstream.OutcomeInterrupted, 3*time.Second) {
+		t.Fatal("expected OutcomeInterrupted after proc.Interrupt()")
+	}
+
+	// Turn 2: turn/completed carries turn.status == "interrupted".
+	if _, err := proc.Write([]byte("second\r")); err != nil {
+		t.Fatalf("Write turn 2: %v", err)
+	}
+	if !waitForOutcome(t, events, agentstream.OutcomeInterrupted, 3*time.Second) {
+		t.Fatal("expected OutcomeInterrupted for turn/completed status=interrupted")
 	}
 }
 
