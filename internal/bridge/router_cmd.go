@@ -131,11 +131,25 @@ func (b *Bridge) amuxManagementHome(ctx context.Context, openID string) (string,
 			return "", err
 		}
 		if !b.canUseBridge(openID) {
-			return marshalNativeManagementCard(managementCardView{Title: "amux", Summary: "amux", Theme: "blue", Elements: []cardElement{
+			summaryBox := managementVerticalSummaryElement("amux_member_schedule_summary",
 				managementTextElement(scheduleSummary(entries), "normal", "default", nil),
 				managementTextElement(scheduleText("policy"), "notation", "grey", nil),
-				managementFormButtonRowElement(scheduleButton("title", "list", 0, nil)),
-			}}), nil
+			)
+			summaryBox.Columns[0].BackgroundStyle = "blue-50"
+			summaryBox.Columns[0].VerticalSpacing = "4px"
+			listBtn := scheduleButton("title", "list", 0, nil)
+			listBtn.Type = "primary"
+			listBtn.Size = "small"
+			return marshalNativeManagementCard(managementCardView{
+				Title:   scheduleText("title"),
+				Summary: scheduleText("title"),
+				Theme:   "wathet",
+				Icon:    managementIcon("setting_outlined", "blue"),
+				Elements: []cardElement{
+					summaryBox,
+					managementFormButtonRowElement(listBtn),
+				},
+			}), nil
 		}
 		state.ScheduleSummary = scheduleSummary(entries)
 	}
