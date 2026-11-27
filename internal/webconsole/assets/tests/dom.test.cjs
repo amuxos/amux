@@ -701,6 +701,36 @@ test('answering a permission keeps the strong confirmation warning', async () =>
   assert.equal(env.calls.length, callsBefore);
 });
 
+test('restricted sessions show inventory details without opening a stream or exposing controls', async () => {
+  for (const language of ['en-US', 'zh-CN', 'fr-FR']) {
+    const env = environment('#session?name=chat&target=r');
+    env.window.navigator.language = language;
+    env.app.state.authenticated = true; env.app.state.bootstrap = env.fixture.bootstrap;
+    env.app.state.route = { page: 'session', params: { name: 'chat', target: 'r' } };
+    const session = { id: 's1', name: 'chat', state: 'running', target_id: 'r' };
+    env.fixture.session = { session, access_restricted: true, actions: [] };
+    env.app.state.cache.set('sessions?', { sessions: [session], actions: ['submit', 'archive'] });
+    await env.app.loadRoute();
+    const page = () => env.document.getElementById('page');
+    assert.equal(page().querySelector('h1').textContent, 'chat');
+    assert.ok(page().textContent.includes(language === 'zh-CN' ? '有该会话访问权限的身份' : 'requires an authorized identity'));
+    assert.equal(page().querySelector('#timeline, #session-actions, .composer'), null);
+    assert.equal(env.app.state.streams, null);
+
+    env.fixture.session = { session, queue: [], actions: ['submit'] };
+    await env.app.loadRoute();
+    assert.ok(page().querySelector('#timeline') && page().querySelector('.composer'));
+    const stream = env.app.state.streams;
+    assert.ok(stream);
+    env.fixture.session = { session, access_restricted: true, actions: [] };
+    await stream.listeners.disconnected();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(env.app.state.streams, null);
+    assert.equal(env.app.state.timeline.size, 0);
+    assert.equal(page().querySelector('#timeline, #session-actions, .composer'), null);
+  }
+});
+
 test('a closed stream re-reads the Session so lifecycle controls follow the Hub', async () => {
   const env = environment('#session?name=chat&target=r');
   const streams = []; const Base = env.window.EventSource;

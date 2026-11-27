@@ -505,7 +505,10 @@
       const snapshot = await get(state.route.page, Object.assign(params, routeQueries[state.route.page]));
       if (generation !== state.generation || !state.authenticated) return;
       state.cache.set(cacheKey(), Object.assign(snapshot, { loaded_at: Date.now() })); state.loading = false; state.lastSync = Date.now(); renderPage();
-      if (state.route.page === 'session') openStream(snapshot);
+      if (state.route.page === 'session') {
+        if (snapshot.access_restricted) state.timeline.delete(JSON.stringify(sessionRef(snapshot.session)));
+        else openStream(snapshot);
+      }
       const y = state.scroll.get(cacheKey()); if (y !== undefined) root.scrollTo(0, y);
     } catch (error) {
       if (generation !== state.generation || !state.authenticated) return;
@@ -746,30 +749,34 @@
     const session = snapshot.session;
     if (!session) return [title('session'), empty('unavailable')];
     const ref = sessionRef(session); const caps = snapshot.actions ? snapshot : (state.cache.get('sessions?') || snapshot);
-    const stream = timelineFor(ref);
-    const turn = currentTurn(snapshot, stream);
+    const restricted = snapshot.access_restricted;
+    const stream = restricted ? null : timelineFor(ref);
+    const turn = stream && currentTurn(snapshot, stream);
+    const kind = sessionKind(session);
+    const ownerTask = field(session, 'owner_task_id'); const instance = field(session, 'agent_instance_id');
+    const idle = Number(field(session, 'idle_timeout_seconds', 0));
+    const heading = literalTitle(display(session), e('span', { class: 'title-meta' }, chip(kindLabel(kind)), e('span', { class: 'mono', text: session.id || '' })), [refreshButton(), !restricted && e('div', { id: 'session-actions', class: 'actions' }, sessionActionButtons(caps, session, ref, turn))]);
+    const context = e('div', { class: 'context-strip' }, [['profile', refText(field(session, 'agent_profile'))], ['agentType', field(session, 'agent_type')], ['model', refText(field(session, 'effective_model'))], ['target', targetLabel(session)]].map(([key, value]) => e('div', {}, e('label', { text: t(key) }), e('strong', {}, value && value.nodeType ? value : value || '—'))));
+    const details = section('details', e('div', { class: 'panel-body' }, definition([
+      ['lifecycle', badge(session.state)], restricted ? null : ['turn', e('span', { id: 'turn-state' }, turn ? badge(turn.state) : dash())], ['source', kindLabel(kind)],
+      ['createdAt', timeCell(field(session, 'created_at'))], ['updated', timeCell(field(session, 'last_activity_at', field(session, 'updated_at')))],
+      ['idleTimeout', idle > 0 ? String(idle) : ''], ['sleepReason', field(session, 'last_sleep_reason', '')],
+      ownerTask ? ['ownerTask', linkTo(shortID(ownerTask), 'task', { task_id: ownerTask })] : null,
+      instance ? ['instances', linkTo(shortID(instance), 'instance', { agent_instance_id: instance })] : null,
+      ['cwd', session.cwd ? e('span', { class: 'mono path', text: session.cwd }) : ''], ['id', e('span', { class: 'mono path', text: session.id || '' })]])));
+    if (restricted) return [heading, context, e('p', { class: 'banner warn', role: 'status', text: t('sessionAccessRestricted') }), details];
     const perms = [...stream.permissions.values()];
     for (const permission of list(snapshot, 'permissions')) {
       const normalized = normalizePermission(permission, permission.id || permission.permission_id);
       if (!perms.some(p => p.id === normalized.id)) perms.push(normalized);
     }
     const queue = Array.isArray(snapshot.queue) ? snapshot.queue : list(snapshot.queue, 'items');
-    const kind = sessionKind(session);
-    const ownerTask = field(session, 'owner_task_id'); const instance = field(session, 'agent_instance_id');
-    const idle = Number(field(session, 'idle_timeout_seconds', 0));
-    return [literalTitle(display(session), e('span', { class: 'title-meta' }, chip(kindLabel(kind)), e('span', { class: 'mono', text: session.id || '' })), [refreshButton(), e('div', { id: 'session-actions', class: 'actions' }, sessionActionButtons(caps, session, ref, turn))]),
-      e('div', { class: 'context-strip' }, [['profile', refText(field(session, 'agent_profile'))], ['agentType', field(session, 'agent_type')], ['model', refText(field(session, 'effective_model'))], ['target', targetLabel(session)]].map(([key, value]) => e('div', {}, e('label', { text: t(key) }), e('strong', {}, value && value.nodeType ? value : value || '—')))),
+    return [heading, context,
       e('div', { class: 'detail-grid' },
         e('div', { class: 'stack' }, section('timeline', e('div', { id: 'timeline', class: 'timeline', role: 'log', 'aria-label': t('timeline'), 'aria-live': 'off' }), e('span', { class: 'badge blue', id: 'stream-status' }, e('span', { class: 'dot', 'aria-hidden': true }), t('live'))),
           !isArchived(session) && capability(caps, 'submit', session) ? composer(ref) : null),
         e('aside', { class: 'stack', id: 'session-aside' }, perms.map(p => permissionPanel(p, ref, caps)),
-          section('details', e('div', { class: 'panel-body' }, definition([
-            ['lifecycle', badge(session.state)], ['turn', e('span', { id: 'turn-state' }, turn ? badge(turn.state) : dash())], ['source', kindLabel(kind)],
-            ['createdAt', timeCell(field(session, 'created_at'))], ['updated', timeCell(field(session, 'last_activity_at', field(session, 'updated_at')))],
-            ['idleTimeout', idle > 0 ? String(idle) : ''], ['sleepReason', field(session, 'last_sleep_reason', '')],
-            ownerTask ? ['ownerTask', linkTo(shortID(ownerTask), 'task', { task_id: ownerTask })] : null,
-            instance ? ['instances', linkTo(shortID(instance), 'instance', { agent_instance_id: instance })] : null,
-            ['cwd', session.cwd ? e('span', { class: 'mono path', text: session.cwd }) : ''], ['id', e('span', { class: 'mono path', text: session.id || '' })]]))),
+          details,
           section('queue', e('div', { class: 'panel-body stack' }, queue.length ? queue.map(item => e('div', { class: 'queue-item' }, code(item.text || item.prompt || ''), e('div', { class: 'actions' }, actionButton(caps, 'sessions', 'queue-cancel', Object.assign({}, ref, { queue_id: item.id }), { key: 'queue_cancel', item: session, tone: 'danger small' })))) : e('p', { class: 'muted small', text: t('queueEmpty') })),
             queue.length ? actionButton(caps, 'sessions', 'queue-clear', ref, { key: 'queue_clear', item: session, tone: 'danger small' }) : null)))];
   }
@@ -869,7 +876,8 @@
   function drawTimeline() {
     if (state.route.page !== 'session') return;
     const snapshot = state.cache.get(cacheKey()); if (!snapshot || !snapshot.session) return;
-    const timeline = timelineFor(sessionRef(snapshot.session)); const host = document.getElementById('timeline'); if (!host) return;
+    const host = document.getElementById('timeline'); if (!host) return;
+    const timeline = timelineFor(sessionRef(snapshot.session));
     const atBottom = host.scrollHeight - host.scrollTop - host.clientHeight < 70;
     const y = host.scrollTop;
     const items = visibleTimeline(timeline.items);
@@ -976,7 +984,15 @@
     state.lifecycleSyncAt = now;
     try {
       const fresh = await get(state.route.page, Object.assign({}, state.route.params, { activity: '0' }));
-      if (state.streams !== stream || generation !== state.generation || !fresh.session || fresh.session.state === cached.session.state) return;
+      if (state.streams !== stream || generation !== state.generation || !fresh.session) return;
+      if (fresh.access_restricted) {
+        closeStream();
+        state.timeline.delete(JSON.stringify(sessionRef(fresh.session)));
+        state.cache.set(key, fresh);
+        renderPage();
+        return;
+      }
+      if (fresh.session.state === cached.session.state) return;
       // Turn facts belong to the previous lifecycle; the live Timeline supplies the Turn.
       const merged = Object.assign({}, cached, fresh, { loaded_at: Date.now(), activity_status: 'unknown' });
       delete merged.activity;
