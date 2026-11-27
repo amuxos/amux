@@ -372,18 +372,7 @@ func (m *Manager) SetSleepingPreservingQueue(s *Session, reasons ...string) erro
 		reason = reasons[0]
 	}
 	s.runtimeMu.Lock()
-	s.proc = nil
-	s.PID = 0
-	s.BrokerSocket = ""
-	s.State = StateSleeping
-	now := time.Now()
-	s.UpdatedAt = now
-	s.LastSleepReason = reason
-	s.activityMu.Lock()
-	s.LastActivityAt = now
-	s.lastActivityPersist = now
-	s.pendingPermissions = nil
-	s.activityMu.Unlock()
+	setSleepingLocked(s, reason, time.Now())
 	row := toRowLocked(s)
 	s.runtimeMu.Unlock()
 	if err := m.db.SaveSession(row); err != nil {
@@ -393,24 +382,48 @@ func (m *Manager) SetSleepingPreservingQueue(s *Session, reasons ...string) erro
 	return nil
 }
 
-// SetArchivedAfterProcessExit archives a session when its managed process exits.
-// A concurrent Sleep may already have intentionally stopped the process while
-// preserving the session identity for resume; in that case keep it sleeping.
-func (m *Manager) SetArchivedAfterProcessExit(s *Session) error {
-	s.runtimeMu.Lock()
-	if s.State == StateSleeping {
-		s.runtimeMu.Unlock()
-		return nil
-	}
+func setSleepingLocked(s *Session, reason string, now time.Time) {
 	s.proc = nil
 	s.PID = 0
 	s.BrokerSocket = ""
-	s.State = StateArchived
-	now := time.Now()
+	s.State = StateSleeping
 	s.UpdatedAt = now
-	s.MarkActivity(now)
+	s.LastSleepReason = reason
+	s.activityMu.Lock()
+	s.LastActivityAt = now
+	s.lastActivityPersist = now
+	s.pendingPermissions = nil
+	s.activityMu.Unlock()
+}
+
+// SetStateAfterProcessExit settles the installed process generation. A Feishu
+// conversation with a saved launch can wake on new input after an unexpected
+// disconnect. Explicit stops and independently managed sessions still archive.
+func (m *Manager) SetStateAfterProcessExit(s *Session, generation uint64) error {
+	s.runtimeMu.Lock()
+	if s.procGeneration != generation || s.State == StateSleeping {
+		s.runtimeMu.Unlock()
+		return nil
+	}
+	recoverable := generation != 0 && s.intentionalCloseGeneration != generation &&
+		s.State == StateRunning && s.WorkspaceSource == "feishu" &&
+		s.OwnerTaskId == "" && s.AgentInstanceID == "" && hasDurableLaunchSnapshot(s)
+	now := time.Now()
+	if recoverable {
+		setSleepingLocked(s, SleepReasonProcessExit, now)
+	} else {
+		s.proc = nil
+		s.PID = 0
+		s.BrokerSocket = ""
+		s.State = StateArchived
+		s.UpdatedAt = now
+		s.MarkActivity(now)
+	}
 	row := toRowLocked(s)
 	s.runtimeMu.Unlock()
+	if recoverable {
+		s.ClearQueue()
+	}
 	if err := m.db.SaveSession(row); err != nil {
 		return err
 	}

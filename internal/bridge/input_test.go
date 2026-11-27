@@ -1869,6 +1869,27 @@ func TestRouteToSessionReclaimedBoundSessionTerminatesTopic(t *testing.T) {
 	}
 }
 
+func TestRouteToSessionSleepingBindingStillAcceptsReplies(t *testing.T) {
+	b, hub := newBridgeForInputTest(t)
+	insertActiveChat(t, b.db)
+	hub.listResp = &pb.ListResponse{Sessions: []*pb.Session{{Name: "s1", State: "sleeping"}}}
+	text := "continue after disconnect"
+	if err := b.routeToSessionInChatWithMention(context.Background(), b.workspaceChatID(), "root-1", "msg-1", "open-1", text, b.textBotMentionInfo(text)); err != nil {
+		t.Fatal(err)
+	}
+	if len(hub.routes) != 1 || hub.routes[0].method != "Submit" {
+		t.Fatalf("routes = %+v, want one Submit", hub.routes)
+	}
+	req := hub.routes[0].payload.(*pb.SubmitRequest)
+	if req.Name != "s1" || req.Text != text {
+		t.Fatalf("Submit = %+v, want original Session and new reply", req)
+	}
+	chat, err := b.db.FindByRootMsg(b.currentBridgeId(), "root-1")
+	if err != nil || chat.Status != "active" {
+		t.Fatalf("binding = %+v, error=%v, want active", chat, err)
+	}
+}
+
 func TestRouteToSessionProbeErrorLeavesBindingActive(t *testing.T) {
 	b, hub := newBridgeForInputTest(t)
 	insertActiveChat(t, b.db)
