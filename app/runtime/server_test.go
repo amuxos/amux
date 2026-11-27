@@ -1233,7 +1233,7 @@ func TestReconfigureExecutionRestoresPreviousSnapshotWhenReplacementLaunchFails(
 	replacement := &pb.RunRequest{
 		AgentProfile: "team/reviewer", AgentType: "claude", ExtraArgs: []string{"--model", "new"}, Cwd: dir,
 	}
-	_, err = srv.reconfigureExecutionAndRelaunch(context.Background(), sess, replacement, true)
+	_, err = srv.Restart(context.Background(), &pb.RestartRequest{Name: sess.Name, Replacement: replacement, PreserveHistory: true})
 	if status.Code(err) != codes.Internal || !strings.Contains(err.Error(), "previous execution restored") {
 		t.Fatalf("reconfigure error = %v, want restored Internal error", err)
 	}

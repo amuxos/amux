@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/amuxos/amux/internal/adapter"
@@ -13,6 +15,8 @@ import (
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/store"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // A set-model caller (CLI/MCP) does not resolve the profile registry; the
@@ -59,7 +63,7 @@ func TestReconfigureExecutionBackfillsProfileFromSnapshot(t *testing.T) {
 		},
 	}
 	replacement := &pb.RunRequest{AgentType: "codex", ExtraArgs: []string{"--model", "gpt-5.4"}}
-	resp, err := srv.reconfigureExecutionAndRelaunch(context.Background(), sess, replacement, true)
+	resp, err := srv.Restart(context.Background(), &pb.RestartRequest{Name: sess.Name, Replacement: replacement, PreserveHistory: true})
 	if err != nil {
 		t.Fatalf("reconfigure execution: %v", err)
 	}
@@ -87,12 +91,14 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 		packState     string
 		dynamicEffort bool
 		provider      bool
+		variant       bool
 	}{
 		{name: "content-only profile"},
 		{name: "updated pack", packState: "updated"},
 		{name: "unavailable pack", packState: "unavailable"},
 		{name: "provider to native restart", provider: true},
 		{name: "dynamic native effort", dynamicEffort: true},
+		{name: "backend variant restart", variant: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -110,6 +116,9 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 				t.Fatal(err)
 			}
 			opts := agentprofile.LaunchOptions{Runtime: "codex", Model: "gpt-5.4", ReasoningEffort: "high"}
+			if tc.variant {
+				opts.Model = agentprofile.NativeVariantRef("gpt-5.4", "extended")
+			}
 			launch, err := agentprofile.ProjectProfileLaunchChecked(profile, nil, nil, opts)
 			if err != nil {
 				t.Fatal(err)
@@ -169,11 +178,14 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 				}
 			}
 			srv := &server{mgr: mgr, amuxDir: dir, disableMCPAutoInject: true,
-				startSessionContextHook: func(context.Context, adapter.Adapter, *session.Session, []string, []string) error {
-					if !tc.provider {
+				startSessionContextHook: func(_ context.Context, _ adapter.Adapter, sess *session.Session, args, _ []string) error {
+					if tc.variant {
+						if agentprofile.AgentArgsBackendVariant(args) != "" || sess.Snapshot().AgentSessionID != "native-thread" {
+							t.Fatalf("restart did not clear variant or preserve native conversation: %v", args)
+						}
+					} else if !tc.provider {
 						t.Fatal("native model switch should not restart the process")
-					}
-					if err := mgr.RecordAgentSessionID(sess, "new-native-thread"); err != nil {
+					} else if err := mgr.RecordAgentSessionID(sess, "new-native-thread"); err != nil {
 						return err
 					}
 					sess.SetProc(&serverTestProc{})
@@ -185,7 +197,7 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = srv.reconfigureExecutionAndRelaunch(context.Background(), sess, replacement, true)
+			_, err = srv.Restart(context.Background(), &pb.RestartRequest{Name: sess.Name, Replacement: replacement, PreserveHistory: true})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -197,8 +209,10 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 			wantCalls, wantThread := []string{"gpt-5.5:" + wantEffort}, "native-thread"
 			if tc.provider {
 				wantCalls, wantThread = nil, "new-native-thread"
+			} else if tc.variant {
+				wantCalls = nil
 			}
-			if proc.closed != tc.provider || !reflect.DeepEqual(proc.reconfigurations, wantCalls) || got.AgentSessionID != wantThread || got.ID != before.ID || got.Cwd != before.Cwd {
+			if proc.closed != (tc.provider || tc.variant) || !reflect.DeepEqual(proc.reconfigurations, wantCalls) || got.AgentSessionID != wantThread || got.ID != before.ID || got.Cwd != before.Cwd {
 				t.Fatalf("model switch did not retain the running conversation: calls=%v snapshot=%+v", proc.reconfigurations, got)
 			}
 			var saved struct {
@@ -224,9 +238,75 @@ func TestSetModelPreservesExplicitRuntimeAndFrozenProfile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := srv.reprojectSetModelReplacement(got, next); err != nil {
+			if _, err := srv.reprojectSetModelReplacement(got, next, false); err != nil {
 				t.Fatalf("second switch: %v", err)
 			}
 		})
+	}
+}
+
+func TestRestartModelRecoveryClearsIncompatibleSnapshotEffort(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "runtime.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mgr := session.NewManager(db)
+	sess, err := mgr.Create("recover", "claude", dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := agentprofile.Profile{
+		Namespace: "team", Name: "expert", Type: "claude", ExecutionRuntimeRef: "claude",
+		Model: "opus", ReasoningEffort: "ultra",
+	}
+	oldReq := &pb.RunRequest{
+		AgentType: profile.Type, AgentProfile: profile.Ref(), ProfileSpec: agentprofile.ToPBProfileSpec(profile),
+		ExtraArgs: []string{"--model", "opus", "--effort=ultra"},
+	}
+	oldSpec := launchSpecSnapshot(oldReq)
+	if err := mgr.RecordLaunchParams(sess, oldReq.ExtraArgs, nil, "feishu", "local", oldReq.AgentProfile, "opus", oldSpec); err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.RecordAgentSessionID(sess, "native-thread"); err != nil {
+		t.Fatal(err)
+	}
+	proc := &serverTestProc{}
+	sess.SetProc(proc)
+	if err := mgr.SetRunning(sess); err != nil {
+		t.Fatal(err)
+	}
+	srv := &server{mgr: mgr, amuxDir: dir, disableMCPAutoInject: true,
+		startSessionContextHook: func(_ context.Context, _ adapter.Adapter, sess *session.Session, args, _ []string) error {
+			model, _ := agentprofile.AgentArgsModel("claude", args)
+			if model != "sonnet" || slices.ContainsFunc(args, func(arg string) bool {
+				return arg == "--effort" || strings.HasPrefix(arg, "--effort=")
+			}) {
+				t.Fatalf("recovery launch args = %v", args)
+			}
+			sess.SetProc(&serverTestProc{})
+			return mgr.SetRunning(sess)
+		},
+	}
+	replacement, err := clientop.BuildSetModelReplacement(toProtoSession(sess), "sonnet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := &pb.RestartRequest{Name: sess.Name, Replacement: replacement, PreserveHistory: true}
+	if _, err := srv.Restart(context.Background(), req); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("strict restart error = %v, want InvalidArgument", err)
+	}
+	if proc.closed || sess.Snapshot().LaunchSpec != oldSpec {
+		t.Fatal("failed strict switch changed the running execution")
+	}
+	req.FallbackReasoningEffort = true
+	resp, err := srv.Restart(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := sess.Snapshot()
+	if resp.GetSession().GetEffectiveModel() != "sonnet" || got.AgentSessionID != "native-thread" || launchSpecReasoningEffort(got.LaunchSpec) != "" {
+		t.Fatalf("model recovery did not retain conversation with the target default: %+v", got)
 	}
 }

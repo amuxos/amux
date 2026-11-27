@@ -346,7 +346,7 @@ func TestTurnRecoveryClickAuthIdempotencyAndReplay(t *testing.T) {
 		t.Fatalf("hub calls = %+v, want [Interrupt, Restart, Submit]", calls)
 	}
 	restartReq, ok := calls[1].payload.(*pb.RestartRequest)
-	if !ok || !restartReq.PreserveHistory || restartReq.Replacement == nil {
+	if !ok || !restartReq.PreserveHistory || !restartReq.FallbackReasoningEffort || restartReq.Replacement == nil {
 		t.Fatalf("unexpected restart request: %+v", calls[1].payload)
 	}
 	submitReq, ok := calls[2].payload.(*pb.SubmitRequest)

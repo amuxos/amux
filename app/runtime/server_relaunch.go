@@ -21,24 +21,25 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *session.Session, replacement *pb.RunRequest, preserveHistory bool) (*pb.RunResponse, error) {
+func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *session.Session, req *pb.RestartRequest) (*pb.RunResponse, error) {
 	s.relaunchMu.Lock()
 	defer s.relaunchMu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	replacement := req.GetReplacement()
 	if replacement == nil {
 		return nil, status.Error(codes.InvalidArgument, "replacement execution is required")
 	}
 	snap := sess.Snapshot()
-	// Callers that only change the model (CLI set-model, MCP session_set_model)
+	// Callers that only change the model (Feishu recovery, CLI and MCP set-model)
 	// do not resolve the profile registry; the replacement carries only the
 	// agent type and the requested model args. Re-project through the saved
 	// explicit runtime or the profile registry so provider-backed models get
 	// their full provider configuration; fall back to backfilling the frozen
 	// profile identity when a legacy profile cannot be resolved.
 	if replacement.ProfileSpec == nil {
-		projected, err := s.reprojectSetModelReplacement(snap, replacement)
+		projected, err := s.reprojectSetModelReplacement(snap, replacement, req.GetFallbackReasoningEffort())
 		if err != nil {
 			return nil, err
 		}
@@ -130,10 +131,10 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 
 	handoffContext := ""
 	fallbackHandoff := ""
-	preserveProviderSession := preserveHistory &&
+	preserveProviderSession := req.GetPreserveHistory() &&
 		strings.TrimSpace(snap.AgentType) == strings.TrimSpace(replacement.AgentType) &&
 		providerNativeResumeCompatible(snap.LaunchSpec, replacement)
-	if preserveHistory {
+	if req.GetPreserveHistory() {
 		fallbackHandoff, err = s.mgr.ConversationHandoff(sess)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "capture conversation history: %v", err)
@@ -220,7 +221,7 @@ func (s *server) reconfigureExecutionAndRelaunch(ctx context.Context, sess *sess
 // registry cannot resolve the session's profile, letting the caller fall back
 // to the frozen-snapshot patch behavior; a profile that resolves but rejects
 // the model is an InvalidArgument error.
-func (s *server) reprojectSetModelReplacement(snap session.Snapshot, replacement *pb.RunRequest) (bool, error) {
+func (s *server) reprojectSetModelReplacement(snap session.Snapshot, replacement *pb.RunRequest, fallbackEffort bool) (bool, error) {
 	profileRef := refreshProfileRef(snap)
 	if profileRef == "" {
 		return false, nil
@@ -247,16 +248,19 @@ func (s *server) reprojectSetModelReplacement(snap session.Snapshot, replacement
 			return false, nil
 		}
 	}
-	projection, err := agentprofile.ProjectModelSwitch(profile, snap.ExtraArgs, requested)
+	projectModel := agentprofile.ProjectModelSwitch
+	if fallbackEffort {
+		projectModel = agentprofile.ProjectRecoveryModelSwitch
+	}
+	projection, err := projectModel(profile, snap.ExtraArgs, requested)
 	if err != nil {
 		return false, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	replacement.ExtraArgs = projection.ExtraArgs
 	replacement.ProfileSpec = projection.ProfileSpec
-	// set-model never changes the reasoning effort; carry the frozen effort
-	// over for native targets so the hot-reconfigure comparison still matches
-	// the effort the provider session was launched with.
-	if projection.ProfileSpec.Provider == nil {
+	// Explicit runtimes already projected the target effort. Legacy profile
+	// resolution only reads the registry, so retain the saved native effort.
+	if profile.ExecutionRuntimeRef == "" && projection.ProfileSpec.Provider == nil {
 		if effort := launchSpecReasoningEffort(snap.LaunchSpec); effort != "" {
 			replacement.ProfileSpec.ReasoningEffort = effort
 		}
@@ -418,6 +422,11 @@ func (s *server) tryHotReconfigureExecution(sess *session.Session, snap session.
 	newEffort := launchSpecReasoningEffort(launchSpec)
 	if adapter.IsCodexCompatible(agentType) {
 		if !oldModelOK || !newModelOK || oldEffort == "" || newEffort == "" {
+			return false, nil
+		}
+		// The live settings RPC can update model and effort. A backend
+		// variant comes from process launch config.
+		if agentprofile.AgentArgsBackendVariant(snap.ExtraArgs) != agentprofile.AgentArgsBackendVariant(runExtraArgs) {
 			return false, nil
 		}
 	} else {

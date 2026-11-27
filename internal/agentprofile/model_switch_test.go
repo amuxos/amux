@@ -2,9 +2,54 @@ package agentprofile
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestRecoveryModelSwitchResolvesInheritedEffort(t *testing.T) {
+	previous := runtimeCatalogSources
+	runtimeCatalogSources = []runtimeCatalogSource{{
+		ref: "codex", models: []string{"model-standard", "model-auto", "model-fixed"},
+		capabilities: map[string]RuntimeModelCapability{
+			"model-standard": {SupportedReasoningEfforts: []string{"high", "xhigh"}, DefaultReasoningEffort: "xhigh"},
+			"model-auto":     {},
+			"model-fixed":    {DefaultReasoningEffort: "high"},
+		},
+	}}
+	t.Cleanup(func() { runtimeCatalogSources = previous })
+	for _, tc := range []struct {
+		target, previous, wantSnapshot, wantArg string
+	}{
+		{"model-standard", "max", "xhigh", "xhigh"},
+		{"model-standard", "high", "high", "high"},
+		{"model-auto", "max", "", ""},
+		{"model-fixed", "max", "", "high"},
+	} {
+		t.Run(tc.target+"/"+tc.previous, func(t *testing.T) {
+			profile := Profile{Namespace: "team", Name: "expert", Type: "codex", ExecutionRuntimeRef: "codex", ReasoningEffort: tc.previous}
+			stored := []string{"--model", "model-max", "-c", `model_backend_variant="max"`, "-c", `model_reasoning_effort="` + tc.previous + `"`, "-c", `approval_policy="never"`}
+			got, err := ProjectRecoveryModelSwitch(profile, stored, tc.target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantArgs := []string{"--model", tc.target, "-c", `approval_policy="never"`}
+			if tc.wantArg != "" {
+				wantArgs = append(wantArgs, "-c", `model_reasoning_effort="`+tc.wantArg+`"`)
+			}
+			if got.ProfileSpec.Model != tc.target || got.ProfileSpec.ReasoningEffort != tc.wantSnapshot || !slices.Equal(got.ExtraArgs, wantArgs) {
+				t.Fatalf("model=%q effort=%q args=%v, want %q %q %v", got.ProfileSpec.Model, got.ProfileSpec.ReasoningEffort, got.ExtraArgs, tc.target, tc.wantSnapshot, wantArgs)
+			}
+		})
+	}
+	profile := Profile{Namespace: "team", Name: "expert", Type: "codex", ExecutionRuntimeRef: "codex", ReasoningEffort: "max"}
+	if _, err := ProjectModelSwitch(profile, nil, "model-standard"); err == nil || !strings.Contains(err.Error(), "reasoning effort") {
+		t.Fatalf("strict model switch error = %v, want incompatible effort rejection", err)
+	}
+	if _, err := ProjectRecoveryModelSwitch(profile, nil, nativeVariantPrefix+"invalid"); err == nil {
+		t.Fatal("recovery accepted an invalid native variant")
+	}
+}
 
 func TestModelSwitchExplicitRuntimeProviderRoundTrip(t *testing.T) {
 	previousResolver := customization.ResolveServiceModel

@@ -32,6 +32,16 @@ type ModelSwitchProjection struct {
 // ProjectProfileLaunch produces for `run --model`. A saved explicit runtime
 // instead owns model selection, just as it does for the initial launch.
 func ProjectModelSwitch(profile Profile, storedArgs []string, requested string) (ModelSwitchProjection, error) {
+	return projectModelSwitch(profile, storedArgs, requested, false)
+}
+
+// ProjectRecoveryModelSwitch allows model-only recovery to replace an
+// incompatible inherited effort with the target model's default.
+func ProjectRecoveryModelSwitch(profile Profile, storedArgs []string, requested string) (ModelSwitchProjection, error) {
+	return projectModelSwitch(profile, storedArgs, requested, true)
+}
+
+func projectModelSwitch(profile Profile, storedArgs []string, requested string, fallbackEffort bool) (ModelSwitchProjection, error) {
 	requested = strings.TrimSpace(requested)
 	if requested == "" {
 		return ModelSwitchProjection{}, fmt.Errorf("model is required")
@@ -43,7 +53,7 @@ func ProjectModelSwitch(profile Profile, storedArgs []string, requested string) 
 	if strings.TrimSpace(profile.ExecutionRuntimeRef) != "" {
 		selected, runtimeModel, err = resolveProfileRuntimeSelection(profile, LaunchOptions{
 			Runtime: profile.ExecutionRuntimeRef, Model: requested, ReasoningEffort: profile.ReasoningEffort,
-		})
+		}, fallbackEffort)
 		selection = ResolvedModelSelection{
 			Ref: runtimeModel.Ref, Kind: runtimeModel.Kind, AgentModel: runtimeModel.AgentModel,
 			ProviderRef: runtimeModel.ProviderRef, Provider: cloneProvider(selected.Provider),
@@ -61,7 +71,16 @@ func ProjectModelSwitch(profile Profile, storedArgs []string, requested string) 
 	if err := validateProvider(selected.Type, selected.Provider); err != nil {
 		return ModelSwitchProjection{}, fmt.Errorf("model %q: %w", selection.Ref, err)
 	}
-	args := append(ModelArgs(selected.Type, variantBaseModel(selection.Ref, selection.AgentModel, selection.BackendVariant)), stripModelSwitchExecutionArgs(profile.Type, storedArgs)...)
+	var effortFlag string
+	if fallbackEffort && selected.ExecutionRuntimeRef != "" {
+		switch selected.Type {
+		case "claude":
+			effortFlag = "--effort"
+		case "pi":
+			effortFlag = "--thinking"
+		}
+	}
+	args := append(ModelArgs(selected.Type, variantBaseModel(selection.Ref, selection.AgentModel, selection.BackendVariant)), stripModelSwitchExecutionArgs(profile.Type, storedArgs, effortFlag)...)
 	args = appendDistributionDefaultProviderArgs(selected, selection.Ref, args, args)
 	args = appendUpstreamProviderArgs(selected, selection.Ref, args)
 	// The stored args were stripped of the previous variant above, so append the
@@ -151,12 +170,19 @@ func modelRefSuffix(ref string) string {
 // stored launch args: the model flag (via ReplaceArgsModel) plus every
 // process-global `-c`/`--config` key the runtime/provider projections write,
 // so a stale provider binding cannot leak into the switched launch.
-func stripModelSwitchExecutionArgs(agentType string, args []string) []string {
+func stripModelSwitchExecutionArgs(agentType string, args []string, effortFlag string) []string {
 	stripped := ReplaceArgsModel(agentType, args, "")
 	out := make([]string, 0, len(stripped))
 	for i := 0; i < len(stripped); i++ {
 		arg := strings.TrimSpace(stripped[i])
 		switch {
+		case effortFlag != "" && arg == effortFlag:
+			if i+1 < len(stripped) {
+				i++
+			}
+			continue
+		case effortFlag != "" && strings.HasPrefix(arg, effortFlag+"="):
+			continue
 		case arg == "-c" || arg == "--config":
 			if i+1 < len(stripped) && modelSwitchConfigOwnsExecution(agentType, stripped[i+1]) {
 				i++
