@@ -32,6 +32,7 @@ import (
 
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/provider"
 	"github.com/amuxos/amux/internal/session"
 )
@@ -193,9 +194,12 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	if bin == "" {
 		bin = providerName
 	}
-	bin, err := provider.ResolveExecutableFromEnvPATH(bin, opts.Env)
-	if err != nil {
-		return nil, nil, err
+	if opts.LaunchContext.Backend != principal.BackendLinuxDAC {
+		resolved, err := provider.ResolveExecutableFromEnvPATH(bin, opts.Env)
+		if err != nil {
+			return nil, nil, err
+		}
+		bin = resolved
 	}
 	args := []string{"--mode", "rpc"}
 	if resumeID := strings.TrimSpace(opts.ResumeSessionID); resumeID != "" {

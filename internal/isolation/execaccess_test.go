@@ -3,12 +3,52 @@
 package isolation
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
 )
+
+func TestLookPathForPrincipalSkipsPrivateRelease(t *testing.T) {
+	root := execAccessRoot(t)
+	private := filepath.Join(root, "private")
+	if err := os.Mkdir(private, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	installerBin := filepath.Join(root, "installer-bin")
+	systemBin := filepath.Join(root, "system-bin")
+	for _, dir := range []string{installerBin, systemBin} {
+		mkdirMode(t, dir, 0o755)
+	}
+	const name = "example-runtime"
+	writeExecutable(t, filepath.Join(private, name), 0o755)
+	if err := os.Symlink(filepath.Join(private, name), filepath.Join(installerBin, name)); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(systemBin, name)
+	writeExecutable(t, want, 0o755)
+	uid, gid := foreignIDs(t)
+	mapping := AccountMapping{UID: uid, GID: gid}
+	path := "PATH=" + installerBin + string(os.PathListSeparator) + systemBin
+	if got, err := lookPathForPrincipal(name, []string{path}, mapping); err != nil || got != want {
+		t.Fatalf("lookPathForPrincipal = %q, %v; want %q", got, err, want)
+	}
+	if _, err := lookPathForPrincipal(name, []string{"PATH=" + installerBin}, mapping); !errors.Is(err, exec.ErrNotFound) {
+		t.Fatalf("private-only search error = %v; want exec.ErrNotFound", err)
+	}
+}
+
+func TestManagedToolsPATHUsesLastPATHAndIsIdempotent(t *testing.T) {
+	env := []string{"PATH=/ignored", "OTHER=unchanged", "PATH=/opt/bin:/usr/bin"}
+	got := withManagedToolsPATH(withManagedToolsPATH(env))
+	want := managedToolsBin + ":/opt/bin:/usr/bin"
+	if path := launchPATH(got); path != want {
+		t.Fatalf("PATH = %q; want %q", path, want)
+	}
+}
 
 // execAccessRoot builds fixtures under /tmp rather than t.TempDir(): the checker
 // walks every ancestor, and the per-user temp root is 0700 on macOS, which would

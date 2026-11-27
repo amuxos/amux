@@ -402,6 +402,12 @@ func (b *linuxDACBackend) Start(ctx context.Context, spec LaunchSpec) (ProcessHa
 		return nil, err
 	}
 	spec.Env = principalLaunchEnv(spec.Env, mapping.Account, paths, spec.Dir)
+	if filepath.Base(spec.Path) == spec.Path && spec.Path != "." {
+		spec.Path, err = lookPathForPrincipal(spec.Path, spec.Env, mapping)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return b.runtime.client.Start(ctx, mapping, spec)
 }
 
@@ -412,6 +418,7 @@ func (b *linuxDACBackend) Start(ctx context.Context, spec LaunchSpec) (ProcessHa
 // ssh-agent and session bus — none of which is true once the process runs under
 // a dedicated uid.
 func principalLaunchEnv(env []string, account string, paths PrincipalPaths, dir string) []string {
+	env = withManagedToolsPATH(env)
 	env = replaceLaunchEnv(env, "HOME", paths.Home)
 	for _, binding := range adapter.AllIsolatedHomeEnvBindings() {
 		env = replaceLaunchEnv(env, binding.Key, binding.ValueForHome(paths.Home))

@@ -162,6 +162,12 @@ for blocking `task_run` and scheduled subtasks. Permission resolution is separat
 from workspace/OS isolation and credential authorization. An instance wait timeout
 also does not cancel or time out its Task; inspect that Task for the final result.
 
+Linux DAC looks up bare launch commands on the execution PATH and skips
+files or directories denied by the mapped UID/GID's permissions. The host's
+managed `/usr/local/libexec/amux/tools/current/bin` directory precedes inherited
+PATH entries. Explicit paths retain their exact target and the helper checks
+their permissions.
+
 ## User questions are not execution approvals
 
 Task children currently have no user-question delegation channel. A structured
