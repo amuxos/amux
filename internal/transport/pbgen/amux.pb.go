@@ -3870,8 +3870,11 @@ type RestartRequest struct {
 	// type is unchanged, or injects a provider-neutral handoff on the next real
 	// user turn when changing runtime types.
 	PreserveHistory bool `protobuf:"varint,6,opt,name=preserve_history,json=preserveHistory,proto3" json:"preserve_history,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Model-only recovery can use the target's default when the frozen effort
+	// is incompatible. Explicit replacement execution choices are still strict.
+	FallbackReasoningEffort bool `protobuf:"varint,7,opt,name=fallback_reasoning_effort,json=fallbackReasoningEffort,proto3" json:"fallback_reasoning_effort,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *RestartRequest) Reset() {
@@ -3942,6 +3945,13 @@ func (x *RestartRequest) GetReplacement() *RunRequest {
 func (x *RestartRequest) GetPreserveHistory() bool {
 	if x != nil {
 		return x.PreserveHistory
+	}
+	return false
+}
+
+func (x *RestartRequest) GetFallbackReasoningEffort() bool {
+	if x != nil {
+		return x.FallbackReasoningEffort
 	}
 	return false
 }
@@ -17579,14 +17589,15 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\vKillRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x1e\n" +
 	"\fKillResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\x9b\x02\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xd7\x02\n" +
 	"\x0eRestartRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12'\n" +
 	"\x0frefresh_profile\x18\x02 \x01(\bR\x0erefreshProfile\x12*\n" +
 	"\x11agent_actor_token\x18\x03 \x01(\tR\x0fagentActorToken\x12>\n" +
 	"\x1cagent_actor_token_expires_at\x18\x04 \x01(\x03R\x18agentActorTokenExpiresAt\x125\n" +
 	"\vreplacement\x18\x05 \x01(\v2\x13.amux.v1.RunRequestR\vreplacement\x12)\n" +
-	"\x10preserve_history\x18\x06 \x01(\bR\x0fpreserveHistory\"\xb7\x01\n" +
+	"\x10preserve_history\x18\x06 \x01(\bR\x0fpreserveHistory\x12:\n" +
+	"\x19fallback_reasoning_effort\x18\a \x01(\bR\x17fallbackReasoningEffort\"\xb7\x01\n" +
 	"\x10ChangeCwdRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03cwd\x18\x02 \x01(\tR\x03cwd\x12\x12\n" +

@@ -580,6 +580,9 @@ message RestartRequest {
   // type is unchanged, or injects a provider-neutral handoff on the next real
   // user turn when changing runtime types.
   bool preserve_history = 6;
+  // Model-only recovery can use the target's default when the frozen effort
+  // is incompatible. Explicit replacement execution choices are still strict.
+  bool fallback_reasoning_effort = 7;
 }
 message ChangeCwdRequest {
   string name = 1;

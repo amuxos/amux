@@ -955,7 +955,7 @@ func (s *server) Restart(ctx context.Context, req *pb.RestartRequest) (*pb.RunRe
 	}
 	s.adoptAgentActorToken(sess, req.AgentActorToken, req.AgentActorTokenExpiresAt)
 	if req.Replacement != nil {
-		return s.reconfigureExecutionAndRelaunch(ctx, sess, req.Replacement, req.PreserveHistory)
+		return s.reconfigureExecutionAndRelaunch(ctx, sess, req)
 	}
 	if req.RefreshProfile {
 		return s.refreshProfileAndRelaunch(ctx, sess)

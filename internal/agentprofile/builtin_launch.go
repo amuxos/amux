@@ -78,7 +78,7 @@ func projectProfileLaunchWithPreset(profile Profile, args, env []string, opts La
 	if inferredRuntime {
 		// A shortcut still accepts native execution flags. Freeze the catalog
 		// selection, then retain the legacy native-argument projection rules.
-		selected, _, err = resolveProfileRuntimeSelection(selected, opts)
+		selected, _, err = resolveProfileRuntimeSelection(selected, opts, false)
 		if err != nil {
 			return LaunchProjection{}, err
 		}

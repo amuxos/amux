@@ -943,9 +943,10 @@ func (b *Bridge) switchSessionModelInPlace(ctx context.Context, targetID, sessio
 	restartCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	resp, err := b.hub.Route(restartCtx, matchedTarget.GetId(), "Restart", &pb.RestartRequest{
-		Name:            matchedSess.GetName(),
-		Replacement:     replacement,
-		PreserveHistory: true,
+		Name:                    matchedSess.GetName(),
+		Replacement:             replacement,
+		PreserveHistory:         true,
+		FallbackReasoningEffort: true,
 	})
 	if err != nil {
 		return "", err

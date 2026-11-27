@@ -574,6 +574,10 @@ or resubmit twice. If the turn is still running, Bridge interrupts it and waits
 briefly for the session to become idle before invoking
 `Restart(PreserveHistory: true)` on the existing session so engines that support
 in-place hot reconfiguration apply the new model without restarting the process.
+Model recovery carries over the previous reasoning effort when the target model
+supports it. Otherwise it uses the target model's default, or lets the runtime
+choose when the model declares no default. A backend variant change requires
+relaunching the agent to apply the new launch settings.
 Bridge keeps a bounded in-memory recovery cache of recently submitted turn
 inputs (evicted on normal turn completion or TTL expiry; large image payloads
 are omitted). When the interrupted or failed turn had not executed any tool

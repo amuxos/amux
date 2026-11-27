@@ -102,9 +102,7 @@ func profileModelCapability(profile Profile) RuntimeModelOption {
 // reasoning on/off switch and drops the level itself, so the level has to
 // travel on the launch flag.
 //
-// A model that declares no selectable effort is also skipped. Its declaration
-// says the runtime accepts no effort for it, so sending the model's default
-// anyway would push a value the runtime never agreed to honor.
+// A declared default can apply even when the model offers no selectable level.
 func applyDeclaredDefaultEffort(launch *LaunchProjection, profile Profile, model RuntimeModelOption, requested string) {
 	if strings.TrimSpace(requested) != "" {
 		return
@@ -151,7 +149,7 @@ func ProfileNativeRuntimeModel(runtime RuntimeOption, modelRef string) RuntimeMo
 }
 
 func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, explicitEnv []string, opts LaunchOptions) (LaunchProjection, error) {
-	selected, model, err := resolveProfileRuntimeSelection(profile, opts)
+	selected, model, err := resolveProfileRuntimeSelection(profile, opts, false)
 	if err != nil {
 		return LaunchProjection{}, err
 	}
@@ -171,7 +169,7 @@ func projectProfileRuntimeLaunchChecked(profile Profile, explicitArgs []string, 
 
 // resolveProfileRuntimeSelection shares the runtime model policy and snapshot
 // construction between initial launches and later model-only switches.
-func resolveProfileRuntimeSelection(profile Profile, opts LaunchOptions) (Profile, RuntimeModelOption, error) {
+func resolveProfileRuntimeSelection(profile Profile, opts LaunchOptions, fallbackEffort bool) (Profile, RuntimeModelOption, error) {
 	runtime, err := ResolveRuntimeOption(opts.Runtime)
 	if err != nil {
 		return Profile{}, RuntimeModelOption{}, err
@@ -188,8 +186,16 @@ func resolveProfileRuntimeSelection(profile Profile, opts LaunchOptions) (Profil
 			runtime.Models = append(runtime.Models, model)
 		}
 	}
-	if err := ValidateRuntimeReasoningEffort(runtime, model, opts.ReasoningEffort); err != nil {
-		return Profile{}, RuntimeModelOption{}, err
+	effort := strings.TrimSpace(opts.ReasoningEffort)
+	if err := ValidateRuntimeReasoningEffort(runtime, model, effort); err != nil {
+		if !fallbackEffort {
+			return Profile{}, RuntimeModelOption{}, err
+		}
+		effort = strings.TrimSpace(model.DefaultReasoningEffort)
+		if ValidateRuntimeReasoningEffort(runtime, model, effort) != nil {
+			// A non-selectable default is applied during launch projection.
+			effort = ""
+		}
 	}
 
 	selected := cloneProfile(profile)
@@ -217,7 +223,6 @@ func resolveProfileRuntimeSelection(profile Profile, opts LaunchOptions) (Profil
 	}
 	selected.Placement.Requires.AgentTypes = []string{runtime.AgentType}
 
-	effort := strings.TrimSpace(opts.ReasoningEffort)
 	selected.ExecutionRuntimeRef = runtime.Ref
 	applyProfileReasoningEffort(&selected, effort)
 	if err := validateProvider(selected.Type, selected.Provider); err != nil {
