@@ -59,6 +59,26 @@ command endpoint. Backend capability lists determine available actions. Bot and
 group settings changes use the live Hub Bridge transition and version checks,
 including confirmation and recovery choices.
 
+A Session listed in the inventory can be opened to inspect its lifecycle, target and other inventory fields. If the Hub denies Session access, the detail page explains that the conversation, queue and controls require an authorized identity.
+
+The Bot workspace opens the same management pages as a private `/amux` card.
+An authenticated browser requests a short-lived code for a running Bot. Entering
+it on a freshly opened private management card binds that browser to the card's
+verified recipient and Bot until disconnect or expiry. The browser renders the
+current card and can invoke its displayed controls. Personal schedules use the
+linked creator identity, and alert controls use the Bot administrator identity.
+For a known group, a linked Bot owner can open the group’s `/amux` view from Groups, manage that group and select an active topic to read its current expert and status.
+Opening a workspace starts no Agent work. Restart and upgrade can close the console.
+
+The overview links each Session metric to the matching list, including live
+Sessions, confirmed work, requests for attention and sleeping Sessions. Operators
+can return to the full list, clear filters, and search across management sections.
+Schedule maintenance supports selecting eligible records on the current page,
+reviewing their names and IDs, and pausing or enabling them together. The console
+reports the outcome of each request separately. Settings can be narrowed by
+section. A change review compares saved and proposed values across sections,
+including resets, and lets the operator discard draft changes before saving.
+
 Bots can be added, disabled, re-enabled and deleted. Adding needs a profile name,
 App ID and App Secret; the server checks them with Feishu before saving and refuses
 an existing profile name or an App another profile uses. The App Secret is never
@@ -67,7 +87,7 @@ App means adding a new Bot. Disabling keeps the credentials aside; only a
 disabled Bot can be deleted, which removes its credentials but keeps its chat
 bindings and settings. Bridges start with the Hub, so these changes take effect
 only after `amux system restart`; the list marks Bots that start or stop on the
-next restart and the console never restarts the Hub itself. Live settings stay
+next restart and leaves the restart decision to the operator. Live settings stay
 editable only for running Bots.
 
 Groups are titled by their Feishu group name. Names are stored by the Bridge

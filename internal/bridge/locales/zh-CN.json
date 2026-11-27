@@ -1,4 +1,28 @@
 {
+  "workspace.topic": {
+    "other": "查看活动话题"
+  },
+  "workspace.link": {
+    "other": "连接浏览器"
+  },
+  "workspace.code": {
+    "other": "浏览器连接码"
+  },
+  "workspace.consent": {
+    "other": "请输入你本人浏览器中显示的连接码。连接后，该浏览器可按你在此助手私聊 /amux 中的权限执行操作，直至断开或到期。"
+  },
+  "workspace.invalid": {
+    "other": "连接已过期或不可用。请在浏览器中获取新的连接码，再在助手私聊中重新打开 /amux。"
+  },
+  "workspace.connected": {
+    "other": "浏览器已连接"
+  },
+  "workspace.disconnect": {
+    "other": "断开浏览器"
+  },
+  "workspace.disconnected": {
+    "other": "浏览器已断开"
+  },
   "management.reply.end.title": {
     "other": "每轮回复结束私聊提醒"
   },

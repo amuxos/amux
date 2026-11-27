@@ -119,7 +119,9 @@ func consoleActions(resource string) []string {
 	}
 }
 func consoleWithActions(resource string, value map[string]any) map[string]any {
-	value["actions"] = consoleActions(resource)
+	if _, ok := value["actions"]; !ok {
+		value["actions"] = consoleActions(resource)
+	}
 	return value
 }
 func consoleHasAction(resource, action string) bool {
@@ -318,6 +320,11 @@ func (b *consoleBackend) consoleSessions(ctx context.Context, resource string, q
 	}
 	queue, err := clientop.SessionQueueList(ctx, b.hub, clientop.SessionRef{Name: entry.GetName(), Target: entry.TargetID})
 	replay.Wait()
+	// QueueList and Attach share the Hub's per-session authorization decision.
+	// The inventory entry remains visible when execution access is denied.
+	if status.Code(err) == codes.PermissionDenied || status.Code(err) == codes.Unauthenticated {
+		return map[string]any{"session": entry, "access_restricted": true, "actions": []string{}}, nil
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,28 @@
 {
+  "workspace.topic": {
+    "other": "View an active topic"
+  },
+  "workspace.link": {
+    "other": "Connect browser"
+  },
+  "workspace.code": {
+    "other": "Browser connection code"
+  },
+  "workspace.consent": {
+    "other": "Enter the code shown in your own browser. Connecting lets that signed-in browser operate this Bot with your private /amux permissions until expiry or disconnection."
+  },
+  "workspace.invalid": {
+    "other": "Connection expired or unavailable. Request a new code in your browser and reopen /amux in a private chat."
+  },
+  "workspace.connected": {
+    "other": "Browser connected"
+  },
+  "workspace.disconnect": {
+    "other": "Disconnect browser"
+  },
+  "workspace.disconnected": {
+    "other": "Browser disconnected"
+  },
   "management.reply.end.title": {
     "other": "Private reminder after every reply"
   },

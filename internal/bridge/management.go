@@ -209,6 +209,9 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			b.localizeManagementToast(response, event.Event.Operator.OpenID)
 		}
 	}()
+	if action == browserLinkAction || action == browserDisconnectAction {
+		return b.browserLinkCallback(ctx, event, action), true, nil
+	}
 	if isManagementConsoleAction(action) {
 		return b.handleManagementConsoleAction(ctx, event, action), true, nil
 	}

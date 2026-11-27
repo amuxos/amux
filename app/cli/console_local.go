@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
+	"github.com/amuxos/amux/internal/webconsole"
 )
 
 func (b *consoleBackend) snapshotBridge(ctx context.Context, resource string, query url.Values) (any, error) {
@@ -34,4 +35,22 @@ func (b *consoleBackend) bridgeManagement(ctx context.Context, resource, action 
 		return nil, consoleInvalid("backend_response_invalid", "")
 	}
 	return json.RawMessage(response.GetPayloadJson()), nil
+}
+
+func (b *consoleBackend) consoleWorkspace(ctx context.Context, action string, data json.RawMessage) (any, error) {
+	binding, ok := webconsole.Binding(ctx)
+	if !ok || b.hub == nil {
+		return nil, consoleInvalid("operator_required", "")
+	}
+	var input map[string]json.RawMessage
+	if err := json.Unmarshal(data, &input); err != nil || input == nil {
+		return nil, consoleInvalid("invalid_data", "")
+	}
+	input["browser"], _ = json.Marshal(binding.ID)
+	input["expires"], _ = json.Marshal(binding.Expires.Unix())
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return nil, err
+	}
+	return b.bridgeManagement(ctx, "workspace", action, payload)
 }
