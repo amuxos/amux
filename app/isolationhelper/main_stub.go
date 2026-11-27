@@ -3,6 +3,7 @@
 package isolationhelper
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -16,4 +17,8 @@ func Main(buildVersion string) {
 	version = buildVersion
 	fmt.Fprintln(os.Stderr, "amux-isolation-helper is only supported on Linux")
 	os.Exit(1)
+}
+
+func MainWithStartup(buildVersion string, _ func(context.Context, int, int)) {
+	Main(buildVersion)
 }
