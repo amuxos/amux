@@ -142,10 +142,12 @@ func renderManagementConsoleCard(info ManagementConsoleInfo, notice string, now 
 	if enabled {
 		remaining := info.ExpiresAt.Sub(now)
 		seconds := int((remaining + time.Second - 1) / time.Second)
+		password := managementKeyValueRowElement(managementCopy("management.console.password"), info.Password)
+		password.ElementID = "amux_private_console_password"
 		rows = append(rows,
 			managementKeyValueRowElement(managementCopy("management.console.address"), info.URL),
 			managementKeyValueRowElement(managementCopy("management.console.remaining"), fmt.Sprintf("%02d:%02d", seconds/60, seconds%60)),
-			managementKeyValueRowElement(managementCopy("management.console.password"), info.Password),
+			password,
 		)
 	}
 	summary := managementVerticalSummaryElement("amux_console_summary", rows...)

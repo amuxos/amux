@@ -263,28 +263,9 @@ func (b *Bridge) handleGroupPublicCommand(ctx context.Context, chatID, rootMsgID
 		if b.schedules != nil && !b.canUseBridge(openID) {
 			return b.cmdAmuxManagement(ctx, openID)
 		}
-		ws, err := b.db.ReadWorkspace(b.currentBridgeId(), chatID)
+		card, paused, err := b.groupCommandStatus(ctx, chatID)
 		if err != nil {
 			return err
-		}
-		profileState, err := b.currentBotProfileStateReadOnly()
-		if err != nil {
-			return err
-		}
-		groupSettings, err := b.db.ReadGroupSettings(b.currentBridgeId(), chatID)
-		if err != nil {
-			return err
-		}
-		mode := profileState.InteractionMode
-		if groupSettings != nil {
-			mode = groupSettings.InteractionMode
-			ws = groupSettingsWorkspace(ws, groupSettings)
-		}
-		groupWatchStatus := b.groupWatchStatusForChat(chatID)
-		paused := groupSettings != nil && !config.GetBridgeFeishuGroupSettingsEnabled()
-		card := renderGroupStatusCardWithGroupWatch(ws, mode, groupWatchStatus)
-		if paused {
-			card = renderGroupSettingsPausedCard(chatID, "")
 		}
 		if err := b.notifyRootHelpCard(ctx, chatID, rootMsgID, card); err != nil {
 			return err
@@ -297,15 +278,9 @@ func (b *Bridge) handleGroupPublicCommand(ctx context.Context, chatID, rootMsgID
 				log.Warn().Err(lookupErr).Str("chat_id", chatID).Msg("bridge: resolve group name for group watch management")
 			}
 			if b.dmInteractive != nil || b.client != nil {
-				var err error
-				switch {
-				case paused:
-					err = b.sendManagementCardToDM(ctx, openID, renderGroupSettingsPausedCard(chatID, chatName))
-				case config.GetBridgeFeishuGroupSettingsEnabled():
-					err = b.sendCurrentGroupSettingsCard(ctx, openID, chatID, chatName)
-				default:
-					state := managementState{ProfileName: b.ProfileName(), Mode: profileState.InteractionMode, DefaultAgent: profileState.DefaultAgent, GroupWatch: b.groupWatchSnapshot()}
-					err = b.sendManagementCardToDM(ctx, openID, renderCurrentGroupWatchCard(state, chatID, chatName, b.groupWatchHasChat(chatID)))
+				card, err := b.groupCommandManagement(ctx, openID, chatID, chatName, paused)
+				if err == nil {
+					err = b.sendManagementCardToDM(ctx, openID, card)
 				}
 				if err != nil {
 					log.Warn().Err(err).Str("chat_id", chatID).Msg("bridge: send current group management card")
@@ -644,4 +619,49 @@ func workspaceDefaultArgsText(args []string) string {
 		return "(none)"
 	}
 	return strings.Join(args, " ")
+}
+
+func (b *Bridge) groupCommandStatus(ctx context.Context, chatID string) (string, bool, error) {
+	ws, err := b.db.ReadWorkspaceContext(ctx, b.currentBridgeId(), chatID)
+	if err != nil {
+		return "", false, err
+	}
+	profileState, err := b.currentBotProfileStateReadOnly()
+	if err != nil {
+		return "", false, err
+	}
+	groupSettings, err := b.db.ReadGroupSettingsContext(ctx, b.currentBridgeId(), chatID)
+	if err != nil {
+		return "", false, err
+	}
+	mode := profileState.InteractionMode
+	if groupSettings != nil {
+		mode = groupSettings.InteractionMode
+		ws = groupSettingsWorkspace(ws, groupSettings)
+	}
+	groupWatchStatus := b.groupWatchStatusForChat(chatID)
+	paused := groupSettings != nil && !config.GetBridgeFeishuGroupSettingsEnabled()
+	card := renderGroupStatusCardWithGroupWatch(ws, mode, groupWatchStatus)
+	if paused {
+		card = renderGroupSettingsPausedCard(chatID, "")
+	}
+	return card, paused, nil
+}
+
+func (b *Bridge) groupCommandManagement(ctx context.Context, openID, chatID, chatName string, paused bool) (string, error) {
+	if !b.isBotOwner(openID) {
+		return "", managementLocalizedError("management.only.the.owner.can.manage.group.settings")
+	}
+	if paused {
+		return renderGroupSettingsPausedCard(chatID, chatName), nil
+	}
+	if config.GetBridgeFeishuGroupSettingsEnabled() {
+		return b.currentGroupCommandSettings(ctx, chatID, chatName)
+	}
+	state, err := b.currentBotProfileStateReadOnly()
+	if err != nil {
+		return "", err
+	}
+	view := managementState{ProfileName: b.ProfileName(), Mode: state.InteractionMode, DefaultAgent: state.DefaultAgent, GroupWatch: b.groupWatchSnapshot()}
+	return renderCurrentGroupWatchCard(view, chatID, chatName, b.groupWatchHasChat(chatID)), nil
 }

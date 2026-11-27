@@ -74,10 +74,10 @@ func (s *hubServer) ConsoleManagement(ctx context.Context, req *pb.ConsoleManage
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "console_request_required")
 	}
-	if req.Resource != "bots" && req.Resource != "groups" {
+	if req.Resource != "bots" && req.Resource != "groups" && req.Resource != "workspace" {
 		return nil, status.Error(codes.InvalidArgument, "console_unknown_resource")
 	}
-	if req.Action != "list" && req.Action != "get" && req.Action != "save" && req.Action != "references" && req.Action != "refresh_names" {
+	if req.Resource != "workspace" && req.Action != "list" && req.Action != "get" && req.Action != "save" && req.Action != "references" && req.Action != "refresh_names" {
 		return nil, status.Error(codes.InvalidArgument, "console_unknown_action")
 	}
 	if req.Action == "references" && req.Resource != "bots" || req.Action == "refresh_names" && req.Resource != "groups" {
@@ -106,7 +106,27 @@ func (s *hubServer) ConsoleManagement(ctx context.Context, req *pb.ConsoleManage
 	defer cancel()
 	var value any
 	var err error
-	if req.Resource == "bots" {
+	if req.Resource == "workspace" {
+		var input bridge.ConsoleWorkspaceRequest
+		if err := consoleDecode(body, &input); err != nil {
+			return nil, err
+		}
+		controller, err := s.consoleController(input.Profile)
+		if err != nil {
+			return nil, err
+		}
+		cards, ok := controller.(interface {
+			ConsoleWorkspace(context.Context, string, bridge.ConsoleWorkspaceRequest) (bridge.ConsoleWorkspaceResult, error)
+		})
+		if !ok {
+			return nil, status.Error(codes.Unavailable, "console_bridge_unavailable")
+		}
+		result, callErr := cards.ConsoleWorkspace(ctx, req.Action, input)
+		if callErr != nil {
+			return nil, consoleManagementError(ctx, callErr)
+		}
+		value = result
+	} else if req.Resource == "bots" {
 		value, err = s.consoleBots(ctx, req.Action, body)
 	} else {
 		value, err = s.consoleGroups(ctx, req.Action, body)

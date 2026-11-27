@@ -109,6 +109,7 @@ type ManagementAgentPackActions interface {
 
 // Bridge connects the hub to Lark.
 type Bridge struct {
+	browserCards         browserWorkspaces
 	credentialAdmissions credentialAdmissions
 	conversationMu       sync.RWMutex
 	conversationObserver ConversationObserver

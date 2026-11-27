@@ -89,6 +89,7 @@ function environment(hash = '#sessions') {
   const context = vm.createContext({ window, document, URLSearchParams, TextDecoder, Uint8Array, console: safeConsole, Date: ClockDate, setTimeout, clearTimeout, FormData: FormDataDouble });
   const base = path.join(__dirname, '..');
   vm.runInContext(fs.readFileSync(path.join(base, 'i18n.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(base, 'workspace.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(base, 'app.js'), 'utf8'), context);
   return { app: window.ConsoleApp, window, document, calls, fixture, listeners, stored, logs,
     advance(milliseconds) { now += milliseconds; for (const [id, timer] of [...timers]) if (timer.at <= now) { timers.delete(id); timer.fn(); } } };
@@ -265,6 +266,7 @@ test('settings save batches dirty keys as strings with CAS and reports restart',
   const env = environment();
   mount(env, 'settings', { settings: [{ key: 'a', value: 'false', writable: true }, { key: 'b', value: '1', writable: true }], version: 'sha', actions: ['save'] });
   for (const [key, value] of [['a', 'true'], ['b', '2']]) { const input = env.document.getElementById('setting-' + key); input.value = value; await input.fire('input'); }
+  await findButton(env, 'Review changes').click();
   await findButton(env, 'Save changes').click();
   const payload = JSON.parse(env.calls.find(c => c.url === '/api/console/settings' && c.options.method === 'POST').options.body).data;
   assert.deepEqual(payload, { expected_version: 'sha', values: { a: 'true', b: '2' }, reset: [] });
@@ -651,6 +653,7 @@ test('settings use typed controls and still save changed values as strings', asy
   const page = env.document.getElementById('page').textContent;
   assert.ok(page.includes('Chat-specific settings') && page.includes('Default') && page.includes('take effect after the system restarts'));
   toggle.value = 'true'; await toggle.fire('change');
+  await findButton(env, 'Review changes').click();
   await findButton(env, 'Save changes').click();
   const payload = JSON.parse(env.calls.find(c => c.url === '/api/console/settings' && c.options.method === 'POST').options.body).data;
   assert.deepEqual(payload, { expected_version: 'v1', values: { 'bridge.feishu.group_settings.enabled': 'true' }, reset: [] });
@@ -1030,7 +1033,7 @@ test('an expert page lists where it is used, with links, and which pack provides
   for (const expected of ['Where this expert is used', 'Bot default experts', 'Helper', 'nightly', 'review-0', '+5 more', 'Provided by', 'team', 'example.com', 'abcdef123456', 'Auto sync']) assert.ok(text.includes(expected), expected);
   assert.equal(text.includes('Persistent instances'), false, 'an empty source is not listed');
   const hrefs = page.querySelectorAll('a').map(a => a.getAttribute('href'));
-  assert.ok(hrefs.includes('#session?name=review-0&target=r') && hrefs.includes('#schedule?schedule_id=7') && hrefs.includes('#bots?') && hrefs.includes('#packs?'), hrefs.join(' '));
+  assert.ok(hrefs.includes('#session?name=review-0&target=r') && hrefs.includes('#schedule?schedule_id=7') && hrefs.includes('#bots?find=default') && hrefs.includes('#packs?'), hrefs.join(' '));
   // Nothing refers to it, and the builtin pack has no source to show.
   mount(env, 'profile', { profile: { ref: 'builtin/codex', name: 'codex' }, usage: { ref: 'builtin/codex', counts: { sessions: 0, bots: 0, schedules: 0, instances: 0 }, items: {}, unavailable: [] }, pack: { namespace: 'builtin', source_kind: 'builtin' } }, { ref: 'builtin/codex' });
   assert.ok(env.document.getElementById('page').textContent.includes('No references found in the checked sources.'));
@@ -1254,6 +1257,7 @@ test('settings come from metadata, filter experiments and reset to defaults', as
     await env.document.getElementById('page').querySelectorAll('button.tab')[0].click();
     const toggle = control('bridge.feishu.experimental.steer_foreground'); toggle.value = 'true'; await toggle.fire('change');
     await findButton(env, zh ? '恢复默认' : 'Reset to default').click();
+    await findButton(env, zh ? '审阅变更' : 'Review changes').click();
     await findButton(env, zh ? '保存变更' : 'Save changes').click();
     assert.deepEqual(postsTo(env, 'settings').at(-1), { action: 'save', data: { expected_version: 'v9', values: { 'bridge.feishu.experimental.steer_foreground': 'true' }, reset: ['runtime.session_reclaim.local.sleep_after_seconds'] } });
   }
@@ -1331,4 +1335,59 @@ test('task records filter by schedule and link back to it', async () => {
   mount(env, 'schedule', { schedule: { id: 1, name: 'nightly review', spec: '@daily', schedule_type: 'subtask', runs: [] } });
   await findButton(env, 'Task records').click();
   assert.equal(env.window.location.hash, '#tasks?schedule_id=1');
+});
+
+test('settings review preserves an edited draft across a concurrent revision', async () => {
+  const env = environment();
+  const snapshot = value => ({ settings: [{ key: 'limit', value, writable: true }], version: 'v' + value, actions: ['save'] });
+  mount(env, 'settings', snapshot('1'));
+  const input = env.document.querySelector('[name=limit]');
+  input.value = '3'; await input.fire('input');
+  mount(env, 'settings', snapshot('2'));
+  await findButton(env, 'Review changes').click();
+  const dialog = dialogs(env);
+  assert.match(dialog.textContent, /Saved value at edit time1Current saved value2Proposed value3/);
+  assert.equal(findButton(env, 'Save changes'), undefined);
+  await dialogButton(env, 'Use current saved values for comparison').click();
+  assert.equal(postsTo(env, 'settings').length, 0);
+  await findButton(env, 'Review changes').click(); await dialogButton(env, 'Save changes').click();
+  assert.deepEqual(postsTo(env, 'settings'), [{ action: 'save', data: { expected_version: 'v2', values: { limit: '3' }, reset: [] } }]);
+});
+
+test('schedule batches recheck selection and report individual outcomes', async () => {
+  const env = environment();
+  const rows = [1, 2, 3].map(id => ({ id, name: 'Job ' + id, enabled: true, state: 'enabled', actions: ['disable'] }));
+  const snapshot = { schedules: rows, actions: ['disable'] };
+  mount(env, 'schedules', snapshot);
+  const fetch = env.window.fetch;
+  env.fixture.schedules = { ...snapshot, schedules: [rows[0], rows[1], { ...rows[2], state: 'paused' }] };
+  env.window.fetch = async (url, opts) => {
+    const result = await fetch(url, opts);
+    return opts.method === 'POST' && JSON.parse(opts.body).data.schedule_id === 2
+      ? { status: 409, ok: false, json: async () => ({ code: 'version_conflict' }) } : result;
+  };
+  await findButton(env, 'Manage this page').click();
+  await dialogButton(env, 'Select all eligible on this page').click();
+  await dialogButton(env, 'Review selection').click();
+  assert.equal(postsTo(env, 'schedules').length, 0);
+  await dialogButton(env, 'Pause').click();
+  assert.deepEqual(postsTo(env, 'schedules').map(p => p.data.schedule_id), [1, 2]);
+  assert.match(dialogs(env).textContent, /Paused/);
+  assert.match(dialogs(env).textContent, /Changed since selection/);
+  assert.match(dialogs(env).textContent, /changed|conflict/i);
+});
+
+test('workspace renders bilingual native fields and invokes the displayed control', async () => {
+  const env = environment();
+  const sent = [];
+  const {e} = env.app;
+  const form = { tag: 'form', elements: [
+    { tag: 'input', name: 'name', default_value: 'QA', placeholder: { content: '名称', i18n_content: { en_us: 'Name' } } },
+    { tag: 'button', control: '3', action_type: 'form_submit', text: { content: '提交', i18n_content: { en_us: 'Submit' } } }
+  ] };
+  const card = env.window.ConsoleWorkspace.renderCard({ body: { elements: [form] } }, { e, t: key => key, language: 'en', invoke: (...args) => sent.push(args) });
+  assert.equal(card.querySelector('input').getAttribute('aria-label'), 'Name');
+  assert.equal(card.querySelector('button').textContent, 'Submit');
+  await card.querySelector('button').click();
+  assert.equal(JSON.stringify(sent), JSON.stringify([['3', { name: 'QA' }, '']]));
 });

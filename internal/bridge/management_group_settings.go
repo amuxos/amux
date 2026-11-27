@@ -152,25 +152,28 @@ func (b *Bridge) currentGroupSettingsCardWithNoticeContext(ctx context.Context, 
 	return renderCurrentGroupSettingsCardWithNotice(state, settings, root, current, b.groupSettingsCardScope(settings, chatName), notice), nil
 }
 
+func (b *Bridge) currentGroupCommandSettings(ctx context.Context, chatID, chatName string) (string, error) {
+	settings, err := b.groupSettingsDraftContext(ctx, chatID)
+	if err != nil {
+		return "", err
+	}
+	workspace, err := b.db.ReadWorkspaceContext(ctx, settings.BridgeID, settings.ChatID)
+	if err != nil {
+		return "", err
+	}
+	if workspace.Kind == WorkspaceKindPrivate {
+		return "", managementLocalizedError("management.per.group.settings.are.unavailable.in.private.chat")
+	}
+	if b.groupSettingsScopeToken(settings.BridgeID, settings.ChatID, strings.TrimSpace(chatName), settings.Version) == "" {
+		return "", managementLocalizedError("management.cannot.verify.the.group.settings.card.check.the.assistant")
+	}
+	return b.currentGroupSettingsCardContext(ctx, settings, chatName)
+}
 func (b *Bridge) sendCurrentGroupSettingsCard(ctx context.Context, openID, chatID, chatName string) error {
 	if !b.isBotOwner(openID) {
 		return managementLocalizedError("management.only.the.owner.can.manage.group.settings")
 	}
-	settings, err := b.groupSettingsDraft(chatID)
-	if err != nil {
-		return err
-	}
-	workspace, err := b.db.ReadWorkspace(settings.BridgeID, settings.ChatID)
-	if err != nil {
-		return err
-	}
-	if workspace.Kind == WorkspaceKindPrivate {
-		return managementLocalizedError("management.per.group.settings.are.unavailable.in.private.chat")
-	}
-	if b.groupSettingsScopeToken(settings.BridgeID, settings.ChatID, strings.TrimSpace(chatName), settings.Version) == "" {
-		return managementLocalizedError("management.cannot.verify.the.group.settings.card.check.the.assistant")
-	}
-	card, err := b.currentGroupSettingsCard(settings, chatName)
+	card, err := b.currentGroupCommandSettings(ctx, chatID, chatName)
 	if err != nil {
 		return err
 	}
