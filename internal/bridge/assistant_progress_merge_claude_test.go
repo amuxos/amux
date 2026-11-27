@@ -5,6 +5,7 @@ import "testing"
 // Claude SDK steered turns: several CLI runs re-emit the same answer and,
 // without message boundaries, the bridge sees it glued together.
 func TestMergeSteeredFinalAnswerCollapsesGluedRepeats(t *testing.T) {
+	t.Parallel()
 	x := "DONE-MB\n\n2 + 2 = 4\n\n3 + 3 = 6\n\n4 + 4 = 8"
 	if got := mergeSteeredFinalAnswer([]string{x + x}, x); got != x {
 		t.Fatalf("glued repeat not collapsed:\n%q", got)
@@ -21,6 +22,7 @@ func TestMergeSteeredFinalAnswerCollapsesGluedRepeats(t *testing.T) {
 }
 
 func TestCollapseRepeatedTextKeepsOrdinaryText(t *testing.T) {
+	t.Parallel()
 	for _, s := range []string{"aba", "4", "hello\n\nworld", "88", "haha", "ok\n\nok"} {
 		if got := collapseRepeatedText(s); got != s {
 			t.Fatalf("collapse(%q) = %q", s, got)

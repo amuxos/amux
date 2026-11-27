@@ -13,6 +13,7 @@ import (
 )
 
 func TestRuntimeSwitchToCodexWithModelServicesPreservesSaveDraft(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{"", "signed_in", "signed_out", "expired", "pending", "unavailable", "setup_required", "installing", "loading"} {
 		for _, services := range []int{1, 2} {
 			t.Run(fmt.Sprintf("%s/services=%d", status, services), func(t *testing.T) {
@@ -63,6 +64,7 @@ func TestRuntimeSwitchToCodexWithModelServicesPreservesSaveDraft(t *testing.T) {
 }
 
 func TestRuntimeSelectionRetainsModelWhenRuntimeUnchanged(t *testing.T) {
+	t.Parallel()
 	state := managementState{DefaultRuntimeRef: "codex", DefaultModelRef: "gpt-5.6-sol", DefaultReasoningEffort: "high"}
 	draft := managementDraftFromCallback(&callback.CallBackAction{Option: "codex", Value: map[string]any{
 		managementDraftFieldKey: "default_runtime_ref", "default_runtime_ref": "codex",
@@ -73,6 +75,7 @@ func TestRuntimeSelectionRetainsModelWhenRuntimeUnchanged(t *testing.T) {
 }
 
 func TestModelServiceStateDoesNotLeakChallengeAndPreservesDraft(t *testing.T) {
+	t.Parallel()
 	state := managementState{ModelServices: []managementModelService{{Service: modelservice.Service{ID: "external", Name: "External", Runtimes: []string{"codex"}}, State: modelservice.State{Status: "pending", LoginURL: "https://auth.example/login"}}}}
 	elements := modelServiceElements(state, "codex", map[string]string{"default_runtime_ref": "codex", "default_model_ref": "native", "default_reasoning_effort": "high"}, managementActionSettingsEdit)
 	card := marshalNativeManagementCard(managementCardView{Elements: elements})
@@ -90,6 +93,7 @@ func TestModelServiceStateDoesNotLeakChallengeAndPreservesDraft(t *testing.T) {
 	}
 }
 func TestModelServiceEditorRejectsStaleCompletion(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	old := b.advanceModelServiceEditor("card")
 	b.advanceModelServiceEditor("card")
@@ -99,6 +103,7 @@ func TestModelServiceEditorRejectsStaleCompletion(t *testing.T) {
 }
 
 func TestServiceLoginSelectionRetainsUnsavedModel(t *testing.T) {
+	t.Parallel()
 	for _, field := range []string{"default_model_ref", "group_model", "document_comments_model_ref", "group_watch_model_ref"} {
 		action := &callback.CallBackAction{Name: field, Option: modelServiceEntryPrefix + "external",
 			Value:     map[string]interface{}{field: "previous-model", managementDraftFieldKey: field, "default_reasoning_effort": "high"},
@@ -118,6 +123,7 @@ func TestServiceLoginSelectionRetainsUnsavedModel(t *testing.T) {
 }
 
 func TestModelServiceControlsReflectLoginState(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ status, want, operation string }{
 		{"signed_out", "登录 External", "login"}, {"expired", "登录 External", "login"},
 		{"signed_in", "刷新模型列表", "refresh"}, {"pending", "完成登录后自动刷新", "refresh"},
@@ -136,6 +142,7 @@ func TestModelServiceControlsReflectLoginState(t *testing.T) {
 }
 
 func TestModelServiceInstallIsExplicitAndPreservesServiceSelection(t *testing.T) {
+	t.Parallel()
 	state := managementState{ModelServices: []managementModelService{{
 		Service: modelservice.Service{ID: "external", Name: "External", Runtimes: []string{"codex"}},
 		State:   modelservice.State{Status: "setup_required", CanInstall: true},

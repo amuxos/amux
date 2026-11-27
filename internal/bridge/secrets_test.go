@@ -47,6 +47,7 @@ func TestDefaultPathsUseAMUXHome(t *testing.T) {
 }
 
 func TestProfileSecretsPathRejectsUnsafeNames(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"", " planner ", "../planner", "team/planner", "planner.json", "planner disabled"} {
 		if _, err := ProfileSecretsPath(name); err == nil {
 			t.Fatalf("ProfileSecretsPath(%q) accepted unsafe profile", name)
@@ -106,6 +107,7 @@ func TestListSecretProfiles(t *testing.T) {
 }
 
 func TestBridgeIdFromAppId(t *testing.T) {
+	t.Parallel()
 	got := BridgeIdFromAppId(" cli_planner ")
 	if got != "feishu:cli_planner" {
 		t.Fatalf("bridge id = %q, want feishu:cli_planner", got)
@@ -116,6 +118,7 @@ func TestBridgeIdFromAppId(t *testing.T) {
 }
 
 func TestCarrySecretsForApp(t *testing.T) {
+	t.Parallel()
 	existing := &Secrets{
 		AppId:        "cli_old",
 		AppSecret:    "sec_old",

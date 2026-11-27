@@ -91,6 +91,7 @@ func TestSubtaskTurnReplyMentionsUseExactParentTurnRecipients(t *testing.T) {
 }
 
 func TestSubtaskNoticeParentTurnID(t *testing.T) {
+	t.Parallel()
 	text := "[后台任务完成] task_id=task-1 status=succeeded parent_turn_id=turn-parent\n结论: done"
 	if got := subtaskNoticeParentTurnID(text); got != "turn-parent" {
 		t.Fatalf("parent turn = %q", got)
@@ -101,6 +102,7 @@ func TestSubtaskNoticeParentTurnID(t *testing.T) {
 }
 
 func TestSendTurnInitiatorMentionFinalCreatesMentionedDM(t *testing.T) {
+	t.Parallel()
 	var query string
 	var body map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -137,6 +139,7 @@ func TestSendTurnInitiatorMentionFinalCreatesMentionedDM(t *testing.T) {
 }
 
 func TestReplyMentionRenderersUseNativeMentionsWithoutChangingAnswer(t *testing.T) {
+	t.Parallel()
 	card := renderAgentReplyCardWithMentions("原始回答", []string{"ou-a", "ou-b", "ou-a"})
 	requireCardMentions(t, card, "ou-a", "ou-b")
 	if !strings.Contains(card, "原始回答") {
@@ -191,6 +194,7 @@ func TestReplyMentionRenderersUseNativeMentionsWithoutChangingAnswer(t *testing.
 }
 
 func TestReplyMentionCompletionWithoutActivityRetainsExecutionStatus(t *testing.T) {
+	t.Parallel()
 	card := renderAgentReplyCompletionCard(nil)
 	for _, locale := range []i18n.Locale{i18n.Chinese, i18n.English} {
 		replyCompletionCardText(t, card, locale)
@@ -219,6 +223,7 @@ func replyCompletionCardText(t *testing.T, raw string, locale i18n.Locale) strin
 }
 
 func TestReplyMentionCompletionPreservesCollapsedActivity(t *testing.T) {
+	t.Parallel()
 	activity := renderTurnActivity(toolActivityCardMeta{
 		Status: "done",
 		Activity: &agentui.ActivityView{
@@ -256,6 +261,7 @@ func TestReplyMentionCompletionPreservesCollapsedActivity(t *testing.T) {
 }
 
 func TestReplyMentionFinalOwnsConversationSection(t *testing.T) {
+	t.Parallel()
 	card := renderMentionFinalCard("answer", []string{"ou-a"}, true)
 	assertTurnCardChildOrder(t, card, cardKitReplyElementID, amuxBrandDividerID, conversationSectionID)
 	requireCardMentions(t, card, "ou-a")
@@ -263,6 +269,7 @@ func TestReplyMentionFinalOwnsConversationSection(t *testing.T) {
 }
 
 func TestCardKitReplyMentionPublishesFinalCardThenCompactsProgress(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-activity"}
 	sendCount := 0
 	finalSendCount := 0
@@ -339,6 +346,7 @@ func TestCardKitReplyMentionPublishesFinalCardThenCompactsProgress(t *testing.T)
 }
 
 func TestCardKitReplyMentionWaitsForAllSplitCardsAndCompactsEachOldMessage(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-split"}
 	progressSendCount := 0
 	type finalPart struct {
@@ -419,6 +427,7 @@ func TestCardKitReplyMentionWaitsForAllSplitCardsAndCompactsEachOldMessage(t *te
 }
 
 func TestLegacyReplyMentionPublishesFinalCardThenCompactsPatchedAnswer(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{createErr: errors.New("cardkit unavailable")}
 	var created, patched, finalCard string
 	var compacted []string
@@ -459,6 +468,7 @@ func TestLegacyReplyMentionPublishesFinalCardThenCompactsPatchedAnswer(t *testin
 }
 
 func TestReplyMentionFinalSendRetriesWithStableUUIDAndDoesNotCompactOnFailure(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-retry"}
 	var requestUUIDs []string
 	var compacted []string
@@ -492,6 +502,7 @@ func TestReplyMentionFinalSendRetriesWithStableUUIDAndDoesNotCompactOnFailure(t 
 }
 
 func TestReplyMentionFinalCompressionFailureRetriesWithoutResendingFinal(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-recall-retry"}
 	finalSendCount := 0
 	compactCount := 0
@@ -522,6 +533,7 @@ func TestReplyMentionFinalCompressionFailureRetriesWithoutResendingFinal(t *test
 }
 
 func TestReplyMentionFinalWaitsForSuccessfulAnswerFinish(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-finish-error", finishErr: errors.New("finish failed")}
 	finalSendCount := 0
 	backend := &bindingReplyCardBackend{
@@ -544,6 +556,7 @@ func TestReplyMentionFinalWaitsForSuccessfulAnswerFinish(t *testing.T) {
 }
 
 func TestReplyMentionFinalOnlyPublishesForCompletedTurn(t *testing.T) {
+	t.Parallel()
 	for name, finish := range map[string]func(*streamingReplySender){
 		"flush and close":          func(s *streamingReplySender) { s.Flush(); s.Close() },
 		"reset without completion": func(s *streamingReplySender) { s.Flush(); s.Reset() },
@@ -582,6 +595,7 @@ func TestReplyMentionFinalOnlyPublishesForCompletedTurn(t *testing.T) {
 }
 
 func TestReplyMentionStateCanBeClaimedByAggregatorTimer(t *testing.T) {
+	t.Parallel()
 	state := &replyMentionState{}
 	state.observe("turn")
 	resolves := 0
@@ -627,6 +641,7 @@ func TestReplyMentionStateCanBeClaimedByAggregatorTimer(t *testing.T) {
 }
 
 func TestReplyMentionStateResolvesLateSubmitSender(t *testing.T) {
+	t.Parallel()
 	state := &replyMentionState{}
 	state.observe("turn")
 	var senders []string

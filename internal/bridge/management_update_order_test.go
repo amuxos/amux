@@ -103,6 +103,7 @@ func TestManagementCardSuppressesStaleFallback(t *testing.T) {
 }
 
 func TestManagementCardQueuedWriteRejectsOldVersion(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	writes := 0
 	b.managementCardPatch = func(context.Context, string, string) error { writes++; return nil }

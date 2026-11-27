@@ -19,6 +19,7 @@ import (
 )
 
 func TestSyncNativeSlashCommandsCreatesMissingCommands(t *testing.T) {
+	t.Parallel()
 	var created []nativeSlashCommandPayload
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -88,6 +89,7 @@ func TestSyncNativeSlashCommandsCreatesMissingCommands(t *testing.T) {
 }
 
 func TestSyncNativeSlashCommandsUpdatesDriftAndPreservesOtherNames(t *testing.T) {
+	t.Parallel()
 	var patchedPath string
 	var patched nativeSlashCommandPayload
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +175,7 @@ func TestSyncNativeSlashCommandsUpdatesDriftAndPreservesOtherNames(t *testing.T)
 }
 
 func TestSyncNativeSlashCommandsRemovesOnlyLegacyPerSkillCommands(t *testing.T) {
+	t.Parallel()
 	desired := command.NativeSlashCommand{
 		Command: "skill", Description: "选择 Skill",
 		I18n:    map[string]string{"zh_cn": "选择 Skill", "en_us": "Choose a skill"},
@@ -212,6 +215,7 @@ func TestSyncNativeSlashCommandsRemovesOnlyLegacyPerSkillCommands(t *testing.T) 
 }
 
 func TestSyncNativeSlashCommandsRemovesRetiredAmuxCommandsOnly(t *testing.T) {
+	t.Parallel()
 	var deleted []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -249,6 +253,7 @@ func TestSyncNativeSlashCommandsRemovesRetiredAmuxCommandsOnly(t *testing.T) {
 }
 
 func TestSyncNativeSlashCommandsRemovesExactManagedCommandsOutsideCurrentSurface(t *testing.T) {
+	t.Parallel()
 	var deleted []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -291,6 +296,7 @@ func TestSyncNativeSlashCommandsRemovesExactManagedCommandsOutsideCurrentSurface
 }
 
 func TestSyncNativeSlashCommandsReportsRequiredScopes(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -605,6 +611,7 @@ func nativeSlashCommandNames(commands []command.NativeSlashCommand) []string {
 }
 
 func TestNativeAgentCommandAliasIsInjectiveAndRejectsUnsafeNames(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		want string
@@ -625,6 +632,7 @@ func TestNativeAgentCommandAliasIsInjectiveAndRejectsUnsafeNames(t *testing.T) {
 }
 
 func TestStartNativeSlashCommandSyncRunsOnceAndFailsOpen(t *testing.T) {
+	t.Parallel()
 	var listCalls atomic.Int32
 	listStarted := make(chan struct{}, 2)
 	listCompleted := make(chan struct{}, 2)

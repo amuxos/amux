@@ -10,6 +10,7 @@ import (
 )
 
 func TestQueuePromotionCallbackRejectsDifferentUserOrCard(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	b.steerForeground.Store(true)
 	entry := &queuePromotion{
@@ -43,6 +44,7 @@ func TestQueuePromotionCallbackRejectsDifferentUserOrCard(t *testing.T) {
 }
 
 func TestQueuePromotionCardLocales(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		locale i18n.Locale
 		action string
@@ -63,6 +65,7 @@ func TestQueuePromotionCardLocales(t *testing.T) {
 }
 
 func TestCoalescedForegroundPreservesSenderAndOriginalTurn(t *testing.T) {
+	t.Parallel()
 	hub := &fakeSubmitHub{}
 	b := &Bridge{hub: hub, turnCoalescer: turnCoalescer{coalesceDelay: time.Hour}}
 	b.steerForeground.Store(true)

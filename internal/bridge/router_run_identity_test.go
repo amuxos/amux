@@ -97,6 +97,7 @@ func TestBotSingletonLaunchSelectsPassthrough(t *testing.T) {
 // credential does not break the session — it breaks whatever that session's
 // agent later creates, in a place that names neither.
 func TestFeishuSessionRunCarriesTheResolvedLaunchIdentity(t *testing.T) {
+	t.Parallel()
 	hub := &bridgeTestHub{}
 	b := &Bridge{hub: hub, profile: "coder", bridgeID: "feishu:cli_coder", sessionStarter: sessionlaunch.New(hub)}
 	want := LaunchIdentity{
@@ -146,6 +147,7 @@ func TestFeishuSessionRunCarriesTheResolvedLaunchIdentity(t *testing.T) {
 // 每个话题独立(用户隔离) mode an empty resolved identity (no isolation helper /
 // resolver degraded) is refused instead of falling back to a legacy-host run.
 func TestFeishuSessionRunIsolationRequiredRefusesAnonymousLaunch(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(t.TempDir() + "/bridge.db")
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -178,6 +180,7 @@ func TestFeishuSessionRunIsolationRequiredRefusesAnonymousLaunch(t *testing.T) {
 }
 
 func TestFeishuSessionRunIsolationRequiredPinsNaturalIdentity(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(t.TempDir() + "/bridge.db")
 	if err != nil {
 		t.Fatal(err)
@@ -210,6 +213,7 @@ func TestFeishuSessionRunIsolationRequiredPinsNaturalIdentity(t *testing.T) {
 }
 
 func TestFeishuSessionRunIsolationRequiredRejectsExplicitNonisolatedBackend(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"passthrough", "unknown"} {
 		t.Run(backend, func(t *testing.T) {
 			db, err := openBridgeDB(t.TempDir() + "/bridge.db")

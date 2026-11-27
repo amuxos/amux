@@ -208,6 +208,7 @@ func newDocumentCommentTestBridge(t *testing.T, owner string) (*Bridge, *bridgeT
 }
 
 func TestReplyDocumentCommentRejectsIncompleteSuccessResponse(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		response string
@@ -265,6 +266,7 @@ func TestReplyDocumentCommentRejectsIncompleteSuccessResponse(t *testing.T) {
 }
 
 func TestDocumentCommentOwnerCreatesOneSessionAndReusesIt(t *testing.T) {
+	t.Parallel()
 	b, hub, replies, reactions := newDocumentCommentTestBridge(t, "owner-open")
 	event := &larktypes.CommentEvent{
 		EventID: "event-1", CommentID: "comment-1", ReplyID: "reply-1",
@@ -311,6 +313,7 @@ func TestDocumentCommentOwnerCreatesOneSessionAndReusesIt(t *testing.T) {
 }
 
 func TestDocumentCommentNonOwnerDoesNotReadOrStartSession(t *testing.T) {
+	t.Parallel()
 	b, hub, replies, reactions := newDocumentCommentTestBridge(t, "owner-open")
 	fetched := false
 	b.documentCommentFetch = func(context.Context, documentCommentRef) (documentCommentSnapshot, error) {
@@ -343,6 +346,7 @@ func TestDocumentCommentNonOwnerDoesNotReadOrStartSession(t *testing.T) {
 }
 
 func TestDocumentCommentIgnoresUnmentionedSelfAndDuplicateEvents(t *testing.T) {
+	t.Parallel()
 	b, hub, replies, reactions := newDocumentCommentTestBridge(t, "owner-open")
 	base := larktypes.CommentEvent{
 		EventID: "event-1", CommentID: "comment-1", ReplyID: "reply-1",
@@ -380,6 +384,7 @@ func TestDocumentCommentIgnoresUnmentionedSelfAndDuplicateEvents(t *testing.T) {
 }
 
 func TestDocumentCommentSubmitFailureClearsProcessingReaction(t *testing.T) {
+	t.Parallel()
 	b, hub, replies, reactions := newDocumentCommentTestBridge(t, "owner-open")
 	hub.routeErrs = map[string]error{"Submit": errors.New("submit unavailable")}
 	event := &larktypes.CommentEvent{
@@ -400,6 +405,7 @@ func TestDocumentCommentSubmitFailureClearsProcessingReaction(t *testing.T) {
 }
 
 func TestDocumentCommentSubmitCancellationUsesIndependentReactionCleanupContext(t *testing.T) {
+	t.Parallel()
 	b, hub, _, _ := newDocumentCommentTestBridge(t, "owner-open")
 	eventCtx, cancel := context.WithCancel(context.Background())
 	b.hub = &cancelOnSubmitDocumentHub{bridgeTestHub: hub, cancel: cancel}
@@ -426,6 +432,7 @@ func TestDocumentCommentSubmitCancellationUsesIndependentReactionCleanupContext(
 }
 
 func TestDocumentCommentReactionFailureFallsBackToTextAcknowledgement(t *testing.T) {
+	t.Parallel()
 	b, _, replies, _ := newDocumentCommentTestBridge(t, "owner-open")
 	b.documentCommentReact = func(context.Context, documentCommentRef, string, string) error {
 		return errors.New("reaction unavailable")
@@ -444,6 +451,7 @@ func TestDocumentCommentReactionFailureFallsBackToTextAcknowledgement(t *testing
 }
 
 func TestDocumentCommentPromptAndReplyBudget(t *testing.T) {
+	t.Parallel()
 	prompt := renderDocumentCommentPrompt("event<&", "检查 <权限>", documentCommentSnapshot{
 		Quote:           "选区 & 引用",
 		AnchorPrecision: "block",
@@ -487,6 +495,7 @@ func TestDocumentCommentPromptAndReplyBudget(t *testing.T) {
 }
 
 func TestDocumentCommentContextLocatesElementAndNeighborBlocks(t *testing.T) {
+	t.Parallel()
 	commentID := "comment-1"
 	blocks := []*larkdocx.Block{
 		textDocumentBlock("block-1", "上文", nil, nil),
@@ -504,6 +513,7 @@ func TestDocumentCommentContextLocatesElementAndNeighborBlocks(t *testing.T) {
 }
 
 func TestDocumentCommentContextKeepsAnchorWhenPreviousBlockExceedsBudget(t *testing.T) {
+	t.Parallel()
 	commentID := "comment-1"
 	blocks := []*larkdocx.Block{
 		textDocumentBlock("block-1", strings.Repeat("前", documentContextRuneLimit+100), nil, nil),
@@ -545,6 +555,7 @@ func textDocumentBlock(blockID, text string, blockCommentIDs, elementCommentIDs 
 }
 
 func TestDocumentCommentUsesRepliesEmbeddedInBatchQuery(t *testing.T) {
+	t.Parallel()
 	replyID := "reply-1"
 	ownerID := "owner-open"
 	createdAt := 123
@@ -591,6 +602,7 @@ func TestDocumentCommentUsesRepliesEmbeddedInBatchQuery(t *testing.T) {
 }
 
 func TestDocumentCommentSubscriptionFailureDisablesOnlyDocumentSource(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{
 		documentCommentController: documentCommentController{documentCommentsEnabled: true},
 		documentCommentAPI: documentCommentAPI{documentSubscribe: func(context.Context) error {
@@ -687,6 +699,7 @@ enabled = true
 }
 
 func TestDocumentCommentAttachOutputReturnsFinalNativeReply(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -744,6 +757,7 @@ func TestDocumentCommentAttachOutputReturnsFinalNativeReply(t *testing.T) {
 }
 
 func TestDocumentCommentSubmitWaitsForAttachReadinessHeartbeat(t *testing.T) {
+	t.Parallel()
 	b, base, _, _ := newDocumentCommentTestBridge(t, "owner-open")
 	hub := &documentReadinessHub{
 		bridgeTestHub: base,
@@ -802,6 +816,7 @@ func TestDocumentCommentSubmitWaitsForAttachReadinessHeartbeat(t *testing.T) {
 }
 
 func TestDocumentCommentAttachFailureClosesPendingTurnWithNativeError(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -850,6 +865,7 @@ func TestDocumentCommentAttachFailureClosesPendingTurnWithNativeError(t *testing
 }
 
 func TestDocumentCommentDeliveryTimeoutRepliesOnceAndClearsReaction(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -915,6 +931,7 @@ func TestDocumentCommentDeliveryTimeoutRepliesOnceAndClearsReaction(t *testing.T
 }
 
 func TestDocumentCommentFinalizationClaimFailureDoesNotPublish(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -1016,6 +1033,7 @@ func TestRetryFeishuRateLimitRespectsContextCancellation(t *testing.T) {
 }
 
 func TestIsFeishuRateLimitError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		err  error
@@ -1037,6 +1055,7 @@ func TestIsFeishuRateLimitError(t *testing.T) {
 }
 
 func TestDocumentCommentSemaphoreLimitsConcurrency(t *testing.T) {
+	t.Parallel()
 	sem := make(chan struct{}, 2)
 	ctx := context.Background()
 

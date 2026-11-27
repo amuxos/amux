@@ -75,6 +75,7 @@ func TestGroupWatchSettingsRouteByChatAndSkipPausedPolling(t *testing.T) {
 }
 
 func TestGroupWatchSettingsDraftKeepsScopeAndAllFieldsAcrossRefresh(t *testing.T) {
+	t.Parallel()
 	state := managementState{DefaultAgent: "builtin/codex", DefaultRuntimeRef: "codex", Profiles: []managementProfileSummary{{Ref: "builtin/codex", AgentType: "codex"}}, Runtimes: []agentprofile.RuntimeOption{{Ref: "codex"}}, GroupWatch: config.BridgeFeishuGroupWatchConfig{Enabled: true, ChatIDs: []string{"group_a", "group_b"}}}
 	draft := managementGroupWatchDraft{ChatID: "group_a", ChatName: "Group A", Version: "0", Enabled: "false", MaxActive: "7", IdleSeconds: "180", Mode: "custom", AgentRef: "builtin/codex", RuntimeRef: "codex", ThinkingProcess: "hidden"}
 	values := map[string]any{}
@@ -101,6 +102,7 @@ func TestGroupWatchSettingsDraftKeepsScopeAndAllFieldsAcrossRefresh(t *testing.T
 }
 
 func TestGroupWatchSettingsEditorExposesAllFieldsWithinCardBudget(t *testing.T) {
+	t.Parallel()
 	state := managementState{DefaultAgent: "builtin/codex", DefaultRuntimeRef: "codex", Runtimes: []agentprofile.RuntimeOption{{Ref: "codex"}}}
 	for i := 0; i < 80; i++ {
 		state.Profiles = append(state.Profiles, managementProfileSummary{Ref: fmt.Sprintf("expert/%d", i), Name: fmt.Sprintf("Expert %d", i), AgentType: "codex"})
@@ -299,6 +301,7 @@ func TestGroupWatchSettingsInheritGroupExecutionAndModelDiscoveryScope(t *testin
 }
 
 func TestGroupWatchSettingsCardsShowEffectiveGroupPolicy(t *testing.T) {
+	t.Parallel()
 	state := managementState{Mode: "thread", GroupWatch: config.BridgeFeishuGroupWatchConfig{
 		Enabled: true, ChatIDs: []string{"group_a"}, AgentProfileRef: "global-watch-expert",
 		ChatSettings: map[string]config.BridgeFeishuGroupWatchChatConfig{"group_a": {Enabled: false, AgentProfileRef: "group-watch-expert"}},
@@ -314,6 +317,7 @@ func TestGroupWatchSettingsCardsShowEffectiveGroupPolicy(t *testing.T) {
 }
 
 func TestGroupWatchSettingsEditorSelectsRefreshModelsOutsideForm(t *testing.T) {
+	t.Parallel()
 	state := managementState{DefaultAgent: "builtin/codex", Profiles: []managementProfileSummary{{Ref: "builtin/codex", Name: "Codex", AgentType: "codex"}}, GroupWatch: config.BridgeFeishuGroupWatchConfig{Enabled: true, ChatIDs: []string{"group_a"}},
 		Runtimes: []agentprofile.RuntimeOption{
 			{Ref: "codex", DisplayName: "Codex", Models: []agentprofile.RuntimeModelOption{{Ref: "codex-model-a", DisplayName: "Codex A"}, {Ref: "codex-model-b", DisplayName: "Codex B"}}},

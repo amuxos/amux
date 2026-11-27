@@ -59,6 +59,7 @@ func TestSessionLocalePrivateTopicsAndGroupIsolation(t *testing.T) {
 }
 
 func TestSessionLocaleCardKitCreationInsertionAndReplacement(t *testing.T) {
+	t.Parallel()
 	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese, ""} {
 		for _, activityFirst := range []bool{true, false} {
 			t.Run(string(locale)+map[bool]string{true: "-activity", false: "-answer"}[activityFirst], func(t *testing.T) {
@@ -172,6 +173,7 @@ func TestSessionLocaleRetryKeepsOriginalRecipient(t *testing.T) {
 }
 
 func TestSessionLocaleLegacyReceiptsPersistAndRemainPrivate(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db, err := openBridgeDB(path)
 	if err != nil {

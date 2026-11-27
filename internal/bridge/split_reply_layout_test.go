@@ -20,6 +20,7 @@ import (
 )
 
 func TestMentionConversationSectionPlacesActionAfterRecipientsAndExpandsRichContent(t *testing.T) {
+	t.Parallel()
 	action := json.RawMessage(`{"tag":"column_set","flex_mode":"none","columns":[{"tag":"column","width":"auto","elements":[{"tag":"button","name":"solved","text":{"tag":"plain_text","content":"已解决？","i18n_content":{"zh_cn":"已解决？","en_us":"Resolved?"}},"behaviors":[{"type":"callback","value":{"action":"feedback_solved","opaque":"keep"}}]}]}]}`)
 	rich := json.RawMessage(`{"tag":"div","text":{"tag":"plain_text","content":"A complete draft","i18n_content":{"zh_cn":"完整草稿","en_us":"A complete draft"}},"extra_extension_attribute":"preserved"}`)
 	for _, locale := range []i18n.Locale{i18n.Chinese, i18n.English} {
@@ -76,6 +77,7 @@ func TestMentionConversationSectionPlacesActionAfterRecipientsAndExpandsRichCont
 }
 
 func TestMentionFinalCardRetainsOneNativeMentionAndOnlyAnswerIsQuoted(t *testing.T) {
+	t.Parallel()
 	for _, section := range []bool{false, true} {
 		raw := renderMentionFinalCard("original answer", []string{"ou-a", "ou-a"}, section)
 		requireCardMentions(t, raw, "ou-a")
@@ -115,6 +117,7 @@ func TestMentionFinalCardRetainsOneNativeMentionAndOnlyAnswerIsQuoted(t *testing
 }
 
 func TestMentionConversationFinalDeliveryRetainsReferenceAcrossFailuresAndTurns(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []string{"none", "send_once", "send_always", "compact_always"} {
 		t.Run(failure, func(t *testing.T) {
 			api := &fakeCardKitReplyAPI{cardIDs: []string{"progress-card", "final-card", "next-card"}}
@@ -186,6 +189,7 @@ func TestMentionConversationFinalDeliveryRetainsReferenceAcrossFailuresAndTurns(
 }
 
 func TestMentionConversationLongFinalOnlyLastPartOwnsFeedback(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card"}
 	var legacyParts []string
 	var cardSends int

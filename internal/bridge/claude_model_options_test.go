@@ -27,6 +27,7 @@ func hasModelRef(runtime agentprofile.RuntimeOption, ref string) (agentprofile.R
 }
 
 func TestMergeClaudeRuntimeModelsAddsConfiguredRefs(t *testing.T) {
+	t.Parallel()
 	catalog, err := agentprofile.RuntimeCatalog()
 	if err != nil {
 		t.Fatalf("runtime catalog: %v", err)
@@ -66,6 +67,7 @@ func TestMergeClaudeRuntimeModelsAddsConfiguredRefs(t *testing.T) {
 }
 
 func TestMergeClaudeRuntimeModelsIsIdempotent(t *testing.T) {
+	t.Parallel()
 	catalog, err := agentprofile.RuntimeCatalog()
 	if err != nil {
 		t.Fatalf("runtime catalog: %v", err)
@@ -80,6 +82,7 @@ func TestMergeClaudeRuntimeModelsIsIdempotent(t *testing.T) {
 }
 
 func TestConfiguredClaudeModelAppearsInPicker(t *testing.T) {
+	t.Parallel()
 	catalog, err := agentprofile.RuntimeCatalog()
 	if err != nil {
 		t.Fatalf("runtime catalog: %v", err)
@@ -95,6 +98,7 @@ func TestConfiguredClaudeModelAppearsInPicker(t *testing.T) {
 }
 
 func TestMergeClaudeRuntimeModelsNoConfigIsNoOp(t *testing.T) {
+	t.Parallel()
 	catalog, err := agentprofile.RuntimeCatalog()
 	if err != nil {
 		t.Fatalf("runtime catalog: %v", err)

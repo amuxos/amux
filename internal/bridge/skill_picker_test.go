@@ -12,6 +12,7 @@ import (
 )
 
 func TestParseSkillCommand(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		text     string
 		wantName string
@@ -35,6 +36,7 @@ func TestParseSkillCommand(t *testing.T) {
 }
 
 func TestRenderSkillPickerCardPaginatesSkills(t *testing.T) {
+	t.Parallel()
 	skills := make([]advertisedAgentCommand, 0, 51)
 	for i := 0; i < 51; i++ {
 		skills = append(skills, advertisedAgentCommand{Name: fmt.Sprintf("skill-%03d", i), Description: "Useful skill"})

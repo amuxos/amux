@@ -46,6 +46,7 @@ func (f *fakeLarkHTTP) Do(req *http.Request) (*http.Response, error) {
 }
 
 func TestLarkTokenRejectedInvalidatesCacheAndRetries(t *testing.T) {
+	t.Parallel()
 	cache := newLarkTokenCache()
 	fake := &fakeLarkHTTP{rejectFor: "t1"}
 	client := lark.NewClient("cli_test", "secret",
@@ -74,6 +75,7 @@ func TestLarkTokenRejectedInvalidatesCacheAndRetries(t *testing.T) {
 }
 
 func TestLarkTokenCacheUsesWallClock(t *testing.T) {
+	t.Parallel()
 	c := newLarkTokenCache()
 	base := time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC)
 	now := base
@@ -96,6 +98,7 @@ func TestLarkTokenCacheUsesWallClock(t *testing.T) {
 }
 
 func TestLarkWSSupervisorInvalidatesTokensOnSuspend(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()

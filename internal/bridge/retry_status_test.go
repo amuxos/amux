@@ -10,6 +10,7 @@ import (
 )
 
 func TestToolActivityCardTitleShowsRetryStatusBilingual(t *testing.T) {
+	t.Parallel()
 	started := time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)
 	now := started.Add(14 * time.Second)
 	meta := toolActivityCardMeta{

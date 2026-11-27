@@ -97,6 +97,7 @@ func TestManagementExperimentsOwnerSaveAndValidation(t *testing.T) {
 }
 
 func TestManagementExperimentsCompactList(t *testing.T) {
+	t.Parallel()
 	saved := config.ExperimentsSettings{CompletionNotification: config.CompletionNotificationSettings{Enabled: true, AfterSeconds: 30}, MemoryEnabled: true}
 	running := saved
 	card := renderManagementExperimentsCard(saved, running)
@@ -210,6 +211,7 @@ func TestManagementReplyEndNotificationAppliesLiveAndOldFormsPreserveIt(t *testi
 }
 
 func TestManagementExperimentsOldCardPreservesOmittedSwitches(t *testing.T) {
+	t.Parallel()
 	for _, omitted := range []string{"both", "group", "memory"} {
 		t.Run(omitted, func(t *testing.T) {
 			saved := config.ExperimentsSettings{GroupSettingsEnabled: true, MemoryEnabled: true, CompletionNotification: config.CompletionNotificationSettings{AfterSeconds: 60}}
@@ -235,6 +237,7 @@ func TestManagementExperimentsOldCardPreservesOmittedSwitches(t *testing.T) {
 }
 
 func TestManagementExperimentsMentionTurnInitiatorCallbackPreservesOmittedValue(t *testing.T) {
+	t.Parallel()
 	saved := config.ExperimentsSettings{MentionTurnInitiator: true}
 	action := &callback.CallBackAction{FormValue: map[string]any{"completion_enabled": "false"}}
 	update, err := managementExperimentsSettingsFromCallback(action, saved)
@@ -413,6 +416,7 @@ func TestManagementExperimentsOpenReturnsValidCardComponents(t *testing.T) {
 }
 
 func TestManagementExperimentsPendingStateBelongsToEachItem(t *testing.T) {
+	t.Parallel()
 	fields := []string{"completion_enabled", "group_settings_enabled", "memory_enabled"}
 	for _, changed := range fields {
 		t.Run(changed, func(t *testing.T) {
@@ -480,6 +484,7 @@ func TestCompletionNotificationExperimentDisabledSuppressesAllNewNotices(t *test
 }
 
 func TestCodexExecutableExperimentBilingual(t *testing.T) {
+	t.Parallel()
 	saved := config.ExperimentsSettings{CodexExecutable: "~/bin/codex-team"}
 	card := renderManagementExperimentsCard(saved, config.ExperimentsSettings{})
 	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese} {

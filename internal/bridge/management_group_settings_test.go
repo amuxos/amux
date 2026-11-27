@@ -50,6 +50,7 @@ func groupSettingsTestCard(t *testing.T, cards <-chan string) string {
 }
 
 func TestGroupSettingsProfileRuntimeReasoningUsesEffectiveProfileModel(t *testing.T) {
+	t.Parallel()
 	state := managementState{
 		Profiles: []managementProfileSummary{{Ref: "team/coder", AgentType: "codex", Model: "profile-default"}},
 		Runtimes: []agentprofile.RuntimeOption{{
@@ -706,6 +707,7 @@ func TestGroupSettingsEditCardProductionEntryStaysWithinLimit(t *testing.T) {
 }
 
 func TestGroupSettingsBuiltinCallerRuntimeModels(t *testing.T) {
+	t.Parallel()
 	profile, ok := agentprofile.ResolveBuiltin("builtin/pi")
 	if !ok {
 		t.Fatal("missing builtin/pi")
@@ -756,6 +758,7 @@ func TestGroupSettingsBuiltinCallerRuntimeModels(t *testing.T) {
 }
 
 func TestGroupSettingsLegacyProfileModelRestrictions(t *testing.T) {
+	t.Parallel()
 	for _, supported := range [][]string{nil, {}, {"allowed-model"}} {
 		state := managementState{
 			Profiles: []managementProfileSummary{{Ref: "legacy/expert", AgentType: "pi", SupportedModels: supported}},
@@ -774,6 +777,7 @@ func TestGroupSettingsLegacyProfileModelRestrictions(t *testing.T) {
 }
 
 func TestGroupSettingsCallerPresetDefaultModelLabel(t *testing.T) {
+	t.Parallel()
 	state := managementState{
 		Profiles: []managementProfileSummary{{Ref: "builtin/pi", AgentType: "pi", Model: "preset-model", CallerDefaults: true}},
 		Runtimes: []agentprofile.RuntimeOption{{Ref: "pi", Models: []agentprofile.RuntimeModelOption{{Ref: "other-model"}}}},

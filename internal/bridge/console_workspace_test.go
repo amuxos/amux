@@ -126,6 +126,7 @@ func TestBrowserWorkspacePrivateBindingAndNavigation(t *testing.T) {
 }
 
 func TestBrowserWorkspaceFrameOwnsInputsAndPassword(t *testing.T) {
+	t.Parallel()
 	card := renderManagementConsoleCard(ManagementConsoleInfo{Enabled: true, URL: "http://localhost:7892", Password: "private-only-password", ExpiresAt: time.Now().Add(time.Minute)}, "", time.Now())
 	if raw := string(browserFrame(card).card); strings.Contains(raw, "private-only-password") || !strings.Contains(raw, "localhost:7892") {
 		t.Fatal("temporary password projection is invalid")

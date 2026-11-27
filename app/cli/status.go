@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -165,15 +166,19 @@ func collectCLIStatus(ctx context.Context) cliStatusReport {
 		report.LocalSessions.Error = "runtime socket missing"
 	}
 
-	inspectConfiguredHub(ctx, &report, hubAddr())
+	addr := hubAddr()
+	hc, hubErr := inspectConfiguredHub(ctx, &report, addr)
+	if hc != nil {
+		defer hc.Close()
+	}
 	report.MCP = finalizeMCPBackend(report.MCP, report.Hub)
 
-	if feishu, err := feishuStatus(ctx, ""); err == nil {
+	if feishu, err := feishuStatusWithHub(ctx, hc, addr != "", hubErr, ""); err == nil {
 		report.Feishu = feishu
 	} else {
 		report.Feishu = &pb.FeishuStatusResponse{Error: err.Error()}
 	}
-	if bots, err := feishuBots(ctx); err == nil {
+	if bots, err := feishuBotsWithHub(ctx, hc, hubErr); err == nil {
 		report.FeishuBots = bots
 	} else {
 		report.FeishuBotsErr = err.Error()
@@ -181,17 +186,25 @@ func collectCLIStatus(ctx context.Context) cliStatusReport {
 	return report
 }
 
-func inspectConfiguredHub(ctx context.Context, report *cliStatusReport, addr string) {
+func inspectConfiguredHub(ctx context.Context, report *cliStatusReport, addr string) (*hubClient, error) {
 	if report == nil || addr == "" {
-		return
+		return nil, nil
 	}
 	if errText, ok := staleLocalHubNoListenerError(report.Hub, addr); ok {
 		report.Hub.Error = errText
 		report.HubTargets.Error = errText
-		return
+		return nil, errors.New(errText)
 	}
-	if hc, err := newHubClient(addr); err == nil {
-		defer hc.Close()
+	var (
+		hc  *hubClient
+		err error
+	)
+	if report.Hub.State == "not running" && isLocalHubListenAddr(addr) && !addrInUse(hubListenAddr(addr)) {
+		err = hubUnavailableError(addr, errors.New("connection refused"))
+	} else {
+		hc, err = newHubClient(addr)
+	}
+	if err == nil {
 		report.Hub.State = "reachable"
 		if info, infoErr := hc.c.Info(ctx, &pb.HubInfoRequest{}); infoErr == nil {
 			applyServiceInfo(&report.Hub, info.Version, info.StartedAt)
@@ -212,15 +225,16 @@ func inspectConfiguredHub(ctx context.Context, report *cliStatusReport, addr str
 		} else {
 			report.Schedules.Error = scheduleErr.Error()
 		}
-	} else {
-		report.Hub.Error = err.Error()
-		if report.Hub.State == "not running" {
-			report.Hub.State = "configured"
-		}
-		report.HubTargets.Error = err.Error()
-		report.Tasks.Error = err.Error()
-		report.Schedules.Error = err.Error()
+		return hc, nil
 	}
+	report.Hub.Error = err.Error()
+	if report.Hub.State == "not running" {
+		report.Hub.State = "configured"
+	}
+	report.HubTargets.Error = err.Error()
+	report.Tasks.Error = err.Error()
+	report.Schedules.Error = err.Error()
+	return nil, err
 }
 
 func staleLocalHubNoListenerError(hub serviceReport, addr string) (string, bool) {

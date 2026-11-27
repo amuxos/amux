@@ -19,6 +19,7 @@ func (a *contextBlockingManagementAgentPackActions) WithRegistryStableContext(ct
 }
 
 func TestApplyBotSettingsBoundsRegistryStableWaitByContext(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{managementPackActions: &contextBlockingManagementAgentPackActions{
 		fakeManagementAgentPackActions: &fakeManagementAgentPackActions{},
 	}}

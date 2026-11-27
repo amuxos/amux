@@ -1,10 +1,38 @@
 package cli
 
 import (
+	"context"
 	"net"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestInspectConfiguredHubShortCircuitsStoppedLocalHub(t *testing.T) {
+	t.Parallel()
+	addr := freeStatusTCPAddr(t)
+	report := cliStatusReport{Hub: serviceReport{State: "not running", Addr: addr}}
+	start := time.Now()
+	hc, err := inspectConfiguredHub(context.Background(), &report, addr)
+	if hc != nil {
+		_ = hc.Close()
+		t.Fatal("expected nil hub client for stopped local hub")
+	}
+	if err == nil {
+		t.Fatal("expected unavailable error for stopped local hub")
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("inspectConfiguredHub blocked for %s on unbound local addr %s", elapsed, addr)
+	}
+	if report.Hub.State != "configured" {
+		t.Fatalf("Hub.State = %q, want configured", report.Hub.State)
+	}
+	for _, want := range []string{"hub is not reachable at " + addr, "amux system status", "amux system start"} {
+		if !strings.Contains(report.Hub.Error, want) {
+			t.Fatalf("Hub.Error = %q, missing %q", report.Hub.Error, want)
+		}
+	}
+}
 
 func TestStaleLocalHubNoListenerError(t *testing.T) {
 	addr := freeStatusTCPAddr(t)

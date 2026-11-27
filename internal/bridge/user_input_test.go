@@ -11,6 +11,7 @@ import (
 )
 
 func TestQuestionCallbackValidationAndCancellation(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, actor, turn, message string
 		form                       map[string]interface{}
@@ -69,6 +70,7 @@ func TestQuestionCallbackValidationAndCancellation(t *testing.T) {
 }
 
 func TestQuestionAnswerValidation(t *testing.T) {
+	t.Parallel()
 	p := permissionPayload{Tool: permissionTool{Question: "choose", MultiSelect: true}, Options: []permissionOption{{OptionId: "A"}, {OptionId: "B"}}}
 	got, ok := questionAnswers(p, &callback.CallBackAction{FormValue: map[string]interface{}{"option_ids": []string{"B", "A", "A"}}})
 	if !ok || strings.Join(got, ",") != "B,A" {
@@ -80,6 +82,7 @@ func TestQuestionAnswerValidation(t *testing.T) {
 }
 
 func TestQuestionCardPreservesMeaningAndLanguages(t *testing.T) {
+	t.Parallel()
 	p := permissionPayload{TurnID: "turn", Tool: permissionTool{Question: "Choose targets", AllowOther: true, MultiSelect: true}, Options: []permissionOption{{OptionId: "api", Name: "API", Description: "Public endpoint"}}}
 	var doc cardDoc
 	raw := renderQuestionCard("target", "session", "q", p, "ou-asker")
@@ -109,6 +112,7 @@ func TestQuestionCardPreservesMeaningAndLanguages(t *testing.T) {
 }
 
 func TestQuestionExpiryCancelsWithoutAnswer(t *testing.T) {
+	t.Parallel()
 	hub := &bridgeTestHub{}
 	b := &Bridge{hub: hub}
 	p := permissionPayload{Tool: permissionTool{Question: "choose"}}
@@ -190,6 +194,7 @@ func TestAsyncQuestionCallbackQueuesOnceWithExecutionPins(t *testing.T) {
 }
 
 func TestAsyncQuestionExpiryAndFailureAreLocal(t *testing.T) {
+	t.Parallel()
 	for _, reason := range []string{"expiry", "failure", "teardown"} {
 		t.Run(reason, func(t *testing.T) {
 			hub := &bridgeTestHub{}
@@ -212,6 +217,7 @@ func TestAsyncQuestionExpiryAndFailureAreLocal(t *testing.T) {
 }
 
 func TestAsyncQuestionUnconfirmedDeliveryLanguages(t *testing.T) {
+	t.Parallel()
 	text := managementCopy("question.delivery_unknown")
 	card := renderPermissionResolvedCard(text)
 	for _, want := range []string{"Answer delivery could not be confirmed", "无法确认答案是否已送达", "en_us", "zh_cn"} {

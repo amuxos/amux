@@ -86,6 +86,7 @@ func editorTestState() managementState {
 }
 
 func TestModelEditorCacheCoalescesAndKeepsCurrentDraft(t *testing.T) {
+	t.Parallel()
 	release := make(chan struct{})
 	hub := &slowEditorModelsHub{release: release}
 	b := &Bridge{hub: hub}
@@ -145,6 +146,7 @@ func TestModelEditorCacheCoalescesAndKeepsCurrentDraft(t *testing.T) {
 }
 
 func TestModelEditorCacheRefreshExpiryAndIdentityIsolation(t *testing.T) {
+	t.Parallel()
 	release := make(chan struct{})
 	close(release)
 	hub := &slowEditorModelsHub{release: release}
@@ -189,6 +191,7 @@ func TestModelEditorCacheRefreshExpiryAndIdentityIsolation(t *testing.T) {
 }
 
 func TestModelEditorExplicitRefreshSupersedesInflightCache(t *testing.T) {
+	t.Parallel()
 	var cache editorModelCache
 	key := [32]byte{1}
 	old, _ := cache.begin(key, false, time.Now())
@@ -211,6 +214,7 @@ func TestModelEditorExplicitRefreshSupersedesInflightCache(t *testing.T) {
 }
 
 func TestModelEditorFailurePreservesChoicesButSignoutRemovesThem(t *testing.T) {
+	t.Parallel()
 	previous := editorModelSnapshot{
 		NativeStatus: "ready",
 		Runtimes: []agentprofile.RuntimeOption{{Ref: "codex", Models: []agentprofile.RuntimeModelOption{
@@ -235,6 +239,7 @@ func TestModelEditorFailurePreservesChoicesButSignoutRemovesThem(t *testing.T) {
 }
 
 func TestModelEditorQueuedWriteCannotOverwriteNavigation(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	var writes atomic.Int32
 	b.managementCardPatch = func(context.Context, string, string) error { writes.Add(1); return nil }
@@ -260,6 +265,7 @@ func TestModelEditorQueuedWriteCannotOverwriteNavigation(t *testing.T) {
 }
 
 func TestModelEditorLoadingAndResultWritesStayOrdered(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	var mu sync.Mutex
 	var cards []string
@@ -278,6 +284,7 @@ func TestModelEditorLoadingAndResultWritesStayOrdered(t *testing.T) {
 }
 
 func TestModelEditorNativeRefreshSurvivesMissingElementName(t *testing.T) {
+	t.Parallel()
 	values := map[string]string{"default_model_ref": "unsaved", "default_runtime_ref": "codex"}
 	elements := nativeModelElements(managementState{}, "codex", values, managementActionSettingsEdit)
 	card := marshalNativeManagementCard(managementCardView{Elements: elements})
@@ -326,6 +333,7 @@ func TestModelEditorCacheSeparatesCardLauncherServiceAndCatalog(t *testing.T) {
 }
 
 func TestModelEditorFailureRetentionExpiresAndDoesNotRestoreSignedOutNativeModels(t *testing.T) {
+	t.Parallel()
 	var cache editorModelCache
 	key := [32]byte{1}
 	ready := editorModelSnapshot{

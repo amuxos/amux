@@ -12,6 +12,7 @@ import (
 )
 
 func TestExternalBotCatalogPermissionFailureUsesCatalogScope(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {

@@ -13,6 +13,7 @@ import (
 )
 
 func TestRenderAgentReplyPostMarkdownLite(t *testing.T) {
+	t.Parallel()
 	content := renderAgentReplyPost("### 1. 看代码\n- 梳理结构\n- 修 bug\n\n```go\nfmt.Println(\"hi\")\n```\n\n普通段落")
 
 	var got struct {
@@ -40,6 +41,7 @@ func TestRenderAgentReplyPostMarkdownLite(t *testing.T) {
 }
 
 func TestRenderAgentReplyPostMarkdownTableAsTextRows(t *testing.T) {
+	t.Parallel()
 	content := renderAgentReplyPost("最近提交：\n\n| 提交 | 说明 |\n|------|------|\n| abc | 修复 |\n| def | 重构 |\n\n总结")
 
 	var got struct {
@@ -63,6 +65,7 @@ func TestRenderAgentReplyPostMarkdownTableAsTextRows(t *testing.T) {
 }
 
 func TestRenderBotHandoffPostUsesNativeAtElement(t *testing.T) {
+	t.Parallel()
 	content := renderBotHandoffPost("ou-caller-bot", "任务完成\n\n- 已修复")
 	var got struct {
 		ZhCN struct {
@@ -83,6 +86,7 @@ func TestRenderBotHandoffPostUsesNativeAtElement(t *testing.T) {
 }
 
 func TestRenderExternalBotDelegationCardKeepsStructuredMentionsAndPlainTask(t *testing.T) {
+	t.Parallel()
 	content := renderExternalBotDelegationCard("ou-target-bot", "ou-callback-bot", "请检查设计\n  保留缩进")
 	var got cardDoc
 	if err := json.Unmarshal([]byte(content), &got); err != nil {
@@ -112,6 +116,7 @@ func TestRenderExternalBotDelegationCardKeepsStructuredMentionsAndPlainTask(t *t
 }
 
 func TestRenderExternalBotDelegationCardKeepsLegacyAnswerTextEnvelope(t *testing.T) {
+	t.Parallel()
 	content := renderExternalBotDelegationCard("ou-target-bot", "ou-callback-bot", "请检查设计\n  保留缩进")
 	legacyText := extractCardKitAnswerText(content)
 	if legacyText == "" {
@@ -131,6 +136,7 @@ func TestRenderExternalBotDelegationCardKeepsLegacyAnswerTextEnvelope(t *testing
 }
 
 func TestRenderAgentReplyCardUsesMarkdownElement(t *testing.T) {
+	t.Parallel()
 	markdown := "# 标题\n\n- item\n\n```go\nfmt.Println(1)\n```"
 	content := renderAgentReplyCard("\n" + markdown + "\n")
 
@@ -185,6 +191,7 @@ func decodeActivityCard(t *testing.T, content string) decodedActivityCard {
 }
 
 func TestRenderToolActivityCardIncludesTurnStatusAndQuestion(t *testing.T) {
+	t.Parallel()
 	content := renderToolActivityCard(toolActivityCardMeta{
 		TurnSeq:  7,
 		Status:   "running",
@@ -218,6 +225,7 @@ func TestRenderToolActivityCardIncludesTurnStatusAndQuestion(t *testing.T) {
 }
 
 func TestRenderToolActivityCardIncludesReadOnlyViewerButton(t *testing.T) {
+	t.Parallel()
 	content := renderToolActivityCard(toolActivityCardMeta{
 		TurnSeq: 1,
 		Status:  "running",
@@ -249,6 +257,7 @@ func TestRenderToolActivityCardIncludesReadOnlyViewerButton(t *testing.T) {
 }
 
 func TestRenderToolActivityCardUsesStructuredPresentation(t *testing.T) {
+	t.Parallel()
 	content := renderToolActivityCard(toolActivityCardMeta{
 		TurnSeq:      3,
 		Status:       "running",
@@ -341,6 +350,7 @@ func TestRenderToolActivityCardUsesStructuredPresentation(t *testing.T) {
 }
 
 func TestRenderTurnActivityAppliesThinkingProcessPresentation(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name         string
 		mode         string
@@ -376,6 +386,7 @@ func TestRenderTurnActivityAppliesThinkingProcessPresentation(t *testing.T) {
 }
 
 func TestRenderCompactActivityAppliesThinkingProcessPresentation(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name         string
 		mode         string
@@ -410,6 +421,7 @@ func TestRenderCompactActivityAppliesThinkingProcessPresentation(t *testing.T) {
 }
 
 func TestRenderToolActivityCardReusesTurnActivityPanel(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{"running", "done", "waiting", "failed", "stopped"} {
 		t.Run(status, func(t *testing.T) {
 			meta := toolActivityCardMeta{
@@ -450,6 +462,7 @@ func TestRenderToolActivityCardReusesTurnActivityPanel(t *testing.T) {
 }
 
 func TestRenderToolActivityCardShowsDoneStatus(t *testing.T) {
+	t.Parallel()
 	content := renderToolActivityCard(toolActivityCardMeta{
 		TurnSeq:  8,
 		Status:   "done",
@@ -467,6 +480,7 @@ func TestRenderToolActivityCardShowsDoneStatus(t *testing.T) {
 }
 
 func TestRenderCompletedLegacyActivityReusesTurnActivityDetails(t *testing.T) {
+	t.Parallel()
 	content := renderToolActivityCard(toolActivityCardMeta{
 		Status:   "done",
 		Question: "原始问题仍应保留",
@@ -504,6 +518,7 @@ func TestRenderCompletedLegacyActivityReusesTurnActivityDetails(t *testing.T) {
 }
 
 func TestRenderTurnActivityKeepsLongProgressBeyondFormerSummaryLimit(t *testing.T) {
+	t.Parallel()
 	progress := "先检查仓库。\n\n" + strings.Repeat("保留这段处理动态", 80) + "\n\n最后核对测试。"
 	activity := renderTurnActivity(toolActivityCardMeta{
 		Status:   "done",
@@ -523,6 +538,7 @@ func TestRenderTurnActivityKeepsLongProgressBeyondFormerSummaryLimit(t *testing.
 }
 
 func TestRenderTurnActivityAdaptsLongProgressToCardBudget(t *testing.T) {
+	t.Parallel()
 	progress := "开始检查。" + strings.Repeat("很长的处理动态", 2000) + "最新进展。"
 	activity := renderTurnActivity(toolActivityCardMeta{
 		Status:   "running",
@@ -543,6 +559,7 @@ func TestRenderTurnActivityAdaptsLongProgressToCardBudget(t *testing.T) {
 }
 
 func TestRenderTurnActivityDetailsOmitsOverview(t *testing.T) {
+	t.Parallel()
 	details := renderTurnActivityDetails(toolActivityCardMeta{
 		Question: "检查降级情况",
 		Subtasks: []subtaskProgress{
@@ -571,6 +588,7 @@ func TestRenderTurnActivityDetailsOmitsOverview(t *testing.T) {
 }
 
 func TestRenderCompletedTurnActivityKeepsQuestion(t *testing.T) {
+	t.Parallel()
 	details := renderTurnActivityDetails(toolActivityCardMeta{
 		Question: "完成后仍然展示这个问题",
 		Subtasks: []subtaskProgress{{Title: "查询降级", Status: "running"}},
@@ -590,6 +608,7 @@ func TestRenderCompletedTurnActivityKeepsQuestion(t *testing.T) {
 }
 
 func TestRenderTurnActivityDetailsUsesScannableSectionHeadings(t *testing.T) {
+	t.Parallel()
 	details := renderTurnActivityDetails(toolActivityCardMeta{
 		Subtasks: []subtaskProgress{{Title: "检查降级", Status: "running"}},
 		Activity: &agentui.ActivityView{
@@ -614,6 +633,7 @@ func TestRenderTurnActivityDetailsUsesScannableSectionHeadings(t *testing.T) {
 }
 
 func TestRenderTurnActivityStylesExecutionAndCollaborationBlocks(t *testing.T) {
+	t.Parallel()
 	details := renderTurnActivityDetails(toolActivityCardMeta{
 		Subtasks: []subtaskProgress{{Title: "检查降级", Status: "running"}},
 		Activity: &agentui.ActivityView{
@@ -646,6 +666,7 @@ func TestRenderTurnActivityStylesExecutionAndCollaborationBlocks(t *testing.T) {
 }
 
 func TestRenderTurnActivityUsesCompactQuestionAndExecutionRecords(t *testing.T) {
+	t.Parallel()
 	activity := renderTurnActivity(toolActivityCardMeta{
 		Question: "看看有哪些 MCP",
 		Activity: &agentui.ActivityView{
@@ -674,6 +695,7 @@ func TestRenderTurnActivityUsesCompactQuestionAndExecutionRecords(t *testing.T) 
 }
 
 func TestRenderToolRowsDoesNotStyleSlashInDisplayTitle(t *testing.T) {
+	t.Parallel()
 	active, _ := renderToolRows([]agentui.ToolEvent{{
 		Name:   "shell",
 		Title:  "go test ./...",
@@ -688,6 +710,7 @@ func TestRenderToolRowsDoesNotStyleSlashInDisplayTitle(t *testing.T) {
 }
 
 func TestRenderTurnActivityDetailsUsesUnifiedContainers(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		status string
@@ -765,6 +788,7 @@ func TestRenderTurnActivityDetailsUsesUnifiedContainers(t *testing.T) {
 }
 
 func TestTurnCardElementIDsMeetCardKitConstraints(t *testing.T) {
+	t.Parallel()
 	activity := renderTurnActivity(toolActivityCardMeta{
 		Status:   "done",
 		Question: "检查卡片 element ID",
@@ -878,6 +902,7 @@ func turnCardChildren(t *testing.T, root cardElement) []cardElement {
 }
 
 func TestRenderTurnActivityHeaderShowsProfileAndUsage(t *testing.T) {
+	t.Parallel()
 	activity := renderTurnActivity(toolActivityCardMeta{
 		Status:         "running",
 		AgentProfile:   "example/reviewer@89eaacfc52fed728e538a6a88274eac5602901c4",
@@ -942,6 +967,7 @@ func activityElementText(element cardElement) string {
 }
 
 func TestRenderTurnActivityUsesNativeBackgroundStyles(t *testing.T) {
+	t.Parallel()
 	activity := renderTurnActivity(toolActivityCardMeta{
 		Question: "clone amux 代码到工作区，并检查可用的专家配置",
 		Subtasks: []subtaskProgress{{Title: "检查专家", Status: "running"}},
@@ -964,6 +990,7 @@ func TestRenderTurnActivityUsesNativeBackgroundStyles(t *testing.T) {
 }
 
 func TestRenderSubtaskLineRendersTerminalDetailAsPlainText(t *testing.T) {
+	t.Parallel()
 	got := renderSubtaskLine(subtaskProgress{
 		Title:   "查询降级",
 		Status:  "succeeded",
@@ -981,6 +1008,7 @@ func TestRenderSubtaskLineRendersTerminalDetailAsPlainText(t *testing.T) {
 }
 
 func TestRenderPlanNumbersExplicitEntries(t *testing.T) {
+	t.Parallel()
 	got := renderPlan([]agentui.PlanEntry{
 		{Content: "检查配置", Status: "completed"},
 		{Content: "委派分析", Status: "in_progress"},
@@ -994,6 +1022,7 @@ func TestRenderPlanNumbersExplicitEntries(t *testing.T) {
 }
 
 func TestRenderToolRowsGroupsRepeatedTitlesByStatus(t *testing.T) {
+	t.Parallel()
 	active, completed := renderToolRows([]agentui.ToolEvent{
 		{Title: "amux.task_submit", Status: "completed", OutputPreview: "ok"},
 		{Title: "amux.task_submit", Status: "completed", OutputPreview: "ok"},
@@ -1009,6 +1038,7 @@ func TestRenderToolRowsGroupsRepeatedTitlesByStatus(t *testing.T) {
 }
 
 func TestRenderToolRowsOmitsConflictingGroupedPreview(t *testing.T) {
+	t.Parallel()
 	_, completed := renderToolRows([]agentui.ToolEvent{
 		{Title: "task_stream", Status: "completed", OutputPreview: "first"},
 		{Title: "task_stream", Status: "completed", OutputPreview: "second"},
@@ -1019,6 +1049,7 @@ func TestRenderToolRowsOmitsConflictingGroupedPreview(t *testing.T) {
 }
 
 func TestRenderToolRowsKeepsOutputPreviewOutOfCard(t *testing.T) {
+	t.Parallel()
 	_, completed := renderToolRows([]agentui.ToolEvent{{
 		Title: "读取 go.mod", Status: "completed",
 		OutputPreview: "module github.com/amuxos/amux go 1.25.0 require ...",
@@ -1029,6 +1060,7 @@ func TestRenderToolRowsKeepsOutputPreviewOutOfCard(t *testing.T) {
 }
 
 func TestTurnActivityTitleShowsSilenceWithoutClaimingStall(t *testing.T) {
+	t.Parallel()
 	started := time.Unix(100, 0)
 	view := &agentui.ActivityView{Status: "running", StartedAt: started, LastActivityAt: started}
 
@@ -1043,6 +1075,7 @@ func TestTurnActivityTitleShowsSilenceWithoutClaimingStall(t *testing.T) {
 }
 
 func TestRenderTurnActivityBoundsLargeDetails(t *testing.T) {
+	t.Parallel()
 	plan := make([]agentui.PlanEntry, maxPlanEntries)
 	for i := range plan {
 		plan[i] = agentui.PlanEntry{Content: strings.Repeat("很长的计划", 100), Status: "in_progress"}
@@ -1061,6 +1094,7 @@ func TestRenderTurnActivityBoundsLargeDetails(t *testing.T) {
 }
 
 func TestRenderTurnActivityCompactFallbackPreservesProgressAndLatestStep(t *testing.T) {
+	t.Parallel()
 	plan := make([]agentui.PlanEntry, maxPlanEntries)
 	for i := range plan {
 		plan[i] = agentui.PlanEntry{Content: strings.Repeat("很长的计划", 100), Status: "in_progress"}
@@ -1107,6 +1141,7 @@ func TestRenderTurnActivityCompactFallbackPreservesProgressAndLatestStep(t *test
 }
 
 func TestMarshalActivityCardPreservesNestedViewerInOversizeFallback(t *testing.T) {
+	t.Parallel()
 	doc := newCardDoc(wrapTurnCardElements([]cardElement{
 		{Tag: "markdown", Content: strings.Repeat("很长的执行详情", maxFeishuCardBytes)},
 		{
@@ -1134,6 +1169,7 @@ func TestMarshalActivityCardPreservesNestedViewerInOversizeFallback(t *testing.T
 }
 
 func TestRenderToolActivityCardShowsWaitingStatus(t *testing.T) {
+	t.Parallel()
 	content := renderToolActivityCard(toolActivityCardMeta{
 		TurnSeq:  4,
 		Status:   "waiting",
@@ -1151,6 +1187,7 @@ func TestRenderToolActivityCardShowsWaitingStatus(t *testing.T) {
 }
 
 func TestRenderToolActivityCardIncludesFollowup(t *testing.T) {
+	t.Parallel()
 	content := renderToolActivityCard(toolActivityCardMeta{
 		TurnSeq:  3,
 		Status:   "running",
@@ -1167,6 +1204,7 @@ func TestRenderToolActivityCardIncludesFollowup(t *testing.T) {
 }
 
 func TestToolActivityQuestionTitleCleansAndTruncatesInputFrames(t *testing.T) {
+	t.Parallel()
 	got := toolActivityQuestionTitle("\r\n📱 来自飞书: 请分析当前仓库，并给出一个非常非常非常非常非常非常非常非常非常长的问题标题\r\n")
 	want := "请分析当前仓库，并给出一个非常非常非常非常非常非常非常非常非常长的问题标题"
 	if got != want {
@@ -1175,6 +1213,7 @@ func TestToolActivityQuestionTitleCleansAndTruncatesInputFrames(t *testing.T) {
 }
 
 func TestToolActivityQuestionTitleBoundsOnlyVeryLongInput(t *testing.T) {
+	t.Parallel()
 	got := toolActivityQuestionTitle(strings.Repeat("问", 250))
 	want := strings.Repeat("问", 240) + "..."
 	if got != want {
@@ -1183,6 +1222,7 @@ func TestToolActivityQuestionTitleBoundsOnlyVeryLongInput(t *testing.T) {
 }
 
 func TestSharedThreadSubmittedInputReachesQuestionTitleAsOnePrompt(t *testing.T) {
+	t.Parallel()
 	input := "[Amux Feishu Thread Mode]\n" +
 		"You are replying in a Feishu thread connected to an amux agent session.\n\n" +
 		"[Feishu thread context]\n历史讨论内容\n\n" +
@@ -1218,6 +1258,7 @@ func assertPostText(t *testing.T, elem map[string]any, want string) {
 }
 
 func TestUsageSummaryShowsTokenCountsAndContextWindowRatio(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		raw  string
@@ -1292,6 +1333,7 @@ func TestUsageSummaryShowsTokenCountsAndContextWindowRatio(t *testing.T) {
 }
 
 func TestToolActivityCardTitleShowsContextUsageRatio(t *testing.T) {
+	t.Parallel()
 	title := toolActivityCardTitle(toolActivityCardMeta{
 		Status: "done",
 		Activity: &agentui.ActivityView{
@@ -1306,6 +1348,7 @@ func TestToolActivityCardTitleShowsContextUsageRatio(t *testing.T) {
 }
 
 func TestUsageSummaryShowsSpeedMetrics(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		raw  string
@@ -1340,6 +1383,7 @@ func TestUsageSummaryShowsSpeedMetrics(t *testing.T) {
 }
 
 func TestCompactNumberAdaptsMagnitudeUnit(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   int64
 		want string
@@ -1373,6 +1417,7 @@ func TestCompactNumberAdaptsMagnitudeUnit(t *testing.T) {
 }
 
 func TestUsageSummaryAdaptsCumulativeMagnitudeUnit(t *testing.T) {
+	t.Parallel()
 	raw := json.RawMessage(`{"cumulative_input_tokens":128400000,"cumulative_cached_input_tokens":10500000,"cumulative_output_tokens":12345678901}`)
 	want := "累计输入 10.5M/128.4M（缓存/总量） · 累计输出 12.3B"
 	if got := usageSummary(raw); got != want {
@@ -1381,6 +1426,7 @@ func TestUsageSummaryAdaptsCumulativeMagnitudeUnit(t *testing.T) {
 }
 
 func TestCompactDurationText(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		ms   int64
 		want string

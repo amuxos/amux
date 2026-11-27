@@ -65,6 +65,7 @@ func TestPackageTestsNeverWriteInheritedAMUXHome(t *testing.T) {
 // TestPackageTestsNeverWriteInheritedAMUXHome. It deliberately does not call
 // t.Setenv for HOME or AMUX_HOME, like a test helper that forgot to.
 func TestAMUXHomeIsolationHelperProcess(t *testing.T) {
+	t.Parallel()
 	if os.Getenv(amuxHomeIsolationHelperEnv) != "1" {
 		t.Skip("helper process for TestPackageTestsNeverWriteInheritedAMUXHome")
 	}

@@ -14,6 +14,7 @@ import (
 )
 
 func TestToolActivityStateOnlyOwnsSubtaskAugmentation(t *testing.T) {
+	t.Parallel()
 	state := &toolActivityState{}
 	state.SetSubtasks([]subtaskProgress{{ID: "task-1", Status: "running", Title: "Review"}})
 	got := state.Subtasks()
@@ -31,6 +32,7 @@ func TestToolActivityStateOnlyOwnsSubtaskAugmentation(t *testing.T) {
 }
 
 func TestActivityViewFingerprintSurvivesInvalidRawJSON(t *testing.T) {
+	t.Parallel()
 	view := &agentui.ActivityView{
 		TurnID:    "turn-1",
 		TurnSeq:   1,
@@ -51,6 +53,7 @@ func TestActivityViewFingerprintSurvivesInvalidRawJSON(t *testing.T) {
 }
 
 func TestActivityViewFingerprintIgnoresToolRawPayload(t *testing.T) {
+	t.Parallel()
 	view := &agentui.ActivityView{
 		Status: "running",
 		Tools: []agentui.ToolEvent{{
@@ -71,6 +74,7 @@ func TestActivityViewFingerprintIgnoresToolRawPayload(t *testing.T) {
 }
 
 func TestToolActivitySenderCreatesThenPatchesSameMessage(t *testing.T) {
+	t.Parallel()
 	var sends, patches []string
 	sender := newToolActivitySender(0,
 		func(text string) (string, error) { sends = append(sends, text); return "msg-1", nil },
@@ -86,6 +90,7 @@ func TestToolActivitySenderCreatesThenPatchesSameMessage(t *testing.T) {
 }
 
 func TestToolActivitySenderResetStartsNewMessage(t *testing.T) {
+	t.Parallel()
 	var sends []string
 	sender := newToolActivitySender(0,
 		func(text string) (string, error) {
@@ -103,6 +108,7 @@ func TestToolActivitySenderResetStartsNewMessage(t *testing.T) {
 }
 
 func TestToolActivitySenderDoesNotCreateNewMessageWhenPatchFails(t *testing.T) {
+	t.Parallel()
 	var sends, patches []string
 	sender := newToolActivitySender(0,
 		func(text string) (string, error) { sends = append(sends, text); return "msg-1", nil },
@@ -124,6 +130,7 @@ func TestToolActivitySenderDoesNotCreateNewMessageWhenPatchFails(t *testing.T) {
 // saw. This is the path that froze the collapsed title without the final
 // usage/speed summary when CardKit intermittently failed.
 func TestToolActivitySenderKeepsFailedSendResendable(t *testing.T) {
+	t.Parallel()
 	var sends []string
 	failFirst := true
 	sender := newToolActivitySender(0,
@@ -153,6 +160,7 @@ func TestToolActivitySenderKeepsFailedSendResendable(t *testing.T) {
 }
 
 func TestToolActivitySenderFlushForcesPatchForSameText(t *testing.T) {
+	t.Parallel()
 	var patches []string
 	sender := newToolActivitySender(0,
 		func(string) (string, error) { return "msg-1", nil },
@@ -166,6 +174,7 @@ func TestToolActivitySenderFlushForcesPatchForSameText(t *testing.T) {
 }
 
 func TestToolActivitySenderSendsTrailingThrottledUpdate(t *testing.T) {
+	t.Parallel()
 	patched := make(chan string, 1)
 	sender := newToolActivitySender(40*time.Millisecond,
 		func(string) (string, error) { return "msg-1", nil },
@@ -186,6 +195,7 @@ func TestToolActivitySenderSendsTrailingThrottledUpdate(t *testing.T) {
 }
 
 func TestMainTurnActivitySenderDoesNotBlockOnCardNetwork(t *testing.T) {
+	t.Parallel()
 	started := make(chan struct{})
 	release := make(chan struct{})
 	reply := newStreamingReplySender(0, &orderedReplyBackend{
@@ -228,6 +238,7 @@ func TestMainTurnActivitySenderDoesNotBlockOnCardNetwork(t *testing.T) {
 }
 
 func TestMainTurnActivitySenderFallsBackBeforeCardKitMessageIsVisible(t *testing.T) {
+	t.Parallel()
 	backend := &bindingReplyCardBackend{
 		cardKit: &fakeCardKitReplyAPI{createErr: errors.New("cardkit unavailable")},
 		sendCard: func(context.Context, string, string) (string, error) {
@@ -265,6 +276,7 @@ func TestMainTurnActivitySenderFallsBackBeforeCardKitMessageIsVisible(t *testing
 }
 
 func TestToolActivityTurnUsesExplicitAmuxSequence(t *testing.T) {
+	t.Parallel()
 	var turn toolActivityTurn
 	meta := turn.Start(7, "分析当前仓库")
 	if meta.TurnSeq != 7 || meta.Question != "分析当前仓库" || meta.Status != "running" {
@@ -282,6 +294,7 @@ func TestToolActivityTurnUsesExplicitAmuxSequence(t *testing.T) {
 }
 
 func TestToolActivityTurnCompletePreservesWaitingStatus(t *testing.T) {
+	t.Parallel()
 	var turn toolActivityTurn
 	turn.Start(1, "分析当前仓库")
 	turn.MarkWaiting()
@@ -298,6 +311,7 @@ func TestToolActivityTurnCompletePreservesWaitingStatus(t *testing.T) {
 }
 
 func TestToolActivityTurnRunningOnlyWhileProviderTurnIsActive(t *testing.T) {
+	t.Parallel()
 	var turn toolActivityTurn
 	if turn.Running() {
 		t.Fatal("zero-value turn is running")
@@ -317,6 +331,7 @@ func TestToolActivityTurnRunningOnlyWhileProviderTurnIsActive(t *testing.T) {
 }
 
 func TestIsFollowupPrompt(t *testing.T) {
+	t.Parallel()
 	for _, text := range []string{"你希望保留 post 吗？", "Please choose one?", "请确认是否继续"} {
 		if !isFollowupPrompt(text) {
 			t.Fatalf("isFollowupPrompt(%q) = false", text)
@@ -328,6 +343,7 @@ func TestIsFollowupPrompt(t *testing.T) {
 }
 
 func TestForceSendBypassesThrottleAndUnchangedText(t *testing.T) {
+	t.Parallel()
 	var patched []string
 	s := newToolActivitySender(time.Hour,
 		func(string) (string, error) { return "msg1", nil },
@@ -342,6 +358,7 @@ func TestForceSendBypassesThrottleAndUnchangedText(t *testing.T) {
 }
 
 func TestTurnStatusRefreshPolicyUsesIndependentSilenceCadence(t *testing.T) {
+	t.Parallel()
 	var policy turnStatusRefreshPolicy
 	view := &agentui.ActivityView{Status: "running", LastActivityAt: time.Unix(100, 0)}
 	if policy.Due(time.Unix(109, 0), view) {
@@ -371,6 +388,7 @@ func TestTurnStatusRefreshPolicyUsesIndependentSilenceCadence(t *testing.T) {
 }
 
 func TestToolActivitySenderConcurrentForceAndMaybeSend(t *testing.T) {
+	t.Parallel()
 	s := newToolActivitySender(0,
 		func(string) (string, error) { return "msg1", nil },
 		func(string, string) error { return nil },

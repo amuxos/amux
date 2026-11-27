@@ -10,6 +10,7 @@ import (
 )
 
 func TestQuestionTitleExcludesForegroundProtocol(t *testing.T) {
+	t.Parallel()
 	raw := "分 5 步跑完告诉我" + artifactInstructions + foregroundInstructions
 	got := toolActivityQuestionTitle(raw)
 	if got != "分 5 步跑完告诉我" {
@@ -26,12 +27,14 @@ func TestQuestionTitleExcludesForegroundProtocol(t *testing.T) {
 }
 
 func TestForegroundProtocolMentionsCompletionMessages(t *testing.T) {
+	t.Parallel()
 	if !strings.Contains(foregroundInstructions, "后台任务完成") || !strings.Contains(foregroundInstructions, "无需轮询") {
 		t.Fatal("foreground protocol must explain automatic completion messages")
 	}
 }
 
 func TestSubtaskNoticeNeverRenderedInCard(t *testing.T) {
+	t.Parallel()
 	// A subtask turn starts with an empty question, so the card is a neutral
 	// reply card carrying only the agent's answer.
 	card := renderToolActivityCard(toolActivityCardMeta{Question: ""}, "后台任务已完成，结果如下。")
@@ -46,6 +49,7 @@ func TestSubtaskNoticeNeverRenderedInCard(t *testing.T) {
 }
 
 func TestQueueListHidesSubtaskNotice(t *testing.T) {
+	t.Parallel()
 	line := queueListLine("q1", "subtask", "[后台任务完成] agent_instance_id=agent-1 task_id=task-9 status=succeeded")
 	if strings.Contains(line, "task-9") || strings.Contains(line, "[后台任务完成]") || strings.Contains(line, "status=") {
 		t.Fatalf("queue line leaks notice: %q", line)
@@ -53,12 +57,14 @@ func TestQueueListHidesSubtaskNotice(t *testing.T) {
 }
 
 func TestSubtaskSourceStartsVisibleTurn(t *testing.T) {
+	t.Parallel()
 	if !isInputStartedTurnSource(agentui.SourceSubtask) {
 		t.Fatal("subtask completion turns must render in Feishu")
 	}
 }
 
 func TestBackgroundTaskCardsHiddenByDefault(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	b.subtasks = &streamingSubtaskReader{}
 	b.startSubtaskCards(&LarkChat{RootMsgID: "r"}, []subtaskProgress{{ID: "task-1"}})
@@ -71,6 +77,7 @@ func TestBackgroundTaskCardsHiddenByDefault(t *testing.T) {
 }
 
 func TestRunningExperimentsReportsShowBackgroundTasks(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	b.showBackgroundTasks.Store(true)
 	if !b.runningExperimentsSettings().ShowBackgroundTasks {
@@ -83,6 +90,7 @@ func TestRunningExperimentsReportsShowBackgroundTasks(t *testing.T) {
 }
 
 func TestQueueNoticeOnRunningCardOnly(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	b.steerForeground.Store(true)
 	refreshed := 0
@@ -121,6 +129,7 @@ func TestQueueNoticeOnRunningCardOnly(t *testing.T) {
 }
 
 func TestNoteTurnSteeredNotifiesRegisteredObserver(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	var got string
 	b.registerSteerObserver("root", 7, func(turnID string) { got = turnID })

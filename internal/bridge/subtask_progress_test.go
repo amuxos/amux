@@ -27,6 +27,7 @@ type fakeTargetsHub struct {
 func (h *fakeTargetsHub) ListTargets() []*pb.Target { return h.targets }
 
 func TestRefreshSubtaskProgressRendersBlock(t *testing.T) {
+	t.Parallel()
 	hub := &fakeTargetsHub{targets: []*pb.Target{{
 		Id:       "t1",
 		Sessions: []*pb.Session{{Id: "sess-1", Name: "main"}},
@@ -51,6 +52,7 @@ func TestRefreshSubtaskProgressRendersBlock(t *testing.T) {
 }
 
 func TestRefreshSubtaskProgressExcludesTasksFromEarlierTurn(t *testing.T) {
+	t.Parallel()
 	hub := &fakeTargetsHub{targets: []*pb.Target{{
 		Id:       "t1",
 		Sessions: []*pb.Session{{Id: "sess-1", Name: "main"}},
@@ -74,6 +76,7 @@ func TestRefreshSubtaskProgressExcludesTasksFromEarlierTurn(t *testing.T) {
 }
 
 func TestRefreshSubtaskProgressNoReaderIsNoop(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{hub: &fakeSubmitHub{}}
 	a := &toolActivityState{}
 	b.refreshSubtaskProgress(a, "t1", "main") // must not panic

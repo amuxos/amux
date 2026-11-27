@@ -7,6 +7,7 @@ import (
 )
 
 func TestBridgeErrorNoticeClaudeSessionLimitWithReset(t *testing.T) {
+	t.Parallel()
 	const providerText = "You've hit your session limit · resets 1:50am (Asia/Shanghai)"
 	for _, session := range []string{"", "work-session"} {
 		got := bridgeErrorNotice(session, providerText, true)
@@ -21,6 +22,7 @@ func TestBridgeErrorNoticeClaudeSessionLimitWithReset(t *testing.T) {
 }
 
 func TestBridgeErrorNoticeUsageLimitWithoutReset(t *testing.T) {
+	t.Parallel()
 	const want = "⚠️ 模型账号已达到用量上限。请稍后重试，或切换其他模型/Agent。"
 	for _, providerText := range []string{
 		"You've hit your usage limit.",
@@ -38,6 +40,7 @@ func TestBridgeErrorNoticeUsageLimitWithoutReset(t *testing.T) {
 }
 
 func TestBridgeErrorNoticeUsageLimitFromStructuredCode(t *testing.T) {
+	t.Parallel()
 	got := bridgeErrorNoticeWithCode("work-session", "something opaque happened", "rate_limit", true)
 	if !strings.Contains(got, "用量上限") || strings.Contains(got, "session restart") {
 		t.Fatalf("rate_limit code notice = %q", got)
@@ -49,6 +52,7 @@ func TestBridgeErrorNoticeUsageLimitFromStructuredCode(t *testing.T) {
 }
 
 func TestBridgeErrorNoticeUsageLimitResetIsBounded(t *testing.T) {
+	t.Parallel()
 	cases := map[string]string{
 		"You've hit your limit · resets 3pm (America/Los_Angeles)":        "3pm (America/Los_Angeles)",
 		"You've hit your usage limit. Try again at 3:05 PM.":              "3:05 PM",
@@ -76,6 +80,7 @@ func TestBridgeErrorNoticeUsageLimitResetIsBounded(t *testing.T) {
 }
 
 func TestBridgeErrorNoticeGenericFallbackIncludesSanitizedSummary(t *testing.T) {
+	t.Parallel()
 	providerText := "Claude Code process exited\n  at /home/box/.amux/run/claude/proc.js:12\n" +
 		"while reading /Users/alice/project/.env and /tmp/amux-123/sock with key sk-ant-api03-abcdefghijklmnop " +
 		"Authorization: Bearer abc.def.ghi-jkl token=supersecretvalue " +
@@ -105,6 +110,7 @@ func TestBridgeErrorNoticeGenericFallbackIncludesSanitizedSummary(t *testing.T) 
 }
 
 func TestBridgeErrorNoticeGenericFallbackTruncatesSummary(t *testing.T) {
+	t.Parallel()
 	providerText := strings.Repeat("错误 ", 300)
 	got := bridgeErrorNotice("", providerText, false)
 	_, detail, ok := strings.Cut(got, "\n详情：")
@@ -123,6 +129,7 @@ func TestBridgeErrorNoticeGenericFallbackTruncatesSummary(t *testing.T) {
 }
 
 func TestBridgeErrorNoticeGenericFallbackSkipsEmptySummary(t *testing.T) {
+	t.Parallel()
 	for _, providerText := range []string{"", "  \n\t "} {
 		if got := bridgeErrorNotice("work-session", providerText, false); got != "⚠️ Agent 执行出错，请稍后重试或 `amux session restart work-session`。" {
 			t.Fatalf("bridgeErrorNotice(%q) = %q", providerText, got)

@@ -125,6 +125,7 @@ func TestManagementConsoleOwnerPrivateCallbacksAndNavigation(t *testing.T) {
 }
 
 func TestManagementConsoleCardLanguagesStatesAndSecretBoundary(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	info := ManagementConsoleInfo{Enabled: true, URL: "http://192.0.2.10:7892", Password: "private-password-123", ExpiresAt: now.Add(29*time.Minute + 3*time.Second)}
 	for _, state := range []string{"on", "off", "expired", "working", "failed", "unavailable"} {

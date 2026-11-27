@@ -10,6 +10,7 @@ import (
 
 // Bridge ownership follows the active turn. Runtime alone evaluates FIFO.
 func TestOwnerMessageUsesRunningTurnDespiteNewerReceipt(t *testing.T) {
+	t.Parallel()
 	var c turnCoalescer
 	own := compactTurnInputRefs("ou-a", "om-1")
 	c.recordTurnSenders("root1", "turn-1", own)
@@ -31,6 +32,7 @@ func TestOwnerMessageUsesRunningTurnDespiteNewerReceipt(t *testing.T) {
 }
 
 func TestQueueNoticeAnnotatesCardOnceItAppears(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	b.steerForeground.Store(true)
 	cardExists := false
@@ -58,6 +60,7 @@ func TestQueueNoticeAnnotatesCardOnceItAppears(t *testing.T) {
 }
 
 func TestSubtaskReportCardDropsEmptyDetailsPanel(t *testing.T) {
+	t.Parallel()
 	meta := toolActivityCardMeta{Status: "done", SubtaskReport: true, Activity: &agentui.ActivityView{Status: "done"}}
 	raw, _ := json.Marshal(renderTurnActivity(meta).Element)
 	if strings.Contains(string(raw), "暂无更多执行详情") || strings.Contains(string(raw), "collapsible_panel\",\"element_id\":\"execution_summary") {
@@ -74,6 +77,7 @@ func TestSubtaskReportCardDropsEmptyDetailsPanel(t *testing.T) {
 }
 
 func TestStatusPulseRefreshesQueueNoticeWhileTurnRuns(t *testing.T) {
+	t.Parallel()
 	// refreshQueueNoticeAsync is what the status ticker calls; this test pins
 	// the contract that a changed QueueList depth re-renders the running card
 	// even when the bridge itself did not submit the queued item (hub path).

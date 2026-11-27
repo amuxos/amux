@@ -22,6 +22,7 @@ import (
 )
 
 func TestManagementI18nAllPagesAndStableActions(t *testing.T) {
+	t.Parallel()
 	state := managementState{Mode: config.FeishuInteractionThread, DefaultAgent: "custom/expert", Profiles: []managementProfileSummary{{Ref: "custom/expert", Name: "Expert", AgentType: "codex"}}, SystemStatus: managementSystemHealthy, Targets: 1}
 	draft := managementDraftFromState(state)
 	issue := capabilityPermissionIssue{Capability: capabilityGroupWatch, Name: "群值守", Scopes: []string{"im:message.group_msg"}, GrantURL: "https://example.com/permissions"}
@@ -194,6 +195,7 @@ func stripManagementTestText(value any) {
 }
 
 func TestManagementI18nLanguageLabelRemainsBilingual(t *testing.T) {
+	t.Parallel()
 	raw := renderManagementOverviewCard(managementState{})
 	for _, locale := range []i18n.Locale{"", i18n.English, i18n.Chinese, "fr"} {
 		if !strings.Contains(selectManagementCardLocale(raw, locale), "界面语言 (Language)") {
@@ -203,6 +205,7 @@ func TestManagementI18nLanguageLabelRemainsBilingual(t *testing.T) {
 }
 
 func TestManagementI18nPreservesLiteralUserContent(t *testing.T) {
+	t.Parallel()
 	literal := "运行正常 /tmp/中文 %s <user>"
 	card := marshalNativeManagementCard(managementCardView{Title: managementCopy("management.current.task"), Elements: []cardElement{managementTextElement(literal, "normal", "default", nil)}, Buttons: []managementButton{{Text: managementCopy("management.save"), Action: "action", Values: map[string]string{"path": literal}}}})
 	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese} {
@@ -223,6 +226,7 @@ func TestManagementI18nPreservesLiteralUserContent(t *testing.T) {
 }
 
 func TestManagementI18nLocaleIsolationAndPersistence(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db, err := openBridgeDB(path)
 	if err != nil {
@@ -339,6 +343,7 @@ func TestManagementI18nCallbackDeliveryAndSharedCards(t *testing.T) {
 }
 
 func TestManagementI18nHelpCatalogParity(t *testing.T) {
+	t.Parallel()
 	for _, scope := range []command.Scope{command.ScopePrivate, command.ScopeGroup, command.ScopeFreshTopic, command.ScopeActiveTopic} {
 		for _, item := range command.Help(scope) {
 			key := "management.help." + string(scope) + "." + string(item.ID)

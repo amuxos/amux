@@ -97,6 +97,7 @@ func TestNativeModelsRefreshUsesTargetIdentityAndDropsStaleOptions(t *testing.T)
 }
 
 func TestNativeModelsStatusCardsBilingualAndUnique(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{"ready", "signed_out", "unavailable", "loading"} {
 		card := marshalNativeManagementCard(managementCardView{Elements: nativeModelElements(managementState{NativeModelsStatus: status}, "codex", map[string]string{"default_model_ref": "saved"}, managementActionSettingsEdit)})
 		for _, locale := range []i18n.Locale{"", i18n.English, i18n.Chinese} {
