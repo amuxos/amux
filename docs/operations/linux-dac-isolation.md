@@ -59,6 +59,13 @@ Confirm helper readiness, the actual backend, and target capabilities.
 Namespace/seccomp hardening is configured when installing the helper; restarting
 the normal system does not reapply helper installation parameters.
 
+Install Agent executables and companion programs on the execution node where
+the mapped UIDs can traverse every parent directory and run the files.
+Administrators can publish shared tools under
+`/usr/local/libexec/amux/tools/current/bin`, which comes first in the Linux DAC
+launch PATH. Keep the directory and its targets under administrator ownership.
+Store credentials in each Principal's own home.
+
 <a id="身份与凭据"></a>
 
 ## Identity and credentials

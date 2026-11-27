@@ -836,7 +836,9 @@ func (s *server) launchProcContext(ctx context.Context, a adapter.Adapter, sess 
 		}
 		return proc, procDone, sockPath, nil
 	case caps.Protocol == adapter.ProtocolACP:
-		if err := resolveACPCommandPath(cmd, env); err != nil {
+		if launchContext.Backend == principal.BackendLinuxDAC && len(cmd.Args) > 0 {
+			cmd.Path = cmd.Args[0]
+		} else if err := resolveACPCommandPath(cmd, env); err != nil {
 			return nil, nil, "", err
 		}
 		watchdog := config.GetStructuredProviderForProvider(snap.AgentType)

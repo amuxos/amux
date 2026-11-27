@@ -50,6 +50,10 @@ amux system target list
 需要确认 helper ready、实际 backend 及 target capability。namespace/seccomp hardening
 在 helper 安装时配置，单独重启普通 system 不会重新应用 helper 的安装参数。
 
+在执行节点安装 Agent 主程序和配套程序时，映射 UID 需要能穿越所有父目录并执行文件。
+管理员可将共享工具发布到 `/usr/local/libexec/amux/tools/current/bin`，该目录位于
+Linux DAC 启动 PATH 首位。目录及链接目标由管理员持有，凭据存放在各 Principal 的 HOME。
+
 ## 身份与凭据
 
 ```sh

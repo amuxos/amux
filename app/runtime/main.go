@@ -172,6 +172,9 @@ func runACPBroker(cmd *cobra.Command, args []string) error {
 	}
 	defer isolationRuntime.Close()
 	agentCmd := exec.Command(args[0], args[1:]...)
+	if launchContext.Backend == principal.BackendLinuxDAC {
+		agentCmd.Path = args[0]
+	}
 	agentCmd.Dir = cwd
 	if len(envVars) > 0 {
 		agentCmd.Env = envVars
