@@ -16,6 +16,7 @@ import (
 // The app server refuses to finish initialization until the native probe has
 // started. This catches serial startup without a wall-clock performance budget.
 func TestUserInputDiscoveryOverlapsCodexInitialize(t *testing.T) {
+	t.Parallel()
 	opts := compatibleStartOptions(t, writeFakeCodex(t, overlappingUserInputServer))
 	opts.ProviderName = "codex"
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -36,6 +37,7 @@ func TestUserInputDiscoveryOverlapsCodexInitialize(t *testing.T) {
 }
 
 func TestUserInputDiscoveryExplicitOverrideSkipsEarlyProbe(t *testing.T) {
+	t.Parallel()
 	script := strings.Replace(overlappingUserInputServer, "if method == 'initialize':", "if method == 'initialize':\n        result = {'userAgent': 'host'}\n    elif method == 'never':", 1)
 	script = strings.Replace(script, "assert msg['params']['config']['features.default_mode_request_user_input']", "assert not msg['params'].get('config', {}).get('features.default_mode_request_user_input')", 1)
 	opts := compatibleStartOptions(t, writeFakeCodex(t, script))
@@ -79,8 +81,10 @@ for line in sys.stdin:
 `
 
 func TestUserInputDiscoveryStartupLifecycle(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{"success", "failure", "timeout", "initialize-failure", "missing-host", "cancel", "ignore-term"} {
 		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
 			opts := compatibleStartOptions(t, writeFakeCodex(t, lifecycleUserInputServer))
 			opts.ProviderName = "codex"
 			opts.Env = append(os.Environ(), "AMUX_TEST_PROBE_MODE="+mode)

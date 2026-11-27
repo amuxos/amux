@@ -78,6 +78,9 @@ jobs:
       - uses: bufbuild/buf-setup-action@v1
         with:
           version: '1.72.0'
+          # Authenticate release lookups. Without a token the action uses the
+          # unauthenticated GitHub API and shares the runner IP rate limit.
+          github_token: ${{ github.token }}
       - run: bash scripts/check.sh
 
   draft:

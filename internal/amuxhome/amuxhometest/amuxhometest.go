@@ -58,7 +58,36 @@ func Isolate() (func(), error) {
 		_ = os.RemoveAll(dir)
 		return nil, fmt.Errorf("set isolated %s: %w", EnvVar, err)
 	}
+	// Keep git subprocesses away from host/system gitconfig and avoid fsync/gc
+	// overhead on ephemeral test repositories.
+	gitOverrides := [][2]string{
+		{"GIT_CONFIG_NOSYSTEM", "1"},
+		{"GIT_CONFIG_GLOBAL", os.DevNull},
+		{"GIT_CONFIG_COUNT", "2"},
+		{"GIT_CONFIG_KEY_0", "core.fsync"},
+		{"GIT_CONFIG_VALUE_0", "none"},
+		{"GIT_CONFIG_KEY_1", "gc.auto"},
+		{"GIT_CONFIG_VALUE_1", "0"},
+	}
+	type savedEnv struct {
+		key string
+		val string
+		ok  bool
+	}
+	savedGit := make([]savedEnv, 0, len(gitOverrides))
+	for _, kv := range gitOverrides {
+		oldVal, oldOK := os.LookupEnv(kv[0])
+		savedGit = append(savedGit, savedEnv{key: kv[0], val: oldVal, ok: oldOK})
+		_ = os.Setenv(kv[0], kv[1])
+	}
 	return func() {
+		for i := len(savedGit) - 1; i >= 0; i-- {
+			if savedGit[i].ok {
+				_ = os.Setenv(savedGit[i].key, savedGit[i].val)
+			} else {
+				_ = os.Unsetenv(savedGit[i].key)
+			}
+		}
 		if hadPrevious {
 			_ = os.Setenv(EnvVar, previous)
 		} else {

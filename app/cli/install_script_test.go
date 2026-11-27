@@ -130,7 +130,7 @@ func (f *publicInstallFixture) run(input string, args ...string) (string, [][]st
 	}
 	script = filepath.Join(f.dir, "install.sh")
 	f.write(script, string(scriptBytes), 0o755)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	baseArgs := []string{script, "--source", f.source}
 	if f.downloadBase != "" {
@@ -185,8 +185,10 @@ func (f *publicInstallFixture) run(input string, args ...string) (string, [][]st
 }
 
 func TestPublicInstallScriptDownloadsAndVerifiesRelease(t *testing.T) {
+	t.Parallel()
 	for _, corrupt := range []bool{false, true} {
 		t.Run(fmt.Sprintf("corrupt=%v", corrupt), func(t *testing.T) {
+			t.Parallel()
 			f := newPublicInstallFixture(t, "codex")
 			for _, name := range []string{"curl", "tar", "gzip", "shasum"} {
 				utility, err := exec.LookPath(name)
@@ -274,6 +276,7 @@ func (f *publicInstallFixture) requireStagedInstall(commands [][]string, updateS
 }
 
 func TestPublicInstallScriptSelectsMatchingBuiltinProfiles(t *testing.T) {
+	t.Parallel()
 	for _, runtime := range []string{"codex", "claude", "pi"} {
 		t.Run(runtime, func(t *testing.T) {
 			f := newPublicInstallFixture(t, runtime)
@@ -315,6 +318,7 @@ func TestPublicInstallScriptSelectsMatchingBuiltinProfiles(t *testing.T) {
 }
 
 func TestPublicInstallScriptRuntimeSelection(t *testing.T) {
+	t.Parallel()
 	for _, selection := range []string{"2\n", "pi\n"} {
 		t.Run(strings.TrimSpace(selection), func(t *testing.T) {
 			f := newPublicInstallFixture(t, "codex", "pi")
@@ -337,6 +341,7 @@ func TestPublicInstallScriptRuntimeSelection(t *testing.T) {
 }
 
 func TestPublicInstallScriptCleanFreshInstallWithoutOptionalHelper(t *testing.T) {
+	t.Parallel()
 	f := newPublicInstallFixture(t, "codex")
 	if err := os.Remove(filepath.Join(f.source, "amux-isolation-helper")); err != nil {
 		t.Fatal(err)
@@ -359,6 +364,7 @@ func TestPublicInstallScriptCleanFreshInstallWithoutOptionalHelper(t *testing.T)
 }
 
 func TestPublicInstallScriptRejectsInvalidInputBeforeInstall(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		runtimes []string
@@ -403,6 +409,7 @@ func TestPublicInstallScriptRejectsInvalidInputBeforeInstall(t *testing.T) {
 }
 
 func TestPublicInstallScriptSingletonProvisioningAndReuse(t *testing.T) {
+	t.Parallel()
 	f := newPublicInstallFixture(t, "codex")
 	cwd := filepath.Join(f.dir, "project with spaces")
 	if err := os.MkdirAll(cwd, 0o755); err != nil {
@@ -439,6 +446,7 @@ func TestPublicInstallScriptSingletonProvisioningAndReuse(t *testing.T) {
 }
 
 func TestPublicInstallScriptReinstallUsesDefaultRuntimeID(t *testing.T) {
+	t.Parallel()
 	for _, missing := range []bool{true, false} {
 		t.Run(fmt.Sprintf("missing=%v", missing), func(t *testing.T) {
 			f := newPublicInstallFixture(t, "codex")
@@ -456,6 +464,7 @@ func TestPublicInstallScriptReinstallUsesDefaultRuntimeID(t *testing.T) {
 }
 
 func TestPublicInstallScriptCleanReprovisionsFeishu(t *testing.T) {
+	t.Parallel()
 	f := newPublicInstallFixture(t, "pi")
 	if output, _, err := f.run("", "--feishu"); err != nil {
 		t.Fatalf("initial install: %v\n%s", err, output)
@@ -471,6 +480,7 @@ func TestPublicInstallScriptCleanReprovisionsFeishu(t *testing.T) {
 }
 
 func TestPublicInstallScriptStopsBeforeSessionsOnFeishuFailure(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []string{"setup canceled", "status error"} {
 		t.Run(failure, func(t *testing.T) {
 			f := newPublicInstallFixture(t, "pi")
@@ -489,6 +499,7 @@ func TestPublicInstallScriptStopsBeforeSessionsOnFeishuFailure(t *testing.T) {
 }
 
 func TestPublicInstallScriptChecksFinalBinding(t *testing.T) {
+	t.Parallel()
 	f := newPublicInstallFixture(t, "codex")
 	f.state.Configured, f.state.IgnoreBind = true, true
 	output, commands, err := f.run("", "--feishu")
@@ -502,6 +513,7 @@ func TestPublicInstallScriptChecksFinalBinding(t *testing.T) {
 }
 
 func TestPublicInstallScriptStopsWhenAgentDoctorFails(t *testing.T) {
+	t.Parallel()
 	f := newPublicInstallFixture(t, "pi")
 	f.state.RejectDoctor = true
 	output, commands, err := f.run("", "--feishu")
@@ -516,6 +528,7 @@ func TestPublicInstallScriptStopsWhenAgentDoctorFails(t *testing.T) {
 }
 
 func TestPublicInstallScriptPreservesConflictingSessions(t *testing.T) {
+	t.Parallel()
 	for _, conflict := range []string{"binding", "remote binding with same name", "profile", "runtime", "archived"} {
 		t.Run(conflict, func(t *testing.T) {
 			f := newPublicInstallFixture(t, "codex")
@@ -548,6 +561,7 @@ func TestPublicInstallScriptPreservesConflictingSessions(t *testing.T) {
 }
 
 func TestPublicInstallScriptReusesCompatibleUnboundSession(t *testing.T) {
+	t.Parallel()
 	f := newPublicInstallFixture(t, "pi")
 	f.state.Configured = true
 	f.state.Sessions = []publicInstallSession{{Name: "default-main", Runtime: "pi", Profile: "builtin/pi", Cwd: f.home}}
@@ -562,6 +576,7 @@ func TestPublicInstallScriptReusesCompatibleUnboundSession(t *testing.T) {
 }
 
 func TestPublicInstallScriptThreadSavesLaunchDefaults(t *testing.T) {
+	t.Parallel()
 	f := newPublicInstallFixture(t, "pi")
 	f.state.Configured = true
 	f.state.Mode, f.state.Binding = "singleton", "local/existing"
@@ -624,6 +639,7 @@ func requirePublicInstallOrder(t *testing.T, commands [][]string, prefixes ...[]
 }
 
 func TestPublicInstallScriptReinstallPreservesData(t *testing.T) {
+	t.Parallel()
 	for _, scenario := range []string{"running", "stopped", "config without binary", "binary without config", "metadata only", "PID only", "socket only"} {
 		t.Run(scenario, func(t *testing.T) {
 			f := newPublicInstallFixture(t, "codex")
@@ -688,6 +704,7 @@ func TestPublicInstallScriptReinstallPreservesData(t *testing.T) {
 }
 
 func TestPublicInstallScriptCleanStagesSourcesBeforePurge(t *testing.T) {
+	t.Parallel()
 	for _, runtime := range []string{"codex", "claude"} {
 		t.Run(runtime, func(t *testing.T) {
 			f := newPublicInstallFixture(t, runtime)
@@ -749,6 +766,7 @@ func TestPublicInstallScriptCleanStagesSourcesBeforePurge(t *testing.T) {
 }
 
 func TestPublicInstallScriptReinstallFailsBeforeReplacement(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []string{"preflight", "autosync status", "autosync status error", "autosync stop", "system stop"} {
 		t.Run(failure, func(t *testing.T) {
 			f := newPublicInstallFixture(t, "pi")
@@ -780,8 +798,10 @@ func TestPublicInstallScriptReinstallFailsBeforeReplacement(t *testing.T) {
 }
 
 func TestPublicInstallScriptCleanRejectsUnsafePaths(t *testing.T) {
+	t.Parallel()
 	for _, scenario := range []string{"root", "home", "home ancestor", "home symlink", "system root", "cwd inside purge root"} {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
 			f := newPublicInstallFixture(t, "codex")
 			args := []string{"--clean"}
 			switch scenario {

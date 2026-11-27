@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -727,10 +728,37 @@ func writeFakeCodex(t *testing.T, script string) string {
 		script = "#!" + python + "\n" + strings.TrimPrefix(script, "#!/usr/bin/env python3\n")
 	}
 	path := filepath.Join(t.TempDir(), "fake-codex")
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+	// Hold ForkLock while the write fd is open so a concurrently forked child
+	// (parallel tests) cannot inherit it and make exec fail with ETXTBSY.
+	syscall.ForkLock.Lock()
+	err := os.WriteFile(path, []byte(script), 0o755)
+	syscall.ForkLock.Unlock()
+	if err != nil {
 		t.Fatalf("write fake codex: %v", err)
 	}
 	return path
+}
+
+// TestWriteFakeCodexParallelExec fails with "text file busy" if writeFakeCodex
+// lets a parallel fork inherit the executable's write fd (ETXTBSY).
+func TestWriteFakeCodexParallelExec(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fake codex is unix-only")
+	}
+	const workers = 8
+	const iters = 40
+	for i := 0; i < workers; i++ {
+		t.Run(fmt.Sprintf("worker-%d", i), func(t *testing.T) {
+			t.Parallel()
+			for n := 0; n < iters; n++ {
+				path := writeFakeCodex(t, "#!/bin/sh\nexit 0\n")
+				if err := exec.Command(path).Run(); err != nil {
+					t.Fatalf("exec fake codex: %v", err)
+				}
+			}
+		})
+	}
 }
 
 func waitFor(t *testing.T, ch <-chan []byte, d time.Duration) string {
@@ -3492,18 +3520,18 @@ for line in sys.stdin:
         print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"thread":{"id":thread_id}}}), flush=True)
     elif method == "turn/start":
         print(json.dumps({"jsonrpc":"2.0","method":"turn/started","params":{"threadId":thread_id,"turn":{"id":turn_id}}}), flush=True)
-        time.sleep(0.5)
+        time.sleep(0.15)
         print(json.dumps({"jsonrpc":"2.0","method":"item/reasoning/textDelta","params":{"delta":"thinking about the tool call","threadId":thread_id,"turnId":turn_id}}), flush=True)
-        time.sleep(1.0)
+        time.sleep(0.35)
         print(json.dumps({"jsonrpc":"2.0","method":"item/agentMessage/delta","params":{"delta":"tool args","threadId":thread_id,"turnId":turn_id,"itemId":"i1"}}), flush=True)
-        time.sleep(1.0)
-        print(json.dumps({"jsonrpc":"2.0","method":"item/started","params":{"item":{"id":tool_item,"type":"commandExecution","status":"in_progress","command":"sleep 6"},"threadId":thread_id,"turnId":turn_id}}), flush=True)
-        time.sleep(6.0)
-        print(json.dumps({"jsonrpc":"2.0","method":"item/completed","params":{"item":{"id":tool_item,"type":"commandExecution","status":"completed","command":"sleep 6","aggregatedOutput":"done"},"threadId":thread_id,"turnId":turn_id}}), flush=True)
-        time.sleep(1.0)
+        time.sleep(0.35)
+        print(json.dumps({"jsonrpc":"2.0","method":"item/started","params":{"item":{"id":tool_item,"type":"commandExecution","status":"in_progress","command":"sleep 2"},"threadId":thread_id,"turnId":turn_id}}), flush=True)
+        time.sleep(2.0)
+        print(json.dumps({"jsonrpc":"2.0","method":"item/completed","params":{"item":{"id":tool_item,"type":"commandExecution","status":"completed","command":"sleep 2","aggregatedOutput":"done"},"threadId":thread_id,"turnId":turn_id}}), flush=True)
+        time.sleep(0.35)
         print(json.dumps({"jsonrpc":"2.0","method":"item/agentMessage/delta","params":{"delta":"the answer after the tool ran","threadId":thread_id,"turnId":turn_id,"itemId":"i1"}}), flush=True)
-        time.sleep(1.0)
-        usage = {"last":{"cachedInputTokens":0,"cacheCreationInputTokens":0,"inputTokens":100,"outputTokens":120,"reasoningOutputTokens":30,"totalTokens":220},"modelContextWindow":128000}
+        time.sleep(0.35)
+        usage = {"last":{"cachedInputTokens":0,"cacheCreationInputTokens":0,"inputTokens":100,"outputTokens":60,"reasoningOutputTokens":15,"totalTokens":160},"modelContextWindow":128000}
         print(json.dumps({"jsonrpc":"2.0","method":"thread/tokenUsage/updated","params":{"threadId":thread_id,"turnId":turn_id,"tokenUsage":usage}}), flush=True)
         print(json.dumps({"jsonrpc":"2.0","method":"turn/completed","params":{"threadId":thread_id,"turn":{"id":turn_id}}}), flush=True)
         print(json.dumps({"jsonrpc":"2.0","id":mid,"result":{"turn":{"id":turn_id}}}), flush=True)

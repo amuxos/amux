@@ -13,6 +13,7 @@ import (
 )
 
 func TestSyncPackStopsWaitingForRegistryLockWhenContextExpires(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
 	if err := SavePackRegistry(registryPath, PackRegistry{Packs: map[string]Pack{
@@ -126,6 +127,7 @@ func TestSyncPackDoesNotHoldRegistryLockDuringGitFetch(t *testing.T) {
 }
 
 func TestSyncPackMigratesLegacySourcePathToRepoPath(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
@@ -171,6 +173,7 @@ func TestSyncPackMigratesLegacySourcePathToRepoPath(t *testing.T) {
 }
 
 func TestRemovePackDeletesKeyNamespaceRootNotStoredPackNamespace(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
 	teamRoot := filepath.Join(root, ".amux", "agent-packs", "team")
@@ -217,6 +220,7 @@ func TestRemovePackDeletesKeyNamespaceRootNotStoredPackNamespace(t *testing.T) {
 }
 
 func TestSyncPackWithEmptyRefTracksLatestRemoteHead(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
@@ -246,6 +250,7 @@ func TestSyncPackWithEmptyRefTracksLatestRemoteHead(t *testing.T) {
 }
 
 func TestAddGitPackValidatesManifestAfterCheckout(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	if err := os.RemoveAll(filepath.Join(upstream, "profiles")); err != nil {
@@ -294,6 +299,7 @@ func TestAddGitPackValidatesManifestAfterCheckout(t *testing.T) {
 }
 
 func TestAddGitPackRequiresManifest(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := filepath.Join(root, "legacy-upstream")
 	if err := os.MkdirAll(filepath.Join(upstream, "profiles"), 0700); err != nil {
@@ -319,6 +325,7 @@ func TestAddGitPackRequiresManifest(t *testing.T) {
 }
 
 func TestSyncPackFailureRecordsLastErrorAndKeepsLastRevision(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
@@ -378,6 +385,7 @@ func TestGitFetchWithTimeoutStopsHungFetch(t *testing.T) {
 }
 
 func TestSyncPackFailureSanitizesLastError(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
 	registry := PackRegistry{Packs: map[string]Pack{
@@ -417,6 +425,7 @@ func TestSyncPackFailureSanitizesLastError(t *testing.T) {
 }
 
 func TestSyncPackManifestFailureRollsBackMaterializedCheckout(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
@@ -476,6 +485,7 @@ func TestSyncPackManifestFailureRollsBackMaterializedCheckout(t *testing.T) {
 }
 
 func TestLoadPackRegistryDefaultsOldPacksToAutoSync(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
 	if err := os.MkdirAll(filepath.Dir(registryPath), 0700); err != nil {
@@ -499,6 +509,7 @@ func TestLoadPackRegistryDefaultsOldPacksToAutoSync(t *testing.T) {
 }
 
 func TestAddGitPackRejectsDuplicateFormalRepository(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, "registry.json")
@@ -512,6 +523,7 @@ func TestAddGitPackRejectsDuplicateFormalRepository(t *testing.T) {
 }
 
 func TestAddGitPackRequiresExplicitDevelopmentParentForSameRepository(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, "registry.json")
@@ -535,6 +547,7 @@ func TestAddGitPackRequiresExplicitDevelopmentParentForSameRepository(t *testing
 }
 
 func TestAddGitPackAllowsIndependentTemporaryDevelopmentPacks(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, "registry.json")
@@ -573,6 +586,7 @@ func TestAddGitPackAllowsIndependentTemporaryDevelopmentPacks(t *testing.T) {
 }
 
 func TestAddGitPackAllowsTemporaryDevelopmentAlongsideExistingLegacyPair(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, "registry.json")
@@ -613,6 +627,7 @@ func TestAddGitPackAllowsTemporaryDevelopmentAlongsideExistingLegacyPair(t *test
 }
 
 func TestAddGitPackRejectsChangingDevelopmentIdentity(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, "registry.json")
@@ -637,6 +652,7 @@ func TestAddGitPackRejectsChangingDevelopmentIdentity(t *testing.T) {
 }
 
 func TestAddGitPackRejectsSuffixOnlyDevAfterTemporaryDevelopmentPack(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, "registry.json")
@@ -657,6 +673,7 @@ func TestAddGitPackRejectsSuffixOnlyDevAfterTemporaryDevelopmentPack(t *testing.
 }
 
 func TestAddGitPackRejectsUnpairedDevelopmentNamespace(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, "registry.json")
@@ -670,6 +687,7 @@ func TestAddGitPackRejectsUnpairedDevelopmentNamespace(t *testing.T) {
 }
 
 func TestAddGitPackRejectsNamespaceSourceReplacement(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	first := initPackGitRepo(t, filepath.Join(root, "first"), "v1")
 	second := initPackGitRepo(t, filepath.Join(root, "second"), "v1")
@@ -684,6 +702,7 @@ func TestAddGitPackRejectsNamespaceSourceReplacement(t *testing.T) {
 }
 
 func TestPackRepositoryNameSupportsCommonGitURLForms(t *testing.T) {
+	t.Parallel()
 	for input, want := range map[string]string{
 		"git@example.com:org/tools.git":                   "tools",
 		"https://example.com/org/tools.git/":              "tools",
@@ -752,6 +771,7 @@ func packGitRev(t *testing.T, repo string) string {
 }
 
 func TestRemovePackIfAsksTheGuardInsideTheLockAndStopsWaitingWithTheContext(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
 	teamRoot := filepath.Join(root, ".amux", "agent-packs", "team")

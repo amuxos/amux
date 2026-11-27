@@ -12,6 +12,7 @@ import (
 )
 
 func TestPackCatalogManagerInstallSnapshotAndRemove(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
@@ -78,6 +79,7 @@ func TestPackCatalogManagerInstallSnapshotAndRemove(t *testing.T) {
 }
 
 func TestPackCatalogManagerSnapshotStopsWaitingForRegistryLockWhenContextExpires(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, ".amux", "agent-packs", "registry.json")
 	manager, err := NewPackCatalogManager(registryPath, nil)
@@ -107,6 +109,7 @@ func TestPackCatalogManagerSnapshotStopsWaitingForRegistryLockWhenContextExpires
 }
 
 func TestPackCatalogManagerEnablesAutoSyncForInstalledCatalogPacks(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	customUpstream := initPackGitRepo(t, filepath.Join(root, "custom-upstream"), "v1")
@@ -148,6 +151,7 @@ func localCatalogPack(namespace, gitURL string) CatalogPack {
 }
 
 func TestPackCatalogManagerRemoveRechecksReferencesAfterProfileSelection(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	manager, err := NewPackCatalogManager(filepath.Join(root, "registry.json"), []CatalogPack{{
@@ -213,6 +217,7 @@ func TestPackCatalogManagerRemoveRechecksReferencesAfterProfileSelection(t *test
 }
 
 func TestPackCatalogManagerRegistryStableContextStopsWaitingForManagerLock(t *testing.T) {
+	t.Parallel()
 	manager, err := NewPackCatalogManager(filepath.Join(t.TempDir(), "registry.json"), nil)
 	if err != nil {
 		t.Fatalf("NewPackCatalogManager: %v", err)
@@ -251,6 +256,7 @@ func TestPackCatalogManagerRegistryStableContextStopsWaitingForManagerLock(t *te
 }
 
 func TestPackCatalogManagerRejectsStaleCardGeneration(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	manager, err := NewPackCatalogManager(filepath.Join(root, "registry.json"), []CatalogPack{{
@@ -306,6 +312,7 @@ func TestPackCatalogManagerRejectsStaleCardGeneration(t *testing.T) {
 }
 
 func TestPackCatalogManagerRemoveAcceptsCardAfterAutoSyncMetadataRefresh(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, "registry.json")
@@ -362,6 +369,7 @@ func TestPackCatalogManagerRemoveAcceptsCardAfterAutoSyncMetadataRefresh(t *test
 }
 
 func TestPackCatalogManagerKeepsNamespaceCollisionSeparateFromMarket(t *testing.T) {
+	t.Parallel()
 	registryPath := filepath.Join(t.TempDir(), "registry.json")
 	manager, err := NewPackCatalogManager(registryPath, []CatalogPack{{
 		ID:          "team",
@@ -411,6 +419,7 @@ func TestPackCatalogManagerKeepsNamespaceCollisionSeparateFromMarket(t *testing.
 }
 
 func TestPackCatalogManagerRejectsMutationAfterDuplicateRepositoryAppears(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	upstream := initPackGitRepo(t, filepath.Join(root, "upstream"), "v1")
 	registryPath := filepath.Join(root, "registry.json")
@@ -453,6 +462,7 @@ func TestPackCatalogManagerRejectsMutationAfterDuplicateRepositoryAppears(t *tes
 }
 
 func TestPackCatalogSnapshotSeparatesManagedLocalExpertsFromLoadedPacks(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
