@@ -36,9 +36,7 @@ control action or add context without starting a Turn. The canonical Timeline
 owns TurnID/TurnSeq and exactly one TurnFinished. Result text alone is not a
 completion signal. A Session can contain many Turns.
 
-Feishu ordinary follow-ups do not preempt active work by default. A text-only
-input that arrives during an active Turn is coalesced with the burst in a default
-two-second window and then either steered or queued:
+With the foreground follow-up experiment enabled, text-only inputs arriving during an active Turn are coalesced with adjacent inputs from the same sender and source for the same target Turn. The window starts at 400 milliseconds and can extend to two seconds. The resulting input is either steered or queued:
 
 - **Steered** when its sender is the one person who sent the running Turn's input.
   The input is pinned to that TurnID and added to the running Turn; it does not
@@ -86,6 +84,8 @@ In shared active topics, ordinary unmentioned human discussion is recorded as
 bounded context; an explicit mention triggers work. Owner-only admission and
 binding-control authorization are independent checks. A visible card or topic
 does not authorize all readers to drive its Session.
+
+A Feishu queue receipt can offer the sender an explicit action to move their pending text into the running Turn. The receipt pins the Session, launch and destination Turn. Only the original sender can act, and the Runtime requires the exact queue head and matching execution authorization. Success consumes the pending input. A definite rejection keeps its queue position. An uncertain provider outcome consumes the entry and reports uncertainty to prevent duplicate execution. A completed or replaced destination is never retargeted.
 
 ## Lifecycle and user actions
 

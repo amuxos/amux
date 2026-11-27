@@ -203,9 +203,8 @@ func TestSourceContextIncludedInEverySubmit(t *testing.T) {
 	}
 }
 
-func TestSourceContextCoalescingKeepsFirstSource(t *testing.T) {
+func TestLegacySourceContextCoalescingKeepsFirstSource(t *testing.T) {
 	b, hub := newBridgeForInputTest(t)
-	b.steerForeground.Store(true)
 	b.coalesceDelay = time.Hour
 	chat := &LarkChat{BridgeId: b.bridgeID, ChatID: "oc-source", RootMsgID: "om-anchor", TargetID: "target", SessionName: "session"}
 	b.sourceMessageLookup = func(_ context.Context, id string) (*larkim.Message, error) {
@@ -218,7 +217,7 @@ func TestSourceContextCoalescingKeepsFirstSource(t *testing.T) {
 	second := withFeishuSource(context.Background(), feishuSource{ChatID: "oc-other", RootMessageID: "om-other"})
 	b.enqueueCoalescedInputForMessage(first, chat, "first", "om-first", "user", nil)
 	b.enqueueCoalescedInputForMessage(second, chat, "second", "om-second", "user", nil)
-	b.flushCoalescedInput(chat.RootMsgID)
+	b.flushCoalescedInput(chat.RootMsgID, b.coalesced[chat.RootMsgID])
 	req := sourceSubmittedRequest(t, hub)
 	got := readSourceContext(t, req.Parts[0].GetText())
 	if req.Text != "first\nsecond" || got.ChatID != "oc-source" || got.RootMessageID != "om-root" || got.MessageID != "om-first" {

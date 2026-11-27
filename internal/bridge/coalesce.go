@@ -62,17 +62,37 @@ const (
 )
 
 type coalescedInput struct {
-	source               feishuSource
-	chat                 *LarkChat
-	inputs               []string
-	turnInputs           []turnInputRef
-	interruptDone        chan error
-	notifyFailure        func(context.Context, error) error
-	localExpertAuthoring bool
-	steer                bool
-	timer                *time.Timer
-	windowDelay          time.Duration
-	maxDeadline          time.Time
+	batches       []coalescedBatch
+	interruptDone chan error
+	steer         bool
+	timer         *time.Timer
+	windowDelay   time.Duration
+	maxDeadline   time.Time
+}
+
+type coalescedBatch struct {
+	source        feishuSource
+	chat          LarkChat
+	inputs        []string
+	turnInputs    []turnInputRef
+	sender        string
+	targetTurnID  string
+	notifyFailure func(context.Context, error) error
+}
+
+func (p *coalescedInput) appendBatch(batch coalescedBatch) {
+	last := &p.batches[len(p.batches)-1]
+	if p.steer && (batch.sender == "" || last.sender != batch.sender || last.source != batch.source ||
+		last.targetTurnID != batch.targetTurnID || last.chat.localExpertAuthoring != batch.chat.localExpertAuthoring) {
+		p.batches = append(p.batches, batch)
+		return
+	}
+	last.inputs = append(last.inputs, batch.inputs...)
+	last.turnInputs = append(last.turnInputs, batch.turnInputs...)
+	last.chat.localExpertAuthoring = last.chat.localExpertAuthoring && batch.chat.localExpertAuthoring
+	if last.notifyFailure == nil {
+		last.notifyFailure = batch.notifyFailure
+	}
 }
 
 // setTurnActive records whether the session bound to rootMsgID is currently
@@ -117,17 +137,20 @@ func (b *Bridge) enqueueCoalescedInputWithFailure(chat *LarkChat, input string, 
 }
 
 func (b *Bridge) enqueueCoalescedInputForMessage(ctx context.Context, chat *LarkChat, input, messageID, openID string, notifyFailure func(context.Context, error) error) {
+	batch := coalescedBatch{
+		source: feishuSourceForInput(ctx, chat), chat: *chat,
+		inputs: []string{input}, turnInputs: compactTurnInputRefs(openID, messageID),
+		targetTurnID: b.currentSteerCandidate(chat.RootMsgID), notifyFailure: notifyFailure,
+	}
+	if len(batch.turnInputs) != 0 {
+		batch.sender = batch.turnInputs[0].OpenID
+	}
 	b.coalesceMu.Lock()
 	if b.coalesced == nil {
 		b.coalesced = make(map[string]*coalescedInput)
 	}
 	if pending, ok := b.coalesced[chat.RootMsgID]; ok {
-		pending.inputs = append(pending.inputs, input)
-		pending.turnInputs = append(pending.turnInputs, compactTurnInputRefs(openID, messageID)...)
-		pending.localExpertAuthoring = pending.localExpertAuthoring && chat.localExpertAuthoring
-		if pending.notifyFailure == nil {
-			pending.notifyFailure = notifyFailure
-		}
+		pending.appendBatch(batch)
 		if pending.timer != nil && !pending.maxDeadline.IsZero() {
 			if remaining := time.Until(pending.maxDeadline); remaining > 0 {
 				extend := pending.windowDelay
@@ -148,20 +171,15 @@ func (b *Bridge) enqueueCoalescedInputForMessage(ctx context.Context, chat *Lark
 	}
 	rootMsgID := chat.RootMsgID
 	pending := &coalescedInput{
-		source:               feishuSourceForInput(ctx, chat),
-		chat:                 chat,
-		inputs:               []string{input},
-		turnInputs:           compactTurnInputRefs(openID, messageID),
-		interruptDone:        make(chan error, 1),
-		notifyFailure:        notifyFailure,
-		localExpertAuthoring: chat.localExpertAuthoring,
-		steer:                b.busyInputSteers(),
-		windowDelay:          delay,
+		batches:       []coalescedBatch{batch},
+		interruptDone: make(chan error, 1),
+		steer:         b.busyInputSteers(),
+		windowDelay:   delay,
 	}
 	if maxDelay > delay {
 		pending.maxDeadline = time.Now().Add(maxDelay)
 	}
-	pending.timer = time.AfterFunc(delay, func() { b.flushCoalescedInput(rootMsgID) })
+	pending.timer = time.AfterFunc(delay, func() { b.flushCoalescedInput(rootMsgID, pending) })
 	b.coalesced[rootMsgID] = pending
 	b.coalesceMu.Unlock()
 
@@ -190,52 +208,60 @@ func (b *Bridge) enqueueCoalescedInputForMessage(ctx context.Context, chat *Lark
 	}()
 }
 
-func (b *Bridge) flushCoalescedInput(rootMsgID string) {
+func (b *Bridge) flushCoalescedInput(rootMsgID string, pending *coalescedInput) {
 	b.coalesceMu.Lock()
-	pending := b.coalesced[rootMsgID]
-	delete(b.coalesced, rootMsgID)
-	b.coalesceMu.Unlock()
-	if pending == nil || len(pending.inputs) == 0 {
+	if b.coalesced[rootMsgID] != pending {
+		b.coalesceMu.Unlock()
 		return
 	}
+	delete(b.coalesced, rootMsgID)
+	b.coalesceMu.Unlock()
 	interruptErr := <-pending.interruptDone
-	pending.chat.localExpertAuthoring = pending.localExpertAuthoring
+	for _, batch := range pending.batches {
+		b.flushCoalescedBatch(batch, pending.steer, interruptErr)
+	}
+}
+
+func (b *Bridge) flushCoalescedBatch(batch coalescedBatch, steer bool, interruptErr error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	ctx = withFeishuSource(ctx, pending.source)
+	ctx = withFeishuSource(ctx, batch.source)
 	var err error
-	if pending.steer {
+	text := strings.Join(batch.inputs, "\n")
+	if steer {
+		mode := b.busyInputMode(batch.chat.RootMsgID, batch.turnInputs)
+		if mode.steerExpectedTurnID != batch.targetTurnID {
+			mode = submitMode{}
+		}
+		mode.promotionTurnID = batch.targetTurnID
+		mode.hasPromotionPin = true
 		var receipt submitReceipt
-		receipt, err = b.submitToSessionMode(ctx, pending.chat, strings.Join(pending.inputs, "\n"), b.busyInputMode(pending.chat.RootMsgID, pending.turnInputs), pending.turnInputs)
+		receipt, err = b.submitToSessionMode(ctx, &batch.chat, text, mode, batch.turnInputs)
 		if err == nil {
-			msg := "bridge: busy input steered"
-			if receipt.Delivery != "steered" {
-				msg = "bridge: busy input queued behind the running turn"
-			}
-			log.Info().Str("session", pending.chat.SessionName).Str("turn_id", receipt.TurnID).
-				Str("delivery", receipt.Delivery).Str("fallback", receipt.SteerFallbackReason).Msg(msg)
+			log.Info().Str("session", batch.chat.SessionName).Str("turn_id", receipt.TurnID).
+				Str("delivery", receipt.Delivery).Bool("waiting", receipt.Waiting).Str("fallback", receipt.SteerFallbackReason).Msg("bridge: busy input submitted")
 		}
 	} else {
-		_, err = b.submitToSessionWithOptions(ctx, pending.chat, strings.Join(pending.inputs, "\n"), true, interruptErr == nil, pending.turnInputs)
+		_, err = b.submitToSessionWithOptions(ctx, &batch.chat, text, true, interruptErr == nil, batch.turnInputs)
 	}
 	if err != nil {
-		log.Warn().Err(err).Str("session", pending.chat.SessionName).Msg("bridge: flush coalesced input failed")
-		if isSteerOutcomeUnknown(err) && pending.notifyFailure == nil {
+		log.Warn().Err(err).Str("session", batch.chat.SessionName).Msg("bridge: flush coalesced input failed")
+		if isSteerOutcomeUnknown(err) && batch.notifyFailure == nil {
 			// The running turn may already have this input; tell the user
 			// so they do not send it again.
 			notifyCtx, notifyCancel := context.WithTimeout(context.Background(), 10*time.Second)
-			notifyErr := b.notifyThread(notifyCtx, pending.chat.RootMsgID, steerOutcomeUnknownNotice)
+			notifyErr := b.notifyThread(notifyCtx, batch.chat.RootMsgID, steerOutcomeUnknownNotice)
 			notifyCancel()
 			if notifyErr != nil {
-				log.Warn().Err(notifyErr).Str("session", pending.chat.SessionName).
+				log.Warn().Err(notifyErr).Str("session", batch.chat.SessionName).
 					Msg("bridge: notify steer outcome unknown")
 			}
-		} else if pending.notifyFailure != nil {
+		} else if batch.notifyFailure != nil {
 			notifyCtx, notifyCancel := context.WithTimeout(context.Background(), 10*time.Second)
-			notifyErr := pending.notifyFailure(notifyCtx, err)
+			notifyErr := batch.notifyFailure(notifyCtx, err)
 			notifyCancel()
 			if notifyErr != nil {
-				log.Warn().Err(notifyErr).Str("session", pending.chat.SessionName).
+				log.Warn().Err(notifyErr).Str("session", batch.chat.SessionName).
 					Msg("bridge: notify coalesced input failure")
 			}
 		}

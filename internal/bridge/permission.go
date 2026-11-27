@@ -326,6 +326,9 @@ func (b *Bridge) handleCardAction(ctx context.Context, event *callback.CardActio
 	if resp, handled, err := b.handleModelRecoveryCardAction(ctx, event); handled || err != nil {
 		return resp, err
 	}
+	if resp, handled := b.handleQueuePromotion(event); handled {
+		return resp, nil
+	}
 	if observer := b.getConversationObserver(); observer != nil {
 		if resp, handled, err := observer.CardAction(ctx, event); handled || err != nil {
 			return resp, err

@@ -656,6 +656,18 @@ func (c *Client) handleRequest(ctx context.Context, sendFn func(*pb.TunnelMsg) e
 			return
 		}
 		sendResp(resp, "")
+	case "SteerQueued":
+		var r pb.SteerQueuedRequest
+		if err := unmarshalTunnelPayload(req.Payload, &r); err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		resp, err := c.localSrv.SteerQueued(withTrustedSubmit(reqCtx, req.RequestId), &r)
+		if err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		sendResp(resp, "")
 	case "Goal":
 		var r pb.GoalRequest
 		if err := unmarshalTunnelPayload(req.Payload, &r); err != nil {

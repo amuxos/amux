@@ -8,9 +8,8 @@ import (
 	"github.com/amuxos/amux/internal/agentui"
 )
 
-// Queue policy: while a submit waits behind the running turn, even the turn
-// owner's next message is appended to the end of the queue (no steer).
-func TestOwnerMessageQueuesBehindExistingQueuedItems(t *testing.T) {
+// Bridge ownership follows the active turn. Runtime alone evaluates FIFO.
+func TestOwnerMessageUsesRunningTurnDespiteNewerReceipt(t *testing.T) {
 	var c turnCoalescer
 	own := compactTurnInputRefs("ou-a", "om-1")
 	c.recordTurnSenders("root1", "turn-1", own)
@@ -20,8 +19,8 @@ func TestOwnerMessageQueuesBehindExistingQueuedItems(t *testing.T) {
 	}
 	// Another member's message queues as turn-2.
 	c.recordTurnSenders("root1", "turn-2", compactTurnInputRefs("ou-b", "om-3"))
-	if mode := c.busyInputMode("root1", compactTurnInputRefs("ou-a", "om-4")); mode.steer {
-		t.Fatal("owner message jumped ahead of the queue by steering")
+	if mode := c.busyInputMode("root1", compactTurnInputRefs("ou-a", "om-4")); !mode.steer || mode.steerExpectedTurnID != "turn-1" {
+		t.Fatalf("Bridge must pass the known active turn to Runtime: %+v", mode)
 	}
 	// Once the queue drains (turn-2 runs), steering is about turn-2's owner.
 	c.observeTurnFinished("root1", "turn-1")

@@ -35,6 +35,7 @@ const (
 	Amuxlet_Interrupt_FullMethodName                   = "/amux.v1.Amuxlet/Interrupt"
 	Amuxlet_Attach_FullMethodName                      = "/amux.v1.Amuxlet/Attach"
 	Amuxlet_Submit_FullMethodName                      = "/amux.v1.Amuxlet/Submit"
+	Amuxlet_SteerQueued_FullMethodName                 = "/amux.v1.Amuxlet/SteerQueued"
 	Amuxlet_Goal_FullMethodName                        = "/amux.v1.Amuxlet/Goal"
 	Amuxlet_QueueList_FullMethodName                   = "/amux.v1.Amuxlet/QueueList"
 	Amuxlet_QueueClear_FullMethodName                  = "/amux.v1.Amuxlet/QueueClear"
@@ -67,6 +68,7 @@ type AmuxletClient interface {
 	Interrupt(ctx context.Context, in *InterruptRequest, opts ...grpc.CallOption) (*InterruptResponse, error)
 	Attach(ctx context.Context, in *AttachRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AttachEvent], error)
 	Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error)
+	SteerQueued(ctx context.Context, in *SteerQueuedRequest, opts ...grpc.CallOption) (*SubmitResponse, error)
 	Goal(ctx context.Context, in *GoalRequest, opts ...grpc.CallOption) (*GoalResponse, error)
 	QueueList(ctx context.Context, in *QueueListRequest, opts ...grpc.CallOption) (*QueueListResponse, error)
 	QueueClear(ctx context.Context, in *QueueClearRequest, opts ...grpc.CallOption) (*QueueClearResponse, error)
@@ -256,6 +258,16 @@ func (c *amuxletClient) Submit(ctx context.Context, in *SubmitRequest, opts ...g
 	return out, nil
 }
 
+func (c *amuxletClient) SteerQueued(ctx context.Context, in *SteerQueuedRequest, opts ...grpc.CallOption) (*SubmitResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmitResponse)
+	err := c.cc.Invoke(ctx, Amuxlet_SteerQueued_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *amuxletClient) Goal(ctx context.Context, in *GoalRequest, opts ...grpc.CallOption) (*GoalResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GoalResponse)
@@ -358,6 +370,7 @@ type AmuxletServer interface {
 	Interrupt(context.Context, *InterruptRequest) (*InterruptResponse, error)
 	Attach(*AttachRequest, grpc.ServerStreamingServer[AttachEvent]) error
 	Submit(context.Context, *SubmitRequest) (*SubmitResponse, error)
+	SteerQueued(context.Context, *SteerQueuedRequest) (*SubmitResponse, error)
 	Goal(context.Context, *GoalRequest) (*GoalResponse, error)
 	QueueList(context.Context, *QueueListRequest) (*QueueListResponse, error)
 	QueueClear(context.Context, *QueueClearRequest) (*QueueClearResponse, error)
@@ -424,6 +437,9 @@ func (UnimplementedAmuxletServer) Attach(*AttachRequest, grpc.ServerStreamingSer
 }
 func (UnimplementedAmuxletServer) Submit(context.Context, *SubmitRequest) (*SubmitResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Submit not implemented")
+}
+func (UnimplementedAmuxletServer) SteerQueued(context.Context, *SteerQueuedRequest) (*SubmitResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SteerQueued not implemented")
 }
 func (UnimplementedAmuxletServer) Goal(context.Context, *GoalRequest) (*GoalResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Goal not implemented")
@@ -750,6 +766,24 @@ func _Amuxlet_Submit_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Amuxlet_SteerQueued_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SteerQueuedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AmuxletServer).SteerQueued(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Amuxlet_SteerQueued_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AmuxletServer).SteerQueued(ctx, req.(*SteerQueuedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Amuxlet_Goal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GoalRequest)
 	if err := dec(in); err != nil {
@@ -960,6 +994,10 @@ var Amuxlet_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Submit",
 			Handler:    _Amuxlet_Submit_Handler,
+		},
+		{
+			MethodName: "SteerQueued",
+			Handler:    _Amuxlet_SteerQueued_Handler,
 		},
 		{
 			MethodName: "Goal",

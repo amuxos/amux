@@ -297,10 +297,7 @@ func TestCoalescedInputsFlushAsSinglePreempt(t *testing.T) {
 
 func TestPendingCoalesceWindowRemainsActiveAfterOldTurnFinishes(t *testing.T) {
 	b := &Bridge{}
-	chat := &LarkChat{RootMsgID: "root1"}
-	b.coalesced = map[string]*coalescedInput{
-		"root1": {chat: chat, inputs: []string{"first"}},
-	}
+	b.coalesced = map[string]*coalescedInput{"root1": {}}
 
 	if !b.shouldCoalesceInput("root1") {
 		t.Fatal("pending coalesce window should accept later burst input even after old turn is inactive")

@@ -2956,6 +2956,33 @@
   "session.queue.notice": {
     "other": "⏳ %d message(s) queued; they will be handled after the current task finishes"
   },
+  "session.queue.promotion.action": {
+    "other": "Move into current task"
+  },
+  "session.queue.promotion.pending": {
+    "other": "Your message is queued. You can move it into the running task when it reaches the front of the queue."
+  },
+  "session.queue.promotion.unauthorized": {
+    "other": "Only the original sender can use this action."
+  },
+  "session.queue.promotion.processing": {
+    "other": "Moving your message into the task…"
+  },
+  "session.queue.promotion.steered": {
+    "other": "Your message joined the running task."
+  },
+  "session.queue.promotion.queued": {
+    "other": "Your message is still queued. The current task could not accept it."
+  },
+  "session.queue.promotion.order": {
+    "other": "Your message is still queued because an earlier input is waiting."
+  },
+  "session.queue.promotion.unavailable": {
+    "other": "This action is unavailable for the current task."
+  },
+  "session.queue.promotion.unknown": {
+    "other": "Delivery could not be confirmed. Check the conversation before sending again."
+  },
   "session.placeholder.processing": {
     "other": "⏳ Processing…"
   },

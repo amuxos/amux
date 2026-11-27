@@ -47,6 +47,7 @@ type submitReceipt struct {
 	// Delivery is "steered" or "queued" for steer submits.
 	Delivery            string
 	SteerFallbackReason string
+	Waiting             bool
 }
 
 type submitMode struct {
@@ -55,6 +56,8 @@ type submitMode struct {
 	steer              bool
 	// steerExpectedTurnID pins a steer to the turn its sender owns.
 	steerExpectedTurnID    string
+	promotionTurnID        string
+	hasPromotionPin        bool
 	expectedSessionID      string
 	expectedLaunchID       string
 	expectedAgentSessionID string
@@ -67,12 +70,7 @@ type submitMode struct {
 // immediately either way.
 func (b *Bridge) submitToSessionForMessages(ctx context.Context, chat *LarkChat, text string, inputs []turnInputRef) (submitReceipt, error) {
 	if b.busyInputSteers() {
-		mode := b.busyInputMode(chat.RootMsgID, inputs)
-		if mode.steer && b.queueNoticeCount(chat.RootMsgID) > 0 {
-			// Items already wait in the session queue: keep FIFO order.
-			mode = submitMode{}
-		}
-		return b.submitToSessionMode(ctx, chat, text, mode, inputs)
+		return b.submitToSessionMode(ctx, chat, text, b.busyInputMode(chat.RootMsgID, inputs), inputs)
 	}
 	return b.submitToSessionWithOptions(ctx, chat, text, true, false, inputs)
 }
@@ -83,6 +81,13 @@ func (b *Bridge) submitToSessionWithOptions(ctx context.Context, chat *LarkChat,
 
 func (b *Bridge) submitToSessionMode(ctx context.Context, chat *LarkChat, text string, mode submitMode, inputs []turnInputRef) (submitReceipt, error) {
 	preempt, alreadyInterrupted := mode.preempt, mode.alreadyInterrupted
+	var destinationTurnID string
+	if !preempt && b.busyInputSteers() && !hasFeishuMaterials(ctx) {
+		destinationTurnID = mode.promotionTurnID
+		if !mode.hasPromotionPin {
+			destinationTurnID = b.observedActiveTurn(chat.RootMsgID)
+		}
+	}
 	ctx, text, err := b.prepareFileMaterials(ctx, chat, text)
 	if err != nil {
 		return submitReceipt{}, err
@@ -136,7 +141,7 @@ func (b *Bridge) submitToSessionMode(ctx context.Context, chat *LarkChat, text s
 		return submitReceipt{}, fmt.Errorf("decode submit receipt: %w", err)
 	}
 	receipt := submitReceipt{SessionID: response.GetSessionId(), LaunchID: response.GetLaunchId(), TurnID: response.GetTurnId(),
-		Delivery: response.GetDelivery(), SteerFallbackReason: response.GetSteerFallbackReason()}
+		Delivery: response.GetDelivery(), SteerFallbackReason: response.GetSteerFallbackReason(), Waiting: response.GetWaiting()}
 	b.recordTurnSenders(chat.RootMsgID, receipt.TurnID, inputs)
 	// Steered input joins the running turn (first chat wins); queued or
 	// coalesced input starts its own turn from this chat.
@@ -177,6 +182,9 @@ func (b *Bridge) submitToSessionMode(ctx context.Context, chat *LarkChat, text s
 				log.Debug().Str("root_msg_id", chat.RootMsgID).Str("session", chat.SessionName).Msg("bridge: skipped stale topic root prompt delivery mark")
 			}
 		}
+	}
+	if receipt.Waiting && destinationTurnID != "" && destinationTurnID == b.observedActiveTurn(chat.RootMsgID) {
+		b.offerQueuePromotion(chat, receipt, destinationTurnID, inputs)
 	}
 	return receipt, nil
 }
