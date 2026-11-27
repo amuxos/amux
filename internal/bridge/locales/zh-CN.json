@@ -119,8 +119,50 @@
   "provision.app.description": {
     "other": "Powered by amux"
   },
+  "session.artifact.empty": {
+    "other": "附件 %q 是空文件。请让 Agent 完成写入后重新发送。"
+  },
+  "session.artifact.execution_unknown": {
+    "other": "无法确认本轮对应的 Runtime 会话，附件未发送。"
+  },
+  "session.artifact.invalid_link": {
+    "other": "部分成果链接的路径无效。本轮有效附件会继续发送。"
+  },
   "session.artifact.read_failed": {
-    "other": "无法从运行环境读取成果 %q。请确认文件位于 amux-outbox/ 且不超过 30 MB；具体原因请联系管理员查看文件回传日志。"
+    "other": "无法从 Runtime 读取附件 %q。请确认文件位于 amux-outbox/。请联系管理员查看文件传输日志。"
+  },
+  "session.artifact.send_failed": {
+    "other": "附件 %q 未能发送到当前会话。请稍后重试。"
+  },
+  "session.artifact.state_read_failed": {
+    "other": "无法读取附件 %q 的发送状态。请稍后重试。"
+  },
+  "session.artifact.state_unavailable": {
+    "other": "无法读取附件发送状态。请稍后重试。"
+  },
+  "session.artifact.state_write_failed": {
+    "other": "无法保存附件 %q 的发送状态。请稍后重试。"
+  },
+  "session.artifact.timed_out": {
+    "other": "附件 %q 发送超时。请让 Agent 重新发送。"
+  },
+  "session.artifact.too_large": {
+    "other": "附件 %q 超过 30 MB。请让 Agent 压缩或拆成更小的文件后重新发送。"
+  },
+  "session.artifact.too_many": {
+    "other": "每轮最多发送附件列表中的前 10 个文件。"
+  },
+  "session.artifact.total_too_large": {
+    "other": "发送附件 %q 会超过本轮 300 MB 的总量限制。请让 Agent 下一轮单独发送。"
+  },
+  "session.artifact.upload_failed": {
+    "other": "附件 %q 上传到飞书失败。请稍后重试。"
+  },
+  "session.artifact.upload_permission_required": {
+    "other": "此 Bot 缺少飞书附件上传权限，附件 %q 未送达。请联系 Bot 管理员开通「附件上传」权限后重新发送。"
+  },
+  "session.artifact.upload_size_rejected": {
+    "other": "飞书因大小限制拒绝了附件 %q。请让 Agent 压缩或拆成更小的文件后重新发送。"
   },
   "session.file.write_failed": {
     "other": "附件 %q 无法写入会话，请联系管理员查看文件传输日志。"
@@ -2374,6 +2416,9 @@
   },
   "management.permission.failed": {
     "other": "权限申请失败，请稍后重试，或通过开发者后台手动申请。"
+  },
+  "management.capability.artifact_upload": {
+    "other": "附件上传"
   },
   "management.capability.core_messaging": {
     "other": "基础消息"

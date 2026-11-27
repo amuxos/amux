@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/amuxos/amux/internal/cleanup"
 	"io"
 	"io/fs"
 	"net"
@@ -24,6 +23,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/amuxos/amux/internal/cleanup"
+	"github.com/amuxos/amux/internal/sessionfiles"
 	"github.com/google/uuid"
 	"golang.org/x/sys/unix"
 	_ "modernc.org/sqlite"
@@ -389,6 +390,9 @@ func (s *helperServer) handleWithFiles(req HelperRequest, requestFiles []*os.Fil
 		return HelperResponse{Paths: &paths, Mapping: req.Mapping}, nil
 	case OpSessionFile:
 		file, err := s.sessionFile(req, requestFiles)
+		if errors.Is(err, sessionfiles.ErrArtifactTooLarge) {
+			return helperError(sessionfiles.ErrArtifactTooLarge.Error(), err.Error()), nil
+		}
 		if err != nil {
 			return helperError("session_file_failed", err.Error()), nil
 		}

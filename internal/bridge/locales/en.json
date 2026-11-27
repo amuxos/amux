@@ -119,8 +119,50 @@
   "provision.app.description": {
     "other": "Powered by amux"
   },
+  "session.artifact.empty": {
+    "other": "Attachment %q is empty. Ask the agent to finish writing it and send it again."
+  },
+  "session.artifact.execution_unknown": {
+    "other": "Attachments could not be sent because the runtime session for this reply could not be verified."
+  },
+  "session.artifact.invalid_link": {
+    "other": "Some attachment links used invalid paths. Valid attachments from this reply will still be sent."
+  },
   "session.artifact.read_failed": {
-    "other": "Artifact %q could not be read from the runtime. Check that it is in amux-outbox/ and at most 30 MB. Ask the operator to check the file-transfer logs for the exact cause."
+    "other": "Attachment %q could not be read from the runtime. Check that it is in amux-outbox/. Ask the operator to check the file-transfer logs."
+  },
+  "session.artifact.send_failed": {
+    "other": "Attachment %q could not be sent to this conversation. Please try again."
+  },
+  "session.artifact.state_read_failed": {
+    "other": "Could not read the delivery state for attachment %q. Please try again."
+  },
+  "session.artifact.state_unavailable": {
+    "other": "Attachments could not be sent because their delivery state is unavailable. Please try again."
+  },
+  "session.artifact.state_write_failed": {
+    "other": "Could not save the delivery state for attachment %q. Please try again."
+  },
+  "session.artifact.timed_out": {
+    "other": "Delivery of attachment %q timed out. Ask the agent to send it again."
+  },
+  "session.artifact.too_large": {
+    "other": "Attachment %q exceeds the 30 MB limit. Ask the agent to compress it or split it into smaller files."
+  },
+  "session.artifact.too_many": {
+    "other": "Only the first 10 attachments can be sent per reply."
+  },
+  "session.artifact.total_too_large": {
+    "other": "Attachment %q would exceed the 300 MB limit for this reply. Ask the agent to send it in a separate reply."
+  },
+  "session.artifact.upload_failed": {
+    "other": "Attachment %q could not be uploaded to Feishu. Please try again."
+  },
+  "session.artifact.upload_permission_required": {
+    "other": "Attachment %q could not be sent because this bot lacks Feishu upload permission. Ask the bot administrator to grant Attachment upload and send the file again."
+  },
+  "session.artifact.upload_size_rejected": {
+    "other": "Feishu rejected attachment %q because of its size. Ask the agent to compress it or split it into smaller files."
   },
   "session.file.write_failed": {
     "other": "Attachment %q could not be written to the session. Ask the operator to check the file-transfer logs."
@@ -2388,6 +2430,9 @@
   },
   "management.permission.failed": {
     "other": "Could not request permissions. Try again later or apply manually in the developer console."
+  },
+  "management.capability.artifact_upload": {
+    "other": "Attachment upload"
   },
   "management.capability.core_messaging": {
     "other": "Messaging"

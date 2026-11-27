@@ -5,10 +5,12 @@ package isolation
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,15 +36,24 @@ func (c *HelperClient) SessionFile(ctx context.Context, mapping AccountMapping, 
 	}
 	resp, files, err := c.requestWithFiles(ctx, HelperRequest{Operation: OpSessionFile, Mapping: &mapping, ExecutionID: workspaceID, FileAction: action, FileName: name}, inputs, 1)
 	if err != nil {
-		if resp.ErrorCode == "unsupported_operation" {
+		switch resp.ErrorCode {
+		case "unsupported_operation":
 			return nil, fmt.Errorf("%w: %v", sessionfiles.ErrHelperUpgradeRequired, err)
+		case sessionfiles.ErrArtifactTooLarge.Error():
+			return nil, sessionfiles.ErrArtifactTooLarge
+		case "session_file_failed":
+			// The previous worker reports oversize through a fixed stderr message.
+			legacy := fmt.Sprintf("target-uid file worker: exit status 125: file exceeds %d bytes", sessionfiles.MaxArtifactBytes)
+			if action == "read" && strings.TrimSpace(resp.Error) == legacy {
+				return nil, sessionfiles.ErrArtifactTooLarge
+			}
 		}
 		return nil, err
 	}
 	defer files[0].Close()
 	data, err = io.ReadAll(io.LimitReader(files[0], sessionfiles.MaxArtifactBytes+1))
 	if len(data) > sessionfiles.MaxArtifactBytes {
-		return nil, fmt.Errorf("file too large")
+		return nil, sessionfiles.ErrArtifactTooLarge
 	}
 	return data, err
 }
@@ -98,6 +109,10 @@ func (s *helperServer) sessionFile(req HelperRequest, files []*os.File) (*os.Fil
 		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(req.Mapping.UID), Gid: uint32(req.Mapping.GID), NoSetGroups: true}
 	}
 	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == sessionfiles.ArtifactSizeExitCode {
+			return nil, sessionfiles.ErrArtifactTooLarge
+		}
 		return nil, fmt.Errorf("target-uid file worker: %w: %.4096s", err, stderr.String())
 	}
 	// Return a read-only descriptor. The privileged helper never opens an

@@ -22,3 +22,17 @@ func TestHelperUpgradeDiagnosticSurvivesTunnel(t *testing.T) {
 		}
 	}
 }
+
+func TestArtifactTooLargeDiagnosticSurvivesTunnel(t *testing.T) {
+	wire := status.Error(codes.ResourceExhausted, ErrArtifactTooLarge.Error())
+	for _, err := range []error{ErrArtifactTooLarge, wire, errors.New(wire.Error())} {
+		if !ArtifactTooLarge(err) {
+			t.Fatalf("lost size diagnostic: %v", err)
+		}
+	}
+	for _, err := range []error{nil, errors.New("permission denied"), fmt.Errorf("open %s: not found", ErrArtifactTooLarge)} {
+		if ArtifactTooLarge(err) {
+			t.Fatalf("misclassified unrelated error: %v", err)
+		}
+	}
+}

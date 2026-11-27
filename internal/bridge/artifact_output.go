@@ -6,7 +6,9 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"regexp"
@@ -16,8 +18,8 @@ import (
 
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/sessionfiles"
-	"github.com/amuxos/amux/internal/turnresult"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
+	"github.com/amuxos/amux/internal/turnresult"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	"github.com/rs/zerolog/log"
 )
@@ -54,22 +56,24 @@ func (b *Bridge) artifactDirectTarget(ctx context.Context, chat *LarkChat) (*dir
 	return b.directReplyTargetForBinding(chat)
 }
 
-func artifactRefs(text string) ([]artifactRef, error) {
+func artifactRefs(text string) ([]artifactRef, int) {
 	matches := artifactLinkPattern.FindAllStringSubmatch(text, -1)
 	refs := []artifactRef{}
+	invalid := 0
 	seen := map[string]bool{}
 	for _, m := range matches {
 		name, err := url.PathUnescape(m[2])
 		name = strings.TrimPrefix(name, "amux-outbox/")
 		if err != nil || sessionfiles.Validate("read", name) != nil {
-			return nil, fmt.Errorf("成果链接包含无效路径")
+			invalid++
+			continue
 		}
 		if !seen[name] {
 			seen[name] = true
 			refs = append(refs, artifactRef{m[1], name, strings.HasPrefix(m[0], "!")})
 		}
 	}
-	return refs, nil
+	return refs, invalid
 }
 func renderArtifactLinks(text string) string {
 	return artifactLinkPattern.ReplaceAllStringFunc(text, func(match string) string {
@@ -82,157 +86,175 @@ func renderArtifactLinks(text string) string {
 	})
 }
 
+const artifactTransferTimeout = 90 * time.Second
+
 func (b *Bridge) deliverSessionArtifacts(ctx context.Context, chat *LarkChat, turnID, text string, canonicalJSON []byte) {
-	refs, err := artifactRefs(text)
-	if len(refs) == 0 && err == nil {
-		return
-	}
 	if b.db == nil || chat == nil {
 		return
 	}
-	// The stream is serial, but a replacement stream may overlap its predecessor.
+	refs, invalid := artifactRefs(text)
+	if len(refs)+invalid == 0 {
+		return
+	}
+	// A replacement stream may overlap its predecessor.
 	unlock := b.lockRoute("artifacts:" + chat.BridgeId + ":" + turnID)
 	defer unlock()
-	var (
-		deliveredAttachments []turnresult.DeliveryMessage
-		failedCount          int
-		totalPlanned         = len(refs)
-	)
+	var deliveredAttachments []turnresult.DeliveryMessage
+	failedCount, totalPlanned := invalid, len(refs)+invalid
 	defer func() {
 		b.recordTurnResultArtifacts(chat.BridgeId, turnID, deliveredAttachments, failedCount, totalPlanned)
 	}()
-	fail := func(message string) {
-		sendErr := b.notifyArtifactFailure(ctx, chat, message)
-		if sendErr != nil {
-			log.Warn().Err(sendErr).Msg("bridge: artifact failure notice")
+	fail := func(key string, args ...any) {
+		notifyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		message := b.fileExchangeFailureText(notifyCtx, chat, key, args...)
+		if err := b.notifyArtifactFailure(notifyCtx, chat, message); err != nil {
+			log.Warn().Err(err).Str("turn_id", turnID).Msg("bridge: artifact failure notice")
 		}
 	}
-	if err != nil {
-		failedCount = 1
-		totalPlanned = 1
-		fail("成果附件未发送：" + err.Error())
+	if invalid > 0 {
+		fail("artifact.invalid_link")
+	}
+	if len(refs) == 0 {
 		return
 	}
+	if len(refs) > maxMaterialFiles {
+		failedCount += len(refs) - maxMaterialFiles
+		fail("artifact.too_many")
+		refs = refs[:maxMaterialFiles]
+	}
 	sessionID, launchID := "", ""
-	if event, parseErr := agentstream.UnmarshalEvent(canonicalJSON); parseErr == nil && event.Turn != nil && event.Turn.ID == turnID {
+	if event, err := agentstream.UnmarshalEvent(canonicalJSON); err == nil && event.Turn != nil && event.Turn.ID == turnID {
 		sessionID = event.SessionID
 		launchID = event.Origin.LaunchID
 	}
 	if sessionID == "" || launchID == "" {
-		err = b.db.db.QueryRow(`SELECT session_id,launch_id FROM feishu_turn_links WHERE bridge_id=? AND turn_id=? AND root_msg_id=? AND target_id=? AND session_name=? LIMIT 1`, chat.BridgeId, turnID, chat.RootMsgID, chat.TargetID, chat.SessionName).Scan(&sessionID, &launchID)
-		if err != nil {
-			failedCount = len(refs)
-			fail("成果附件未发送：无法确认本轮执行身份。")
+		err := b.db.db.QueryRowContext(ctx, `SELECT session_id,launch_id FROM feishu_turn_links WHERE bridge_id=? AND turn_id=? AND root_msg_id=? AND target_id=? AND session_name=? LIMIT 1`, chat.BridgeId, turnID, chat.RootMsgID, chat.TargetID, chat.SessionName).Scan(&sessionID, &launchID)
+		if err != nil || sessionID == "" || launchID == "" {
+			failedCount += len(refs)
+			fail("artifact.execution_unknown")
 			return
 		}
 	}
-	if len(refs) > maxMaterialFiles {
-		fail("成果超过 10 个，本次仅发送前 10 个。")
-		refs = refs[:maxMaterialFiles]
-		totalPlanned = len(refs)
-	}
 	total := 0
-	if err := b.db.db.QueryRow(`SELECT COALESCE(SUM(size_bytes),0) FROM feishu_artifact_deliveries WHERE bridge_id=? AND turn_id=?`, chat.BridgeId, turnID).Scan(&total); err != nil {
-		failedCount = len(refs)
-		fail("无法读取成果总量。")
+	if err := b.db.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(size_bytes),0) FROM feishu_artifact_deliveries WHERE bridge_id=? AND turn_id=?`, chat.BridgeId, turnID).Scan(&total); err != nil {
+		failedCount += len(refs)
+		fail("artifact.state_unavailable")
 		return
 	}
 	for _, ref := range refs {
-		if err := ctx.Err(); err != nil {
-			failedCount++
-			fail("成果发送超时，请稍后重试。")
-			return
+		transferCtx, cancel := context.WithTimeout(ctx, artifactTransferTimeout)
+		msgID, failure := b.deliverSessionArtifact(transferCtx, chat, turnID, sessionID, launchID, ref, &total)
+		if failure != "" && errors.Is(transferCtx.Err(), context.DeadlineExceeded) {
+			failure = "artifact.timed_out"
 		}
-		kind, key, existingMsgID := "", "", ""
-		sent := false
-		err = b.db.db.QueryRow(`SELECT kind,media_key,sent,message_id FROM feishu_artifact_deliveries WHERE bridge_id=? AND turn_id=? AND path=?`, chat.BridgeId, turnID, ref.name).Scan(&kind, &key, &sent, &existingMsgID)
-		if err != nil && err != sql.ErrNoRows {
+		cancel()
+		if failure != "" {
 			failedCount++
-			fail("无法读取成果发送状态。")
-			return
-		}
-		if sent {
-			if existingMsgID != "" {
-				deliveredAttachments = append(deliveredAttachments, turnresult.DeliveryMessage{
-					Kind:      turnresult.MessageKindAttachment,
-					MessageID: existingMsgID,
-					Name:      ref.name,
-				})
-			}
+			fail(failure, ref.name)
 			continue
 		}
-		if key == "" {
-			response, readErr := b.hub.Route(ctx, chat.TargetID, "ReadSessionArtifact", &pb.SessionFileRequest{Name: chat.SessionName, SessionId: sessionID, LaunchId: launchID, FileName: ref.name})
-			var file pb.SessionFileResponse
-			if readErr == nil {
-				if response == nil {
-					readErr = fmt.Errorf("empty artifact response")
-				} else {
-					readErr = json.Unmarshal(response.Payload, &file)
-				}
-			}
-			if readErr == nil && len(file.Data) > sessionfiles.MaxArtifactBytes {
-				readErr = fmt.Errorf("artifact exceeds %d bytes", sessionfiles.MaxArtifactBytes)
-			}
-			if readErr != nil {
-				failedCount++
-				log.Warn().Err(readErr).Str("target_id", chat.TargetID).Str("session_id", sessionID).
-					Str("launch_id", launchID).Str("turn_id", turnID).Str("file_name", ref.name).Msg("bridge: read artifact")
-				key := "artifact.read_failed"
-				if sessionfiles.NeedsHelperUpgrade(readErr) {
-					key = "file.helper_upgrade_required"
-				}
-				fail(b.fileExchangeFailureText(ctx, chat, key, ref.name))
-				continue
-			}
-			if total+len(file.Data) > maxArtifactTotalBytes {
-				failedCount++
-				fail(fmt.Sprintf("成果 %q 超过本轮 300 MB 总量限制，未发送。", ref.name))
-				continue
-			}
-			total += len(file.Data)
-			kind, key, err = b.uploadArtifact(ctx, ref, file.Data)
-			if err != nil {
-				failedCount++
-				log.Warn().Err(err).Str("turn_id", turnID).Msg("bridge: upload artifact")
-				fail(fmt.Sprintf("成果 %q 上传失败。", ref.name))
-				continue
-			}
-			_, err = b.db.db.Exec(`INSERT INTO feishu_artifact_deliveries(bridge_id,turn_id,path,kind,media_key,size_bytes,sent) VALUES(?,?,?,?,?,?,0) ON CONFLICT(bridge_id,turn_id,path) DO NOTHING`, chat.BridgeId, turnID, ref.name, kind, key, len(file.Data))
-			if err != nil {
-				failedCount++
-				fail("无法保存成果发送状态，附件尚未发送。")
-				continue
-			}
-		}
-		digest := sha256.Sum256([]byte(chat.BridgeId + "\x00" + turnID + "\x00" + ref.name))
-		requestUUID := fmt.Sprintf("%x", digest[:16])
-		var sentMsgID string
-		if b.artifactSend != nil {
-			err = b.artifactSend(ctx, chat, kind, key, requestUUID)
-		} else {
-			sentMsgID, err = b.sendArtifactToBindingWithID(ctx, chat, kind, key, requestUUID)
-		}
-		if err != nil {
-			failedCount++
-			log.Warn().Err(err).Str("turn_id", turnID).Msg("bridge: send artifact")
-			fail(fmt.Sprintf("成果 %q 发送失败，可在当前对话请求重新发送。", ref.name))
-			continue
-		}
-		if _, err = b.db.db.Exec(`UPDATE feishu_artifact_deliveries SET sent=1, message_id=? WHERE bridge_id=? AND turn_id=? AND path=?`, sentMsgID, chat.BridgeId, turnID, ref.name); err != nil {
-			log.Warn().Err(err).Msg("bridge: persist sent artifact")
-		}
-		if sentMsgID != "" {
+		if msgID != "" {
 			deliveredAttachments = append(deliveredAttachments, turnresult.DeliveryMessage{
 				Kind:      turnresult.MessageKindAttachment,
-				MessageID: sentMsgID,
+				MessageID: msgID,
 				Name:      ref.name,
 			})
 		}
 	}
 }
 
-func (b *Bridge) fileExchangeFailureText(ctx context.Context, chat *LarkChat, key, name string) string {
+func (b *Bridge) deliverSessionArtifact(ctx context.Context, chat *LarkChat, turnID, sessionID, launchID string, ref artifactRef, total *int) (messageID, failureKey string) {
+	kind, key, existingMsgID := "", "", ""
+	sent := false
+	logger := log.With().Str("target_id", chat.TargetID).Str("session_id", sessionID).
+		Str("launch_id", launchID).Str("turn_id", turnID).Str("file_name", ref.name).Logger()
+	err := b.db.db.QueryRowContext(ctx, `SELECT kind,media_key,sent,message_id FROM feishu_artifact_deliveries WHERE bridge_id=? AND turn_id=? AND path=?`, chat.BridgeId, turnID, ref.name).Scan(&kind, &key, &sent, &existingMsgID)
+	if err != nil && err != sql.ErrNoRows {
+		logger.Warn().Err(err).Msg("bridge: read artifact delivery state")
+		return "", "artifact.state_read_failed"
+	}
+	if sent {
+		return existingMsgID, ""
+	}
+	if key == "" {
+		response, readErr := b.hub.Route(ctx, chat.TargetID, "ReadSessionArtifact", &pb.SessionFileRequest{Name: chat.SessionName, SessionId: sessionID, LaunchId: launchID, FileName: ref.name})
+		var file pb.SessionFileResponse
+		if readErr == nil {
+			if response == nil {
+				readErr = fmt.Errorf("empty artifact response")
+			} else {
+				readErr = json.Unmarshal(response.Payload, &file)
+			}
+		}
+		if readErr != nil {
+			logger.Warn().Err(readErr).Msg("bridge: read artifact")
+			switch {
+			case sessionfiles.NeedsHelperUpgrade(readErr):
+				return "", "file.helper_upgrade_required"
+			case sessionfiles.ArtifactTooLarge(readErr):
+				return "", "artifact.too_large"
+			default:
+				return "", "artifact.read_failed"
+			}
+		}
+		size := len(file.Data)
+		if size == 0 {
+			return "", "artifact.empty"
+		}
+		if size > sessionfiles.MaxArtifactBytes {
+			return "", "artifact.too_large"
+		}
+		if *total+size > maxArtifactTotalBytes {
+			return "", "artifact.total_too_large"
+		}
+		kind, key, err = b.uploadArtifact(ctx, ref, file.Data)
+		if err != nil {
+			logger.Warn().Err(err).Msg("bridge: upload artifact")
+			if errors.Is(err, sessionfiles.ErrArtifactTooLarge) {
+				return "", "artifact.upload_size_rejected"
+			}
+			if _, ok := capabilityPermissionIssueFromError(err, capabilityArtifactUpload, "附件上传"); ok {
+				b.observeCapabilityPermissionError(ctx, capabilityArtifactUpload, "附件上传", err, true)
+				return "", "artifact.upload_permission_required"
+			}
+			return "", "artifact.upload_failed"
+		}
+		b.resolveCapabilityPermissionScopes(capabilityArtifactUpload, artifactUploadScope)
+		_, err = b.db.db.ExecContext(ctx, `INSERT INTO feishu_artifact_deliveries(bridge_id,turn_id,path,kind,media_key,size_bytes,sent) VALUES(?,?,?,?,?,?,0)`, chat.BridgeId, turnID, ref.name, kind, key, size)
+		if err != nil {
+			logger.Warn().Err(err).Msg("bridge: persist artifact upload")
+			return "", "artifact.state_write_failed"
+		}
+		*total += size
+	}
+	digest := sha256.Sum256([]byte(chat.BridgeId + "\x00" + turnID + "\x00" + ref.name))
+	requestUUID := fmt.Sprintf("%x", digest[:16])
+	var msgID string
+	if b.artifactSend != nil {
+		err = b.artifactSend(ctx, chat, kind, key, requestUUID)
+	} else {
+		err = retryFeishuRateLimit(ctx, "artifact.send", func() error {
+			var sendErr error
+			msgID, sendErr = b.sendArtifactToBindingWithID(ctx, chat, kind, key, requestUUID)
+			return sendErr
+		})
+	}
+	if err != nil && msgID == "" {
+		logger.Warn().Err(err).Msg("bridge: send artifact")
+		return "", "artifact.send_failed"
+	}
+	// A direct reply may have reached Feishu even if storing its routing alias failed.
+	if err != nil {
+		logger.Warn().Err(err).Msg("bridge: record artifact reply alias")
+	}
+	if _, err := b.db.db.Exec(`UPDATE feishu_artifact_deliveries SET sent=1, message_id=? WHERE bridge_id=? AND turn_id=? AND path=?`, msgID, chat.BridgeId, turnID, ref.name); err != nil {
+		logger.Warn().Err(err).Msg("bridge: persist sent artifact")
+	}
+	return msgID, ""
+}
+
+func (b *Bridge) fileExchangeFailureText(ctx context.Context, chat *LarkChat, key string, args ...any) string {
 	openID := b.privateThreadRecipient(chat)
 	if target, direct, err := b.artifactDirectTarget(ctx, chat); direct && err == nil && target != nil {
 		openID = ""
@@ -240,35 +262,73 @@ func (b *Bridge) fileExchangeFailureText(ctx context.Context, chat *LarkChat, ke
 			openID = target.OpenID
 		}
 	}
-	return b.managementFallbackText(openID, sessionMessage(key, name))
+	return b.managementFallbackText(openID, sessionMessage(key, args...))
 }
 
 func (b *Bridge) uploadArtifact(ctx context.Context, ref artifactRef, data []byte) (string, string, error) {
-	isImage := detectImageMIME(data) != "" && len(data) <= maxFeishuImageBytes
+	if len(data) > sessionfiles.MaxArtifactBytes {
+		return "", "", sessionfiles.ErrArtifactTooLarge
+	}
+	isImage := len(data) <= maxFeishuImageBytes &&
+		(detectImageMIME(data) != "" || http.DetectContentType(data) == "image/gif")
 	if b.artifactUpload != nil {
 		return b.artifactUpload(ctx, ref.name, isImage, data)
 	}
 	if b.client == nil {
 		return "", "", fmt.Errorf("nil lark client")
 	}
+	var mediaKey string
 	if isImage {
-		resp, err := b.client.Im.Image.Create(ctx, larkim.NewCreateImageReqBuilder().Body(larkim.NewCreateImageReqBodyBuilder().ImageType("message").Image(bytes.NewReader(data)).Build()).Build())
+		fallback := false
+		err := retryFeishuRateLimit(ctx, "artifact.upload_image", func() error {
+			resp, err := b.client.Im.Image.Create(ctx, larkim.NewCreateImageReqBuilder().Body(larkim.NewCreateImageReqBodyBuilder().ImageType("message").Image(bytes.NewReader(data)).Build()).Build())
+			if err != nil {
+				return err
+			}
+			if isFeishuPermissionCode(resp.Code) {
+				return feishuAPIResponseErrorForRequiredScopes("upload artifact image", b.secretsAppID(), resp.CodeError, artifactUploadScope)
+			}
+			// Feishu's image endpoint has its own size, format and resolution limits.
+			switch resp.Code {
+			case 234006, 234011, 234039:
+				fallback = true
+			}
+			fallback = fallback || resp.StatusCode == http.StatusRequestEntityTooLarge
+			if !resp.Success() || fallback {
+				return fmt.Errorf("image upload failed: HTTP %d, code %d, %s", resp.StatusCode, resp.Code, resp.Msg)
+			}
+			if resp.Data == nil || stringPtr(resp.Data.ImageKey) == "" {
+				return fmt.Errorf("image upload returned no image key")
+			}
+			mediaKey = stringPtr(resp.Data.ImageKey)
+			return nil
+		})
+		if err == nil || !fallback {
+			return "image", mediaKey, err
+		}
+		log.Debug().Err(err).Str("file_name", ref.name).Msg("bridge: deliver rejected image as file")
+	}
+	err := retryFeishuRateLimit(ctx, "artifact.upload_file", func() error {
+		resp, err := b.client.Im.File.Create(ctx, larkim.NewCreateFileReqBuilder().Body(larkim.NewCreateFileReqBodyBuilder().FileType("stream").FileName(path.Base(ref.name)).File(bytes.NewReader(data)).Build()).Build())
 		if err != nil {
-			return "", "", err
+			return err
 		}
-		if !resp.Success() || resp.Data == nil || stringPtr(resp.Data.ImageKey) == "" {
-			return "", "", fmt.Errorf("image upload failed: %d %s", resp.Code, resp.Msg)
+		if isFeishuPermissionCode(resp.Code) {
+			return feishuAPIResponseErrorForRequiredScopes("upload artifact file", b.secretsAppID(), resp.CodeError, artifactUploadScope)
 		}
-		return "image", stringPtr(resp.Data.ImageKey), nil
-	}
-	resp, err := b.client.Im.File.Create(ctx, larkim.NewCreateFileReqBuilder().Body(larkim.NewCreateFileReqBodyBuilder().FileType("stream").FileName(path.Base(ref.name)).File(bytes.NewReader(data)).Build()).Build())
-	if err != nil {
-		return "", "", err
-	}
-	if !resp.Success() || resp.Data == nil || stringPtr(resp.Data.FileKey) == "" {
-		return "", "", fmt.Errorf("file upload failed: %d %s", resp.Code, resp.Msg)
-	}
-	return "file", stringPtr(resp.Data.FileKey), nil
+		if resp.Code == 234006 || resp.StatusCode == http.StatusRequestEntityTooLarge {
+			return fmt.Errorf("%w: file upload failed: HTTP %d, code %d, %s", sessionfiles.ErrArtifactTooLarge, resp.StatusCode, resp.Code, resp.Msg)
+		}
+		if !resp.Success() {
+			return fmt.Errorf("file upload failed: HTTP %d, code %d, %s", resp.StatusCode, resp.Code, resp.Msg)
+		}
+		if resp.Data == nil || stringPtr(resp.Data.FileKey) == "" {
+			return fmt.Errorf("file upload returned no file key")
+		}
+		mediaKey = stringPtr(resp.Data.FileKey)
+		return nil
+	})
+	return "file", mediaKey, err
 }
 
 func (b *Bridge) sendArtifactToBinding(ctx context.Context, chat *LarkChat, kind, key, requestUUID string) error {
@@ -319,13 +379,9 @@ func (b *Bridge) sendArtifactToBindingWithID(ctx context.Context, chat *LarkChat
 
 // dispatchArtifactDelivery captures the completed turn before the stream advances.
 // Network delivery owns its timeout and cannot hold up subsequent stream events.
-// It returns true when asynchronous artifact delivery was actually dispatched.
-func (b *Bridge) dispatchArtifactDelivery(chat *LarkChat, turnID, text string, canonicalJSON []byte) bool {
-	if b == nil || chat == nil || turnID == "" || !strings.Contains(text, "amux-artifact:") {
-		return false
-	}
-	if refs, err := artifactRefs(text); err == nil && len(refs) == 0 {
-		return false
+func (b *Bridge) dispatchArtifactDelivery(chat *LarkChat, turnID, text string, canonicalJSON []byte) {
+	if b == nil || chat == nil || turnID == "" || !artifactLinkPattern.MatchString(text) {
+		return
 	}
 	snapshot := *chat
 	canonicalJSON = bytes.Clone(canonicalJSON)
@@ -333,7 +389,7 @@ func (b *Bridge) dispatchArtifactDelivery(chat *LarkChat, turnID, text string, c
 	b.artifactMu.Lock()
 	if b.artifactInFlight[key] {
 		b.artifactMu.Unlock()
-		return true
+		return
 	}
 	if b.artifactInFlight == nil {
 		b.artifactInFlight = make(map[string]bool)
@@ -352,16 +408,9 @@ func (b *Bridge) dispatchArtifactDelivery(chat *LarkChat, turnID, text string, c
 			delete(b.artifactInFlight, key)
 			b.artifactMu.Unlock()
 		}()
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-		defer cancel()
-		ctx = context.WithValue(ctx, artifactDestinationKey{}, destination)
+		ctx := context.WithValue(context.Background(), artifactDestinationKey{}, destination)
 		b.deliverSessionArtifacts(ctx, &snapshot, turnID, text, canonicalJSON)
-		if err := ctx.Err(); err != nil {
-			log.Warn().Err(err).Str("bridge_id", snapshot.BridgeId).Str("turn_id", turnID).
-				Str("root_msg_id", snapshot.RootMsgID).Msg("bridge: artifact delivery expired")
-		}
 	}()
-	return true
 }
 
 func (b *Bridge) notifyArtifactFailure(ctx context.Context, chat *LarkChat, text string) error {
@@ -372,5 +421,9 @@ func (b *Bridge) notifyArtifactFailure(ctx context.Context, chat *LarkChat, text
 		_, _, err := b.sendTextToDirectTarget(ctx, bs, text)
 		return err
 	}
-	return b.notifyThread(ctx, chat.RootMsgID, text)
+	if b.threadNotice != nil {
+		return b.threadNotice(ctx, chat.RootMsgID, text)
+	}
+	_, _, err := b.sendTextToThread(ctx, chat.RootMsgID, text)
+	return err
 }

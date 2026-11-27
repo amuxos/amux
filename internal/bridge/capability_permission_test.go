@@ -85,6 +85,7 @@ func TestActiveFeishuTenantScopesFollowEnabledCapabilities(t *testing.T) {
 		"im:message:readonly",
 		"im:message.reactions:write_only",
 		"im:message:send_as_bot",
+		"im:resource:upload",
 	})
 	if got := testActiveFeishuTenantScopes(b); !reflect.DeepEqual(got, want) {
 		t.Fatalf("active scopes = %v, want %v", got, want)
@@ -1233,4 +1234,34 @@ func testActiveFeishuTenantScopes(b *Bridge) []string {
 		scopes = append(scopes, capability.TenantScopes...)
 	}
 	return normalizeFeishuScopes(scopes)
+}
+
+func TestArtifactPermissionAuditAcceptsLegacyResourceScope(t *testing.T) {
+	t.Parallel()
+	for _, legacyGranted := range []bool{false, true} {
+		b := &Bridge{secrets: &Secrets{AppId: "cli_test123"}}
+		b.permissionScopeList = func(context.Context) (map[string]int, error) {
+			statuses := make(map[string]int)
+			for _, scope := range testActiveFeishuTenantScopes(b) {
+				statuses[scope] = 1
+			}
+			delete(statuses, artifactUploadScope)
+			if legacyGranted {
+				statuses[legacyResourceScope] = 1
+			}
+			return statuses, nil
+		}
+		if err := b.auditFeishuPermissions(context.Background(), false); err != nil {
+			t.Fatal(err)
+		}
+		issue := b.capabilityPermissionIssue(capabilityArtifactUpload)
+		if legacyGranted {
+			if issue != nil {
+				t.Fatalf("legacy resource scope already permits uploads: %+v", issue)
+			}
+		} else if issue == nil || !slices.Equal(issue.Scopes, []string{artifactUploadScope}) ||
+			!strings.Contains(issue.GrantURL, "im%3Aresource%3Aupload") {
+			t.Fatalf("missing upload scope has no actionable audit issue: %+v", issue)
+		}
+	}
 }

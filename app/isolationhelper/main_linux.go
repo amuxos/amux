@@ -4,6 +4,7 @@ package isolationhelper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -23,6 +24,9 @@ func Main(buildVersion string) {
 	if len(os.Args) == 5 && os.Args[1] == "_session-file" {
 		if err := sessionfiles.Exchange(os.Args[2], os.Args[3], os.Args[4], os.Stdin, os.Stdout); err != nil {
 			fmt.Fprintln(os.Stderr, err)
+			if errors.Is(err, sessionfiles.ErrArtifactTooLarge) {
+				os.Exit(sessionfiles.ArtifactSizeExitCode)
+			}
 			os.Exit(125)
 		}
 		return
