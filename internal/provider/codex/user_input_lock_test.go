@@ -15,6 +15,7 @@ import (
 // prevents the real app server from answering initialize. Run twice to ensure
 // cleanup also permits the next Session, not only the current one.
 func TestUserInputProbeReleasesLauncherLock(t *testing.T) {
+	t.Parallel()
 	opts := compatibleStartOptions(t, writeFakeCodex(t, lockingUserInputLauncher))
 	opts.ProviderName = "codex"
 	for i := 0; i < 2; i++ {
@@ -39,6 +40,7 @@ func TestUserInputProbeReleasesLauncherLock(t *testing.T) {
 }
 
 func TestUserInputProbeCancellationReleasesLauncherLock(t *testing.T) {
+	t.Parallel()
 	opts := compatibleStartOptions(t, writeFakeCodex(t, lockingUserInputLauncher))
 	opts.ProviderName = "codex"
 	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)

@@ -2097,10 +2097,11 @@ func TestProcSpeedMetricsAcrossSequentialTurns(t *testing.T) {
 }
 
 // TestProcToolTurnSpeedExcludesToolTime asserts the generation rate excludes
-// tool execution time. The fake turn generates for ~2s before a tool, runs the
-// tool for ~6s, then generates for ~2s after it: 120 output tokens over ~4s of
-// active generation is ~30 tok/s, while wall-clock division would report ~14
-// or less. The assertion floor of 20 tok/s separates the two models robustly.
+// tool execution time. The fake turn generates for ~0.7s before a tool, runs
+// the tool for ~2.0s, then generates for ~0.7s after it: 60 output tokens over
+// ~1.4s of active generation is ~43 tok/s, while wall-clock division would
+// report ~17 tok/s or less. The assertion floor of 25 tok/s separates the two
+// models robustly with ample jitter margin.
 func TestProcToolTurnSpeedExcludesToolTime(t *testing.T) {
 	t.Parallel()
 	fake := writeFakeCodex(t, fakeCodexToolTurnScript)
@@ -2135,7 +2136,7 @@ func TestProcToolTurnSpeedExcludesToolTime(t *testing.T) {
 	if !ok || tps <= 0 {
 		t.Fatalf("usage[tokens_per_sec] = %d (ok=%t), want positive; usage=%v", tps, ok, usage)
 	}
-	if tps < 20 {
-		t.Fatalf("usage[tokens_per_sec] = %d, want >= 20 (tool time excluded); usage=%v", tps, usage)
+	if tps < 25 {
+		t.Fatalf("usage[tokens_per_sec] = %d, want >= 25 (tool time excluded); usage=%v", tps, usage)
 	}
 }

@@ -147,6 +147,7 @@ func TestDefaultManagedLibraryDegradedAuthoringStateBlocksWritesButAllowsSnapsho
 }
 
 func TestManagedLibraryCreateRegistersStandardGitPack(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	libraryRoot := filepath.Join(root, "managed-agent-packs", "local")
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
@@ -191,6 +192,7 @@ func TestManagedLibraryCreateRegistersStandardGitPack(t *testing.T) {
 }
 
 func TestManagedLibraryRepairsLegacySameOriginRegistrationWithoutMetadata(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	libraryRoot := filepath.Join(root, "managed-agent-packs", "local")
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
@@ -233,6 +235,7 @@ func TestManagedLibraryRepairsLegacySameOriginRegistrationWithoutMetadata(t *tes
 }
 
 func TestManagedLibraryDoesNotTakeOverSameOriginOwnedByAnotherManager(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	libraryRoot := filepath.Join(root, "managed-agent-packs", "local")
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
@@ -267,6 +270,7 @@ func TestManagedLibraryDoesNotTakeOverSameOriginOwnedByAnotherManager(t *testing
 }
 
 func TestManagedLibraryCreateAddsAnotherProfileAtLatestRevision(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	library := NewManagedLibrary(
 		filepath.Join(root, "managed-agent-packs", "local"),
@@ -294,6 +298,7 @@ func TestManagedLibraryCreateAddsAnotherProfileAtLatestRevision(t *testing.T) {
 }
 
 func TestManagedLibraryUpdateInstructionsRequiresCurrentRevision(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	runner := &fakeManagedContractRunner{}
 	library := NewManagedLibrary(
@@ -331,6 +336,7 @@ func TestManagedLibraryUpdateInstructionsRequiresCurrentRevision(t *testing.T) {
 }
 
 func TestManagedLibraryAuthoringPreviewDoesNotPublishAndPublishReplaysPatch(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
@@ -387,6 +393,7 @@ func TestManagedLibraryAuthoringPreviewDoesNotPublishAndPublishReplaysPatch(t *t
 }
 
 func TestManagedLibraryAuthoringEvaluationUsesExactPreviewAndCleansUp(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(
@@ -450,6 +457,7 @@ func TestManagedLibraryAuthoringEvaluationUsesExactPreviewAndCleansUp(t *testing
 }
 
 func TestManagedLibraryReconcilesExpiredAuthoringEvaluation(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
@@ -472,6 +480,7 @@ func TestManagedLibraryReconcilesExpiredAuthoringEvaluation(t *testing.T) {
 }
 
 func TestManagedLibraryPreparesCreateEvaluationBeforeLocalPackIsPublished(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
@@ -500,6 +509,7 @@ func TestManagedLibraryPreparesCreateEvaluationBeforeLocalPackIsPublished(t *tes
 }
 
 func TestManagedLibraryAuthoringRejectsWrongTreeAndUnsafePatch(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	library := NewManagedLibrary(
 		filepath.Join(root, "managed-agent-packs", "local"),
@@ -531,6 +541,7 @@ func TestManagedLibraryAuthoringRejectsWrongTreeAndUnsafePatch(t *testing.T) {
 }
 
 func TestManagedLibraryAuthoringRejectsBareParentPatchPath(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	library := NewManagedLibrary(
 		filepath.Join(root, "managed-agent-packs", "local"),
@@ -553,6 +564,7 @@ func TestManagedLibraryAuthoringRejectsBareParentPatchPath(t *testing.T) {
 }
 
 func TestManagedAuthoringTreeRejectsSymlinkWithoutFollowingIt(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	target := filepath.Join(t.TempDir(), "outside.txt")
 	if err := os.WriteFile(target, []byte("outside"), 0600); err != nil {
@@ -567,6 +579,7 @@ func TestManagedAuthoringTreeRejectsSymlinkWithoutFollowingIt(t *testing.T) {
 }
 
 func TestManagedLibraryAuthoringRejectsNULInTextPatch(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	library := NewManagedLibrary(
 		filepath.Join(root, "managed-agent-packs", "local"),
@@ -591,6 +604,7 @@ func TestManagedLibraryAuthoringRejectsNULInTextPatch(t *testing.T) {
 }
 
 func TestManagedLibraryAuthoringRejectsDeletingTargetExpert(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	library := NewManagedLibrary(
 		filepath.Join(root, "managed-agent-packs", "local"),
@@ -657,6 +671,7 @@ func authoringHasPathPrefix(files []ManagedAuthoringFile, prefix string) bool {
 }
 
 func TestManagedLibraryExpertReadsPublishedInstructions(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	library := NewManagedLibrary(
 		filepath.Join(root, "managed-agent-packs", "local"),
@@ -689,6 +704,7 @@ func TestManagedLibraryExpertReadsPublishedInstructions(t *testing.T) {
 }
 
 func TestManagedLibraryNoopUpdateKeepsProfileRef(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	library := NewManagedLibrary(
 		filepath.Join(root, "managed-agent-packs", "local"),
@@ -709,6 +725,7 @@ func TestManagedLibraryNoopUpdateKeepsProfileRef(t *testing.T) {
 }
 
 func TestManagedLibraryReregistersAfterPackRemoval(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(
@@ -742,6 +759,7 @@ func TestManagedLibraryReregistersAfterPackRemoval(t *testing.T) {
 }
 
 func TestManagedLocalPackRejectsGenericAddRemoveAndRollback(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
@@ -764,6 +782,7 @@ func TestManagedLocalPackRejectsGenericAddRemoveAndRollback(t *testing.T) {
 }
 
 func TestManagedLibraryContractFailureKeepsPublishedRevision(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	runner := &fakeManagedContractRunner{}
 	library := NewManagedLibrary(
@@ -789,6 +808,7 @@ func TestManagedLibraryContractFailureKeepsPublishedRevision(t *testing.T) {
 }
 
 func TestManagedLibraryPublishFailureRollsBackAllPublishedState(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	runner := &fakeManagedContractRunner{}
@@ -827,6 +847,7 @@ func TestManagedLibraryPublishFailureRollsBackAllPublishedState(t *testing.T) {
 }
 
 func TestManagedLibraryDoesNotDeleteUnknownIncompleteRoot(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	libraryRoot := filepath.Join(root, "managed-agent-packs", "local")
 	if err := os.MkdirAll(libraryRoot, 0700); err != nil {
@@ -846,6 +867,7 @@ func TestManagedLibraryDoesNotDeleteUnknownIncompleteRoot(t *testing.T) {
 }
 
 func TestManagedLibraryPublishRevalidatesRegistryIdentity(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	runner := &fakeManagedContractRunner{}
@@ -881,6 +903,7 @@ func TestManagedLibraryPublishRevalidatesRegistryIdentity(t *testing.T) {
 }
 
 func TestManagedLibraryEnsurePreparesEmptyGitWithoutRegisteringPack(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})
@@ -915,6 +938,7 @@ func TestManagedLibraryEnsurePreparesEmptyGitWithoutRegisteringPack(t *testing.T
 }
 
 func TestManagedLibraryHistoryAndRestoreCreateAuditableRevision(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), filepath.Join(root, "agent-packs", "registry.json"), &fakeManagedContractRunner{})
 	created, err := library.Create(context.Background(), ManagedProfileSpec{Name: "reviewer", Instructions: "old"})
@@ -946,6 +970,7 @@ func TestManagedLibraryHistoryAndRestoreCreateAuditableRevision(t *testing.T) {
 }
 
 func TestManagedLibraryUpdatePreservesLegacyMaterializedRevision(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	registryPath := filepath.Join(root, "agent-packs", "registry.json")
 	library := NewManagedLibrary(filepath.Join(root, "managed-agent-packs", "local"), registryPath, &fakeManagedContractRunner{})

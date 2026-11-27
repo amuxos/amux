@@ -12,6 +12,7 @@ import (
 )
 
 func TestDevelopmentLeaseReconcileWaitsForLiveOwnerThenCleans(t *testing.T) {
+	t.Parallel()
 	registryPath, repo, worktree, namespace, branch := setupDevelopmentLeaseTest(t)
 	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
 	lease, err := RegisterDevelopmentLease(registryPath, RegisterDevelopmentLeaseOptions{
@@ -76,6 +77,7 @@ func TestDevelopmentLeaseReconcileWaitsForLiveOwnerThenCleans(t *testing.T) {
 }
 
 func TestDevelopmentLeaseReconcileUsesTTLOnlyWithoutOwner(t *testing.T) {
+	t.Parallel()
 	registryPath, repo, worktree, namespace, branch := setupDevelopmentLeaseTest(t)
 	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
 	if _, err := RegisterDevelopmentLease(registryPath, RegisterDevelopmentLeaseOptions{
@@ -107,6 +109,7 @@ func TestDevelopmentLeaseReconcileUsesTTLOnlyWithoutOwner(t *testing.T) {
 }
 
 func TestDevelopmentLeaseCleanupRetainsDirtyWorktree(t *testing.T) {
+	t.Parallel()
 	registryPath, repo, worktree, namespace, branch := setupDevelopmentLeaseTest(t)
 	if _, err := RegisterDevelopmentLease(registryPath, RegisterDevelopmentLeaseOptions{
 		Namespace:      namespace,
@@ -150,6 +153,7 @@ func TestDevelopmentLeaseCleanupRetainsDirtyWorktree(t *testing.T) {
 }
 
 func TestDevelopmentLeaseRegisterRejectsUnrelatedRepositoryOrigin(t *testing.T) {
+	t.Parallel()
 	registryPath, repo, worktree, namespace, branch := setupDevelopmentLeaseTest(t)
 	runDevelopmentLeaseGit(t, repo, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "unrelated"))
 	_, err := RegisterDevelopmentLease(registryPath, RegisterDevelopmentLeaseOptions{
@@ -166,6 +170,7 @@ func TestDevelopmentLeaseRegisterRejectsUnrelatedRepositoryOrigin(t *testing.T) 
 }
 
 func TestDevelopmentLeaseCleanupRetainsWorktreeWhenOriginChanges(t *testing.T) {
+	t.Parallel()
 	registryPath, repo, worktree, namespace, branch := setupDevelopmentLeaseTest(t)
 	if _, err := RegisterDevelopmentLease(registryPath, RegisterDevelopmentLeaseOptions{
 		Namespace:      namespace,
@@ -251,6 +256,7 @@ func runDevelopmentLeaseGit(t *testing.T, dir string, args ...string) string {
 }
 
 func TestDevelopmentLeaseOperatorCleanupAndRelease(t *testing.T) {
+	t.Parallel()
 	registryPath, repo, worktree, namespace, branch := setupDevelopmentLeaseTest(t)
 	register := func() {
 		t.Helper()

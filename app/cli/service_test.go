@@ -12,6 +12,7 @@ import (
 )
 
 func TestManagedServiceStopKillsProcessThatIgnoresTerm(t *testing.T) {
+	t.Parallel()
 	cmd := exec.Command("sh", "-c", "trap '' TERM; while :; do sleep 1; done")
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start stubborn process: %v", err)
@@ -30,12 +31,12 @@ func TestManagedServiceStopKillsProcessThatIgnoresTerm(t *testing.T) {
 		t.Fatalf("write pid: %v", err)
 	}
 
-	svc := managedService{Name: "stubborn", PIDPath: pidPath}
+	svc := managedService{Name: "stubborn", PIDPath: pidPath, stopGracePeriod: 300 * time.Millisecond}
 	start := time.Now()
 	if err := svc.Stop(); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
-	if time.Since(start) > 7*time.Second {
+	if time.Since(start) > 5*time.Second {
 		t.Fatalf("Stop took too long: %s", time.Since(start))
 	}
 	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
@@ -138,6 +139,7 @@ func TestPidsListeningOnFindsListener(t *testing.T) {
 }
 
 func TestManagedServiceStopReclaimsOrphanOnListenAddr(t *testing.T) {
+	t.Parallel()
 	if _, err := exec.LookPath("lsof"); err != nil {
 		t.Skip("lsof not available; orphan reclamation relies on it")
 	}
@@ -186,7 +188,14 @@ func TestManagedServiceStopReclaimsOrphanOnListenAddr(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve orphan executable: %v", err)
 	}
-	svc := managedService{Name: "hub", PIDPath: pidPath, ListenAddr: addr, ExpectedExecutable: executable}
+	svc := managedService{
+		Name:               "hub",
+		PIDPath:            pidPath,
+		ListenAddr:         addr,
+		ExpectedExecutable: executable,
+		stopGracePeriod:    300 * time.Millisecond,
+		addrFreeTimeout:    300 * time.Millisecond,
+	}
 	if err := svc.Stop(); err != nil {
 		t.Fatalf("Stop should reclaim orphan and succeed: %v", err)
 	}
@@ -196,6 +205,7 @@ func TestManagedServiceStopReclaimsOrphanOnListenAddr(t *testing.T) {
 }
 
 func TestManagedServiceStopDoesNotReclaimUnrelatedExecutable(t *testing.T) {
+	t.Parallel()
 	if _, err := exec.LookPath("nc"); err != nil {
 		t.Skip("nc not available to spawn an unrelated listener")
 	}
@@ -222,6 +232,7 @@ func TestManagedServiceStopDoesNotReclaimUnrelatedExecutable(t *testing.T) {
 		PIDPath:            filepath.Join(t.TempDir(), "hub.pid"),
 		ListenAddr:         addr,
 		ExpectedExecutable: filepath.Join(t.TempDir(), "amuxd"),
+		addrFreeTimeout:    200 * time.Millisecond,
 	}
 	if err := svc.Stop(); err == nil {
 		t.Fatal("Stop should fail while an unrelated executable owns the address")
@@ -232,6 +243,7 @@ func TestManagedServiceStopDoesNotReclaimUnrelatedExecutable(t *testing.T) {
 }
 
 func TestManagedServiceStopFailsHonestlyWhenAddrStaysHeld(t *testing.T) {
+	t.Parallel()
 	// A live listener holds the addr; with no pid file and lsof unable to find a
 	// killable owner (we pretend none), Stop must return an error rather than
 	// falsely reporting success. We simulate "cannot reclaim" by holding the
@@ -245,7 +257,7 @@ func TestManagedServiceStopFailsHonestlyWhenAddrStaysHeld(t *testing.T) {
 	addr := ln.Addr().String()
 
 	pidPath := filepath.Join(t.TempDir(), "hub.pid") // no file on disk
-	svc := managedService{Name: "hub", PIDPath: pidPath, ListenAddr: addr}
+	svc := managedService{Name: "hub", PIDPath: pidPath, ListenAddr: addr, addrFreeTimeout: 200 * time.Millisecond}
 	err = svc.Stop()
 	if err == nil {
 		t.Fatal("Stop should fail honestly while the addr is still held")

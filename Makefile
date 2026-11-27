@@ -10,9 +10,7 @@ EXE := $(if $(filter windows,$(GOOS)),.exe,)
 
 build:
 	@mkdir -p "$(BUILD_DIR)"
-	@set -e; for bin in $(BINARIES); do \
-		go build -trimpath -buildvcs=false -ldflags "-X main.version=$(VERSION)" -o "$(BUILD_DIR)/$$bin$(EXE)" ./cmd/$$bin; \
-	done
+	go build -trimpath -buildvcs=false -ldflags "-X main.version=$(VERSION)" -o "$(BUILD_DIR)/" $(addprefix ./cmd/,$(BINARIES))
 	@if [ "$(GOOS)" = "windows" ]; then \
 		go build -trimpath -buildvcs=false -ldflags "-X main.version=$(VERSION)" -o "$(BUILD_DIR)/Setup.exe" ./cmd/amux-setup; \
 	fi
@@ -49,14 +47,18 @@ docs: cli-doc config-doc mcp-doc feishu-doc
 	$(MAKE) docs-index
 
 docs-check:
-	go run -tags cli_doc ./cmd/amux --language en --check --output docs/reference/cli.md
-	go run -tags cli_doc ./cmd/amux --language zh-CN --check --output docs/reference/cli.zh-CN.md
-	go run ./cmd/amux-config-doc --language en --check --output docs/reference/configuration.md
-	go run ./cmd/amux-config-doc --language zh-CN --check --output docs/reference/configuration.zh-CN.md
-	go run -tags mcp_doc ./cmd/amux --language en --check --output docs/reference/mcp.md
-	go run -tags mcp_doc ./cmd/amux --language zh-CN --check --output docs/reference/mcp.zh-CN.md
-	go run ./cmd/amux-feishu-doc --language en --check --output docs/reference/feishu-commands.md
-	go run ./cmd/amux-feishu-doc --language zh-CN --check --output docs/reference/feishu-commands.zh-CN.md
+	@set -eu; tmp="$$(mktemp -d)"; trap 'rm -rf "$$tmp"' EXIT; \
+	go build -o "$$tmp/" ./cmd/amux-config-doc ./cmd/amux-feishu-doc; \
+	go build -tags cli_doc -o "$$tmp/amux-cli-doc$(EXE)" ./cmd/amux; \
+	go build -tags mcp_doc -o "$$tmp/amux-mcp-doc$(EXE)" ./cmd/amux; \
+	"$$tmp/amux-cli-doc$(EXE)" --language en --check --output docs/reference/cli.md; \
+	"$$tmp/amux-cli-doc$(EXE)" --language zh-CN --check --output docs/reference/cli.zh-CN.md; \
+	"$$tmp/amux-config-doc$(EXE)" --language en --check --output docs/reference/configuration.md; \
+	"$$tmp/amux-config-doc$(EXE)" --language zh-CN --check --output docs/reference/configuration.zh-CN.md; \
+	"$$tmp/amux-mcp-doc$(EXE)" --language en --check --output docs/reference/mcp.md; \
+	"$$tmp/amux-mcp-doc$(EXE)" --language zh-CN --check --output docs/reference/mcp.zh-CN.md; \
+	"$$tmp/amux-feishu-doc$(EXE)" --language en --check --output docs/reference/feishu-commands.md; \
+	"$$tmp/amux-feishu-doc$(EXE)" --language zh-CN --check --output docs/reference/feishu-commands.zh-CN.md
 	python3 scripts/docs_catalog.py --check
 	python3 -B -m unittest discover -s scripts -p test_docs_catalog.py
 

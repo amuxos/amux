@@ -56,6 +56,7 @@ permission_mode = "plan"
 }
 
 func TestManagedConvertV2PublishesAndPreservesHistory(t *testing.T) {
+	t.Parallel()
 	var runner ManagedContractRunner = &fakeManagedContractRunner{}
 	if binary := os.Getenv("AMUX_TEST_CONTRACT_BIN"); binary != "" {
 		runner = ExecManagedContractRunner{Command: binary}
@@ -128,6 +129,7 @@ func TestManagedConvertV2PublishesAndPreservesHistory(t *testing.T) {
 }
 
 func TestManagedConvertV2DoesNotRepairRegistryBeforePublishing(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []string{"revision", "contract", "publish", "v2"} {
 		t.Run(failure, func(t *testing.T) {
 			runner := &fakeManagedContractRunner{}
@@ -182,6 +184,7 @@ func TestManagedConvertV2DoesNotRepairRegistryBeforePublishing(t *testing.T) {
 }
 
 func TestManagedConvertV2RejectsDanglingProfilesSymlink(t *testing.T) {
+	t.Parallel()
 	library, before, _ := legacyManagedLibrary(t, true, &fakeManagedContractRunner{})
 	work := filepath.Join(t.TempDir(), "repo")
 	runPackGit(t, "", "clone", library.originPath(), work)
@@ -204,6 +207,7 @@ func TestManagedConvertV2RejectsDanglingProfilesSymlink(t *testing.T) {
 }
 
 func TestManagedConvertV2EmptyPublicationRechecksRegistry(t *testing.T) {
+	t.Parallel()
 	library, before, _ := legacyManagedLibrary(t, true, &fakeManagedContractRunner{})
 	var registryBefore []byte
 	_, err := library.mutateExistingSource(context.Background(), before, "", func(root string) error {
@@ -238,6 +242,7 @@ func TestManagedConvertV2EmptyPublicationRechecksRegistry(t *testing.T) {
 }
 
 func TestManagedConvertV2FailuresKeepFormalState(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []string{"revision", "contract", "manifest", "publish", "schema", "malformed", "symlink"} {
 		t.Run(failure, func(t *testing.T) {
 			runner := &fakeManagedContractRunner{}
@@ -299,6 +304,7 @@ func TestManagedConvertV2FailuresKeepFormalState(t *testing.T) {
 }
 
 func TestManagedConvertV2EmptyLibraryStaysUnregistered(t *testing.T) {
+	t.Parallel()
 	library, before, _ := legacyManagedLibrary(t, true, &fakeManagedContractRunner{failCheck: true})
 	result, err := library.ConvertV2(context.Background(), before)
 	if err != nil || result.Revision == before {
@@ -318,6 +324,7 @@ func TestManagedConvertV2EmptyLibraryStaysUnregistered(t *testing.T) {
 }
 
 func TestManagedConvertV2RequiresRevisionAndExistingLibrary(t *testing.T) {
+	t.Parallel()
 	library := NewManagedLibrary(filepath.Join(t.TempDir(), "local"), filepath.Join(t.TempDir(), "registry.json"), &fakeManagedContractRunner{})
 	for _, revision := range []string{"", "short", strings.Repeat("0", 40)} {
 		if _, err := library.ConvertV2(context.Background(), revision); err == nil {
@@ -327,6 +334,7 @@ func TestManagedConvertV2RequiresRevisionAndExistingLibrary(t *testing.T) {
 }
 
 func TestManagedV2SourceConversionPreservesContentSemantics(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	writePackContent(t, root, "agent-pack.toml", "schema_version = \"v1.1\"\nnamespace = \"local\"\nproviders = {}\n")
 	for _, namespace := range []string{"common", "team"} {
@@ -374,6 +382,7 @@ func TestManagedV2SourceConversionPreservesContentSemantics(t *testing.T) {
 }
 
 func TestManagedConvertV2RealContractPreservesInheritance(t *testing.T) {
+	t.Parallel()
 	binary := os.Getenv("AMUX_TEST_CONTRACT_BIN")
 	if binary == "" {
 		t.Skip("set AMUX_TEST_CONTRACT_BIN to exercise the released compiler")
