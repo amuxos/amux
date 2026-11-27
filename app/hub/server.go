@@ -19,6 +19,7 @@ import (
 	"github.com/amuxos/amux/internal/bridge/threadcontext"
 	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/executionauth"
+	"github.com/amuxos/amux/internal/feishumsg"
 	"github.com/amuxos/amux/internal/memory"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/registry"
@@ -1881,10 +1882,6 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 	if taskRow.DeliveryTarget != schedule.DeliveryTargetNone && creator.BotID == "" {
 		return nil, status.Errorf(codes.FailedPrecondition, "delivery_target %q requires a verified Feishu creator or conversation origin", taskRow.DeliveryTarget)
 	}
-	t, err := store.Create(taskRow)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "%v", err)
-	}
 	if creator.PrincipalID != "" {
 		var access principal.ExecutionIdentity
 		if taskRow.ScheduleType == schedule.ScheduleTypeSubtask {
@@ -1895,8 +1892,17 @@ func (s *hubServer) CreateSchedule(ctx context.Context, req *pb.CreateScheduleRe
 		} else {
 			access, _ = s.sessionExecutionIdentity(taskRow.TargetID, taskRow.SessionName)
 		}
+		if taskRow.DeliveryTarget == schedule.DeliveryTargetCreatorDM && !feishumsg.IsPersonalSchedule(access, creator.PrincipalID) {
+			return nil, status.Error(codes.FailedPrecondition, feishumsg.Copy("personal_schedule"))
+		}
 		encoded, _ := json.Marshal(access)
 		creator.AccessIdentityJSON = string(encoded)
+	}
+	t, err := store.Create(taskRow)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
+	if creator.PrincipalID != "" {
 		if err := store.BindCreator(t.ID, creator); err != nil {
 			_, _ = store.Delete(t.ID)
 			return nil, status.Errorf(codes.Internal, "persist schedule creator: %v", err)
@@ -2164,8 +2170,14 @@ func (s *hubServer) UpdateSchedule(ctx context.Context, req *pb.UpdateScheduleRe
 			return nil, status.Errorf(codes.InvalidArgument, "delivery_target %q is not needed for reuse-session schedules (replies already post into the target session); use none or creator_dm", deliveryTarget)
 		}
 		if deliveryTarget != schedule.DeliveryTargetNone {
-			if vis, vErr := store.Visibility(row.ID); vErr != nil || vis.Creator.BotID == "" {
+			vis, vErr := store.Visibility(row.ID)
+			if vErr != nil || vis.Creator.BotID == "" {
 				return nil, status.Errorf(codes.FailedPrecondition, "delivery_target %q requires a verified Feishu creator or conversation origin", deliveryTarget)
+			}
+			if deliveryTarget == schedule.DeliveryTargetCreatorDM {
+				if _, ok := vis.Creator.PersonalDeliveryIdentity(); !ok {
+					return nil, status.Error(codes.FailedPrecondition, feishumsg.Copy("personal_schedule"))
+				}
 			}
 		}
 		row.DeliveryTarget = deliveryTarget

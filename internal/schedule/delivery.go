@@ -6,7 +6,17 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/amuxos/amux/internal/feishumsg"
+	"github.com/amuxos/amux/internal/principal"
 )
+
+// PersonalDeliveryIdentity only returns a verified creator's own execution identity.
+func (c Creator) PersonalDeliveryIdentity() (principal.ExecutionIdentity, bool) {
+	var identity principal.ExecutionIdentity
+	err := json.Unmarshal([]byte(c.AccessIdentityJSON), &identity)
+	return identity, err == nil && feishumsg.IsPersonalSchedule(identity, c.PrincipalID)
+}
 
 const (
 	DeliveryTargetNone      = "none"

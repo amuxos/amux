@@ -86,6 +86,9 @@
   "personal_session": {
     "other": "Personal Bot delivery requires the calling user’s own Linux DAC isolated Feishu Session."
   },
+  "personal_schedule": {
+    "other": "Personal Bot delivery requires a verified schedule creator running under their own isolated identity."
+  },
   "personal_unavailable": {
     "other": "Personal Bot delivery is unavailable on this Runtime."
   },

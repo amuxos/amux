@@ -987,10 +987,11 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "delivery_target": {
-      "description": "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin",
+      "description": "结果主动投递目标：origin（发回来源飞书话题或会话；飞书 subtask 省略时默认）、none（仅记录）、creator_dm（用户隔离模式下通过创建者的个人 Bot 私聊本人）。session-prompt + reuse-session 不允许 origin",
       "enum": [
         "none",
-        "origin"
+        "origin",
+        "creator_dm"
       ],
       "type": "string"
     },
@@ -1291,10 +1292,11 @@ MCP 的产品语义、权限与生命周期边界仍以 [`docs/current/cli-produ
       "type": "string"
     },
     "delivery_target": {
-      "description": "更新结果主动投递目标（none 或 origin）；省略时保持不变",
+      "description": "更新结果主动投递目标：none、origin 或 creator_dm（用户隔离模式下通过创建者的个人 Bot 私聊本人）；省略时保持不变",
       "enum": [
         "none",
-        "origin"
+        "origin",
+        "creator_dm"
       ],
       "type": "string"
     },

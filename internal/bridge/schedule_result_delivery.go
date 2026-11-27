@@ -4,10 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/amuxos/amux/internal/feishumsg"
+	"github.com/amuxos/amux/internal/i18n"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/schedule"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	"github.com/rs/zerolog/log"
@@ -318,6 +322,59 @@ func isPermanentFeishuDeliveryError(code int) bool {
 	}
 }
 
+func schedulePersonalResultMessage(entry schedule.Entry, d schedule.ResultDelivery, locale i18n.Locale) feishumsg.Message {
+	locale = i18n.Resolve(string(locale), "", "")
+	run := d.Run
+	header := managementConcat(scheduleText("delivery.title"), " · ", scheduleText("task_identity", entry.Task.ID, scheduleName(entry.Task)), "\n",
+		scheduleText("status."+run.Status), " · ", scheduleTime(run.FinishedAt)).For(locale)
+	body := truncateScheduleDeliveryBody(run.Result)
+	if body == "" {
+		if run.Reason != "" {
+			body = managementText(scheduleReason(run.Reason)).For(locale)
+		} else {
+			body = managementText(scheduleText("delivery.no_output")).For(locale)
+		}
+	}
+	msg := feishumsg.Message{
+		ReceiveIDType: feishumsg.Self,
+		Format:        "markdown",
+		Text:          header + "\n\n" + body,
+		UUID:          scheduleResultDeliveryUUID(d.BotID, d.ScheduleID, d.RunID),
+	}
+	runes := []rune(body)
+	for len(msg.Content()) > feishumsg.MaxContentBytes {
+		runes = runes[:len(runes)*3/4]
+		msg.Text = header + "\n\n" + string(runes) + "…"
+	}
+	return msg
+}
+
+func (b *Bridge) sendSchedulePersonalResult(ctx context.Context, entry schedule.Entry, d schedule.ResultDelivery, identity principal.ExecutionIdentity) (string, error) {
+	creator := entry.Visibility.Creator
+	target := creator.OriginTargetID
+	if target == "" {
+		target = d.Run.TargetID
+	}
+	if target == "" || b.hub == nil {
+		return "", errors.New(feishumsg.Copy("personal_unavailable"))
+	}
+	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+	reply, err := b.hub.Route(ctx, target, feishumsg.PersonalRoute, feishumsg.PersonalRequest{
+		PrincipalID:      creator.PrincipalID,
+		ScheduleIdentity: &identity,
+		Message:          schedulePersonalResultMessage(entry, d, b.managementLocale(creator.OpenID)),
+	})
+	if err != nil {
+		return "", err
+	}
+	var result feishumsg.PersonalResult
+	if reply == nil || json.Unmarshal(reply.Payload, &result) != nil || result.MessageID == "" {
+		return "", feishumsg.ErrEmptyResponse
+	}
+	return result.MessageID, nil
+}
+
 func (b *Bridge) sendScheduleResultCard(ctx context.Context, d schedule.ResultDelivery, card string) (string, int, error) {
 	if b.client == nil {
 		return "", 0, fmt.Errorf("feishu client unavailable")
@@ -454,20 +511,31 @@ func (b *Bridge) deliverScheduleResults(ctx context.Context, now time.Time) erro
 			_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusDenied, true, err.Error(), now)
 			continue
 		}
-		var rawCard string
+		var msgID string
+		var code int
+		var sendErr error
 		if d.Kind == schedule.DeliveryKindCreated {
-			rawCard = renderScheduleCreatedCard(entry)
+			card := b.managementCardForRecipient(d.OpenID, renderScheduleCreatedCard(entry))
+			msgID, code, sendErr = b.sendScheduleResultCard(ctx, d, card)
 		} else {
-			// If the user switched delivery_target to "none" before delivery flushed,
-			// respect the updated preference and skip.
-			if entry.Task.DeliveryTarget == schedule.DeliveryTargetNone {
+			// A queued result must never go to a destination the creator changed.
+			if d.Target != scheduleEffectiveDeliveryTarget(entry.Task) || !schedule.ShouldDeliverResult(d.Target, entry.Task.DeliveryPolicy, d.Run) {
 				_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusSkipped, true, "", now)
 				continue
 			}
-			rawCard = renderScheduleResultDeliveryCardWithViewer(entry, d.Run, b.sessionViewerURL(d.Run.TargetID, d.Run.SessionName))
+			if d.Target == schedule.DeliveryTargetCreatorDM {
+				identity, ok := entry.Visibility.Creator.PersonalDeliveryIdentity()
+				if !ok {
+					_ = store.MarkResultDelivery(d.RunID, schedule.DeliveryStatusDenied, true, feishumsg.Copy("personal_schedule"), now)
+					continue
+				}
+				msgID, sendErr = b.sendSchedulePersonalResult(ctx, entry, d, identity)
+			} else {
+				rawCard := renderScheduleResultDeliveryCardWithViewer(entry, d.Run, b.sessionViewerURL(d.Run.TargetID, d.Run.SessionName))
+				card := b.managementCardForRecipient(d.OpenID, rawCard)
+				msgID, code, sendErr = b.sendScheduleResultCard(ctx, d, card)
+			}
 		}
-		card := b.managementCardForRecipient(d.OpenID, rawCard)
-		msgID, code, sendErr := b.sendScheduleResultCard(ctx, d, card)
 		if sendErr == nil {
 			if d.Kind == schedule.DeliveryKindCreated {
 				log.Info().Int64("schedule_id", d.ScheduleID).Str("target", d.Target).Str("message_id", msgID).Msg("bridge: delivered schedule created card")

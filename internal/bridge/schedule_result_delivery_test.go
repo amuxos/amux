@@ -14,9 +14,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/amuxos/amux/internal/feishumsg"
 	"github.com/amuxos/amux/internal/i18n"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/schedule"
 	"github.com/amuxos/amux/internal/task"
+	"github.com/google/uuid"
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher/callback"
 )
@@ -115,10 +118,10 @@ type fakeDeliveryRequest struct {
 }
 
 type deliveryAuthScheduleControl struct {
-	store     *schedule.Store
-	deny      map[string]bool
-	acted     []string
-	onAct     func(open string, id int64, action string) error
+	store *schedule.Store
+	deny  map[string]bool
+	acted []string
+	onAct func(open string, id int64, action string) error
 }
 
 func (c *deliveryAuthScheduleControl) List(ctx context.Context, bot, open string) ([]schedule.Entry, error) {
@@ -220,14 +223,18 @@ func TestDeliverScheduleResultsRoutingFallbackAndAuthRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := store.BindCreator(tsk.ID, schedule.Creator{
+		creator := schedule.Creator{
 			BotID:           "bot-1",
 			OpenID:          openID,
 			PrincipalID:     "p_" + openID,
 			Source:          "turn:" + openID,
 			OriginRootMsgID: rootMsg,
 			OriginChatID:    chatID,
-		}); err != nil {
+		}
+		if target == schedule.DeliveryTargetCreatorDM && openID != "ou_legacy" {
+			creator = isolatedScheduleDeliveryTestCreator(openID)
+		}
+		if err := store.BindCreator(tsk.ID, creator); err != nil {
 			t.Fatal(err)
 		}
 		nextAfter := now.Add(time.Hour).Unix()
@@ -278,17 +285,38 @@ func TestDeliverScheduleResultsRoutingFallbackAndAuthRevocation(t *testing.T) {
 		t.Fatalf("case 2 status = %+v", hist)
 	}
 
-	// 3) creator_dm -> sends directly to open_id.
-	s3, _ := enqueueTerminal("dm-job", "ou_bob", schedule.DeliveryTargetCreatorDM, "om_root_3", "oc_chat_3", "DM summary")
+	// Each creator's verified identity and own Runtime determine the private route.
+	var personal []feishumsg.PersonalRequest
+	b.hub = replyEndTestHub{send: func(_ context.Context, target string, req feishumsg.PersonalRequest) error {
+		want := isolatedScheduleDeliveryTestCreator([]string{"ou_bob", "ou_alice"}[len(personal)])
+		if target != want.OriginTargetID || req.PrincipalID != want.PrincipalID ||
+			req.ScheduleIdentity == nil || req.ScheduleIdentity.EffectivePrincipalID != want.PrincipalID ||
+			req.SessionID != "" || req.Message.ReceiveIDType != feishumsg.Self || req.Message.Validate() != nil {
+			t.Fatalf("unexpected private delivery to %s: %+v", target, req)
+		}
+		personal = append(personal, req)
+		return nil
+	}}
+	s3, _ := enqueueTerminal("dm-job", "ou_bob", schedule.DeliveryTargetCreatorDM, "", "", "Bob summary")
+	s5, _ := enqueueTerminal("alice-job", "ou_alice", schedule.DeliveryTargetCreatorDM, "", "", "Alice summary")
+	legacy, _ := enqueueTerminal("legacy-job", "ou_legacy", schedule.DeliveryTargetCreatorDM, "", "", "Legacy summary")
 	b.deliverScheduleResults(context.Background(), deliverNow)
 	mu.Lock()
-	if len(calls) != 1 || calls[0].ReceiveIDType != "open_id" || calls[0].Body["receive_id"] != "ou_bob" {
-		t.Fatalf("case 3 DM calls = %+v", calls)
+	if len(calls) != 0 {
+		t.Fatalf("private results must not use the shared Bot: %+v", calls)
 	}
-	calls = nil
 	mu.Unlock()
-	if hist, _ := store.ExecutionHistory(s3); len(hist) != 1 || hist[0].DeliveryStatus != schedule.DeliveryStatusDelivered {
-		t.Fatalf("case 3 status = %+v", hist)
+	if len(personal) != 2 || !strings.Contains(personal[0].Message.Text, "Bob summary") ||
+		!strings.Contains(personal[1].Message.Text, "Alice summary") || personal[0].Message.UUID == personal[1].Message.UUID {
+		t.Fatalf("wrong private results: %+v", personal)
+	}
+	for _, id := range []int64{s3, s5} {
+		if hist, _ := store.ExecutionHistory(id); len(hist) != 1 || hist[0].DeliveryStatus != schedule.DeliveryStatusDelivered {
+			t.Fatalf("private result status = %+v", hist)
+		}
+	}
+	if hist, _ := store.ExecutionHistory(legacy); len(hist) != 1 || hist[0].DeliveryStatus != schedule.DeliveryStatusDenied {
+		t.Fatalf("unverified private result should be denied: %+v", hist)
 	}
 
 	// 4) Creator revoked -> denied, zero outbound Feishu calls.
@@ -302,6 +330,39 @@ func TestDeliverScheduleResultsRoutingFallbackAndAuthRevocation(t *testing.T) {
 	mu.Unlock()
 	if hist, _ := store.ExecutionHistory(s4); len(hist) != 1 || hist[0].DeliveryStatus != schedule.DeliveryStatusDenied {
 		t.Fatalf("case 4 status = %+v, want denied", hist)
+	}
+}
+
+func isolatedScheduleDeliveryTestCreator(openID string) schedule.Creator {
+	id := uuid.NewSHA1(uuid.NameSpaceOID, []byte(openID)).String()
+	raw, err := json.Marshal(principal.ExecutionIdentity{
+		IdentityMode: principal.IdentityModeIdentified, Source: principal.SourceSchedule,
+		OriginActorPrincipalID: id, EffectivePrincipalID: id, CreationAuthorizationDecisionID: "decision",
+	})
+	if err != nil {
+		panic(err)
+	}
+	return schedule.Creator{BotID: "bot-1", OpenID: openID, PrincipalID: id, Source: "turn:fixture",
+		AccessIdentityJSON: string(raw), OriginTargetID: "origin-" + openID}
+}
+
+func TestIsolatedScheduleOffersPersonalDeliveryAndBoundsLocalizedMessage(t *testing.T) {
+	entry := schedule.Entry{
+		Task:       schedule.Task{ID: 1, Name: "fixture", ScheduleType: schedule.ScheduleTypeSubtask},
+		Visibility: schedule.Visibility{Creator: isolatedScheduleDeliveryTestCreator("ou_bob")},
+	}
+	card := renderScheduleDetail(entry, false)
+	if !strings.Contains(card, `"value":"creator_dm"`) {
+		t.Fatalf("missing personal delivery choice: %s", card)
+	}
+	d := schedule.ResultDelivery{ScheduleID: 1, RunID: 2, BotID: "bot-1", Run: schedule.Execution{
+		Status: "completed", Result: strings.Repeat("𠮷<", 3000),
+	}}
+	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese, ""} {
+		msg := schedulePersonalResultMessage(entry, d, locale)
+		if err := msg.Validate(); err != nil || !strings.Contains(msg.Text, "fixture") || !strings.HasSuffix(msg.Text, "…") {
+			t.Fatalf("invalid localized result (%q): %v", locale, err)
+		}
 	}
 }
 

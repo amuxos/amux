@@ -430,15 +430,15 @@ func renderScheduleDetailWithViewer(e schedule.Entry, result bool, page int, vie
 		isReuseSession := e.Task.ScheduleType != schedule.ScheduleTypeSubtask && (e.Task.RunMode == "" || e.Task.RunMode == schedule.RunModeReuseSession)
 		effectiveTarget := scheduleEffectiveDeliveryTarget(e.Task)
 		var targetOptions []string
-		if isReuseSession {
-			// creator_dm is currently hidden; only expose "none" if a legacy
-			// reuse-session schedule still has creator_dm enabled so the user
-			// can switch it off.
-			if effectiveTarget == schedule.DeliveryTargetCreatorDM {
-				targetOptions = []string{schedule.DeliveryTargetNone}
-			}
-		} else {
-			targetOptions = []string{schedule.DeliveryTargetOrigin, schedule.DeliveryTargetNone}
+		if !isReuseSession {
+			targetOptions = append(targetOptions, schedule.DeliveryTargetOrigin)
+		}
+		_, personalDelivery := e.Visibility.Creator.PersonalDeliveryIdentity()
+		if personalDelivery {
+			targetOptions = append(targetOptions, schedule.DeliveryTargetCreatorDM)
+		}
+		if len(targetOptions) > 0 || effectiveTarget != schedule.DeliveryTargetNone {
+			targetOptions = append(targetOptions, schedule.DeliveryTargetNone)
 		}
 		if len(targetOptions) > 0 || effectiveTarget != schedule.DeliveryTargetNone {
 			var deliveryRows []cardElement

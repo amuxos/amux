@@ -39,6 +39,8 @@ type Message struct {
 	UUID             string `json:"uuid,omitempty"`
 }
 
+const MaxContentBytes = 20 << 10
+
 func (m Message) Validate() error {
 	switch m.Format {
 	case "", "text", "markdown":
@@ -48,7 +50,7 @@ func (m Message) Validate() error {
 	if strings.TrimSpace(m.Text) == "" {
 		return errors.New(Copy("empty_text"))
 	}
-	if len(m.Content()) > 20<<10 {
+	if len(m.Content()) > MaxContentBytes {
 		return errors.New(Copy("large_text"))
 	}
 	if len(m.UUID) > 50 {

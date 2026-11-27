@@ -20,6 +20,7 @@ type Creator struct {
 	AccessIdentityJSON string
 	OriginRootMsgID    string `json:",omitempty"`
 	OriginChatID       string `json:",omitempty"`
+	OriginTargetID     string `json:",omitempty"`
 }
 type Execution struct {
 	AlertCounted                                                bool
