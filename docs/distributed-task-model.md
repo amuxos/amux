@@ -64,8 +64,10 @@ against profile policy and runtime capabilities.
 Task execution choices belong to amux, not v2 Profile content. An explicit runtime
 and model take precedence. A Task submitted from a Session inherits that
 Session's current model and reasoning effort when it runs on the Session's
-engine; inherited choices that do not resolve for the child profile keep the
-caller's own resolution. Without a runtime, a builtin shortcut uses its own
+engine. If the Session selected a backend variant for that model, the Task
+tries that variant first. If the variant cannot be used by the child Profile,
+the Task tries the current model name, then keeps the caller's own resolution
+if that model cannot be used either. Without a runtime, a builtin shortcut uses its own
 launch preset; other profiles use the distribution's default builtin launch
 preset. An omitted model uses that preset's model when its runtime is inherited,
 or the selected engine's native default when no model is configured. These

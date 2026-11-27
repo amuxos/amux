@@ -777,6 +777,9 @@ message ActiveTurnResponse {
   // subtask can follow the model and reasoning effort the conversation is on.
   string effective_model = 5;
   string reasoning_effort = 6;
+  // Selected backend variant for effective_model, when the saved selection
+  // still matches the live model.
+  string model_variant_ref = 7;
 }
 
 message InputPart {
