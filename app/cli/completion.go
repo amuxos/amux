@@ -52,6 +52,7 @@ func completeScheduleDeliveryTargets(_ *cobra.Command, _ []string, toComplete st
 	return filterCompletionValues([]string{
 		schedule.DeliveryTargetNone + "\tdo not proactively send run results",
 		schedule.DeliveryTargetOrigin + "\tsend run results back to the originating chat/thread",
+		schedule.DeliveryTargetCreatorDM,
 	}, toComplete), cobra.ShellCompDirectiveNoFileComp
 }
 

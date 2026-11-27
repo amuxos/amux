@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/feishumsg"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/session"
 	"github.com/amuxos/amux/internal/sessioncredential"
 )
@@ -25,22 +26,34 @@ func (s *server) SendPersonalFeishuMessage(ctx context.Context, req feishumsg.Pe
 	if err := req.Message.Validate(); err != nil {
 		return empty, err
 	}
-	sess, err := s.mgr.Get(req.SessionID)
-	if err != nil {
-		return empty, errors.New(feishumsg.Copy("session"))
-	}
-	snap := sess.Snapshot()
-	if !personalFeishuSessionMatches(snap, req) {
-		return empty, errors.New(feishumsg.Copy("personal_session"))
+	scope := req.SessionID
+	var identity principal.ExecutionIdentity
+	if req.ScheduleIdentity != nil {
+		if req.SessionID != "" || req.Message.UUID == "" || !feishumsg.IsPersonalSchedule(*req.ScheduleIdentity, req.PrincipalID) {
+			return empty, errors.New(feishumsg.Copy("personal_schedule"))
+		}
+		identity = *req.ScheduleIdentity
+		identity.IsolationBackend = principal.BackendLinuxDAC
+		scope = "schedule:" + req.PrincipalID
+	} else {
+		sess, err := s.mgr.Get(req.SessionID)
+		if err != nil {
+			return empty, errors.New(feishumsg.Copy("session"))
+		}
+		snap := sess.Snapshot()
+		if !personalFeishuSessionMatches(snap, req) {
+			return empty, errors.New(feishumsg.Copy("personal_session"))
+		}
+		identity = snap.ExecutionIdentity
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	msg := req.Message
-	// Preserve deduplication across retries of this Session's send.
-	digest := sha256.Sum256([]byte(snap.ID + "\x00" + msg.UUID))
+	// Preserve deduplication across retries, scoped to the Session or creator.
+	digest := sha256.Sum256([]byte(scope + "\x00" + msg.UUID))
 	msg.UUID = fmt.Sprintf("%x", digest[:16])
 	return send(ctx, msg, func(ctx context.Context, name string, args, env []string, input string) (sessioncredential.CommandOutput, error) {
-		return runIsolatedCommand(ctx, s.isolationRuntime, snap.ExecutionIdentity, name, args, env, input, nil)
+		return runIsolatedCommand(ctx, s.isolationRuntime, identity, name, args, env, input, nil)
 	})
 }
 

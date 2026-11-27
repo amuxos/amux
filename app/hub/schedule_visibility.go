@@ -11,6 +11,7 @@ import (
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/bridge"
 	"github.com/amuxos/amux/internal/executionauth"
+	"github.com/amuxos/amux/internal/feishumsg"
 	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/schedule"
 	"github.com/amuxos/amux/internal/task"
@@ -60,6 +61,7 @@ func (s *hubServer) resolveScheduleCreator(ctx context.Context) (schedule.Creato
 				c.OriginRootMsgID = root
 			}
 			c.OriginChatID = bridge.LookupOriginChatID(bridge.DefaultDBPath(), link.BridgeID, link.RootMsgID, link.TargetID, link.SessionName)
+			c.OriginTargetID = link.TargetID
 			if result.OpenID != "" && (result.PrincipalID != c.PrincipalID || result.BotID != c.BotID || result.OpenID != c.OpenID) {
 				return schedule.Creator{}, nil
 			}
@@ -315,6 +317,11 @@ func (c *bridgeSchedules) Act(ctx context.Context, bot, open string, id int64, a
 		}
 		if e.Task.ScheduleType != schedule.ScheduleTypeSubtask && runMode == schedule.RunModeReuseSession && target == schedule.DeliveryTargetOrigin {
 			return errors.New("delivery_target origin is not supported for reuse-session schedules")
+		}
+		if target == schedule.DeliveryTargetCreatorDM {
+			if _, ok := e.Visibility.Creator.PersonalDeliveryIdentity(); !ok {
+				return errors.New(feishumsg.Copy("personal_schedule"))
+			}
 		}
 		t := e.Task
 		t.DeliveryTarget = target

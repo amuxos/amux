@@ -813,6 +813,15 @@ The Hub persists each firing before dispatch and correlates its Task or exact ca
 
 Feishu personal schedule views and every action require the frozen creator, application scope, active identity binding, and execution access. Creator provenance comes from the authenticated request and exact Feishu Turn receipts, never the latest speaker, an arbitrary recipient, or the Bot owner. Unattributable schedules have no proactive notifications. Existing operator/CLI authorization remains unchanged. Status notifications are sent privately by the Bot to its configured administrator (owner), with creator attribution. The administrator alert center exposes task names, execution status, and notification controls (acknowledge, snooze, recheck), but grants no access to another creator's prompts, results, or execution controls. Personal views remain creator-scoped.
 
+The result delivery choice `creator_dm` is offered for schedules with a verified
+creator and their own isolated execution identity. Each eligible result is sent
+as a private rich-text message by that creator's personal CLI Bot to the signed-in
+creator. The same recipient is used for manual and automatic runs. The sender
+uses the originating Runtime when the Feishu receipt identifies it, or the
+execution Runtime for older schedules without that binding. The creator's
+login and Bot must be available there. An unavailable or mismatched identity
+does not redirect the result. Users manage the schedule through `/amux`.
+
 On upgrade, existing subtask schedules without a creator binding are recovered only from a valid frozen schedule identity with an authorization receipt, its human origin actor, a matching owner (if recorded), and exactly one active Feishu alias across applications. Ambiguous or missing provenance is left unbound; later-created schedules are never included in this recovery. Reads still check current execution access. Recovery hydrates persisted execution state without replaying tasks or historical notifications. Older submission records remain visible as legacy history with an unconfirmed outcome, deduplicated against correlated executions.
 
 The two schedule entries in the `/amux` overview share one button row. Personal schedules and the administrator alert center provide a back button; returning refreshes the overview summary and respects the viewer’s existing management permissions.

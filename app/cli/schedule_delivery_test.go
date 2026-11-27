@@ -227,17 +227,15 @@ func TestMCPListSchedulesIncludesCreatedAtAndDeliveryFields(t *testing.T) {
 	}
 }
 
-func TestScheduleDeliveryTargetHidesCreatorDMInMCPAndCompletion(t *testing.T) {
-	values, _ := completeScheduleDeliveryTargets(nil, nil, "")
-	for _, val := range values {
-		if strings.HasPrefix(val, schedule.DeliveryTargetCreatorDM+"\t") || val == schedule.DeliveryTargetCreatorDM {
-			t.Fatalf("shell completion should hide creator_dm: %+v", values)
-		}
+func TestScheduleDeliveryTargetOffersCreatorDMInMCPAndCompletion(t *testing.T) {
+	values, _ := completeScheduleDeliveryTargets(nil, nil, "creator")
+	if len(values) != 1 || values[0] != schedule.DeliveryTargetCreatorDM {
+		t.Fatalf("shell completion should offer creator_dm: %+v", values)
 	}
 	for _, toolName := range []string{"amux.schedule_create", "amux.schedule_update"} {
 		tool := findMCPTool(t, amuxTools(), toolName)
-		if strings.Contains(string(tool.InputSchema), `"creator_dm"`) {
-			t.Fatalf("%s schema should hide creator_dm: %s", toolName, string(tool.InputSchema))
+		if !strings.Contains(string(tool.InputSchema), `"creator_dm"`) {
+			t.Fatalf("%s schema should offer creator_dm: %s", toolName, string(tool.InputSchema))
 		}
 	}
 }

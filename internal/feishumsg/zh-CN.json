@@ -86,6 +86,9 @@
   "personal_session": {
     "other": "个人 Bot 投递需要调用用户自己的 Linux DAC 隔离飞书 Session。"
   },
+  "personal_schedule": {
+    "other": "个人 Bot 投递要求定时任务的创建人已核验，并使用自己的隔离身份运行。"
+  },
   "personal_unavailable": {
     "other": "当前 Runtime 无法使用个人 Bot 投递。"
   },

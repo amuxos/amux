@@ -987,10 +987,11 @@ Create a Hub schedule. Default schedule_type=subtask (recommended for most sched
       "type": "string"
     },
     "delivery_target": {
-      "description": "Proactive result delivery target: origin (reply back to the originating Feishu chat/thread; auto-default for Feishu subtask schedules when omitted), or none (record only without proactive push). Note: origin is disallowed for session-prompt + reuse-session",
+      "description": "Result delivery target: origin (back to the originating Feishu chat or topic; default for Feishu subtasks), none (record only), or creator_dm (DM the creator through their personal Bot in user isolation mode). Reuse-session prompts cannot use origin",
       "enum": [
         "none",
-        "origin"
+        "origin",
+        "creator_dm"
       ],
       "type": "string"
     },
@@ -1291,10 +1292,11 @@ Update a Schedule in place: name, spec, timezone, result delivery (delivery_targ
       "type": "string"
     },
     "delivery_target": {
-      "description": "Updated proactive result delivery target (none or origin); omitted means unchanged",
+      "description": "Updated result delivery target: none, origin, or creator_dm (DM the creator through their personal Bot in user isolation mode); omitted means unchanged",
       "enum": [
         "none",
-        "origin"
+        "origin",
+        "creator_dm"
       ],
       "type": "string"
     },

@@ -714,7 +714,7 @@ func amuxTools() []mcp.Tool {
     "session": {"type": "string", "description": "schedule_type=session-prompt 时的目标 session-ref（与 CLI amux schedule create <session-ref> 相同：target/name、Session ID 或名称）；省略时回落到 AMUX_SESSION_ID"},
     "prompt": {"type": "string", "description": "schedule_type=session-prompt 时到期投递到目标 Session 的提示词"},
     "run_mode": {"type": "string", "enum": ["reuse-session", "new-session-per-run"], "description": "仅 session-prompt：reuse-session（默认）复用目标 Session 延续对话上下文；new-session-per-run（旧版兼容）每次按模板新开 Session"},
-    "delivery_target": {"type": "string", "enum": ["none", "origin"], "description": "结果主动投递目标：origin（发回创建时的来源飞书话题/会话；在飞书会话中创建 subtask 且省略时自动默认 origin）、none（仅落库不主动推送）。注意 session-prompt + reuse-session 不允许 origin"},
+    "delivery_target": {"type": "string", "enum": ["none", "origin", "creator_dm"], "description": "结果主动投递目标：origin（发回来源飞书话题或会话；飞书 subtask 省略时默认）、none（仅记录）、creator_dm（用户隔离模式下通过创建者的个人 Bot 私聊本人）。session-prompt + reuse-session 不允许 origin"},
     "delivery_policy": {"type": "string", "enum": ["always", "on_failure", "on_non_empty"], "description": "结果主动投递策略（delivery_target 非 none 时生效）：always（默认，每次终态都推送）、on_failure（仅失败或超时推送）、on_non_empty（仅失败或产出非静默内容时推送，忽略空内容/NO_ALERT/SILENT/HEARTBEAT_OK）"},
     "task": ` + string(scheduledTaskSchema) + `
   },
@@ -731,7 +731,7 @@ func amuxTools() []mcp.Tool {
     "timezone": {"type": "string", "description": "新的 IANA 时区名称（例如 Asia/Shanghai，传空字符串回落 Hub 本地时区）；省略时保持不变"},
     "prompt": {"type": "string", "description": "仅 session-prompt：更新到期投递到目标 Session 的提示词；省略时保持不变"},
     "run_mode": {"type": "string", "enum": ["reuse-session", "new-session-per-run"], "description": "仅 session-prompt：更新执行模式（reuse-session 或 new-session-per-run）；省略时保持不变"},
-    "delivery_target": {"type": "string", "enum": ["none", "origin"], "description": "更新结果主动投递目标（none 或 origin）；省略时保持不变"},
+    "delivery_target": {"type": "string", "enum": ["none", "origin", "creator_dm"], "description": "更新结果主动投递目标：none、origin 或 creator_dm（用户隔离模式下通过创建者的个人 Bot 私聊本人）；省略时保持不变"},
     "delivery_policy": {"type": "string", "enum": ["always", "on_failure", "on_non_empty"], "description": "更新结果主动投递策略（always、on_failure 或 on_non_empty）；省略时保持不变"},
     "task": ` + string(updateTaskSchemaBytes) + `
   },
