@@ -53,6 +53,7 @@ type HelperConfig struct {
 	MaterializerPath     string
 	AllowUnprivileged    bool
 	SkipAccountProvision bool
+	OnReady              func(context.Context)
 }
 
 func (c HelperConfig) validate() error {
@@ -173,6 +174,9 @@ WHERE state IN ('starting','running')`); err != nil {
 		},
 		degradedHardening:  make(map[string]string),
 		hardeningByAccount: make(map[string]map[string]bool),
+	}
+	if cfg.OnReady != nil {
+		go cfg.OnReady(ctx)
 	}
 	go func() {
 		<-ctx.Done()
