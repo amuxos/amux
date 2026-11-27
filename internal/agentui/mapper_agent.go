@@ -11,8 +11,9 @@ import (
 func FromAgentEvent(event agentstream.Event) []Event {
 	raw, _ := json.Marshal(event.Body)
 	out := Event{
-		ID:       event.Origin.NativeID,
-		Seq:      int64(event.Cursor.Seq),
+		ID:        event.Origin.NativeID,
+		SessionID: event.SessionID,
+		Seq:       int64(event.Cursor.Seq),
 		Source:   normalizeSource(event.Origin.Channel),
 		Provider: event.Origin.Provider,
 		RawJSON:  raw,
@@ -25,6 +26,12 @@ func FromAgentEvent(event agentstream.Event) []Event {
 		out.Kind = KindInputSubmitted
 		out.Text = body.InputSummary
 		out.Input = &InputEvent{Source: out.Source, Text: body.InputSummary}
+		if event.Origin.Channel == "goal" && event.Origin.NativeType == "goal_continuation" {
+			out.GoalTurn = &GoalTurnContext{
+				SessionID: event.SessionID,
+				Objective: body.InputSummary,
+			}
+		}
 	case agentstream.AssistantDelta:
 		out.Kind = KindAssistantTextDelta
 		out.Source = SourceAgent
@@ -101,6 +108,10 @@ func FromAgentEvent(event agentstream.Event) []Event {
 			state = "failed"
 		}
 		out.Turn = turnWithState(out.Turn, state, body.Terminal.Message)
+	case agentstream.GoalChanged:
+		out.Kind = KindGoalChanged
+		out.Source = SourceGoal
+		out.Goal = cloneGoalState(body.Goal)
 	case agentstream.SessionMetadataChanged:
 		out.Kind = KindHeartbeat
 		out.Source = SourceSystem
@@ -168,4 +179,8 @@ func permissionFromAgent(request agentstream.PermissionRequest) *PermissionEvent
 
 func cloneBytes(value []byte) []byte {
 	return append([]byte(nil), value...)
+}
+
+func cloneGoalState(goal *agentstream.GoalState) *agentstream.GoalState {
+	return goal.Clone()
 }

@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -502,8 +501,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 		presenter := agentui.NewPresenter()
 		visibilityGate := newFeishuStreamVisibilityGate()
 		ordinaryChat := *streamChat
-		var lastGoalStatus string
-		var lastGoalPatch time.Time
+		state := newTurnStreamState()
 		logSuppressedVisibleAction := func(action agentui.Action) {
 			if !visibilityGate.MarkSuppressed(action) {
 				return
@@ -553,80 +551,19 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			SessionName: streamChat.SessionName,
 		}
 		presentationGate := newTurnActivityPresentationGate(distributionCoordinationProfile(agentProfile))
-		assistantUpdates := &assistantProgress{}
-		hasAuthoritativeResult := false
-		var activityViewMu sync.RWMutex
-		var currentActivity *agentui.ActivityView
 		var statusRefresh turnStatusRefreshPolicy
 		// Immediate-feedback placeholder state (see turnPlaceholder).
 		placeholder := &turnPlaceholder{}
-		setActivityView := func(view *agentui.ActivityView) {
-			activityViewMu.Lock()
-			currentActivity = view
-			activityViewMu.Unlock()
-		}
-		getActivityView := func() *agentui.ActivityView {
-			activityViewMu.RLock()
-			defer activityViewMu.RUnlock()
-			return currentActivity
-		}
-		var subtaskReportTurn atomic.Bool
-		// Multi-steer final answer: completed assistant messages of the running
-		// turn and the message index at which the first steer was accepted.
-		var turnMsgMu sync.Mutex
-		var turnMessages []string
-		turnSteerStart := -1
-		turnMsgID := ""
-		resetTurnMessages := func(turnID string) {
-			turnMsgMu.Lock()
-			turnMessages, turnSteerStart, turnMsgID = nil, -1, turnID
-			turnMsgMu.Unlock()
-		}
-		getCurrentTurnID := func() string {
-			turnMsgMu.Lock()
-			defer turnMsgMu.Unlock()
-			return turnMsgID
-		}
-		recordTurnMessage := func(text string) {
-			if strings.TrimSpace(text) == "" {
-				return
-			}
-			turnMsgMu.Lock()
-			turnMessages = append(turnMessages, text)
-			turnMsgMu.Unlock()
-		}
-		markTurnSteered := func(turnID string) {
-			turnMsgMu.Lock()
-			defer turnMsgMu.Unlock()
-			if turnSteerStart >= 0 || (turnID != "" && turnMsgID != "" && turnID != turnMsgID) {
-				return
-			}
-			turnSteerStart = len(turnMessages)
-		}
-		steeredMessagesSince := func() ([]string, bool) {
-			turnMsgMu.Lock()
-			defer turnMsgMu.Unlock()
-			if turnSteerStart < 0 {
-				return nil, false
-			}
-			return append([]string(nil), turnMessages[turnSteerStart:]...), true
-		}
-		steeredFallbackAnswer := func(last string) string {
-			if since, ok := steeredMessagesSince(); ok {
-				return mergeSteeredFinalAnswer(since, last)
-			}
-			return last
-		}
-		b.registerSteerObserver(rootMsgID, token, markTurnSteered)
+		b.registerSteerObserver(rootMsgID, token, state.reply.MarkSteered)
 		defer b.unregisterSteerObserver(rootMsgID, token)
 		activityMeta := func() toolActivityCardMeta {
 			meta := turn.Meta()
-			meta.SubtaskReport = subtaskReportTurn.Load()
+			meta.SubtaskReport = state.subtaskReportTurn.Load()
 			meta.AgentProfile = streamChat.AgentProfile
 			meta.AgentType = streamChat.AgentType
 			meta.EffectiveModel = getEffectiveModel()
 			meta.QuotaBorrowed = b.sessionQuotaBorrowed(targetID, sessionName)
-			meta.Activity = getActivityView()
+			meta.Activity = state.ActivityView()
 			meta.Subtasks = activity.Subtasks()
 			meta.ThinkingProcess = thinkingProcess()
 			meta.QueuedInputs = b.queueNoticeCount(rootMsgID)
@@ -641,7 +578,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			meta.ViewURL = b.sessionViewerURL(targetID, sessionName)
 			meta.Placeholder, meta.PlaceholderError = placeholder.State()
 			meta.Now = time.Now()
-			meta.ModelRecovery = b.modelRecoveryPromptForActivity(streamChat, getCurrentTurnID(), meta)
+			meta.ModelRecovery = b.modelRecoveryPromptForActivity(streamChat, state.CurrentTurnID(), meta)
 			return meta
 		}
 		legacyActivitySend := func(text string) (string, error) {
@@ -663,26 +600,12 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			return err
 		}
 
-		var finalAnswerMu sync.Mutex
-		finalAnswer := ""
-		currentTurnSource := agentui.SourceFeishu
-		var currentTurnStartedAt int64
-		setFinalAnswer := func(text string) {
-			finalAnswerMu.Lock()
-			finalAnswer = text
-			finalAnswerMu.Unlock()
-		}
-		getFinalAnswer := func() string {
-			finalAnswerMu.Lock()
-			defer finalAnswerMu.Unlock()
-			return finalAnswer
-		}
 		replyStream := newStreamingReplySender(100*time.Millisecond,
 			newBindingReplyCardBackend(b, streamChat),
 			func(text string) {
 				_ = b.db.SetLatestAgentOutput(bridgeID, rootMsgID, text)
 				b.recordAgentThreadContext(context.Background(), streamChat, "", text)
-				setFinalAnswer(text)
+				state.SetFinalAnswer(text)
 				if isFollowupPrompt(text) {
 					turn.MarkWaiting()
 				}
@@ -717,7 +640,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			}
 		}
 		b.registerQueueNoticeRefresher(rootMsgID, token, func() bool {
-			view := getActivityView()
+			view := state.ActivityView()
 			// The turn_started placeholder card is the running card too, even
 			// before the stream has marked the turn running.
 			if view == nil || (!turn.Running() && !placeholder.Shown()) {
@@ -735,10 +658,8 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 		defer replyStream.Flush()
 		defer activitySender.Close()
 		var (
-			streamsReplyCardsOnce        sync.Once
-			streamsReplyCards            bool
-			providerFailureNoticePending bool
-			failureNoticeDelivered       bool
+			streamsReplyCardsOnce sync.Once
+			streamsReplyCards     bool
 		)
 		getStreamsReplyCards := func() bool {
 			streamsReplyCardsOnce.Do(func() {
@@ -753,7 +674,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			if !placeholder.End() {
 				return
 			}
-			if view := getActivityView(); view != nil {
+			if view := state.ActivityView(); view != nil {
 				activitySender.ForceSend(activityViewFingerprint(view) + "|placeholder-end")
 			}
 		}
@@ -773,57 +694,44 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 					}
 				}
 			}
-			if model := strings.TrimSpace(ev.EffectiveModel); model != "" && setEffectiveModel(model) {
-				b.setRegisteredStreamEffectiveModel(sessionKey, token, model)
-				if b.db != nil {
-					if err := b.db.RefreshSessionIdentity(bridgeID, targetID, sessionName, "", "", model); err != nil {
-						log.Warn().Err(err).Str("session", sessionName).Str("effective_model", model).
-							Msg("bridge: persist provider-confirmed effective model")
-					}
-				}
-				if view := getActivityView(); view != nil {
-					publishActivity(view, true)
-				}
-			}
-			if ev.EventType == "available_commands" {
-				b.observeAvailableCommands(targetID, sessionName, ev.StructuredJson)
-				return
-			}
-			var canonical agentstream.Event
-			if len(ev.CanonicalJson) > 0 {
-				canonical, _ = agentstream.UnmarshalEvent(ev.CanonicalJson)
-			}
-			var changed *agentstream.GoalChanged
-			if value, ok := canonical.Body.(agentstream.GoalChanged); ok && !ev.Historical {
-				changed = &value
-			}
-			if ev.EventType == "goal_changed" {
-				var value agentstream.GoalChanged
-				if json.Unmarshal(ev.StructuredJson, &value) == nil {
-					changed = &value
-				}
-			}
-			if changed != nil {
-				status := ""
-				if changed.Goal != nil {
-					status = changed.Goal.Status
-				}
-				if status != lastGoalStatus || time.Since(lastGoalPatch) >= 2*time.Second {
-					patchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-					if err := b.refreshGoalCard(patchCtx, streamChat, changed.Goal); err != nil {
-						log.Warn().Err(err).Msg("bridge: refresh goal card")
-					}
-					cancel()
-					lastGoalStatus, lastGoalPatch = status, time.Now()
-				}
-				return
-			}
 			for _, uiEvent := range agentui.FromAttachEvent(ev) {
 				subtaskParentTurnID := ""
 				if uiEvent.Kind == agentui.KindInputSubmitted && uiEvent.Source == agentui.SourceSubtask {
 					subtaskParentTurnID = subtaskNoticeParentTurnID(uiEvent.Text)
 				}
 				for _, action := range presenter.Consume(uiEvent) {
+					switch action.Kind {
+					case agentui.ActionEffectiveModelChanged:
+						if model := strings.TrimSpace(action.Text); model != "" && setEffectiveModel(model) {
+							b.setRegisteredStreamEffectiveModel(sessionKey, token, model)
+							if b.db != nil {
+								if err := b.db.RefreshSessionIdentity(bridgeID, targetID, sessionName, "", "", model); err != nil {
+									log.Warn().Err(err).Str("session", sessionName).Str("effective_model", model).
+										Msg("bridge: persist provider-confirmed effective model")
+								}
+							}
+							if view := state.ActivityView(); view != nil {
+								publishActivity(view, true)
+							}
+						}
+						continue
+					case agentui.ActionAvailableCommands:
+						b.observeAvailableCommands(targetID, sessionName, action.RawJSON)
+						continue
+					case agentui.ActionGoalChanged:
+						status := ""
+						if action.Goal != nil {
+							status = action.Goal.Status
+						}
+						if state.ShouldRefreshGoalCard(status, time.Now()) {
+							patchCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+							if err := b.refreshGoalCard(patchCtx, streamChat, action.Goal); err != nil {
+								log.Warn().Err(err).Msg("bridge: refresh goal card")
+							}
+							cancel()
+						}
+						continue
+					}
 					if action.Kind == agentui.ActionTurnStarted || action.Kind == agentui.ActionInputEcho {
 						// Bridge-appended protocol text is model input only.
 						action.Text = stripAmuxGuidance(action.Text)
@@ -853,7 +761,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							b.markSubtaskTurn(rootMsgID, action.Turn.ID, subtaskParentTurnID)
 						}
 						if action.Source == agentui.SourceGoal {
-							goalChat, err := b.goalChatForTurn(streamChat, canonical)
+							goalChat, err := b.goalChatForTurnContext(streamChat, action.GoalTurn)
 							if err != nil || goalChat == nil {
 								logSuppressedVisibleAction(action)
 								continue
@@ -895,34 +803,21 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						// SourceSubtask (background completion notice) keeps an
 						// empty question: neutral reply card, no raw notice.
-						subtaskReportTurn.Store(action.Source == agentui.SourceSubtask)
-						currentTurnSource = action.Source
-						currentTurnStartedAt = time.Now().Unix()
+						state.BeginTurnMetadata(action.Source, time.Now().Unix())
 						b.recordTurnResultTurnStarted(streamChat, action.Turn.ID, action.Source, ev.CanonicalJson)
 						meta := turn.Start(int(action.Turn.Seq), question)
-						providerFailureNoticePending = false
-						failureNoticeDelivered = false
 						b.setTurnActive(rootMsgID, true)
 						if meta.TurnSeq != oldSeq {
 							agg.Flush()
 							replyStream.Flush()
 							replyStream.Reset()
 							turnMentions.observe(action.Turn.ID)
-							setFinalAnswer("")
+							state.ResetForNewTurn(action.Turn.ID)
 							activity.Reset()
-							assistantUpdates.Reset()
-							resetTurnMessages(action.Turn.ID)
-							hasAuthoritativeResult = false
-							setActivityView(nil)
 							activitySender.Reset()
 							presentationGate.Reset()
 							statusRefresh.Reset()
 							activity.StartTurn(activity.now())
-							// Some providers do not expose a native queue event. Reply as soon as
-							// the accepted turn starts so model-side queueing is visible
-							// even for coordination turns whose later activity stays behind the
-							// external-coordination presentation gate.
-							//
 							// Immediate feedback: every user-started turn posts its
 							// main reply card right away with a "⏳ 处理中…" line, so a
 							// slow time-to-first-token is not silence. Background
@@ -937,7 +832,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 								if wantPlaceholder {
 									placeholder.Begin()
 								}
-								setActivityView(view)
+								state.SetActivityView(view)
 								activitySender.ForceSend(activityViewFingerprint(view))
 								presentationGate.ObserveForcedActivity()
 								statusRefresh.MarkRefreshed(time.Now(), view)
@@ -974,7 +869,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 								strings.TrimSpace(streamChat.AgentProfile) != "",
 								action.Text,
 							); ok {
-								if providerFailureNoticePending {
+								if state.providerFailureNoticePending {
 									continue
 								}
 								agg.Flush()
@@ -986,22 +881,22 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 									log.Warn().Err(err).Str("session", sessionName).
 										Msg("bridge: sendTextToBinding (provider failure) error")
 								} else {
-									failureNoticeDelivered = true
+									state.failureNoticeDelivered = true
 								}
-								providerFailureNoticePending = true
+								state.providerFailureNoticePending = true
 								continue
 							}
 						}
-						if summary := assistantUpdates.Append(action.Text); summary != "" {
-							view := getActivityView()
-							if view == nil && !assistantUpdates.HasCompletedMessage() {
+						if summary := state.reply.Append(action.Text); summary != "" {
+							view := state.ActivityView()
+							if view == nil && !state.reply.HasCompletedMessage() {
 								continue
 							}
 							if view == nil {
 								view = presenter.EnsureActivity()
 							}
 							view = activityViewWithCurrentStep(view, summary)
-							setActivityView(view)
+							state.SetActivityView(view)
 							publishActivity(view, false)
 						}
 					case agentui.ActionReplyMessageBoundary:
@@ -1012,15 +907,14 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						if b.isTurnSuperseded(rootMsgID) {
 							continue
 						}
-						if assistantUpdates.Boundary() {
-							recordTurnMessage(assistantUpdates.LastMessage())
-							view := getActivityView()
+						if state.reply.Boundary() {
+							view := state.ActivityView()
 							if view == nil {
 								view = presenter.EnsureActivity()
 							}
 							if view != nil {
-								view = activityViewWithCurrentStep(view, assistantUpdates.Summary())
-								setActivityView(view)
+								view = activityViewWithCurrentStep(view, state.reply.Summary())
+								state.SetActivityView(view)
 								presentationGate.ObserveCompletedAssistantMessage()
 								publishActivity(view, false)
 							}
@@ -1036,16 +930,16 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						if strings.TrimSpace(action.Text) != "" && action.Source != agentui.SourceSystem {
 							endPlaceholder()
 						}
-						if summary := assistantUpdates.Replace(action.Text); summary != "" {
-							view := getActivityView()
-							if view == nil && !assistantUpdates.HasCompletedMessage() {
+						if summary := state.reply.Replace(action.Text); summary != "" {
+							view := state.ActivityView()
+							if view == nil && !state.reply.HasCompletedMessage() {
 								continue
 							}
 							if view == nil {
 								view = presenter.EnsureActivity()
 							}
 							view = activityViewWithCurrentStep(view, summary)
-							setActivityView(view)
+							state.SetActivityView(view)
 							publishActivity(view, false)
 						}
 					case agentui.ActionReplyReconcileFinalMessage:
@@ -1062,22 +956,13 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						if isFollowupPrompt(action.Text) {
 							turn.MarkWaiting()
 						}
-						hasAuthoritativeResult = true
-						if current := strings.TrimSpace(assistantUpdates.LastMessage()); current != "" {
-							recordTurnMessage(current)
-						}
-						before := assistantUpdates.Summary()
-						after := assistantUpdates.ReconcileResult(action.Text)
+						before, after, finalAnswer := state.reply.ReconcileFinalAnswer(action.Text)
 						if before != after {
-							if view := getActivityView(); view != nil {
+							if view := state.ActivityView(); view != nil {
 								view = activityViewWithCurrentStep(view, after)
-								setActivityView(view)
+								state.SetActivityView(view)
 								publishActivity(view, true)
 							}
-						}
-						finalAnswer := action.Text
-						if since, ok := steeredMessagesSince(); ok {
-							finalAnswer = mergeSteeredFinalAnswer(since, action.Text)
 						}
 						if getStreamsReplyCards() {
 							replyStream.ReplaceCurrent(finalAnswer)
@@ -1100,18 +985,18 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						view := action.Activity
 						if view != nil && len(view.Tools) > 0 {
-							b.markTurnRecoveryToolUsed(getCurrentTurnID())
+							b.markTurnRecoveryToolUsed(state.CurrentTurnID())
 						}
 						if view != nil && view.Status == "running" && activityViewHasOutput(view) {
 							placeholder.End()
 						}
-						if progress := assistantUpdates.Summary(); view != nil && progress != "" {
+						if progress := state.reply.Summary(); view != nil && progress != "" {
 							// Assistant narration is the chronological Feishu-facing
 							// progress history. Structured thinking remains the current
 							// step only until narration is available.
 							view = activityViewWithCurrentStep(view, progress)
 						}
-						setActivityView(view)
+						state.SetActivityView(view)
 						publishActivity(view, action.Immediate)
 					case agentui.ActionPermissionRequest:
 						if !visibilityGate.Allow(action) {
@@ -1143,14 +1028,14 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						errTurnID := strings.TrimSpace(action.Turn.ID)
 						if errTurnID == "" {
-							errTurnID = getCurrentTurnID()
+							errTurnID = state.CurrentTurnID()
 						}
 						rateLimited := providerUsageLimited(action.Text, providerCode)
 						if rateLimited {
 							b.markTurnRecoveryRateLimited(errTurnID, streamChat, getEffectiveModel())
 						}
 						text := ""
-						if !providerFailureNoticePending {
+						if !state.providerFailureNoticePending {
 							text = bridgeErrorNoticeWithCode(
 								sessionName,
 								action.Text,
@@ -1163,16 +1048,16 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							// itself shows the error instead of hanging next to a
 							// separate notice. Patch it before the reply stream
 							// finishes the card (a finished card ignores patches).
-							if view := getActivityView(); view != nil {
+							if view := state.ActivityView(); view != nil {
 								activitySender.Flush(activityViewFingerprint(view) + "|placeholder-failed")
 							}
 							replyStream.Flush()
-							failureNoticeDelivered = true
+							state.failureNoticeDelivered = true
 							continue
 						}
 						replyStream.Flush()
-						if providerFailureNoticePending {
-							providerFailureNoticePending = false
+						if state.providerFailureNoticePending {
+							state.providerFailureNoticePending = false
 							continue
 						}
 						if text != "" {
@@ -1184,7 +1069,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 									AgentProfile:   streamChat.AgentProfile,
 									AgentType:      streamChat.AgentType,
 									EffectiveModel: getEffectiveModel(),
-									SubtaskReport:  subtaskReportTurn.Load(),
+									SubtaskReport:  state.subtaskReportTurn.Load(),
 								}
 								if prompt := b.modelRecoveryPromptForActivity(streamChat, errTurnID, failedMeta); prompt != nil {
 									_, _, sendErr = b.sendInteractiveToBinding(sendCtx, streamChat, renderModelRecoveryErrorCard(text, prompt), "model recovery error card")
@@ -1195,19 +1080,19 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 								_, _, sendErr = b.sendTextToBinding(sendCtx, streamChat, text)
 							}
 							cancel()
-							failureNoticeDelivered = sendErr == nil
+							state.failureNoticeDelivered = sendErr == nil
 						}
 					case agentui.ActionTurnFinished:
 						b.markTurnRecoveryFinished(action.Turn.ID, action.Turn.State == "turn_done")
 						b.retireQuestions(targetID, sessionName, rootMsgID, action.Turn.ID, "", false, action.Turn.State == "turn_done")
 						allowed := visibilityGate.Allow(action)
 						visibilityGate.Observe(action)
-						providerFailureNoticePending = false
+						state.providerFailureNoticePending = false
 						if !allowed {
 							logSuppressedVisibleAction(action)
 							b.observeTurnFinished(rootMsgID, action.Turn.ID)
 							b.setTurnActive(rootMsgID, false)
-							b.recordTurnResultCompletion(streamChat, action.Turn.ID, currentTurnSource, action.Turn, "", false, true, replyDeliveryReceipt{}, false, currentTurnStartedAt, ev.CanonicalJson)
+							b.recordTurnResultCompletion(streamChat, action.Turn.ID, state.turnSource, action.Turn, "", false, true, replyDeliveryReceipt{}, false, state.turnStartedAt, ev.CanonicalJson)
 							continue
 						}
 						// Capture recipients before retiring the Turn's sender records.
@@ -1232,8 +1117,8 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						if startedAt := activity.TurnStartedAt(); !startedAt.IsZero() {
 							turnElapsed = activity.now().Sub(startedAt)
 						}
-						if !hasAuthoritativeResult && shouldUseAssistantResultFallback(action.Turn) {
-							if fallback := steeredFallbackAnswer(assistantUpdates.LastMessage()); fallback != "" {
+						if shouldUseAssistantResultFallback(action.Turn) {
+							if fallback, ok := state.reply.FallbackFinalAnswer(); ok && fallback != "" {
 								if getStreamsReplyCards() {
 									replyStream.ReplaceCurrent(fallback)
 								} else {
@@ -1241,7 +1126,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 								}
 							}
 						}
-						view := getActivityView()
+						view := state.ActivityView()
 						if view != nil && (presentationGate.ShouldPublishActivity(view, len(activity.Subtasks()) > 0) || placeholder.Shown()) {
 							activitySender.Flush(activityViewFingerprint(view))
 						}
@@ -1265,7 +1150,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							replyStream.Flush()
 						}
 						if handoffEligible {
-							if text := strings.TrimSpace(getFinalAnswer()); text != "" {
+							if text := strings.TrimSpace(state.FinalAnswer()); text != "" {
 								if cardHandoffDelivered {
 									if err := b.completePendingBotHandoff(rootMsgID, pendingCardHandoff.MessageID); err != nil {
 										log.Warn().Err(err).Str("root_msg_id", rootMsgID).
@@ -1290,7 +1175,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							// Only a successfully completed Turn publishes the mentioned
 							// final reply; failed, cancelled, handed-off or errored Turns
 							// keep their existing cards.
-							if handoffEligible && pendingCardHandoff == nil && !failureNoticeDelivered &&
+							if handoffEligible && pendingCardHandoff == nil && !state.failureNoticeDelivered &&
 								completionMeta.Status == "done" {
 								completedCard = replyStream.CompleteTurn(mentionOpenIDs)
 								if completedCard != nil && completedCard.MessageID != "" {
@@ -1319,15 +1204,15 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						}
 						artifactsPending := false
 						if handoffEligible {
-							artifactsPending = b.dispatchArtifactDelivery(streamChat, action.Turn.ID, getFinalAnswer(), ev.CanonicalJson)
+							artifactsPending = b.dispatchArtifactDelivery(streamChat, action.Turn.ID, state.FinalAnswer(), ev.CanonicalJson)
 						}
-						b.recordTurnResultCompletion(streamChat, action.Turn.ID, currentTurnSource, action.Turn, getFinalAnswer(), superseded, false, deliveryReceipt, artifactsPending, currentTurnStartedAt, ev.CanonicalJson)
-						b.observeCompletion(ctx, streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, getFinalAnswer(), superseded, completedCard)
-						notificationAnswer := getFinalAnswer()
-						setFinalAnswer("")
+						b.recordTurnResultCompletion(streamChat, action.Turn.ID, state.turnSource, action.Turn, state.FinalAnswer(), superseded, false, deliveryReceipt, artifactsPending, state.turnStartedAt, ev.CanonicalJson)
+						b.observeCompletion(ctx, streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, state.FinalAnswer(), superseded, completedCard)
+						notificationAnswer := state.FinalAnswer()
+						state.SetFinalAnswer("")
 						if !superseded && !recoveryClaimed && turnStatus != "stopped" &&
-							(completionMeta.Status != "failed" || !failureNoticeDelivered || b.currentReplyEndNotification()) {
-							b.dispatchTurnCompletionNotification(streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, turnElapsed, notificationAnswer, canonical.SessionID)
+							(completionMeta.Status != "failed" || !state.failureNoticeDelivered || b.currentReplyEndNotification()) {
+							b.dispatchTurnCompletionNotification(streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, turnElapsed, notificationAnswer, action.SessionID)
 						}
 						if !recoveryClaimed {
 							if text := turnDoneNotice(action.Turn.StopReason, view != nil); text != "" {
@@ -1340,9 +1225,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							}
 						}
 						activity.Reset()
-						assistantUpdates.Reset()
-						hasAuthoritativeResult = false
-						setActivityView(nil)
+						state.ResetAfterTurnFinished()
 						statusRefresh.Reset()
 						placeholder.Reset()
 					}
@@ -1391,9 +1274,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 					}
 					handleAttachEvent(ev)
 				case now := <-statusTicker.C:
-					before := getActivityView()
+					before := state.ActivityView()
 					handleAttachEvent(&pb.AttachEvent{Kind: pb.AttachEvent_HEARTBEAT})
-					view := getActivityView()
+					view := state.ActivityView()
 					// Hub-submitted inputs (e.g. background-completion notify) bypass
 					// bridge submitToSessionMode, so re-read the session queue on the
 					// status pulse while a turn runs and annotate the running card.
@@ -1428,10 +1311,10 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 					}
 					b.refreshSubtaskProgress(activity, targetID, sessionName)
 					b.startSubtaskCards(subtaskChat, activity.Subtasks())
-					view := getActivityView()
+					view := state.ActivityView()
 					if len(activity.Subtasks()) > 0 && view == nil {
 						view = presenter.EnsureActivity()
-						setActivityView(view)
+						state.SetActivityView(view)
 					}
 					if view != nil {
 						publishActivity(view, true)
