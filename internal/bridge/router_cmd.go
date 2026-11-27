@@ -115,6 +115,7 @@ func (b *Bridge) cmdAmuxManagement(ctx context.Context, openID string) error {
 	if err != nil {
 		return err
 	}
+	card = b.withBrowserLinkForm(card)
 	if !b.canUseBridge(openID) && b.schedules != nil {
 		return b.sendManagementCardToDM(ctx, openID, card)
 	}

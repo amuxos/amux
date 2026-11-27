@@ -24,7 +24,7 @@ import (
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
-//go:embed assets/index.html assets/app.js assets/styles.css assets/i18n.js assets/favicon.svg
+//go:embed assets/index.html assets/app.js assets/workspace.js assets/styles.css assets/i18n.js assets/favicon.svg
 var assets embed.FS
 
 var (
@@ -55,6 +55,20 @@ type Options struct {
 	SessionTTL time.Duration
 	Now        func() time.Time
 	Random     io.Reader
+}
+
+type browserBindingKey struct{}
+
+type BrowserBinding struct {
+	ID      string
+	Expires time.Time
+}
+
+// Binding identifies an authenticated browser to the management adapter. It
+// contains neither the cookie nor a credential accepted by the HTTP server.
+func Binding(ctx context.Context) (BrowserBinding, bool) {
+	binding, ok := ctx.Value(browserBindingKey{}).(BrowserBinding)
+	return binding, ok
 }
 
 type browserSession struct {
@@ -195,7 +209,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			if !s.method(w, r, http.MethodGet) {
 				return
 			}
-			s.json(w, map[string]any{"version": s.options.Version, "csrf_token": session.csrf, "authenticated": true, "operator": true, "expires_at": s.expiration(), "auth_mode": s.authMode(), "insecure_transport": s.insecureTransport(), "resources": []string{"overview", "sessions", "tasks", "instances", "schedules", "profiles", "packs", "usage", "credentials", "settings", "bots", "groups", "catalogs"}})
+			s.json(w, map[string]any{"version": s.options.Version, "csrf_token": session.csrf, "authenticated": true, "operator": true, "expires_at": s.expiration(), "auth_mode": s.authMode(), "insecure_transport": s.insecureTransport(), "resources": []string{"overview", "sessions", "tasks", "instances", "schedules", "profiles", "packs", "usage", "credentials", "settings", "bots", "groups", "catalogs", "workspace"}})
 			return
 		}
 		if r.URL.Path == "/api/console/events" {
@@ -210,7 +224,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			s.error(w, http.StatusNotFound, "not_found")
 			return
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.WithValue(r.Context(), browserBindingKey{}, BrowserBinding{ID: fmt.Sprintf("%x", key), Expires: session.expires}), 30*time.Second)
 		defer cancel()
 		var value any
 		var err error
@@ -253,7 +267,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/":
 		r.URL.Path = "/index.html"
-	case "/index.html", "/app.js", "/styles.css", "/i18n.js", "/favicon.svg":
+	case "/index.html", "/app.js", "/workspace.js", "/styles.css", "/i18n.js", "/favicon.svg":
 	default:
 		s.error(w, http.StatusNotFound, "not_found")
 		return

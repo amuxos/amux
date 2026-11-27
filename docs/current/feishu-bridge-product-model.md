@@ -44,6 +44,8 @@ or schedules require Agent tools and must be verified by their actual records;
 
 New Feishu topic and document-comment Sessions inherit the selected Runtime’s Feishu sleep policy when no workspace timeout was configured. An explicit zero disables idle sleep. Existing workspace and Session records keep their saved timeout. Group watch and Bot singleton Sessions keep their dedicated timeout policies.
 
+A private `/amux` card can link a browser signed into the host console to its verified recipient. Personal schedules remain scoped to that recipient. For a known group, a linked Bot owner can open the group’s `/amux` view from Groups, manage that group and select an active topic to read its current expert and status. The recipient can disconnect the browser from the private chat.
+
 ## Bridge responsibilities
 
 Agents can use `amux.feishu_send_message` to send plain text or Markdown through

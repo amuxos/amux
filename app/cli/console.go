@@ -210,6 +210,12 @@ func (b *consoleBackend) Snapshot(ctx context.Context, resource string, query ur
 		query.Set("target", query.Get("target_id"))
 	}
 	switch resource {
+	case "workspace":
+		if query.Get("profile") == "" {
+			return b.snapshotBots(ctx, nil)
+		}
+		data, _ := json.Marshal(map[string]string{"profile": query.Get("profile")})
+		return b.consoleWorkspace(ctx, "get", data)
 	case "bots":
 		return b.snapshotBots(ctx, query)
 	case "groups":
@@ -221,6 +227,8 @@ func (b *consoleBackend) Snapshot(ctx context.Context, resource string, query ur
 }
 func (b *consoleBackend) Execute(ctx context.Context, resource, action string, data json.RawMessage) (any, error) {
 	switch resource {
+	case "workspace":
+		return b.consoleWorkspace(ctx, action, data)
 	case "bots", "groups":
 		if resource == "bots" && consoleLocalBotAction(action) {
 			return b.executeLocalBot(ctx, action, data)

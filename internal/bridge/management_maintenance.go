@@ -400,6 +400,9 @@ func (b *Bridge) deliverManagementCardIf(ctx context.Context, openID, messageID,
 }
 
 func (b *Bridge) patchManagementCard(ctx context.Context, messageID, cardJSON string) (bool, error) {
+	if b.browserCards.patch(messageID, cardJSON) {
+		return true, nil
+	}
 	if strings.TrimSpace(messageID) == "" || (b.managementCardPatch == nil && b.client == nil) {
 		return false, nil
 	}
