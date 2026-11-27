@@ -690,6 +690,10 @@ func renderScheduleRunDetail(e schedule.Entry, r schedule.Execution, page int, v
 	})
 }
 func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardActionTriggerEvent, action string) (*callback.CardActionTriggerResponse, bool, error) {
+	return b.scheduleCardActionWithDelivery(ctx, event, action, nil)
+}
+
+func (b *Bridge) scheduleCardActionWithDelivery(ctx context.Context, event *callback.CardActionTriggerEvent, action string, personal func(string) error) (*callback.CardActionTriggerResponse, bool, error) {
 	if !strings.HasPrefix(action, "schedule.") {
 		return nil, false, nil
 	}
@@ -702,9 +706,9 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	if event.Event.Context != nil {
 		message = event.Event.Context.OpenMessageID
 	}
-	privateCard := b.db != nil && b.db.isPrivateManagementCard(bot, open, message)
+	privateCard := personal != nil || b.db != nil && b.db.isPrivateManagementCard(bot, open, message)
 	var version uint64
-	if privateCard {
+	if privateCard && personal == nil {
 		version = b.advanceModelServiceEditor(message)
 	}
 	op := strings.TrimPrefix(action, "schedule.")
@@ -713,7 +717,11 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	var toastContent any = scheduleText("updated")
 	var card string
 	var err error
-	if op == "home" {
+	if op == "home" && personal != nil {
+		var entries []schedule.Entry
+		entries, err = b.schedules.List(ctx, bot, open)
+		card = renderSchedules(entries, "all", 0)
+	} else if op == "home" {
 		if b.canUseBridge(open) && !b.ownerConfirmed() {
 			return cardToast("error", scheduleText("unavailable")), true, nil
 		}
@@ -851,6 +859,9 @@ func (b *Bridge) scheduleCardAction(ctx context.Context, event *callback.CardAct
 	}
 	if err != nil {
 		return cardToast("error", scheduleText("unavailable")), true, nil
+	}
+	if personal != nil {
+		return cardToast("success", toastContent), true, personal(card)
 	}
 	// Never write a private view into a forwarded/shared card.
 	if privateCard {

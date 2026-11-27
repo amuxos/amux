@@ -35,10 +35,11 @@ const (
 )
 
 type Request struct {
-	Identity principal.ExecutionIdentity
-	Actor    FeishuActor
-	Provider string
-	Action   Action
+	Identity     principal.ExecutionIdentity
+	Actor        FeishuActor
+	SourceOpenID string `json:",omitempty"`
+	Provider     string
+	Action       Action
 }
 
 // FeishuActor contains identifiers for the human sender of the original event.
@@ -53,9 +54,10 @@ func (a FeishuActor) Identified() bool {
 }
 
 type Result struct {
-	State    State
-	URL      string
-	Provider string
+	State         State
+	URL           string
+	Provider      string
+	CheckOnDemand bool `json:",omitempty"`
 }
 
 // RunCommand is provided only to a registered distribution policy. The

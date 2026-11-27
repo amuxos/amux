@@ -102,7 +102,7 @@ func (b *Bridge) routeSessionCredential(ctx context.Context, p *pendingCredentia
 	callCtx, cancel := context.WithTimeout(ctx, 22*time.Second)
 	defer cancel()
 	reply, err := b.hub.Route(callCtx, p.target, sessioncredential.Route, sessioncredential.Request{
-		Identity: p.identity, Actor: p.actor, Action: action, Provider: p.provider,
+		Identity: p.identity, Actor: p.actor, SourceOpenID: p.openID, Action: action, Provider: p.provider,
 	})
 	var result sessioncredential.Result
 	if err != nil || reply == nil || json.Unmarshal(reply.Payload, &result) != nil || result.State == "" {
@@ -146,6 +146,7 @@ func (b *Bridge) admitIsolatedFeishuSession(ctx context.Context, root, chat, ope
 	}
 	result := b.routeSessionCredential(ctx, p, sessioncredential.Probe)
 	if result.State == sessioncredential.Ready {
+		b.rememberPersonalScheduleLogin(p)
 		stop()
 		return true, nil
 	}
@@ -286,6 +287,9 @@ func (b *Bridge) workCredentialAdmission(options *CredentialAdmissionOptions, p 
 		if !update(result) {
 			return
 		}
+		if result.CheckOnDemand {
+			return
+		}
 		for result.State == sessioncredential.Pending {
 			timer := time.NewTimer(3 * time.Second)
 			select {
@@ -307,6 +311,7 @@ func (b *Bridge) workCredentialAdmission(options *CredentialAdmissionOptions, p 
 		update(result)
 		return
 	}
+	b.rememberPersonalScheduleLogin(p)
 	claimed, resumeErr := b.resumeCredentialAdmission(p)
 	if !claimed {
 		return

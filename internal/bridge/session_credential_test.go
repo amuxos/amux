@@ -20,7 +20,9 @@ import (
 
 type credentialTestHub struct {
 	*bridgeTestHub
-	checks []sessioncredential.Action
+	checks      []sessioncredential.Action
+	manualCheck bool
+	granted     bool
 }
 
 func (h *credentialTestHub) Route(ctx context.Context, target, method string, args any) (*pb.TunnelMsg, error) {
@@ -28,16 +30,18 @@ func (h *credentialTestHub) Route(ctx context.Context, target, method string, ar
 		return h.bridgeTestHub.Route(ctx, target, method, args)
 	}
 	request := args.(sessioncredential.Request)
-	if request.Actor != (sessioncredential.FeishuActor{TenantKey: "tenant", UnionID: "on_owner"}) {
+	if request.Actor != (sessioncredential.FeishuActor{TenantKey: "tenant", UnionID: "on_owner"}) || request.SourceOpenID != "owner" {
 		return nil, errors.New("credential request missing original Feishu actor")
 	}
 	h.mu.Lock()
 	h.checks = append(h.checks, request.Action)
+	granted := h.granted
 	h.mu.Unlock()
 	result := sessioncredential.Result{State: sessioncredential.LoginNeeded}
 	if request.Action == sessioncredential.Begin {
 		result.State, result.URL = sessioncredential.Pending, "https://auth.example.test/one-time"
-	} else if request.Action == sessioncredential.Poll {
+		result.CheckOnDemand = h.manualCheck
+	} else if request.Action == sessioncredential.Poll && !h.manualCheck || request.Action == sessioncredential.Probe && granted {
 		result.State = sessioncredential.Ready
 	}
 	raw, _ := json.Marshal(result)
@@ -45,8 +49,13 @@ func (h *credentialTestHub) Route(ctx context.Context, target, method string, ar
 }
 
 func TestSessionCredentialGateIsIsolatedAndResumesOnce(t *testing.T) {
+	t.Run("polls live sign-in", func(t *testing.T) { testSessionCredentialGate(t, false) })
+	t.Run("checks published app settings on demand", func(t *testing.T) { testSessionCredentialGate(t, true) })
+}
+
+func testSessionCredentialGate(t *testing.T, manualCheck bool) {
 	b, base, _ := groupRouteTestBridge(t)
-	hub := &credentialTestHub{bridgeTestHub: base}
+	hub := &credentialTestHub{bridgeTestHub: base, manualCheck: manualCheck}
 	b.hub, b.sessionStarter = hub, sessionlaunch.New(hub)
 	b.SetExecutionIdentityResolver(func(_, _, _ string, _ bool) (LaunchIdentity, error) {
 		return LaunchIdentity{Identity: &pb.ExecutionIdentity{
@@ -163,7 +172,29 @@ func TestSessionCredentialGateIsIsolatedAndResumesOnce(t *testing.T) {
 			return ""
 		}
 	}
-	first, second := receive(), receive()
+	first := receive()
+	if manualCheck {
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			b.credentialAdmissions.mu.Lock()
+			working := pending.check != nil
+			b.credentialAdmissions.mu.Unlock()
+			if !working {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("on-demand check left an automatic polling worker")
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		hub.mu.Lock()
+		hub.granted = true
+		hub.mu.Unlock()
+		if resp, _ := b.handleCredentialAdmissionAction(cardAction); resp == nil || resp.Toast.Content != "checking" {
+			t.Fatalf("post-publication check did not start: %+v", resp)
+		}
+	}
+	second := receive()
 	if !strings.Contains(first, `"open_ids":["owner"]`) || !strings.Contains(first, "auth.example.test/one-time") ||
 		!strings.Contains(second, `"State":"continuing"`) || strings.Contains(second, "auth.example.test") {
 		t.Fatalf("unexpected exclusive updates: %s / %s", first, second)

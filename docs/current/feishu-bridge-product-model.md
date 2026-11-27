@@ -30,7 +30,9 @@ and retains the starting input in memory for a bounded time. Only the resolved
 Feishu actor can operate its card, and any authorization URL is delivered in
 that actor's exclusive card update. The callback acknowledges a click while
 the Runtime works. Checking progress while a browser action is pending prompts
-the current poll to run sooner. Credential tools run with temporary storage
+the current poll to run sooner. For steps that require an explicit check,
+the actor checks after completing the external settings and the Bridge checks
+once on demand. Credential tools run with temporary storage
 inside the isolated execution's private run directory. Once verified, the Bridge
 revalidates the original routing before continuing once. Existing Sessions and ordinary host
 launches do not enter this flow. The public distribution has no credential
@@ -837,6 +839,17 @@ uses the originating Runtime when the Feishu receipt identifies it, or the
 execution Runtime for older schedules without that binding. The creator's
 login and Bot must be available there. An unavailable or mismatched identity
 does not redirect the result. Users manage the schedule through `/amux`.
+
+The personal CLI Bot also accepts `/amux` in a private chat after its user's
+isolated Feishu login is verified. Its own app must subscribe to private
+messages and card actions. The entry opens personal schedules, including
+history, results, trial runs, pause, resume, delivery settings, and deletion.
+AMUX binds the app-specific operator to the original Feishu creator and
+rechecks schedule authorization for every action. A forwarded card or another
+operator cannot act for the creator. The Runtime keeps the personal app
+credentials inside the corresponding Linux DAC environment.
+The Runtime stops these event listeners during update maintenance and waits
+for them to exit. The Bridge reconnects after maintenance.
 
 On upgrade, existing subtask schedules without a creator binding are recovered only from a valid frozen schedule identity with an authorization receipt, its human origin actor, a matching owner (if recorded), and exactly one active Feishu alias across applications. Ambiguous or missing provenance is left unbound; later-created schedules are never included in this recovery. Reads still check current execution access. Recovery hydrates persisted execution state without replaying tasks or historical notifications. Older submission records remain visible as legacy history with an unconfirmed outcome, deduplicated against correlated executions.
 

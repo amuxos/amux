@@ -645,6 +645,10 @@ func (b *bridgeDB) migrate() error {
  bridge_id TEXT NOT NULL, message_id TEXT NOT NULL, open_id TEXT NOT NULL,
  PRIMARY KEY(bridge_id,message_id)
  );
+ CREATE TABLE IF NOT EXISTS feishu_personal_schedule_bindings (
+ principal_id TEXT PRIMARY KEY, bridge_id TEXT NOT NULL, open_id TEXT NOT NULL,
+ target_id TEXT NOT NULL, identity BLOB NOT NULL
+ );
  CREATE TABLE IF NOT EXISTS feishu_private_session_cards (
  bridge_id TEXT NOT NULL, message_id TEXT NOT NULL, open_id TEXT NOT NULL,
  PRIMARY KEY(bridge_id,message_id)

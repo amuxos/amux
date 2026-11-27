@@ -205,6 +205,37 @@ func TestMaintenanceWaitsForAcceptedRequestsAndTaskCleanup(t *testing.T) {
 	}
 	maintenanceCall(t, m, "end")
 }
+func TestMaintenanceCancelsBackgroundObserversAndWaitsForCleanup(t *testing.T) {
+	m, _ := newMaintenanceTest(t)
+	ctx, done, err := m.enterObserver(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	maintenanceCall(t, m, "begin-helper-handoff")
+	if ctx.Err() != context.Canceled {
+		t.Fatalf("observer context after maintenance began: %v", ctx.Err())
+	}
+	if out := maintenanceCall(t, m, "poll"); out.Phase != "draining" || out.ActiveRequests != 1 {
+		t.Fatalf("maintenance did not wait for observer cleanup: %v", out)
+	}
+	if _, _, err := m.enterObserver(context.Background()); status.Code(err) != codes.Unavailable {
+		t.Fatalf("observer admitted during maintenance: %v", err)
+	}
+	done()
+	if out := maintenanceCall(t, m, "poll"); out.Phase != "ready" {
+		t.Fatal(out)
+	}
+	maintenanceCall(t, m, "end")
+	ctx, done, err = m.enterObserver(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer done()
+	if ctx.Err() != nil {
+		t.Fatalf("observer admitted after recovery has canceled context: %v", ctx.Err())
+	}
+}
+
 func TestMaintenanceJournalSurvivesRuntimeRestartAndRetriesRecovery(t *testing.T) {
 	m, mgr := newMaintenanceTest(t)
 	s, _ := maintenanceSessionForTest(t, mgr, "resume-me")
