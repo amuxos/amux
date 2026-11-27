@@ -23,6 +23,7 @@ service Amuxlet {
   rpc Interrupt(InterruptRequest) returns (InterruptResponse);
   rpc Attach(AttachRequest) returns (stream AttachEvent);
   rpc Submit(SubmitRequest) returns (SubmitResponse);
+  rpc SteerQueued(SteerQueuedRequest) returns (SubmitResponse);
   rpc Goal(GoalRequest) returns (GoalResponse);
   rpc QueueList(QueueListRequest) returns (QueueListResponse);
   rpc QueueClear(QueueClearRequest) returns (QueueClearResponse);
@@ -762,6 +763,17 @@ message SubmitResponse {
   // running launch carries them out of band, "inline" when they were
   // appended to the input. Empty when none were managed.
   string instructions_delivery = 8;
+  // This input entered the pending queue behind existing work.
+  bool waiting = 9;
+}
+
+message SteerQueuedRequest {
+  string name = 1;
+  string session_id = 2;
+  string launch_id = 3;
+  string queued_turn_id = 4;
+  string expected_turn_id = 5;
+  bool local_expert_authoring = 6;
 }
 
 message ActiveTurnRequest {

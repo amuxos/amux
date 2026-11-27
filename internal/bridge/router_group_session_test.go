@@ -32,13 +32,13 @@ func groupRouteTestBridge(t *testing.T) (*Bridge, *bridgeTestHub, *[]string) {
 	}
 	t.Cleanup(func() {
 		b.coalesceMu.Lock()
-		var roots []string
-		for root := range b.coalesced {
-			roots = append(roots, root)
+		batches := make(map[string]*coalescedInput, len(b.coalesced))
+		for root, batch := range b.coalesced {
+			batches[root] = batch
 		}
 		b.coalesceMu.Unlock()
-		for _, root := range roots {
-			b.flushCoalescedInput(root)
+		for root, batch := range batches {
+			b.flushCoalescedInput(root, batch)
 		}
 	})
 	return b, hub, &notices

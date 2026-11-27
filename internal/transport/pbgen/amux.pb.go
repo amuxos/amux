@@ -5124,8 +5124,10 @@ type SubmitResponse struct {
 	// running launch carries them out of band, "inline" when they were
 	// appended to the input. Empty when none were managed.
 	InstructionsDelivery string `protobuf:"bytes,8,opt,name=instructions_delivery,json=instructionsDelivery,proto3" json:"instructions_delivery,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// This input entered the pending queue behind existing work.
+	Waiting       bool `protobuf:"varint,9,opt,name=waiting,proto3" json:"waiting,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubmitResponse) Reset() {
@@ -5214,6 +5216,97 @@ func (x *SubmitResponse) GetInstructionsDelivery() string {
 	return ""
 }
 
+func (x *SubmitResponse) GetWaiting() bool {
+	if x != nil {
+		return x.Waiting
+	}
+	return false
+}
+
+type SteerQueuedRequest struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Name                 string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	SessionId            string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	LaunchId             string                 `protobuf:"bytes,3,opt,name=launch_id,json=launchId,proto3" json:"launch_id,omitempty"`
+	QueuedTurnId         string                 `protobuf:"bytes,4,opt,name=queued_turn_id,json=queuedTurnId,proto3" json:"queued_turn_id,omitempty"`
+	ExpectedTurnId       string                 `protobuf:"bytes,5,opt,name=expected_turn_id,json=expectedTurnId,proto3" json:"expected_turn_id,omitempty"`
+	LocalExpertAuthoring bool                   `protobuf:"varint,6,opt,name=local_expert_authoring,json=localExpertAuthoring,proto3" json:"local_expert_authoring,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *SteerQueuedRequest) Reset() {
+	*x = SteerQueuedRequest{}
+	mi := &file_amux_v1_amux_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SteerQueuedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SteerQueuedRequest) ProtoMessage() {}
+
+func (x *SteerQueuedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_amux_v1_amux_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SteerQueuedRequest.ProtoReflect.Descriptor instead.
+func (*SteerQueuedRequest) Descriptor() ([]byte, []int) {
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *SteerQueuedRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SteerQueuedRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *SteerQueuedRequest) GetLaunchId() string {
+	if x != nil {
+		return x.LaunchId
+	}
+	return ""
+}
+
+func (x *SteerQueuedRequest) GetQueuedTurnId() string {
+	if x != nil {
+		return x.QueuedTurnId
+	}
+	return ""
+}
+
+func (x *SteerQueuedRequest) GetExpectedTurnId() string {
+	if x != nil {
+		return x.ExpectedTurnId
+	}
+	return ""
+}
+
+func (x *SteerQueuedRequest) GetLocalExpertAuthoring() bool {
+	if x != nil {
+		return x.LocalExpertAuthoring
+	}
+	return false
+}
+
 type ActiveTurnRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -5223,7 +5316,7 @@ type ActiveTurnRequest struct {
 
 func (x *ActiveTurnRequest) Reset() {
 	*x = ActiveTurnRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[65]
+	mi := &file_amux_v1_amux_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5235,7 +5328,7 @@ func (x *ActiveTurnRequest) String() string {
 func (*ActiveTurnRequest) ProtoMessage() {}
 
 func (x *ActiveTurnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[65]
+	mi := &file_amux_v1_amux_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5248,7 +5341,7 @@ func (x *ActiveTurnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActiveTurnRequest.ProtoReflect.Descriptor instead.
 func (*ActiveTurnRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{65}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ActiveTurnRequest) GetName() string {
@@ -5277,7 +5370,7 @@ type ActiveTurnResponse struct {
 
 func (x *ActiveTurnResponse) Reset() {
 	*x = ActiveTurnResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[66]
+	mi := &file_amux_v1_amux_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5289,7 +5382,7 @@ func (x *ActiveTurnResponse) String() string {
 func (*ActiveTurnResponse) ProtoMessage() {}
 
 func (x *ActiveTurnResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[66]
+	mi := &file_amux_v1_amux_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5302,7 +5395,7 @@ func (x *ActiveTurnResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActiveTurnResponse.ProtoReflect.Descriptor instead.
 func (*ActiveTurnResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{66}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ActiveTurnResponse) GetActive() bool {
@@ -5367,7 +5460,7 @@ type InputPart struct {
 
 func (x *InputPart) Reset() {
 	*x = InputPart{}
-	mi := &file_amux_v1_amux_proto_msgTypes[67]
+	mi := &file_amux_v1_amux_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5379,7 +5472,7 @@ func (x *InputPart) String() string {
 func (*InputPart) ProtoMessage() {}
 
 func (x *InputPart) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[67]
+	mi := &file_amux_v1_amux_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5392,7 +5485,7 @@ func (x *InputPart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputPart.ProtoReflect.Descriptor instead.
 func (*InputPart) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{67}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *InputPart) GetValue() isInputPart_Value {
@@ -5447,7 +5540,7 @@ type ImageInput struct {
 
 func (x *ImageInput) Reset() {
 	*x = ImageInput{}
-	mi := &file_amux_v1_amux_proto_msgTypes[68]
+	mi := &file_amux_v1_amux_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5459,7 +5552,7 @@ func (x *ImageInput) String() string {
 func (*ImageInput) ProtoMessage() {}
 
 func (x *ImageInput) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[68]
+	mi := &file_amux_v1_amux_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5472,7 +5565,7 @@ func (x *ImageInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImageInput.ProtoReflect.Descriptor instead.
 func (*ImageInput) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{68}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *ImageInput) GetData() []byte {
@@ -5506,7 +5599,7 @@ type IgnoredInputPart struct {
 
 func (x *IgnoredInputPart) Reset() {
 	*x = IgnoredInputPart{}
-	mi := &file_amux_v1_amux_proto_msgTypes[69]
+	mi := &file_amux_v1_amux_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5518,7 +5611,7 @@ func (x *IgnoredInputPart) String() string {
 func (*IgnoredInputPart) ProtoMessage() {}
 
 func (x *IgnoredInputPart) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[69]
+	mi := &file_amux_v1_amux_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5531,7 +5624,7 @@ func (x *IgnoredInputPart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IgnoredInputPart.ProtoReflect.Descriptor instead.
 func (*IgnoredInputPart) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{69}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *IgnoredInputPart) GetIndex() int32 {
@@ -5557,7 +5650,7 @@ type LocalExpertAuthoringTurnRequest struct {
 
 func (x *LocalExpertAuthoringTurnRequest) Reset() {
 	*x = LocalExpertAuthoringTurnRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[70]
+	mi := &file_amux_v1_amux_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5569,7 +5662,7 @@ func (x *LocalExpertAuthoringTurnRequest) String() string {
 func (*LocalExpertAuthoringTurnRequest) ProtoMessage() {}
 
 func (x *LocalExpertAuthoringTurnRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[70]
+	mi := &file_amux_v1_amux_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5582,7 +5675,7 @@ func (x *LocalExpertAuthoringTurnRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalExpertAuthoringTurnRequest.ProtoReflect.Descriptor instead.
 func (*LocalExpertAuthoringTurnRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{70}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *LocalExpertAuthoringTurnRequest) GetName() string {
@@ -5603,7 +5696,7 @@ type LocalExpertAuthoringTurnResponse struct {
 
 func (x *LocalExpertAuthoringTurnResponse) Reset() {
 	*x = LocalExpertAuthoringTurnResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[71]
+	mi := &file_amux_v1_amux_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5615,7 +5708,7 @@ func (x *LocalExpertAuthoringTurnResponse) String() string {
 func (*LocalExpertAuthoringTurnResponse) ProtoMessage() {}
 
 func (x *LocalExpertAuthoringTurnResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[71]
+	mi := &file_amux_v1_amux_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5628,7 +5721,7 @@ func (x *LocalExpertAuthoringTurnResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalExpertAuthoringTurnResponse.ProtoReflect.Descriptor instead.
 func (*LocalExpertAuthoringTurnResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{71}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *LocalExpertAuthoringTurnResponse) GetActive() bool {
@@ -5663,7 +5756,7 @@ type LocalExpertAuthoringFile struct {
 
 func (x *LocalExpertAuthoringFile) Reset() {
 	*x = LocalExpertAuthoringFile{}
-	mi := &file_amux_v1_amux_proto_msgTypes[72]
+	mi := &file_amux_v1_amux_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5675,7 +5768,7 @@ func (x *LocalExpertAuthoringFile) String() string {
 func (*LocalExpertAuthoringFile) ProtoMessage() {}
 
 func (x *LocalExpertAuthoringFile) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[72]
+	mi := &file_amux_v1_amux_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5688,7 +5781,7 @@ func (x *LocalExpertAuthoringFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalExpertAuthoringFile.ProtoReflect.Descriptor instead.
 func (*LocalExpertAuthoringFile) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{72}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *LocalExpertAuthoringFile) GetPath() string {
@@ -5725,7 +5818,7 @@ type ReadLocalExpertRequest struct {
 
 func (x *ReadLocalExpertRequest) Reset() {
 	*x = ReadLocalExpertRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[73]
+	mi := &file_amux_v1_amux_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5737,7 +5830,7 @@ func (x *ReadLocalExpertRequest) String() string {
 func (*ReadLocalExpertRequest) ProtoMessage() {}
 
 func (x *ReadLocalExpertRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[73]
+	mi := &file_amux_v1_amux_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5750,7 +5843,7 @@ func (x *ReadLocalExpertRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadLocalExpertRequest.ProtoReflect.Descriptor instead.
 func (*ReadLocalExpertRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{73}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *ReadLocalExpertRequest) GetSessionId() string {
@@ -5794,7 +5887,7 @@ type ReadLocalExpertResponse struct {
 
 func (x *ReadLocalExpertResponse) Reset() {
 	*x = ReadLocalExpertResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[74]
+	mi := &file_amux_v1_amux_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5806,7 +5899,7 @@ func (x *ReadLocalExpertResponse) String() string {
 func (*ReadLocalExpertResponse) ProtoMessage() {}
 
 func (x *ReadLocalExpertResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[74]
+	mi := &file_amux_v1_amux_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5819,7 +5912,7 @@ func (x *ReadLocalExpertResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadLocalExpertResponse.ProtoReflect.Descriptor instead.
 func (*ReadLocalExpertResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{74}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *ReadLocalExpertResponse) GetOperation() string {
@@ -5875,7 +5968,7 @@ type ChangeLocalExpertRequest struct {
 
 func (x *ChangeLocalExpertRequest) Reset() {
 	*x = ChangeLocalExpertRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[75]
+	mi := &file_amux_v1_amux_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5887,7 +5980,7 @@ func (x *ChangeLocalExpertRequest) String() string {
 func (*ChangeLocalExpertRequest) ProtoMessage() {}
 
 func (x *ChangeLocalExpertRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[75]
+	mi := &file_amux_v1_amux_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5900,7 +5993,7 @@ func (x *ChangeLocalExpertRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeLocalExpertRequest.ProtoReflect.Descriptor instead.
 func (*ChangeLocalExpertRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{75}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *ChangeLocalExpertRequest) GetSessionId() string {
@@ -5985,7 +6078,7 @@ type ChangeLocalExpertResponse struct {
 
 func (x *ChangeLocalExpertResponse) Reset() {
 	*x = ChangeLocalExpertResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[76]
+	mi := &file_amux_v1_amux_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5997,7 +6090,7 @@ func (x *ChangeLocalExpertResponse) String() string {
 func (*ChangeLocalExpertResponse) ProtoMessage() {}
 
 func (x *ChangeLocalExpertResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[76]
+	mi := &file_amux_v1_amux_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6010,7 +6103,7 @@ func (x *ChangeLocalExpertResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeLocalExpertResponse.ProtoReflect.Descriptor instead.
 func (*ChangeLocalExpertResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{76}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *ChangeLocalExpertResponse) GetMode() string {
@@ -6102,7 +6195,7 @@ type QueueItem struct {
 
 func (x *QueueItem) Reset() {
 	*x = QueueItem{}
-	mi := &file_amux_v1_amux_proto_msgTypes[77]
+	mi := &file_amux_v1_amux_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6114,7 +6207,7 @@ func (x *QueueItem) String() string {
 func (*QueueItem) ProtoMessage() {}
 
 func (x *QueueItem) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[77]
+	mi := &file_amux_v1_amux_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6127,7 +6220,7 @@ func (x *QueueItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueItem.ProtoReflect.Descriptor instead.
 func (*QueueItem) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{77}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *QueueItem) GetId() string {
@@ -6167,7 +6260,7 @@ type QueueListRequest struct {
 
 func (x *QueueListRequest) Reset() {
 	*x = QueueListRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[78]
+	mi := &file_amux_v1_amux_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6179,7 +6272,7 @@ func (x *QueueListRequest) String() string {
 func (*QueueListRequest) ProtoMessage() {}
 
 func (x *QueueListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[78]
+	mi := &file_amux_v1_amux_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6192,7 +6285,7 @@ func (x *QueueListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueListRequest.ProtoReflect.Descriptor instead.
 func (*QueueListRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{78}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *QueueListRequest) GetName() string {
@@ -6211,7 +6304,7 @@ type QueueListResponse struct {
 
 func (x *QueueListResponse) Reset() {
 	*x = QueueListResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[79]
+	mi := &file_amux_v1_amux_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6223,7 +6316,7 @@ func (x *QueueListResponse) String() string {
 func (*QueueListResponse) ProtoMessage() {}
 
 func (x *QueueListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[79]
+	mi := &file_amux_v1_amux_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6236,7 +6329,7 @@ func (x *QueueListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueListResponse.ProtoReflect.Descriptor instead.
 func (*QueueListResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{79}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *QueueListResponse) GetItems() []*QueueItem {
@@ -6255,7 +6348,7 @@ type QueueClearRequest struct {
 
 func (x *QueueClearRequest) Reset() {
 	*x = QueueClearRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[80]
+	mi := &file_amux_v1_amux_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6267,7 +6360,7 @@ func (x *QueueClearRequest) String() string {
 func (*QueueClearRequest) ProtoMessage() {}
 
 func (x *QueueClearRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[80]
+	mi := &file_amux_v1_amux_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6280,7 +6373,7 @@ func (x *QueueClearRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueClearRequest.ProtoReflect.Descriptor instead.
 func (*QueueClearRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{80}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *QueueClearRequest) GetName() string {
@@ -6299,7 +6392,7 @@ type QueueClearResponse struct {
 
 func (x *QueueClearResponse) Reset() {
 	*x = QueueClearResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[81]
+	mi := &file_amux_v1_amux_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6311,7 +6404,7 @@ func (x *QueueClearResponse) String() string {
 func (*QueueClearResponse) ProtoMessage() {}
 
 func (x *QueueClearResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[81]
+	mi := &file_amux_v1_amux_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6324,7 +6417,7 @@ func (x *QueueClearResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueClearResponse.ProtoReflect.Descriptor instead.
 func (*QueueClearResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{81}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *QueueClearResponse) GetCleared() int32 {
@@ -6344,7 +6437,7 @@ type QueueCancelRequest struct {
 
 func (x *QueueCancelRequest) Reset() {
 	*x = QueueCancelRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[82]
+	mi := &file_amux_v1_amux_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6356,7 +6449,7 @@ func (x *QueueCancelRequest) String() string {
 func (*QueueCancelRequest) ProtoMessage() {}
 
 func (x *QueueCancelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[82]
+	mi := &file_amux_v1_amux_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6369,7 +6462,7 @@ func (x *QueueCancelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueCancelRequest.ProtoReflect.Descriptor instead.
 func (*QueueCancelRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{82}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *QueueCancelRequest) GetName() string {
@@ -6395,7 +6488,7 @@ type QueueCancelResponse struct {
 
 func (x *QueueCancelResponse) Reset() {
 	*x = QueueCancelResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[83]
+	mi := &file_amux_v1_amux_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6407,7 +6500,7 @@ func (x *QueueCancelResponse) String() string {
 func (*QueueCancelResponse) ProtoMessage() {}
 
 func (x *QueueCancelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[83]
+	mi := &file_amux_v1_amux_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6420,7 +6513,7 @@ func (x *QueueCancelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueCancelResponse.ProtoReflect.Descriptor instead.
 func (*QueueCancelResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{83}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *QueueCancelResponse) GetOk() bool {
@@ -6447,7 +6540,7 @@ type ToolActivityEvent struct {
 
 func (x *ToolActivityEvent) Reset() {
 	*x = ToolActivityEvent{}
-	mi := &file_amux_v1_amux_proto_msgTypes[84]
+	mi := &file_amux_v1_amux_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6459,7 +6552,7 @@ func (x *ToolActivityEvent) String() string {
 func (*ToolActivityEvent) ProtoMessage() {}
 
 func (x *ToolActivityEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[84]
+	mi := &file_amux_v1_amux_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6472,7 +6565,7 @@ func (x *ToolActivityEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolActivityEvent.ProtoReflect.Descriptor instead.
 func (*ToolActivityEvent) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{84}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ToolActivityEvent) GetSessionName() string {
@@ -6551,7 +6644,7 @@ type TunnelMsg struct {
 
 func (x *TunnelMsg) Reset() {
 	*x = TunnelMsg{}
-	mi := &file_amux_v1_amux_proto_msgTypes[85]
+	mi := &file_amux_v1_amux_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6563,7 +6656,7 @@ func (x *TunnelMsg) String() string {
 func (*TunnelMsg) ProtoMessage() {}
 
 func (x *TunnelMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[85]
+	mi := &file_amux_v1_amux_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6576,7 +6669,7 @@ func (x *TunnelMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TunnelMsg.ProtoReflect.Descriptor instead.
 func (*TunnelMsg) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{85}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *TunnelMsg) GetKind() string {
@@ -6627,7 +6720,7 @@ type RegisterPayload struct {
 
 func (x *RegisterPayload) Reset() {
 	*x = RegisterPayload{}
-	mi := &file_amux_v1_amux_proto_msgTypes[86]
+	mi := &file_amux_v1_amux_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6639,7 +6732,7 @@ func (x *RegisterPayload) String() string {
 func (*RegisterPayload) ProtoMessage() {}
 
 func (x *RegisterPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[86]
+	mi := &file_amux_v1_amux_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6652,7 +6745,7 @@ func (x *RegisterPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterPayload.ProtoReflect.Descriptor instead.
 func (*RegisterPayload) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{86}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *RegisterPayload) GetTargetId() string {
@@ -6699,7 +6792,7 @@ type HeartbeatPayload struct {
 
 func (x *HeartbeatPayload) Reset() {
 	*x = HeartbeatPayload{}
-	mi := &file_amux_v1_amux_proto_msgTypes[87]
+	mi := &file_amux_v1_amux_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6711,7 +6804,7 @@ func (x *HeartbeatPayload) String() string {
 func (*HeartbeatPayload) ProtoMessage() {}
 
 func (x *HeartbeatPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[87]
+	mi := &file_amux_v1_amux_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6724,7 +6817,7 @@ func (x *HeartbeatPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatPayload.ProtoReflect.Descriptor instead.
 func (*HeartbeatPayload) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{87}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *HeartbeatPayload) GetLoad() *RuntimeLoad {
@@ -6743,7 +6836,7 @@ type SessionsPayload struct {
 
 func (x *SessionsPayload) Reset() {
 	*x = SessionsPayload{}
-	mi := &file_amux_v1_amux_proto_msgTypes[88]
+	mi := &file_amux_v1_amux_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6755,7 +6848,7 @@ func (x *SessionsPayload) String() string {
 func (*SessionsPayload) ProtoMessage() {}
 
 func (x *SessionsPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[88]
+	mi := &file_amux_v1_amux_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6768,7 +6861,7 @@ func (x *SessionsPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionsPayload.ProtoReflect.Descriptor instead.
 func (*SessionsPayload) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{88}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *SessionsPayload) GetSessions() []*Session {
@@ -6787,7 +6880,7 @@ type ReserveRequest struct {
 
 func (x *ReserveRequest) Reset() {
 	*x = ReserveRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[89]
+	mi := &file_amux_v1_amux_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6799,7 +6892,7 @@ func (x *ReserveRequest) String() string {
 func (*ReserveRequest) ProtoMessage() {}
 
 func (x *ReserveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[89]
+	mi := &file_amux_v1_amux_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6812,7 +6905,7 @@ func (x *ReserveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReserveRequest.ProtoReflect.Descriptor instead.
 func (*ReserveRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{89}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *ReserveRequest) GetAgentType() string {
@@ -6831,7 +6924,7 @@ type ReserveResponse struct {
 
 func (x *ReserveResponse) Reset() {
 	*x = ReserveResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[90]
+	mi := &file_amux_v1_amux_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6843,7 +6936,7 @@ func (x *ReserveResponse) String() string {
 func (*ReserveResponse) ProtoMessage() {}
 
 func (x *ReserveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[90]
+	mi := &file_amux_v1_amux_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6856,7 +6949,7 @@ func (x *ReserveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReserveResponse.ProtoReflect.Descriptor instead.
 func (*ReserveResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{90}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *ReserveResponse) GetReservationId() string {
@@ -6875,7 +6968,7 @@ type CommitRequest struct {
 
 func (x *CommitRequest) Reset() {
 	*x = CommitRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[91]
+	mi := &file_amux_v1_amux_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6887,7 +6980,7 @@ func (x *CommitRequest) String() string {
 func (*CommitRequest) ProtoMessage() {}
 
 func (x *CommitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[91]
+	mi := &file_amux_v1_amux_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6900,7 +6993,7 @@ func (x *CommitRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommitRequest.ProtoReflect.Descriptor instead.
 func (*CommitRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{91}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *CommitRequest) GetReservationId() string {
@@ -6918,7 +7011,7 @@ type CommitResponse struct {
 
 func (x *CommitResponse) Reset() {
 	*x = CommitResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[92]
+	mi := &file_amux_v1_amux_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6930,7 +7023,7 @@ func (x *CommitResponse) String() string {
 func (*CommitResponse) ProtoMessage() {}
 
 func (x *CommitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[92]
+	mi := &file_amux_v1_amux_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6943,7 +7036,7 @@ func (x *CommitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommitResponse.ProtoReflect.Descriptor instead.
 func (*CommitResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{92}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{93}
 }
 
 type ReleaseRequest struct {
@@ -6955,7 +7048,7 @@ type ReleaseRequest struct {
 
 func (x *ReleaseRequest) Reset() {
 	*x = ReleaseRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[93]
+	mi := &file_amux_v1_amux_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6967,7 +7060,7 @@ func (x *ReleaseRequest) String() string {
 func (*ReleaseRequest) ProtoMessage() {}
 
 func (x *ReleaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[93]
+	mi := &file_amux_v1_amux_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6980,7 +7073,7 @@ func (x *ReleaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseRequest.ProtoReflect.Descriptor instead.
 func (*ReleaseRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{93}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *ReleaseRequest) GetReservationId() string {
@@ -6998,7 +7091,7 @@ type ReleaseResponse struct {
 
 func (x *ReleaseResponse) Reset() {
 	*x = ReleaseResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[94]
+	mi := &file_amux_v1_amux_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7010,7 +7103,7 @@ func (x *ReleaseResponse) String() string {
 func (*ReleaseResponse) ProtoMessage() {}
 
 func (x *ReleaseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[94]
+	mi := &file_amux_v1_amux_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7023,7 +7116,7 @@ func (x *ReleaseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseResponse.ProtoReflect.Descriptor instead.
 func (*ReleaseResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{94}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{95}
 }
 
 type ListTargetsRequest struct {
@@ -7034,7 +7127,7 @@ type ListTargetsRequest struct {
 
 func (x *ListTargetsRequest) Reset() {
 	*x = ListTargetsRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[95]
+	mi := &file_amux_v1_amux_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7046,7 +7139,7 @@ func (x *ListTargetsRequest) String() string {
 func (*ListTargetsRequest) ProtoMessage() {}
 
 func (x *ListTargetsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[95]
+	mi := &file_amux_v1_amux_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7059,7 +7152,7 @@ func (x *ListTargetsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTargetsRequest.ProtoReflect.Descriptor instead.
 func (*ListTargetsRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{95}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{96}
 }
 
 type ListTargetsResponse struct {
@@ -7071,7 +7164,7 @@ type ListTargetsResponse struct {
 
 func (x *ListTargetsResponse) Reset() {
 	*x = ListTargetsResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[96]
+	mi := &file_amux_v1_amux_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7083,7 +7176,7 @@ func (x *ListTargetsResponse) String() string {
 func (*ListTargetsResponse) ProtoMessage() {}
 
 func (x *ListTargetsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[96]
+	mi := &file_amux_v1_amux_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7096,7 +7189,7 @@ func (x *ListTargetsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTargetsResponse.ProtoReflect.Descriptor instead.
 func (*ListTargetsResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{96}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *ListTargetsResponse) GetTargets() []*Target {
@@ -7115,7 +7208,7 @@ type FeishuStatusRequest struct {
 
 func (x *FeishuStatusRequest) Reset() {
 	*x = FeishuStatusRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[97]
+	mi := &file_amux_v1_amux_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7127,7 +7220,7 @@ func (x *FeishuStatusRequest) String() string {
 func (*FeishuStatusRequest) ProtoMessage() {}
 
 func (x *FeishuStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[97]
+	mi := &file_amux_v1_amux_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7140,7 +7233,7 @@ func (x *FeishuStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuStatusRequest.ProtoReflect.Descriptor instead.
 func (*FeishuStatusRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{97}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *FeishuStatusRequest) GetProfile() string {
@@ -7169,7 +7262,7 @@ type FeishuStatusResponse struct {
 
 func (x *FeishuStatusResponse) Reset() {
 	*x = FeishuStatusResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[98]
+	mi := &file_amux_v1_amux_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7181,7 +7274,7 @@ func (x *FeishuStatusResponse) String() string {
 func (*FeishuStatusResponse) ProtoMessage() {}
 
 func (x *FeishuStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[98]
+	mi := &file_amux_v1_amux_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7194,7 +7287,7 @@ func (x *FeishuStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuStatusResponse.ProtoReflect.Descriptor instead.
 func (*FeishuStatusResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{98}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *FeishuStatusResponse) GetProfile() string {
@@ -7291,7 +7384,7 @@ type FeishuBinding struct {
 
 func (x *FeishuBinding) Reset() {
 	*x = FeishuBinding{}
-	mi := &file_amux_v1_amux_proto_msgTypes[99]
+	mi := &file_amux_v1_amux_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7303,7 +7396,7 @@ func (x *FeishuBinding) String() string {
 func (*FeishuBinding) ProtoMessage() {}
 
 func (x *FeishuBinding) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[99]
+	mi := &file_amux_v1_amux_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7316,7 +7409,7 @@ func (x *FeishuBinding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBinding.ProtoReflect.Descriptor instead.
 func (*FeishuBinding) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{99}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *FeishuBinding) GetBridgeId() string {
@@ -7391,7 +7484,7 @@ type FeishuBindingsRequest struct {
 
 func (x *FeishuBindingsRequest) Reset() {
 	*x = FeishuBindingsRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[100]
+	mi := &file_amux_v1_amux_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7403,7 +7496,7 @@ func (x *FeishuBindingsRequest) String() string {
 func (*FeishuBindingsRequest) ProtoMessage() {}
 
 func (x *FeishuBindingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[100]
+	mi := &file_amux_v1_amux_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7416,7 +7509,7 @@ func (x *FeishuBindingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBindingsRequest.ProtoReflect.Descriptor instead.
 func (*FeishuBindingsRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{100}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *FeishuBindingsRequest) GetProfile() string {
@@ -7435,7 +7528,7 @@ type FeishuBindingsResponse struct {
 
 func (x *FeishuBindingsResponse) Reset() {
 	*x = FeishuBindingsResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[101]
+	mi := &file_amux_v1_amux_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7447,7 +7540,7 @@ func (x *FeishuBindingsResponse) String() string {
 func (*FeishuBindingsResponse) ProtoMessage() {}
 
 func (x *FeishuBindingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[101]
+	mi := &file_amux_v1_amux_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7460,7 +7553,7 @@ func (x *FeishuBindingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBindingsResponse.ProtoReflect.Descriptor instead.
 func (*FeishuBindingsResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{101}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *FeishuBindingsResponse) GetBindings() []*FeishuBinding {
@@ -7487,7 +7580,7 @@ type FeishuBot struct {
 
 func (x *FeishuBot) Reset() {
 	*x = FeishuBot{}
-	mi := &file_amux_v1_amux_proto_msgTypes[102]
+	mi := &file_amux_v1_amux_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7499,7 +7592,7 @@ func (x *FeishuBot) String() string {
 func (*FeishuBot) ProtoMessage() {}
 
 func (x *FeishuBot) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[102]
+	mi := &file_amux_v1_amux_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7512,7 +7605,7 @@ func (x *FeishuBot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBot.ProtoReflect.Descriptor instead.
 func (*FeishuBot) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{102}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *FeishuBot) GetProfile() string {
@@ -7586,7 +7679,7 @@ type FeishuBotsRequest struct {
 
 func (x *FeishuBotsRequest) Reset() {
 	*x = FeishuBotsRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[103]
+	mi := &file_amux_v1_amux_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7598,7 +7691,7 @@ func (x *FeishuBotsRequest) String() string {
 func (*FeishuBotsRequest) ProtoMessage() {}
 
 func (x *FeishuBotsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[103]
+	mi := &file_amux_v1_amux_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7611,7 +7704,7 @@ func (x *FeishuBotsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBotsRequest.ProtoReflect.Descriptor instead.
 func (*FeishuBotsRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{103}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{104}
 }
 
 type FeishuBotsResponse struct {
@@ -7623,7 +7716,7 @@ type FeishuBotsResponse struct {
 
 func (x *FeishuBotsResponse) Reset() {
 	*x = FeishuBotsResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[104]
+	mi := &file_amux_v1_amux_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7635,7 +7728,7 @@ func (x *FeishuBotsResponse) String() string {
 func (*FeishuBotsResponse) ProtoMessage() {}
 
 func (x *FeishuBotsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[104]
+	mi := &file_amux_v1_amux_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7648,7 +7741,7 @@ func (x *FeishuBotsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBotsResponse.ProtoReflect.Descriptor instead.
 func (*FeishuBotsResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{104}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *FeishuBotsResponse) GetBots() []*FeishuBot {
@@ -7678,7 +7771,7 @@ type FeishuBotSession struct {
 
 func (x *FeishuBotSession) Reset() {
 	*x = FeishuBotSession{}
-	mi := &file_amux_v1_amux_proto_msgTypes[105]
+	mi := &file_amux_v1_amux_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7690,7 +7783,7 @@ func (x *FeishuBotSession) String() string {
 func (*FeishuBotSession) ProtoMessage() {}
 
 func (x *FeishuBotSession) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[105]
+	mi := &file_amux_v1_amux_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7703,7 +7796,7 @@ func (x *FeishuBotSession) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBotSession.ProtoReflect.Descriptor instead.
 func (*FeishuBotSession) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{105}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *FeishuBotSession) GetBridgeId() string {
@@ -7799,7 +7892,7 @@ type FeishuBotSessionStatusRequest struct {
 
 func (x *FeishuBotSessionStatusRequest) Reset() {
 	*x = FeishuBotSessionStatusRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[106]
+	mi := &file_amux_v1_amux_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7811,7 +7904,7 @@ func (x *FeishuBotSessionStatusRequest) String() string {
 func (*FeishuBotSessionStatusRequest) ProtoMessage() {}
 
 func (x *FeishuBotSessionStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[106]
+	mi := &file_amux_v1_amux_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7824,7 +7917,7 @@ func (x *FeishuBotSessionStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBotSessionStatusRequest.ProtoReflect.Descriptor instead.
 func (*FeishuBotSessionStatusRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{106}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *FeishuBotSessionStatusRequest) GetProfile() string {
@@ -7844,7 +7937,7 @@ type FeishuBotSessionBindRequest struct {
 
 func (x *FeishuBotSessionBindRequest) Reset() {
 	*x = FeishuBotSessionBindRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[107]
+	mi := &file_amux_v1_amux_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7856,7 +7949,7 @@ func (x *FeishuBotSessionBindRequest) String() string {
 func (*FeishuBotSessionBindRequest) ProtoMessage() {}
 
 func (x *FeishuBotSessionBindRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[107]
+	mi := &file_amux_v1_amux_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7869,7 +7962,7 @@ func (x *FeishuBotSessionBindRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBotSessionBindRequest.ProtoReflect.Descriptor instead.
 func (*FeishuBotSessionBindRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{107}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *FeishuBotSessionBindRequest) GetProfile() string {
@@ -7895,7 +7988,7 @@ type FeishuBotSessionOffRequest struct {
 
 func (x *FeishuBotSessionOffRequest) Reset() {
 	*x = FeishuBotSessionOffRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[108]
+	mi := &file_amux_v1_amux_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7907,7 +8000,7 @@ func (x *FeishuBotSessionOffRequest) String() string {
 func (*FeishuBotSessionOffRequest) ProtoMessage() {}
 
 func (x *FeishuBotSessionOffRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[108]
+	mi := &file_amux_v1_amux_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7920,7 +8013,7 @@ func (x *FeishuBotSessionOffRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBotSessionOffRequest.ProtoReflect.Descriptor instead.
 func (*FeishuBotSessionOffRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{108}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *FeishuBotSessionOffRequest) GetProfile() string {
@@ -7944,7 +8037,7 @@ type FeishuBotSessionStatusResponse struct {
 
 func (x *FeishuBotSessionStatusResponse) Reset() {
 	*x = FeishuBotSessionStatusResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[109]
+	mi := &file_amux_v1_amux_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7956,7 +8049,7 @@ func (x *FeishuBotSessionStatusResponse) String() string {
 func (*FeishuBotSessionStatusResponse) ProtoMessage() {}
 
 func (x *FeishuBotSessionStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[109]
+	mi := &file_amux_v1_amux_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7969,7 +8062,7 @@ func (x *FeishuBotSessionStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuBotSessionStatusResponse.ProtoReflect.Descriptor instead.
 func (*FeishuBotSessionStatusResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{109}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *FeishuBotSessionStatusResponse) GetProfile() string {
@@ -8026,7 +8119,7 @@ type FeishuContextExplainRequest struct {
 
 func (x *FeishuContextExplainRequest) Reset() {
 	*x = FeishuContextExplainRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[110]
+	mi := &file_amux_v1_amux_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8038,7 +8131,7 @@ func (x *FeishuContextExplainRequest) String() string {
 func (*FeishuContextExplainRequest) ProtoMessage() {}
 
 func (x *FeishuContextExplainRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[110]
+	mi := &file_amux_v1_amux_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8051,7 +8144,7 @@ func (x *FeishuContextExplainRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuContextExplainRequest.ProtoReflect.Descriptor instead.
 func (*FeishuContextExplainRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{110}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *FeishuContextExplainRequest) GetProfile() string {
@@ -8100,7 +8193,7 @@ type FeishuContextDecision struct {
 
 func (x *FeishuContextDecision) Reset() {
 	*x = FeishuContextDecision{}
-	mi := &file_amux_v1_amux_proto_msgTypes[111]
+	mi := &file_amux_v1_amux_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8112,7 +8205,7 @@ func (x *FeishuContextDecision) String() string {
 func (*FeishuContextDecision) ProtoMessage() {}
 
 func (x *FeishuContextDecision) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[111]
+	mi := &file_amux_v1_amux_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8125,7 +8218,7 @@ func (x *FeishuContextDecision) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuContextDecision.ProtoReflect.Descriptor instead.
 func (*FeishuContextDecision) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{111}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *FeishuContextDecision) GetId() int64 {
@@ -8217,7 +8310,7 @@ type FeishuContextItem struct {
 
 func (x *FeishuContextItem) Reset() {
 	*x = FeishuContextItem{}
-	mi := &file_amux_v1_amux_proto_msgTypes[112]
+	mi := &file_amux_v1_amux_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8229,7 +8322,7 @@ func (x *FeishuContextItem) String() string {
 func (*FeishuContextItem) ProtoMessage() {}
 
 func (x *FeishuContextItem) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[112]
+	mi := &file_amux_v1_amux_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8242,7 +8335,7 @@ func (x *FeishuContextItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuContextItem.ProtoReflect.Descriptor instead.
 func (*FeishuContextItem) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{112}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *FeishuContextItem) GetId() int64 {
@@ -8335,7 +8428,7 @@ type FeishuContextExplainResponse struct {
 
 func (x *FeishuContextExplainResponse) Reset() {
 	*x = FeishuContextExplainResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[113]
+	mi := &file_amux_v1_amux_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8347,7 +8440,7 @@ func (x *FeishuContextExplainResponse) String() string {
 func (*FeishuContextExplainResponse) ProtoMessage() {}
 
 func (x *FeishuContextExplainResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[113]
+	mi := &file_amux_v1_amux_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8360,7 +8453,7 @@ func (x *FeishuContextExplainResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeishuContextExplainResponse.ProtoReflect.Descriptor instead.
 func (*FeishuContextExplainResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{113}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *FeishuContextExplainResponse) GetProfile() string {
@@ -8422,7 +8515,7 @@ type AmuxdRunRequest struct {
 
 func (x *AmuxdRunRequest) Reset() {
 	*x = AmuxdRunRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[114]
+	mi := &file_amux_v1_amux_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8434,7 +8527,7 @@ func (x *AmuxdRunRequest) String() string {
 func (*AmuxdRunRequest) ProtoMessage() {}
 
 func (x *AmuxdRunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[114]
+	mi := &file_amux_v1_amux_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8447,7 +8540,7 @@ func (x *AmuxdRunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdRunRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdRunRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{114}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *AmuxdRunRequest) GetTargetId() string {
@@ -8565,7 +8658,7 @@ type AmuxdKillRequest struct {
 
 func (x *AmuxdKillRequest) Reset() {
 	*x = AmuxdKillRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[115]
+	mi := &file_amux_v1_amux_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8577,7 +8670,7 @@ func (x *AmuxdKillRequest) String() string {
 func (*AmuxdKillRequest) ProtoMessage() {}
 
 func (x *AmuxdKillRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[115]
+	mi := &file_amux_v1_amux_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8590,7 +8683,7 @@ func (x *AmuxdKillRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdKillRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdKillRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{115}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *AmuxdKillRequest) GetTargetId() string {
@@ -8626,7 +8719,7 @@ type AmuxdRestartRequest struct {
 
 func (x *AmuxdRestartRequest) Reset() {
 	*x = AmuxdRestartRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[116]
+	mi := &file_amux_v1_amux_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8638,7 +8731,7 @@ func (x *AmuxdRestartRequest) String() string {
 func (*AmuxdRestartRequest) ProtoMessage() {}
 
 func (x *AmuxdRestartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[116]
+	mi := &file_amux_v1_amux_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8651,7 +8744,7 @@ func (x *AmuxdRestartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdRestartRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdRestartRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{116}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *AmuxdRestartRequest) GetTargetId() string {
@@ -8704,7 +8797,7 @@ type AmuxdChangeCwdRequest struct {
 
 func (x *AmuxdChangeCwdRequest) Reset() {
 	*x = AmuxdChangeCwdRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[117]
+	mi := &file_amux_v1_amux_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8716,7 +8809,7 @@ func (x *AmuxdChangeCwdRequest) String() string {
 func (*AmuxdChangeCwdRequest) ProtoMessage() {}
 
 func (x *AmuxdChangeCwdRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[117]
+	mi := &file_amux_v1_amux_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8729,7 +8822,7 @@ func (x *AmuxdChangeCwdRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdChangeCwdRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdChangeCwdRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{117}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *AmuxdChangeCwdRequest) GetTargetId() string {
@@ -8791,7 +8884,7 @@ type AmuxdSleepRequest struct {
 
 func (x *AmuxdSleepRequest) Reset() {
 	*x = AmuxdSleepRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[118]
+	mi := &file_amux_v1_amux_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8803,7 +8896,7 @@ func (x *AmuxdSleepRequest) String() string {
 func (*AmuxdSleepRequest) ProtoMessage() {}
 
 func (x *AmuxdSleepRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[118]
+	mi := &file_amux_v1_amux_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8816,7 +8909,7 @@ func (x *AmuxdSleepRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdSleepRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdSleepRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{118}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *AmuxdSleepRequest) GetTargetId() string {
@@ -8843,7 +8936,7 @@ type AmuxdResumeRequest struct {
 
 func (x *AmuxdResumeRequest) Reset() {
 	*x = AmuxdResumeRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[119]
+	mi := &file_amux_v1_amux_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8855,7 +8948,7 @@ func (x *AmuxdResumeRequest) String() string {
 func (*AmuxdResumeRequest) ProtoMessage() {}
 
 func (x *AmuxdResumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[119]
+	mi := &file_amux_v1_amux_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8868,7 +8961,7 @@ func (x *AmuxdResumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdResumeRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdResumeRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{119}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *AmuxdResumeRequest) GetTargetId() string {
@@ -8894,7 +8987,7 @@ type AmuxdPruneRequest struct {
 
 func (x *AmuxdPruneRequest) Reset() {
 	*x = AmuxdPruneRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[120]
+	mi := &file_amux_v1_amux_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8906,7 +8999,7 @@ func (x *AmuxdPruneRequest) String() string {
 func (*AmuxdPruneRequest) ProtoMessage() {}
 
 func (x *AmuxdPruneRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[120]
+	mi := &file_amux_v1_amux_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8919,7 +9012,7 @@ func (x *AmuxdPruneRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdPruneRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdPruneRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{120}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *AmuxdPruneRequest) GetTargetId() string {
@@ -8940,7 +9033,7 @@ type AmuxdInterruptRequest struct {
 
 func (x *AmuxdInterruptRequest) Reset() {
 	*x = AmuxdInterruptRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[121]
+	mi := &file_amux_v1_amux_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8952,7 +9045,7 @@ func (x *AmuxdInterruptRequest) String() string {
 func (*AmuxdInterruptRequest) ProtoMessage() {}
 
 func (x *AmuxdInterruptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[121]
+	mi := &file_amux_v1_amux_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8965,7 +9058,7 @@ func (x *AmuxdInterruptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdInterruptRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdInterruptRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{121}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *AmuxdInterruptRequest) GetTargetId() string {
@@ -9001,7 +9094,7 @@ type AmuxdAttachRequest struct {
 
 func (x *AmuxdAttachRequest) Reset() {
 	*x = AmuxdAttachRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[122]
+	mi := &file_amux_v1_amux_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9013,7 +9106,7 @@ func (x *AmuxdAttachRequest) String() string {
 func (*AmuxdAttachRequest) ProtoMessage() {}
 
 func (x *AmuxdAttachRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[122]
+	mi := &file_amux_v1_amux_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9026,7 +9119,7 @@ func (x *AmuxdAttachRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdAttachRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdAttachRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{122}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *AmuxdAttachRequest) GetTargetId() string {
@@ -9076,7 +9169,7 @@ type AmuxdSubmitRequest struct {
 
 func (x *AmuxdSubmitRequest) Reset() {
 	*x = AmuxdSubmitRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[123]
+	mi := &file_amux_v1_amux_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9088,7 +9181,7 @@ func (x *AmuxdSubmitRequest) String() string {
 func (*AmuxdSubmitRequest) ProtoMessage() {}
 
 func (x *AmuxdSubmitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[123]
+	mi := &file_amux_v1_amux_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9101,7 +9194,7 @@ func (x *AmuxdSubmitRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdSubmitRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdSubmitRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{123}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *AmuxdSubmitRequest) GetTargetId() string {
@@ -9184,7 +9277,7 @@ type AmuxdQueueListRequest struct {
 
 func (x *AmuxdQueueListRequest) Reset() {
 	*x = AmuxdQueueListRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[124]
+	mi := &file_amux_v1_amux_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9196,7 +9289,7 @@ func (x *AmuxdQueueListRequest) String() string {
 func (*AmuxdQueueListRequest) ProtoMessage() {}
 
 func (x *AmuxdQueueListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[124]
+	mi := &file_amux_v1_amux_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9209,7 +9302,7 @@ func (x *AmuxdQueueListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdQueueListRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdQueueListRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{124}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *AmuxdQueueListRequest) GetTargetId() string {
@@ -9236,7 +9329,7 @@ type AmuxdQueueClearRequest struct {
 
 func (x *AmuxdQueueClearRequest) Reset() {
 	*x = AmuxdQueueClearRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[125]
+	mi := &file_amux_v1_amux_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9248,7 +9341,7 @@ func (x *AmuxdQueueClearRequest) String() string {
 func (*AmuxdQueueClearRequest) ProtoMessage() {}
 
 func (x *AmuxdQueueClearRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[125]
+	mi := &file_amux_v1_amux_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9261,7 +9354,7 @@ func (x *AmuxdQueueClearRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdQueueClearRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdQueueClearRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{125}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *AmuxdQueueClearRequest) GetTargetId() string {
@@ -9289,7 +9382,7 @@ type AmuxdQueueCancelRequest struct {
 
 func (x *AmuxdQueueCancelRequest) Reset() {
 	*x = AmuxdQueueCancelRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[126]
+	mi := &file_amux_v1_amux_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9301,7 +9394,7 @@ func (x *AmuxdQueueCancelRequest) String() string {
 func (*AmuxdQueueCancelRequest) ProtoMessage() {}
 
 func (x *AmuxdQueueCancelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[126]
+	mi := &file_amux_v1_amux_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9314,7 +9407,7 @@ func (x *AmuxdQueueCancelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdQueueCancelRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdQueueCancelRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{126}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *AmuxdQueueCancelRequest) GetTargetId() string {
@@ -9356,7 +9449,7 @@ type AmuxdRespondPermissionRequest struct {
 
 func (x *AmuxdRespondPermissionRequest) Reset() {
 	*x = AmuxdRespondPermissionRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[127]
+	mi := &file_amux_v1_amux_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9368,7 +9461,7 @@ func (x *AmuxdRespondPermissionRequest) String() string {
 func (*AmuxdRespondPermissionRequest) ProtoMessage() {}
 
 func (x *AmuxdRespondPermissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[127]
+	mi := &file_amux_v1_amux_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9381,7 +9474,7 @@ func (x *AmuxdRespondPermissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdRespondPermissionRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdRespondPermissionRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{127}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *AmuxdRespondPermissionRequest) GetTargetId() string {
@@ -9443,7 +9536,7 @@ type ListCollaboratorsRequest struct {
 
 func (x *ListCollaboratorsRequest) Reset() {
 	*x = ListCollaboratorsRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[128]
+	mi := &file_amux_v1_amux_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9455,7 +9548,7 @@ func (x *ListCollaboratorsRequest) String() string {
 func (*ListCollaboratorsRequest) ProtoMessage() {}
 
 func (x *ListCollaboratorsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[128]
+	mi := &file_amux_v1_amux_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9468,7 +9561,7 @@ func (x *ListCollaboratorsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCollaboratorsRequest.ProtoReflect.Descriptor instead.
 func (*ListCollaboratorsRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{128}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *ListCollaboratorsRequest) GetInitiatorRef() string {
@@ -9493,7 +9586,7 @@ type CollaboratorDescriptor struct {
 
 func (x *CollaboratorDescriptor) Reset() {
 	*x = CollaboratorDescriptor{}
-	mi := &file_amux_v1_amux_proto_msgTypes[129]
+	mi := &file_amux_v1_amux_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9505,7 +9598,7 @@ func (x *CollaboratorDescriptor) String() string {
 func (*CollaboratorDescriptor) ProtoMessage() {}
 
 func (x *CollaboratorDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[129]
+	mi := &file_amux_v1_amux_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9518,7 +9611,7 @@ func (x *CollaboratorDescriptor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollaboratorDescriptor.ProtoReflect.Descriptor instead.
 func (*CollaboratorDescriptor) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{129}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *CollaboratorDescriptor) GetId() string {
@@ -9579,7 +9672,7 @@ type ListCollaboratorsResponse struct {
 
 func (x *ListCollaboratorsResponse) Reset() {
 	*x = ListCollaboratorsResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[130]
+	mi := &file_amux_v1_amux_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9591,7 +9684,7 @@ func (x *ListCollaboratorsResponse) String() string {
 func (*ListCollaboratorsResponse) ProtoMessage() {}
 
 func (x *ListCollaboratorsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[130]
+	mi := &file_amux_v1_amux_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9604,7 +9697,7 @@ func (x *ListCollaboratorsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCollaboratorsResponse.ProtoReflect.Descriptor instead.
 func (*ListCollaboratorsResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{130}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *ListCollaboratorsResponse) GetCollaborators() []*CollaboratorDescriptor {
@@ -9628,7 +9721,7 @@ type CoordinationResult struct {
 
 func (x *CoordinationResult) Reset() {
 	*x = CoordinationResult{}
-	mi := &file_amux_v1_amux_proto_msgTypes[131]
+	mi := &file_amux_v1_amux_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9640,7 +9733,7 @@ func (x *CoordinationResult) String() string {
 func (*CoordinationResult) ProtoMessage() {}
 
 func (x *CoordinationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[131]
+	mi := &file_amux_v1_amux_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9653,7 +9746,7 @@ func (x *CoordinationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationResult.ProtoReflect.Descriptor instead.
 func (*CoordinationResult) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{131}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *CoordinationResult) GetSummary() string {
@@ -9708,7 +9801,7 @@ type CoordinationFailure struct {
 
 func (x *CoordinationFailure) Reset() {
 	*x = CoordinationFailure{}
-	mi := &file_amux_v1_amux_proto_msgTypes[132]
+	mi := &file_amux_v1_amux_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9720,7 +9813,7 @@ func (x *CoordinationFailure) String() string {
 func (*CoordinationFailure) ProtoMessage() {}
 
 func (x *CoordinationFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[132]
+	mi := &file_amux_v1_amux_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9733,7 +9826,7 @@ func (x *CoordinationFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationFailure.ProtoReflect.Descriptor instead.
 func (*CoordinationFailure) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{132}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *CoordinationFailure) GetCode() string {
@@ -9765,7 +9858,7 @@ type CoordinationPermissionRequest struct {
 
 func (x *CoordinationPermissionRequest) Reset() {
 	*x = CoordinationPermissionRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[133]
+	mi := &file_amux_v1_amux_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9777,7 +9870,7 @@ func (x *CoordinationPermissionRequest) String() string {
 func (*CoordinationPermissionRequest) ProtoMessage() {}
 
 func (x *CoordinationPermissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[133]
+	mi := &file_amux_v1_amux_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9790,7 +9883,7 @@ func (x *CoordinationPermissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationPermissionRequest.ProtoReflect.Descriptor instead.
 func (*CoordinationPermissionRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{133}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *CoordinationPermissionRequest) GetId() string {
@@ -9866,7 +9959,7 @@ type CoordinationDelegation struct {
 
 func (x *CoordinationDelegation) Reset() {
 	*x = CoordinationDelegation{}
-	mi := &file_amux_v1_amux_proto_msgTypes[134]
+	mi := &file_amux_v1_amux_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9878,7 +9971,7 @@ func (x *CoordinationDelegation) String() string {
 func (*CoordinationDelegation) ProtoMessage() {}
 
 func (x *CoordinationDelegation) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[134]
+	mi := &file_amux_v1_amux_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9891,7 +9984,7 @@ func (x *CoordinationDelegation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationDelegation.ProtoReflect.Descriptor instead.
 func (*CoordinationDelegation) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{134}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *CoordinationDelegation) GetId() string {
@@ -10022,7 +10115,7 @@ type CoordinationEvent struct {
 
 func (x *CoordinationEvent) Reset() {
 	*x = CoordinationEvent{}
-	mi := &file_amux_v1_amux_proto_msgTypes[135]
+	mi := &file_amux_v1_amux_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10034,7 +10127,7 @@ func (x *CoordinationEvent) String() string {
 func (*CoordinationEvent) ProtoMessage() {}
 
 func (x *CoordinationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[135]
+	mi := &file_amux_v1_amux_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10047,7 +10140,7 @@ func (x *CoordinationEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationEvent.ProtoReflect.Descriptor instead.
 func (*CoordinationEvent) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{135}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *CoordinationEvent) GetSeq() uint64 {
@@ -10117,7 +10210,7 @@ type CoordinationSnapshot struct {
 
 func (x *CoordinationSnapshot) Reset() {
 	*x = CoordinationSnapshot{}
-	mi := &file_amux_v1_amux_proto_msgTypes[136]
+	mi := &file_amux_v1_amux_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10129,7 +10222,7 @@ func (x *CoordinationSnapshot) String() string {
 func (*CoordinationSnapshot) ProtoMessage() {}
 
 func (x *CoordinationSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[136]
+	mi := &file_amux_v1_amux_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10142,7 +10235,7 @@ func (x *CoordinationSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationSnapshot.ProtoReflect.Descriptor instead.
 func (*CoordinationSnapshot) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{136}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *CoordinationSnapshot) GetDelegation() *CoordinationDelegation {
@@ -10182,7 +10275,7 @@ type DelegateRequest struct {
 
 func (x *DelegateRequest) Reset() {
 	*x = DelegateRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[137]
+	mi := &file_amux_v1_amux_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10194,7 +10287,7 @@ func (x *DelegateRequest) String() string {
 func (*DelegateRequest) ProtoMessage() {}
 
 func (x *DelegateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[137]
+	mi := &file_amux_v1_amux_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10207,7 +10300,7 @@ func (x *DelegateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DelegateRequest.ProtoReflect.Descriptor instead.
 func (*DelegateRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{137}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *DelegateRequest) GetCollaboratorId() string {
@@ -10276,7 +10369,7 @@ type DelegateResponse struct {
 
 func (x *DelegateResponse) Reset() {
 	*x = DelegateResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[138]
+	mi := &file_amux_v1_amux_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10288,7 +10381,7 @@ func (x *DelegateResponse) String() string {
 func (*DelegateResponse) ProtoMessage() {}
 
 func (x *DelegateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[138]
+	mi := &file_amux_v1_amux_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10301,7 +10394,7 @@ func (x *DelegateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DelegateResponse.ProtoReflect.Descriptor instead.
 func (*DelegateResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{138}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *DelegateResponse) GetSnapshot() *CoordinationSnapshot {
@@ -10328,7 +10421,7 @@ type GetDelegationRequest struct {
 
 func (x *GetDelegationRequest) Reset() {
 	*x = GetDelegationRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[139]
+	mi := &file_amux_v1_amux_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10340,7 +10433,7 @@ func (x *GetDelegationRequest) String() string {
 func (*GetDelegationRequest) ProtoMessage() {}
 
 func (x *GetDelegationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[139]
+	mi := &file_amux_v1_amux_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10353,7 +10446,7 @@ func (x *GetDelegationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDelegationRequest.ProtoReflect.Descriptor instead.
 func (*GetDelegationRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{139}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *GetDelegationRequest) GetDelegationId() string {
@@ -10379,7 +10472,7 @@ type GetDelegationResponse struct {
 
 func (x *GetDelegationResponse) Reset() {
 	*x = GetDelegationResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[140]
+	mi := &file_amux_v1_amux_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10391,7 +10484,7 @@ func (x *GetDelegationResponse) String() string {
 func (*GetDelegationResponse) ProtoMessage() {}
 
 func (x *GetDelegationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[140]
+	mi := &file_amux_v1_amux_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10404,7 +10497,7 @@ func (x *GetDelegationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDelegationResponse.ProtoReflect.Descriptor instead.
 func (*GetDelegationResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{140}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *GetDelegationResponse) GetSnapshot() *CoordinationSnapshot {
@@ -10425,7 +10518,7 @@ type WaitDelegationRequest struct {
 
 func (x *WaitDelegationRequest) Reset() {
 	*x = WaitDelegationRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[141]
+	mi := &file_amux_v1_amux_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10437,7 +10530,7 @@ func (x *WaitDelegationRequest) String() string {
 func (*WaitDelegationRequest) ProtoMessage() {}
 
 func (x *WaitDelegationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[141]
+	mi := &file_amux_v1_amux_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10450,7 +10543,7 @@ func (x *WaitDelegationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitDelegationRequest.ProtoReflect.Descriptor instead.
 func (*WaitDelegationRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{141}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *WaitDelegationRequest) GetDelegationId() string {
@@ -10484,7 +10577,7 @@ type WaitDelegationResponse struct {
 
 func (x *WaitDelegationResponse) Reset() {
 	*x = WaitDelegationResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[142]
+	mi := &file_amux_v1_amux_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10496,7 +10589,7 @@ func (x *WaitDelegationResponse) String() string {
 func (*WaitDelegationResponse) ProtoMessage() {}
 
 func (x *WaitDelegationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[142]
+	mi := &file_amux_v1_amux_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10509,7 +10602,7 @@ func (x *WaitDelegationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitDelegationResponse.ProtoReflect.Descriptor instead.
 func (*WaitDelegationResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{142}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *WaitDelegationResponse) GetSnapshot() *CoordinationSnapshot {
@@ -10539,7 +10632,7 @@ type InterveneDelegationRequest struct {
 
 func (x *InterveneDelegationRequest) Reset() {
 	*x = InterveneDelegationRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[143]
+	mi := &file_amux_v1_amux_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10551,7 +10644,7 @@ func (x *InterveneDelegationRequest) String() string {
 func (*InterveneDelegationRequest) ProtoMessage() {}
 
 func (x *InterveneDelegationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[143]
+	mi := &file_amux_v1_amux_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10564,7 +10657,7 @@ func (x *InterveneDelegationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InterveneDelegationRequest.ProtoReflect.Descriptor instead.
 func (*InterveneDelegationRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{143}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *InterveneDelegationRequest) GetDelegationId() string {
@@ -10612,7 +10705,7 @@ type InterveneDelegationResponse struct {
 
 func (x *InterveneDelegationResponse) Reset() {
 	*x = InterveneDelegationResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[144]
+	mi := &file_amux_v1_amux_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10624,7 +10717,7 @@ func (x *InterveneDelegationResponse) String() string {
 func (*InterveneDelegationResponse) ProtoMessage() {}
 
 func (x *InterveneDelegationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[144]
+	mi := &file_amux_v1_amux_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10637,7 +10730,7 @@ func (x *InterveneDelegationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InterveneDelegationResponse.ProtoReflect.Descriptor instead.
 func (*InterveneDelegationResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{144}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *InterveneDelegationResponse) GetDelegation() *CoordinationDelegation {
@@ -10663,7 +10756,7 @@ type CancelDelegationRequest struct {
 
 func (x *CancelDelegationRequest) Reset() {
 	*x = CancelDelegationRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[145]
+	mi := &file_amux_v1_amux_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10675,7 +10768,7 @@ func (x *CancelDelegationRequest) String() string {
 func (*CancelDelegationRequest) ProtoMessage() {}
 
 func (x *CancelDelegationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[145]
+	mi := &file_amux_v1_amux_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10688,7 +10781,7 @@ func (x *CancelDelegationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelDelegationRequest.ProtoReflect.Descriptor instead.
 func (*CancelDelegationRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{145}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *CancelDelegationRequest) GetDelegationId() string {
@@ -10708,7 +10801,7 @@ type CancelDelegationResponse struct {
 
 func (x *CancelDelegationResponse) Reset() {
 	*x = CancelDelegationResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[146]
+	mi := &file_amux_v1_amux_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10720,7 +10813,7 @@ func (x *CancelDelegationResponse) String() string {
 func (*CancelDelegationResponse) ProtoMessage() {}
 
 func (x *CancelDelegationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[146]
+	mi := &file_amux_v1_amux_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10733,7 +10826,7 @@ func (x *CancelDelegationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelDelegationResponse.ProtoReflect.Descriptor instead.
 func (*CancelDelegationResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{146}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *CancelDelegationResponse) GetDelegation() *CoordinationDelegation {
@@ -10770,7 +10863,7 @@ type SubmitSubtaskRequest struct {
 
 func (x *SubmitSubtaskRequest) Reset() {
 	*x = SubmitSubtaskRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[147]
+	mi := &file_amux_v1_amux_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10782,7 +10875,7 @@ func (x *SubmitSubtaskRequest) String() string {
 func (*SubmitSubtaskRequest) ProtoMessage() {}
 
 func (x *SubmitSubtaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[147]
+	mi := &file_amux_v1_amux_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10795,7 +10888,7 @@ func (x *SubmitSubtaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitSubtaskRequest.ProtoReflect.Descriptor instead.
 func (*SubmitSubtaskRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{147}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *SubmitSubtaskRequest) GetSpecJson() []byte {
@@ -10835,7 +10928,7 @@ type SubmitSubtaskResponse struct {
 
 func (x *SubmitSubtaskResponse) Reset() {
 	*x = SubmitSubtaskResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[148]
+	mi := &file_amux_v1_amux_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10847,7 +10940,7 @@ func (x *SubmitSubtaskResponse) String() string {
 func (*SubmitSubtaskResponse) ProtoMessage() {}
 
 func (x *SubmitSubtaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[148]
+	mi := &file_amux_v1_amux_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10860,7 +10953,7 @@ func (x *SubmitSubtaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitSubtaskResponse.ProtoReflect.Descriptor instead.
 func (*SubmitSubtaskResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{148}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *SubmitSubtaskResponse) GetTaskJson() []byte {
@@ -10879,7 +10972,7 @@ type GetSubtaskRequest struct {
 
 func (x *GetSubtaskRequest) Reset() {
 	*x = GetSubtaskRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[149]
+	mi := &file_amux_v1_amux_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10891,7 +10984,7 @@ func (x *GetSubtaskRequest) String() string {
 func (*GetSubtaskRequest) ProtoMessage() {}
 
 func (x *GetSubtaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[149]
+	mi := &file_amux_v1_amux_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10904,7 +10997,7 @@ func (x *GetSubtaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSubtaskRequest.ProtoReflect.Descriptor instead.
 func (*GetSubtaskRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{149}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *GetSubtaskRequest) GetId() string {
@@ -10923,7 +11016,7 @@ type GetSubtaskResponse struct {
 
 func (x *GetSubtaskResponse) Reset() {
 	*x = GetSubtaskResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[150]
+	mi := &file_amux_v1_amux_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10935,7 +11028,7 @@ func (x *GetSubtaskResponse) String() string {
 func (*GetSubtaskResponse) ProtoMessage() {}
 
 func (x *GetSubtaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[150]
+	mi := &file_amux_v1_amux_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10948,7 +11041,7 @@ func (x *GetSubtaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSubtaskResponse.ProtoReflect.Descriptor instead.
 func (*GetSubtaskResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{150}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *GetSubtaskResponse) GetTaskJson() []byte {
@@ -10966,7 +11059,7 @@ type ListSubtasksRequest struct {
 
 func (x *ListSubtasksRequest) Reset() {
 	*x = ListSubtasksRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[151]
+	mi := &file_amux_v1_amux_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10978,7 +11071,7 @@ func (x *ListSubtasksRequest) String() string {
 func (*ListSubtasksRequest) ProtoMessage() {}
 
 func (x *ListSubtasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[151]
+	mi := &file_amux_v1_amux_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10991,7 +11084,7 @@ func (x *ListSubtasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSubtasksRequest.ProtoReflect.Descriptor instead.
 func (*ListSubtasksRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{151}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{152}
 }
 
 type ListSubtasksResponse struct {
@@ -11003,7 +11096,7 @@ type ListSubtasksResponse struct {
 
 func (x *ListSubtasksResponse) Reset() {
 	*x = ListSubtasksResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[152]
+	mi := &file_amux_v1_amux_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11015,7 +11108,7 @@ func (x *ListSubtasksResponse) String() string {
 func (*ListSubtasksResponse) ProtoMessage() {}
 
 func (x *ListSubtasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[152]
+	mi := &file_amux_v1_amux_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11028,7 +11121,7 @@ func (x *ListSubtasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSubtasksResponse.ProtoReflect.Descriptor instead.
 func (*ListSubtasksResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{152}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *ListSubtasksResponse) GetTasksJson() [][]byte {
@@ -11049,7 +11142,7 @@ type PruneSubtasksRequest struct {
 
 func (x *PruneSubtasksRequest) Reset() {
 	*x = PruneSubtasksRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[153]
+	mi := &file_amux_v1_amux_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11061,7 +11154,7 @@ func (x *PruneSubtasksRequest) String() string {
 func (*PruneSubtasksRequest) ProtoMessage() {}
 
 func (x *PruneSubtasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[153]
+	mi := &file_amux_v1_amux_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11074,7 +11167,7 @@ func (x *PruneSubtasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PruneSubtasksRequest.ProtoReflect.Descriptor instead.
 func (*PruneSubtasksRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{153}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *PruneSubtasksRequest) GetDryRun() bool {
@@ -11113,7 +11206,7 @@ type PrunedSubtask struct {
 
 func (x *PrunedSubtask) Reset() {
 	*x = PrunedSubtask{}
-	mi := &file_amux_v1_amux_proto_msgTypes[154]
+	mi := &file_amux_v1_amux_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11125,7 +11218,7 @@ func (x *PrunedSubtask) String() string {
 func (*PrunedSubtask) ProtoMessage() {}
 
 func (x *PrunedSubtask) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[154]
+	mi := &file_amux_v1_amux_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11138,7 +11231,7 @@ func (x *PrunedSubtask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrunedSubtask.ProtoReflect.Descriptor instead.
 func (*PrunedSubtask) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{154}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *PrunedSubtask) GetId() string {
@@ -11201,7 +11294,7 @@ type SkippedSubtask struct {
 
 func (x *SkippedSubtask) Reset() {
 	*x = SkippedSubtask{}
-	mi := &file_amux_v1_amux_proto_msgTypes[155]
+	mi := &file_amux_v1_amux_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11213,7 +11306,7 @@ func (x *SkippedSubtask) String() string {
 func (*SkippedSubtask) ProtoMessage() {}
 
 func (x *SkippedSubtask) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[155]
+	mi := &file_amux_v1_amux_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11226,7 +11319,7 @@ func (x *SkippedSubtask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SkippedSubtask.ProtoReflect.Descriptor instead.
 func (*SkippedSubtask) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{155}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *SkippedSubtask) GetId() string {
@@ -11261,7 +11354,7 @@ type PruneSubtasksResponse struct {
 
 func (x *PruneSubtasksResponse) Reset() {
 	*x = PruneSubtasksResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[156]
+	mi := &file_amux_v1_amux_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11273,7 +11366,7 @@ func (x *PruneSubtasksResponse) String() string {
 func (*PruneSubtasksResponse) ProtoMessage() {}
 
 func (x *PruneSubtasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[156]
+	mi := &file_amux_v1_amux_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11286,7 +11379,7 @@ func (x *PruneSubtasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PruneSubtasksResponse.ProtoReflect.Descriptor instead.
 func (*PruneSubtasksResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{156}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *PruneSubtasksResponse) GetDeletedCount() int32 {
@@ -11319,7 +11412,7 @@ type CancelSubtaskRequest struct {
 
 func (x *CancelSubtaskRequest) Reset() {
 	*x = CancelSubtaskRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[157]
+	mi := &file_amux_v1_amux_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11331,7 +11424,7 @@ func (x *CancelSubtaskRequest) String() string {
 func (*CancelSubtaskRequest) ProtoMessage() {}
 
 func (x *CancelSubtaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[157]
+	mi := &file_amux_v1_amux_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11344,7 +11437,7 @@ func (x *CancelSubtaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelSubtaskRequest.ProtoReflect.Descriptor instead.
 func (*CancelSubtaskRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{157}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *CancelSubtaskRequest) GetId() string {
@@ -11363,7 +11456,7 @@ type CancelSubtaskResponse struct {
 
 func (x *CancelSubtaskResponse) Reset() {
 	*x = CancelSubtaskResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[158]
+	mi := &file_amux_v1_amux_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11375,7 +11468,7 @@ func (x *CancelSubtaskResponse) String() string {
 func (*CancelSubtaskResponse) ProtoMessage() {}
 
 func (x *CancelSubtaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[158]
+	mi := &file_amux_v1_amux_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11388,7 +11481,7 @@ func (x *CancelSubtaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelSubtaskResponse.ProtoReflect.Descriptor instead.
 func (*CancelSubtaskResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{158}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *CancelSubtaskResponse) GetOk() bool {
@@ -11411,7 +11504,7 @@ type RespondSubtaskPermissionRequest struct {
 
 func (x *RespondSubtaskPermissionRequest) Reset() {
 	*x = RespondSubtaskPermissionRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[159]
+	mi := &file_amux_v1_amux_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11423,7 +11516,7 @@ func (x *RespondSubtaskPermissionRequest) String() string {
 func (*RespondSubtaskPermissionRequest) ProtoMessage() {}
 
 func (x *RespondSubtaskPermissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[159]
+	mi := &file_amux_v1_amux_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11436,7 +11529,7 @@ func (x *RespondSubtaskPermissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RespondSubtaskPermissionRequest.ProtoReflect.Descriptor instead.
 func (*RespondSubtaskPermissionRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{159}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *RespondSubtaskPermissionRequest) GetId() string {
@@ -11483,7 +11576,7 @@ type RespondSubtaskPermissionResponse struct {
 
 func (x *RespondSubtaskPermissionResponse) Reset() {
 	*x = RespondSubtaskPermissionResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[160]
+	mi := &file_amux_v1_amux_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11495,7 +11588,7 @@ func (x *RespondSubtaskPermissionResponse) String() string {
 func (*RespondSubtaskPermissionResponse) ProtoMessage() {}
 
 func (x *RespondSubtaskPermissionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[160]
+	mi := &file_amux_v1_amux_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11508,7 +11601,7 @@ func (x *RespondSubtaskPermissionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RespondSubtaskPermissionResponse.ProtoReflect.Descriptor instead.
 func (*RespondSubtaskPermissionResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{160}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *RespondSubtaskPermissionResponse) GetOk() bool {
@@ -11528,7 +11621,7 @@ type StreamSubtaskRequest struct {
 
 func (x *StreamSubtaskRequest) Reset() {
 	*x = StreamSubtaskRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[161]
+	mi := &file_amux_v1_amux_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11540,7 +11633,7 @@ func (x *StreamSubtaskRequest) String() string {
 func (*StreamSubtaskRequest) ProtoMessage() {}
 
 func (x *StreamSubtaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[161]
+	mi := &file_amux_v1_amux_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11553,7 +11646,7 @@ func (x *StreamSubtaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamSubtaskRequest.ProtoReflect.Descriptor instead.
 func (*StreamSubtaskRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{161}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *StreamSubtaskRequest) GetId() string {
@@ -11579,7 +11672,7 @@ type SubtaskEvent struct {
 
 func (x *SubtaskEvent) Reset() {
 	*x = SubtaskEvent{}
-	mi := &file_amux_v1_amux_proto_msgTypes[162]
+	mi := &file_amux_v1_amux_proto_msgTypes[163]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11591,7 +11684,7 @@ func (x *SubtaskEvent) String() string {
 func (*SubtaskEvent) ProtoMessage() {}
 
 func (x *SubtaskEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[162]
+	mi := &file_amux_v1_amux_proto_msgTypes[163]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11604,7 +11697,7 @@ func (x *SubtaskEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubtaskEvent.ProtoReflect.Descriptor instead.
 func (*SubtaskEvent) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{162}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *SubtaskEvent) GetEventJson() []byte {
@@ -11657,7 +11750,7 @@ type AgentInstance struct {
 
 func (x *AgentInstance) Reset() {
 	*x = AgentInstance{}
-	mi := &file_amux_v1_amux_proto_msgTypes[163]
+	mi := &file_amux_v1_amux_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11669,7 +11762,7 @@ func (x *AgentInstance) String() string {
 func (*AgentInstance) ProtoMessage() {}
 
 func (x *AgentInstance) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[163]
+	mi := &file_amux_v1_amux_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11682,7 +11775,7 @@ func (x *AgentInstance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentInstance.ProtoReflect.Descriptor instead.
 func (*AgentInstance) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{163}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *AgentInstance) GetId() string {
@@ -11876,7 +11969,7 @@ type Principal struct {
 
 func (x *Principal) Reset() {
 	*x = Principal{}
-	mi := &file_amux_v1_amux_proto_msgTypes[164]
+	mi := &file_amux_v1_amux_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11888,7 +11981,7 @@ func (x *Principal) String() string {
 func (*Principal) ProtoMessage() {}
 
 func (x *Principal) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[164]
+	mi := &file_amux_v1_amux_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11901,7 +11994,7 @@ func (x *Principal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Principal.ProtoReflect.Descriptor instead.
 func (*Principal) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{164}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *Principal) GetPrincipalId() string {
@@ -11972,7 +12065,7 @@ type CreatePrincipalRequest struct {
 
 func (x *CreatePrincipalRequest) Reset() {
 	*x = CreatePrincipalRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[165]
+	mi := &file_amux_v1_amux_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11984,7 +12077,7 @@ func (x *CreatePrincipalRequest) String() string {
 func (*CreatePrincipalRequest) ProtoMessage() {}
 
 func (x *CreatePrincipalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[165]
+	mi := &file_amux_v1_amux_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11997,7 +12090,7 @@ func (x *CreatePrincipalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePrincipalRequest.ProtoReflect.Descriptor instead.
 func (*CreatePrincipalRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{165}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *CreatePrincipalRequest) GetKind() string {
@@ -12037,7 +12130,7 @@ type PrincipalResponse struct {
 
 func (x *PrincipalResponse) Reset() {
 	*x = PrincipalResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[166]
+	mi := &file_amux_v1_amux_proto_msgTypes[167]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12049,7 +12142,7 @@ func (x *PrincipalResponse) String() string {
 func (*PrincipalResponse) ProtoMessage() {}
 
 func (x *PrincipalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[166]
+	mi := &file_amux_v1_amux_proto_msgTypes[167]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12062,7 +12155,7 @@ func (x *PrincipalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrincipalResponse.ProtoReflect.Descriptor instead.
 func (*PrincipalResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{166}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *PrincipalResponse) GetPrincipal() *Principal {
@@ -12080,7 +12173,7 @@ type ListPrincipalsRequest struct {
 
 func (x *ListPrincipalsRequest) Reset() {
 	*x = ListPrincipalsRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[167]
+	mi := &file_amux_v1_amux_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12092,7 +12185,7 @@ func (x *ListPrincipalsRequest) String() string {
 func (*ListPrincipalsRequest) ProtoMessage() {}
 
 func (x *ListPrincipalsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[167]
+	mi := &file_amux_v1_amux_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12105,7 +12198,7 @@ func (x *ListPrincipalsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPrincipalsRequest.ProtoReflect.Descriptor instead.
 func (*ListPrincipalsRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{167}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{168}
 }
 
 type ListPrincipalAliasesRequest struct {
@@ -12116,7 +12209,7 @@ type ListPrincipalAliasesRequest struct {
 
 func (x *ListPrincipalAliasesRequest) Reset() {
 	*x = ListPrincipalAliasesRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[168]
+	mi := &file_amux_v1_amux_proto_msgTypes[169]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12128,7 +12221,7 @@ func (x *ListPrincipalAliasesRequest) String() string {
 func (*ListPrincipalAliasesRequest) ProtoMessage() {}
 
 func (x *ListPrincipalAliasesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[168]
+	mi := &file_amux_v1_amux_proto_msgTypes[169]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12141,7 +12234,7 @@ func (x *ListPrincipalAliasesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPrincipalAliasesRequest.ProtoReflect.Descriptor instead.
 func (*ListPrincipalAliasesRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{168}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{169}
 }
 
 type PrincipalAlias struct {
@@ -12156,7 +12249,7 @@ type PrincipalAlias struct {
 
 func (x *PrincipalAlias) Reset() {
 	*x = PrincipalAlias{}
-	mi := &file_amux_v1_amux_proto_msgTypes[169]
+	mi := &file_amux_v1_amux_proto_msgTypes[170]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12168,7 +12261,7 @@ func (x *PrincipalAlias) String() string {
 func (*PrincipalAlias) ProtoMessage() {}
 
 func (x *PrincipalAlias) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[169]
+	mi := &file_amux_v1_amux_proto_msgTypes[170]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12181,7 +12274,7 @@ func (x *PrincipalAlias) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrincipalAlias.ProtoReflect.Descriptor instead.
 func (*PrincipalAlias) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{169}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *PrincipalAlias) GetProvider() string {
@@ -12221,7 +12314,7 @@ type ListPrincipalAliasesResponse struct {
 
 func (x *ListPrincipalAliasesResponse) Reset() {
 	*x = ListPrincipalAliasesResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[170]
+	mi := &file_amux_v1_amux_proto_msgTypes[171]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12233,7 +12326,7 @@ func (x *ListPrincipalAliasesResponse) String() string {
 func (*ListPrincipalAliasesResponse) ProtoMessage() {}
 
 func (x *ListPrincipalAliasesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[170]
+	mi := &file_amux_v1_amux_proto_msgTypes[171]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12246,7 +12339,7 @@ func (x *ListPrincipalAliasesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPrincipalAliasesResponse.ProtoReflect.Descriptor instead.
 func (*ListPrincipalAliasesResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{170}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *ListPrincipalAliasesResponse) GetAliases() []*PrincipalAlias {
@@ -12265,7 +12358,7 @@ type ListPrincipalsResponse struct {
 
 func (x *ListPrincipalsResponse) Reset() {
 	*x = ListPrincipalsResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[171]
+	mi := &file_amux_v1_amux_proto_msgTypes[172]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12277,7 +12370,7 @@ func (x *ListPrincipalsResponse) String() string {
 func (*ListPrincipalsResponse) ProtoMessage() {}
 
 func (x *ListPrincipalsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[171]
+	mi := &file_amux_v1_amux_proto_msgTypes[172]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12290,7 +12383,7 @@ func (x *ListPrincipalsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPrincipalsResponse.ProtoReflect.Descriptor instead.
 func (*ListPrincipalsResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{171}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *ListPrincipalsResponse) GetPrincipals() []*Principal {
@@ -12309,7 +12402,7 @@ type DisablePrincipalRequest struct {
 
 func (x *DisablePrincipalRequest) Reset() {
 	*x = DisablePrincipalRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[172]
+	mi := &file_amux_v1_amux_proto_msgTypes[173]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12321,7 +12414,7 @@ func (x *DisablePrincipalRequest) String() string {
 func (*DisablePrincipalRequest) ProtoMessage() {}
 
 func (x *DisablePrincipalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[172]
+	mi := &file_amux_v1_amux_proto_msgTypes[173]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12334,7 +12427,7 @@ func (x *DisablePrincipalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisablePrincipalRequest.ProtoReflect.Descriptor instead.
 func (*DisablePrincipalRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{172}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *DisablePrincipalRequest) GetPrincipalId() string {
@@ -12356,7 +12449,7 @@ type BindPrincipalAliasRequest struct {
 
 func (x *BindPrincipalAliasRequest) Reset() {
 	*x = BindPrincipalAliasRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[173]
+	mi := &file_amux_v1_amux_proto_msgTypes[174]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12368,7 +12461,7 @@ func (x *BindPrincipalAliasRequest) String() string {
 func (*BindPrincipalAliasRequest) ProtoMessage() {}
 
 func (x *BindPrincipalAliasRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[173]
+	mi := &file_amux_v1_amux_proto_msgTypes[174]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12381,7 +12474,7 @@ func (x *BindPrincipalAliasRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BindPrincipalAliasRequest.ProtoReflect.Descriptor instead.
 func (*BindPrincipalAliasRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{173}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *BindPrincipalAliasRequest) GetProvider() string {
@@ -12422,7 +12515,7 @@ type GrantPrincipalDelegationRequest struct {
 
 func (x *GrantPrincipalDelegationRequest) Reset() {
 	*x = GrantPrincipalDelegationRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[174]
+	mi := &file_amux_v1_amux_proto_msgTypes[175]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12434,7 +12527,7 @@ func (x *GrantPrincipalDelegationRequest) String() string {
 func (*GrantPrincipalDelegationRequest) ProtoMessage() {}
 
 func (x *GrantPrincipalDelegationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[174]
+	mi := &file_amux_v1_amux_proto_msgTypes[175]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12447,7 +12540,7 @@ func (x *GrantPrincipalDelegationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantPrincipalDelegationRequest.ProtoReflect.Descriptor instead.
 func (*GrantPrincipalDelegationRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{174}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *GrantPrincipalDelegationRequest) GetActorPrincipalId() string {
@@ -12473,7 +12566,7 @@ type GrantPrincipalDelegationResponse struct {
 
 func (x *GrantPrincipalDelegationResponse) Reset() {
 	*x = GrantPrincipalDelegationResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[175]
+	mi := &file_amux_v1_amux_proto_msgTypes[176]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12485,7 +12578,7 @@ func (x *GrantPrincipalDelegationResponse) String() string {
 func (*GrantPrincipalDelegationResponse) ProtoMessage() {}
 
 func (x *GrantPrincipalDelegationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[175]
+	mi := &file_amux_v1_amux_proto_msgTypes[176]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12498,7 +12591,7 @@ func (x *GrantPrincipalDelegationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantPrincipalDelegationResponse.ProtoReflect.Descriptor instead.
 func (*GrantPrincipalDelegationResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{175}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{176}
 }
 
 func (x *GrantPrincipalDelegationResponse) GetDelegationId() string {
@@ -12517,7 +12610,7 @@ type RevokePrincipalDelegationRequest struct {
 
 func (x *RevokePrincipalDelegationRequest) Reset() {
 	*x = RevokePrincipalDelegationRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[176]
+	mi := &file_amux_v1_amux_proto_msgTypes[177]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12529,7 +12622,7 @@ func (x *RevokePrincipalDelegationRequest) String() string {
 func (*RevokePrincipalDelegationRequest) ProtoMessage() {}
 
 func (x *RevokePrincipalDelegationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[176]
+	mi := &file_amux_v1_amux_proto_msgTypes[177]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12542,7 +12635,7 @@ func (x *RevokePrincipalDelegationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokePrincipalDelegationRequest.ProtoReflect.Descriptor instead.
 func (*RevokePrincipalDelegationRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{176}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{177}
 }
 
 func (x *RevokePrincipalDelegationRequest) GetDelegationId() string {
@@ -12562,7 +12655,7 @@ type ServicePrincipalMemberRequest struct {
 
 func (x *ServicePrincipalMemberRequest) Reset() {
 	*x = ServicePrincipalMemberRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[177]
+	mi := &file_amux_v1_amux_proto_msgTypes[178]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12574,7 +12667,7 @@ func (x *ServicePrincipalMemberRequest) String() string {
 func (*ServicePrincipalMemberRequest) ProtoMessage() {}
 
 func (x *ServicePrincipalMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[177]
+	mi := &file_amux_v1_amux_proto_msgTypes[178]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12587,7 +12680,7 @@ func (x *ServicePrincipalMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServicePrincipalMemberRequest.ProtoReflect.Descriptor instead.
 func (*ServicePrincipalMemberRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{177}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *ServicePrincipalMemberRequest) GetServicePrincipalId() string {
@@ -12612,7 +12705,7 @@ type EmptyResponse struct {
 
 func (x *EmptyResponse) Reset() {
 	*x = EmptyResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[178]
+	mi := &file_amux_v1_amux_proto_msgTypes[179]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12624,7 +12717,7 @@ func (x *EmptyResponse) String() string {
 func (*EmptyResponse) ProtoMessage() {}
 
 func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[178]
+	mi := &file_amux_v1_amux_proto_msgTypes[179]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12637,7 +12730,7 @@ func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmptyResponse.ProtoReflect.Descriptor instead.
 func (*EmptyResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{178}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{179}
 }
 
 type CreatePrincipalEnrollmentRequest struct {
@@ -12653,7 +12746,7 @@ type CreatePrincipalEnrollmentRequest struct {
 
 func (x *CreatePrincipalEnrollmentRequest) Reset() {
 	*x = CreatePrincipalEnrollmentRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[179]
+	mi := &file_amux_v1_amux_proto_msgTypes[180]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12665,7 +12758,7 @@ func (x *CreatePrincipalEnrollmentRequest) String() string {
 func (*CreatePrincipalEnrollmentRequest) ProtoMessage() {}
 
 func (x *CreatePrincipalEnrollmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[179]
+	mi := &file_amux_v1_amux_proto_msgTypes[180]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12678,7 +12771,7 @@ func (x *CreatePrincipalEnrollmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePrincipalEnrollmentRequest.ProtoReflect.Descriptor instead.
 func (*CreatePrincipalEnrollmentRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{179}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *CreatePrincipalEnrollmentRequest) GetProvider() string {
@@ -12726,7 +12819,7 @@ type CreatePrincipalEnrollmentResponse struct {
 
 func (x *CreatePrincipalEnrollmentResponse) Reset() {
 	*x = CreatePrincipalEnrollmentResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[180]
+	mi := &file_amux_v1_amux_proto_msgTypes[181]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12738,7 +12831,7 @@ func (x *CreatePrincipalEnrollmentResponse) String() string {
 func (*CreatePrincipalEnrollmentResponse) ProtoMessage() {}
 
 func (x *CreatePrincipalEnrollmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[180]
+	mi := &file_amux_v1_amux_proto_msgTypes[181]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12751,7 +12844,7 @@ func (x *CreatePrincipalEnrollmentResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CreatePrincipalEnrollmentResponse.ProtoReflect.Descriptor instead.
 func (*CreatePrincipalEnrollmentResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{180}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *CreatePrincipalEnrollmentResponse) GetCredentialId() string {
@@ -12776,7 +12869,7 @@ type GetIsolationStatusRequest struct {
 
 func (x *GetIsolationStatusRequest) Reset() {
 	*x = GetIsolationStatusRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[181]
+	mi := &file_amux_v1_amux_proto_msgTypes[182]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12788,7 +12881,7 @@ func (x *GetIsolationStatusRequest) String() string {
 func (*GetIsolationStatusRequest) ProtoMessage() {}
 
 func (x *GetIsolationStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[181]
+	mi := &file_amux_v1_amux_proto_msgTypes[182]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12801,7 +12894,7 @@ func (x *GetIsolationStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIsolationStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetIsolationStatusRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{181}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{182}
 }
 
 type GetIsolationStatusResponse struct {
@@ -12818,7 +12911,7 @@ type GetIsolationStatusResponse struct {
 
 func (x *GetIsolationStatusResponse) Reset() {
 	*x = GetIsolationStatusResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[182]
+	mi := &file_amux_v1_amux_proto_msgTypes[183]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12830,7 +12923,7 @@ func (x *GetIsolationStatusResponse) String() string {
 func (*GetIsolationStatusResponse) ProtoMessage() {}
 
 func (x *GetIsolationStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[182]
+	mi := &file_amux_v1_amux_proto_msgTypes[183]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12843,7 +12936,7 @@ func (x *GetIsolationStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIsolationStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetIsolationStatusResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{182}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{183}
 }
 
 func (x *GetIsolationStatusResponse) GetEnabled() bool {
@@ -12899,7 +12992,7 @@ type RevokePrincipalLaunchesRequest struct {
 
 func (x *RevokePrincipalLaunchesRequest) Reset() {
 	*x = RevokePrincipalLaunchesRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[183]
+	mi := &file_amux_v1_amux_proto_msgTypes[184]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12911,7 +13004,7 @@ func (x *RevokePrincipalLaunchesRequest) String() string {
 func (*RevokePrincipalLaunchesRequest) ProtoMessage() {}
 
 func (x *RevokePrincipalLaunchesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[183]
+	mi := &file_amux_v1_amux_proto_msgTypes[184]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12924,7 +13017,7 @@ func (x *RevokePrincipalLaunchesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokePrincipalLaunchesRequest.ProtoReflect.Descriptor instead.
 func (*RevokePrincipalLaunchesRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{183}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{184}
 }
 
 func (x *RevokePrincipalLaunchesRequest) GetPrincipalId() string {
@@ -12957,7 +13050,7 @@ type RevokePrincipalLaunchesResponse struct {
 
 func (x *RevokePrincipalLaunchesResponse) Reset() {
 	*x = RevokePrincipalLaunchesResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[184]
+	mi := &file_amux_v1_amux_proto_msgTypes[185]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12969,7 +13062,7 @@ func (x *RevokePrincipalLaunchesResponse) String() string {
 func (*RevokePrincipalLaunchesResponse) ProtoMessage() {}
 
 func (x *RevokePrincipalLaunchesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[184]
+	mi := &file_amux_v1_amux_proto_msgTypes[185]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12982,7 +13075,7 @@ func (x *RevokePrincipalLaunchesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokePrincipalLaunchesResponse.ProtoReflect.Descriptor instead.
 func (*RevokePrincipalLaunchesResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{184}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{185}
 }
 
 func (x *RevokePrincipalLaunchesResponse) GetAffected() int32 {
@@ -13004,7 +13097,7 @@ type ListAgentInstancesRequest struct {
 
 func (x *ListAgentInstancesRequest) Reset() {
 	*x = ListAgentInstancesRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[185]
+	mi := &file_amux_v1_amux_proto_msgTypes[186]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13016,7 +13109,7 @@ func (x *ListAgentInstancesRequest) String() string {
 func (*ListAgentInstancesRequest) ProtoMessage() {}
 
 func (x *ListAgentInstancesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[185]
+	mi := &file_amux_v1_amux_proto_msgTypes[186]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13029,7 +13122,7 @@ func (x *ListAgentInstancesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentInstancesRequest.ProtoReflect.Descriptor instead.
 func (*ListAgentInstancesRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{185}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{186}
 }
 
 func (x *ListAgentInstancesRequest) GetOwnerSessionId() string {
@@ -13055,7 +13148,7 @@ type ListAgentInstancesResponse struct {
 
 func (x *ListAgentInstancesResponse) Reset() {
 	*x = ListAgentInstancesResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[186]
+	mi := &file_amux_v1_amux_proto_msgTypes[187]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13067,7 +13160,7 @@ func (x *ListAgentInstancesResponse) String() string {
 func (*ListAgentInstancesResponse) ProtoMessage() {}
 
 func (x *ListAgentInstancesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[186]
+	mi := &file_amux_v1_amux_proto_msgTypes[187]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13080,7 +13173,7 @@ func (x *ListAgentInstancesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentInstancesResponse.ProtoReflect.Descriptor instead.
 func (*ListAgentInstancesResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{186}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{187}
 }
 
 func (x *ListAgentInstancesResponse) GetInstances() []*AgentInstance {
@@ -13099,7 +13192,7 @@ type GetAgentInstanceRequest struct {
 
 func (x *GetAgentInstanceRequest) Reset() {
 	*x = GetAgentInstanceRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[187]
+	mi := &file_amux_v1_amux_proto_msgTypes[188]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13111,7 +13204,7 @@ func (x *GetAgentInstanceRequest) String() string {
 func (*GetAgentInstanceRequest) ProtoMessage() {}
 
 func (x *GetAgentInstanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[187]
+	mi := &file_amux_v1_amux_proto_msgTypes[188]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13124,7 +13217,7 @@ func (x *GetAgentInstanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentInstanceRequest.ProtoReflect.Descriptor instead.
 func (*GetAgentInstanceRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{187}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{188}
 }
 
 func (x *GetAgentInstanceRequest) GetId() string {
@@ -13143,7 +13236,7 @@ type GetAgentInstanceResponse struct {
 
 func (x *GetAgentInstanceResponse) Reset() {
 	*x = GetAgentInstanceResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[188]
+	mi := &file_amux_v1_amux_proto_msgTypes[189]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13155,7 +13248,7 @@ func (x *GetAgentInstanceResponse) String() string {
 func (*GetAgentInstanceResponse) ProtoMessage() {}
 
 func (x *GetAgentInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[188]
+	mi := &file_amux_v1_amux_proto_msgTypes[189]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13168,7 +13261,7 @@ func (x *GetAgentInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentInstanceResponse.ProtoReflect.Descriptor instead.
 func (*GetAgentInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{188}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{189}
 }
 
 func (x *GetAgentInstanceResponse) GetInstance() *AgentInstance {
@@ -13198,7 +13291,7 @@ type SendAgentMessageRequest struct {
 
 func (x *SendAgentMessageRequest) Reset() {
 	*x = SendAgentMessageRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[189]
+	mi := &file_amux_v1_amux_proto_msgTypes[190]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13210,7 +13303,7 @@ func (x *SendAgentMessageRequest) String() string {
 func (*SendAgentMessageRequest) ProtoMessage() {}
 
 func (x *SendAgentMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[189]
+	mi := &file_amux_v1_amux_proto_msgTypes[190]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13223,7 +13316,7 @@ func (x *SendAgentMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendAgentMessageRequest.ProtoReflect.Descriptor instead.
 func (*SendAgentMessageRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{189}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{190}
 }
 
 func (x *SendAgentMessageRequest) GetId() string {
@@ -13267,7 +13360,7 @@ type SendAgentMessageResponse struct {
 
 func (x *SendAgentMessageResponse) Reset() {
 	*x = SendAgentMessageResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[190]
+	mi := &file_amux_v1_amux_proto_msgTypes[191]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13279,7 +13372,7 @@ func (x *SendAgentMessageResponse) String() string {
 func (*SendAgentMessageResponse) ProtoMessage() {}
 
 func (x *SendAgentMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[190]
+	mi := &file_amux_v1_amux_proto_msgTypes[191]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13292,7 +13385,7 @@ func (x *SendAgentMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendAgentMessageResponse.ProtoReflect.Descriptor instead.
 func (*SendAgentMessageResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{190}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{191}
 }
 
 func (x *SendAgentMessageResponse) GetOk() bool {
@@ -13332,7 +13425,7 @@ type InterruptAgentInstanceRequest struct {
 
 func (x *InterruptAgentInstanceRequest) Reset() {
 	*x = InterruptAgentInstanceRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[191]
+	mi := &file_amux_v1_amux_proto_msgTypes[192]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13344,7 +13437,7 @@ func (x *InterruptAgentInstanceRequest) String() string {
 func (*InterruptAgentInstanceRequest) ProtoMessage() {}
 
 func (x *InterruptAgentInstanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[191]
+	mi := &file_amux_v1_amux_proto_msgTypes[192]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13357,7 +13450,7 @@ func (x *InterruptAgentInstanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InterruptAgentInstanceRequest.ProtoReflect.Descriptor instead.
 func (*InterruptAgentInstanceRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{191}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{192}
 }
 
 func (x *InterruptAgentInstanceRequest) GetId() string {
@@ -13376,7 +13469,7 @@ type InterruptAgentInstanceResponse struct {
 
 func (x *InterruptAgentInstanceResponse) Reset() {
 	*x = InterruptAgentInstanceResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[192]
+	mi := &file_amux_v1_amux_proto_msgTypes[193]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13388,7 +13481,7 @@ func (x *InterruptAgentInstanceResponse) String() string {
 func (*InterruptAgentInstanceResponse) ProtoMessage() {}
 
 func (x *InterruptAgentInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[192]
+	mi := &file_amux_v1_amux_proto_msgTypes[193]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13401,7 +13494,7 @@ func (x *InterruptAgentInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InterruptAgentInstanceResponse.ProtoReflect.Descriptor instead.
 func (*InterruptAgentInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{192}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{193}
 }
 
 func (x *InterruptAgentInstanceResponse) GetOk() bool {
@@ -13428,7 +13521,7 @@ type WaitAgentInstanceRequest struct {
 
 func (x *WaitAgentInstanceRequest) Reset() {
 	*x = WaitAgentInstanceRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[193]
+	mi := &file_amux_v1_amux_proto_msgTypes[194]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13440,7 +13533,7 @@ func (x *WaitAgentInstanceRequest) String() string {
 func (*WaitAgentInstanceRequest) ProtoMessage() {}
 
 func (x *WaitAgentInstanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[193]
+	mi := &file_amux_v1_amux_proto_msgTypes[194]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13453,7 +13546,7 @@ func (x *WaitAgentInstanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitAgentInstanceRequest.ProtoReflect.Descriptor instead.
 func (*WaitAgentInstanceRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{193}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{194}
 }
 
 func (x *WaitAgentInstanceRequest) GetId() string {
@@ -13480,7 +13573,7 @@ type WaitAgentInstanceResponse struct {
 
 func (x *WaitAgentInstanceResponse) Reset() {
 	*x = WaitAgentInstanceResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[194]
+	mi := &file_amux_v1_amux_proto_msgTypes[195]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13492,7 +13585,7 @@ func (x *WaitAgentInstanceResponse) String() string {
 func (*WaitAgentInstanceResponse) ProtoMessage() {}
 
 func (x *WaitAgentInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[194]
+	mi := &file_amux_v1_amux_proto_msgTypes[195]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13505,7 +13598,7 @@ func (x *WaitAgentInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitAgentInstanceResponse.ProtoReflect.Descriptor instead.
 func (*WaitAgentInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{194}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{195}
 }
 
 func (x *WaitAgentInstanceResponse) GetActivity() bool {
@@ -13531,7 +13624,7 @@ type DescribeAgentInstanceRequest struct {
 
 func (x *DescribeAgentInstanceRequest) Reset() {
 	*x = DescribeAgentInstanceRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[195]
+	mi := &file_amux_v1_amux_proto_msgTypes[196]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13543,7 +13636,7 @@ func (x *DescribeAgentInstanceRequest) String() string {
 func (*DescribeAgentInstanceRequest) ProtoMessage() {}
 
 func (x *DescribeAgentInstanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[195]
+	mi := &file_amux_v1_amux_proto_msgTypes[196]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13556,7 +13649,7 @@ func (x *DescribeAgentInstanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeAgentInstanceRequest.ProtoReflect.Descriptor instead.
 func (*DescribeAgentInstanceRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{195}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{196}
 }
 
 func (x *DescribeAgentInstanceRequest) GetId() string {
@@ -13580,7 +13673,7 @@ type DescribeAgentInstanceResponse struct {
 
 func (x *DescribeAgentInstanceResponse) Reset() {
 	*x = DescribeAgentInstanceResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[196]
+	mi := &file_amux_v1_amux_proto_msgTypes[197]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13592,7 +13685,7 @@ func (x *DescribeAgentInstanceResponse) String() string {
 func (*DescribeAgentInstanceResponse) ProtoMessage() {}
 
 func (x *DescribeAgentInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[196]
+	mi := &file_amux_v1_amux_proto_msgTypes[197]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13605,7 +13698,7 @@ func (x *DescribeAgentInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeAgentInstanceResponse.ProtoReflect.Descriptor instead.
 func (*DescribeAgentInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{196}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{197}
 }
 
 func (x *DescribeAgentInstanceResponse) GetChildSessionId() string {
@@ -13659,7 +13752,7 @@ type CleanupAgentInstanceRequest struct {
 
 func (x *CleanupAgentInstanceRequest) Reset() {
 	*x = CleanupAgentInstanceRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[197]
+	mi := &file_amux_v1_amux_proto_msgTypes[198]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13671,7 +13764,7 @@ func (x *CleanupAgentInstanceRequest) String() string {
 func (*CleanupAgentInstanceRequest) ProtoMessage() {}
 
 func (x *CleanupAgentInstanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[197]
+	mi := &file_amux_v1_amux_proto_msgTypes[198]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13684,7 +13777,7 @@ func (x *CleanupAgentInstanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CleanupAgentInstanceRequest.ProtoReflect.Descriptor instead.
 func (*CleanupAgentInstanceRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{197}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{198}
 }
 
 func (x *CleanupAgentInstanceRequest) GetId() string {
@@ -13703,7 +13796,7 @@ type CleanupAgentInstanceResponse struct {
 
 func (x *CleanupAgentInstanceResponse) Reset() {
 	*x = CleanupAgentInstanceResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[198]
+	mi := &file_amux_v1_amux_proto_msgTypes[199]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13715,7 +13808,7 @@ func (x *CleanupAgentInstanceResponse) String() string {
 func (*CleanupAgentInstanceResponse) ProtoMessage() {}
 
 func (x *CleanupAgentInstanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[198]
+	mi := &file_amux_v1_amux_proto_msgTypes[199]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13728,7 +13821,7 @@ func (x *CleanupAgentInstanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CleanupAgentInstanceResponse.ProtoReflect.Descriptor instead.
 func (*CleanupAgentInstanceResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{198}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{199}
 }
 
 func (x *CleanupAgentInstanceResponse) GetOk() bool {
@@ -13767,7 +13860,7 @@ type ScheduleItem struct {
 
 func (x *ScheduleItem) Reset() {
 	*x = ScheduleItem{}
-	mi := &file_amux_v1_amux_proto_msgTypes[199]
+	mi := &file_amux_v1_amux_proto_msgTypes[200]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13779,7 +13872,7 @@ func (x *ScheduleItem) String() string {
 func (*ScheduleItem) ProtoMessage() {}
 
 func (x *ScheduleItem) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[199]
+	mi := &file_amux_v1_amux_proto_msgTypes[200]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13792,7 +13885,7 @@ func (x *ScheduleItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleItem.ProtoReflect.Descriptor instead.
 func (*ScheduleItem) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{199}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{200}
 }
 
 func (x *ScheduleItem) GetId() int64 {
@@ -13965,7 +14058,7 @@ type ScheduleRun struct {
 
 func (x *ScheduleRun) Reset() {
 	*x = ScheduleRun{}
-	mi := &file_amux_v1_amux_proto_msgTypes[200]
+	mi := &file_amux_v1_amux_proto_msgTypes[201]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13977,7 +14070,7 @@ func (x *ScheduleRun) String() string {
 func (*ScheduleRun) ProtoMessage() {}
 
 func (x *ScheduleRun) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[200]
+	mi := &file_amux_v1_amux_proto_msgTypes[201]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13990,7 +14083,7 @@ func (x *ScheduleRun) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleRun.ProtoReflect.Descriptor instead.
 func (*ScheduleRun) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{200}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{201}
 }
 
 func (x *ScheduleRun) GetId() int64 {
@@ -14119,7 +14212,7 @@ type CreateScheduleRequest struct {
 
 func (x *CreateScheduleRequest) Reset() {
 	*x = CreateScheduleRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[201]
+	mi := &file_amux_v1_amux_proto_msgTypes[202]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14131,7 +14224,7 @@ func (x *CreateScheduleRequest) String() string {
 func (*CreateScheduleRequest) ProtoMessage() {}
 
 func (x *CreateScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[201]
+	mi := &file_amux_v1_amux_proto_msgTypes[202]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14144,7 +14237,7 @@ func (x *CreateScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateScheduleRequest.ProtoReflect.Descriptor instead.
 func (*CreateScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{201}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{202}
 }
 
 func (x *CreateScheduleRequest) GetTargetId() string {
@@ -14251,7 +14344,7 @@ type CreateScheduleResponse struct {
 
 func (x *CreateScheduleResponse) Reset() {
 	*x = CreateScheduleResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[202]
+	mi := &file_amux_v1_amux_proto_msgTypes[203]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14263,7 +14356,7 @@ func (x *CreateScheduleResponse) String() string {
 func (*CreateScheduleResponse) ProtoMessage() {}
 
 func (x *CreateScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[202]
+	mi := &file_amux_v1_amux_proto_msgTypes[203]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14276,7 +14369,7 @@ func (x *CreateScheduleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateScheduleResponse.ProtoReflect.Descriptor instead.
 func (*CreateScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{202}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{203}
 }
 
 func (x *CreateScheduleResponse) GetId() int64 {
@@ -14324,7 +14417,7 @@ type ListSchedulesRequest struct {
 
 func (x *ListSchedulesRequest) Reset() {
 	*x = ListSchedulesRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[203]
+	mi := &file_amux_v1_amux_proto_msgTypes[204]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14336,7 +14429,7 @@ func (x *ListSchedulesRequest) String() string {
 func (*ListSchedulesRequest) ProtoMessage() {}
 
 func (x *ListSchedulesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[203]
+	mi := &file_amux_v1_amux_proto_msgTypes[204]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14349,7 +14442,7 @@ func (x *ListSchedulesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSchedulesRequest.ProtoReflect.Descriptor instead.
 func (*ListSchedulesRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{203}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{204}
 }
 
 func (x *ListSchedulesRequest) GetTargetId() string {
@@ -14375,7 +14468,7 @@ type ListSchedulesResponse struct {
 
 func (x *ListSchedulesResponse) Reset() {
 	*x = ListSchedulesResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[204]
+	mi := &file_amux_v1_amux_proto_msgTypes[205]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14387,7 +14480,7 @@ func (x *ListSchedulesResponse) String() string {
 func (*ListSchedulesResponse) ProtoMessage() {}
 
 func (x *ListSchedulesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[204]
+	mi := &file_amux_v1_amux_proto_msgTypes[205]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14400,7 +14493,7 @@ func (x *ListSchedulesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSchedulesResponse.ProtoReflect.Descriptor instead.
 func (*ListSchedulesResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{204}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{205}
 }
 
 func (x *ListSchedulesResponse) GetSchedules() []*ScheduleItem {
@@ -14420,7 +14513,7 @@ type GetScheduleRequest struct {
 
 func (x *GetScheduleRequest) Reset() {
 	*x = GetScheduleRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[205]
+	mi := &file_amux_v1_amux_proto_msgTypes[206]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14432,7 +14525,7 @@ func (x *GetScheduleRequest) String() string {
 func (*GetScheduleRequest) ProtoMessage() {}
 
 func (x *GetScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[205]
+	mi := &file_amux_v1_amux_proto_msgTypes[206]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14445,7 +14538,7 @@ func (x *GetScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetScheduleRequest.ProtoReflect.Descriptor instead.
 func (*GetScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{205}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{206}
 }
 
 func (x *GetScheduleRequest) GetId() int64 {
@@ -14471,7 +14564,7 @@ type GetScheduleResponse struct {
 
 func (x *GetScheduleResponse) Reset() {
 	*x = GetScheduleResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[206]
+	mi := &file_amux_v1_amux_proto_msgTypes[207]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14483,7 +14576,7 @@ func (x *GetScheduleResponse) String() string {
 func (*GetScheduleResponse) ProtoMessage() {}
 
 func (x *GetScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[206]
+	mi := &file_amux_v1_amux_proto_msgTypes[207]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14496,7 +14589,7 @@ func (x *GetScheduleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetScheduleResponse.ProtoReflect.Descriptor instead.
 func (*GetScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{206}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{207}
 }
 
 func (x *GetScheduleResponse) GetSchedule() *ScheduleItem {
@@ -14515,7 +14608,7 @@ type DeleteScheduleRequest struct {
 
 func (x *DeleteScheduleRequest) Reset() {
 	*x = DeleteScheduleRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[207]
+	mi := &file_amux_v1_amux_proto_msgTypes[208]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14527,7 +14620,7 @@ func (x *DeleteScheduleRequest) String() string {
 func (*DeleteScheduleRequest) ProtoMessage() {}
 
 func (x *DeleteScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[207]
+	mi := &file_amux_v1_amux_proto_msgTypes[208]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14540,7 +14633,7 @@ func (x *DeleteScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteScheduleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{207}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{208}
 }
 
 func (x *DeleteScheduleRequest) GetId() int64 {
@@ -14559,7 +14652,7 @@ type DeleteScheduleResponse struct {
 
 func (x *DeleteScheduleResponse) Reset() {
 	*x = DeleteScheduleResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[208]
+	mi := &file_amux_v1_amux_proto_msgTypes[209]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14571,7 +14664,7 @@ func (x *DeleteScheduleResponse) String() string {
 func (*DeleteScheduleResponse) ProtoMessage() {}
 
 func (x *DeleteScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[208]
+	mi := &file_amux_v1_amux_proto_msgTypes[209]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14584,7 +14677,7 @@ func (x *DeleteScheduleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteScheduleResponse.ProtoReflect.Descriptor instead.
 func (*DeleteScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{208}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{209}
 }
 
 func (x *DeleteScheduleResponse) GetOk() bool {
@@ -14614,7 +14707,7 @@ type UpdateScheduleRequest struct {
 
 func (x *UpdateScheduleRequest) Reset() {
 	*x = UpdateScheduleRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[209]
+	mi := &file_amux_v1_amux_proto_msgTypes[210]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14626,7 +14719,7 @@ func (x *UpdateScheduleRequest) String() string {
 func (*UpdateScheduleRequest) ProtoMessage() {}
 
 func (x *UpdateScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[209]
+	mi := &file_amux_v1_amux_proto_msgTypes[210]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14639,7 +14732,7 @@ func (x *UpdateScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateScheduleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{209}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{210}
 }
 
 func (x *UpdateScheduleRequest) GetId() int64 {
@@ -14715,7 +14808,7 @@ type UpdateScheduleResponse struct {
 
 func (x *UpdateScheduleResponse) Reset() {
 	*x = UpdateScheduleResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[210]
+	mi := &file_amux_v1_amux_proto_msgTypes[211]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14727,7 +14820,7 @@ func (x *UpdateScheduleResponse) String() string {
 func (*UpdateScheduleResponse) ProtoMessage() {}
 
 func (x *UpdateScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[210]
+	mi := &file_amux_v1_amux_proto_msgTypes[211]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14740,7 +14833,7 @@ func (x *UpdateScheduleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateScheduleResponse.ProtoReflect.Descriptor instead.
 func (*UpdateScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{210}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{211}
 }
 
 func (x *UpdateScheduleResponse) GetSchedule() *ScheduleItem {
@@ -14767,7 +14860,7 @@ type SetScheduleEnabledRequest struct {
 
 func (x *SetScheduleEnabledRequest) Reset() {
 	*x = SetScheduleEnabledRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[211]
+	mi := &file_amux_v1_amux_proto_msgTypes[212]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14779,7 +14872,7 @@ func (x *SetScheduleEnabledRequest) String() string {
 func (*SetScheduleEnabledRequest) ProtoMessage() {}
 
 func (x *SetScheduleEnabledRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[211]
+	mi := &file_amux_v1_amux_proto_msgTypes[212]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14792,7 +14885,7 @@ func (x *SetScheduleEnabledRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetScheduleEnabledRequest.ProtoReflect.Descriptor instead.
 func (*SetScheduleEnabledRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{211}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{212}
 }
 
 func (x *SetScheduleEnabledRequest) GetId() int64 {
@@ -14818,7 +14911,7 @@ type SetScheduleEnabledResponse struct {
 
 func (x *SetScheduleEnabledResponse) Reset() {
 	*x = SetScheduleEnabledResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[212]
+	mi := &file_amux_v1_amux_proto_msgTypes[213]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14830,7 +14923,7 @@ func (x *SetScheduleEnabledResponse) String() string {
 func (*SetScheduleEnabledResponse) ProtoMessage() {}
 
 func (x *SetScheduleEnabledResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[212]
+	mi := &file_amux_v1_amux_proto_msgTypes[213]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14843,7 +14936,7 @@ func (x *SetScheduleEnabledResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetScheduleEnabledResponse.ProtoReflect.Descriptor instead.
 func (*SetScheduleEnabledResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{212}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{213}
 }
 
 func (x *SetScheduleEnabledResponse) GetOk() bool {
@@ -14862,7 +14955,7 @@ type TriggerScheduleRequest struct {
 
 func (x *TriggerScheduleRequest) Reset() {
 	*x = TriggerScheduleRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[213]
+	mi := &file_amux_v1_amux_proto_msgTypes[214]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14874,7 +14967,7 @@ func (x *TriggerScheduleRequest) String() string {
 func (*TriggerScheduleRequest) ProtoMessage() {}
 
 func (x *TriggerScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[213]
+	mi := &file_amux_v1_amux_proto_msgTypes[214]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14887,7 +14980,7 @@ func (x *TriggerScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerScheduleRequest.ProtoReflect.Descriptor instead.
 func (*TriggerScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{213}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{214}
 }
 
 func (x *TriggerScheduleRequest) GetId() int64 {
@@ -14910,7 +15003,7 @@ type TriggerScheduleResponse struct {
 
 func (x *TriggerScheduleResponse) Reset() {
 	*x = TriggerScheduleResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[214]
+	mi := &file_amux_v1_amux_proto_msgTypes[215]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14922,7 +15015,7 @@ func (x *TriggerScheduleResponse) String() string {
 func (*TriggerScheduleResponse) ProtoMessage() {}
 
 func (x *TriggerScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[214]
+	mi := &file_amux_v1_amux_proto_msgTypes[215]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14935,7 +15028,7 @@ func (x *TriggerScheduleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerScheduleResponse.ProtoReflect.Descriptor instead.
 func (*TriggerScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{214}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{215}
 }
 
 func (x *TriggerScheduleResponse) GetOk() bool {
@@ -14987,7 +15080,7 @@ type SessionFileRequest struct {
 
 func (x *SessionFileRequest) Reset() {
 	*x = SessionFileRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[215]
+	mi := &file_amux_v1_amux_proto_msgTypes[216]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14999,7 +15092,7 @@ func (x *SessionFileRequest) String() string {
 func (*SessionFileRequest) ProtoMessage() {}
 
 func (x *SessionFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[215]
+	mi := &file_amux_v1_amux_proto_msgTypes[216]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15012,7 +15105,7 @@ func (x *SessionFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionFileRequest.ProtoReflect.Descriptor instead.
 func (*SessionFileRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{215}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{216}
 }
 
 func (x *SessionFileRequest) GetName() string {
@@ -15060,7 +15153,7 @@ type SessionFileResponse struct {
 
 func (x *SessionFileResponse) Reset() {
 	*x = SessionFileResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[216]
+	mi := &file_amux_v1_amux_proto_msgTypes[217]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15072,7 +15165,7 @@ func (x *SessionFileResponse) String() string {
 func (*SessionFileResponse) ProtoMessage() {}
 
 func (x *SessionFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[216]
+	mi := &file_amux_v1_amux_proto_msgTypes[217]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15085,7 +15178,7 @@ func (x *SessionFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionFileResponse.ProtoReflect.Descriptor instead.
 func (*SessionFileResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{216}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{217}
 }
 
 func (x *SessionFileResponse) GetPath() string {
@@ -15115,7 +15208,7 @@ type ProxyModelRequest struct {
 
 func (x *ProxyModelRequest) Reset() {
 	*x = ProxyModelRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[217]
+	mi := &file_amux_v1_amux_proto_msgTypes[218]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15127,7 +15220,7 @@ func (x *ProxyModelRequest) String() string {
 func (*ProxyModelRequest) ProtoMessage() {}
 
 func (x *ProxyModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[217]
+	mi := &file_amux_v1_amux_proto_msgTypes[218]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15140,7 +15233,7 @@ func (x *ProxyModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProxyModelRequest.ProtoReflect.Descriptor instead.
 func (*ProxyModelRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{217}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{218}
 }
 
 func (x *ProxyModelRequest) GetService() string {
@@ -15189,7 +15282,7 @@ type ProxyModelChunk struct {
 
 func (x *ProxyModelChunk) Reset() {
 	*x = ProxyModelChunk{}
-	mi := &file_amux_v1_amux_proto_msgTypes[218]
+	mi := &file_amux_v1_amux_proto_msgTypes[219]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15201,7 +15294,7 @@ func (x *ProxyModelChunk) String() string {
 func (*ProxyModelChunk) ProtoMessage() {}
 
 func (x *ProxyModelChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[218]
+	mi := &file_amux_v1_amux_proto_msgTypes[219]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15214,7 +15307,7 @@ func (x *ProxyModelChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProxyModelChunk.ProtoReflect.Descriptor instead.
 func (*ProxyModelChunk) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{218}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{219}
 }
 
 func (x *ProxyModelChunk) GetStatus() int32 {
@@ -15249,7 +15342,7 @@ type ListNativeModelsRequest struct {
 
 func (x *ListNativeModelsRequest) Reset() {
 	*x = ListNativeModelsRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[219]
+	mi := &file_amux_v1_amux_proto_msgTypes[220]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15261,7 +15354,7 @@ func (x *ListNativeModelsRequest) String() string {
 func (*ListNativeModelsRequest) ProtoMessage() {}
 
 func (x *ListNativeModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[219]
+	mi := &file_amux_v1_amux_proto_msgTypes[220]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15274,7 +15367,7 @@ func (x *ListNativeModelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNativeModelsRequest.ProtoReflect.Descriptor instead.
 func (*ListNativeModelsRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{219}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{220}
 }
 
 func (x *ListNativeModelsRequest) GetAgentType() string {
@@ -15312,7 +15405,7 @@ type NativeModel struct {
 
 func (x *NativeModel) Reset() {
 	*x = NativeModel{}
-	mi := &file_amux_v1_amux_proto_msgTypes[220]
+	mi := &file_amux_v1_amux_proto_msgTypes[221]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15324,7 +15417,7 @@ func (x *NativeModel) String() string {
 func (*NativeModel) ProtoMessage() {}
 
 func (x *NativeModel) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[220]
+	mi := &file_amux_v1_amux_proto_msgTypes[221]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15337,7 +15430,7 @@ func (x *NativeModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NativeModel.ProtoReflect.Descriptor instead.
 func (*NativeModel) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{220}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{221}
 }
 
 func (x *NativeModel) GetModel() string {
@@ -15392,7 +15485,7 @@ type NativeModelVariant struct {
 
 func (x *NativeModelVariant) Reset() {
 	*x = NativeModelVariant{}
-	mi := &file_amux_v1_amux_proto_msgTypes[221]
+	mi := &file_amux_v1_amux_proto_msgTypes[222]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15404,7 +15497,7 @@ func (x *NativeModelVariant) String() string {
 func (*NativeModelVariant) ProtoMessage() {}
 
 func (x *NativeModelVariant) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[221]
+	mi := &file_amux_v1_amux_proto_msgTypes[222]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15417,7 +15510,7 @@ func (x *NativeModelVariant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NativeModelVariant.ProtoReflect.Descriptor instead.
 func (*NativeModelVariant) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{221}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{222}
 }
 
 func (x *NativeModelVariant) GetDisplayName() string {
@@ -15444,7 +15537,7 @@ type ListNativeModelsResponse struct {
 
 func (x *ListNativeModelsResponse) Reset() {
 	*x = ListNativeModelsResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[222]
+	mi := &file_amux_v1_amux_proto_msgTypes[223]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15456,7 +15549,7 @@ func (x *ListNativeModelsResponse) String() string {
 func (*ListNativeModelsResponse) ProtoMessage() {}
 
 func (x *ListNativeModelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[222]
+	mi := &file_amux_v1_amux_proto_msgTypes[223]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15469,7 +15562,7 @@ func (x *ListNativeModelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNativeModelsResponse.ProtoReflect.Descriptor instead.
 func (*ListNativeModelsResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{222}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{223}
 }
 
 func (x *ListNativeModelsResponse) GetStatus() string {
@@ -15496,7 +15589,7 @@ type MaintenanceRequest struct {
 
 func (x *MaintenanceRequest) Reset() {
 	*x = MaintenanceRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[223]
+	mi := &file_amux_v1_amux_proto_msgTypes[224]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15508,7 +15601,7 @@ func (x *MaintenanceRequest) String() string {
 func (*MaintenanceRequest) ProtoMessage() {}
 
 func (x *MaintenanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[223]
+	mi := &file_amux_v1_amux_proto_msgTypes[224]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15521,7 +15614,7 @@ func (x *MaintenanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MaintenanceRequest.ProtoReflect.Descriptor instead.
 func (*MaintenanceRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{223}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{224}
 }
 
 func (x *MaintenanceRequest) GetAction() string {
@@ -15551,7 +15644,7 @@ type MaintenanceResponse struct {
 
 func (x *MaintenanceResponse) Reset() {
 	*x = MaintenanceResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[224]
+	mi := &file_amux_v1_amux_proto_msgTypes[225]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15563,7 +15656,7 @@ func (x *MaintenanceResponse) String() string {
 func (*MaintenanceResponse) ProtoMessage() {}
 
 func (x *MaintenanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[224]
+	mi := &file_amux_v1_amux_proto_msgTypes[225]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15576,7 +15669,7 @@ func (x *MaintenanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MaintenanceResponse.ProtoReflect.Descriptor instead.
 func (*MaintenanceResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{224}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{225}
 }
 
 func (x *MaintenanceResponse) GetPhase() string {
@@ -15626,7 +15719,7 @@ type CleanupRequest struct {
 
 func (x *CleanupRequest) Reset() {
 	*x = CleanupRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[225]
+	mi := &file_amux_v1_amux_proto_msgTypes[226]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15638,7 +15731,7 @@ func (x *CleanupRequest) String() string {
 func (*CleanupRequest) ProtoMessage() {}
 
 func (x *CleanupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[225]
+	mi := &file_amux_v1_amux_proto_msgTypes[226]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15651,7 +15744,7 @@ func (x *CleanupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CleanupRequest.ProtoReflect.Descriptor instead.
 func (*CleanupRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{225}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{226}
 }
 
 func (x *CleanupRequest) GetTargetId() string {
@@ -15696,7 +15789,7 @@ type CleanupStep struct {
 
 func (x *CleanupStep) Reset() {
 	*x = CleanupStep{}
-	mi := &file_amux_v1_amux_proto_msgTypes[226]
+	mi := &file_amux_v1_amux_proto_msgTypes[227]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15708,7 +15801,7 @@ func (x *CleanupStep) String() string {
 func (*CleanupStep) ProtoMessage() {}
 
 func (x *CleanupStep) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[226]
+	mi := &file_amux_v1_amux_proto_msgTypes[227]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15721,7 +15814,7 @@ func (x *CleanupStep) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CleanupStep.ProtoReflect.Descriptor instead.
 func (*CleanupStep) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{226}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{227}
 }
 
 func (x *CleanupStep) GetName() string {
@@ -15780,7 +15873,7 @@ type CleanupReport struct {
 
 func (x *CleanupReport) Reset() {
 	*x = CleanupReport{}
-	mi := &file_amux_v1_amux_proto_msgTypes[227]
+	mi := &file_amux_v1_amux_proto_msgTypes[228]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15792,7 +15885,7 @@ func (x *CleanupReport) String() string {
 func (*CleanupReport) ProtoMessage() {}
 
 func (x *CleanupReport) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[227]
+	mi := &file_amux_v1_amux_proto_msgTypes[228]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15805,7 +15898,7 @@ func (x *CleanupReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CleanupReport.ProtoReflect.Descriptor instead.
 func (*CleanupReport) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{227}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{228}
 }
 
 func (x *CleanupReport) GetId() string {
@@ -15859,7 +15952,7 @@ type CleanupResponse struct {
 
 func (x *CleanupResponse) Reset() {
 	*x = CleanupResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[228]
+	mi := &file_amux_v1_amux_proto_msgTypes[229]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15871,7 +15964,7 @@ func (x *CleanupResponse) String() string {
 func (*CleanupResponse) ProtoMessage() {}
 
 func (x *CleanupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[228]
+	mi := &file_amux_v1_amux_proto_msgTypes[229]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15884,7 +15977,7 @@ func (x *CleanupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CleanupResponse.ProtoReflect.Descriptor instead.
 func (*CleanupResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{228}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{229}
 }
 
 func (x *CleanupResponse) GetReports() []*CleanupReport {
@@ -15912,7 +16005,7 @@ type SendFeishuMessageRequest struct {
 
 func (x *SendFeishuMessageRequest) Reset() {
 	*x = SendFeishuMessageRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[229]
+	mi := &file_amux_v1_amux_proto_msgTypes[230]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15924,7 +16017,7 @@ func (x *SendFeishuMessageRequest) String() string {
 func (*SendFeishuMessageRequest) ProtoMessage() {}
 
 func (x *SendFeishuMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[229]
+	mi := &file_amux_v1_amux_proto_msgTypes[230]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15937,7 +16030,7 @@ func (x *SendFeishuMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendFeishuMessageRequest.ProtoReflect.Descriptor instead.
 func (*SendFeishuMessageRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{229}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{230}
 }
 
 func (x *SendFeishuMessageRequest) GetSessionId() string {
@@ -16009,7 +16102,7 @@ type SendFeishuMessageResponse struct {
 
 func (x *SendFeishuMessageResponse) Reset() {
 	*x = SendFeishuMessageResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[230]
+	mi := &file_amux_v1_amux_proto_msgTypes[231]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16021,7 +16114,7 @@ func (x *SendFeishuMessageResponse) String() string {
 func (*SendFeishuMessageResponse) ProtoMessage() {}
 
 func (x *SendFeishuMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[230]
+	mi := &file_amux_v1_amux_proto_msgTypes[231]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16034,7 +16127,7 @@ func (x *SendFeishuMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendFeishuMessageResponse.ProtoReflect.Descriptor instead.
 func (*SendFeishuMessageResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{230}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{231}
 }
 
 func (x *SendFeishuMessageResponse) GetMessageId() string {
@@ -16085,7 +16178,7 @@ type ConsoleManagementRequest struct {
 
 func (x *ConsoleManagementRequest) Reset() {
 	*x = ConsoleManagementRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[231]
+	mi := &file_amux_v1_amux_proto_msgTypes[232]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16097,7 +16190,7 @@ func (x *ConsoleManagementRequest) String() string {
 func (*ConsoleManagementRequest) ProtoMessage() {}
 
 func (x *ConsoleManagementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[231]
+	mi := &file_amux_v1_amux_proto_msgTypes[232]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16110,7 +16203,7 @@ func (x *ConsoleManagementRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsoleManagementRequest.ProtoReflect.Descriptor instead.
 func (*ConsoleManagementRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{231}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{232}
 }
 
 func (x *ConsoleManagementRequest) GetResource() string {
@@ -16147,7 +16240,7 @@ type ConsoleManagementResponse struct {
 
 func (x *ConsoleManagementResponse) Reset() {
 	*x = ConsoleManagementResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[232]
+	mi := &file_amux_v1_amux_proto_msgTypes[233]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16159,7 +16252,7 @@ func (x *ConsoleManagementResponse) String() string {
 func (*ConsoleManagementResponse) ProtoMessage() {}
 
 func (x *ConsoleManagementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[232]
+	mi := &file_amux_v1_amux_proto_msgTypes[233]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16172,7 +16265,7 @@ func (x *ConsoleManagementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsoleManagementResponse.ProtoReflect.Descriptor instead.
 func (*ConsoleManagementResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{232}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{233}
 }
 
 func (x *ConsoleManagementResponse) GetStatus() string {
@@ -16201,7 +16294,7 @@ type GetTurnResultRequest struct {
 
 func (x *GetTurnResultRequest) Reset() {
 	*x = GetTurnResultRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[233]
+	mi := &file_amux_v1_amux_proto_msgTypes[234]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16213,7 +16306,7 @@ func (x *GetTurnResultRequest) String() string {
 func (*GetTurnResultRequest) ProtoMessage() {}
 
 func (x *GetTurnResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[233]
+	mi := &file_amux_v1_amux_proto_msgTypes[234]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16226,7 +16319,7 @@ func (x *GetTurnResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTurnResultRequest.ProtoReflect.Descriptor instead.
 func (*GetTurnResultRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{233}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{234}
 }
 
 func (x *GetTurnResultRequest) GetName() string {
@@ -16278,7 +16371,7 @@ type GetTurnResultResponse struct {
 
 func (x *GetTurnResultResponse) Reset() {
 	*x = GetTurnResultResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[234]
+	mi := &file_amux_v1_amux_proto_msgTypes[235]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16290,7 +16383,7 @@ func (x *GetTurnResultResponse) String() string {
 func (*GetTurnResultResponse) ProtoMessage() {}
 
 func (x *GetTurnResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[234]
+	mi := &file_amux_v1_amux_proto_msgTypes[235]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16303,7 +16396,7 @@ func (x *GetTurnResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTurnResultResponse.ProtoReflect.Descriptor instead.
 func (*GetTurnResultResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{234}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{235}
 }
 
 func (x *GetTurnResultResponse) GetFound() bool {
@@ -16413,7 +16506,7 @@ type AmuxdGetTurnResultRequest struct {
 
 func (x *AmuxdGetTurnResultRequest) Reset() {
 	*x = AmuxdGetTurnResultRequest{}
-	mi := &file_amux_v1_amux_proto_msgTypes[235]
+	mi := &file_amux_v1_amux_proto_msgTypes[236]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16425,7 +16518,7 @@ func (x *AmuxdGetTurnResultRequest) String() string {
 func (*AmuxdGetTurnResultRequest) ProtoMessage() {}
 
 func (x *AmuxdGetTurnResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[235]
+	mi := &file_amux_v1_amux_proto_msgTypes[236]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16438,7 +16531,7 @@ func (x *AmuxdGetTurnResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdGetTurnResultRequest.ProtoReflect.Descriptor instead.
 func (*AmuxdGetTurnResultRequest) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{235}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{236}
 }
 
 func (x *AmuxdGetTurnResultRequest) GetTargetId() string {
@@ -16510,7 +16603,7 @@ type TurnResultRef struct {
 
 func (x *TurnResultRef) Reset() {
 	*x = TurnResultRef{}
-	mi := &file_amux_v1_amux_proto_msgTypes[236]
+	mi := &file_amux_v1_amux_proto_msgTypes[237]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16522,7 +16615,7 @@ func (x *TurnResultRef) String() string {
 func (*TurnResultRef) ProtoMessage() {}
 
 func (x *TurnResultRef) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[236]
+	mi := &file_amux_v1_amux_proto_msgTypes[237]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16535,7 +16628,7 @@ func (x *TurnResultRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TurnResultRef.ProtoReflect.Descriptor instead.
 func (*TurnResultRef) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{236}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{237}
 }
 
 func (x *TurnResultRef) GetTargetId() string {
@@ -16592,7 +16685,7 @@ type TurnResultSource struct {
 
 func (x *TurnResultSource) Reset() {
 	*x = TurnResultSource{}
-	mi := &file_amux_v1_amux_proto_msgTypes[237]
+	mi := &file_amux_v1_amux_proto_msgTypes[238]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16604,7 +16697,7 @@ func (x *TurnResultSource) String() string {
 func (*TurnResultSource) ProtoMessage() {}
 
 func (x *TurnResultSource) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[237]
+	mi := &file_amux_v1_amux_proto_msgTypes[238]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16617,7 +16710,7 @@ func (x *TurnResultSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TurnResultSource.ProtoReflect.Descriptor instead.
 func (*TurnResultSource) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{237}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{238}
 }
 
 func (x *TurnResultSource) GetKind() string {
@@ -16709,7 +16802,7 @@ type TurnResultExecution struct {
 
 func (x *TurnResultExecution) Reset() {
 	*x = TurnResultExecution{}
-	mi := &file_amux_v1_amux_proto_msgTypes[238]
+	mi := &file_amux_v1_amux_proto_msgTypes[239]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16721,7 +16814,7 @@ func (x *TurnResultExecution) String() string {
 func (*TurnResultExecution) ProtoMessage() {}
 
 func (x *TurnResultExecution) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[238]
+	mi := &file_amux_v1_amux_proto_msgTypes[239]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16734,7 +16827,7 @@ func (x *TurnResultExecution) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TurnResultExecution.ProtoReflect.Descriptor instead.
 func (*TurnResultExecution) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{238}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{239}
 }
 
 func (x *TurnResultExecution) GetStatus() string {
@@ -16777,7 +16870,7 @@ type TurnResultOutput struct {
 
 func (x *TurnResultOutput) Reset() {
 	*x = TurnResultOutput{}
-	mi := &file_amux_v1_amux_proto_msgTypes[239]
+	mi := &file_amux_v1_amux_proto_msgTypes[240]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16789,7 +16882,7 @@ func (x *TurnResultOutput) String() string {
 func (*TurnResultOutput) ProtoMessage() {}
 
 func (x *TurnResultOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[239]
+	mi := &file_amux_v1_amux_proto_msgTypes[240]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16802,7 +16895,7 @@ func (x *TurnResultOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TurnResultOutput.ProtoReflect.Descriptor instead.
 func (*TurnResultOutput) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{239}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{240}
 }
 
 func (x *TurnResultOutput) GetStatus() string {
@@ -16844,7 +16937,7 @@ type TurnResultDeliveryMessage struct {
 
 func (x *TurnResultDeliveryMessage) Reset() {
 	*x = TurnResultDeliveryMessage{}
-	mi := &file_amux_v1_amux_proto_msgTypes[240]
+	mi := &file_amux_v1_amux_proto_msgTypes[241]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16856,7 +16949,7 @@ func (x *TurnResultDeliveryMessage) String() string {
 func (*TurnResultDeliveryMessage) ProtoMessage() {}
 
 func (x *TurnResultDeliveryMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[240]
+	mi := &file_amux_v1_amux_proto_msgTypes[241]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16869,7 +16962,7 @@ func (x *TurnResultDeliveryMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TurnResultDeliveryMessage.ProtoReflect.Descriptor instead.
 func (*TurnResultDeliveryMessage) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{240}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{241}
 }
 
 func (x *TurnResultDeliveryMessage) GetKind() string {
@@ -16908,7 +17001,7 @@ type TurnResultDelivery struct {
 
 func (x *TurnResultDelivery) Reset() {
 	*x = TurnResultDelivery{}
-	mi := &file_amux_v1_amux_proto_msgTypes[241]
+	mi := &file_amux_v1_amux_proto_msgTypes[242]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16920,7 +17013,7 @@ func (x *TurnResultDelivery) String() string {
 func (*TurnResultDelivery) ProtoMessage() {}
 
 func (x *TurnResultDelivery) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[241]
+	mi := &file_amux_v1_amux_proto_msgTypes[242]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16933,7 +17026,7 @@ func (x *TurnResultDelivery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TurnResultDelivery.ProtoReflect.Descriptor instead.
 func (*TurnResultDelivery) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{241}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{242}
 }
 
 func (x *TurnResultDelivery) GetChannel() string {
@@ -16999,7 +17092,7 @@ type TurnResultPayload struct {
 
 func (x *TurnResultPayload) Reset() {
 	*x = TurnResultPayload{}
-	mi := &file_amux_v1_amux_proto_msgTypes[242]
+	mi := &file_amux_v1_amux_proto_msgTypes[243]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17011,7 +17104,7 @@ func (x *TurnResultPayload) String() string {
 func (*TurnResultPayload) ProtoMessage() {}
 
 func (x *TurnResultPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[242]
+	mi := &file_amux_v1_amux_proto_msgTypes[243]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17024,7 +17117,7 @@ func (x *TurnResultPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TurnResultPayload.ProtoReflect.Descriptor instead.
 func (*TurnResultPayload) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{242}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{243}
 }
 
 func (x *TurnResultPayload) GetVersion() int32 {
@@ -17080,7 +17173,7 @@ type AmuxdGetTurnResultResponse struct {
 
 func (x *AmuxdGetTurnResultResponse) Reset() {
 	*x = AmuxdGetTurnResultResponse{}
-	mi := &file_amux_v1_amux_proto_msgTypes[243]
+	mi := &file_amux_v1_amux_proto_msgTypes[244]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17092,7 +17185,7 @@ func (x *AmuxdGetTurnResultResponse) String() string {
 func (*AmuxdGetTurnResultResponse) ProtoMessage() {}
 
 func (x *AmuxdGetTurnResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_amux_v1_amux_proto_msgTypes[243]
+	mi := &file_amux_v1_amux_proto_msgTypes[244]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17105,7 +17198,7 @@ func (x *AmuxdGetTurnResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmuxdGetTurnResultResponse.ProtoReflect.Descriptor instead.
 func (*AmuxdGetTurnResultResponse) Descriptor() ([]byte, []int) {
-	return file_amux_v1_amux_proto_rawDescGZIP(), []int{243}
+	return file_amux_v1_amux_proto_rawDescGZIP(), []int{244}
 }
 
 func (x *AmuxdGetTurnResultResponse) GetStatus() string {
@@ -17610,7 +17703,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x16steer_expected_turn_id\x18\r \x01(\tR\x13steerExpectedTurnId\x12/\n" +
 	"\x13system_instructions\x18\x0e \x01(\tR\x12systemInstructions\x12<\n" +
 	"\x1amanage_system_instructions\x18\x0f \x01(\bR\x18manageSystemInstructions\x129\n" +
-	"\x19expected_agent_session_id\x18\x10 \x01(\tR\x16expectedAgentSessionId\"\xba\x02\n" +
+	"\x19expected_agent_session_id\x18\x10 \x01(\tR\x16expectedAgentSessionId\"\xd4\x02\n" +
 	"\x0eSubmitResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x17\n" +
 	"\aturn_id\x18\x02 \x01(\tR\x06turnId\x12>\n" +
@@ -17620,7 +17713,16 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\tlaunch_id\x18\x05 \x01(\tR\blaunchId\x12\x1a\n" +
 	"\bdelivery\x18\x06 \x01(\tR\bdelivery\x122\n" +
 	"\x15steer_fallback_reason\x18\a \x01(\tR\x13steerFallbackReason\x123\n" +
-	"\x15instructions_delivery\x18\b \x01(\tR\x14instructionsDelivery\"'\n" +
+	"\x15instructions_delivery\x18\b \x01(\tR\x14instructionsDelivery\x12\x18\n" +
+	"\awaiting\x18\t \x01(\bR\awaiting\"\xea\x01\n" +
+	"\x12SteerQueuedRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x1b\n" +
+	"\tlaunch_id\x18\x03 \x01(\tR\blaunchId\x12$\n" +
+	"\x0equeued_turn_id\x18\x04 \x01(\tR\fqueuedTurnId\x12(\n" +
+	"\x10expected_turn_id\x18\x05 \x01(\tR\x0eexpectedTurnId\x124\n" +
+	"\x16local_expert_authoring\x18\x06 \x01(\bR\x14localExpertAuthoring\"'\n" +
 	"\x11ActiveTurnRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x81\x02\n" +
 	"\x12ActiveTurnResponse\x12\x16\n" +
@@ -18607,7 +18709,7 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x1aAmuxdGetTurnResultResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x122\n" +
-	"\x06result\x18\x03 \x01(\v2\x1a.amux.v1.TurnResultPayloadR\x06result2\x87\r\n" +
+	"\x06result\x18\x03 \x01(\v2\x1a.amux.v1.TurnResultPayloadR\x06result2\xcc\r\n" +
 	"\aAmuxlet\x12<\n" +
 	"\aCleanup\x12\x17.amux.v1.CleanupRequest\x1a\x18.amux.v1.CleanupResponse\x12W\n" +
 	"\x10ListNativeModels\x12 .amux.v1.ListNativeModelsRequest\x1a!.amux.v1.ListNativeModelsResponse\x12K\n" +
@@ -18624,7 +18726,8 @@ const file_amux_v1_amux_proto_rawDesc = "" +
 	"\x05Prune\x12\x15.amux.v1.PruneRequest\x1a\x16.amux.v1.PruneResponse\x12B\n" +
 	"\tInterrupt\x12\x19.amux.v1.InterruptRequest\x1a\x1a.amux.v1.InterruptResponse\x128\n" +
 	"\x06Attach\x12\x16.amux.v1.AttachRequest\x1a\x14.amux.v1.AttachEvent0\x01\x129\n" +
-	"\x06Submit\x12\x16.amux.v1.SubmitRequest\x1a\x17.amux.v1.SubmitResponse\x123\n" +
+	"\x06Submit\x12\x16.amux.v1.SubmitRequest\x1a\x17.amux.v1.SubmitResponse\x12C\n" +
+	"\vSteerQueued\x12\x1b.amux.v1.SteerQueuedRequest\x1a\x17.amux.v1.SubmitResponse\x123\n" +
 	"\x04Goal\x12\x14.amux.v1.GoalRequest\x1a\x15.amux.v1.GoalResponse\x12B\n" +
 	"\tQueueList\x12\x19.amux.v1.QueueListRequest\x1a\x1a.amux.v1.QueueListResponse\x12E\n" +
 	"\n" +
@@ -18740,7 +18843,7 @@ func file_amux_v1_amux_proto_rawDescGZIP() []byte {
 }
 
 var file_amux_v1_amux_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_amux_v1_amux_proto_msgTypes = make([]protoimpl.MessageInfo, 255)
+var file_amux_v1_amux_proto_msgTypes = make([]protoimpl.MessageInfo, 256)
 var file_amux_v1_amux_proto_goTypes = []any{
 	(AttachRequest_TimelineMode)(0),           // 0: amux.v1.AttachRequest.TimelineMode
 	(AttachEvent_Kind)(0),                     // 1: amux.v1.AttachEvent.Kind
@@ -18809,196 +18912,197 @@ var file_amux_v1_amux_proto_goTypes = []any{
 	(*RespondPermissionResponse)(nil),         // 64: amux.v1.RespondPermissionResponse
 	(*SubmitRequest)(nil),                     // 65: amux.v1.SubmitRequest
 	(*SubmitResponse)(nil),                    // 66: amux.v1.SubmitResponse
-	(*ActiveTurnRequest)(nil),                 // 67: amux.v1.ActiveTurnRequest
-	(*ActiveTurnResponse)(nil),                // 68: amux.v1.ActiveTurnResponse
-	(*InputPart)(nil),                         // 69: amux.v1.InputPart
-	(*ImageInput)(nil),                        // 70: amux.v1.ImageInput
-	(*IgnoredInputPart)(nil),                  // 71: amux.v1.IgnoredInputPart
-	(*LocalExpertAuthoringTurnRequest)(nil),   // 72: amux.v1.LocalExpertAuthoringTurnRequest
-	(*LocalExpertAuthoringTurnResponse)(nil),  // 73: amux.v1.LocalExpertAuthoringTurnResponse
-	(*LocalExpertAuthoringFile)(nil),          // 74: amux.v1.LocalExpertAuthoringFile
-	(*ReadLocalExpertRequest)(nil),            // 75: amux.v1.ReadLocalExpertRequest
-	(*ReadLocalExpertResponse)(nil),           // 76: amux.v1.ReadLocalExpertResponse
-	(*ChangeLocalExpertRequest)(nil),          // 77: amux.v1.ChangeLocalExpertRequest
-	(*ChangeLocalExpertResponse)(nil),         // 78: amux.v1.ChangeLocalExpertResponse
-	(*QueueItem)(nil),                         // 79: amux.v1.QueueItem
-	(*QueueListRequest)(nil),                  // 80: amux.v1.QueueListRequest
-	(*QueueListResponse)(nil),                 // 81: amux.v1.QueueListResponse
-	(*QueueClearRequest)(nil),                 // 82: amux.v1.QueueClearRequest
-	(*QueueClearResponse)(nil),                // 83: amux.v1.QueueClearResponse
-	(*QueueCancelRequest)(nil),                // 84: amux.v1.QueueCancelRequest
-	(*QueueCancelResponse)(nil),               // 85: amux.v1.QueueCancelResponse
-	(*ToolActivityEvent)(nil),                 // 86: amux.v1.ToolActivityEvent
-	(*TunnelMsg)(nil),                         // 87: amux.v1.TunnelMsg
-	(*RegisterPayload)(nil),                   // 88: amux.v1.RegisterPayload
-	(*HeartbeatPayload)(nil),                  // 89: amux.v1.HeartbeatPayload
-	(*SessionsPayload)(nil),                   // 90: amux.v1.SessionsPayload
-	(*ReserveRequest)(nil),                    // 91: amux.v1.ReserveRequest
-	(*ReserveResponse)(nil),                   // 92: amux.v1.ReserveResponse
-	(*CommitRequest)(nil),                     // 93: amux.v1.CommitRequest
-	(*CommitResponse)(nil),                    // 94: amux.v1.CommitResponse
-	(*ReleaseRequest)(nil),                    // 95: amux.v1.ReleaseRequest
-	(*ReleaseResponse)(nil),                   // 96: amux.v1.ReleaseResponse
-	(*ListTargetsRequest)(nil),                // 97: amux.v1.ListTargetsRequest
-	(*ListTargetsResponse)(nil),               // 98: amux.v1.ListTargetsResponse
-	(*FeishuStatusRequest)(nil),               // 99: amux.v1.FeishuStatusRequest
-	(*FeishuStatusResponse)(nil),              // 100: amux.v1.FeishuStatusResponse
-	(*FeishuBinding)(nil),                     // 101: amux.v1.FeishuBinding
-	(*FeishuBindingsRequest)(nil),             // 102: amux.v1.FeishuBindingsRequest
-	(*FeishuBindingsResponse)(nil),            // 103: amux.v1.FeishuBindingsResponse
-	(*FeishuBot)(nil),                         // 104: amux.v1.FeishuBot
-	(*FeishuBotsRequest)(nil),                 // 105: amux.v1.FeishuBotsRequest
-	(*FeishuBotsResponse)(nil),                // 106: amux.v1.FeishuBotsResponse
-	(*FeishuBotSession)(nil),                  // 107: amux.v1.FeishuBotSession
-	(*FeishuBotSessionStatusRequest)(nil),     // 108: amux.v1.FeishuBotSessionStatusRequest
-	(*FeishuBotSessionBindRequest)(nil),       // 109: amux.v1.FeishuBotSessionBindRequest
-	(*FeishuBotSessionOffRequest)(nil),        // 110: amux.v1.FeishuBotSessionOffRequest
-	(*FeishuBotSessionStatusResponse)(nil),    // 111: amux.v1.FeishuBotSessionStatusResponse
-	(*FeishuContextExplainRequest)(nil),       // 112: amux.v1.FeishuContextExplainRequest
-	(*FeishuContextDecision)(nil),             // 113: amux.v1.FeishuContextDecision
-	(*FeishuContextItem)(nil),                 // 114: amux.v1.FeishuContextItem
-	(*FeishuContextExplainResponse)(nil),      // 115: amux.v1.FeishuContextExplainResponse
-	(*AmuxdRunRequest)(nil),                   // 116: amux.v1.AmuxdRunRequest
-	(*AmuxdKillRequest)(nil),                  // 117: amux.v1.AmuxdKillRequest
-	(*AmuxdRestartRequest)(nil),               // 118: amux.v1.AmuxdRestartRequest
-	(*AmuxdChangeCwdRequest)(nil),             // 119: amux.v1.AmuxdChangeCwdRequest
-	(*AmuxdSleepRequest)(nil),                 // 120: amux.v1.AmuxdSleepRequest
-	(*AmuxdResumeRequest)(nil),                // 121: amux.v1.AmuxdResumeRequest
-	(*AmuxdPruneRequest)(nil),                 // 122: amux.v1.AmuxdPruneRequest
-	(*AmuxdInterruptRequest)(nil),             // 123: amux.v1.AmuxdInterruptRequest
-	(*AmuxdAttachRequest)(nil),                // 124: amux.v1.AmuxdAttachRequest
-	(*AmuxdSubmitRequest)(nil),                // 125: amux.v1.AmuxdSubmitRequest
-	(*AmuxdQueueListRequest)(nil),             // 126: amux.v1.AmuxdQueueListRequest
-	(*AmuxdQueueClearRequest)(nil),            // 127: amux.v1.AmuxdQueueClearRequest
-	(*AmuxdQueueCancelRequest)(nil),           // 128: amux.v1.AmuxdQueueCancelRequest
-	(*AmuxdRespondPermissionRequest)(nil),     // 129: amux.v1.AmuxdRespondPermissionRequest
-	(*ListCollaboratorsRequest)(nil),          // 130: amux.v1.ListCollaboratorsRequest
-	(*CollaboratorDescriptor)(nil),            // 131: amux.v1.CollaboratorDescriptor
-	(*ListCollaboratorsResponse)(nil),         // 132: amux.v1.ListCollaboratorsResponse
-	(*CoordinationResult)(nil),                // 133: amux.v1.CoordinationResult
-	(*CoordinationFailure)(nil),               // 134: amux.v1.CoordinationFailure
-	(*CoordinationPermissionRequest)(nil),     // 135: amux.v1.CoordinationPermissionRequest
-	(*CoordinationDelegation)(nil),            // 136: amux.v1.CoordinationDelegation
-	(*CoordinationEvent)(nil),                 // 137: amux.v1.CoordinationEvent
-	(*CoordinationSnapshot)(nil),              // 138: amux.v1.CoordinationSnapshot
-	(*DelegateRequest)(nil),                   // 139: amux.v1.DelegateRequest
-	(*DelegateResponse)(nil),                  // 140: amux.v1.DelegateResponse
-	(*GetDelegationRequest)(nil),              // 141: amux.v1.GetDelegationRequest
-	(*GetDelegationResponse)(nil),             // 142: amux.v1.GetDelegationResponse
-	(*WaitDelegationRequest)(nil),             // 143: amux.v1.WaitDelegationRequest
-	(*WaitDelegationResponse)(nil),            // 144: amux.v1.WaitDelegationResponse
-	(*InterveneDelegationRequest)(nil),        // 145: amux.v1.InterveneDelegationRequest
-	(*InterveneDelegationResponse)(nil),       // 146: amux.v1.InterveneDelegationResponse
-	(*CancelDelegationRequest)(nil),           // 147: amux.v1.CancelDelegationRequest
-	(*CancelDelegationResponse)(nil),          // 148: amux.v1.CancelDelegationResponse
-	(*SubmitSubtaskRequest)(nil),              // 149: amux.v1.SubmitSubtaskRequest
-	(*SubmitSubtaskResponse)(nil),             // 150: amux.v1.SubmitSubtaskResponse
-	(*GetSubtaskRequest)(nil),                 // 151: amux.v1.GetSubtaskRequest
-	(*GetSubtaskResponse)(nil),                // 152: amux.v1.GetSubtaskResponse
-	(*ListSubtasksRequest)(nil),               // 153: amux.v1.ListSubtasksRequest
-	(*ListSubtasksResponse)(nil),              // 154: amux.v1.ListSubtasksResponse
-	(*PruneSubtasksRequest)(nil),              // 155: amux.v1.PruneSubtasksRequest
-	(*PrunedSubtask)(nil),                     // 156: amux.v1.PrunedSubtask
-	(*SkippedSubtask)(nil),                    // 157: amux.v1.SkippedSubtask
-	(*PruneSubtasksResponse)(nil),             // 158: amux.v1.PruneSubtasksResponse
-	(*CancelSubtaskRequest)(nil),              // 159: amux.v1.CancelSubtaskRequest
-	(*CancelSubtaskResponse)(nil),             // 160: amux.v1.CancelSubtaskResponse
-	(*RespondSubtaskPermissionRequest)(nil),   // 161: amux.v1.RespondSubtaskPermissionRequest
-	(*RespondSubtaskPermissionResponse)(nil),  // 162: amux.v1.RespondSubtaskPermissionResponse
-	(*StreamSubtaskRequest)(nil),              // 163: amux.v1.StreamSubtaskRequest
-	(*SubtaskEvent)(nil),                      // 164: amux.v1.SubtaskEvent
-	(*AgentInstance)(nil),                     // 165: amux.v1.AgentInstance
-	(*Principal)(nil),                         // 166: amux.v1.Principal
-	(*CreatePrincipalRequest)(nil),            // 167: amux.v1.CreatePrincipalRequest
-	(*PrincipalResponse)(nil),                 // 168: amux.v1.PrincipalResponse
-	(*ListPrincipalsRequest)(nil),             // 169: amux.v1.ListPrincipalsRequest
-	(*ListPrincipalAliasesRequest)(nil),       // 170: amux.v1.ListPrincipalAliasesRequest
-	(*PrincipalAlias)(nil),                    // 171: amux.v1.PrincipalAlias
-	(*ListPrincipalAliasesResponse)(nil),      // 172: amux.v1.ListPrincipalAliasesResponse
-	(*ListPrincipalsResponse)(nil),            // 173: amux.v1.ListPrincipalsResponse
-	(*DisablePrincipalRequest)(nil),           // 174: amux.v1.DisablePrincipalRequest
-	(*BindPrincipalAliasRequest)(nil),         // 175: amux.v1.BindPrincipalAliasRequest
-	(*GrantPrincipalDelegationRequest)(nil),   // 176: amux.v1.GrantPrincipalDelegationRequest
-	(*GrantPrincipalDelegationResponse)(nil),  // 177: amux.v1.GrantPrincipalDelegationResponse
-	(*RevokePrincipalDelegationRequest)(nil),  // 178: amux.v1.RevokePrincipalDelegationRequest
-	(*ServicePrincipalMemberRequest)(nil),     // 179: amux.v1.ServicePrincipalMemberRequest
-	(*EmptyResponse)(nil),                     // 180: amux.v1.EmptyResponse
-	(*CreatePrincipalEnrollmentRequest)(nil),  // 181: amux.v1.CreatePrincipalEnrollmentRequest
-	(*CreatePrincipalEnrollmentResponse)(nil), // 182: amux.v1.CreatePrincipalEnrollmentResponse
-	(*GetIsolationStatusRequest)(nil),         // 183: amux.v1.GetIsolationStatusRequest
-	(*GetIsolationStatusResponse)(nil),        // 184: amux.v1.GetIsolationStatusResponse
-	(*RevokePrincipalLaunchesRequest)(nil),    // 185: amux.v1.RevokePrincipalLaunchesRequest
-	(*RevokePrincipalLaunchesResponse)(nil),   // 186: amux.v1.RevokePrincipalLaunchesResponse
-	(*ListAgentInstancesRequest)(nil),         // 187: amux.v1.ListAgentInstancesRequest
-	(*ListAgentInstancesResponse)(nil),        // 188: amux.v1.ListAgentInstancesResponse
-	(*GetAgentInstanceRequest)(nil),           // 189: amux.v1.GetAgentInstanceRequest
-	(*GetAgentInstanceResponse)(nil),          // 190: amux.v1.GetAgentInstanceResponse
-	(*SendAgentMessageRequest)(nil),           // 191: amux.v1.SendAgentMessageRequest
-	(*SendAgentMessageResponse)(nil),          // 192: amux.v1.SendAgentMessageResponse
-	(*InterruptAgentInstanceRequest)(nil),     // 193: amux.v1.InterruptAgentInstanceRequest
-	(*InterruptAgentInstanceResponse)(nil),    // 194: amux.v1.InterruptAgentInstanceResponse
-	(*WaitAgentInstanceRequest)(nil),          // 195: amux.v1.WaitAgentInstanceRequest
-	(*WaitAgentInstanceResponse)(nil),         // 196: amux.v1.WaitAgentInstanceResponse
-	(*DescribeAgentInstanceRequest)(nil),      // 197: amux.v1.DescribeAgentInstanceRequest
-	(*DescribeAgentInstanceResponse)(nil),     // 198: amux.v1.DescribeAgentInstanceResponse
-	(*CleanupAgentInstanceRequest)(nil),       // 199: amux.v1.CleanupAgentInstanceRequest
-	(*CleanupAgentInstanceResponse)(nil),      // 200: amux.v1.CleanupAgentInstanceResponse
-	(*ScheduleItem)(nil),                      // 201: amux.v1.ScheduleItem
-	(*ScheduleRun)(nil),                       // 202: amux.v1.ScheduleRun
-	(*CreateScheduleRequest)(nil),             // 203: amux.v1.CreateScheduleRequest
-	(*CreateScheduleResponse)(nil),            // 204: amux.v1.CreateScheduleResponse
-	(*ListSchedulesRequest)(nil),              // 205: amux.v1.ListSchedulesRequest
-	(*ListSchedulesResponse)(nil),             // 206: amux.v1.ListSchedulesResponse
-	(*GetScheduleRequest)(nil),                // 207: amux.v1.GetScheduleRequest
-	(*GetScheduleResponse)(nil),               // 208: amux.v1.GetScheduleResponse
-	(*DeleteScheduleRequest)(nil),             // 209: amux.v1.DeleteScheduleRequest
-	(*DeleteScheduleResponse)(nil),            // 210: amux.v1.DeleteScheduleResponse
-	(*UpdateScheduleRequest)(nil),             // 211: amux.v1.UpdateScheduleRequest
-	(*UpdateScheduleResponse)(nil),            // 212: amux.v1.UpdateScheduleResponse
-	(*SetScheduleEnabledRequest)(nil),         // 213: amux.v1.SetScheduleEnabledRequest
-	(*SetScheduleEnabledResponse)(nil),        // 214: amux.v1.SetScheduleEnabledResponse
-	(*TriggerScheduleRequest)(nil),            // 215: amux.v1.TriggerScheduleRequest
-	(*TriggerScheduleResponse)(nil),           // 216: amux.v1.TriggerScheduleResponse
-	(*SessionFileRequest)(nil),                // 217: amux.v1.SessionFileRequest
-	(*SessionFileResponse)(nil),               // 218: amux.v1.SessionFileResponse
-	(*ProxyModelRequest)(nil),                 // 219: amux.v1.ProxyModelRequest
-	(*ProxyModelChunk)(nil),                   // 220: amux.v1.ProxyModelChunk
-	(*ListNativeModelsRequest)(nil),           // 221: amux.v1.ListNativeModelsRequest
-	(*NativeModel)(nil),                       // 222: amux.v1.NativeModel
-	(*NativeModelVariant)(nil),                // 223: amux.v1.NativeModelVariant
-	(*ListNativeModelsResponse)(nil),          // 224: amux.v1.ListNativeModelsResponse
-	(*MaintenanceRequest)(nil),                // 225: amux.v1.MaintenanceRequest
-	(*MaintenanceResponse)(nil),               // 226: amux.v1.MaintenanceResponse
-	(*CleanupRequest)(nil),                    // 227: amux.v1.CleanupRequest
-	(*CleanupStep)(nil),                       // 228: amux.v1.CleanupStep
-	(*CleanupReport)(nil),                     // 229: amux.v1.CleanupReport
-	(*CleanupResponse)(nil),                   // 230: amux.v1.CleanupResponse
-	(*SendFeishuMessageRequest)(nil),          // 231: amux.v1.SendFeishuMessageRequest
-	(*SendFeishuMessageResponse)(nil),         // 232: amux.v1.SendFeishuMessageResponse
-	(*ConsoleManagementRequest)(nil),          // 233: amux.v1.ConsoleManagementRequest
-	(*ConsoleManagementResponse)(nil),         // 234: amux.v1.ConsoleManagementResponse
-	(*GetTurnResultRequest)(nil),              // 235: amux.v1.GetTurnResultRequest
-	(*GetTurnResultResponse)(nil),             // 236: amux.v1.GetTurnResultResponse
-	(*AmuxdGetTurnResultRequest)(nil),         // 237: amux.v1.AmuxdGetTurnResultRequest
-	(*TurnResultRef)(nil),                     // 238: amux.v1.TurnResultRef
-	(*TurnResultSource)(nil),                  // 239: amux.v1.TurnResultSource
-	(*TurnResultExecution)(nil),               // 240: amux.v1.TurnResultExecution
-	(*TurnResultOutput)(nil),                  // 241: amux.v1.TurnResultOutput
-	(*TurnResultDeliveryMessage)(nil),         // 242: amux.v1.TurnResultDeliveryMessage
-	(*TurnResultDelivery)(nil),                // 243: amux.v1.TurnResultDelivery
-	(*TurnResultPayload)(nil),                 // 244: amux.v1.TurnResultPayload
-	(*AmuxdGetTurnResultResponse)(nil),        // 245: amux.v1.AmuxdGetTurnResultResponse
-	nil,                                       // 246: amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
-	nil,                                       // 247: amux.v1.AgentProfileProvider.ThinkingEntry
-	nil,                                       // 248: amux.v1.MaterializeCredentialResponse.FilesEntry
-	nil,                                       // 249: amux.v1.TargetCapabilities.LabelsEntry
-	nil,                                       // 250: amux.v1.TargetCapabilities.CredentialProfilesEntry
-	nil,                                       // 251: amux.v1.RuntimeLoad.PerAgentRunningEntry
-	nil,                                       // 252: amux.v1.RuntimeLoad.PerAgentReservedEntry
-	nil,                                       // 253: amux.v1.Principal.MetadataEntry
-	nil,                                       // 254: amux.v1.CreatePrincipalRequest.MetadataEntry
-	nil,                                       // 255: amux.v1.ProxyModelRequest.HeadersEntry
-	nil,                                       // 256: amux.v1.ProxyModelChunk.HeadersEntry
+	(*SteerQueuedRequest)(nil),                // 67: amux.v1.SteerQueuedRequest
+	(*ActiveTurnRequest)(nil),                 // 68: amux.v1.ActiveTurnRequest
+	(*ActiveTurnResponse)(nil),                // 69: amux.v1.ActiveTurnResponse
+	(*InputPart)(nil),                         // 70: amux.v1.InputPart
+	(*ImageInput)(nil),                        // 71: amux.v1.ImageInput
+	(*IgnoredInputPart)(nil),                  // 72: amux.v1.IgnoredInputPart
+	(*LocalExpertAuthoringTurnRequest)(nil),   // 73: amux.v1.LocalExpertAuthoringTurnRequest
+	(*LocalExpertAuthoringTurnResponse)(nil),  // 74: amux.v1.LocalExpertAuthoringTurnResponse
+	(*LocalExpertAuthoringFile)(nil),          // 75: amux.v1.LocalExpertAuthoringFile
+	(*ReadLocalExpertRequest)(nil),            // 76: amux.v1.ReadLocalExpertRequest
+	(*ReadLocalExpertResponse)(nil),           // 77: amux.v1.ReadLocalExpertResponse
+	(*ChangeLocalExpertRequest)(nil),          // 78: amux.v1.ChangeLocalExpertRequest
+	(*ChangeLocalExpertResponse)(nil),         // 79: amux.v1.ChangeLocalExpertResponse
+	(*QueueItem)(nil),                         // 80: amux.v1.QueueItem
+	(*QueueListRequest)(nil),                  // 81: amux.v1.QueueListRequest
+	(*QueueListResponse)(nil),                 // 82: amux.v1.QueueListResponse
+	(*QueueClearRequest)(nil),                 // 83: amux.v1.QueueClearRequest
+	(*QueueClearResponse)(nil),                // 84: amux.v1.QueueClearResponse
+	(*QueueCancelRequest)(nil),                // 85: amux.v1.QueueCancelRequest
+	(*QueueCancelResponse)(nil),               // 86: amux.v1.QueueCancelResponse
+	(*ToolActivityEvent)(nil),                 // 87: amux.v1.ToolActivityEvent
+	(*TunnelMsg)(nil),                         // 88: amux.v1.TunnelMsg
+	(*RegisterPayload)(nil),                   // 89: amux.v1.RegisterPayload
+	(*HeartbeatPayload)(nil),                  // 90: amux.v1.HeartbeatPayload
+	(*SessionsPayload)(nil),                   // 91: amux.v1.SessionsPayload
+	(*ReserveRequest)(nil),                    // 92: amux.v1.ReserveRequest
+	(*ReserveResponse)(nil),                   // 93: amux.v1.ReserveResponse
+	(*CommitRequest)(nil),                     // 94: amux.v1.CommitRequest
+	(*CommitResponse)(nil),                    // 95: amux.v1.CommitResponse
+	(*ReleaseRequest)(nil),                    // 96: amux.v1.ReleaseRequest
+	(*ReleaseResponse)(nil),                   // 97: amux.v1.ReleaseResponse
+	(*ListTargetsRequest)(nil),                // 98: amux.v1.ListTargetsRequest
+	(*ListTargetsResponse)(nil),               // 99: amux.v1.ListTargetsResponse
+	(*FeishuStatusRequest)(nil),               // 100: amux.v1.FeishuStatusRequest
+	(*FeishuStatusResponse)(nil),              // 101: amux.v1.FeishuStatusResponse
+	(*FeishuBinding)(nil),                     // 102: amux.v1.FeishuBinding
+	(*FeishuBindingsRequest)(nil),             // 103: amux.v1.FeishuBindingsRequest
+	(*FeishuBindingsResponse)(nil),            // 104: amux.v1.FeishuBindingsResponse
+	(*FeishuBot)(nil),                         // 105: amux.v1.FeishuBot
+	(*FeishuBotsRequest)(nil),                 // 106: amux.v1.FeishuBotsRequest
+	(*FeishuBotsResponse)(nil),                // 107: amux.v1.FeishuBotsResponse
+	(*FeishuBotSession)(nil),                  // 108: amux.v1.FeishuBotSession
+	(*FeishuBotSessionStatusRequest)(nil),     // 109: amux.v1.FeishuBotSessionStatusRequest
+	(*FeishuBotSessionBindRequest)(nil),       // 110: amux.v1.FeishuBotSessionBindRequest
+	(*FeishuBotSessionOffRequest)(nil),        // 111: amux.v1.FeishuBotSessionOffRequest
+	(*FeishuBotSessionStatusResponse)(nil),    // 112: amux.v1.FeishuBotSessionStatusResponse
+	(*FeishuContextExplainRequest)(nil),       // 113: amux.v1.FeishuContextExplainRequest
+	(*FeishuContextDecision)(nil),             // 114: amux.v1.FeishuContextDecision
+	(*FeishuContextItem)(nil),                 // 115: amux.v1.FeishuContextItem
+	(*FeishuContextExplainResponse)(nil),      // 116: amux.v1.FeishuContextExplainResponse
+	(*AmuxdRunRequest)(nil),                   // 117: amux.v1.AmuxdRunRequest
+	(*AmuxdKillRequest)(nil),                  // 118: amux.v1.AmuxdKillRequest
+	(*AmuxdRestartRequest)(nil),               // 119: amux.v1.AmuxdRestartRequest
+	(*AmuxdChangeCwdRequest)(nil),             // 120: amux.v1.AmuxdChangeCwdRequest
+	(*AmuxdSleepRequest)(nil),                 // 121: amux.v1.AmuxdSleepRequest
+	(*AmuxdResumeRequest)(nil),                // 122: amux.v1.AmuxdResumeRequest
+	(*AmuxdPruneRequest)(nil),                 // 123: amux.v1.AmuxdPruneRequest
+	(*AmuxdInterruptRequest)(nil),             // 124: amux.v1.AmuxdInterruptRequest
+	(*AmuxdAttachRequest)(nil),                // 125: amux.v1.AmuxdAttachRequest
+	(*AmuxdSubmitRequest)(nil),                // 126: amux.v1.AmuxdSubmitRequest
+	(*AmuxdQueueListRequest)(nil),             // 127: amux.v1.AmuxdQueueListRequest
+	(*AmuxdQueueClearRequest)(nil),            // 128: amux.v1.AmuxdQueueClearRequest
+	(*AmuxdQueueCancelRequest)(nil),           // 129: amux.v1.AmuxdQueueCancelRequest
+	(*AmuxdRespondPermissionRequest)(nil),     // 130: amux.v1.AmuxdRespondPermissionRequest
+	(*ListCollaboratorsRequest)(nil),          // 131: amux.v1.ListCollaboratorsRequest
+	(*CollaboratorDescriptor)(nil),            // 132: amux.v1.CollaboratorDescriptor
+	(*ListCollaboratorsResponse)(nil),         // 133: amux.v1.ListCollaboratorsResponse
+	(*CoordinationResult)(nil),                // 134: amux.v1.CoordinationResult
+	(*CoordinationFailure)(nil),               // 135: amux.v1.CoordinationFailure
+	(*CoordinationPermissionRequest)(nil),     // 136: amux.v1.CoordinationPermissionRequest
+	(*CoordinationDelegation)(nil),            // 137: amux.v1.CoordinationDelegation
+	(*CoordinationEvent)(nil),                 // 138: amux.v1.CoordinationEvent
+	(*CoordinationSnapshot)(nil),              // 139: amux.v1.CoordinationSnapshot
+	(*DelegateRequest)(nil),                   // 140: amux.v1.DelegateRequest
+	(*DelegateResponse)(nil),                  // 141: amux.v1.DelegateResponse
+	(*GetDelegationRequest)(nil),              // 142: amux.v1.GetDelegationRequest
+	(*GetDelegationResponse)(nil),             // 143: amux.v1.GetDelegationResponse
+	(*WaitDelegationRequest)(nil),             // 144: amux.v1.WaitDelegationRequest
+	(*WaitDelegationResponse)(nil),            // 145: amux.v1.WaitDelegationResponse
+	(*InterveneDelegationRequest)(nil),        // 146: amux.v1.InterveneDelegationRequest
+	(*InterveneDelegationResponse)(nil),       // 147: amux.v1.InterveneDelegationResponse
+	(*CancelDelegationRequest)(nil),           // 148: amux.v1.CancelDelegationRequest
+	(*CancelDelegationResponse)(nil),          // 149: amux.v1.CancelDelegationResponse
+	(*SubmitSubtaskRequest)(nil),              // 150: amux.v1.SubmitSubtaskRequest
+	(*SubmitSubtaskResponse)(nil),             // 151: amux.v1.SubmitSubtaskResponse
+	(*GetSubtaskRequest)(nil),                 // 152: amux.v1.GetSubtaskRequest
+	(*GetSubtaskResponse)(nil),                // 153: amux.v1.GetSubtaskResponse
+	(*ListSubtasksRequest)(nil),               // 154: amux.v1.ListSubtasksRequest
+	(*ListSubtasksResponse)(nil),              // 155: amux.v1.ListSubtasksResponse
+	(*PruneSubtasksRequest)(nil),              // 156: amux.v1.PruneSubtasksRequest
+	(*PrunedSubtask)(nil),                     // 157: amux.v1.PrunedSubtask
+	(*SkippedSubtask)(nil),                    // 158: amux.v1.SkippedSubtask
+	(*PruneSubtasksResponse)(nil),             // 159: amux.v1.PruneSubtasksResponse
+	(*CancelSubtaskRequest)(nil),              // 160: amux.v1.CancelSubtaskRequest
+	(*CancelSubtaskResponse)(nil),             // 161: amux.v1.CancelSubtaskResponse
+	(*RespondSubtaskPermissionRequest)(nil),   // 162: amux.v1.RespondSubtaskPermissionRequest
+	(*RespondSubtaskPermissionResponse)(nil),  // 163: amux.v1.RespondSubtaskPermissionResponse
+	(*StreamSubtaskRequest)(nil),              // 164: amux.v1.StreamSubtaskRequest
+	(*SubtaskEvent)(nil),                      // 165: amux.v1.SubtaskEvent
+	(*AgentInstance)(nil),                     // 166: amux.v1.AgentInstance
+	(*Principal)(nil),                         // 167: amux.v1.Principal
+	(*CreatePrincipalRequest)(nil),            // 168: amux.v1.CreatePrincipalRequest
+	(*PrincipalResponse)(nil),                 // 169: amux.v1.PrincipalResponse
+	(*ListPrincipalsRequest)(nil),             // 170: amux.v1.ListPrincipalsRequest
+	(*ListPrincipalAliasesRequest)(nil),       // 171: amux.v1.ListPrincipalAliasesRequest
+	(*PrincipalAlias)(nil),                    // 172: amux.v1.PrincipalAlias
+	(*ListPrincipalAliasesResponse)(nil),      // 173: amux.v1.ListPrincipalAliasesResponse
+	(*ListPrincipalsResponse)(nil),            // 174: amux.v1.ListPrincipalsResponse
+	(*DisablePrincipalRequest)(nil),           // 175: amux.v1.DisablePrincipalRequest
+	(*BindPrincipalAliasRequest)(nil),         // 176: amux.v1.BindPrincipalAliasRequest
+	(*GrantPrincipalDelegationRequest)(nil),   // 177: amux.v1.GrantPrincipalDelegationRequest
+	(*GrantPrincipalDelegationResponse)(nil),  // 178: amux.v1.GrantPrincipalDelegationResponse
+	(*RevokePrincipalDelegationRequest)(nil),  // 179: amux.v1.RevokePrincipalDelegationRequest
+	(*ServicePrincipalMemberRequest)(nil),     // 180: amux.v1.ServicePrincipalMemberRequest
+	(*EmptyResponse)(nil),                     // 181: amux.v1.EmptyResponse
+	(*CreatePrincipalEnrollmentRequest)(nil),  // 182: amux.v1.CreatePrincipalEnrollmentRequest
+	(*CreatePrincipalEnrollmentResponse)(nil), // 183: amux.v1.CreatePrincipalEnrollmentResponse
+	(*GetIsolationStatusRequest)(nil),         // 184: amux.v1.GetIsolationStatusRequest
+	(*GetIsolationStatusResponse)(nil),        // 185: amux.v1.GetIsolationStatusResponse
+	(*RevokePrincipalLaunchesRequest)(nil),    // 186: amux.v1.RevokePrincipalLaunchesRequest
+	(*RevokePrincipalLaunchesResponse)(nil),   // 187: amux.v1.RevokePrincipalLaunchesResponse
+	(*ListAgentInstancesRequest)(nil),         // 188: amux.v1.ListAgentInstancesRequest
+	(*ListAgentInstancesResponse)(nil),        // 189: amux.v1.ListAgentInstancesResponse
+	(*GetAgentInstanceRequest)(nil),           // 190: amux.v1.GetAgentInstanceRequest
+	(*GetAgentInstanceResponse)(nil),          // 191: amux.v1.GetAgentInstanceResponse
+	(*SendAgentMessageRequest)(nil),           // 192: amux.v1.SendAgentMessageRequest
+	(*SendAgentMessageResponse)(nil),          // 193: amux.v1.SendAgentMessageResponse
+	(*InterruptAgentInstanceRequest)(nil),     // 194: amux.v1.InterruptAgentInstanceRequest
+	(*InterruptAgentInstanceResponse)(nil),    // 195: amux.v1.InterruptAgentInstanceResponse
+	(*WaitAgentInstanceRequest)(nil),          // 196: amux.v1.WaitAgentInstanceRequest
+	(*WaitAgentInstanceResponse)(nil),         // 197: amux.v1.WaitAgentInstanceResponse
+	(*DescribeAgentInstanceRequest)(nil),      // 198: amux.v1.DescribeAgentInstanceRequest
+	(*DescribeAgentInstanceResponse)(nil),     // 199: amux.v1.DescribeAgentInstanceResponse
+	(*CleanupAgentInstanceRequest)(nil),       // 200: amux.v1.CleanupAgentInstanceRequest
+	(*CleanupAgentInstanceResponse)(nil),      // 201: amux.v1.CleanupAgentInstanceResponse
+	(*ScheduleItem)(nil),                      // 202: amux.v1.ScheduleItem
+	(*ScheduleRun)(nil),                       // 203: amux.v1.ScheduleRun
+	(*CreateScheduleRequest)(nil),             // 204: amux.v1.CreateScheduleRequest
+	(*CreateScheduleResponse)(nil),            // 205: amux.v1.CreateScheduleResponse
+	(*ListSchedulesRequest)(nil),              // 206: amux.v1.ListSchedulesRequest
+	(*ListSchedulesResponse)(nil),             // 207: amux.v1.ListSchedulesResponse
+	(*GetScheduleRequest)(nil),                // 208: amux.v1.GetScheduleRequest
+	(*GetScheduleResponse)(nil),               // 209: amux.v1.GetScheduleResponse
+	(*DeleteScheduleRequest)(nil),             // 210: amux.v1.DeleteScheduleRequest
+	(*DeleteScheduleResponse)(nil),            // 211: amux.v1.DeleteScheduleResponse
+	(*UpdateScheduleRequest)(nil),             // 212: amux.v1.UpdateScheduleRequest
+	(*UpdateScheduleResponse)(nil),            // 213: amux.v1.UpdateScheduleResponse
+	(*SetScheduleEnabledRequest)(nil),         // 214: amux.v1.SetScheduleEnabledRequest
+	(*SetScheduleEnabledResponse)(nil),        // 215: amux.v1.SetScheduleEnabledResponse
+	(*TriggerScheduleRequest)(nil),            // 216: amux.v1.TriggerScheduleRequest
+	(*TriggerScheduleResponse)(nil),           // 217: amux.v1.TriggerScheduleResponse
+	(*SessionFileRequest)(nil),                // 218: amux.v1.SessionFileRequest
+	(*SessionFileResponse)(nil),               // 219: amux.v1.SessionFileResponse
+	(*ProxyModelRequest)(nil),                 // 220: amux.v1.ProxyModelRequest
+	(*ProxyModelChunk)(nil),                   // 221: amux.v1.ProxyModelChunk
+	(*ListNativeModelsRequest)(nil),           // 222: amux.v1.ListNativeModelsRequest
+	(*NativeModel)(nil),                       // 223: amux.v1.NativeModel
+	(*NativeModelVariant)(nil),                // 224: amux.v1.NativeModelVariant
+	(*ListNativeModelsResponse)(nil),          // 225: amux.v1.ListNativeModelsResponse
+	(*MaintenanceRequest)(nil),                // 226: amux.v1.MaintenanceRequest
+	(*MaintenanceResponse)(nil),               // 227: amux.v1.MaintenanceResponse
+	(*CleanupRequest)(nil),                    // 228: amux.v1.CleanupRequest
+	(*CleanupStep)(nil),                       // 229: amux.v1.CleanupStep
+	(*CleanupReport)(nil),                     // 230: amux.v1.CleanupReport
+	(*CleanupResponse)(nil),                   // 231: amux.v1.CleanupResponse
+	(*SendFeishuMessageRequest)(nil),          // 232: amux.v1.SendFeishuMessageRequest
+	(*SendFeishuMessageResponse)(nil),         // 233: amux.v1.SendFeishuMessageResponse
+	(*ConsoleManagementRequest)(nil),          // 234: amux.v1.ConsoleManagementRequest
+	(*ConsoleManagementResponse)(nil),         // 235: amux.v1.ConsoleManagementResponse
+	(*GetTurnResultRequest)(nil),              // 236: amux.v1.GetTurnResultRequest
+	(*GetTurnResultResponse)(nil),             // 237: amux.v1.GetTurnResultResponse
+	(*AmuxdGetTurnResultRequest)(nil),         // 238: amux.v1.AmuxdGetTurnResultRequest
+	(*TurnResultRef)(nil),                     // 239: amux.v1.TurnResultRef
+	(*TurnResultSource)(nil),                  // 240: amux.v1.TurnResultSource
+	(*TurnResultExecution)(nil),               // 241: amux.v1.TurnResultExecution
+	(*TurnResultOutput)(nil),                  // 242: amux.v1.TurnResultOutput
+	(*TurnResultDeliveryMessage)(nil),         // 243: amux.v1.TurnResultDeliveryMessage
+	(*TurnResultDelivery)(nil),                // 244: amux.v1.TurnResultDelivery
+	(*TurnResultPayload)(nil),                 // 245: amux.v1.TurnResultPayload
+	(*AmuxdGetTurnResultResponse)(nil),        // 246: amux.v1.AmuxdGetTurnResultResponse
+	nil,                                       // 247: amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
+	nil,                                       // 248: amux.v1.AgentProfileProvider.ThinkingEntry
+	nil,                                       // 249: amux.v1.MaterializeCredentialResponse.FilesEntry
+	nil,                                       // 250: amux.v1.TargetCapabilities.LabelsEntry
+	nil,                                       // 251: amux.v1.TargetCapabilities.CredentialProfilesEntry
+	nil,                                       // 252: amux.v1.RuntimeLoad.PerAgentRunningEntry
+	nil,                                       // 253: amux.v1.RuntimeLoad.PerAgentReservedEntry
+	nil,                                       // 254: amux.v1.Principal.MetadataEntry
+	nil,                                       // 255: amux.v1.CreatePrincipalRequest.MetadataEntry
+	nil,                                       // 256: amux.v1.ProxyModelRequest.HeadersEntry
+	nil,                                       // 257: amux.v1.ProxyModelChunk.HeadersEntry
 }
 var file_amux_v1_amux_proto_depIdxs = []int32{
 	5,   // 0: amux.v1.MemorySearchResponse.matches:type_name -> amux.v1.MemoryMatch
@@ -19006,9 +19110,9 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	18,  // 2: amux.v1.AgentProfilePlacement.requires:type_name -> amux.v1.AgentProfileRequirements
 	19,  // 3: amux.v1.AgentProfileSpec.placement:type_name -> amux.v1.AgentProfilePlacement
 	22,  // 4: amux.v1.AgentProfileSpec.provider:type_name -> amux.v1.AgentProfileProvider
-	246, // 5: amux.v1.AgentProfileSpec.credential_env_suggestions:type_name -> amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
+	247, // 5: amux.v1.AgentProfileSpec.credential_env_suggestions:type_name -> amux.v1.AgentProfileSpec.CredentialEnvSuggestionsEntry
 	21,  // 6: amux.v1.AgentProfileSpec.snapshot_skill_files:type_name -> amux.v1.AgentProfileSkillFile
-	247, // 7: amux.v1.AgentProfileProvider.thinking:type_name -> amux.v1.AgentProfileProvider.ThinkingEntry
+	248, // 7: amux.v1.AgentProfileProvider.thinking:type_name -> amux.v1.AgentProfileProvider.ThinkingEntry
 	20,  // 8: amux.v1.AgentProfileInfo.profile:type_name -> amux.v1.AgentProfileSpec
 	23,  // 9: amux.v1.AgentProfileInfo.skills:type_name -> amux.v1.AgentProfileSkillInfo
 	24,  // 10: amux.v1.ListAgentProfilesResponse.profiles:type_name -> amux.v1.AgentProfileInfo
@@ -19016,13 +19120,13 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	20,  // 12: amux.v1.RunRequest.profile_spec:type_name -> amux.v1.AgentProfileSpec
 	17,  // 13: amux.v1.RunRequest.execution_identity:type_name -> amux.v1.ExecutionIdentity
 	13,  // 14: amux.v1.RunResponse.session:type_name -> amux.v1.Session
-	248, // 15: amux.v1.MaterializeCredentialResponse.files:type_name -> amux.v1.MaterializeCredentialResponse.FilesEntry
+	249, // 15: amux.v1.MaterializeCredentialResponse.files:type_name -> amux.v1.MaterializeCredentialResponse.FilesEntry
 	36,  // 16: amux.v1.ListCredentialsResponse.profiles:type_name -> amux.v1.CredentialProfileMetadata
-	249, // 17: amux.v1.TargetCapabilities.labels:type_name -> amux.v1.TargetCapabilities.LabelsEntry
+	250, // 17: amux.v1.TargetCapabilities.labels:type_name -> amux.v1.TargetCapabilities.LabelsEntry
 	39,  // 18: amux.v1.TargetCapabilities.agents:type_name -> amux.v1.AgentCapacity
-	250, // 19: amux.v1.TargetCapabilities.credential_profiles:type_name -> amux.v1.TargetCapabilities.CredentialProfilesEntry
-	251, // 20: amux.v1.RuntimeLoad.per_agent_running:type_name -> amux.v1.RuntimeLoad.PerAgentRunningEntry
-	252, // 21: amux.v1.RuntimeLoad.per_agent_reserved:type_name -> amux.v1.RuntimeLoad.PerAgentReservedEntry
+	251, // 19: amux.v1.TargetCapabilities.credential_profiles:type_name -> amux.v1.TargetCapabilities.CredentialProfilesEntry
+	252, // 20: amux.v1.RuntimeLoad.per_agent_running:type_name -> amux.v1.RuntimeLoad.PerAgentRunningEntry
+	253, // 21: amux.v1.RuntimeLoad.per_agent_reserved:type_name -> amux.v1.RuntimeLoad.PerAgentReservedEntry
 	38,  // 22: amux.v1.Target.capabilities:type_name -> amux.v1.TargetCapabilities
 	13,  // 23: amux.v1.Target.sessions:type_name -> amux.v1.Session
 	41,  // 24: amux.v1.Target.load:type_name -> amux.v1.RuntimeLoad
@@ -19031,71 +19135,71 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	13,  // 27: amux.v1.ChangeCwdResponse.session:type_name -> amux.v1.Session
 	0,   // 28: amux.v1.AttachRequest.timeline_mode:type_name -> amux.v1.AttachRequest.TimelineMode
 	1,   // 29: amux.v1.AttachEvent.kind:type_name -> amux.v1.AttachEvent.Kind
-	69,  // 30: amux.v1.SubmitRequest.parts:type_name -> amux.v1.InputPart
-	71,  // 31: amux.v1.SubmitResponse.ignored_parts:type_name -> amux.v1.IgnoredInputPart
-	70,  // 32: amux.v1.InputPart.image:type_name -> amux.v1.ImageInput
-	74,  // 33: amux.v1.ReadLocalExpertResponse.files:type_name -> amux.v1.LocalExpertAuthoringFile
-	79,  // 34: amux.v1.QueueListResponse.items:type_name -> amux.v1.QueueItem
+	70,  // 30: amux.v1.SubmitRequest.parts:type_name -> amux.v1.InputPart
+	72,  // 31: amux.v1.SubmitResponse.ignored_parts:type_name -> amux.v1.IgnoredInputPart
+	71,  // 32: amux.v1.InputPart.image:type_name -> amux.v1.ImageInput
+	75,  // 33: amux.v1.ReadLocalExpertResponse.files:type_name -> amux.v1.LocalExpertAuthoringFile
+	80,  // 34: amux.v1.QueueListResponse.items:type_name -> amux.v1.QueueItem
 	38,  // 35: amux.v1.RegisterPayload.capabilities:type_name -> amux.v1.TargetCapabilities
 	41,  // 36: amux.v1.HeartbeatPayload.load:type_name -> amux.v1.RuntimeLoad
 	13,  // 37: amux.v1.SessionsPayload.sessions:type_name -> amux.v1.Session
 	42,  // 38: amux.v1.ListTargetsResponse.targets:type_name -> amux.v1.Target
-	101, // 39: amux.v1.FeishuBindingsResponse.bindings:type_name -> amux.v1.FeishuBinding
-	104, // 40: amux.v1.FeishuBotsResponse.bots:type_name -> amux.v1.FeishuBot
-	107, // 41: amux.v1.FeishuBotSessionStatusResponse.bot_session:type_name -> amux.v1.FeishuBotSession
-	113, // 42: amux.v1.FeishuContextExplainResponse.decision:type_name -> amux.v1.FeishuContextDecision
-	114, // 43: amux.v1.FeishuContextExplainResponse.selected_items:type_name -> amux.v1.FeishuContextItem
+	102, // 39: amux.v1.FeishuBindingsResponse.bindings:type_name -> amux.v1.FeishuBinding
+	105, // 40: amux.v1.FeishuBotsResponse.bots:type_name -> amux.v1.FeishuBot
+	108, // 41: amux.v1.FeishuBotSessionStatusResponse.bot_session:type_name -> amux.v1.FeishuBotSession
+	114, // 42: amux.v1.FeishuContextExplainResponse.decision:type_name -> amux.v1.FeishuContextDecision
+	115, // 43: amux.v1.FeishuContextExplainResponse.selected_items:type_name -> amux.v1.FeishuContextItem
 	20,  // 44: amux.v1.AmuxdRunRequest.profile_spec:type_name -> amux.v1.AgentProfileSpec
 	29,  // 45: amux.v1.AmuxdRestartRequest.replacement:type_name -> amux.v1.RunRequest
 	0,   // 46: amux.v1.AmuxdAttachRequest.timeline_mode:type_name -> amux.v1.AttachRequest.TimelineMode
-	69,  // 47: amux.v1.AmuxdSubmitRequest.parts:type_name -> amux.v1.InputPart
-	131, // 48: amux.v1.ListCollaboratorsResponse.collaborators:type_name -> amux.v1.CollaboratorDescriptor
-	133, // 49: amux.v1.CoordinationDelegation.result:type_name -> amux.v1.CoordinationResult
-	134, // 50: amux.v1.CoordinationDelegation.failure:type_name -> amux.v1.CoordinationFailure
-	133, // 51: amux.v1.CoordinationEvent.result:type_name -> amux.v1.CoordinationResult
-	134, // 52: amux.v1.CoordinationEvent.failure:type_name -> amux.v1.CoordinationFailure
-	135, // 53: amux.v1.CoordinationEvent.permission:type_name -> amux.v1.CoordinationPermissionRequest
-	136, // 54: amux.v1.CoordinationSnapshot.delegation:type_name -> amux.v1.CoordinationDelegation
-	137, // 55: amux.v1.CoordinationSnapshot.events:type_name -> amux.v1.CoordinationEvent
-	138, // 56: amux.v1.DelegateResponse.snapshot:type_name -> amux.v1.CoordinationSnapshot
-	138, // 57: amux.v1.GetDelegationResponse.snapshot:type_name -> amux.v1.CoordinationSnapshot
-	138, // 58: amux.v1.WaitDelegationResponse.snapshot:type_name -> amux.v1.CoordinationSnapshot
-	136, // 59: amux.v1.InterveneDelegationResponse.delegation:type_name -> amux.v1.CoordinationDelegation
-	136, // 60: amux.v1.CancelDelegationResponse.delegation:type_name -> amux.v1.CoordinationDelegation
-	156, // 61: amux.v1.PruneSubtasksResponse.tasks:type_name -> amux.v1.PrunedSubtask
-	157, // 62: amux.v1.PruneSubtasksResponse.skipped:type_name -> amux.v1.SkippedSubtask
+	70,  // 47: amux.v1.AmuxdSubmitRequest.parts:type_name -> amux.v1.InputPart
+	132, // 48: amux.v1.ListCollaboratorsResponse.collaborators:type_name -> amux.v1.CollaboratorDescriptor
+	134, // 49: amux.v1.CoordinationDelegation.result:type_name -> amux.v1.CoordinationResult
+	135, // 50: amux.v1.CoordinationDelegation.failure:type_name -> amux.v1.CoordinationFailure
+	134, // 51: amux.v1.CoordinationEvent.result:type_name -> amux.v1.CoordinationResult
+	135, // 52: amux.v1.CoordinationEvent.failure:type_name -> amux.v1.CoordinationFailure
+	136, // 53: amux.v1.CoordinationEvent.permission:type_name -> amux.v1.CoordinationPermissionRequest
+	137, // 54: amux.v1.CoordinationSnapshot.delegation:type_name -> amux.v1.CoordinationDelegation
+	138, // 55: amux.v1.CoordinationSnapshot.events:type_name -> amux.v1.CoordinationEvent
+	139, // 56: amux.v1.DelegateResponse.snapshot:type_name -> amux.v1.CoordinationSnapshot
+	139, // 57: amux.v1.GetDelegationResponse.snapshot:type_name -> amux.v1.CoordinationSnapshot
+	139, // 58: amux.v1.WaitDelegationResponse.snapshot:type_name -> amux.v1.CoordinationSnapshot
+	137, // 59: amux.v1.InterveneDelegationResponse.delegation:type_name -> amux.v1.CoordinationDelegation
+	137, // 60: amux.v1.CancelDelegationResponse.delegation:type_name -> amux.v1.CoordinationDelegation
+	157, // 61: amux.v1.PruneSubtasksResponse.tasks:type_name -> amux.v1.PrunedSubtask
+	158, // 62: amux.v1.PruneSubtasksResponse.skipped:type_name -> amux.v1.SkippedSubtask
 	17,  // 63: amux.v1.AgentInstance.execution_identity:type_name -> amux.v1.ExecutionIdentity
-	253, // 64: amux.v1.Principal.metadata:type_name -> amux.v1.Principal.MetadataEntry
-	254, // 65: amux.v1.CreatePrincipalRequest.metadata:type_name -> amux.v1.CreatePrincipalRequest.MetadataEntry
-	166, // 66: amux.v1.PrincipalResponse.principal:type_name -> amux.v1.Principal
-	171, // 67: amux.v1.ListPrincipalAliasesResponse.aliases:type_name -> amux.v1.PrincipalAlias
-	166, // 68: amux.v1.ListPrincipalsResponse.principals:type_name -> amux.v1.Principal
-	165, // 69: amux.v1.ListAgentInstancesResponse.instances:type_name -> amux.v1.AgentInstance
-	165, // 70: amux.v1.GetAgentInstanceResponse.instance:type_name -> amux.v1.AgentInstance
+	254, // 64: amux.v1.Principal.metadata:type_name -> amux.v1.Principal.MetadataEntry
+	255, // 65: amux.v1.CreatePrincipalRequest.metadata:type_name -> amux.v1.CreatePrincipalRequest.MetadataEntry
+	167, // 66: amux.v1.PrincipalResponse.principal:type_name -> amux.v1.Principal
+	172, // 67: amux.v1.ListPrincipalAliasesResponse.aliases:type_name -> amux.v1.PrincipalAlias
+	167, // 68: amux.v1.ListPrincipalsResponse.principals:type_name -> amux.v1.Principal
+	166, // 69: amux.v1.ListAgentInstancesResponse.instances:type_name -> amux.v1.AgentInstance
+	166, // 70: amux.v1.GetAgentInstanceResponse.instance:type_name -> amux.v1.AgentInstance
 	17,  // 71: amux.v1.DescribeAgentInstanceResponse.execution_identity:type_name -> amux.v1.ExecutionIdentity
-	202, // 72: amux.v1.ScheduleItem.runs:type_name -> amux.v1.ScheduleRun
-	201, // 73: amux.v1.ListSchedulesResponse.schedules:type_name -> amux.v1.ScheduleItem
-	201, // 74: amux.v1.GetScheduleResponse.schedule:type_name -> amux.v1.ScheduleItem
-	201, // 75: amux.v1.UpdateScheduleResponse.schedule:type_name -> amux.v1.ScheduleItem
-	255, // 76: amux.v1.ProxyModelRequest.headers:type_name -> amux.v1.ProxyModelRequest.HeadersEntry
-	256, // 77: amux.v1.ProxyModelChunk.headers:type_name -> amux.v1.ProxyModelChunk.HeadersEntry
+	203, // 72: amux.v1.ScheduleItem.runs:type_name -> amux.v1.ScheduleRun
+	202, // 73: amux.v1.ListSchedulesResponse.schedules:type_name -> amux.v1.ScheduleItem
+	202, // 74: amux.v1.GetScheduleResponse.schedule:type_name -> amux.v1.ScheduleItem
+	202, // 75: amux.v1.UpdateScheduleResponse.schedule:type_name -> amux.v1.ScheduleItem
+	256, // 76: amux.v1.ProxyModelRequest.headers:type_name -> amux.v1.ProxyModelRequest.HeadersEntry
+	257, // 77: amux.v1.ProxyModelChunk.headers:type_name -> amux.v1.ProxyModelChunk.HeadersEntry
 	17,  // 78: amux.v1.ListNativeModelsRequest.execution_identity:type_name -> amux.v1.ExecutionIdentity
-	223, // 79: amux.v1.NativeModel.variants:type_name -> amux.v1.NativeModelVariant
-	222, // 80: amux.v1.ListNativeModelsResponse.models:type_name -> amux.v1.NativeModel
-	228, // 81: amux.v1.CleanupReport.steps:type_name -> amux.v1.CleanupStep
-	229, // 82: amux.v1.CleanupResponse.reports:type_name -> amux.v1.CleanupReport
-	242, // 83: amux.v1.TurnResultDelivery.messages:type_name -> amux.v1.TurnResultDeliveryMessage
-	238, // 84: amux.v1.TurnResultPayload.ref:type_name -> amux.v1.TurnResultRef
-	239, // 85: amux.v1.TurnResultPayload.source:type_name -> amux.v1.TurnResultSource
-	240, // 86: amux.v1.TurnResultPayload.execution:type_name -> amux.v1.TurnResultExecution
-	241, // 87: amux.v1.TurnResultPayload.output:type_name -> amux.v1.TurnResultOutput
-	243, // 88: amux.v1.TurnResultPayload.deliveries:type_name -> amux.v1.TurnResultDelivery
-	244, // 89: amux.v1.AmuxdGetTurnResultResponse.result:type_name -> amux.v1.TurnResultPayload
+	224, // 79: amux.v1.NativeModel.variants:type_name -> amux.v1.NativeModelVariant
+	223, // 80: amux.v1.ListNativeModelsResponse.models:type_name -> amux.v1.NativeModel
+	229, // 81: amux.v1.CleanupReport.steps:type_name -> amux.v1.CleanupStep
+	230, // 82: amux.v1.CleanupResponse.reports:type_name -> amux.v1.CleanupReport
+	243, // 83: amux.v1.TurnResultDelivery.messages:type_name -> amux.v1.TurnResultDeliveryMessage
+	239, // 84: amux.v1.TurnResultPayload.ref:type_name -> amux.v1.TurnResultRef
+	240, // 85: amux.v1.TurnResultPayload.source:type_name -> amux.v1.TurnResultSource
+	241, // 86: amux.v1.TurnResultPayload.execution:type_name -> amux.v1.TurnResultExecution
+	242, // 87: amux.v1.TurnResultPayload.output:type_name -> amux.v1.TurnResultOutput
+	244, // 88: amux.v1.TurnResultPayload.deliveries:type_name -> amux.v1.TurnResultDelivery
+	245, // 89: amux.v1.AmuxdGetTurnResultResponse.result:type_name -> amux.v1.TurnResultPayload
 	40,  // 90: amux.v1.TargetCapabilities.CredentialProfilesEntry.value:type_name -> amux.v1.CredentialProfileList
-	227, // 91: amux.v1.Amuxlet.Cleanup:input_type -> amux.v1.CleanupRequest
-	221, // 92: amux.v1.Amuxlet.ListNativeModels:input_type -> amux.v1.ListNativeModelsRequest
-	217, // 93: amux.v1.Amuxlet.PutSessionFile:input_type -> amux.v1.SessionFileRequest
-	217, // 94: amux.v1.Amuxlet.ReadSessionArtifact:input_type -> amux.v1.SessionFileRequest
+	228, // 91: amux.v1.Amuxlet.Cleanup:input_type -> amux.v1.CleanupRequest
+	222, // 92: amux.v1.Amuxlet.ListNativeModels:input_type -> amux.v1.ListNativeModelsRequest
+	218, // 93: amux.v1.Amuxlet.PutSessionFile:input_type -> amux.v1.SessionFileRequest
+	218, // 94: amux.v1.Amuxlet.ReadSessionArtifact:input_type -> amux.v1.SessionFileRequest
 	29,  // 95: amux.v1.Amuxlet.Run:input_type -> amux.v1.RunRequest
 	45,  // 96: amux.v1.Amuxlet.Info:input_type -> amux.v1.InfoRequest
 	43,  // 97: amux.v1.Amuxlet.List:input_type -> amux.v1.ListRequest
@@ -19108,206 +19212,208 @@ var file_amux_v1_amux_proto_depIdxs = []int32{
 	59,  // 104: amux.v1.Amuxlet.Interrupt:input_type -> amux.v1.InterruptRequest
 	61,  // 105: amux.v1.Amuxlet.Attach:input_type -> amux.v1.AttachRequest
 	65,  // 106: amux.v1.Amuxlet.Submit:input_type -> amux.v1.SubmitRequest
-	14,  // 107: amux.v1.Amuxlet.Goal:input_type -> amux.v1.GoalRequest
-	80,  // 108: amux.v1.Amuxlet.QueueList:input_type -> amux.v1.QueueListRequest
-	82,  // 109: amux.v1.Amuxlet.QueueClear:input_type -> amux.v1.QueueClearRequest
-	84,  // 110: amux.v1.Amuxlet.QueueCancel:input_type -> amux.v1.QueueCancelRequest
-	63,  // 111: amux.v1.Amuxlet.RespondPermission:input_type -> amux.v1.RespondPermissionRequest
-	72,  // 112: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:input_type -> amux.v1.LocalExpertAuthoringTurnRequest
-	235, // 113: amux.v1.Amuxlet.GetTurnResult:input_type -> amux.v1.GetTurnResultRequest
-	185, // 114: amux.v1.Amuxlet.RevokePrincipalLaunches:input_type -> amux.v1.RevokePrincipalLaunchesRequest
-	227, // 115: amux.v1.Amuxd.Cleanup:input_type -> amux.v1.CleanupRequest
-	233, // 116: amux.v1.Amuxd.ConsoleManagement:input_type -> amux.v1.ConsoleManagementRequest
-	219, // 117: amux.v1.Amuxd.ProxyModel:input_type -> amux.v1.ProxyModelRequest
-	116, // 118: amux.v1.Amuxd.Run:input_type -> amux.v1.AmuxdRunRequest
-	47,  // 119: amux.v1.Amuxd.Info:input_type -> amux.v1.HubInfoRequest
-	97,  // 120: amux.v1.Amuxd.ListTargets:input_type -> amux.v1.ListTargetsRequest
-	99,  // 121: amux.v1.Amuxd.FeishuStatus:input_type -> amux.v1.FeishuStatusRequest
-	102, // 122: amux.v1.Amuxd.FeishuBindings:input_type -> amux.v1.FeishuBindingsRequest
-	105, // 123: amux.v1.Amuxd.FeishuBots:input_type -> amux.v1.FeishuBotsRequest
-	231, // 124: amux.v1.Amuxd.SendFeishuMessage:input_type -> amux.v1.SendFeishuMessageRequest
-	108, // 125: amux.v1.Amuxd.FeishuBotSessionStatus:input_type -> amux.v1.FeishuBotSessionStatusRequest
-	109, // 126: amux.v1.Amuxd.FeishuBotSessionBind:input_type -> amux.v1.FeishuBotSessionBindRequest
-	110, // 127: amux.v1.Amuxd.FeishuBotSessionOff:input_type -> amux.v1.FeishuBotSessionOffRequest
-	112, // 128: amux.v1.Amuxd.FeishuContextExplain:input_type -> amux.v1.FeishuContextExplainRequest
-	117, // 129: amux.v1.Amuxd.Kill:input_type -> amux.v1.AmuxdKillRequest
-	118, // 130: amux.v1.Amuxd.Restart:input_type -> amux.v1.AmuxdRestartRequest
-	119, // 131: amux.v1.Amuxd.ChangeCwd:input_type -> amux.v1.AmuxdChangeCwdRequest
-	120, // 132: amux.v1.Amuxd.Sleep:input_type -> amux.v1.AmuxdSleepRequest
-	121, // 133: amux.v1.Amuxd.Resume:input_type -> amux.v1.AmuxdResumeRequest
-	122, // 134: amux.v1.Amuxd.Prune:input_type -> amux.v1.AmuxdPruneRequest
-	123, // 135: amux.v1.Amuxd.Interrupt:input_type -> amux.v1.AmuxdInterruptRequest
-	124, // 136: amux.v1.Amuxd.Attach:input_type -> amux.v1.AmuxdAttachRequest
-	125, // 137: amux.v1.Amuxd.Submit:input_type -> amux.v1.AmuxdSubmitRequest
-	15,  // 138: amux.v1.Amuxd.Goal:input_type -> amux.v1.AmuxdGoalRequest
-	126, // 139: amux.v1.Amuxd.QueueList:input_type -> amux.v1.AmuxdQueueListRequest
-	127, // 140: amux.v1.Amuxd.QueueClear:input_type -> amux.v1.AmuxdQueueClearRequest
-	128, // 141: amux.v1.Amuxd.QueueCancel:input_type -> amux.v1.AmuxdQueueCancelRequest
-	129, // 142: amux.v1.Amuxd.RespondPermission:input_type -> amux.v1.AmuxdRespondPermissionRequest
-	203, // 143: amux.v1.Amuxd.CreateSchedule:input_type -> amux.v1.CreateScheduleRequest
-	205, // 144: amux.v1.Amuxd.ListSchedules:input_type -> amux.v1.ListSchedulesRequest
-	207, // 145: amux.v1.Amuxd.GetSchedule:input_type -> amux.v1.GetScheduleRequest
-	209, // 146: amux.v1.Amuxd.DeleteSchedule:input_type -> amux.v1.DeleteScheduleRequest
-	211, // 147: amux.v1.Amuxd.UpdateSchedule:input_type -> amux.v1.UpdateScheduleRequest
-	213, // 148: amux.v1.Amuxd.SetScheduleEnabled:input_type -> amux.v1.SetScheduleEnabledRequest
-	215, // 149: amux.v1.Amuxd.TriggerSchedule:input_type -> amux.v1.TriggerScheduleRequest
-	237, // 150: amux.v1.Amuxd.GetTurnResult:input_type -> amux.v1.AmuxdGetTurnResultRequest
-	31,  // 151: amux.v1.Amuxd.MaterializeCredential:input_type -> amux.v1.MaterializeCredentialRequest
-	33,  // 152: amux.v1.Amuxd.SetCredential:input_type -> amux.v1.SetCredentialRequest
-	34,  // 153: amux.v1.Amuxd.GetCredential:input_type -> amux.v1.GetCredentialRequest
-	35,  // 154: amux.v1.Amuxd.ListCredentials:input_type -> amux.v1.ListCredentialsRequest
-	167, // 155: amux.v1.Amuxd.CreatePrincipal:input_type -> amux.v1.CreatePrincipalRequest
-	169, // 156: amux.v1.Amuxd.ListPrincipals:input_type -> amux.v1.ListPrincipalsRequest
-	170, // 157: amux.v1.Amuxd.ListPrincipalAliases:input_type -> amux.v1.ListPrincipalAliasesRequest
-	174, // 158: amux.v1.Amuxd.DisablePrincipal:input_type -> amux.v1.DisablePrincipalRequest
-	175, // 159: amux.v1.Amuxd.BindPrincipalAlias:input_type -> amux.v1.BindPrincipalAliasRequest
-	176, // 160: amux.v1.Amuxd.GrantPrincipalDelegation:input_type -> amux.v1.GrantPrincipalDelegationRequest
-	178, // 161: amux.v1.Amuxd.RevokePrincipalDelegation:input_type -> amux.v1.RevokePrincipalDelegationRequest
-	179, // 162: amux.v1.Amuxd.GrantServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
-	179, // 163: amux.v1.Amuxd.RevokeServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
-	181, // 164: amux.v1.Amuxd.CreatePrincipalEnrollment:input_type -> amux.v1.CreatePrincipalEnrollmentRequest
-	183, // 165: amux.v1.Amuxd.GetIsolationStatus:input_type -> amux.v1.GetIsolationStatusRequest
-	25,  // 166: amux.v1.Amuxd.ListAgentProfiles:input_type -> amux.v1.ListAgentProfilesRequest
-	27,  // 167: amux.v1.Amuxd.GetAgentProfile:input_type -> amux.v1.GetAgentProfileRequest
-	75,  // 168: amux.v1.Amuxd.ReadLocalExpert:input_type -> amux.v1.ReadLocalExpertRequest
-	77,  // 169: amux.v1.Amuxd.ChangeLocalExpert:input_type -> amux.v1.ChangeLocalExpertRequest
-	2,   // 170: amux.v1.Amuxd.GetMemoryBinding:input_type -> amux.v1.MemoryBindingRequest
-	4,   // 171: amux.v1.Amuxd.MemorySearch:input_type -> amux.v1.MemorySearchRequest
-	7,   // 172: amux.v1.Amuxd.MemoryGet:input_type -> amux.v1.MemoryGetRequest
-	9,   // 173: amux.v1.Amuxd.MemoryUpsert:input_type -> amux.v1.MemoryUpsertRequest
-	11,  // 174: amux.v1.Amuxd.MemoryForget:input_type -> amux.v1.MemoryForgetRequest
-	87,  // 175: amux.v1.Amuxd.Tunnel:input_type -> amux.v1.TunnelMsg
-	67,  // 176: amux.v1.AmuxTask.ResolveParentTurn:input_type -> amux.v1.ActiveTurnRequest
-	149, // 177: amux.v1.AmuxTask.SubmitSubtask:input_type -> amux.v1.SubmitSubtaskRequest
-	151, // 178: amux.v1.AmuxTask.GetSubtask:input_type -> amux.v1.GetSubtaskRequest
-	153, // 179: amux.v1.AmuxTask.ListSubtasks:input_type -> amux.v1.ListSubtasksRequest
-	155, // 180: amux.v1.AmuxTask.PruneSubtasks:input_type -> amux.v1.PruneSubtasksRequest
-	159, // 181: amux.v1.AmuxTask.CancelSubtask:input_type -> amux.v1.CancelSubtaskRequest
-	161, // 182: amux.v1.AmuxTask.RespondSubtaskPermission:input_type -> amux.v1.RespondSubtaskPermissionRequest
-	163, // 183: amux.v1.AmuxTask.StreamSubtask:input_type -> amux.v1.StreamSubtaskRequest
-	187, // 184: amux.v1.AmuxTask.ListAgentInstances:input_type -> amux.v1.ListAgentInstancesRequest
-	189, // 185: amux.v1.AmuxTask.GetAgentInstance:input_type -> amux.v1.GetAgentInstanceRequest
-	191, // 186: amux.v1.AmuxTask.SendAgentMessage:input_type -> amux.v1.SendAgentMessageRequest
-	193, // 187: amux.v1.AmuxTask.InterruptAgentInstance:input_type -> amux.v1.InterruptAgentInstanceRequest
-	195, // 188: amux.v1.AmuxTask.WaitAgentInstance:input_type -> amux.v1.WaitAgentInstanceRequest
-	197, // 189: amux.v1.AmuxTask.DescribeAgentInstance:input_type -> amux.v1.DescribeAgentInstanceRequest
-	199, // 190: amux.v1.AmuxTask.CleanupAgentInstance:input_type -> amux.v1.CleanupAgentInstanceRequest
-	130, // 191: amux.v1.CoordinationService.ListCollaborators:input_type -> amux.v1.ListCollaboratorsRequest
-	139, // 192: amux.v1.CoordinationService.Delegate:input_type -> amux.v1.DelegateRequest
-	141, // 193: amux.v1.CoordinationService.GetDelegation:input_type -> amux.v1.GetDelegationRequest
-	143, // 194: amux.v1.CoordinationService.WaitDelegation:input_type -> amux.v1.WaitDelegationRequest
-	145, // 195: amux.v1.CoordinationService.InterveneDelegation:input_type -> amux.v1.InterveneDelegationRequest
-	147, // 196: amux.v1.CoordinationService.CancelDelegation:input_type -> amux.v1.CancelDelegationRequest
-	225, // 197: amux.v1.RuntimeMaintenance.Maintain:input_type -> amux.v1.MaintenanceRequest
-	230, // 198: amux.v1.Amuxlet.Cleanup:output_type -> amux.v1.CleanupResponse
-	224, // 199: amux.v1.Amuxlet.ListNativeModels:output_type -> amux.v1.ListNativeModelsResponse
-	218, // 200: amux.v1.Amuxlet.PutSessionFile:output_type -> amux.v1.SessionFileResponse
-	218, // 201: amux.v1.Amuxlet.ReadSessionArtifact:output_type -> amux.v1.SessionFileResponse
-	30,  // 202: amux.v1.Amuxlet.Run:output_type -> amux.v1.RunResponse
-	46,  // 203: amux.v1.Amuxlet.Info:output_type -> amux.v1.InfoResponse
-	44,  // 204: amux.v1.Amuxlet.List:output_type -> amux.v1.ListResponse
-	50,  // 205: amux.v1.Amuxlet.Kill:output_type -> amux.v1.KillResponse
-	30,  // 206: amux.v1.Amuxlet.Restart:output_type -> amux.v1.RunResponse
-	53,  // 207: amux.v1.Amuxlet.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
-	55,  // 208: amux.v1.Amuxlet.Sleep:output_type -> amux.v1.SleepResponse
-	30,  // 209: amux.v1.Amuxlet.Resume:output_type -> amux.v1.RunResponse
-	58,  // 210: amux.v1.Amuxlet.Prune:output_type -> amux.v1.PruneResponse
-	60,  // 211: amux.v1.Amuxlet.Interrupt:output_type -> amux.v1.InterruptResponse
-	62,  // 212: amux.v1.Amuxlet.Attach:output_type -> amux.v1.AttachEvent
-	66,  // 213: amux.v1.Amuxlet.Submit:output_type -> amux.v1.SubmitResponse
-	16,  // 214: amux.v1.Amuxlet.Goal:output_type -> amux.v1.GoalResponse
-	81,  // 215: amux.v1.Amuxlet.QueueList:output_type -> amux.v1.QueueListResponse
-	83,  // 216: amux.v1.Amuxlet.QueueClear:output_type -> amux.v1.QueueClearResponse
-	85,  // 217: amux.v1.Amuxlet.QueueCancel:output_type -> amux.v1.QueueCancelResponse
-	64,  // 218: amux.v1.Amuxlet.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
-	73,  // 219: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:output_type -> amux.v1.LocalExpertAuthoringTurnResponse
-	236, // 220: amux.v1.Amuxlet.GetTurnResult:output_type -> amux.v1.GetTurnResultResponse
-	186, // 221: amux.v1.Amuxlet.RevokePrincipalLaunches:output_type -> amux.v1.RevokePrincipalLaunchesResponse
-	230, // 222: amux.v1.Amuxd.Cleanup:output_type -> amux.v1.CleanupResponse
-	234, // 223: amux.v1.Amuxd.ConsoleManagement:output_type -> amux.v1.ConsoleManagementResponse
-	220, // 224: amux.v1.Amuxd.ProxyModel:output_type -> amux.v1.ProxyModelChunk
-	30,  // 225: amux.v1.Amuxd.Run:output_type -> amux.v1.RunResponse
-	48,  // 226: amux.v1.Amuxd.Info:output_type -> amux.v1.HubInfoResponse
-	98,  // 227: amux.v1.Amuxd.ListTargets:output_type -> amux.v1.ListTargetsResponse
-	100, // 228: amux.v1.Amuxd.FeishuStatus:output_type -> amux.v1.FeishuStatusResponse
-	103, // 229: amux.v1.Amuxd.FeishuBindings:output_type -> amux.v1.FeishuBindingsResponse
-	106, // 230: amux.v1.Amuxd.FeishuBots:output_type -> amux.v1.FeishuBotsResponse
-	232, // 231: amux.v1.Amuxd.SendFeishuMessage:output_type -> amux.v1.SendFeishuMessageResponse
-	111, // 232: amux.v1.Amuxd.FeishuBotSessionStatus:output_type -> amux.v1.FeishuBotSessionStatusResponse
-	111, // 233: amux.v1.Amuxd.FeishuBotSessionBind:output_type -> amux.v1.FeishuBotSessionStatusResponse
-	111, // 234: amux.v1.Amuxd.FeishuBotSessionOff:output_type -> amux.v1.FeishuBotSessionStatusResponse
-	115, // 235: amux.v1.Amuxd.FeishuContextExplain:output_type -> amux.v1.FeishuContextExplainResponse
-	50,  // 236: amux.v1.Amuxd.Kill:output_type -> amux.v1.KillResponse
-	30,  // 237: amux.v1.Amuxd.Restart:output_type -> amux.v1.RunResponse
-	53,  // 238: amux.v1.Amuxd.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
-	55,  // 239: amux.v1.Amuxd.Sleep:output_type -> amux.v1.SleepResponse
-	30,  // 240: amux.v1.Amuxd.Resume:output_type -> amux.v1.RunResponse
-	58,  // 241: amux.v1.Amuxd.Prune:output_type -> amux.v1.PruneResponse
-	60,  // 242: amux.v1.Amuxd.Interrupt:output_type -> amux.v1.InterruptResponse
-	62,  // 243: amux.v1.Amuxd.Attach:output_type -> amux.v1.AttachEvent
-	66,  // 244: amux.v1.Amuxd.Submit:output_type -> amux.v1.SubmitResponse
-	16,  // 245: amux.v1.Amuxd.Goal:output_type -> amux.v1.GoalResponse
-	81,  // 246: amux.v1.Amuxd.QueueList:output_type -> amux.v1.QueueListResponse
-	83,  // 247: amux.v1.Amuxd.QueueClear:output_type -> amux.v1.QueueClearResponse
-	85,  // 248: amux.v1.Amuxd.QueueCancel:output_type -> amux.v1.QueueCancelResponse
-	64,  // 249: amux.v1.Amuxd.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
-	204, // 250: amux.v1.Amuxd.CreateSchedule:output_type -> amux.v1.CreateScheduleResponse
-	206, // 251: amux.v1.Amuxd.ListSchedules:output_type -> amux.v1.ListSchedulesResponse
-	208, // 252: amux.v1.Amuxd.GetSchedule:output_type -> amux.v1.GetScheduleResponse
-	210, // 253: amux.v1.Amuxd.DeleteSchedule:output_type -> amux.v1.DeleteScheduleResponse
-	212, // 254: amux.v1.Amuxd.UpdateSchedule:output_type -> amux.v1.UpdateScheduleResponse
-	214, // 255: amux.v1.Amuxd.SetScheduleEnabled:output_type -> amux.v1.SetScheduleEnabledResponse
-	216, // 256: amux.v1.Amuxd.TriggerSchedule:output_type -> amux.v1.TriggerScheduleResponse
-	245, // 257: amux.v1.Amuxd.GetTurnResult:output_type -> amux.v1.AmuxdGetTurnResultResponse
-	32,  // 258: amux.v1.Amuxd.MaterializeCredential:output_type -> amux.v1.MaterializeCredentialResponse
-	36,  // 259: amux.v1.Amuxd.SetCredential:output_type -> amux.v1.CredentialProfileMetadata
-	36,  // 260: amux.v1.Amuxd.GetCredential:output_type -> amux.v1.CredentialProfileMetadata
-	37,  // 261: amux.v1.Amuxd.ListCredentials:output_type -> amux.v1.ListCredentialsResponse
-	168, // 262: amux.v1.Amuxd.CreatePrincipal:output_type -> amux.v1.PrincipalResponse
-	173, // 263: amux.v1.Amuxd.ListPrincipals:output_type -> amux.v1.ListPrincipalsResponse
-	172, // 264: amux.v1.Amuxd.ListPrincipalAliases:output_type -> amux.v1.ListPrincipalAliasesResponse
-	168, // 265: amux.v1.Amuxd.DisablePrincipal:output_type -> amux.v1.PrincipalResponse
-	168, // 266: amux.v1.Amuxd.BindPrincipalAlias:output_type -> amux.v1.PrincipalResponse
-	177, // 267: amux.v1.Amuxd.GrantPrincipalDelegation:output_type -> amux.v1.GrantPrincipalDelegationResponse
-	180, // 268: amux.v1.Amuxd.RevokePrincipalDelegation:output_type -> amux.v1.EmptyResponse
-	180, // 269: amux.v1.Amuxd.GrantServicePrincipalMember:output_type -> amux.v1.EmptyResponse
-	180, // 270: amux.v1.Amuxd.RevokeServicePrincipalMember:output_type -> amux.v1.EmptyResponse
-	182, // 271: amux.v1.Amuxd.CreatePrincipalEnrollment:output_type -> amux.v1.CreatePrincipalEnrollmentResponse
-	184, // 272: amux.v1.Amuxd.GetIsolationStatus:output_type -> amux.v1.GetIsolationStatusResponse
-	26,  // 273: amux.v1.Amuxd.ListAgentProfiles:output_type -> amux.v1.ListAgentProfilesResponse
-	28,  // 274: amux.v1.Amuxd.GetAgentProfile:output_type -> amux.v1.GetAgentProfileResponse
-	76,  // 275: amux.v1.Amuxd.ReadLocalExpert:output_type -> amux.v1.ReadLocalExpertResponse
-	78,  // 276: amux.v1.Amuxd.ChangeLocalExpert:output_type -> amux.v1.ChangeLocalExpertResponse
-	3,   // 277: amux.v1.Amuxd.GetMemoryBinding:output_type -> amux.v1.MemoryBindingResponse
-	6,   // 278: amux.v1.Amuxd.MemorySearch:output_type -> amux.v1.MemorySearchResponse
-	8,   // 279: amux.v1.Amuxd.MemoryGet:output_type -> amux.v1.MemoryDocument
-	10,  // 280: amux.v1.Amuxd.MemoryUpsert:output_type -> amux.v1.MemoryWriteResponse
-	12,  // 281: amux.v1.Amuxd.MemoryForget:output_type -> amux.v1.MemoryForgetResponse
-	87,  // 282: amux.v1.Amuxd.Tunnel:output_type -> amux.v1.TunnelMsg
-	68,  // 283: amux.v1.AmuxTask.ResolveParentTurn:output_type -> amux.v1.ActiveTurnResponse
-	150, // 284: amux.v1.AmuxTask.SubmitSubtask:output_type -> amux.v1.SubmitSubtaskResponse
-	152, // 285: amux.v1.AmuxTask.GetSubtask:output_type -> amux.v1.GetSubtaskResponse
-	154, // 286: amux.v1.AmuxTask.ListSubtasks:output_type -> amux.v1.ListSubtasksResponse
-	158, // 287: amux.v1.AmuxTask.PruneSubtasks:output_type -> amux.v1.PruneSubtasksResponse
-	160, // 288: amux.v1.AmuxTask.CancelSubtask:output_type -> amux.v1.CancelSubtaskResponse
-	162, // 289: amux.v1.AmuxTask.RespondSubtaskPermission:output_type -> amux.v1.RespondSubtaskPermissionResponse
-	164, // 290: amux.v1.AmuxTask.StreamSubtask:output_type -> amux.v1.SubtaskEvent
-	188, // 291: amux.v1.AmuxTask.ListAgentInstances:output_type -> amux.v1.ListAgentInstancesResponse
-	190, // 292: amux.v1.AmuxTask.GetAgentInstance:output_type -> amux.v1.GetAgentInstanceResponse
-	192, // 293: amux.v1.AmuxTask.SendAgentMessage:output_type -> amux.v1.SendAgentMessageResponse
-	194, // 294: amux.v1.AmuxTask.InterruptAgentInstance:output_type -> amux.v1.InterruptAgentInstanceResponse
-	196, // 295: amux.v1.AmuxTask.WaitAgentInstance:output_type -> amux.v1.WaitAgentInstanceResponse
-	198, // 296: amux.v1.AmuxTask.DescribeAgentInstance:output_type -> amux.v1.DescribeAgentInstanceResponse
-	200, // 297: amux.v1.AmuxTask.CleanupAgentInstance:output_type -> amux.v1.CleanupAgentInstanceResponse
-	132, // 298: amux.v1.CoordinationService.ListCollaborators:output_type -> amux.v1.ListCollaboratorsResponse
-	140, // 299: amux.v1.CoordinationService.Delegate:output_type -> amux.v1.DelegateResponse
-	142, // 300: amux.v1.CoordinationService.GetDelegation:output_type -> amux.v1.GetDelegationResponse
-	144, // 301: amux.v1.CoordinationService.WaitDelegation:output_type -> amux.v1.WaitDelegationResponse
-	146, // 302: amux.v1.CoordinationService.InterveneDelegation:output_type -> amux.v1.InterveneDelegationResponse
-	148, // 303: amux.v1.CoordinationService.CancelDelegation:output_type -> amux.v1.CancelDelegationResponse
-	226, // 304: amux.v1.RuntimeMaintenance.Maintain:output_type -> amux.v1.MaintenanceResponse
-	198, // [198:305] is the sub-list for method output_type
-	91,  // [91:198] is the sub-list for method input_type
+	67,  // 107: amux.v1.Amuxlet.SteerQueued:input_type -> amux.v1.SteerQueuedRequest
+	14,  // 108: amux.v1.Amuxlet.Goal:input_type -> amux.v1.GoalRequest
+	81,  // 109: amux.v1.Amuxlet.QueueList:input_type -> amux.v1.QueueListRequest
+	83,  // 110: amux.v1.Amuxlet.QueueClear:input_type -> amux.v1.QueueClearRequest
+	85,  // 111: amux.v1.Amuxlet.QueueCancel:input_type -> amux.v1.QueueCancelRequest
+	63,  // 112: amux.v1.Amuxlet.RespondPermission:input_type -> amux.v1.RespondPermissionRequest
+	73,  // 113: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:input_type -> amux.v1.LocalExpertAuthoringTurnRequest
+	236, // 114: amux.v1.Amuxlet.GetTurnResult:input_type -> amux.v1.GetTurnResultRequest
+	186, // 115: amux.v1.Amuxlet.RevokePrincipalLaunches:input_type -> amux.v1.RevokePrincipalLaunchesRequest
+	228, // 116: amux.v1.Amuxd.Cleanup:input_type -> amux.v1.CleanupRequest
+	234, // 117: amux.v1.Amuxd.ConsoleManagement:input_type -> amux.v1.ConsoleManagementRequest
+	220, // 118: amux.v1.Amuxd.ProxyModel:input_type -> amux.v1.ProxyModelRequest
+	117, // 119: amux.v1.Amuxd.Run:input_type -> amux.v1.AmuxdRunRequest
+	47,  // 120: amux.v1.Amuxd.Info:input_type -> amux.v1.HubInfoRequest
+	98,  // 121: amux.v1.Amuxd.ListTargets:input_type -> amux.v1.ListTargetsRequest
+	100, // 122: amux.v1.Amuxd.FeishuStatus:input_type -> amux.v1.FeishuStatusRequest
+	103, // 123: amux.v1.Amuxd.FeishuBindings:input_type -> amux.v1.FeishuBindingsRequest
+	106, // 124: amux.v1.Amuxd.FeishuBots:input_type -> amux.v1.FeishuBotsRequest
+	232, // 125: amux.v1.Amuxd.SendFeishuMessage:input_type -> amux.v1.SendFeishuMessageRequest
+	109, // 126: amux.v1.Amuxd.FeishuBotSessionStatus:input_type -> amux.v1.FeishuBotSessionStatusRequest
+	110, // 127: amux.v1.Amuxd.FeishuBotSessionBind:input_type -> amux.v1.FeishuBotSessionBindRequest
+	111, // 128: amux.v1.Amuxd.FeishuBotSessionOff:input_type -> amux.v1.FeishuBotSessionOffRequest
+	113, // 129: amux.v1.Amuxd.FeishuContextExplain:input_type -> amux.v1.FeishuContextExplainRequest
+	118, // 130: amux.v1.Amuxd.Kill:input_type -> amux.v1.AmuxdKillRequest
+	119, // 131: amux.v1.Amuxd.Restart:input_type -> amux.v1.AmuxdRestartRequest
+	120, // 132: amux.v1.Amuxd.ChangeCwd:input_type -> amux.v1.AmuxdChangeCwdRequest
+	121, // 133: amux.v1.Amuxd.Sleep:input_type -> amux.v1.AmuxdSleepRequest
+	122, // 134: amux.v1.Amuxd.Resume:input_type -> amux.v1.AmuxdResumeRequest
+	123, // 135: amux.v1.Amuxd.Prune:input_type -> amux.v1.AmuxdPruneRequest
+	124, // 136: amux.v1.Amuxd.Interrupt:input_type -> amux.v1.AmuxdInterruptRequest
+	125, // 137: amux.v1.Amuxd.Attach:input_type -> amux.v1.AmuxdAttachRequest
+	126, // 138: amux.v1.Amuxd.Submit:input_type -> amux.v1.AmuxdSubmitRequest
+	15,  // 139: amux.v1.Amuxd.Goal:input_type -> amux.v1.AmuxdGoalRequest
+	127, // 140: amux.v1.Amuxd.QueueList:input_type -> amux.v1.AmuxdQueueListRequest
+	128, // 141: amux.v1.Amuxd.QueueClear:input_type -> amux.v1.AmuxdQueueClearRequest
+	129, // 142: amux.v1.Amuxd.QueueCancel:input_type -> amux.v1.AmuxdQueueCancelRequest
+	130, // 143: amux.v1.Amuxd.RespondPermission:input_type -> amux.v1.AmuxdRespondPermissionRequest
+	204, // 144: amux.v1.Amuxd.CreateSchedule:input_type -> amux.v1.CreateScheduleRequest
+	206, // 145: amux.v1.Amuxd.ListSchedules:input_type -> amux.v1.ListSchedulesRequest
+	208, // 146: amux.v1.Amuxd.GetSchedule:input_type -> amux.v1.GetScheduleRequest
+	210, // 147: amux.v1.Amuxd.DeleteSchedule:input_type -> amux.v1.DeleteScheduleRequest
+	212, // 148: amux.v1.Amuxd.UpdateSchedule:input_type -> amux.v1.UpdateScheduleRequest
+	214, // 149: amux.v1.Amuxd.SetScheduleEnabled:input_type -> amux.v1.SetScheduleEnabledRequest
+	216, // 150: amux.v1.Amuxd.TriggerSchedule:input_type -> amux.v1.TriggerScheduleRequest
+	238, // 151: amux.v1.Amuxd.GetTurnResult:input_type -> amux.v1.AmuxdGetTurnResultRequest
+	31,  // 152: amux.v1.Amuxd.MaterializeCredential:input_type -> amux.v1.MaterializeCredentialRequest
+	33,  // 153: amux.v1.Amuxd.SetCredential:input_type -> amux.v1.SetCredentialRequest
+	34,  // 154: amux.v1.Amuxd.GetCredential:input_type -> amux.v1.GetCredentialRequest
+	35,  // 155: amux.v1.Amuxd.ListCredentials:input_type -> amux.v1.ListCredentialsRequest
+	168, // 156: amux.v1.Amuxd.CreatePrincipal:input_type -> amux.v1.CreatePrincipalRequest
+	170, // 157: amux.v1.Amuxd.ListPrincipals:input_type -> amux.v1.ListPrincipalsRequest
+	171, // 158: amux.v1.Amuxd.ListPrincipalAliases:input_type -> amux.v1.ListPrincipalAliasesRequest
+	175, // 159: amux.v1.Amuxd.DisablePrincipal:input_type -> amux.v1.DisablePrincipalRequest
+	176, // 160: amux.v1.Amuxd.BindPrincipalAlias:input_type -> amux.v1.BindPrincipalAliasRequest
+	177, // 161: amux.v1.Amuxd.GrantPrincipalDelegation:input_type -> amux.v1.GrantPrincipalDelegationRequest
+	179, // 162: amux.v1.Amuxd.RevokePrincipalDelegation:input_type -> amux.v1.RevokePrincipalDelegationRequest
+	180, // 163: amux.v1.Amuxd.GrantServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
+	180, // 164: amux.v1.Amuxd.RevokeServicePrincipalMember:input_type -> amux.v1.ServicePrincipalMemberRequest
+	182, // 165: amux.v1.Amuxd.CreatePrincipalEnrollment:input_type -> amux.v1.CreatePrincipalEnrollmentRequest
+	184, // 166: amux.v1.Amuxd.GetIsolationStatus:input_type -> amux.v1.GetIsolationStatusRequest
+	25,  // 167: amux.v1.Amuxd.ListAgentProfiles:input_type -> amux.v1.ListAgentProfilesRequest
+	27,  // 168: amux.v1.Amuxd.GetAgentProfile:input_type -> amux.v1.GetAgentProfileRequest
+	76,  // 169: amux.v1.Amuxd.ReadLocalExpert:input_type -> amux.v1.ReadLocalExpertRequest
+	78,  // 170: amux.v1.Amuxd.ChangeLocalExpert:input_type -> amux.v1.ChangeLocalExpertRequest
+	2,   // 171: amux.v1.Amuxd.GetMemoryBinding:input_type -> amux.v1.MemoryBindingRequest
+	4,   // 172: amux.v1.Amuxd.MemorySearch:input_type -> amux.v1.MemorySearchRequest
+	7,   // 173: amux.v1.Amuxd.MemoryGet:input_type -> amux.v1.MemoryGetRequest
+	9,   // 174: amux.v1.Amuxd.MemoryUpsert:input_type -> amux.v1.MemoryUpsertRequest
+	11,  // 175: amux.v1.Amuxd.MemoryForget:input_type -> amux.v1.MemoryForgetRequest
+	88,  // 176: amux.v1.Amuxd.Tunnel:input_type -> amux.v1.TunnelMsg
+	68,  // 177: amux.v1.AmuxTask.ResolveParentTurn:input_type -> amux.v1.ActiveTurnRequest
+	150, // 178: amux.v1.AmuxTask.SubmitSubtask:input_type -> amux.v1.SubmitSubtaskRequest
+	152, // 179: amux.v1.AmuxTask.GetSubtask:input_type -> amux.v1.GetSubtaskRequest
+	154, // 180: amux.v1.AmuxTask.ListSubtasks:input_type -> amux.v1.ListSubtasksRequest
+	156, // 181: amux.v1.AmuxTask.PruneSubtasks:input_type -> amux.v1.PruneSubtasksRequest
+	160, // 182: amux.v1.AmuxTask.CancelSubtask:input_type -> amux.v1.CancelSubtaskRequest
+	162, // 183: amux.v1.AmuxTask.RespondSubtaskPermission:input_type -> amux.v1.RespondSubtaskPermissionRequest
+	164, // 184: amux.v1.AmuxTask.StreamSubtask:input_type -> amux.v1.StreamSubtaskRequest
+	188, // 185: amux.v1.AmuxTask.ListAgentInstances:input_type -> amux.v1.ListAgentInstancesRequest
+	190, // 186: amux.v1.AmuxTask.GetAgentInstance:input_type -> amux.v1.GetAgentInstanceRequest
+	192, // 187: amux.v1.AmuxTask.SendAgentMessage:input_type -> amux.v1.SendAgentMessageRequest
+	194, // 188: amux.v1.AmuxTask.InterruptAgentInstance:input_type -> amux.v1.InterruptAgentInstanceRequest
+	196, // 189: amux.v1.AmuxTask.WaitAgentInstance:input_type -> amux.v1.WaitAgentInstanceRequest
+	198, // 190: amux.v1.AmuxTask.DescribeAgentInstance:input_type -> amux.v1.DescribeAgentInstanceRequest
+	200, // 191: amux.v1.AmuxTask.CleanupAgentInstance:input_type -> amux.v1.CleanupAgentInstanceRequest
+	131, // 192: amux.v1.CoordinationService.ListCollaborators:input_type -> amux.v1.ListCollaboratorsRequest
+	140, // 193: amux.v1.CoordinationService.Delegate:input_type -> amux.v1.DelegateRequest
+	142, // 194: amux.v1.CoordinationService.GetDelegation:input_type -> amux.v1.GetDelegationRequest
+	144, // 195: amux.v1.CoordinationService.WaitDelegation:input_type -> amux.v1.WaitDelegationRequest
+	146, // 196: amux.v1.CoordinationService.InterveneDelegation:input_type -> amux.v1.InterveneDelegationRequest
+	148, // 197: amux.v1.CoordinationService.CancelDelegation:input_type -> amux.v1.CancelDelegationRequest
+	226, // 198: amux.v1.RuntimeMaintenance.Maintain:input_type -> amux.v1.MaintenanceRequest
+	231, // 199: amux.v1.Amuxlet.Cleanup:output_type -> amux.v1.CleanupResponse
+	225, // 200: amux.v1.Amuxlet.ListNativeModels:output_type -> amux.v1.ListNativeModelsResponse
+	219, // 201: amux.v1.Amuxlet.PutSessionFile:output_type -> amux.v1.SessionFileResponse
+	219, // 202: amux.v1.Amuxlet.ReadSessionArtifact:output_type -> amux.v1.SessionFileResponse
+	30,  // 203: amux.v1.Amuxlet.Run:output_type -> amux.v1.RunResponse
+	46,  // 204: amux.v1.Amuxlet.Info:output_type -> amux.v1.InfoResponse
+	44,  // 205: amux.v1.Amuxlet.List:output_type -> amux.v1.ListResponse
+	50,  // 206: amux.v1.Amuxlet.Kill:output_type -> amux.v1.KillResponse
+	30,  // 207: amux.v1.Amuxlet.Restart:output_type -> amux.v1.RunResponse
+	53,  // 208: amux.v1.Amuxlet.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
+	55,  // 209: amux.v1.Amuxlet.Sleep:output_type -> amux.v1.SleepResponse
+	30,  // 210: amux.v1.Amuxlet.Resume:output_type -> amux.v1.RunResponse
+	58,  // 211: amux.v1.Amuxlet.Prune:output_type -> amux.v1.PruneResponse
+	60,  // 212: amux.v1.Amuxlet.Interrupt:output_type -> amux.v1.InterruptResponse
+	62,  // 213: amux.v1.Amuxlet.Attach:output_type -> amux.v1.AttachEvent
+	66,  // 214: amux.v1.Amuxlet.Submit:output_type -> amux.v1.SubmitResponse
+	66,  // 215: amux.v1.Amuxlet.SteerQueued:output_type -> amux.v1.SubmitResponse
+	16,  // 216: amux.v1.Amuxlet.Goal:output_type -> amux.v1.GoalResponse
+	82,  // 217: amux.v1.Amuxlet.QueueList:output_type -> amux.v1.QueueListResponse
+	84,  // 218: amux.v1.Amuxlet.QueueClear:output_type -> amux.v1.QueueClearResponse
+	86,  // 219: amux.v1.Amuxlet.QueueCancel:output_type -> amux.v1.QueueCancelResponse
+	64,  // 220: amux.v1.Amuxlet.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
+	74,  // 221: amux.v1.Amuxlet.GetLocalExpertAuthoringTurn:output_type -> amux.v1.LocalExpertAuthoringTurnResponse
+	237, // 222: amux.v1.Amuxlet.GetTurnResult:output_type -> amux.v1.GetTurnResultResponse
+	187, // 223: amux.v1.Amuxlet.RevokePrincipalLaunches:output_type -> amux.v1.RevokePrincipalLaunchesResponse
+	231, // 224: amux.v1.Amuxd.Cleanup:output_type -> amux.v1.CleanupResponse
+	235, // 225: amux.v1.Amuxd.ConsoleManagement:output_type -> amux.v1.ConsoleManagementResponse
+	221, // 226: amux.v1.Amuxd.ProxyModel:output_type -> amux.v1.ProxyModelChunk
+	30,  // 227: amux.v1.Amuxd.Run:output_type -> amux.v1.RunResponse
+	48,  // 228: amux.v1.Amuxd.Info:output_type -> amux.v1.HubInfoResponse
+	99,  // 229: amux.v1.Amuxd.ListTargets:output_type -> amux.v1.ListTargetsResponse
+	101, // 230: amux.v1.Amuxd.FeishuStatus:output_type -> amux.v1.FeishuStatusResponse
+	104, // 231: amux.v1.Amuxd.FeishuBindings:output_type -> amux.v1.FeishuBindingsResponse
+	107, // 232: amux.v1.Amuxd.FeishuBots:output_type -> amux.v1.FeishuBotsResponse
+	233, // 233: amux.v1.Amuxd.SendFeishuMessage:output_type -> amux.v1.SendFeishuMessageResponse
+	112, // 234: amux.v1.Amuxd.FeishuBotSessionStatus:output_type -> amux.v1.FeishuBotSessionStatusResponse
+	112, // 235: amux.v1.Amuxd.FeishuBotSessionBind:output_type -> amux.v1.FeishuBotSessionStatusResponse
+	112, // 236: amux.v1.Amuxd.FeishuBotSessionOff:output_type -> amux.v1.FeishuBotSessionStatusResponse
+	116, // 237: amux.v1.Amuxd.FeishuContextExplain:output_type -> amux.v1.FeishuContextExplainResponse
+	50,  // 238: amux.v1.Amuxd.Kill:output_type -> amux.v1.KillResponse
+	30,  // 239: amux.v1.Amuxd.Restart:output_type -> amux.v1.RunResponse
+	53,  // 240: amux.v1.Amuxd.ChangeCwd:output_type -> amux.v1.ChangeCwdResponse
+	55,  // 241: amux.v1.Amuxd.Sleep:output_type -> amux.v1.SleepResponse
+	30,  // 242: amux.v1.Amuxd.Resume:output_type -> amux.v1.RunResponse
+	58,  // 243: amux.v1.Amuxd.Prune:output_type -> amux.v1.PruneResponse
+	60,  // 244: amux.v1.Amuxd.Interrupt:output_type -> amux.v1.InterruptResponse
+	62,  // 245: amux.v1.Amuxd.Attach:output_type -> amux.v1.AttachEvent
+	66,  // 246: amux.v1.Amuxd.Submit:output_type -> amux.v1.SubmitResponse
+	16,  // 247: amux.v1.Amuxd.Goal:output_type -> amux.v1.GoalResponse
+	82,  // 248: amux.v1.Amuxd.QueueList:output_type -> amux.v1.QueueListResponse
+	84,  // 249: amux.v1.Amuxd.QueueClear:output_type -> amux.v1.QueueClearResponse
+	86,  // 250: amux.v1.Amuxd.QueueCancel:output_type -> amux.v1.QueueCancelResponse
+	64,  // 251: amux.v1.Amuxd.RespondPermission:output_type -> amux.v1.RespondPermissionResponse
+	205, // 252: amux.v1.Amuxd.CreateSchedule:output_type -> amux.v1.CreateScheduleResponse
+	207, // 253: amux.v1.Amuxd.ListSchedules:output_type -> amux.v1.ListSchedulesResponse
+	209, // 254: amux.v1.Amuxd.GetSchedule:output_type -> amux.v1.GetScheduleResponse
+	211, // 255: amux.v1.Amuxd.DeleteSchedule:output_type -> amux.v1.DeleteScheduleResponse
+	213, // 256: amux.v1.Amuxd.UpdateSchedule:output_type -> amux.v1.UpdateScheduleResponse
+	215, // 257: amux.v1.Amuxd.SetScheduleEnabled:output_type -> amux.v1.SetScheduleEnabledResponse
+	217, // 258: amux.v1.Amuxd.TriggerSchedule:output_type -> amux.v1.TriggerScheduleResponse
+	246, // 259: amux.v1.Amuxd.GetTurnResult:output_type -> amux.v1.AmuxdGetTurnResultResponse
+	32,  // 260: amux.v1.Amuxd.MaterializeCredential:output_type -> amux.v1.MaterializeCredentialResponse
+	36,  // 261: amux.v1.Amuxd.SetCredential:output_type -> amux.v1.CredentialProfileMetadata
+	36,  // 262: amux.v1.Amuxd.GetCredential:output_type -> amux.v1.CredentialProfileMetadata
+	37,  // 263: amux.v1.Amuxd.ListCredentials:output_type -> amux.v1.ListCredentialsResponse
+	169, // 264: amux.v1.Amuxd.CreatePrincipal:output_type -> amux.v1.PrincipalResponse
+	174, // 265: amux.v1.Amuxd.ListPrincipals:output_type -> amux.v1.ListPrincipalsResponse
+	173, // 266: amux.v1.Amuxd.ListPrincipalAliases:output_type -> amux.v1.ListPrincipalAliasesResponse
+	169, // 267: amux.v1.Amuxd.DisablePrincipal:output_type -> amux.v1.PrincipalResponse
+	169, // 268: amux.v1.Amuxd.BindPrincipalAlias:output_type -> amux.v1.PrincipalResponse
+	178, // 269: amux.v1.Amuxd.GrantPrincipalDelegation:output_type -> amux.v1.GrantPrincipalDelegationResponse
+	181, // 270: amux.v1.Amuxd.RevokePrincipalDelegation:output_type -> amux.v1.EmptyResponse
+	181, // 271: amux.v1.Amuxd.GrantServicePrincipalMember:output_type -> amux.v1.EmptyResponse
+	181, // 272: amux.v1.Amuxd.RevokeServicePrincipalMember:output_type -> amux.v1.EmptyResponse
+	183, // 273: amux.v1.Amuxd.CreatePrincipalEnrollment:output_type -> amux.v1.CreatePrincipalEnrollmentResponse
+	185, // 274: amux.v1.Amuxd.GetIsolationStatus:output_type -> amux.v1.GetIsolationStatusResponse
+	26,  // 275: amux.v1.Amuxd.ListAgentProfiles:output_type -> amux.v1.ListAgentProfilesResponse
+	28,  // 276: amux.v1.Amuxd.GetAgentProfile:output_type -> amux.v1.GetAgentProfileResponse
+	77,  // 277: amux.v1.Amuxd.ReadLocalExpert:output_type -> amux.v1.ReadLocalExpertResponse
+	79,  // 278: amux.v1.Amuxd.ChangeLocalExpert:output_type -> amux.v1.ChangeLocalExpertResponse
+	3,   // 279: amux.v1.Amuxd.GetMemoryBinding:output_type -> amux.v1.MemoryBindingResponse
+	6,   // 280: amux.v1.Amuxd.MemorySearch:output_type -> amux.v1.MemorySearchResponse
+	8,   // 281: amux.v1.Amuxd.MemoryGet:output_type -> amux.v1.MemoryDocument
+	10,  // 282: amux.v1.Amuxd.MemoryUpsert:output_type -> amux.v1.MemoryWriteResponse
+	12,  // 283: amux.v1.Amuxd.MemoryForget:output_type -> amux.v1.MemoryForgetResponse
+	88,  // 284: amux.v1.Amuxd.Tunnel:output_type -> amux.v1.TunnelMsg
+	69,  // 285: amux.v1.AmuxTask.ResolveParentTurn:output_type -> amux.v1.ActiveTurnResponse
+	151, // 286: amux.v1.AmuxTask.SubmitSubtask:output_type -> amux.v1.SubmitSubtaskResponse
+	153, // 287: amux.v1.AmuxTask.GetSubtask:output_type -> amux.v1.GetSubtaskResponse
+	155, // 288: amux.v1.AmuxTask.ListSubtasks:output_type -> amux.v1.ListSubtasksResponse
+	159, // 289: amux.v1.AmuxTask.PruneSubtasks:output_type -> amux.v1.PruneSubtasksResponse
+	161, // 290: amux.v1.AmuxTask.CancelSubtask:output_type -> amux.v1.CancelSubtaskResponse
+	163, // 291: amux.v1.AmuxTask.RespondSubtaskPermission:output_type -> amux.v1.RespondSubtaskPermissionResponse
+	165, // 292: amux.v1.AmuxTask.StreamSubtask:output_type -> amux.v1.SubtaskEvent
+	189, // 293: amux.v1.AmuxTask.ListAgentInstances:output_type -> amux.v1.ListAgentInstancesResponse
+	191, // 294: amux.v1.AmuxTask.GetAgentInstance:output_type -> amux.v1.GetAgentInstanceResponse
+	193, // 295: amux.v1.AmuxTask.SendAgentMessage:output_type -> amux.v1.SendAgentMessageResponse
+	195, // 296: amux.v1.AmuxTask.InterruptAgentInstance:output_type -> amux.v1.InterruptAgentInstanceResponse
+	197, // 297: amux.v1.AmuxTask.WaitAgentInstance:output_type -> amux.v1.WaitAgentInstanceResponse
+	199, // 298: amux.v1.AmuxTask.DescribeAgentInstance:output_type -> amux.v1.DescribeAgentInstanceResponse
+	201, // 299: amux.v1.AmuxTask.CleanupAgentInstance:output_type -> amux.v1.CleanupAgentInstanceResponse
+	133, // 300: amux.v1.CoordinationService.ListCollaborators:output_type -> amux.v1.ListCollaboratorsResponse
+	141, // 301: amux.v1.CoordinationService.Delegate:output_type -> amux.v1.DelegateResponse
+	143, // 302: amux.v1.CoordinationService.GetDelegation:output_type -> amux.v1.GetDelegationResponse
+	145, // 303: amux.v1.CoordinationService.WaitDelegation:output_type -> amux.v1.WaitDelegationResponse
+	147, // 304: amux.v1.CoordinationService.InterveneDelegation:output_type -> amux.v1.InterveneDelegationResponse
+	149, // 305: amux.v1.CoordinationService.CancelDelegation:output_type -> amux.v1.CancelDelegationResponse
+	227, // 306: amux.v1.RuntimeMaintenance.Maintain:output_type -> amux.v1.MaintenanceResponse
+	199, // [199:307] is the sub-list for method output_type
+	91,  // [91:199] is the sub-list for method input_type
 	91,  // [91:91] is the sub-list for extension type_name
 	91,  // [91:91] is the sub-list for extension extendee
 	0,   // [0:91] is the sub-list for field type_name
@@ -19321,18 +19427,18 @@ func file_amux_v1_amux_proto_init() {
 	file_amux_v1_amux_proto_msgTypes[12].OneofWrappers = []any{}
 	file_amux_v1_amux_proto_msgTypes[13].OneofWrappers = []any{}
 	file_amux_v1_amux_proto_msgTypes[20].OneofWrappers = []any{}
-	file_amux_v1_amux_proto_msgTypes[67].OneofWrappers = []any{
+	file_amux_v1_amux_proto_msgTypes[68].OneofWrappers = []any{
 		(*InputPart_Text)(nil),
 		(*InputPart_Image)(nil),
 	}
-	file_amux_v1_amux_proto_msgTypes[209].OneofWrappers = []any{}
+	file_amux_v1_amux_proto_msgTypes[210].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_amux_v1_amux_proto_rawDesc), len(file_amux_v1_amux_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   255,
+			NumMessages:   256,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

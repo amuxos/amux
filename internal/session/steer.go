@@ -13,6 +13,12 @@ import (
 // active turn. Callers fall back to ordinary queued input.
 var ErrSteerUnavailable = errors.New("steer unavailable")
 
+// ErrQueuedSteerMissing reports that the requested input is no longer pending.
+var ErrQueuedSteerMissing = errors.New("steer target is not pending")
+
+// ErrQueuedSteerOrder reports that an earlier queue entry is still waiting.
+var ErrQueuedSteerOrder = fmt.Errorf("%w: earlier input is queued", ErrSteerUnavailable)
+
 // ErrSteerOutcomeUnknown reports that the provider may or may not have
 // accepted the input (a timeout or broken transport after the request was
 // sent). Callers must not queue the input again: it may already be running.
@@ -93,6 +99,45 @@ func FrameSteerInput(source string, input UserInput) UserInput {
 // message is never injected into an owner-privileged turn, and privileged
 // owner input is never downgraded into an unprivileged turn.
 func (s *Session) SteerInput(ctx context.Context, source string, input UserInput, expectedTurnID string, authorization TurnAuthorization) (string, error) {
+	return s.steerInput(ctx, source, input, expectedTurnID, authorization, false)
+}
+
+// SteerQueuedInput promotes the original queue head. While it is reserved,
+// even a concurrent turn completion cannot dispatch it as a separate turn.
+func (s *Session) SteerQueuedInput(ctx context.Context, queuedTurnID, activeTurnID string, authorization TurnAuthorization) (string, error) {
+	s.queueSteerMu.Lock()
+	defer s.queueSteerMu.Unlock()
+
+	s.queueMu.Lock()
+	var item *queuedInput
+	for _, pending := range s.queuePending {
+		if pending.TurnID == queuedTurnID {
+			item = pending
+			break
+		}
+	}
+	if item == nil {
+		s.queueMu.Unlock()
+		return "", ErrQueuedSteerMissing
+	}
+	head := s.queuePending[0] == item
+	s.queueMu.Unlock()
+	if !head {
+		return "", ErrQueuedSteerOrder
+	}
+	if item.Source != "lark" || item.preempt || item.Control != "" || item.lifecycle != nil ||
+		item.expectedAgentSessionID != "" || item.auth != authorization || activeTurnID == "" {
+		return "", ErrSteerUnavailable
+	}
+
+	turnID, err := s.steerInput(ctx, item.Source, FrameSteerInput(SteerNoteSourceUser, item.input), activeTurnID, authorization, true)
+	if err == nil || errors.Is(err, ErrSteerOutcomeUnknown) {
+		s.cancelPendingItem(item.ID, err)
+	}
+	return turnID, err
+}
+
+func (s *Session) steerInput(ctx context.Context, source string, input UserInput, expectedTurnID string, authorization TurnAuthorization, queueHead bool) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -136,7 +181,7 @@ func (s *Session) SteerInput(ctx context.Context, source string, input UserInput
 	s.queueMu.Lock()
 	pending := len(s.queuePending)
 	s.queueMu.Unlock()
-	if pending > 0 {
+	if pending > 0 && !queueHead {
 		return "", fmt.Errorf("%w: earlier input is queued", ErrSteerUnavailable)
 	}
 	// The provider checks TurnToken itself, so a turn that ends after the

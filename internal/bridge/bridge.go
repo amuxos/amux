@@ -150,6 +150,7 @@ type Bridge struct {
 	modelRecoveryQueueWaitSeconds atomic.Int64
 	modelRecoveryQueueWaitSet     atomic.Bool
 	queueNotice                   queueNoticeState
+	queuePromotions               queuePromotionState
 	steerObservers                steerObserverState
 	turnRecovery                  turnRecoveryState
 	subtaskCardController

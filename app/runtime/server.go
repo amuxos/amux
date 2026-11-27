@@ -1468,7 +1468,43 @@ func (s *server) Submit(ctx context.Context, req *pb.SubmitRequest) (_ *pb.Submi
 	sessionID, launchID = snap.ID, snap.LaunchID
 	log.Info().Str("session_id", snap.ID).Str("session", snap.Name).Str("launch_id", snap.LaunchID).
 		Str("turn_id", item.TurnID).Str("transport_request_id", requestID).Msg("session.submit.accepted")
-	return &pb.SubmitResponse{Ok: true, TurnId: item.TurnID, SessionId: snap.ID, LaunchId: snap.LaunchID, Delivery: delivery, SteerFallbackReason: steerFallback, InstructionsDelivery: instructionsDelivery}, nil
+	return &pb.SubmitResponse{Ok: true, TurnId: item.TurnID, SessionId: snap.ID, LaunchId: snap.LaunchID, Delivery: delivery, SteerFallbackReason: steerFallback, InstructionsDelivery: instructionsDelivery, Waiting: item.Waiting}, nil
+}
+
+// SteerQueued accepts only the trusted Bridge request and uses the input
+// already held by the Runtime. It cannot submit a new message.
+func (s *server) SteerQueued(ctx context.Context, req *pb.SteerQueuedRequest) (*pb.SubmitResponse, error) {
+	if !tunnel.IsTrustedSubmit(ctx) {
+		return nil, status.Error(codes.PermissionDenied, "queue promotion requires trusted tunnel provenance")
+	}
+	sess, err := s.mgr.Get(req.GetName())
+	if err != nil {
+		return &pb.SubmitResponse{Delivery: "unavailable"}, nil
+	}
+	if err := ownerGuard(sess); err != nil {
+		return nil, err
+	}
+	snap := sess.Snapshot()
+	if req.GetSessionId() == "" || req.GetSessionId() != snap.ID || req.GetLaunchId() == "" || req.GetLaunchId() != snap.LaunchID {
+		return &pb.SubmitResponse{Delivery: "unavailable"}, nil
+	}
+	turnID, err := sess.SteerQueuedInput(ctx, req.GetQueuedTurnId(), req.GetExpectedTurnId(),
+		session.TurnAuthorization{LocalExpertAuthoring: req.GetLocalExpertAuthoring()})
+	switch {
+	case err == nil:
+		if err := s.mgr.RecordActivity(sess, time.Now(), true); err != nil {
+			log.Warn().Err(err).Str("session_id", snap.ID).Msg("session: record activity after queue promotion")
+		}
+		return &pb.SubmitResponse{Ok: true, Delivery: "steered", TurnId: turnID, SessionId: snap.ID, LaunchId: snap.LaunchID}, nil
+	case errors.Is(err, session.ErrQueuedSteerOrder):
+		return &pb.SubmitResponse{Delivery: "queued", Waiting: true, SteerFallbackReason: "queue_order"}, nil
+	case errors.Is(err, session.ErrQueuedSteerMissing):
+		return &pb.SubmitResponse{Delivery: "unavailable"}, nil
+	case errors.Is(err, session.ErrSteerOutcomeUnknown):
+		return &pb.SubmitResponse{Delivery: "unknown"}, nil
+	default:
+		return &pb.SubmitResponse{Delivery: "queued", Waiting: true}, nil
+	}
 }
 
 func (s *server) GetActiveTurn(_ context.Context, req *pb.ActiveTurnRequest) (*pb.ActiveTurnResponse, error) {

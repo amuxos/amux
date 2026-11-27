@@ -2912,6 +2912,33 @@
   "session.queue.notice": {
     "other": "⏳ 已排队 %d 条消息，将在当前任务完成后处理"
   },
+  "session.queue.promotion.action": {
+    "other": "转入当前任务"
+  },
+  "session.queue.promotion.pending": {
+    "other": "你的消息已排队。轮到队首时，可以将它转入当前任务。"
+  },
+  "session.queue.promotion.unauthorized": {
+    "other": "仅原发送者可以执行此操作。"
+  },
+  "session.queue.promotion.processing": {
+    "other": "正在转入当前任务…"
+  },
+  "session.queue.promotion.steered": {
+    "other": "你的消息已加入当前任务。"
+  },
+  "session.queue.promotion.queued": {
+    "other": "你的消息仍在排队。当前任务暂时无法接收。"
+  },
+  "session.queue.promotion.order": {
+    "other": "前面还有待处理输入，你的消息仍在排队。"
+  },
+  "session.queue.promotion.unavailable": {
+    "other": "当前任务已无法使用此操作。"
+  },
+  "session.queue.promotion.unknown": {
+    "other": "无法确认消息送达。请先查看对话，再决定是否重发。"
+  },
   "session.placeholder.processing": {
     "other": "⏳ 处理中…"
   },

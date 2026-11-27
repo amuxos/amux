@@ -19,9 +19,8 @@ func isSteerOutcomeUnknown(err error) bool {
 // or another Bot (no sender) queues behind the turn instead.
 
 // busyInputMode returns the submit mode for input that may arrive while a
-// turn runs: steer pinned to the running turn when the sender owns it and
-// nothing is queued behind that turn, otherwise an ordinary queued submit
-// (appended to the end of the queue).
+// turn runs: steer pinned to the running turn when the sender owns it.
+// The Runtime is authoritative for queue order.
 func (c *turnCoalescer) busyInputMode(rootMsgID string, inputs []turnInputRef) submitMode {
 	if turnID, ok := c.steerTarget(rootMsgID, inputs); ok {
 		return submitMode{steer: true, steerExpectedTurnID: turnID}
@@ -46,12 +45,6 @@ func (c *turnCoalescer) steerTarget(rootMsgID string, inputs []turnInputRef) (st
 	c.steerMu.Lock()
 	defer c.steerMu.Unlock()
 	turnID := c.activeTurnIDs[rootMsgID]
-	if latest := c.latestTurnIDs[rootMsgID]; turnID != "" && latest != "" && latest != turnID {
-		// Queue policy: a newer submit is still waiting behind the running
-		// turn, so even the turn owner's message goes to the end of the
-		// queue instead of jumping ahead of it by steering.
-		return "", false
-	}
 	if turnID == "" {
 		// The stream has not reported the running turn: right after a submit
 		// (before turn_started) or after a stream reconnect. Pin the steer
@@ -103,6 +96,21 @@ func (c *turnCoalescer) recordTurnSenders(rootMsgID, turnID string, inputs []tur
 	for _, input := range inputs {
 		turns[turnID] = append(turns[turnID], strings.TrimSpace(input.OpenID))
 	}
+}
+
+func (c *turnCoalescer) currentSteerCandidate(rootMsgID string) string {
+	c.steerMu.Lock()
+	defer c.steerMu.Unlock()
+	if turnID := c.activeTurnIDs[rootMsgID]; turnID != "" {
+		return turnID
+	}
+	return c.latestTurnIDs[rootMsgID]
+}
+
+func (c *turnCoalescer) observedActiveTurn(rootMsgID string) string {
+	c.steerMu.Lock()
+	defer c.steerMu.Unlock()
+	return c.activeTurnIDs[rootMsgID]
 }
 
 // observeTurnStarted records the turn the session reports as running.

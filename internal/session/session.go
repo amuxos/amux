@@ -101,11 +101,13 @@ type Session struct {
 	procGeneration             uint64
 	intentionalCloseGeneration uint64
 
-	queueMu          sync.Mutex
-	queueBusy        bool
-	queueGoal        bool
-	queueNextID      int64
-	queuePending     []*queuedInput
+	queueMu      sync.Mutex
+	queueBusy    bool
+	queueGoal    bool
+	queueNextID  int64
+	queuePending []*queuedInput
+	// Serializes queue advancement and explicit promotion of a pending item.
+	queueSteerMu     sync.Mutex
 	queueIdle        chan struct{}
 	goalMu           sync.Mutex
 	goalControlMu    sync.Mutex
@@ -232,6 +234,7 @@ func (s *Session) SetEventTap(fn func(agentstream.Event) bool) {
 }
 
 type QueueItem struct {
+	Waiting   bool
 	ID        string
 	TurnID    string
 	Source    string
@@ -835,6 +838,8 @@ func (s *Session) QueueSnapshot() []QueueItem {
 }
 
 func (s *Session) ClearQueue() int {
+	s.queueSteerMu.Lock()
+	defer s.queueSteerMu.Unlock()
 	s.queueMu.Lock()
 	pending := s.queuePending
 	s.queuePending = nil
@@ -847,6 +852,8 @@ func (s *Session) ClearQueue() int {
 }
 
 func (s *Session) CancelQueueItem(id string) bool {
+	s.queueSteerMu.Lock()
+	defer s.queueSteerMu.Unlock()
 	return s.cancelPendingItem(id, ErrQueueItemCancelled)
 }
 
@@ -1011,6 +1018,7 @@ func (s *Session) enqueueInputWithControlAndParts(source, text, control string, 
 		done:                   make(chan error, 1),
 	}
 	if s.queueBusy {
+		item.Waiting = true
 		s.queuePending = append(s.queuePending, item)
 		return item
 	}
@@ -1065,6 +1073,8 @@ func (s *Session) advanceInputQueue() {
 // advanceInputQueueWith runs beforeLocked (if any) under queueMu, then
 // starts the next pending input or marks the queue idle.
 func (s *Session) advanceInputQueueWith(beforeLocked func()) {
+	s.queueSteerMu.Lock()
+	defer s.queueSteerMu.Unlock()
 	s.queueMu.Lock()
 	if beforeLocked != nil {
 		beforeLocked()
