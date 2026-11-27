@@ -51,6 +51,7 @@ func (h *fakeSubmitHub) Route(ctx context.Context, _, method string, payload int
 }
 
 func TestCoalescedInputPersistsEveryMessageToOneTurn(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db, err := openBridgeDB(path)
 	if err != nil {
@@ -84,6 +85,7 @@ func TestCoalescedInputPersistsEveryMessageToOneTurn(t *testing.T) {
 }
 
 func TestCoalescedInputWaitsForInterruptBeforeSubmitting(t *testing.T) {
+	t.Parallel()
 	gate := make(chan struct{})
 	hub := &fakeSubmitHub{interruptGate: gate}
 	b := &Bridge{
@@ -107,6 +109,7 @@ func TestCoalescedInputWaitsForInterruptBeforeSubmitting(t *testing.T) {
 }
 
 func TestCoalescedInputRetriesPreemptWhenImmediateInterruptFails(t *testing.T) {
+	t.Parallel()
 	hub := &fakeSubmitHub{interruptErr: context.DeadlineExceeded}
 	b := &Bridge{
 		hub:           hub,
@@ -152,6 +155,7 @@ func (h *fakeSubmitHub) interruptCount() int {
 }
 
 func TestSubmitToSessionPreemptsAndMarksTurnActive(t *testing.T) {
+	t.Parallel()
 	hub := &fakeSubmitHub{}
 	b := &Bridge{hub: hub, turnCoalescer: turnCoalescer{}}
 	chat := &LarkChat{RootMsgID: "root1", TargetID: "t1", SessionName: "s1"}
@@ -173,6 +177,7 @@ func TestSubmitToSessionPreemptsAndMarksTurnActive(t *testing.T) {
 }
 
 func TestSubmitCarriesLocalExpertGrantOnlyForStrictOwnerInput(t *testing.T) {
+	t.Parallel()
 	hub := &fakeSubmitHub{}
 	b := &Bridge{hub: hub, secrets: &Secrets{OpenId: "owner"}}
 	owner := b.botSessionChat(&BotSession{TargetID: "t1", SessionName: "s1"}, botSessionInput{OpenID: "owner"})
@@ -190,6 +195,7 @@ func TestSubmitCarriesLocalExpertGrantOnlyForStrictOwnerInput(t *testing.T) {
 }
 
 func TestCoalescedMixedSenderInputDropsLocalExpertGrant(t *testing.T) {
+	t.Parallel()
 	hub := &fakeSubmitHub{}
 	b := &Bridge{
 		hub:           hub,
@@ -213,6 +219,7 @@ func (h *failingSubmitHub) Route(_ context.Context, _, _ string, _ interface{}) 
 }
 
 func TestDirectSubmitFailureClearsTurnActive(t *testing.T) {
+	t.Parallel()
 	hub := &failingSubmitHub{}
 	b := &Bridge{hub: hub}
 	chat := &LarkChat{RootMsgID: "root1", TargetID: "t1", SessionName: "s1"}
@@ -226,6 +233,7 @@ func TestDirectSubmitFailureClearsTurnActive(t *testing.T) {
 }
 
 func TestCoalescedSubmitFailureCallsNotifier(t *testing.T) {
+	t.Parallel()
 	hub := &failingSubmitHub{}
 	b := &Bridge{
 		hub:           hub,
@@ -249,6 +257,7 @@ func TestCoalescedSubmitFailureCallsNotifier(t *testing.T) {
 }
 
 func TestCoalescedInputsFlushAsSinglePreempt(t *testing.T) {
+	t.Parallel()
 	hub := &fakeSubmitHub{}
 	b := &Bridge{
 		hub:           hub,
@@ -296,6 +305,7 @@ func TestCoalescedInputsFlushAsSinglePreempt(t *testing.T) {
 }
 
 func TestPendingCoalesceWindowRemainsActiveAfterOldTurnFinishes(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	b.coalesced = map[string]*coalescedInput{"root1": {}}
 
@@ -312,6 +322,7 @@ func ownTurn(b *Bridge, rootMsgID, turnID, openID string) {
 }
 
 func TestBusyInputSteersByDefaultWithoutInterrupt(t *testing.T) {
+	t.Parallel()
 	hub := &fakeSubmitHub{}
 	b := &Bridge{
 		hub:           hub,
@@ -343,6 +354,7 @@ func TestBusyInputSteersByDefaultWithoutInterrupt(t *testing.T) {
 }
 
 func TestBusyInputFromAnotherSenderQueuesInsteadOfSteering(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		inputs []turnInputRef
@@ -374,6 +386,7 @@ func TestBusyInputFromAnotherSenderQueuesInsteadOfSteering(t *testing.T) {
 }
 
 func TestSteerTargetFollowsTheRunningTurn(t *testing.T) {
+	t.Parallel()
 	var c turnCoalescer
 	own := compactTurnInputRefs("ou-a", "om-1")
 	if _, ok := c.steerTarget("root1", own); ok {
@@ -405,6 +418,7 @@ func TestSteerTargetFollowsTheRunningTurn(t *testing.T) {
 }
 
 func TestSteerTargetBeforeTurnStartedUsesSubmitReceipt(t *testing.T) {
+	t.Parallel()
 	var c turnCoalescer
 	own := compactTurnInputRefs("ou-a", "om-1")
 	// Rapid second message: submitted, turn_started not yet seen.
@@ -421,6 +435,7 @@ func TestSteerTargetBeforeTurnStartedUsesSubmitReceipt(t *testing.T) {
 }
 
 func TestSteerTargetSurvivesStreamReconnect(t *testing.T) {
+	t.Parallel()
 	var c turnCoalescer
 	own := compactTurnInputRefs("ou-a", "om-1")
 	c.recordTurnSenders("root1", "turn-0", compactTurnInputRefs("ou-b", "om-0"))
@@ -439,6 +454,7 @@ func TestSteerTargetSurvivesStreamReconnect(t *testing.T) {
 }
 
 func TestSteerTargetWithoutAnyRecordQueues(t *testing.T) {
+	t.Parallel()
 	var c turnCoalescer
 	// After a bridge restart nothing is known about the running turn: queue.
 	if _, ok := c.steerTarget("root1", compactTurnInputRefs("ou-a", "om-1")); ok {
@@ -469,6 +485,7 @@ func TestBusyInputEnvRestoresInterrupt(t *testing.T) {
 }
 
 func TestIdleSubmitQueuesWithoutPreempt(t *testing.T) {
+	t.Parallel()
 	hub := &fakeSubmitHub{}
 	b := &Bridge{hub: hub}
 	b.steerForeground.Store(true)
@@ -483,6 +500,7 @@ func TestIdleSubmitQueuesWithoutPreempt(t *testing.T) {
 }
 
 func TestIdleSubmitSteersAnUnexpectedlyRunningOwnTurn(t *testing.T) {
+	t.Parallel()
 	hub := &fakeSubmitHub{}
 	b := &Bridge{hub: hub}
 	b.steerForeground.Store(true)
@@ -497,6 +515,7 @@ func TestIdleSubmitSteersAnUnexpectedlyRunningOwnTurn(t *testing.T) {
 }
 
 func TestSteerOutcomeUnknownGetsDuplicateWarning(t *testing.T) {
+	t.Parallel()
 	err := errors.New("route Submit: rpc error: code = Unknown desc = steer outcome unknown; the input was not queued again to avoid running it twice: closed pipe")
 	if !isSteerOutcomeUnknown(err) {
 		t.Fatal("routed outcome-unknown error not recognized")

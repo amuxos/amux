@@ -8,6 +8,7 @@ import (
 )
 
 func TestAssistantProgressKeepsLatestSummaryAndLastCompleteMessage(t *testing.T) {
+	t.Parallel()
 	var progress assistantProgress
 
 	if got := progress.Append("我先检查仓库。\n正在查看 MR "); got != "我先检查仓库。\n正在查看 MR" {
@@ -40,6 +41,7 @@ func TestAssistantProgressKeepsLatestSummaryAndLastCompleteMessage(t *testing.T)
 }
 
 func TestAssistantResultFallbackRejectsFailedAndInterruptedTurns(t *testing.T) {
+	t.Parallel()
 	for _, turn := range []agentui.TurnEvent{
 		{State: "failed"},
 		{State: "stopped"},
@@ -55,6 +57,7 @@ func TestAssistantResultFallbackRejectsFailedAndInterruptedTurns(t *testing.T) {
 }
 
 func TestAssistantProgressSummaryIsBoundedAndResettable(t *testing.T) {
+	t.Parallel()
 	var progress assistantProgress
 	input := "开始" + strings.Repeat("进", maxAssistantProgressRunes+20) + "最新"
 	got := progress.Append(input)
@@ -69,6 +72,7 @@ func TestAssistantProgressSummaryIsBoundedAndResettable(t *testing.T) {
 }
 
 func TestAssistantProgressRetainsCompletedMessagesInOrder(t *testing.T) {
+	t.Parallel()
 	var progress assistantProgress
 	for _, message := range []string{"先检查仓库状态。", "再运行聚焦测试。", "最后核对变更。"} {
 		progress.Append(message)
@@ -84,6 +88,7 @@ func TestAssistantProgressRetainsCompletedMessagesInOrder(t *testing.T) {
 }
 
 func TestAssistantProgressReconcileResultRemovesOnlyLatestExactSuffix(t *testing.T) {
+	t.Parallel()
 	var progress assistantProgress
 	progress.Append("先检查仓库状态。")
 	progress.Boundary()
@@ -98,6 +103,7 @@ func TestAssistantProgressReconcileResultRemovesOnlyLatestExactSuffix(t *testing
 }
 
 func TestAssistantProgressReconcileCompletedResultKeepsEarlierMessages(t *testing.T) {
+	t.Parallel()
 	var progress assistantProgress
 	for _, message := range []string{"先检查仓库。", "再运行测试。", "最终答案"} {
 		progress.Append(message)
@@ -110,6 +116,7 @@ func TestAssistantProgressReconcileCompletedResultKeepsEarlierMessages(t *testin
 }
 
 func TestAssistantProgressReconcileResultDoesNotRewriteEarlierOrFuzzyMatches(t *testing.T) {
+	t.Parallel()
 	var progress assistantProgress
 	progress.Append("最终答案曾在这里作为讨论对象。")
 	progress.Boundary()
@@ -122,6 +129,7 @@ func TestAssistantProgressReconcileResultDoesNotRewriteEarlierOrFuzzyMatches(t *
 }
 
 func TestAssistantProgressWithoutResultKeepsLastMessageFallback(t *testing.T) {
+	t.Parallel()
 	var progress assistantProgress
 	progress.Append("处理说明。")
 	progress.Boundary()
@@ -138,6 +146,7 @@ func TestAssistantProgressWithoutResultKeepsLastMessageFallback(t *testing.T) {
 }
 
 func TestMergeSteeredFinalAnswerKeepsEachSteerInOrder(t *testing.T) {
+	t.Parallel()
 	got := mergeSteeredFinalAnswer([]string{"DONE-FG", "收到甲", "收到乙", "收到丙"}, "收到丙")
 	want := "DONE-FG\n\n收到甲\n\n收到乙\n\n收到丙"
 	if got != want {
@@ -146,6 +155,7 @@ func TestMergeSteeredFinalAnswerKeepsEachSteerInOrder(t *testing.T) {
 }
 
 func TestMergeSteeredFinalAnswerDropsExactDuplicates(t *testing.T) {
+	t.Parallel()
 	got := mergeSteeredFinalAnswer([]string{"收到甲", "收到甲", "收到乙"}, "收到乙")
 	want := "收到甲\n\n收到乙"
 	if got != want {
@@ -154,6 +164,7 @@ func TestMergeSteeredFinalAnswerDropsExactDuplicates(t *testing.T) {
 }
 
 func TestMergeSteeredFinalAnswerPrefersComprehensiveResult(t *testing.T) {
+	t.Parallel()
 	progress := "我直接执行，等待 45 秒后读取 README 的第一行。"
 	result := "已直接执行 sleep 45。README 第一行是 amux。另外，7 × 8 = 56。"
 	got := mergeSteeredFinalAnswer([]string{progress}, result)
@@ -163,6 +174,7 @@ func TestMergeSteeredFinalAnswerPrefersComprehensiveResult(t *testing.T) {
 }
 
 func TestMergeSteeredFinalAnswerUsesProviderMergedResult(t *testing.T) {
+	t.Parallel()
 	result := "DONE-FG\n\n收到甲\n\n收到乙\n\n收到丙"
 	got := mergeSteeredFinalAnswer([]string{"DONE-FG", "收到甲", "收到乙", "收到丙"}, result)
 	if got != result {

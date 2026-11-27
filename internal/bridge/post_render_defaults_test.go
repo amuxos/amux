@@ -8,6 +8,7 @@ import (
 )
 
 func TestPublicBrandFooterLinksToHomepage(t *testing.T) {
+	t.Parallel()
 	if distribution.BrandURL != "https://amuxos.com/" {
 		t.Fatalf("public brand URL = %q", distribution.BrandURL)
 	}

@@ -12,6 +12,7 @@ import (
 )
 
 func TestSubtaskCardUsageRemainsIndependentAndSurvivesFinalization(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	live := json.RawMessage(`{"total_tokens":120,"cumulative_input_tokens":343000,"cumulative_cached_input_tokens":300000,"cumulative_output_tokens":12000}`)
 	final := json.RawMessage(`{"total_tokens":130,"cumulative_input_tokens":343100,"cumulative_cached_input_tokens":300000,"cumulative_output_tokens":12020}`)
@@ -47,6 +48,7 @@ func TestSubtaskCardUsageRemainsIndependentAndSurvivesFinalization(t *testing.T)
 // A long-running child accumulates past k; the child card scales magnitude
 // units the same way the main card does.
 func TestSubtaskCardUsageAdaptsMagnitudeUnit(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	state := newSubtaskCardState(subtaskProgress{ID: "task-a", Status: "running", StartedAt: now})
 	state.applyEvent(subtaskEvent{TaskID: "task-a", Seq: 1, Kind: "usage", Usage: []byte(`{"cumulative_input_tokens":128400000,"cumulative_cached_input_tokens":300000,"cumulative_output_tokens":10500000}`)})
@@ -60,6 +62,7 @@ func TestSubtaskCardUsageAdaptsMagnitudeUnit(t *testing.T) {
 }
 
 func TestReadSubtaskProgressRestoresFinalUsage(t *testing.T) {
+	t.Parallel()
 	usage := []byte(`{"cumulative_input_tokens":343000,"cumulative_cached_input_tokens":300000,"cumulative_output_tokens":12000}`)
 	raw, err := json.Marshal(map[string]any{
 		"id": "task-1", "status": "succeeded", "result": map[string]any{"summary": "done", "usage_json": usage},

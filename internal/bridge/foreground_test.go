@@ -11,6 +11,7 @@ import (
 )
 
 func TestForegroundInstructionsOffByDefault(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	chat := &LarkChat{BridgeId: "b1", RootMsgID: singletonStreamKey("b1"), TargetID: "t", SessionName: "s"}
 	if got := b.sessionSystemInstructions(chat); got != "" {
@@ -25,6 +26,7 @@ func TestForegroundInstructionsOffByDefault(t *testing.T) {
 }
 
 func TestForegroundInstructionsEveryTurnOutOfBand(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	b.steerForeground.Store(true)
 	singleton := &LarkChat{BridgeId: "b1", RootMsgID: singletonStreamKey("b1"), TargetID: "t", SessionName: "main"}
@@ -47,6 +49,7 @@ func TestForegroundInstructionsEveryTurnOutOfBand(t *testing.T) {
 }
 
 func TestForegroundProtocolContent(t *testing.T) {
+	t.Parallel()
 	text := foregroundInstructions
 	if n := len([]rune(text)); n >= 300 {
 		t.Fatalf("protocol too long: %d runes", n)

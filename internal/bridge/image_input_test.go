@@ -55,6 +55,7 @@ func bridgeTestPNG(t *testing.T) []byte {
 }
 
 func TestParseFeishuImageRefs(t *testing.T) {
+	t.Parallel()
 	standalone := `{"image_key":"img-1"}`
 	refs := parseFeishuImageRefs("om-1", &standalone)
 	if len(refs) != 1 || refs[0].messageID != "om-1" || refs[0].imageKey != "img-1" {
@@ -112,6 +113,7 @@ func TestBotToBotHandoffSubmitsNativePostImage(t *testing.T) {
 }
 
 func TestMultipartSubmitDoesNotDownloadForUnsupportedModel(t *testing.T) {
+	t.Parallel()
 	hub := &bridgeTestHub{targets: []*pb.Target{{Id: "t1", Sessions: []*pb.Session{{Name: "s1", EffectiveModel: "text-model", InputModalities: []string{"text"}}}}}}
 	b := &Bridge{
 		hub:              hub,
@@ -135,6 +137,7 @@ func TestMultipartSubmitDoesNotDownloadForUnsupportedModel(t *testing.T) {
 }
 
 func TestMultipartSubmitConvertsGIFToPNGPreview(t *testing.T) {
+	t.Parallel()
 	palette := color.Palette{color.RGBA{R: 255, A: 255}, color.RGBA{B: 255, A: 255}}
 	first := image.NewPaletted(image.Rect(0, 0, 2, 2), palette)
 	second := image.NewPaletted(image.Rect(0, 0, 2, 2), palette)
@@ -168,6 +171,7 @@ func TestMultipartSubmitConvertsGIFToPNGPreview(t *testing.T) {
 }
 
 func TestGIFPreviewRejectsOversizedCanvas(t *testing.T) {
+	t.Parallel()
 	palette := color.Palette{color.Black, color.White}
 	frame := image.NewPaletted(image.Rect(0, 0, 2, 2), palette)
 	var data bytes.Buffer
@@ -184,6 +188,7 @@ func TestGIFPreviewRejectsOversizedCanvas(t *testing.T) {
 }
 
 func TestMultipartSubmitAcceptsAtMostTenImages(t *testing.T) {
+	t.Parallel()
 	hub := &bridgeTestHub{targets: []*pb.Target{{Id: "t1", Sessions: []*pb.Session{{Name: "s1", InputModalities: []string{"text", "image"}}}}}}
 	b := &Bridge{
 		hub:           hub,
@@ -207,6 +212,7 @@ func TestMultipartSubmitAcceptsAtMostTenImages(t *testing.T) {
 }
 
 func TestMultipartSubmitNotifiesWhenAllImagesFailButContinuesText(t *testing.T) {
+	t.Parallel()
 	hub := &bridgeTestHub{targets: []*pb.Target{{Id: "t1", Sessions: []*pb.Session{{Name: "s1", InputModalities: []string{"text", "image"}}}}}}
 	var notice string
 	b := &Bridge{
@@ -231,6 +237,7 @@ func TestMultipartSubmitNotifiesWhenAllImagesFailButContinuesText(t *testing.T) 
 }
 
 func TestMultipartSubmitWaitsForFreshSessionImageCapability(t *testing.T) {
+	t.Parallel()
 	hub := &delayedImageCapabilityHub{
 		targets: []*pb.Target{{Id: "t1", Sessions: []*pb.Session{{Name: "s1", State: "running"}}}},
 		lists: []*pb.ListResponse{

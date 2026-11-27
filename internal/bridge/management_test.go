@@ -1173,6 +1173,7 @@ func TestManagementCardActionSaveUnchangedInteraction(t *testing.T) {
 }
 
 func TestManagementDecomposeInteraction(t *testing.T) {
+	t.Parallel()
 	interaction, isol := managementDecomposeInteraction(interactionModeThreadIsolated)
 	if interaction != config.FeishuInteractionThread || !isol {
 		t.Fatalf("decompose isolated = (%q, %v), want (thread, true)", interaction, isol)
@@ -1186,6 +1187,7 @@ func TestManagementDecomposeInteraction(t *testing.T) {
 }
 
 func TestManagementExecutionDiffersBackfillsExplicitRuntime(t *testing.T) {
+	t.Parallel()
 	state := managementState{Mode: config.FeishuInteractionSingleton, DefaultAgent: "builtin/codex"}
 	draft := managementSettingsDraft{
 		Interaction: config.FeishuInteractionSingleton, DefaultAgent: "builtin/codex", DefaultRuntimeRef: "codex",
@@ -1223,6 +1225,7 @@ func countCardJSONTaggedNodes(t *testing.T, card string) int {
 }
 
 func TestRenderAgentPackStatusCardsUseExpertLibraryLanguage(t *testing.T) {
+	t.Parallel()
 	for name, card := range map[string]string{
 		"installing": renderAgentPackOperationCard(managementActionPackInstall),
 		"syncing":    renderAgentPackOperationCard(managementActionPackSync),
@@ -1250,6 +1253,7 @@ func TestRenderAgentPackStatusCardsUseExpertLibraryLanguage(t *testing.T) {
 }
 
 func TestRenderSettingsEditCardKeepsLargeProfileCatalogWithinCardLimit(t *testing.T) {
+	t.Parallel()
 	profiles := make([]managementProfileSummary, 0, 80)
 	for i := 0; i < 80; i++ {
 		ref := fmt.Sprintf("expert-agents/profile-%02d", i)
@@ -1355,6 +1359,7 @@ func TestManagementStatePreservesExactUnavailableCurrentProfile(t *testing.T) {
 }
 
 func TestRenderSettingsEditCardExplainsMissingProfileConfiguration(t *testing.T) {
+	t.Parallel()
 	card := renderSettingsEditCard(
 		managementState{Mode: "thread"},
 		managementSettingsDraft{Interaction: "thread"},
@@ -1451,6 +1456,7 @@ func TestManagementCardActionRejectsNonOwner(t *testing.T) {
 }
 
 func TestRenderManagementOverviewCardPromptsCachedUpdate(t *testing.T) {
+	t.Parallel()
 	card := renderManagementOverviewCard(managementState{
 		SystemStatus: managementSystemHealthy,
 		Targets:      2,
@@ -1469,6 +1475,7 @@ func TestRenderManagementOverviewCardPromptsCachedUpdate(t *testing.T) {
 }
 
 func TestRenderSystemMaintenanceCardPrioritizesRecoveryWhenAttention(t *testing.T) {
+	t.Parallel()
 	card := renderSystemMaintenanceCardForSurface(
 		managementState{SystemStatus: managementSystemAttention},
 		managementSurfaceAmux,
@@ -1490,6 +1497,7 @@ func TestRenderSystemMaintenanceCardPrioritizesRecoveryWhenAttention(t *testing.
 }
 
 func TestManagementUptimeText(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.Local)
 	for name, tt := range map[string]struct {
 		startedAt time.Time
@@ -2044,6 +2052,7 @@ func managementElementActions(element cardElement) []string {
 }
 
 func TestBotToBotCapabilityAppearsInDirectoryWithPermissionCheck(t *testing.T) {
+	t.Parallel()
 	state := managementState{
 		Mode: config.FeishuInteractionThread,
 		BotToBot: config.BridgeFeishuBotToBotConfig{
@@ -2201,6 +2210,7 @@ max_turns_per_thread = 10
 }
 
 func TestSetBotToBotForProfileSerializesPersistenceAndRuntime(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{
 		botCoordinationState: botCoordinationState{botToBot: config.BridgeFeishuBotToBotConfig{MaxTurnsPerThread: 10}},
 	}
@@ -2655,6 +2665,7 @@ func TestHandleP2PChatEnteredSkipsAlreadyConfirmedOwner(t *testing.T) {
 }
 
 func TestIsAmuxManagementCommand(t *testing.T) {
+	t.Parallel()
 	if !isAmuxManagementCommand("/amux") {
 		t.Fatal("/amux must be recognized as the management command")
 	}
@@ -2824,6 +2835,7 @@ func TestAmuxCommandSendsCompactOverviewCard(t *testing.T) {
 }
 
 func TestManagementOverviewKeepsOneStatusBlockAndPromotesSystemOnlyWhenAttention(t *testing.T) {
+	t.Parallel()
 	healthy := renderManagementOverviewCard(managementState{
 		Mode:                   config.FeishuInteractionThread,
 		SystemStatus:           managementSystemHealthy,
@@ -3092,6 +3104,7 @@ func TestAmuxHelpViewUsesCompactNaturalEntryGuide(t *testing.T) {
 }
 
 func TestAmuxSystemStatusUsesStableBackAndSafeActionHierarchy(t *testing.T) {
+	t.Parallel()
 	card := renderSystemMaintenanceCardForSurface(
 		managementState{SystemStatus: managementSystemHealthy},
 		managementSurfaceAmux,
@@ -3159,6 +3172,7 @@ func findManagementButtonByAction(t *testing.T, card, action string) cardElement
 }
 
 func TestLoadedExpertLibraryKeepsOnlySelectionAndManagementActions(t *testing.T) {
+	t.Parallel()
 	elements := managementLoadedPackElements(
 		agentprofile.LoadedPackState{
 			Namespace:       "team",
@@ -3192,6 +3206,7 @@ func TestLoadedExpertLibraryKeepsOnlySelectionAndManagementActions(t *testing.T)
 }
 
 func TestAmuxSettingsFailureKeepsFocusedRecoveryFlow(t *testing.T) {
+	t.Parallel()
 	card := renderSettingsFailureCardForSurface(
 		managementState{
 			Mode:           config.FeishuInteractionThread,
@@ -3219,6 +3234,7 @@ func TestAmuxSettingsFailureKeepsFocusedRecoveryFlow(t *testing.T) {
 }
 
 func TestSettingsFailureReasonRedactsCredentials(t *testing.T) {
+	t.Parallel()
 	message := managementSettingsFailureMessage(errors.New("provider rejected token=secret-value and Bearer abcdefghijklmnop"))
 	if !strings.Contains(managementDefaultText(message), "provider rejected") || !strings.Contains(managementDefaultText(message), "[REDACTED]") {
 		t.Fatalf("message = %q, want concrete redacted reason", message)
@@ -3231,6 +3247,7 @@ func TestSettingsFailureReasonRedactsCredentials(t *testing.T) {
 }
 
 func TestAmuxLibraryCardIncludesStableBackWithinSafetyBudget(t *testing.T) {
+	t.Parallel()
 	loaded := make([]agentprofile.LoadedPackState, 0, 40)
 	for i := 0; i < 40; i++ {
 		loaded = append(loaded, agentprofile.LoadedPackState{
@@ -3266,6 +3283,7 @@ func TestAmuxLibraryCardIncludesStableBackWithinSafetyBudget(t *testing.T) {
 }
 
 func TestAmuxLibraryFallbackCardsUseStableOverviewBack(t *testing.T) {
+	t.Parallel()
 	cards := map[string]string{
 		"too_large": renderAgentPackLibraryPageTooLargeCard(managementPackLibraryView{
 			Section: managementPackLibrarySectionLoaded,

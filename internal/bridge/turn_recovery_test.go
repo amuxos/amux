@@ -29,10 +29,10 @@ type turnRecoveryRouteCall struct {
 }
 
 type turnRecoveryTestHub struct {
-	mu        sync.Mutex
-	targets   []*pb.Target
-	calls     []turnRecoveryRouteCall
-	onRoute   func(targetID, method string, payload any) (*pb.TunnelMsg, error)
+	mu      sync.Mutex
+	targets []*pb.Target
+	calls   []turnRecoveryRouteCall
+	onRoute func(targetID, method string, payload any) (*pb.TunnelMsg, error)
 }
 
 func (h *turnRecoveryTestHub) ListTargets() []*pb.Target {
@@ -94,6 +94,7 @@ func (h *turnRecoveryTestHub) snapshotCalls() []turnRecoveryRouteCall {
 }
 
 func TestTurnRecoveryQueuedThreshold60s(t *testing.T) {
+	t.Parallel()
 	started := time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC)
 	base := toolActivityCardMeta{
 		AgentType:      "codex",
@@ -161,6 +162,7 @@ func TestTurnRecoveryQueuedThreshold60s(t *testing.T) {
 }
 
 func TestTurnRecoveryCardBilingualAndInPlaceElement(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 11, 24, 10, 1, 30, 0, time.UTC)
 	for _, reason := range []string{modelRecoveryReasonRateLimit, modelRecoveryReasonQueued} {
 		t.Run(reason, func(t *testing.T) {
@@ -233,6 +235,7 @@ func TestTurnRecoveryCardBilingualAndInPlaceElement(t *testing.T) {
 }
 
 func TestTurnRecoveryClickAuthIdempotencyAndReplay(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -372,6 +375,7 @@ func TestTurnRecoveryClickAuthIdempotencyAndReplay(t *testing.T) {
 }
 
 func TestTurnRecoverySkipsReplayWhenToolsExecuted(t *testing.T) {
+	t.Parallel()
 	hub := &turnRecoveryTestHub{
 		targets: []*pb.Target{{
 			Id: "local",
@@ -437,6 +441,7 @@ func TestTurnRecoverySkipsReplayWhenToolsExecuted(t *testing.T) {
 }
 
 func TestTurnRecoveryOmitsOversizedImages(t *testing.T) {
+	t.Parallel()
 	big := make([]byte, modelRecoveryMaxImageBytes+1)
 	parts := []*pb.InputPart{
 		{Value: &pb.InputPart_Text{Text: "check image"}},
@@ -488,6 +493,7 @@ func TestTurnRecoveryExtensionHookRankingAndFallback(t *testing.T) {
 }
 
 func TestTurnRecoverySelectOtherModelOption(t *testing.T) {
+	t.Parallel()
 	hub := &turnRecoveryTestHub{
 		targets: []*pb.Target{{
 			Id: "local",
@@ -544,6 +550,7 @@ func TestTurnRecoverySelectOtherModelOption(t *testing.T) {
 }
 
 func TestTurnRecoveryUpdatesLiveStreamEffectiveModelInPlace(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)

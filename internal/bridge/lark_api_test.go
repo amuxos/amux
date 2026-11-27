@@ -12,6 +12,7 @@ import (
 )
 
 func TestFetchTopicRootMessageGetsAndNormalizesPost(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -76,6 +77,7 @@ func TestFetchTopicRootMessageGetsAndNormalizesPost(t *testing.T) {
 }
 
 func TestFetchTopicRootMessageAcceptsAppSender(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -125,6 +127,7 @@ func TestFetchTopicRootMessageAcceptsAppSender(t *testing.T) {
 }
 
 func TestFetchQuotedMessageExtractsInteractiveCard(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -172,6 +175,7 @@ func TestFetchQuotedMessageExtractsInteractiveCard(t *testing.T) {
 }
 
 func TestFetchQuotedMessageRejectsDeletedMessage(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -199,6 +203,7 @@ func TestFetchQuotedMessageRejectsDeletedMessage(t *testing.T) {
 }
 
 func TestSendTurnInitiatorMentionFinalUsesNativeMentionAnswerAndUUID(t *testing.T) {
+	t.Parallel()
 	var body map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -235,6 +240,7 @@ func TestSendTurnInitiatorMentionFinalUsesNativeMentionAnswerAndUUID(t *testing.
 }
 
 func TestReplyMentionCompactionPatchesExistingMessageWithLocalizedCompletionCard(t *testing.T) {
+	t.Parallel()
 	var patchedContent string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

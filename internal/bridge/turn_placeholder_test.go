@@ -249,6 +249,7 @@ func TestQueuedTurnGetsPlaceholderOnlyWhenItStarts(t *testing.T) {
 }
 
 func TestTurnPlaceholderStateMachine(t *testing.T) {
+	t.Parallel()
 	now := time.Unix(1000, 0)
 	p := &turnPlaceholder{now: func() time.Time { return now }}
 	if p.Fail("x") {
@@ -276,6 +277,7 @@ func TestTurnPlaceholderStateMachine(t *testing.T) {
 }
 
 func TestRenderPlaceholderStatus(t *testing.T) {
+	t.Parallel()
 	start := time.Unix(1000, 0)
 	meta := toolActivityCardMeta{Status: "running", Placeholder: true, Now: start.Add(12 * time.Second),
 		Activity: &agentui.ActivityView{Status: "running", StartedAt: start}}

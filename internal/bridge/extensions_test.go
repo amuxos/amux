@@ -13,6 +13,7 @@ import (
 )
 
 func TestExtensionRegistrationLifecycle(t *testing.T) {
+	t.Parallel()
 	var fresh extensionRegistry
 	if err := fresh.register(Extension{}); err != nil {
 		t.Fatal(err)
@@ -89,6 +90,7 @@ func TestBridgeExtensionWiring(t *testing.T) {
 }
 
 func TestDefaultProfileReplacementPolicyIsImmutableAndIdempotent(t *testing.T) {
+	t.Parallel()
 	for _, replacements := range []map[string]string{
 		{"": "current"}, {"old": ""}, {"old": "old"}, {"old": "middle", "middle": "current"},
 	} {

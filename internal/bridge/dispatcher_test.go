@@ -6,6 +6,7 @@ import (
 )
 
 func TestEventDispatcherAcknowledgesAppReactionEcho(t *testing.T) {
+	t.Parallel()
 	payload := []byte(`{
 		"schema": "2.0",
 		"header": {
@@ -26,6 +27,7 @@ func TestEventDispatcherAcknowledgesAppReactionEcho(t *testing.T) {
 }
 
 func TestEventDispatcherAcknowledgesDocumentCommentsWhileSourceDisabled(t *testing.T) {
+	t.Parallel()
 	payload := []byte(`{
 		"schema": "2.0",
 		"header": {

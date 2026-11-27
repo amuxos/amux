@@ -14,6 +14,7 @@ func (c forbiddenConsoleClient) Do(*http.Request) (*http.Response, error) {
 }
 
 func TestPublicConsoleUnavailable(t *testing.T) {
+	t.Parallel()
 	result := AutomateOpenPlatformSetup(context.Background(), "test-app", ConsoleOptions{
 		Client: forbiddenConsoleClient{t}, SessionFilePath: t.TempDir(), SessionFallbackPath: t.TempDir(),
 		OnQRCode: func(string, string) { t.Fatal("unavailable console requested authentication") },

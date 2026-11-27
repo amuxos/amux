@@ -24,6 +24,7 @@ func agentMessageBridge(t *testing.T) *Bridge {
 }
 
 func TestAgentMessageBindings(t *testing.T) {
+	t.Parallel()
 	b := agentMessageBridge(t)
 	if err := b.db.UpsertChat(LarkChat{BridgeId: b.bridgeID, ChatID: "oc-a", RootMsgID: "om-a", TargetID: "target", SessionName: "topic"}); err != nil {
 		t.Fatal(err)
@@ -61,6 +62,7 @@ func TestAgentMessageBindings(t *testing.T) {
 }
 
 func TestSendAgentMessageUsesBoundTenant(t *testing.T) {
+	t.Parallel()
 	for _, format := range []string{"", "text", "markdown"} {
 		t.Run("format/"+format, func(t *testing.T) {
 			testSendAgentMessageUsesBoundTenant(t, format)
@@ -185,6 +187,7 @@ func testSendAgentMessageUsesBoundTenant(t *testing.T, format string) {
 }
 
 func TestSendAgentMessageGroupBoundary(t *testing.T) {
+	t.Parallel()
 	const group = `{"code":0,"data":{"chat_mode":"group","chat_type":"private"}}`
 	const parent = `{"code":0,"data":{"items":[{"message_id":"om-parent","chat_id":"oc-destination"}]}}`
 	for _, tc := range []struct {

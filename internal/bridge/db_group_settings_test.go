@@ -111,6 +111,7 @@ func TestWorkspaceSleepPolicySurvivesMigrationAndGroupSettings(t *testing.T) {
 }
 
 func TestBridgeDBGroupSettingsReadOnlyAndRoundTrip(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db := openGroupSettingsTestDB(t, path)
 	settings := testGroupSettings()
@@ -168,6 +169,7 @@ func TestBridgeDBGroupSettingsReadOnlyAndRoundTrip(t *testing.T) {
 }
 
 func TestBridgeDBGroupSettingsCASAndScope(t *testing.T) {
+	t.Parallel()
 	db := openGroupSettingsTestDB(t, filepath.Join(t.TempDir(), "bridge.db"))
 	settings := testGroupSettings()
 	first, err := db.SaveGroupSettings(settings, 0)
@@ -215,6 +217,7 @@ func TestBridgeDBGroupSettingsCASAndScope(t *testing.T) {
 }
 
 func TestBridgeDBGroupSettingsConcurrentCAS(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	dbs := []*bridgeDB{openGroupSettingsTestDB(t, path), openGroupSettingsTestDB(t, path)}
 	for expectedVersion := int64(0); expectedVersion < 2; expectedVersion++ {
@@ -261,6 +264,7 @@ func TestBridgeDBGroupSettingsConcurrentCAS(t *testing.T) {
 }
 
 func TestBridgeDBGroupSettingsValidationAndAtomicRollback(t *testing.T) {
+	t.Parallel()
 	db := openGroupSettingsTestDB(t, filepath.Join(t.TempDir(), "bridge.db"))
 	invalid := map[string]func(*GroupSettings){
 		"bridge":      func(s *GroupSettings) { s.BridgeID = " " },
@@ -334,6 +338,7 @@ func createGroupSessionTopic(t *testing.T, db *bridgeDB, settings GroupSettings,
 }
 
 func TestBridgeDBGroupSessionRootLifecycle(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db := openGroupSettingsTestDB(t, path)
 	settings := testGroupSettings()
@@ -447,6 +452,7 @@ func TestBridgeDBGroupSessionRootLifecycle(t *testing.T) {
 }
 
 func TestBridgeDBGroupSessionConcurrentActivationAndScope(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	dbs := []*bridgeDB{openGroupSettingsTestDB(t, path), openGroupSettingsTestDB(t, path)}
 	settings := testGroupSettings()
@@ -516,6 +522,7 @@ func TestBridgeDBGroupSessionConcurrentActivationAndScope(t *testing.T) {
 }
 
 func TestBridgeDBGroupDefaultAgentReferences(t *testing.T) {
+	t.Parallel()
 	db := openGroupSettingsTestDB(t, filepath.Join(t.TempDir(), "bridge.db"))
 	if _, err := db.ConfigureThreadBotDefaultAgent("feishu:bot-default", "review/bot"); err != nil {
 		t.Fatal(err)
@@ -544,6 +551,7 @@ func TestBridgeDBGroupDefaultAgentReferences(t *testing.T) {
 }
 
 func TestBridgeDBListsEveryDefaultAgentReferenceIncludingStoppedBots(t *testing.T) {
+	t.Parallel()
 	db := openGroupSettingsTestDB(t, filepath.Join(t.TempDir(), "bridge.db"))
 	if _, err := db.ConfigureThreadBotDefaultAgent("feishu:bot-default", "review/bot"); err != nil {
 		t.Fatal(err)
@@ -598,6 +606,7 @@ func TestBridgeDBListsEveryDefaultAgentReferenceIncludingStoppedBots(t *testing.
 }
 
 func TestBridgeDBGroupSettingsContextBoundsConnectionWait(t *testing.T) {
+	t.Parallel()
 	for _, update := range []bool{false, true} {
 		for _, cancellation := range []string{"cancel", "deadline"} {
 			name := "create/" + cancellation
@@ -691,6 +700,7 @@ func TestBridgeDBGroupSettingsContextBoundsConnectionWait(t *testing.T) {
 }
 
 func TestBridgeDBGroupSettingsContextReadsBoundConnectionWait(t *testing.T) {
+	t.Parallel()
 	for name, read := range map[string]func(context.Context, *bridgeDB) error{
 		"group settings": func(ctx context.Context, db *bridgeDB) error {
 			_, err := db.ReadGroupSettingsContext(ctx, "feishu:test", "group-a")

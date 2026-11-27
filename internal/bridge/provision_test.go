@@ -12,6 +12,7 @@ import (
 )
 
 func TestRequiredFeishuAppManifestIsExactAndMinimal(t *testing.T) {
+	t.Parallel()
 	want := FeishuAppManifest{
 		Preset: false,
 		TenantScopes: []string{
@@ -49,6 +50,7 @@ func TestRequiredFeishuAppManifestIsExactAndMinimal(t *testing.T) {
 }
 
 func TestRegistrationAddonsForProvisioningUsesMinimalBase(t *testing.T) {
+	t.Parallel()
 	configured := registrationAddonsForProvisioning(false)
 	if configured.Preset == nil || *configured.Preset {
 		t.Fatalf("configured preset = %v, want false", configured.Preset)
@@ -133,6 +135,7 @@ func TestProvisionFeishuAppPassesOfficialAddonsAndAllowsExistingApp(t *testing.T
 }
 
 func TestRenderQRCodeUsesCompactHalfBlocks(t *testing.T) {
+	t.Parallel()
 	var out bytes.Buffer
 	renderQRCode(&out, "https://example.com/amux-registration")
 	rendered := strings.TrimSuffix(out.String(), "\n")

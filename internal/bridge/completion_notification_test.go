@@ -171,6 +171,7 @@ func TestCompletionNotificationThresholdUsesCompletionTimeNotDispatchDelay(t *te
 }
 
 func TestCompletionNotificationCardQuietVisualHierarchy(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []string{turnNotificationCompleted, turnNotificationWaiting, turnNotificationFailed} {
 		t.Run(kind, func(t *testing.T) {
 			var doc cardDoc
@@ -198,6 +199,7 @@ func TestCompletionNotificationCardQuietVisualHierarchy(t *testing.T) {
 }
 
 func TestCompletionNotificationResolvesMissingThreadWithoutWrongChatFallback(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{bridgeID: "feishu:test"}
 	b.topicRootLookup = func(context.Context, string) (topicRootMessage, error) {
 		return topicRootMessage{ChatID: "oc_source", ThreadID: "omt_source"}, nil

@@ -78,6 +78,7 @@ func (r *streamingSubtaskReader) StreamSubtaskEvents(
 }
 
 func TestRenderSubtaskActivityCardLooksLikeAgentProgress(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 11, 12, 1, 5, 0, time.UTC)
 	snapshot := subtaskCardSnapshot{
 		Progress: subtaskProgress{
@@ -113,6 +114,7 @@ func TestRenderSubtaskActivityCardLooksLikeAgentProgress(t *testing.T) {
 }
 
 func TestSubtaskCardNamesDistinguishAgentsAndKeepInstanceIdentity(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	reader := &streamingSubtaskReader{}
 	bridge := &Bridge{subtasks: reader}
@@ -157,6 +159,7 @@ func TestSubtaskCardNamesDistinguishAgentsAndKeepInstanceIdentity(t *testing.T) 
 }
 
 func TestWatchSubtaskCardCreatesUpdatesAndFinishesOneCard(t *testing.T) {
+	t.Parallel()
 	created := make(chan struct{})
 	updated := make(chan struct{})
 	var createdOnce sync.Once
@@ -266,6 +269,7 @@ func TestWatchSubtaskCardCreatesUpdatesAndFinishesOneCard(t *testing.T) {
 }
 
 func TestStartSubtaskCardsClaimsEachTaskOnce(t *testing.T) {
+	t.Parallel()
 	reader := &streamingSubtaskReader{}
 	bridge := &Bridge{subtasks: reader}
 	if !bridge.claimSubtaskCard("task-1") {
@@ -280,6 +284,7 @@ func TestStartSubtaskCardsClaimsEachTaskOnce(t *testing.T) {
 }
 
 func TestSubtaskCardDeliveryFallsBackToOneLegacyCard(t *testing.T) {
+	t.Parallel()
 	var sends, patches int
 	backend := &bindingReplyCardBackend{
 		cardKit: &fakeCardKitReplyAPI{createErr: errors.New("cardkit unavailable")},
@@ -324,6 +329,7 @@ func TestSubtaskCardDeliveryFallsBackToOneLegacyCard(t *testing.T) {
 }
 
 func TestSubtaskCardStateKeepsTerminalSnapshotDuringReplay(t *testing.T) {
+	t.Parallel()
 	state := newSubtaskCardState(subtaskProgress{ID: "task-1", Status: "succeeded", Summary: "完成"})
 	state.applyEvent(subtaskEvent{Seq: 1, Kind: "status", Status: "running"})
 	state.applyEvent(subtaskEvent{Seq: 2, Kind: "output", Output: []byte("过程")})
@@ -339,6 +345,7 @@ func TestSubtaskCardStateKeepsTerminalSnapshotDuringReplay(t *testing.T) {
 }
 
 func TestSubtaskCardModelUsesExactChildMetadataAndSurvivesCleanup(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	hub := &bridgeTestHub{targets: []*pb.Target{
 		{Id: "other-target", Sessions: []*pb.Session{{Id: "child-id", Name: "child", EffectiveModel: "wrong-target-model"}}},
@@ -387,6 +394,7 @@ func TestSubtaskCardModelUsesExactChildMetadataAndSurvivesCleanup(t *testing.T) 
 }
 
 func TestSubtaskEffectiveModelLegacyNameFallback(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{hub: &bridgeTestHub{targets: []*pb.Target{{Id: "target", Sessions: []*pb.Session{
 		{Id: "child-id", Name: "child", EffectiveModel: "child-model"},
 	}}}}}
@@ -399,6 +407,7 @@ func TestSubtaskEffectiveModelLegacyNameFallback(t *testing.T) {
 }
 
 func TestSubtaskCardInstanceNameUsesExactChildMetadataWhenTaskOmitsInstanceID(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	child := &pb.Session{Id: "1638876a-3dfe-48d7-95f2-26c9e7969434", Name: "child"}
 	hub := &bridgeTestHub{targets: []*pb.Target{
@@ -435,6 +444,7 @@ func TestSubtaskCardInstanceNameUsesExactChildMetadataWhenTaskOmitsInstanceID(t 
 }
 
 func TestSubtaskExecutionHistoryCountsCallsAcrossReplayAndTerminal(t *testing.T) {
+	t.Parallel()
 	now := time.Now().UTC()
 	state := newSubtaskCardState(subtaskProgress{ID: "task-child", Status: "running", StartedAt: now, EffectiveModel: "DeepSeek-V4-Pro"})
 	seq := uint64(0)

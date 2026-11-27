@@ -91,68 +91,81 @@ func TestHubCLICommandsE2E(t *testing.T) {
 	if status.Schema != system.SnapshotSchema || status.State != system.StateHealthy {
 		t.Fatalf("system status after start = schema %q state %q; want %q/%q\n%s", status.Schema, status.State, system.SnapshotSchema, system.StateHealthy, e.run(t, "system", "status", "--json"))
 	}
-	e.checkMemoryCommands(t)
 
-	e.run(t, "session", "run", "claude", "-n", "claude-e2e", "--on", "e2e-target")
-	e.waitForOutput(t, "structured session", func() string {
-		out, _ := e.runAllowError("session", "list")
-		return out
-	}, "claude-e2e")
+	// Memory RPCs and session/task/schedule/operation commands are independent
+	// Hub workloads; running them concurrently exercises concurrent Hub access
+	// and cuts E2E wall-clock time without skipping any assertion.
+	t.Run("hub_workloads", func(t *testing.T) {
+		t.Run("memory", func(t *testing.T) {
+			t.Parallel()
+			e.checkMemoryCommands(t)
+		})
+		t.Run("sessions_and_lifecycle", func(t *testing.T) {
+			t.Parallel()
 
-	e.run(t, "session", "send", "e2e-target/claude-e2e", "hello from send")
+			e.run(t, "session", "run", "claude", "-n", "claude-e2e", "--on", "e2e-target")
+			e.waitForOutput(t, "structured session", func() string {
+				out, _ := e.runAllowError("session", "list")
+				return out
+			}, "claude-e2e")
 
-	queueOut := e.run(t, "session", "queue", "e2e-target/claude-e2e")
-	if !strings.Contains(queueOut, "No pending input.") {
-		t.Fatalf("queue output = %q, want empty queue", queueOut)
-	}
-	clearOut := e.run(t, "session", "queue", "clear", "e2e-target/claude-e2e")
-	if !strings.Contains(clearOut, "Cleared 0 pending input") {
-		t.Fatalf("queue clear output = %q, want clear count", clearOut)
-	}
-	cancelOut, cancelErr := e.runAllowError("session", "queue", "cancel", "e2e-target/claude-e2e", "missing")
-	if cancelErr == nil || !strings.Contains(cancelOut, "queue item") {
-		t.Fatalf("queue cancel missing = err %v output %q, want not-found error", cancelErr, cancelOut)
-	}
+			e.run(t, "session", "send", "e2e-target/claude-e2e", "hello from send")
 
-	e.run(t, "session", "sleep", "e2e-target/claude-e2e")
-	e.waitForOutput(t, "sleeping structured session", func() string {
-		out, _ := e.runAllowError("session", "list")
-		return out
-	}, "sleeping")
-	e.run(t, "session", "resume", "e2e-target/claude-e2e")
-	e.waitForOutput(t, "resumed structured session", func() string {
-		out, _ := e.runAllowError("session", "list")
-		return out
-	}, "running")
-	e.run(t, "session", "send", "e2e-target/claude-e2e", "after resume")
-	e.run(t, "session", "interrupt", "e2e-target/claude-e2e")
+			queueOut := e.run(t, "session", "queue", "e2e-target/claude-e2e")
+			if !strings.Contains(queueOut, "No pending input.") {
+				t.Fatalf("queue output = %q, want empty queue", queueOut)
+			}
+			clearOut := e.run(t, "session", "queue", "clear", "e2e-target/claude-e2e")
+			if !strings.Contains(clearOut, "Cleared 0 pending input") {
+				t.Fatalf("queue clear output = %q, want clear count", clearOut)
+			}
+			cancelOut, cancelErr := e.runAllowError("session", "queue", "cancel", "e2e-target/claude-e2e", "missing")
+			if cancelErr == nil || !strings.Contains(cancelOut, "queue item") {
+				t.Fatalf("queue cancel missing = err %v output %q, want not-found error", cancelErr, cancelOut)
+			}
 
-	if out := e.run(t, "task", "list"); !strings.Contains(out, "no tasks") {
-		t.Fatalf("task list output = %q, want empty canonical list", out)
-	}
-	if out := e.run(t, "schedule", "list"); !strings.Contains(out, "no schedules") {
-		t.Fatalf("schedule list output = %q, want empty canonical list", out)
-	}
+			e.run(t, "session", "sleep", "e2e-target/claude-e2e")
+			e.waitForOutput(t, "sleeping structured session", func() string {
+				out, _ := e.runAllowError("session", "list")
+				return out
+			}, "sleeping")
+			e.run(t, "session", "resume", "e2e-target/claude-e2e")
+			e.waitForOutput(t, "resumed structured session", func() string {
+				out, _ := e.runAllowError("session", "list")
+				return out
+			}, "running")
+			e.run(t, "session", "send", "e2e-target/claude-e2e", "after resume")
+			e.run(t, "session", "interrupt", "e2e-target/claude-e2e")
 
-	// Each invocation opens and closes the lifecycle journal. Querying setup and
-	// start from later processes proves that completed operations survive reopen.
-	for _, operationID := range []string{setupOperation, startOperation} {
-		out := e.run(t, "system", "operation", "show", operationID, "--json")
-		var operation system.Operation
-		if err := json.Unmarshal([]byte(out), &operation); err != nil {
-			t.Fatalf("decode operation %s: %v\n%s", operationID, err, out)
-		}
-		if string(operation.ID) != operationID || operation.State != system.OperationSucceeded {
-			t.Fatalf("operation %s after reopen = id %q state %q", operationID, operation.ID, operation.State)
-		}
-	}
-	operationsOut := e.run(t, "system", "operation", "list", "--json")
-	if !strings.Contains(operationsOut, setupOperation) || !strings.Contains(operationsOut, startOperation) {
-		t.Fatalf("operation list after reopen missing setup/start operations:\n%s", operationsOut)
-	}
+			if out := e.run(t, "task", "list"); !strings.Contains(out, "no tasks") {
+				t.Fatalf("task list output = %q, want empty canonical list", out)
+			}
+			if out := e.run(t, "schedule", "list"); !strings.Contains(out, "no schedules") {
+				t.Fatalf("schedule list output = %q, want empty canonical list", out)
+			}
 
-	e.trackManagedPIDs(t)
-	e.run(t, "session", "stop", "e2e-target/claude-e2e")
+			// Each invocation opens and closes the lifecycle journal. Querying setup and
+			// start from later processes proves that completed operations survive reopen.
+			for _, operationID := range []string{setupOperation, startOperation} {
+				out := e.run(t, "system", "operation", "show", operationID, "--json")
+				var operation system.Operation
+				if err := json.Unmarshal([]byte(out), &operation); err != nil {
+					t.Fatalf("decode operation %s: %v\n%s", operationID, err, out)
+				}
+				if string(operation.ID) != operationID || operation.State != system.OperationSucceeded {
+					t.Fatalf("operation %s after reopen = id %q state %q", operationID, operation.ID, operation.State)
+				}
+			}
+			operationsOut := e.run(t, "system", "operation", "list", "--json")
+			if !strings.Contains(operationsOut, setupOperation) || !strings.Contains(operationsOut, startOperation) {
+				t.Fatalf("operation list after reopen missing setup/start operations:\n%s", operationsOut)
+			}
+
+			e.trackManagedPIDs(t)
+			e.run(t, "session", "stop", "e2e-target/claude-e2e")
+		})
+	})
+
 	stopOut := e.run(t, "system", "stop", "--force")
 	operationIDFromOutput(t, stopOut)
 	stoppedStatus := e.systemStatus(t)
@@ -873,9 +886,13 @@ func (e *cliE2E) cleanup(t *testing.T) {
 		return
 	}
 	e.trackManagedPIDs(t)
-	_, _ = e.runAllowError("session", "stop", "e2e-target/claude-e2e")
-	_, _ = e.runAllowError("system", "stop", "--force")
-	e.trackManagedPIDs(t)
+	if e.hubAddr != "" && addrInUse(e.hubAddr) {
+		_, _ = e.runAllowError("session", "stop", "e2e-target/claude-e2e")
+	}
+	if (e.hubAddr != "" && addrInUse(e.hubAddr)) || len(e.managedPIDs(t)) > 0 || len(e.residualProcesses(t)) > 0 {
+		_, _ = e.runAllowError("system", "stop", "--force")
+		e.trackManagedPIDs(t)
+	}
 	e.signalResidualProcesses(t, syscall.SIGTERM)
 
 	deadline := time.Now().Add(5 * time.Second)

@@ -14,6 +14,7 @@ import (
 )
 
 func TestSessionI18nActivityLifecycle(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 22, 9, 0, 0, 0, time.UTC)
 	for _, status := range []string{"running", "done", "waiting", "failed", "stopped"} {
 		for _, idle := range []time.Duration{0, 20 * time.Second, 2 * time.Minute} {
@@ -71,6 +72,7 @@ func assertSessionCardLanguages(t *testing.T, raw string) string {
 }
 
 func TestSessionI18nPreservesLiteralContent(t *testing.T) {
+	t.Parallel()
 	literal := "最终结果 / 问题 / 执行记录 %s /tmp/中文"
 	meta := toolActivityCardMeta{Status: "done", Question: literal, Activity: &agentui.ActivityView{Status: "done", CurrentStep: literal, Plan: []agentui.PlanEntry{{Content: literal}}, Tools: []agentui.ToolEvent{{Title: literal, Status: "done"}}}, Subtasks: []subtaskProgress{{Title: literal, Status: "done", Summary: literal}}}
 	en := selectManagementCardLocale(renderToolActivityCard(meta, ""), i18n.English)
@@ -94,6 +96,7 @@ func TestSessionI18nPreservesLiteralContent(t *testing.T) {
 }
 
 func TestSessionI18nStreamingRetainsHeadings(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-i18n"}
 	backend := &bindingReplyCardBackend{cardKit: api, sendCard: func(context.Context, string, string) (string, error) { return "message-i18n", nil }}
 	ctx := context.Background()
@@ -130,6 +133,7 @@ func TestSessionI18nStreamingRetainsHeadings(t *testing.T) {
 }
 
 func TestSessionI18nSubtaskAndCountFallbacks(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{"done", "failed", "timed_out", "cancelled"} {
 		raw := renderSubtaskActivityCard(subtaskCardSnapshot{Progress: subtaskProgress{Title: "Task", Status: status}}, "", time.Now())
 		assertSessionCardLanguages(t, raw)
@@ -150,6 +154,7 @@ func TestSessionI18nSubtaskAndCountFallbacks(t *testing.T) {
 }
 
 func TestSessionI18nAnswerExtractionPreservesAgentHeading(t *testing.T) {
+	t.Parallel()
 	literal := "**最终结果**\n\nUser-requested heading stays literal"
 	if got := extractCardKitAnswerText(renderCardKitReplyData(literal)); got != literal {
 		t.Fatalf("Agent text changed: %q", got)

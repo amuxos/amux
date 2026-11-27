@@ -148,6 +148,7 @@ func (h *bridgeTestHub) RouteStream(_ context.Context, targetID, method string, 
 }
 
 func TestThreadCommandsRequireSlashPrefix(t *testing.T) {
+	t.Parallel()
 	for _, text := range []string{
 		"help",
 		"status",
@@ -168,6 +169,7 @@ func TestThreadCommandsRequireSlashPrefix(t *testing.T) {
 }
 
 func TestSlashThreadCommandsStillWork(t *testing.T) {
+	t.Parallel()
 	cases := map[string]command.Command{
 		"/amux":                  command.CommandAmux,
 		"/help":                  command.CommandHelp,
@@ -193,6 +195,7 @@ func TestSlashThreadCommandsStillWork(t *testing.T) {
 }
 
 func TestFreshThreadDoesNotTreatActiveNaturalAliasAsCommand(t *testing.T) {
+	t.Parallel()
 	for _, text := range []string{"停一下", "结束任务"} {
 		if got := freshThreadCommand(text); got != command.CommandNone {
 			t.Fatalf("freshThreadCommand(%q) = %q, want empty", text, got)
@@ -201,6 +204,7 @@ func TestFreshThreadDoesNotTreatActiveNaturalAliasAsCommand(t *testing.T) {
 }
 
 func TestRunBindAndQueueParsersRequireSlashPrefix(t *testing.T) {
+	t.Parallel()
 	if _, ok := parseTopicRun("run codex -n work"); ok {
 		t.Fatal("parseTopicRun without slash succeeded, want false")
 	}
@@ -401,6 +405,7 @@ func TestRouteToSessionDedupesRepeatedMessageID(t *testing.T) {
 }
 
 func TestRouteToSessionDedupesRepeatedMessageIDAfterBridgeRestart(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -2218,6 +2223,7 @@ func TestBotToBotStripsAmuxDelegationEnvelopeForFreshSessionWithoutFlatteningTas
 }
 
 func TestStripAmuxExternalBotDelegationCardRejectsImpreciseProtocolFields(t *testing.T) {
+	t.Parallel()
 	valid := inboundExternalBotDelegationContent(t, "ou-docman", "ou-calling-bot", "检查设计")
 	for name, content := range map[string]string{
 		"marker URL suffix": mutateInboundDelegationCard(t, valid, func(card *cardDoc) {
@@ -2236,6 +2242,7 @@ func TestStripAmuxExternalBotDelegationCardRejectsImpreciseProtocolFields(t *tes
 }
 
 func TestStripAmuxExternalBotDelegationEnvelopeAcceptsLegacyPost(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{secrets: &Secrets{BotOpenId: "ou-docman"}}
 	doc := postLang{Content: [][]postElement{
 		{{Tag: "at", UserID: "ou-docman"}, {Tag: "text", Text: " 协作任务"}, {Tag: "a", Text: "\u200b", Href: amuxExternalBotDelegationProtocolURL()}},
@@ -2422,6 +2429,7 @@ func inboundExternalBotDelegationContentWithMentionKeys(t *testing.T, targetBotO
 }
 
 func TestCardKitMentionKeyUsesReceiverScopedBotIdentity(t *testing.T) {
+	t.Parallel()
 	mentions := []*larkim.MentionEvent{
 		{Key: testStringPtr("@_target"), MentionedType: testStringPtr("bot"), Id: &larkim.UserId{OpenId: testStringPtr("ou-receiver-target")}},
 		{Key: testStringPtr("@_callback"), MentionedType: testStringPtr("bot"), Id: &larkim.UserId{OpenId: testStringPtr("ou-receiver-callback")}},
@@ -2445,6 +2453,7 @@ func TestCardKitMentionKeyUsesReceiverScopedBotIdentity(t *testing.T) {
 }
 
 func TestCardKitEventBotMentionIDsRejectsAmbiguousOrHumanMentions(t *testing.T) {
+	t.Parallel()
 	mentions := []*larkim.MentionEvent{
 		{Key: testStringPtr("@_duplicate"), MentionedType: testStringPtr("bot"), Id: &larkim.UserId{OpenId: testStringPtr("ou-bot-1")}},
 		{Key: testStringPtr("@_duplicate"), MentionedType: testStringPtr("bot"), Id: &larkim.UserId{OpenId: testStringPtr("ou-bot-2")}},
@@ -4390,6 +4399,7 @@ func TestMultipleWorkspaceInitKeepsEarlierWorkspaceActive(t *testing.T) {
 }
 
 func TestExtractTextFromPostContent(t *testing.T) {
+	t.Parallel()
 	content := `{"title":"","content":[[{"tag":"text","text":"/workspace init","style":[]}]]}`
 
 	if got := extractText(&content); got != "/workspace init" {
@@ -4645,6 +4655,7 @@ func TestFreshThreadMentionFetchesTopicRootBeforeBuildingSharedHistory(t *testin
 }
 
 func TestTopicRootFallsBackToDedicatedWrapperWhenSharedTemplateOmitsIt(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{
 		promptRenderer: bridgeprompt.NewRenderer(bridgeprompt.Options{
 			SharedThreadEnabled:  boolPtr(true),
@@ -5079,6 +5090,7 @@ func TestFreshThreadRunProviderCredentialFailureShowsSetupHint(t *testing.T) {
 }
 
 func TestProviderCredentialSetupFromErrorUsesCanonicalCommand(t *testing.T) {
+	t.Parallel()
 	raw := "provider credential missing; setup: amux agent credential set openai-compat GLM_API_KEY"
 	want := providerCredentialSetup{
 		Profile: "openai-compat",
@@ -5587,6 +5599,7 @@ func TestRouteToSessionQueueCancel(t *testing.T) {
 }
 
 func TestTurnDoneNoticeForCancelledStopReason(t *testing.T) {
+	t.Parallel()
 	if got := turnDoneNotice("cancelled", false); got != "已停止本次回答" {
 		t.Fatalf("turnDoneNotice(cancelled, false) = %q", got)
 	}
@@ -5655,6 +5668,7 @@ func TestPrivateHelpAliasesUseOneManagementCard(t *testing.T) {
 }
 
 func TestBoundTopicHelpDoesNotIncludeAttachDetachCommands(t *testing.T) {
+	t.Parallel()
 	text := renderBoundTopicHelpCard()
 	for _, command := range []string{"/detach", "/attach", "/resume", "/schedule"} {
 		if strings.Contains(text, command) {
@@ -5664,6 +5678,7 @@ func TestBoundTopicHelpDoesNotIncludeAttachDetachCommands(t *testing.T) {
 }
 
 func TestBoundTopicHelpCardShowsSupportedCommands(t *testing.T) {
+	t.Parallel()
 	text := renderBoundTopicHelpCard()
 	for _, want := range []string{
 		`"schema":"2.0"`,
@@ -5689,6 +5704,7 @@ func TestBoundTopicHelpCardShowsSupportedCommands(t *testing.T) {
 }
 
 func TestManagementHelpCardExplainsDiscoveredCommands(t *testing.T) {
+	t.Parallel()
 	text := renderManagementHelpCard(managementState{})
 	for _, want := range []string{
 		"/amux", "/help", "/run", "/bind", "/status", "/restart",
@@ -5730,6 +5746,7 @@ func TestActiveTopicAmuxShowsCurrentTaskStatus(t *testing.T) {
 }
 
 func TestSessionEntryHelpCardExplainsPublicEntries(t *testing.T) {
+	t.Parallel()
 	text := renderSessionEntryHelpCard()
 	for _, want := range []string{
 		`"schema":"2.0"`,
@@ -5773,6 +5790,7 @@ func TestActiveTopicGroupWatchCommandDoesNotReachAgent(t *testing.T) {
 }
 
 func TestWorkspaceInitSuccessTextExplainsBindTransfer(t *testing.T) {
+	t.Parallel()
 	text := workspaceInitSuccessText("oc-workspace")
 	for _, want := range []string{
 		"/bind 接入或接管已有 session",
@@ -5785,6 +5803,7 @@ func TestWorkspaceInitSuccessTextExplainsBindTransfer(t *testing.T) {
 }
 
 func TestBindingStatusIncludesDisplayTitle(t *testing.T) {
+	t.Parallel()
 	text := bindingStatusText(&LarkChat{
 		TargetName:   "target",
 		SessionName:  "s1",

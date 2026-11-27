@@ -15,6 +15,7 @@ import (
 )
 
 func TestRenderPermissionRequestCardUserInput(t *testing.T) {
+	t.Parallel()
 	payload := permissionPayload{
 		Tool: permissionTool{
 			Title:    "更新类型",
@@ -45,6 +46,7 @@ func TestRenderPermissionRequestCardUserInput(t *testing.T) {
 }
 
 func TestPermissionSummaryShowsOperationAndImpactScope(t *testing.T) {
+	t.Parallel()
 	payload := permissionPayload{Tool: permissionTool{
 		Title: "Write file", RawInput: json.RawMessage(`{"path":"/repo/main.go","content":"new"}`),
 	}}
@@ -55,6 +57,7 @@ func TestPermissionSummaryShowsOperationAndImpactScope(t *testing.T) {
 }
 
 func TestPermissionApprovalCardUsesV2CallbackButtons(t *testing.T) {
+	t.Parallel()
 	card := renderPermissionRequestCard("target", "session", "0", permissionPayload{
 		Options: []permissionOption{{OptionId: "accept", Name: "Accept"}, {OptionId: "decline", Name: "Decline"}},
 	}, "ou-asker")
@@ -84,6 +87,7 @@ func TestPermissionApprovalCardUsesV2CallbackButtons(t *testing.T) {
 }
 
 func TestPermissionPayloadFromSemanticEvent(t *testing.T) {
+	t.Parallel()
 	payload := permissionPayloadFromEvent(&agentui.PermissionEvent{
 		RequestID: "perm-1",
 		Tool: &agentui.PermissionTool{
@@ -98,6 +102,7 @@ func TestPermissionPayloadFromSemanticEvent(t *testing.T) {
 }
 
 func TestRenderPermissionRequestCardUserInputMultiSelectForm(t *testing.T) {
+	t.Parallel()
 	payload := permissionPayload{
 		Tool: permissionTool{
 			Title:       "多选",
@@ -116,6 +121,7 @@ func TestRenderPermissionRequestCardUserInputMultiSelectForm(t *testing.T) {
 }
 
 func TestHandleCardActionRespondsWithMultipleOptions(t *testing.T) {
+	t.Parallel()
 	hub := &bridgeTestHub{}
 	b := &Bridge{hub: hub}
 	key, ok := b.beginPermissionRequest(&pendingPermission{
@@ -160,6 +166,7 @@ func TestHandleCardActionRespondsWithMultipleOptions(t *testing.T) {
 }
 
 func TestPermissionAndActivityCardsStayUnderFeishuLimit(t *testing.T) {
+	t.Parallel()
 	payload := permissionPayload{
 		Tool: permissionTool{Title: strings.Repeat("tool", 1000), RawInput: json.RawMessage(`{"value":"` + strings.Repeat("x", 100000) + `"}`)},
 	}
@@ -191,6 +198,7 @@ func TestPermissionAndActivityCardsStayUnderFeishuLimit(t *testing.T) {
 }
 
 func TestPermissionCardBudgetHandlesLongWireOptionIDs(t *testing.T) {
+	t.Parallel()
 	payload := permissionPayload{Tool: permissionTool{Title: "Choose"}}
 	for i := 0; i < maxPermissionOptions; i++ {
 		payload.Options = append(payload.Options, permissionOption{
@@ -208,6 +216,7 @@ func TestPermissionCardBudgetHandlesLongWireOptionIDs(t *testing.T) {
 }
 
 func TestPermissionClaimAllowsOnlyOneResponder(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	key, ok := b.beginPermissionRequest(&pendingPermission{PermissionId: "perm-1", TargetID: "target-1", SessionName: "session-1"})
 	if !ok {

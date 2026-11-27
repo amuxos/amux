@@ -7,6 +7,7 @@ import (
 )
 
 func TestPublicManagementAcceptsNativeRuntimeModelNames(t *testing.T) {
+	t.Parallel()
 	for _, runtimeRef := range []string{"codex", "claude", "pi"} {
 		t.Run(runtimeRef, func(t *testing.T) {
 			state := managementState{DefaultAgent: "builtin/" + runtimeRef, DefaultRuntimeRef: runtimeRef}

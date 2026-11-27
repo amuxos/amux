@@ -141,6 +141,7 @@ func TestConversationObserverCanonicalCompletion(t *testing.T) {
 }
 
 func TestConversationSectionPreservesReply(t *testing.T) {
+	t.Parallel()
 	if len(conversationSectionID) > 20 {
 		t.Fatal("CardKit element IDs have a 20-character limit")
 	}

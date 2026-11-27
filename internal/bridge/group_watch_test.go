@@ -288,6 +288,7 @@ func TestGroupWatchChatSenderTypesOverrideDefaultPerChat(t *testing.T) {
 }
 
 func TestGroupWatchAlertFingerprintUsesRuleIDAndTitle(t *testing.T) {
+	t.Parallel()
 	first := groupWatchAlertFingerprint(groupWatchMessage{Text: "[service][warn]特征监控任务 lag\nRule ID: 2071\nlag: 100K"})
 	second := groupWatchAlertFingerprint(groupWatchMessage{Text: "  [SERVICE][WARN]特征监控任务   lag  \n**规则ID**：2071\nlag: 200K"})
 	different := groupWatchAlertFingerprint(groupWatchMessage{Text: "[service][warn]另一个报警\nRule ID: 2071\nlag: 200K"})

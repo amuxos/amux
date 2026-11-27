@@ -30,6 +30,7 @@ func setReplyEndNotificationForTest(t *testing.T, b *Bridge, on bool) {
 }
 
 func TestReplyEndExcerptUsesProseAndRedactsSecrets(t *testing.T) {
+	t.Parallel()
 	answer := "# 交付结果\n\n```sh\nsecret=do-not-forward\nhttps://example.com/demo/pull/99\n```\n" +
 		"- **已修复缓存失效问题。** 通过校验。\n" +
 		"[MR](https://example.com/team/cache/-/merge_requests/42?token=private-value#diff)"
@@ -65,6 +66,7 @@ func TestReplyEndExcerptUsesProseAndRedactsSecrets(t *testing.T) {
 }
 
 func TestReplyEndExcerptPrefersExplicitConclusion(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ answer, want string }{
 		{
 			"我先检查了配置。\n" + strings.Repeat("检查了各项指标。\n", 80) +

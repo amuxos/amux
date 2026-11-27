@@ -100,6 +100,7 @@ func TestArtifactDispatchDoesNotBlockAndFreezesDeliveryIdentity(t *testing.T) {
 }
 
 func TestArtifactLinksOnlyExplicitOutboxReferences(t *testing.T) {
+	t.Parallel()
 	refs, err := artifactRefs("[local](/etc/passwd) [report](amux-artifact:报告%20v1.csv) ![plot](amux-artifact:plot.png) [again](amux-artifact:plot.png)")
 	if err != nil || len(refs) != 2 || refs[0].name != "报告 v1.csv" || !refs[1].image {
 		t.Fatalf("%+v %v", refs, err)
@@ -120,6 +121,7 @@ func TestArtifactLinksOnlyExplicitOutboxReferences(t *testing.T) {
 }
 
 func TestArtifactLinksNormalizeOutboxPrefix(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		path string
 		want string
@@ -192,6 +194,7 @@ func TestArtifactDeliveryPersistsUploadAndRetriesSameMessage(t *testing.T) {
 }
 
 func TestArtifactUploadDetectsImageBehindOrdinaryLink(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	seenImage := false
 	b.artifactUpload = func(_ context.Context, _ string, image bool, _ []byte) (string, string, error) {
@@ -204,6 +207,7 @@ func TestArtifactUploadDetectsImageBehindOrdinaryLink(t *testing.T) {
 }
 
 func TestArtifactUploadSendsLargeImageAsFile(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	seenImage := true
 	b.artifactUpload = func(_ context.Context, _ string, image bool, _ []byte) (string, string, error) {
@@ -217,6 +221,7 @@ func TestArtifactUploadSendsLargeImageAsFile(t *testing.T) {
 }
 
 func TestArtifactInstructionsStayOutOfQuestionTitle(t *testing.T) {
+	t.Parallel()
 	if got := toolActivityQuestionTitle("请生成图表" + artifactInstructions); got != "请生成图表" {
 		t.Fatal(got)
 	}

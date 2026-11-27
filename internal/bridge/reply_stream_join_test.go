@@ -17,6 +17,7 @@ func newJoinTestState() *replyStreamState {
 }
 
 func TestReplySegmentsJoinWithParagraphBreak(t *testing.T) {
+	t.Parallel()
 	s := newJoinTestState()
 	s.full.WriteString("第一段：\n\n```text\na b c\n```")
 	// A separate assistant message arriving with no current message.
@@ -28,6 +29,7 @@ func TestReplySegmentsJoinWithParagraphBreak(t *testing.T) {
 }
 
 func TestReplyReplaceKeepsParagraphBreakBeforeCurrent(t *testing.T) {
+	t.Parallel()
 	s := newJoinTestState()
 	s.full.WriteString("```text\na\n```")
 	s.current.WriteString("")
@@ -39,6 +41,7 @@ func TestReplyReplaceKeepsParagraphBreakBeforeCurrent(t *testing.T) {
 }
 
 func TestReplyDedupesIdenticalConsecutiveSegment(t *testing.T) {
+	t.Parallel()
 	s := newJoinTestState()
 	s.full.WriteString("开始处理。\n\n1+32=33")
 	s.replaceCurrent("1+32=33")
@@ -54,6 +57,7 @@ func TestReplyDedupesIdenticalConsecutiveSegment(t *testing.T) {
 }
 
 func TestReplyContinuationStaysOnSameLine(t *testing.T) {
+	t.Parallel()
 	s := newJoinTestState()
 	s.replaceCurrent("Hello")
 	s.replaceCurrent("Hello world")

@@ -25,6 +25,7 @@ import (
 )
 
 func TestRenderScheduleResultDeliveryCardBilingualAndBounded(t *testing.T) {
+	t.Parallel()
 	specJSON, _ := json.Marshal(task.Spec{Agent: "builtin/claude", Model: "claude-sonnet-4-6"})
 	longSummary := strings.Repeat("检查正常，发现关键告警指标。\n", 600)
 	nextRun := int64(1767229200)
@@ -163,6 +164,7 @@ func (c *deliveryAuthScheduleControl) Store() *schedule.Store {
 }
 
 func TestDeliverScheduleResultsRoutingFallbackAndAuthRevocation(t *testing.T) {
+	t.Parallel()
 	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -347,6 +349,7 @@ func isolatedScheduleDeliveryTestCreator(openID string) schedule.Creator {
 }
 
 func TestIsolatedScheduleOffersPersonalDeliveryAndBoundsLocalizedMessage(t *testing.T) {
+	t.Parallel()
 	entry := schedule.Entry{
 		Task:       schedule.Task{ID: 1, Name: "fixture", ScheduleType: schedule.ScheduleTypeSubtask},
 		Visibility: schedule.Visibility{Creator: isolatedScheduleDeliveryTestCreator("ou_bob")},
@@ -367,6 +370,7 @@ func TestIsolatedScheduleOffersPersonalDeliveryAndBoundsLocalizedMessage(t *test
 }
 
 func TestScheduleResultCardQuickActionsAuthorizationAndNoDMSpam(t *testing.T) {
+	t.Parallel()
 	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -475,6 +479,7 @@ func TestScheduleResultCardQuickActionsAuthorizationAndNoDMSpam(t *testing.T) {
 }
 
 func TestRenderScheduleCreatedAndAutoPausedCardsBilingualAndBounded(t *testing.T) {
+	t.Parallel()
 	specJSON, _ := json.Marshal(task.Spec{Agent: "builtin/claude", Model: "claude-sonnet-4-6"})
 	nextRun := int64(1767229200)
 	entries := []schedule.Entry{
@@ -578,6 +583,7 @@ func TestRenderScheduleCreatedAndAutoPausedCardsBilingualAndBounded(t *testing.T
 }
 
 func TestDeliverScheduleCreatedCardEvenWhenResultTargetNone(t *testing.T) {
+	t.Parallel()
 	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -657,6 +663,7 @@ func TestDeliverScheduleCreatedCardEvenWhenResultTargetNone(t *testing.T) {
 }
 
 func TestScheduleP1ActionsAdminEmergencyPauseDeliverySwitchDeleteAndPrune(t *testing.T) {
+	t.Parallel()
 	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -853,6 +860,7 @@ func (c *p1ScheduleControl) Act(ctx context.Context, bot, open string, id int64,
 }
 
 func TestScheduleRunDetailCardFullOutputAndSessionViewerLink(t *testing.T) {
+	t.Parallel()
 	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -1017,6 +1025,7 @@ func (c *runsAwareScheduleControl) Get(ctx context.Context, bot, open string, id
 }
 
 func TestScheduleDetailCardHidesCreatorDMOption(t *testing.T) {
+	t.Parallel()
 	subtaskCard := renderScheduleDetail(schedule.Entry{
 		Task: schedule.Task{
 			ID:             11,

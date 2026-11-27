@@ -11,6 +11,7 @@ import (
 )
 
 func TestProductionCodeRespectsDecoupledBoundaries(t *testing.T) {
+	t.Parallel()
 	files, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatalf("glob package files: %v", err)

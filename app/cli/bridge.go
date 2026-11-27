@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -690,10 +691,16 @@ func newFeishuContextExplainCmd() *cobra.Command {
 }
 
 func feishuStatus(ctx context.Context, profile string) (*pb.FeishuStatusResponse, error) {
-	profile = feishuProfileOrDefault(profile)
 	hc, configured, hubErr := feishuHubClient(ctx)
-	if hubErr == nil && hc != nil {
+	if hc != nil {
 		defer hc.Close()
+	}
+	return feishuStatusWithHub(ctx, hc, configured, hubErr, profile)
+}
+
+func feishuStatusWithHub(ctx context.Context, hc *hubClient, configured bool, hubErr error, profile string) (*pb.FeishuStatusResponse, error) {
+	profile = feishuProfileOrDefault(profile)
+	if hubErr == nil && hc != nil {
 		return hc.c.FeishuStatus(ctx, &pb.FeishuStatusRequest{Profile: profile})
 	}
 	if configured && !localFeishuStateExists(profile) {
@@ -1019,8 +1026,14 @@ func localFeishuBotSessionToPB(bs *bridge.BotSession) *pb.FeishuBotSession {
 
 func feishuBots(ctx context.Context) ([]*pb.FeishuBot, error) {
 	hc, _, hubErr := feishuHubClient(ctx)
-	if hubErr == nil && hc != nil {
+	if hc != nil {
 		defer hc.Close()
+	}
+	return feishuBotsWithHub(ctx, hc, hubErr)
+}
+
+func feishuBotsWithHub(ctx context.Context, hc *hubClient, hubErr error) ([]*pb.FeishuBot, error) {
+	if hubErr == nil && hc != nil {
 		resp, err := hc.c.FeishuBots(ctx, &pb.FeishuBotsRequest{})
 		if err != nil {
 			return nil, err
@@ -1087,6 +1100,9 @@ func feishuHubClient(_ context.Context) (*hubClient, bool, error) {
 	addr := hubAddr()
 	if addr == "" {
 		return nil, false, nil
+	}
+	if isLocalHubListenAddr(addr) && !addrInUse(hubListenAddr(addr)) {
+		return nil, true, hubUnavailableError(addr, errors.New("connection refused"))
 	}
 	hc, err := newHubClient(addr)
 	if err != nil {

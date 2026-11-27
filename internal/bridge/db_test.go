@@ -12,6 +12,7 @@ import (
 )
 
 func TestBridgeDBDocumentCommentFinalizationCanOnlyBeClaimedOnce(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -36,6 +37,7 @@ func TestBridgeDBDocumentCommentFinalizationCanOnlyBeClaimedOnce(t *testing.T) {
 }
 
 func TestBridgeDBTopicRootPromptDeliveryFollowsBindingIdentity(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -85,6 +87,7 @@ func TestBridgeDBTopicRootPromptDeliveryFollowsBindingIdentity(t *testing.T) {
 }
 
 func TestBridgeDBPendingManagementRecoveryLifecycle(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -129,6 +132,7 @@ func TestBridgeDBPendingManagementRecoveryLifecycle(t *testing.T) {
 }
 
 func TestBridgeDBPendingManagementUpgradeRecovery(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -150,6 +154,7 @@ func TestBridgeDBPendingManagementUpgradeRecovery(t *testing.T) {
 }
 
 func TestBridgeDBPendingManagementRecoveryPreservesSurface(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -176,6 +181,7 @@ func TestBridgeDBPendingManagementRecoveryPreservesSurface(t *testing.T) {
 }
 
 func TestBridgeDBMessageSeenPersistsAcrossReopen(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db, err := openBridgeDB(path)
 	if err != nil {
@@ -214,6 +220,7 @@ func TestBridgeDBMessageSeenPersistsAcrossReopen(t *testing.T) {
 }
 
 func TestBridgeDBGroupWatchAlertDedupUsesLastAcceptedWindowAndScope(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -270,6 +277,7 @@ func TestBridgeDBGroupWatchAlertDedupUsesLastAcceptedWindowAndScope(t *testing.T
 }
 
 func TestBridgeDBGroupWatchAlertDedupLegacyRowWithoutAcceptedAtAllowsNextAlert(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db, err := openBridgeDB(path)
 	if err != nil {
@@ -299,6 +307,7 @@ func TestBridgeDBGroupWatchAlertDedupLegacyRowWithoutAcceptedAtAllowsNextAlert(t
 }
 
 func TestBridgeDBClaimsBotTurnsWithDurableDedupeAndLimit(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db, err := openBridgeDB(path)
 	if err != nil {
@@ -347,6 +356,7 @@ func TestBridgeDBClaimsBotTurnsWithDurableDedupeAndLimit(t *testing.T) {
 }
 
 func TestBridgeDBWorkspaceDefaultsRoundTrip(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -418,6 +428,7 @@ func dbPathForTest(t *testing.T, db *bridgeDB) string {
 }
 
 func TestBridgeDBChatDisplayTitleRoundTrip(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -458,6 +469,7 @@ func TestBridgeDBChatDisplayTitleRoundTrip(t *testing.T) {
 }
 
 func TestBridgeDBUpsertAcrossProfilesSurvivesConcurrentReader(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	writer, err := openBridgeDBForProfile(path, "writer")
 	if err != nil {
@@ -539,6 +551,7 @@ func TestBridgeDBUpsertAcrossProfilesSurvivesConcurrentReader(t *testing.T) {
 }
 
 func TestBridgeDBWorkspaceModeIsScopedByBridgeId(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -565,6 +578,7 @@ func TestBridgeDBWorkspaceModeIsScopedByBridgeId(t *testing.T) {
 }
 
 func TestBridgeDBBotSessionRoundTripAndDisable(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -606,6 +620,7 @@ func TestBridgeDBBotSessionRoundTripAndDisable(t *testing.T) {
 }
 
 func TestBridgeDBMigratesBotSessionCwdColumn(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	legacy, err := sql.Open("sqlite", path)
 	if err != nil {
@@ -650,6 +665,7 @@ func TestBridgeDBMigratesBotSessionCwdColumn(t *testing.T) {
 }
 
 func TestBridgeDBDetachActiveTopicBindingForBotSession(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -687,6 +703,7 @@ func TestBridgeDBDetachActiveTopicBindingForBotSession(t *testing.T) {
 }
 
 func TestBridgeDBWorkspaceDefaultsToOwnerOnly(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -716,6 +733,7 @@ func TestBridgeDBWorkspaceDefaultsToOwnerOnly(t *testing.T) {
 }
 
 func TestCommitSingletonBotSettingsAtomicallyUpdatesProfileAndBinding(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -753,6 +771,7 @@ func TestCommitSingletonBotSettingsAtomicallyUpdatesProfileAndBinding(t *testing
 }
 
 func TestBridgeDBSetWorkspaceMode(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -783,6 +802,7 @@ func TestBridgeDBSetWorkspaceMode(t *testing.T) {
 }
 
 func TestBridgeDBSetWorkspaceModeRejectsInvalidMode(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -795,6 +815,7 @@ func TestBridgeDBSetWorkspaceModeRejectsInvalidMode(t *testing.T) {
 }
 
 func TestBridgeDBPrivateWorkspaceKind(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -825,6 +846,7 @@ func TestBridgeDBPrivateWorkspaceKind(t *testing.T) {
 }
 
 func TestBridgeDBRejectsSharedModeForPrivateWorkspace(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -847,6 +869,7 @@ func TestBridgeDBRejectsSharedModeForPrivateWorkspace(t *testing.T) {
 }
 
 func TestBridgeDBTracksGroupWatchBindingProvenance(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -913,6 +936,7 @@ func TestBridgeDBTracksGroupWatchBindingProvenance(t *testing.T) {
 }
 
 func TestIsDuplicateColumnError(t *testing.T) {
+	t.Parallel()
 	if !isDuplicateColumnError(errors.New("SQL logic error: duplicate column name: thread_id (1)")) {
 		t.Fatal("duplicate column error was not recognised")
 	}

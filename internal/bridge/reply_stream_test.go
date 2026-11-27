@@ -225,6 +225,7 @@ func TestStreamingReplySender_CreatesThenPatches(t *testing.T) {
 }
 
 func TestStreamingReplySender_FinalizeForBotMentionsCallerOnSameCard(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(0, api, func(text string) { finalText = text })
@@ -248,6 +249,7 @@ func TestStreamingReplySender_FinalizeForBotMentionsCallerOnSameCard(t *testing.
 }
 
 func TestStreamingReplySender_FinalizeForBotFallsBackForSplitAnswer(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	answer := strings.Repeat("一行足够长的回答\n", 1000)
 	s := newStreamingReplySender(0, api, nil)
@@ -272,6 +274,7 @@ func TestStreamingReplySender_FinalizeForBotFallsBackForSplitAnswer(t *testing.T
 }
 
 func TestStreamingReplySender_SupersedeFreezesOldTurnUntilReset(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 	defer s.Close()
@@ -302,6 +305,7 @@ func TestStreamingReplySender_SupersedeFreezesOldTurnUntilReset(t *testing.T) {
 }
 
 func TestStreamingReplySender_SupersedeAllowsOnlyTerminalActivity(t *testing.T) {
+	t.Parallel()
 	api := &fakeTurnCardAPI{fakeReplyAPI: &fakeReplyAPI{}}
 	s := newStreamingReplySender(0, api, nil)
 	defer s.Close()
@@ -332,6 +336,7 @@ func TestStreamingReplySender_SupersedeAllowsOnlyTerminalActivity(t *testing.T) 
 }
 
 func TestStreamingReplySender_ActivityFirstReusesPrimaryCardForAnswer(t *testing.T) {
+	t.Parallel()
 	api := &fakeTurnCardAPI{fakeReplyAPI: &fakeReplyAPI{}}
 	s := newStreamingReplySender(0, api, nil)
 	activity := renderTurnActivity(toolActivityCardMeta{Status: "running"})
@@ -360,6 +365,7 @@ func TestStreamingReplySender_ActivityFirstReusesPrimaryCardForAnswer(t *testing
 }
 
 func TestStreamingReplySender_AnswerFirstAddsActivityToPrimaryCard(t *testing.T) {
+	t.Parallel()
 	api := &fakeTurnCardAPI{fakeReplyAPI: &fakeReplyAPI{}}
 	s := newStreamingReplySender(0, api, nil)
 	s.enqueue(replyCommandAdd, "answer")
@@ -385,6 +391,7 @@ func TestStreamingReplySender_AnswerFirstAddsActivityToPrimaryCard(t *testing.T)
 }
 
 func TestStreamingReplySender_LongAnswerKeepsActivityOnFirstCard(t *testing.T) {
+	t.Parallel()
 	api := &fakeTurnCardAPI{fakeReplyAPI: &fakeReplyAPI{}}
 	s := newStreamingReplySender(0, api, nil)
 	s.enqueue(replyCommandAdd, strings.Repeat("a", streamingReplyCardSoftLimit+100))
@@ -406,6 +413,7 @@ func TestStreamingReplySender_LongAnswerKeepsActivityOnFirstCard(t *testing.T) {
 }
 
 func TestStreamingReplySender_ActivityCreateFailureLocksTurnToLegacy(t *testing.T) {
+	t.Parallel()
 	api := &fakeTurnCardAPI{
 		fakeReplyAPI:      &fakeReplyAPI{},
 		activityCreateErr: errors.New("cardkit unavailable"),
@@ -428,6 +436,7 @@ func TestStreamingReplySender_ActivityCreateFailureLocksTurnToLegacy(t *testing.
 }
 
 func TestStreamingReplySender_RetriesPendingActivityBeforeFinish(t *testing.T) {
+	t.Parallel()
 	api := &fakeTurnCardAPI{
 		fakeReplyAPI:           &fakeReplyAPI{},
 		activityUpdateFailures: 1,
@@ -449,6 +458,7 @@ func TestStreamingReplySender_RetriesPendingActivityBeforeFinish(t *testing.T) {
 }
 
 func TestStreamingReplySender_AddDeltaDoesNotBlockOnCardNetwork(t *testing.T) {
+	t.Parallel()
 	api := &blockingCreateReplyAPI{
 		fakeReplyAPI: &fakeReplyAPI{},
 		started:      make(chan struct{}),
@@ -479,6 +489,7 @@ func TestStreamingReplySender_AddDeltaDoesNotBlockOnCardNetwork(t *testing.T) {
 }
 
 func TestStreamingReplySenderThrottlesCreateRetries(t *testing.T) {
+	t.Parallel()
 	api := &failingCreateReplyAPI{fakeReplyAPI: &fakeReplyAPI{}}
 	s := newStreamingReplySender(100*time.Millisecond, api, nil)
 	defer s.Close()
@@ -493,6 +504,7 @@ func TestStreamingReplySenderThrottlesCreateRetries(t *testing.T) {
 }
 
 func TestStreamingReplySender_CoalescesQueuedDeltasAfterSlowCreate(t *testing.T) {
+	t.Parallel()
 	api := &blockingCreateReplyAPI{
 		fakeReplyAPI: &fakeReplyAPI{},
 		started:      make(chan struct{}),
@@ -526,6 +538,7 @@ func TestStreamingReplySender_CoalescesQueuedDeltasAfterSlowCreate(t *testing.T)
 }
 
 func TestStreamingReplySender_DropsEmptyAndDuplicate(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(10*time.Millisecond, api, nil)
 
@@ -543,6 +556,7 @@ func TestStreamingReplySender_DropsEmptyAndDuplicate(t *testing.T) {
 }
 
 func TestStreamingReplySender_FinalizesOnceAcrossFlushResetAndClose(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	finalCalls := 0
 	s := newStreamingReplySender(time.Hour, api, func(string) { finalCalls++ })
@@ -561,6 +575,7 @@ func TestStreamingReplySender_FinalizesOnceAcrossFlushResetAndClose(t *testing.T
 }
 
 func TestStreamingReplySender_ResetFinalizesOpenCard(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(time.Hour, api, func(text string) { finalText = text })
@@ -577,6 +592,7 @@ func TestStreamingReplySender_ResetFinalizesOpenCard(t *testing.T) {
 }
 
 func TestStreamingReplySender_DropsWhitespaceOnlyDeltaBeforeSegment(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 
@@ -597,6 +613,7 @@ func TestStreamingReplySender_DropsWhitespaceOnlyDeltaBeforeSegment(t *testing.T
 }
 
 func TestStreamingReplySender_ReplaceCurrentUsesFinalText(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(0, api, func(t string) { finalText = t })
@@ -620,6 +637,7 @@ func TestStreamingReplySender_ReplaceCurrentUsesFinalText(t *testing.T) {
 }
 
 func TestStreamingReplySender_ReconcileFinalMessageKeepsAlreadyStreamedSuffix(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(0, api, func(text string) { finalText = text })
@@ -644,6 +662,7 @@ func TestStreamingReplySender_ReconcileFinalMessageKeepsAlreadyStreamedSuffix(t 
 }
 
 func TestStreamingReplySender_AssistantMessageBoundariesCreateParagraphs(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 	defer s.Close()
@@ -664,6 +683,7 @@ func TestStreamingReplySender_AssistantMessageBoundariesCreateParagraphs(t *test
 }
 
 func TestStreamingReplySender_ReconcileFinalMessageCreatesFallbackWithoutDeltas(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 	defer s.Close()
@@ -680,6 +700,7 @@ func TestStreamingReplySender_ReconcileFinalMessageCreatesFallbackWithoutDeltas(
 }
 
 func TestStreamingReplySender_ReconcileFinalMessageCompletesPartialSuffix(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 	defer s.Close()
@@ -697,6 +718,7 @@ func TestStreamingReplySender_ReconcileFinalMessageCompletesPartialSuffix(t *tes
 }
 
 func TestFinalMessageOverlapHandlesLongMismatchAndUTF8(t *testing.T) {
+	t.Parallel()
 	streamed := strings.Repeat("前", 20000) + "最终答"
 	final := "最终答案"
 	if got := finalMessageOverlap(streamed, final); got != 3 {
@@ -705,6 +727,7 @@ func TestFinalMessageOverlapHandlesLongMismatchAndUTF8(t *testing.T) {
 }
 
 func TestStreamingReplySender_ReconcileFinalMessageAppendsMissingMessage(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 	defer s.Close()
@@ -722,6 +745,7 @@ func TestStreamingReplySender_ReconcileFinalMessageAppendsMissingMessage(t *test
 }
 
 func TestStreamingReplySender_ReconcileFinalMessageDoesNotBlankSplitCards(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 	defer s.Close()
@@ -752,6 +776,7 @@ func TestStreamingReplySender_ReconcileFinalMessageDoesNotBlankSplitCards(t *tes
 }
 
 func TestStreamingReplySender_ReplaceCurrentPatchesExistingCard(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 
@@ -772,6 +797,7 @@ func TestStreamingReplySender_ReplaceCurrentPatchesExistingCard(t *testing.T) {
 }
 
 func TestStreamingReplySender_ReplaceCurrentReplacesOpenTurn(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(0, api, func(t string) { finalText = t })
@@ -794,6 +820,7 @@ func TestStreamingReplySender_ReplaceCurrentReplacesOpenTurn(t *testing.T) {
 }
 
 func TestStreamingReplySender_FullTurnResultDoesNotDuplicateCurrentTurn(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(0, api, func(t string) { finalText = t })
@@ -816,6 +843,7 @@ func TestStreamingReplySender_FullTurnResultDoesNotDuplicateCurrentTurn(t *testi
 }
 
 func TestStreamingReplySender_FullTurnResultAfterSegmentReplacesCurrentTurn(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(0, api, func(t string) { finalText = t })
@@ -837,6 +865,7 @@ func TestStreamingReplySender_FullTurnResultAfterSegmentReplacesCurrentTurn(t *t
 }
 
 func TestStreamingReplySender_RollsLongRepliesIntoMultipleCards(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(time.Hour, api, func(t string) { finalText = t })
@@ -867,6 +896,7 @@ func TestStreamingReplySender_RollsLongRepliesIntoMultipleCards(t *testing.T) {
 }
 
 func TestStreamingReplySender_ResultCalibratesPreviouslySplitCards(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(time.Hour, api, func(text string) { finalText = text })
@@ -893,6 +923,7 @@ func TestStreamingReplySender_ResultCalibratesPreviouslySplitCards(t *testing.T)
 }
 
 func TestStreamingReplySender_ResultCalibratesWhenSplitCardCountChanges(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(time.Hour, api, nil)
 	original := strings.Repeat("a", streamingReplyCardSoftLimit+20)
@@ -917,6 +948,7 @@ func TestStreamingReplySender_ResultCalibratesWhenSplitCardCountChanges(t *testi
 // reply is split mid code block, the first card closes the fence and the
 // continuation card reopens it, so neither card shows broken markdown in Feishu.
 func TestStreamingReplySender_BalancesCodeFenceAcrossCards(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(time.Hour, api, nil)
 
@@ -956,6 +988,7 @@ func TestStreamingReplySender_BalancesCodeFenceAcrossCards(t *testing.T) {
 }
 
 func TestSplitMarkdownCard(t *testing.T) {
+	t.Parallel()
 	t.Run("cuts on line boundary", func(t *testing.T) {
 		text := "line one\nline two\nline three"
 		// Limit includes the newline after "line two" so that is the last cut point.
@@ -1005,6 +1038,7 @@ func firstLine(s string) string {
 // Segment is a compatibility no-op. Tool activity should not split ordinary
 // assistant narration into multiple Feishu reply cards.
 func TestStreamingReplySender_SegmentDoesNotStartNewCard(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(0, api, func(t string) { finalText = t })
@@ -1047,6 +1081,7 @@ func TestStreamingReplySender_SegmentDoesNotStartNewCard(t *testing.T) {
 
 // Segment with no accumulated text is a no-op: it must not create an empty card.
 func TestStreamingReplySender_SegmentNoopWhenEmpty(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 
@@ -1067,6 +1102,7 @@ func TestStreamingReplySender_SegmentNoopWhenEmpty(t *testing.T) {
 }
 
 func TestStreamingReplySender_FirstDeltaCreatesImmediately(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 
@@ -1083,6 +1119,7 @@ func TestStreamingReplySender_FirstDeltaCreatesImmediately(t *testing.T) {
 }
 
 func TestStreamingReplySender_SegmentKeepsPreToolText(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 
@@ -1107,6 +1144,7 @@ func TestStreamingReplySender_SegmentKeepsPreToolText(t *testing.T) {
 }
 
 func TestStreamingReplySender_MergesAcrossToolSegment(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 
@@ -1130,6 +1168,7 @@ func TestStreamingReplySender_MergesAcrossToolSegment(t *testing.T) {
 
 // Segment while pending and current is empty is a no-op that stays pending.
 func TestStreamingReplySender_SegmentNoopWhenPendingEmpty(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(0, api, nil)
 
@@ -1150,6 +1189,7 @@ func TestStreamingReplySender_SegmentNoopWhenPendingEmpty(t *testing.T) {
 const tableMD = "| a | b |\n| --- | --- |\n| 1 | 2 |"
 
 func TestCountMarkdownTables(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		in   string
@@ -1173,6 +1213,7 @@ func TestCountMarkdownTables(t *testing.T) {
 }
 
 func TestSplitMarkdownCardAtTableLimit(t *testing.T) {
+	t.Parallel()
 	t.Run("splits after Nth table, next heading travels to tail", func(t *testing.T) {
 		// Six tables, each preceded by a heading and followed by a blank line.
 		var b strings.Builder
@@ -1208,6 +1249,7 @@ func TestSplitMarkdownCardAtTableLimit(t *testing.T) {
 // soft limit, must still be split into multiple cards so no single card exceeds
 // Feishu's per-card table cap.
 func TestStreamingReplySender_SplitsOnTableLimit(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	var finalText string
 	s := newStreamingReplySender(time.Hour, api, func(t string) { finalText = t })
@@ -1248,6 +1290,7 @@ func TestStreamingReplySender_SplitsOnTableLimit(t *testing.T) {
 // the byte soft limit binds before 5 tables accumulate (large tables): both caps
 // are active and the earlier boundary must win, so no card exceeds either cap.
 func TestStreamingReplySender_SplitsWhenBothCapsExceeded(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(time.Hour, api, nil)
 
@@ -1287,6 +1330,7 @@ func TestStreamingReplySender_SplitsWhenBothCapsExceeded(t *testing.T) {
 // re-split at turn end must also keep every card within the per-card table cap,
 // or calibration would re-merge cards past the limit and re-trigger 11310.
 func TestStreamingReplySender_CalibrationRespectsTableLimit(t *testing.T) {
+	t.Parallel()
 	api := &fakeReplyAPI{}
 	s := newStreamingReplySender(time.Hour, api, nil)
 

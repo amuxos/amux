@@ -249,6 +249,7 @@ func TestGoalCardLanguagesAndStaleGeneration(t *testing.T) {
 }
 
 func TestGoalLongObjectiveFitsCardAndUsesDigest(t *testing.T) {
+	t.Parallel()
 	chat := &LarkChat{SessionName: "s1", goalGeneration: "generation", goalSessionID: "session"}
 	for _, objective := range []string{strings.Repeat("目标", 2000), strings.Repeat("😀", 4000)} {
 		goal := &agentstream.GoalState{ThreadID: "native", Objective: objective, Status: "active"}

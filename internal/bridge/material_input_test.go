@@ -14,6 +14,7 @@ import (
 )
 
 func TestMergedMaterialsKeepContainerAuthority(t *testing.T) {
+	t.Parallel()
 	str := func(s string) *string { return &s }
 	msg := func(id, parent, kind, body string) *larkim.Message {
 		return &larkim.Message{MessageId: str(id), UpperMessageId: str(parent), MsgType: str(kind), Body: &larkim.MessageBody{Content: str(body)}}
@@ -43,6 +44,7 @@ func TestMergedMaterialsKeepContainerAuthority(t *testing.T) {
 }
 
 func TestMergedMaterialsSameChatResourceAuthority(t *testing.T) {
+	t.Parallel()
 	for _, chatID := range []string{"oc_current", "oc_other", ""} {
 		t.Run(chatID, func(t *testing.T) {
 			items := []*larkim.Message{

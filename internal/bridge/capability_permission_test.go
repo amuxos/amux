@@ -20,6 +20,7 @@ import (
 )
 
 func TestListFeishuPermissionStatusesUsesOfficialTenantScopeAPI(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
@@ -57,6 +58,7 @@ func TestListFeishuPermissionStatusesUsesOfficialTenantScopeAPI(t *testing.T) {
 }
 
 func TestActiveFeishuTenantScopesFollowEnabledCapabilities(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{
 		groupWatchState: groupWatchState{groupWatchConfig: config.BridgeFeishuGroupWatchConfig{
 			Enabled: true,
@@ -106,6 +108,7 @@ func TestActiveFeishuTenantScopesFollowEnabledCapabilities(t *testing.T) {
 }
 
 func TestOnlyExecutionFeishuCapabilitiesAreInactiveInSingletonMode(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -137,6 +140,7 @@ func TestOnlyExecutionFeishuCapabilitiesAreInactiveInSingletonMode(t *testing.T)
 }
 
 func TestPermissionAuditConsolidatesAndPersistsNotificationDedupe(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -237,6 +241,7 @@ func TestPermissionAuditConsolidatesAndPersistsNotificationDedupe(t *testing.T) 
 }
 
 func TestCapabilitiesCardShowsPermissionHealthAndRecheck(t *testing.T) {
+	t.Parallel()
 	card := renderCapabilitiesCard(managementState{
 		PermissionAudit: &capabilityPermissionIssue{
 			Capability: capabilityFeishuIntegration,
@@ -262,6 +267,7 @@ func TestCapabilitiesCardShowsPermissionHealthAndRecheck(t *testing.T) {
 }
 
 func TestPermissionAuditFailureKeepsLastKnownIssuesAndReportsUnknownHealth(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{
 		secrets:              &Secrets{AppId: "cli_test123", OpenId: "ou_owner"},
 		botCoordinationState: botCoordinationState{botToBot: config.BridgeFeishuBotToBotConfig{Enabled: true}},
@@ -293,6 +299,7 @@ func TestPermissionAuditFailureKeepsLastKnownIssuesAndReportsUnknownHealth(t *te
 }
 
 func TestDocumentCommentSourceRecoversAfterPermissionRecheck(t *testing.T) {
+	t.Parallel()
 	subscriptions := 0
 	b := &Bridge{
 		documentCommentController: documentCommentController{documentCommentsConfigured: true},
@@ -319,6 +326,7 @@ func TestDocumentCommentSourceRecoversAfterPermissionRecheck(t *testing.T) {
 }
 
 func TestPermissionNotificationClaimIsAtomicAcrossBridgeDBConnections(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	firstDB, err := openBridgeDB(path)
 	if err != nil {
@@ -349,6 +357,7 @@ func TestPermissionNotificationClaimIsAtomicAcrossBridgeDBConnections(t *testing
 }
 
 func TestPermissionAuditRetriesAfterOwnerBecomesAvailable(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -380,6 +389,7 @@ func TestPermissionAuditRetriesAfterOwnerBecomesAvailable(t *testing.T) {
 }
 
 func TestAggregatedNotificationMarksCapabilityIssueNotified(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{
 		secrets: &Secrets{AppId: "cli_test123", OpenId: "ou_owner"},
 		groupWatchState: groupWatchState{groupWatchConfig: config.BridgeFeishuGroupWatchConfig{
@@ -423,6 +433,7 @@ func TestAggregatedNotificationMarksCapabilityIssueNotified(t *testing.T) {
 }
 
 func TestPermissionRecheckSingleflightAndNavigationInvalidation(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	version, ok := b.beginFeishuPermissionRecheck("om-card")
 	if !ok {
@@ -456,6 +467,7 @@ func TestPermissionRecheckSingleflightAndNavigationInvalidation(t *testing.T) {
 }
 
 func TestApplyFeishuCapabilityScopes(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -482,6 +494,7 @@ func TestApplyFeishuCapabilityScopes(t *testing.T) {
 }
 
 func TestApplyFeishuCapabilityScopesErrorNotice(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		code int
 		want string
@@ -503,6 +516,7 @@ func TestApplyFeishuCapabilityScopesErrorNotice(t *testing.T) {
 }
 
 func TestPermissionApplySingleflight(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{}
 	version, ok := b.beginFeishuPermissionApply("om-card")
 	if !ok {
@@ -521,6 +535,7 @@ func TestPermissionApplySingleflight(t *testing.T) {
 }
 
 func TestPermissionApplyActionAppliesAndPatchesCard(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -604,6 +619,7 @@ func TestFeishuRegistrationGrantURL(t *testing.T) {
 }
 
 func TestGrantAddonsForScopesCollectsCapabilityDeclarations(t *testing.T) {
+	t.Parallel()
 	addons := grantAddonsForScopes([]string{"im:message.group_msg", "docs:event:subscribe"})
 	for _, scope := range []string{
 		"im:message.group_msg",
@@ -625,6 +641,7 @@ func TestGrantAddonsForScopesCollectsCapabilityDeclarations(t *testing.T) {
 }
 
 func TestPermissionGrantGuideCard(t *testing.T) {
+	t.Parallel()
 	card := renderPermissionGrantGuideCard(
 		capabilityPermissionIssue{
 			Capability: capabilityFeishuIntegration,
@@ -715,6 +732,7 @@ func TestPermissionApplyFailedGuidesToConfirmPage(t *testing.T) {
 }
 
 func TestPermissionApplyEmptyUnauthorizedRechecksGrantedScopes(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -771,6 +789,7 @@ func TestPermissionApplyEmptyUnauthorizedRechecksGrantedScopes(t *testing.T) {
 }
 
 func TestPermissionApplyRecheckRecoversDocumentComments(t *testing.T) {
+	t.Parallel()
 	subscriptions := 0
 	b := &Bridge{
 		secrets:                   &Secrets{AppId: "cli_test123", OpenId: "ou_owner"},
@@ -811,6 +830,7 @@ func TestPermissionApplyRecheckRecoversDocumentComments(t *testing.T) {
 }
 
 func TestOperationalPermissionScopesResolveIndependently(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -876,6 +896,7 @@ func TestOperationalPermissionScopesResolveIndependently(t *testing.T) {
 }
 
 func TestFeishuPermissionGrantURLUsesCurrentAppAndTenantScopes(t *testing.T) {
+	t.Parallel()
 	raw := feishuPermissionGrantURL("cli_test123", []string{
 		"im:message.group_msg",
 		"docs:event:subscribe",
@@ -900,6 +921,7 @@ func TestFeishuPermissionGrantURLUsesCurrentAppAndTenantScopes(t *testing.T) {
 }
 
 func TestFeishuAPIResponseErrorClassifiesGroupWatchPermissionCode(t *testing.T) {
+	t.Parallel()
 	err := feishuAPIResponseError(
 		"lark list messages",
 		"cli_test123",
@@ -919,6 +941,7 @@ func TestFeishuAPIResponseErrorClassifiesGroupWatchPermissionCode(t *testing.T) 
 }
 
 func TestFeishuAPIResponseErrorForRequiredScopesIgnoresAlternatives(t *testing.T) {
+	t.Parallel()
 	codeError := larkcore.CodeError{Code: 99991672, Msg: "one of these scopes is required"}
 	codeError.Err = &struct {
 		LogID                string                                   `json:"log_id,omitempty"`
@@ -947,6 +970,7 @@ func TestFeishuAPIResponseErrorForRequiredScopesIgnoresAlternatives(t *testing.T
 }
 
 func TestPermissionAuditDropsStaleAlternativeOperationalScopes(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -985,6 +1009,7 @@ func TestPermissionAuditDropsStaleAlternativeOperationalScopes(t *testing.T) {
 }
 
 func TestPermissionAuditPreservesObservedScopesForUndeclaredCapability(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -1020,6 +1045,7 @@ func TestPermissionAuditPreservesObservedScopesForUndeclaredCapability(t *testin
 }
 
 func TestCapabilityPermissionNotificationIsDeduplicatedUntilRecovery(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{secrets: &Secrets{AppId: "cli_test123", OpenId: "ou_owner"}}
 	calls := 0
 	var card string
@@ -1059,6 +1085,7 @@ func TestCapabilityPermissionNotificationIsDeduplicatedUntilRecovery(t *testing.
 }
 
 func TestCapabilityPermissionNotificationFallsBackToTextAndStillDeduplicates(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{secrets: &Secrets{AppId: "cli_test123", OpenId: "ou_owner"}}
 	interactiveCalls := 0
 	textCalls := 0
@@ -1088,6 +1115,7 @@ func TestCapabilityPermissionNotificationFallsBackToTextAndStillDeduplicates(t *
 }
 
 func TestCapabilityPermissionFallbackDedupePersistsWhenAuditAPIIsUnavailable(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -1124,6 +1152,7 @@ func TestCapabilityPermissionFallbackDedupePersistsWhenAuditAPIIsUnavailable(t *
 }
 
 func TestObservedPermissionErrorOverridesLaggingGrantedScopeCatalog(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatal(err)

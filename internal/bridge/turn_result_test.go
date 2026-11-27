@@ -11,6 +11,7 @@ import (
 )
 
 func TestReplyDeliveryReceiptTracksPrimaryContinuationAndFailure(t *testing.T) {
+	t.Parallel()
 	chat := &LarkChat{BridgeId: "bot-1", ChatID: "oc_1", RootMsgID: "om_root", TargetID: "local", SessionName: "s1"}
 
 	// Single primary card succeeded.
@@ -43,6 +44,7 @@ func TestReplyDeliveryReceiptTracksPrimaryContinuationAndFailure(t *testing.T) {
 }
 
 func TestBridgeTurnResultRecorderEndToEndWithStore(t *testing.T) {
+	t.Parallel()
 	store, err := turnresult.OpenStore(filepath.Join(t.TempDir(), "tr.db"), turnresult.DefaultPolicy())
 	if err != nil {
 		t.Fatalf("OpenStore: %v", err)

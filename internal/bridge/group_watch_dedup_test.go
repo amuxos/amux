@@ -107,6 +107,7 @@ func TestGroupWatchDedupReconcilesPendingLaunch(t *testing.T) {
 }
 
 func TestGroupWatchDedupConcurrentReservationsSurviveReopen(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db, err := openBridgeDB(path)
 	if err != nil {

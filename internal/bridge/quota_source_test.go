@@ -12,6 +12,7 @@ import (
 )
 
 func TestToolActivityCardTitleShowsSharedPoolQuotaBilingual(t *testing.T) {
+	t.Parallel()
 	started := time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)
 	now := started.Add(10 * time.Second)
 	meta := toolActivityCardMeta{
@@ -41,6 +42,7 @@ func TestToolActivityCardTitleShowsSharedPoolQuotaBilingual(t *testing.T) {
 }
 
 func TestSessionQuotaBorrowedResolvesSessionID(t *testing.T) {
+	t.Parallel()
 	modelservice.SetSessionQuotaBorrowed("sess-uuid-42", true)
 	defer modelservice.ClearSessionQuotaBorrowed("sess-uuid-42")
 

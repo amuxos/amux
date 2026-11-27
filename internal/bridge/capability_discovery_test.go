@@ -20,6 +20,7 @@ import (
 )
 
 func TestDiscoveryCatalogCardsLanguagesAndNavigation(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 10, 29, 11, 0, 0, 0, time.FixedZone("CST", 8*3600))
 	ids := map[string]bool{}
 	for _, c := range discoveryCatalog {

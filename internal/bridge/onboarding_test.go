@@ -22,6 +22,7 @@ import (
 )
 
 func TestGuideCardsBothLanguagesAndNativeFormScope(t *testing.T) {
+	t.Parallel()
 	state := managementState{Mode: "thread", DefaultAgent: "builtin/codex", DefaultRuntimeRef: "codex", Runtimes: []agentprofile.RuntimeOption{{Ref: "codex", DefaultReasoningEfforts: []string{"low", "high", "xhigh"}}}, Profiles: []managementProfileSummary{{Ref: "builtin/codex", Name: "Codex"}}}
 	for _, step := range []string{"welcome", "mode", "model", "applying", "tasks", "review_task", "running", "explore", "select", "select_review", "import", "create", "review_expert", "review_import", "done"} {
 		t.Run(step, func(t *testing.T) {
@@ -68,6 +69,7 @@ func TestGuideCardsBothLanguagesAndNativeFormScope(t *testing.T) {
 }
 
 func TestGuideProgressPersistsAndRejectsStaleWriters(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "bridge.db")
 	db, err := openBridgeDB(path)
 	if err != nil {
@@ -307,6 +309,7 @@ func TestGuideBackNavigationPreservesExpertAndLibraryDrafts(t *testing.T) {
 }
 
 func TestGuideTaskExamplesHaveSeparateFullWidthActions(t *testing.T) {
+	t.Parallel()
 	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese} {
 		p := onboardingProgress{Step: "tasks", Revision: 1}
 		raw := selectManagementCardLocale(renderGuideCard(managementState{}, p, nil), locale)
@@ -497,6 +500,7 @@ func TestGuideSkillCatalogSubmitsExpertDraftToAgent(t *testing.T) {
 }
 
 func TestGuideRunningOmitsMessageJump(t *testing.T) {
+	t.Parallel()
 	p := onboardingProgress{Step: "running", RootID: "real-request-id", Submission: "accepted"}
 	for _, locale := range []i18n.Locale{i18n.English, i18n.Chinese, "fr"} {
 		raw := selectManagementCardLocale(renderGuideCard(managementState{}, p, nil), locale)
@@ -509,6 +513,7 @@ func TestGuideRunningOmitsMessageJump(t *testing.T) {
 }
 
 func TestGuideStrongestEffortPreservesExplicitPreferences(t *testing.T) {
+	t.Parallel()
 	state := managementState{Mode: config.FeishuInteractionThread, DefaultRuntimeRef: "codex", Runtimes: []agentprofile.RuntimeOption{{Ref: "codex", DefaultReasoningEfforts: []string{"low", "high", "xhigh"}, NativeDefaultCapabilitiesKnown: true}}}
 	if got := newOnboarding(state).Draft.DefaultReasoningEffort; got != "xhigh" {
 		t.Fatalf("strongest=%q", got)
@@ -558,6 +563,7 @@ func TestGuideModelDiscoveryUsesDraftExecutionModeAndStrongestEffort(t *testing.
 }
 
 func TestGuideRemoteGitAndUsernameChanges(t *testing.T) {
+	t.Parallel()
 	for _, raw := range []string{"/local/path", "../experts", "file:///tmp/experts", "-bad", "git@example.com:repo\nnext", "https://user:password@example.com/repo"} {
 		if guideRemoteGit(raw) {
 			t.Errorf("accepted %q", raw)

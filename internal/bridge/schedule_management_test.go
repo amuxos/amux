@@ -19,6 +19,7 @@ import (
 )
 
 func TestScheduleCardsBilingualPaginationAndUntrustedNames(t *testing.T) {
+	t.Parallel()
 	entries := make([]schedule.Entry, 11)
 	for i := range entries {
 		entries[i] = schedule.Entry{Task: schedule.Task{ID: int64(i + 1), Name: fmt.Sprintf("name-%02d", i), Enabled: true}, Visibility: schedule.Visibility{Latest: schedule.Execution{Status: "failed"}, IncidentAt: 1, IncidentCount: 1}}
@@ -86,6 +87,7 @@ func TestScheduleCardsBilingualPaginationAndUntrustedNames(t *testing.T) {
 }
 
 func TestScheduleNavigationAndOverviewButtonRow(t *testing.T) {
+	t.Parallel()
 	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -170,6 +172,7 @@ func (c scheduleTestControl) Act(ctx context.Context, bot, open string, id int64
 	return c.store.ChangeVisibility(id, op, time.Now())
 }
 func TestScheduleDeliveryUsesBotAdministratorStableUUIDAndClassifiesBlocked(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 	var bodies []map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -233,6 +236,7 @@ func TestScheduleDeliveryUsesBotAdministratorStableUUIDAndClassifiesBlocked(t *t
 }
 
 func TestScheduleForwardedCallbacksDoNotExposeOrChangeAnotherCreator(t *testing.T) {
+	t.Parallel()
 	store, e := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
 	if e != nil {
 		t.Fatal(e)
@@ -271,6 +275,7 @@ func TestScheduleForwardedCallbacksDoNotExposeOrChangeAnotherCreator(t *testing.
 }
 
 func TestScheduleCardsBoundUserContentAndHistory(t *testing.T) {
+	t.Parallel()
 	entries := make([]schedule.Entry, 10)
 	for i := range entries {
 		entries[i] = schedule.Entry{Task: schedule.Task{ID: int64(i), Name: strings.Repeat("很长的任务名称", 100), Spec: "every 1m"}, Visibility: schedule.Visibility{Latest: schedule.Execution{Status: "failed"}}}
@@ -287,6 +292,7 @@ func TestScheduleCardsBoundUserContentAndHistory(t *testing.T) {
 }
 
 func TestScheduleDeduplicatedCreatePatchesCurrentState(t *testing.T) {
+	t.Parallel()
 	patches := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -315,6 +321,7 @@ func TestScheduleDeduplicatedCreatePatchesCurrentState(t *testing.T) {
 }
 
 func TestScheduleAdministratorGetsAggregatedStatusWithoutCreatorAuthority(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 	store, err := schedule.OpenStore(filepath.Join(t.TempDir(), "schedule.db"))
 	if err != nil {
@@ -437,6 +444,7 @@ func TestScheduleAdministratorGetsAggregatedStatusWithoutCreatorAuthority(t *tes
 }
 
 func TestScheduleCompletedFilterSeparatesFromPaused(t *testing.T) {
+	t.Parallel()
 	now := int64(1700000000)
 	entries := []schedule.Entry{
 		{Task: schedule.Task{ID: 1, Name: "active-job", Kind: schedule.KindDaily, Enabled: true}},

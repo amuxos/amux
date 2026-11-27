@@ -54,6 +54,7 @@ func (b *orderedReplyBackend) UpdateActivity(_ context.Context, handle *replyCar
 }
 
 func TestFeishuStreamVisibilityRequiresInputStartedTurn(t *testing.T) {
+	t.Parallel()
 	gate := newFeishuStreamVisibilityGate()
 
 	systemTurn := agentui.Action{Kind: agentui.ActionTurnStarted, Turn: agentui.TurnEvent{ID: "restart", Seq: 1}}
@@ -87,6 +88,7 @@ func TestFeishuStreamVisibilityRequiresInputStartedTurn(t *testing.T) {
 }
 
 func TestFeishuStreamVisibilityPresentsScheduledTurn(t *testing.T) {
+	t.Parallel()
 	gate := newFeishuStreamVisibilityGate()
 	presenter := agentui.NewPresenter()
 	turn := &agentstream.TurnRef{ID: "scheduled-turn", Seq: 1}
@@ -153,6 +155,7 @@ func TestFeishuStreamVisibilityPresentsScheduledTurn(t *testing.T) {
 }
 
 func TestFeishuStreamVisibilityAcceptsBridgeAuthorizedTurnWithoutInputEcho(t *testing.T) {
+	t.Parallel()
 	gate := newFeishuStreamVisibilityGate()
 	gate.authorizeInput()
 
@@ -171,6 +174,7 @@ func TestFeishuStreamVisibilityAcceptsBridgeAuthorizedTurnWithoutInputEcho(t *te
 }
 
 func TestFeishuStreamVisibilityAcceptsFirstReplyWhenProviderOmitsTurnStarted(t *testing.T) {
+	t.Parallel()
 	gate := newFeishuStreamVisibilityGate()
 	reply := agentui.Action{
 		Kind: agentui.ActionReplyAppend,
@@ -187,6 +191,7 @@ func TestFeishuStreamVisibilityAcceptsFirstReplyWhenProviderOmitsTurnStarted(t *
 }
 
 func TestExternalBotTurnPresentationDefersCoordinationAndCreatesOnlyFinalCard(t *testing.T) {
+	t.Parallel()
 	gate := newTurnActivityPresentationGate(true)
 	started := time.Unix(100, 0)
 	reasoning := &agentui.ActivityView{StartedAt: started, CurrentStep: "choosing collaborator"}
@@ -239,6 +244,7 @@ func TestExternalBotTurnPresentationDefersCoordinationAndCreatesOnlyFinalCard(t 
 }
 
 func TestExternalBotTurnPresentationToleratesProfileDiscoveryBeforeExternalSignal(t *testing.T) {
+	t.Parallel()
 	gate := newTurnActivityPresentationGate(true)
 	started := time.Unix(100, 0)
 	profileList := agentui.ToolEvent{
@@ -258,6 +264,7 @@ func TestExternalBotTurnPresentationToleratesProfileDiscoveryBeforeExternalSigna
 }
 
 func TestFeishuStreamActiveAuthorizationRejectsTerminalOnlyReplay(t *testing.T) {
+	t.Parallel()
 	if feishuStreamActionCanAuthorizeFromActive(agentui.ActionTurnStarted) {
 		t.Fatal("explicit turn_started must use the dedicated authorization path")
 	}
@@ -299,6 +306,7 @@ func TestFeishuStreamProviderStartFallbackWaitsForPendingBotInput(t *testing.T) 
 }
 
 func TestPrivateWorkspaceBindingSendsThreadReplies(t *testing.T) {
+	t.Parallel()
 	var paths []string
 	var bodies []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -391,6 +399,7 @@ func TestPrivateWorkspaceBindingSendsThreadReplies(t *testing.T) {
 }
 
 func TestSingletonBindingSendsLatestDMOrChatNotice(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -455,6 +464,7 @@ func TestSingletonBindingSendsLatestDMOrChatNotice(t *testing.T) {
 }
 
 func TestBotSessionForBindingRejectsStaleSingletonStream(t *testing.T) {
+	t.Parallel()
 	db, err := openBridgeDB(filepath.Join(t.TempDir(), "bridge.db"))
 	if err != nil {
 		t.Fatalf("openBridgeDB: %v", err)
@@ -483,6 +493,7 @@ func TestBotSessionForBindingRejectsStaleSingletonStream(t *testing.T) {
 }
 
 func TestSingletonBindingSendsDirectCardsWithoutThread(t *testing.T) {
+	t.Parallel()
 	var mu sync.Mutex
 	var calls []struct {
 		Method string
@@ -664,6 +675,7 @@ func assertInteractiveCardJSON2(t *testing.T, body string) {
 // Assistant narration is projected into activity, while only the native result
 // becomes the answer on the same CardKit turn card.
 func TestMainTurnCard_ProgressThenAuthoritativeResult(t *testing.T) {
+	t.Parallel()
 	var mu sync.Mutex
 	var creates []string
 	var replyText string
@@ -925,6 +937,7 @@ func (h *blockingStreamHub) RouteStream(ctx context.Context, _ string, _ string,
 }
 
 func TestStreamFreezeRegistrationIsScopedByStreamToken(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{
 		streamController: streamController{streamTokens: map[string]uint64{"root-1": 2}, supersededTurns: map[string]bool{"root-1": true}},
 	}
@@ -947,6 +960,7 @@ func TestStreamFreezeRegistrationIsScopedByStreamToken(t *testing.T) {
 }
 
 func TestStartSingletonStreamUsesSingletonKey(t *testing.T) {
+	t.Parallel()
 	hub := newBlockingStreamHub()
 	defer close(hub.release)
 	b := &Bridge{
@@ -988,6 +1002,7 @@ func waitForStreamTestSignal(t *testing.T, ch <-chan int) int {
 }
 
 func TestBridgeErrorNoticeSanitized(t *testing.T) {
+	t.Parallel()
 	// No session name: generic prompt.
 	if got := bridgeErrorNotice("", "provider exploded at /secret/path", false); !strings.Contains(got, "Agent 执行出错") {
 		t.Fatalf("bridgeErrorNotice(empty) = %q, want generic prompt", got)
@@ -1006,6 +1021,7 @@ func TestBridgeErrorNoticeSanitized(t *testing.T) {
 }
 
 func TestBridgeErrorNoticeExplainsMissingProviderConversation(t *testing.T) {
+	t.Parallel()
 	got := bridgeErrorNotice("work-session", "Thread 01JXYZ was not found", true)
 	for _, want := range []string{"历史对话上下文已失效", "新建话题", "work-session", "--refresh-profile"} {
 		if !strings.Contains(got, want) {
@@ -1028,6 +1044,7 @@ func TestBridgeErrorNoticeExplainsMissingProviderConversation(t *testing.T) {
 }
 
 func TestBridgeErrorNoticeExplainsUnavailableModel(t *testing.T) {
+	t.Parallel()
 	got := bridgeErrorNotice(
 		"feishu-singleton-default-df87e62394",
 		"unexpected status 404 Not Found: The model `default_model` does not exist., url: http://models.internal/v1/chat/completions",
@@ -1090,6 +1107,7 @@ func TestBridgeErrorNoticeExplainsUnavailableModel(t *testing.T) {
 }
 
 func TestBridgeErrorNoticeRepeatedToolLoop(t *testing.T) {
+	t.Parallel()
 	const want = "⚠️ 模型反复调用同一工具未正常结束，本轮已自动终止。实际工作可能已完成，请检查结果后直接继续对话；若连续出现请切换模型。"
 	got := bridgeErrorNotice(
 		"work-session",
@@ -1109,6 +1127,7 @@ func TestBridgeErrorNoticeRepeatedToolLoop(t *testing.T) {
 }
 
 func TestBridgeStreamFailureNoticeExplainsMissingAmuxSession(t *testing.T) {
+	t.Parallel()
 	got, ok := bridgeStreamFailureNotice(
 		"work-session",
 		status.Errorf(codes.NotFound, `session "work-session" not found`),

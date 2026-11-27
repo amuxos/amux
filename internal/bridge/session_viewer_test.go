@@ -10,6 +10,7 @@ import (
 )
 
 func TestSessionViewerURL(t *testing.T) {
+	t.Parallel()
 	expiresAt := time.Unix(2000, 0)
 	got := sessionViewerURLWithExpiry("https://amux.example.com/base/", "viewer secret", "cloud/1", "feishu a+b", expiresAt)
 	u, err := url.Parse(got)
@@ -35,6 +36,7 @@ func TestSessionViewerURL(t *testing.T) {
 }
 
 func TestSessionViewerURLEmptyWithoutBaseURL(t *testing.T) {
+	t.Parallel()
 	if got := sessionViewerURL("", "viewer-secret", "target-1", "feishu-a1"); got != "" {
 		t.Fatalf("sessionViewerURL without base = %q, want empty", got)
 	}

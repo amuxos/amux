@@ -69,6 +69,7 @@ func (f *fakeCardKitReplyAPI) FinishCard(_ context.Context, finish cardKitReplyF
 }
 
 func TestCardKitReplyDataEnablesStreamingMarkdown(t *testing.T) {
+	t.Parallel()
 	raw := renderCardKitReplyData("hello **world**")
 	if !strings.Contains(raw, `"summary"`) || !strings.Contains(raw, `"streaming_config"`) {
 		t.Fatalf("card config missing summary or streaming_config: %s", raw)
@@ -135,6 +136,7 @@ func TestCardKitReplyDataEnablesStreamingMarkdown(t *testing.T) {
 }
 
 func TestCardKitMessageContentReferencesCardID(t *testing.T) {
+	t.Parallel()
 	raw := renderCardKitMessageContent("card-123")
 	var content struct {
 		Type string `json:"type"`
@@ -151,6 +153,7 @@ func TestCardKitMessageContentReferencesCardID(t *testing.T) {
 }
 
 func TestCardKitReplyLifecycleUsesFullTextIncreasingSequenceAndFreshUUIDs(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123"}
 	var sentContent string
 	backend := &bindingReplyCardBackend{
@@ -205,6 +208,7 @@ func TestCardKitReplyLifecycleUsesFullTextIncreasingSequenceAndFreshUUIDs(t *tes
 }
 
 func TestCardKitReplyUpdateKeepsBridgeOwnedBrandFooterSingle(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123"}
 	backend := &bindingReplyCardBackend{
 		cardKit: api,
@@ -231,6 +235,7 @@ func TestCardKitReplyUpdateKeepsBridgeOwnedBrandFooterSingle(t *testing.T) {
 }
 
 func TestCardKitMainTurnActivityFirstAddsAnswerToSameCard(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123"}
 	sends := 0
 	backend := &bindingReplyCardBackend{
@@ -281,6 +286,7 @@ func TestCardKitMainTurnActivityFirstAddsAnswerToSameCard(t *testing.T) {
 }
 
 func TestCardKitMainTurnAnswerFirstMovesActivityBeforeAnswer(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123"}
 	sends := 0
 	backend := &bindingReplyCardBackend{
@@ -345,6 +351,7 @@ func TestCardKitMainTurnAnswerFirstMovesActivityBeforeAnswer(t *testing.T) {
 }
 
 func TestCardKitConversationSectionStaysBeforeFooter(t *testing.T) {
+	t.Parallel()
 	for _, activityFirst := range []bool{false, true} {
 		name := "answer_first"
 		if activityFirst {
@@ -412,6 +419,7 @@ func TestCardKitConversationSectionStaysBeforeFooter(t *testing.T) {
 }
 
 func TestCardKitMainTurnRetriesAmbiguousInsertWithSameIdentityBeforeFinish(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{
 		cardID:     "card-123",
 		insertErrs: []error{&ambiguousCardKitMutationError{err: context.DeadlineExceeded}},
@@ -511,6 +519,7 @@ func assertInsertedElementOrder(t *testing.T, raw string, wantIDs ...string) {
 }
 
 func TestCardKitReplyFallsBackBeforeMessageIsVisible(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		createErr error
@@ -549,6 +558,7 @@ func TestCardKitReplyFallsBackBeforeMessageIsVisible(t *testing.T) {
 }
 
 func TestCardKitReplyRetriesAmbiguousSendWithSameUUID(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123"}
 	var requestUUIDs []string
 	legacyCreates := 0
@@ -583,6 +593,7 @@ func TestCardKitReplyRetriesAmbiguousSendWithSameUUID(t *testing.T) {
 }
 
 func TestCardKitReplyFallsBackWhenAmbiguousRetryFailsDefinitely(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123"}
 	sends := 0
 	legacyCreates := 0
@@ -614,6 +625,7 @@ func TestCardKitReplyFallsBackWhenAmbiguousRetryFailsDefinitely(t *testing.T) {
 }
 
 func TestCardKitActivityReturnsDefiniteAmbiguousRetryFailure(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123"}
 	sends := 0
 	backend := &bindingReplyCardBackend{
@@ -637,6 +649,7 @@ func TestCardKitActivityReturnsDefiniteAmbiguousRetryFailure(t *testing.T) {
 }
 
 func TestCardKitReplyDoesNotFallbackWhenSendOutcomeRemainsAmbiguous(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123"}
 	legacyCreates := 0
 	var requestUUIDs []string
@@ -680,6 +693,7 @@ func TestCardKitReplyDoesNotFallbackWhenSendOutcomeRemainsAmbiguous(t *testing.T
 }
 
 func TestCardKitReplyDoesNotFallbackAfterMessageIsVisible(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123", updateErr: errors.New("update failed")}
 	legacyCreates := 0
 	backend := &bindingReplyCardBackend{
@@ -709,6 +723,7 @@ func TestCardKitReplyDoesNotFallbackAfterMessageIsVisible(t *testing.T) {
 }
 
 func TestCardKitReplyFinishRemainsRetryableAfterFailure(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123", finishErr: errors.New("finish failed")}
 	backend := &bindingReplyCardBackend{
 		cardKit: api,
@@ -736,6 +751,7 @@ func TestCardKitReplyFinishRemainsRetryableAfterFailure(t *testing.T) {
 }
 
 func TestLegacyReplyFinishRemainsRetryableAfterPatchFailure(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{createErr: errors.New("cardkit unavailable")}
 	patchErr := errors.New("patch failed")
 	patches := 0
@@ -769,6 +785,7 @@ func TestLegacyReplyFinishRemainsRetryableAfterPatchFailure(t *testing.T) {
 }
 
 func TestCardKitReplyCalibratesFinishedSplitCard(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-123"}
 	backend := &bindingReplyCardBackend{
 		cardKit: api,
@@ -796,6 +813,7 @@ func TestCardKitReplyCalibratesFinishedSplitCard(t *testing.T) {
 }
 
 func TestBindingReplyCardBackendStreamsCardKitToThread(t *testing.T) {
+	t.Parallel()
 	type call struct {
 		method string
 		path   string
@@ -919,6 +937,7 @@ func TestBindingReplyCardBackendStreamsCardKitToThread(t *testing.T) {
 }
 
 func TestBindingReplyCardBackendRoutesSingletonCardKitToLatestTarget(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		replyKind   string
@@ -1001,6 +1020,7 @@ func TestBindingReplyCardBackendRoutesSingletonCardKitToLatestTarget(t *testing.
 // skip unchanged JSON, so a queue line rendered outside that element (or a
 // queue-only change) never reached Feishu.
 func TestCardKitQueueLineReachesExistingActivityCard(t *testing.T) {
+	t.Parallel()
 	api := &fakeCardKitReplyAPI{cardID: "card-q"}
 	backend := &bindingReplyCardBackend{
 		cardKit:  api,

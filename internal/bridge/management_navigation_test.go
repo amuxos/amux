@@ -17,6 +17,7 @@ import (
 )
 
 func TestAmuxEverySubpageKeepsOverviewBack(t *testing.T) {
+	t.Parallel()
 	state := managementState{Mode: config.FeishuInteractionThread, DefaultAgent: "builtin/codex", DefaultRuntimeRef: "codex", Profiles: []managementProfileSummary{{Ref: "builtin/codex", Name: "Codex"}}}
 	draft := managementDraftFromState(state)
 	cards := map[string]string{
@@ -90,6 +91,7 @@ func TestAmuxEverySubpageKeepsOverviewBack(t *testing.T) {
 }
 
 func TestAmuxNestedBackTargetsParent(t *testing.T) {
+	t.Parallel()
 	state := managementState{Mode: config.FeishuInteractionThread}
 	for name, tc := range map[string]struct{ card, action string }{
 		"defaults": {renderSettingsEditCardForSurface(state, managementDraftFromState(state), managementSurfaceAmux), managementActionStatusOpen},

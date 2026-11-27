@@ -264,6 +264,7 @@ func TestResolveQuotedMessageRejectsCrossChatResult(t *testing.T) {
 }
 
 func TestTruncateFeishuQuotedMessageHonorsRuneLimit(t *testing.T) {
+	t.Parallel()
 	got := truncateFeishuQuotedMessage(strings.Repeat("引", maxFeishuQuotedMessageRunes+50))
 	if len([]rune(got)) != maxFeishuQuotedMessageRunes || !strings.HasSuffix(got, "[Quoted message truncated]") {
 		t.Fatalf("quoted text rune count=%d suffix=%q", len([]rune(got)), got[len(got)-30:])

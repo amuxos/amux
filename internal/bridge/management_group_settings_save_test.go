@@ -146,6 +146,7 @@ func TestGroupSettingsSaveNavigationSuppressesLateResultNotCommit(t *testing.T) 
 }
 
 func TestGroupSettingsSaveStatusI18n(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"management.group_settings.saving", "management.group_settings.save_pending", "management.group_settings.save_failed", "management.group_settings.save_timeout", "management.group_settings.retry_after_timeout", "management.group_settings.cleanup_partial", "management.group_settings.saved_refresh_failed"} {
 		text := managementCopy(key)
 		if text.For(i18n.English) == text.For(i18n.Chinese) || strings.Contains(text.For(i18n.English), "management.") {

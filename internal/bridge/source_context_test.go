@@ -57,6 +57,7 @@ func sourceTestMessage(id string) *larkim.Message {
 }
 
 func TestSourceContextValidatesExactMessage(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		edit func(*larkim.Message)
@@ -99,6 +100,7 @@ func TestSourceContextValidatesExactMessage(t *testing.T) {
 }
 
 func TestSourceContextFirstMessageAndSingleton(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{bridgeID: "feishu:test"}
 	b.sourceMessageLookup = func(_ context.Context, id string) (*larkim.Message, error) {
 		m := sourceTestMessage(id)
@@ -115,6 +117,7 @@ func TestSourceContextFirstMessageAndSingleton(t *testing.T) {
 }
 
 func TestSourceContextDoesNotBorrowBinding(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{bridgeID: "feishu:test"}
 	chat := &LarkChat{BridgeId: b.bridgeID, ChatID: "oc-source", RootMsgID: "om-old", ThreadID: "omt-old"}
 	ctx := withFeishuSource(context.Background(), feishuSource{ChatID: "oc-source", RootMessageID: "om-root"})
@@ -136,6 +139,7 @@ func TestSourceContextDoesNotBorrowBinding(t *testing.T) {
 }
 
 func TestSourceContextLookupHasBoundedDeadline(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{bridgeID: "feishu:test"}
 	b.sourceMessageLookup = func(ctx context.Context, _ string) (*larkim.Message, error) {
 		deadline, ok := ctx.Deadline()
@@ -226,6 +230,7 @@ func TestLegacySourceContextCoalescingKeepsFirstSource(t *testing.T) {
 }
 
 func TestSourceContextThreadRootWithoutAPILink(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{bridgeID: "feishu:test"}
 	b.sourceMessageLookup = func(_ context.Context, id string) (*larkim.Message, error) {
 		return larkim.NewMessageBuilder().MessageId(id).ChatId("oc-source").ThreadId("omt_source").Build(), nil
@@ -240,6 +245,7 @@ func TestSourceContextThreadRootWithoutAPILink(t *testing.T) {
 }
 
 func TestSourceContextPreservesOfficialLink(t *testing.T) {
+	t.Parallel()
 	const link = "https://applink.feishu.cn/client/thread/open?open_chat_id=oc-source&open_thread_id=omt_source&thread_position=1"
 	b := &Bridge{bridgeID: "feishu:test"}
 	b.sourceMessageLookup = func(_ context.Context, id string) (*larkim.Message, error) {
@@ -255,6 +261,7 @@ func TestSourceContextPreservesOfficialLink(t *testing.T) {
 }
 
 func TestSourceContextKnownTopicDoesNotFallBackToChat(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{bridgeID: "feishu:test"}
 	b.sourceMessageLookup = func(_ context.Context, id string) (*larkim.Message, error) {
 		return larkim.NewMessageBuilder().MessageId(id).ChatId("oc-source").Build(), nil
@@ -267,6 +274,7 @@ func TestSourceContextKnownTopicDoesNotFallBackToChat(t *testing.T) {
 }
 
 func TestSourceContextDoesNotBorrowSingletonThread(t *testing.T) {
+	t.Parallel()
 	b := &Bridge{bridgeID: "feishu:test"}
 	b.sourceMessageLookup = func(_ context.Context, id string) (*larkim.Message, error) {
 		return larkim.NewMessageBuilder().MessageId(id).ChatId("oc-input").Build(), nil
@@ -280,6 +288,7 @@ func TestSourceContextDoesNotBorrowSingletonThread(t *testing.T) {
 }
 
 func TestFeishuConversationURLEncodesIdentifiers(t *testing.T) {
+	t.Parallel()
 	chatID, threadID := "oc_source&extra=chat", "omt_source&extra=thread"
 	for _, thread := range []string{"", threadID} {
 		u, err := url.Parse(feishuConversationURL(chatID, thread))
@@ -301,6 +310,7 @@ func TestFeishuConversationURLEncodesIdentifiers(t *testing.T) {
 }
 
 func TestFetchSourceMessageBuildsEntryWithoutAPILink(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {

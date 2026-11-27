@@ -181,6 +181,7 @@ func testWSConfig() larkWSWatchdogConfig {
 }
 
 func TestLarkWSSupervisorRestartsStaleConnectionOnce(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	first := h.nextClient()
 	first.ready()
@@ -219,6 +220,7 @@ func TestLarkWSSupervisorRestartsStaleConnectionOnce(t *testing.T) {
 }
 
 func TestLarkWSSupervisorPongsAndEventsKeepConnection(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -239,6 +241,7 @@ func TestLarkWSSupervisorPongsAndEventsKeepConnection(t *testing.T) {
 }
 
 func TestLarkWSSupervisorWaitsForShortSDKReconnect(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -255,6 +258,7 @@ func TestLarkWSSupervisorWaitsForShortSDKReconnect(t *testing.T) {
 }
 
 func TestLarkWSSupervisorRecyclesStuckSDKReconnect(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -270,6 +274,7 @@ func TestLarkWSSupervisorRecyclesStuckSDKReconnect(t *testing.T) {
 }
 
 func TestLarkWSSupervisorRecyclesWhenPongsStopDespiteEvents(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -288,6 +293,7 @@ func TestLarkWSSupervisorRecyclesWhenPongsStopDespiteEvents(t *testing.T) {
 }
 
 func TestLarkWSSupervisorRecyclesWhenPingsStop(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -309,6 +315,7 @@ func TestLarkWSSupervisorRecyclesWhenPingsStop(t *testing.T) {
 }
 
 func TestLarkWSSupervisorRecyclesAfterHostSuspend(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -326,6 +333,7 @@ func TestLarkWSSupervisorRecyclesAfterHostSuspend(t *testing.T) {
 }
 
 func TestLarkWSSupervisorKeepsConnectionProvenAliveAfterSuspend(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -337,6 +345,7 @@ func TestLarkWSSupervisorKeepsConnectionProvenAliveAfterSuspend(t *testing.T) {
 }
 
 func TestLarkWSSupervisorRecyclesWhenProcessWasFrozen(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -347,6 +356,7 @@ func TestLarkWSSupervisorRecyclesWhenProcessWasFrozen(t *testing.T) {
 }
 
 func TestLarkWSSupervisorRestartsClientThatStopped(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -359,6 +369,7 @@ func TestLarkWSSupervisorRestartsClientThatStopped(t *testing.T) {
 }
 
 func TestLarkWSSupervisorReturnsInitialClientError(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	want := larkws.NewClientError(19001, "invalid credential")
@@ -376,6 +387,7 @@ func TestLarkWSSupervisorReturnsInitialClientError(t *testing.T) {
 }
 
 func TestLarkWSSupervisorBacksOffWhenNeverConnected(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	for i := 0; i < 3; i++ {
 		c := h.nextClient()
@@ -388,6 +400,7 @@ func TestLarkWSSupervisorBacksOffWhenNeverConnected(t *testing.T) {
 }
 
 func TestLarkWSSupervisorCancelStopsClient(t *testing.T) {
+	t.Parallel()
 	h := startFakeWSSupervisor(t, testWSConfig())
 	c := h.nextClient()
 	c.ready()
@@ -408,6 +421,7 @@ func TestLarkWSSupervisorCancelStopsClient(t *testing.T) {
 }
 
 func TestLarkWSWatchdogStaleThreshold(t *testing.T) {
+	t.Parallel()
 	clock := newFakeWSClock()
 	wd := newLarkWSWatchdog(defaultLarkWSWatchdogConfig(), clock)
 	wd.markConnected()
@@ -428,6 +442,7 @@ func TestLarkWSWatchdogStaleThreshold(t *testing.T) {
 }
 
 func TestLarkWSWatchdogConfigFromEnv(t *testing.T) {
+	t.Parallel()
 	env := func(v string) func(string) (string, bool) {
 		return func(string) (string, bool) { return v, true }
 	}
@@ -451,6 +466,7 @@ func TestLarkWSWatchdogConfigFromEnv(t *testing.T) {
 }
 
 func TestLarkWSWatchdogDisabled(t *testing.T) {
+	t.Parallel()
 	cfg := defaultLarkWSWatchdogConfig()
 	cfg.Disabled = true
 	clock := newFakeWSClock()
