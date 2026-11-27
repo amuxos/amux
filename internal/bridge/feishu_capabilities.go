@@ -8,7 +8,12 @@ import (
 
 type feishuCapabilityActivation int
 
-const capabilityCoreMessaging = "core_messaging"
+const (
+	capabilityCoreMessaging  = "core_messaging"
+	capabilityArtifactUpload = "artifact_upload"
+	artifactUploadScope      = "im:resource:upload"
+	legacyResourceScope      = "im:resource"
+)
 
 const (
 	feishuCapabilityAlways feishuCapabilityActivation = iota
@@ -50,6 +55,12 @@ var feishuCapabilitySpecs = []feishuCapabilitySpec{
 			"im.chat.access_event.bot_p2p_chat_entered_v1",
 		},
 		Callbacks: []string{"card.action.trigger"},
+	},
+	{
+		ID:           capabilityArtifactUpload,
+		Name:         "附件上传",
+		Activation:   feishuCapabilityAlways,
+		TenantScopes: []string{artifactUploadScope},
 	},
 	{
 		ID:         "native_commands",

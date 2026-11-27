@@ -151,7 +151,7 @@ func managementGroupWatchSuccessText(operation string) any {
 
 func managementCapabilityName(issue capabilityPermissionIssue) any {
 	switch issue.Capability {
-	case "core_messaging", "native_commands", "bot_to_bot", "group_watch", "document_comments", "feishu_integration":
+	case "core_messaging", capabilityArtifactUpload, "native_commands", "bot_to_bot", "group_watch", "document_comments", "feishu_integration":
 		return managementCopy("management.capability." + issue.Capability)
 	}
 	return managementValueOrPlaceholder(issue.Name, managementCopy("management.capability.fallback"))

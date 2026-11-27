@@ -880,7 +880,8 @@ func (b *Bridge) auditFeishuPermissionsWithObservedIssue(
 	for _, capability := range activeCapabilities {
 		capabilityNames[capability.ID] = capability.Name
 		for _, scope := range capability.TenantScopes {
-			if statuses[scope] != 1 {
+			granted := statuses[scope] == 1 || (scope == artifactUploadScope && statuses[legacyResourceScope] == 1)
+			if !granted {
 				missingByCapability[capability.ID] = append(missingByCapability[capability.ID], scope)
 			}
 		}

@@ -320,18 +320,28 @@ as one PNG preview. The downloaded GIF and the PNG preview must fit the
 existing image limits.
 
 Agent-produced outbox artifacts follow Feishu IM upload limits independently of
-inbound material limits. Each file may be at most 30 MB, with at most ten files
-and 300 MB total per turn. Recognized images up to 10 MB use the image upload
-API and retain image presentation; larger recognized images up to 30 MB use the
-file upload API instead.
+inbound material limits. Each file must be non-empty and may be at most 30 MB,
+with at most ten files and 300 MB total per turn. Recognized images up to 10 MB
+use the image upload API for inline display. If Feishu rejects an image for its
+format, size, or resolution, Bridge uploads the original bytes as a file.
+Images over 10 MB go directly through the file upload API.
 
 Artifact links use paths relative to the workspace's `amux-outbox/` directory.
 The Bridge accepts both `amux-artifact:chart.png` and
 `amux-artifact:amux-outbox/chart.png`, removes one optional `amux-outbox/`
-prefix after URL decoding, and validates the remaining relative path before
-reading it. Equivalent links share one delivery identity, including across
-retries. Absolute paths and directory traversal remain invalid; file reads
-stay confined to `amux-outbox/` under the Session's execution identity.
+prefix after URL decoding, and validates the remaining relative path. Malformed
+links, empty files, and oversized files receive specific notices. Rejected links,
+unreadable files and timed-out transfers do not block the other attachments.
+Each attachment gets a bounded transfer window, and Feishu rate-limit responses
+are retried within that window. Equivalent links and send retries reuse the same
+delivery identity and captured reply destination. File reads require the Session
+and launch from the completed turn and stay confined to `amux-outbox/` under
+that Session's execution identity.
+
+Setup requests the Feishu application scope `im:resource:upload`; existing
+apps can also use `im:resource`. The Feishu permission audit identifies missing
+upload access as Attachment upload and offers the bot owner a grant action.
+Affected users see an attachment-specific notice in the original conversation.
 
 Linux DAC file exchange requires a helper that supports the session-file
 operation. An older helper produces an explicit operator upgrade notice for

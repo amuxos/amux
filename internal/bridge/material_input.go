@@ -192,7 +192,7 @@ func (b *Bridge) downloadMessageFile(ctx context.Context, id, key string) (io.Re
 	return resp.File, resp.FileName, nil
 }
 
-const artifactInstructions = "\n\n[amux 文件交付说明：如需交付生成的图片或文件，请写入当前工作目录的 amux-outbox/，并在最终回答中使用 [文件名](amux-artifact:目录内相对路径)。只交付用户要求的成果；单文件最多 30 MB，超过 10 MB 的图片将作为普通文件发送。]"
+const artifactInstructions = "\n\n[amux 文件交付说明：如需交付生成的图片或文件，请写入当前工作目录的 amux-outbox/，并在最终回答中使用 [文件名](amux-artifact:目录内相对路径)。只交付用户要求的成果。交付前确认文件已写完且非空，单文件最多 30,000,000 字节，每轮最多 10 个。超限时先压缩或拆成符合上限的独立文件，再分别链接。超过 10 MB 的图片将作为普通文件发送。]"
 
 func (b *Bridge) prepareFileMaterials(ctx context.Context, chat *LarkChat, text string) (context.Context, string, error) {
 	m := materialsFromContext(ctx)

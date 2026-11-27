@@ -1202,11 +1202,12 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 								replyStream.Reset()
 							}
 						}
-						artifactsPending := false
-						if handoffEligible {
-							artifactsPending = b.dispatchArtifactDelivery(streamChat, action.Turn.ID, state.FinalAnswer(), ev.CanonicalJson)
+						answer := state.FinalAnswer()
+						artifactsPending := handoffEligible && artifactLinkPattern.MatchString(answer)
+						b.recordTurnResultCompletion(streamChat, action.Turn.ID, state.turnSource, action.Turn, answer, superseded, false, deliveryReceipt, artifactsPending, state.turnStartedAt, ev.CanonicalJson)
+						if artifactsPending {
+							b.dispatchArtifactDelivery(streamChat, action.Turn.ID, answer, ev.CanonicalJson)
 						}
-						b.recordTurnResultCompletion(streamChat, action.Turn.ID, state.turnSource, action.Turn, state.FinalAnswer(), superseded, false, deliveryReceipt, artifactsPending, state.turnStartedAt, ev.CanonicalJson)
 						b.observeCompletion(ctx, streamChat, action.Turn.ID, completionMeta.Status, action.Turn.StopReason, state.FinalAnswer(), superseded, completedCard)
 						notificationAnswer := state.FinalAnswer()
 						state.SetFinalAnswer("")
