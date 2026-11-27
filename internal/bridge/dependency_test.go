@@ -61,6 +61,27 @@ func TestProductionCodeRespectsDecoupledBoundaries(t *testing.T) {
 		if file == "management_config.go" {
 			continue
 		}
+		if file == "stream.go" {
+			disallowedRawStreamEvents := map[string]bool{
+				"goal_changed":       true,
+				"available_commands": true,
+			}
+			ast.Inspect(parsed, func(n ast.Node) bool {
+				lit, ok := n.(*ast.BasicLit)
+				if !ok || lit.Kind != token.STRING {
+					return true
+				}
+				val, err := strconv.Unquote(lit.Value)
+				if err != nil {
+					return true
+				}
+				if disallowedRawStreamEvents[val] {
+					pos := fset.Position(lit.Pos())
+					t.Errorf("%s:%d decodes raw attach event %q directly; route session/goal/command events through internal/agentui", file, pos.Line, val)
+				}
+				return true
+			})
+		}
 		ast.Inspect(parsed, func(n ast.Node) bool {
 			sel, ok := n.(*ast.SelectorExpr)
 			if !ok {

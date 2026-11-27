@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/amuxos/amux/internal/agentstream"
 )
 
 type ActionKind string
@@ -23,18 +25,25 @@ const (
 	ActionInputEcho                  ActionKind = "input_echo"
 	ActionTurnFinished               ActionKind = "turn_finished"
 	ActionError                      ActionKind = "error"
+	ActionGoalChanged                ActionKind = "goal_changed"
+	ActionEffectiveModelChanged      ActionKind = "effective_model_changed"
+	ActionAvailableCommands          ActionKind = "available_commands"
 )
 
 const longRunningActivityDelay = 10 * time.Second
 
 type Action struct {
 	Kind       ActionKind
+	SessionID  string
 	Turn       TurnEvent
 	Source     Source
 	Text       string
 	Activity   *ActivityView
 	Permission *PermissionEvent
 	Error      *ErrorEvent
+	Goal       *agentstream.GoalState
+	GoalTurn   *GoalTurnContext
+	RawJSON    json.RawMessage
 	Immediate  bool
 }
 
@@ -88,6 +97,21 @@ func NewPresenterWithClock(nowFn func() time.Time) *Presenter {
 }
 
 func (p *Presenter) Consume(ev Event) []Action {
+	// Session-level metadata/control events never alter active turn state.
+	switch ev.Kind {
+	case KindEffectiveModelChanged:
+		if strings.TrimSpace(ev.Text) == "" {
+			return nil
+		}
+		return []Action{{Kind: ActionEffectiveModelChanged, Source: ev.Source, Text: strings.TrimSpace(ev.Text)}}
+	case KindAvailableCommands:
+		return []Action{{Kind: ActionAvailableCommands, Source: ev.Source, RawJSON: cloneBytes(ev.RawJSON)}}
+	case KindGoalChanged:
+		if ev.Historical {
+			return nil
+		}
+		return []Action{{Kind: ActionGoalChanged, Source: SourceGoal, Goal: cloneGoalState(ev.Goal)}}
+	}
 	if olderTurn(p.turn, ev.Turn) {
 		return nil
 	}
@@ -106,7 +130,7 @@ func (p *Presenter) Consume(ev Event) []Action {
 			// Background-task completion notices are model input only.
 			startText = ""
 		}
-		actions := []Action{{Kind: ActionTurnStarted, Turn: p.turn, Source: ev.Source, Text: startText}}
+		actions := []Action{{Kind: ActionTurnStarted, Turn: p.turn, Source: ev.Source, Text: startText, GoalTurn: cloneGoalTurnContext(ev.GoalTurn)}}
 		if echoesInput(ev.Source) {
 			actions = append(actions, Action{Kind: ActionInputEcho, Turn: p.turn, Text: inputEchoText(ev)})
 		}
@@ -233,7 +257,7 @@ func (p *Presenter) Consume(ev Event) []Action {
 		if p.activity {
 			actions = append(actions, p.activityAction(true)...)
 		}
-		actions = append(actions, Action{Kind: ActionTurnFinished, Turn: p.turn})
+		actions = append(actions, Action{Kind: ActionTurnFinished, SessionID: ev.SessionID, Turn: p.turn})
 		return actions
 	default:
 		return nil
@@ -483,4 +507,12 @@ func echoesInput(src Source) bool {
 // inputEchoText is the text echoed for a non-Feishu input.
 func inputEchoText(ev Event) string {
 	return ev.Text
+}
+
+func cloneGoalTurnContext(ctx *GoalTurnContext) *GoalTurnContext {
+	if ctx == nil {
+		return nil
+	}
+	copy := *ctx
+	return &copy
 }

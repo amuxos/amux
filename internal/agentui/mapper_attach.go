@@ -1,6 +1,7 @@
 package agentui
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/amuxos/amux/internal/agentstream"
@@ -8,23 +9,57 @@ import (
 )
 
 // FromAttachEvent decodes the canonical transport envelope used by first-party
-// presentation consumers. Flat legacy payloads belong to the unspecified
-// Attach compatibility contract and are intentionally not reinterpreted here.
+// presentation consumers, including session-level metadata updates (effective
+// model, available commands, and goal state changes). Flat legacy output
+// payloads belong to the unspecified Attach compatibility contract and are
+// intentionally not reinterpreted here.
 func FromAttachEvent(event *pb.AttachEvent) []Event {
 	if event == nil {
 		return nil
 	}
+	var out []Event
+	if model := strings.TrimSpace(event.EffectiveModel); model != "" {
+		out = append(out, Event{
+			Kind:   KindEffectiveModelChanged,
+			Source: SourceSystem,
+			Text:   model,
+		})
+	}
+	if event.EventType == "available_commands" {
+		return append(out, Event{
+			Kind:    KindAvailableCommands,
+			Source:  SourceSystem,
+			RawJSON: cloneBytes(event.StructuredJson),
+		})
+	}
+	if event.EventType == "goal_changed" {
+		var value agentstream.GoalChanged
+		if json.Unmarshal(event.StructuredJson, &value) == nil {
+			return append(out, Event{
+				Kind:   KindGoalChanged,
+				Source: SourceGoal,
+				Goal:   cloneGoalState(value.Goal),
+			})
+		}
+		return out
+	}
 	if len(event.CanonicalJson) > 0 {
 		canonical, err := agentstream.UnmarshalEvent(event.CanonicalJson)
 		if err != nil {
-			return []Event{{Kind: KindError, Source: SourceSystem, Text: err.Error(), Error: &ErrorEvent{Message: err.Error()}}}
+			return append(out, Event{Kind: KindError, Source: SourceSystem, Text: err.Error(), Error: &ErrorEvent{Message: err.Error()}})
 		}
-		return FromAgentEvent(canonical)
+		mapped := FromAgentEvent(canonical)
+		if event.Historical {
+			for i := range mapped {
+				mapped[i].Historical = true
+			}
+		}
+		return append(out, mapped...)
 	}
 	if event.Kind == pb.AttachEvent_HEARTBEAT {
-		return []Event{{Kind: KindHeartbeat, Source: SourceSystem}}
+		return append(out, Event{Kind: KindHeartbeat, Source: SourceSystem})
 	}
-	return nil
+	return out
 }
 
 func normalizeSource(source string) Source {

@@ -3,31 +3,36 @@ package agentui
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/amuxos/amux/internal/agentstream"
 )
 
 type EventKind string
 
 const (
-	KindAssistantTextDelta  EventKind = "assistant_text_delta"
-	KindAssistantText       EventKind = "assistant_text"
-	KindInputSubmitted      EventKind = "input_submitted"
-	KindThinkingDelta       EventKind = "thinking_delta"
-	KindPlan                EventKind = "plan"
-	KindToolStarted         EventKind = "tool_started"
-	KindToolUpdated         EventKind = "tool_updated"
-	KindToolCompleted       EventKind = "tool_completed"
-	KindToolFailed          EventKind = "tool_failed"
-	KindPermissionRequested EventKind = "permission_requested"
-	KindPermissionResolved  EventKind = "permission_resolved"
-	KindTurnStarted         EventKind = "turn_started"
-	KindTurnDone            EventKind = "turn_done"
-	KindInterrupted         EventKind = "interrupted"
-	KindRetry               EventKind = "retry"
-	KindError               EventKind = "error"
-	KindUsage               EventKind = "usage"
-	KindResult              EventKind = "result"
-	KindHeartbeat           EventKind = "heartbeat"
-	KindUnknown             EventKind = "unknown"
+	KindAssistantTextDelta    EventKind = "assistant_text_delta"
+	KindAssistantText         EventKind = "assistant_text"
+	KindInputSubmitted        EventKind = "input_submitted"
+	KindThinkingDelta         EventKind = "thinking_delta"
+	KindPlan                  EventKind = "plan"
+	KindToolStarted           EventKind = "tool_started"
+	KindToolUpdated           EventKind = "tool_updated"
+	KindToolCompleted         EventKind = "tool_completed"
+	KindToolFailed            EventKind = "tool_failed"
+	KindPermissionRequested   EventKind = "permission_requested"
+	KindPermissionResolved    EventKind = "permission_resolved"
+	KindTurnStarted           EventKind = "turn_started"
+	KindTurnDone              EventKind = "turn_done"
+	KindInterrupted           EventKind = "interrupted"
+	KindRetry                 EventKind = "retry"
+	KindError                 EventKind = "error"
+	KindUsage                 EventKind = "usage"
+	KindResult                EventKind = "result"
+	KindHeartbeat             EventKind = "heartbeat"
+	KindGoalChanged           EventKind = "goal_changed"
+	KindEffectiveModelChanged EventKind = "effective_model_changed"
+	KindAvailableCommands     EventKind = "available_commands"
+	KindUnknown               EventKind = "unknown"
 )
 
 type Source string
@@ -50,12 +55,14 @@ const (
 )
 
 type Event struct {
-	ID       string
-	Seq      int64
-	Kind     EventKind
-	Source   Source
-	Provider string
-	Text     string
+	ID         string
+	SessionID  string
+	Seq        int64
+	Kind       EventKind
+	Source     Source
+	Provider   string
+	Text       string
+	Historical bool
 
 	Input      *InputEvent
 	Tool       *ToolEvent
@@ -63,9 +70,19 @@ type Event struct {
 	Turn       *TurnEvent
 	Plan       *PlanEvent
 	Error      *ErrorEvent
+	Goal       *agentstream.GoalState
+	GoalTurn   *GoalTurnContext
 	UsageJSON  json.RawMessage
 	ResultJSON json.RawMessage
 	RawJSON    json.RawMessage
+}
+
+// GoalTurnContext carries the canonical identity of a native goal continuation
+// turn so presentation surfaces can authorize and route it without re-parsing
+// underlying transport envelopes.
+type GoalTurnContext struct {
+	SessionID string
+	Objective string
 }
 
 type InputEvent struct {

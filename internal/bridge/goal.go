@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/agentstream"
+	"github.com/amuxos/amux/internal/agentui"
 	"github.com/amuxos/amux/internal/bridge/command"
 	"github.com/amuxos/amux/internal/i18n"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
@@ -251,11 +252,21 @@ func (b *Bridge) goalChatForTurn(base *LarkChat, event agentstream.Event) (*Lark
 	if !ok || event.Origin.Channel != "goal" || event.Origin.NativeType != "goal_continuation" {
 		return nil, nil
 	}
+	return b.goalChatForTurnContext(base, &agentui.GoalTurnContext{
+		SessionID: event.SessionID,
+		Objective: started.InputSummary,
+	})
+}
+
+func (b *Bridge) goalChatForTurnContext(base *LarkChat, turn *agentui.GoalTurnContext) (*LarkChat, error) {
+	if turn == nil {
+		return nil, nil
+	}
 	destination, err := b.db.goalDestination(b.currentBridgeId(), base.TargetID, base.SessionName)
 	if err != nil || destination == nil {
 		return nil, err
 	}
-	if destination.SessionID != event.SessionID || destination.Objective != started.InputSummary {
+	if destination.SessionID != turn.SessionID || destination.Objective != turn.Objective {
 		return nil, nil
 	}
 	allowed, err := b.canUseBotInGroup(destination.Chat.ChatID, destination.Chat.OpenId)
