@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/amuxos/amux/internal/adapter"
+	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/distribution"
 	"github.com/amuxos/amux/internal/mux"
 	"github.com/amuxos/amux/internal/principal"
@@ -116,6 +117,35 @@ func launchSpecModel(spec string) string {
 		return model
 	}
 	return strings.TrimSpace(decoded.ProfileSpec.ConfiguredModel)
+}
+
+func launchSpecModelVariantRef(spec, agentType, effectiveModel string) string {
+	var decoded struct {
+		ProfileSpec *struct {
+			ConfiguredModel string `json:"configured_model"`
+			RuntimeRef      string `json:"runtime_ref"`
+		} `json:"profile_spec"`
+	}
+	if effectiveModel == "" || !decodeLaunchSpec(spec, &decoded) || decoded.ProfileSpec == nil {
+		return ""
+	}
+	ref := strings.TrimSpace(decoded.ProfileSpec.ConfiguredModel)
+	if ref == "" || ref == effectiveModel {
+		return ""
+	}
+	runtimeRef := strings.TrimSpace(decoded.ProfileSpec.RuntimeRef)
+	if runtimeRef == "" {
+		runtimeRef = agentType
+	}
+	runtime, err := agentprofile.ResolveRuntimeOption(runtimeRef)
+	if err != nil {
+		return ""
+	}
+	model, err := agentprofile.ResolveRuntimeModel(runtime, ref)
+	if err != nil || model.BackendVariant == "" || model.AgentModel != effectiveModel {
+		return ""
+	}
+	return ref
 }
 
 func launchSpecUsesProvider(spec string) bool {

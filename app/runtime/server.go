@@ -1478,13 +1478,15 @@ func (s *server) GetActiveTurn(_ context.Context, req *pb.ActiveTurnRequest) (*p
 	}
 	turnID, _, active := sess.ActiveTurnAuthorization()
 	snap := sess.Snapshot()
+	model := strings.TrimSpace(snap.EffectiveModel)
 	return &pb.ActiveTurnResponse{
 		Active:          active,
 		TurnId:          turnID,
 		SessionId:       snap.ID,
 		LaunchId:        snap.LaunchID,
-		EffectiveModel:  strings.TrimSpace(snap.EffectiveModel),
+		EffectiveModel:  model,
 		ReasoningEffort: launchSpecReasoningEffort(snap.LaunchSpec),
+		ModelVariantRef: launchSpecModelVariantRef(snap.LaunchSpec, snap.AgentType, model),
 	}, nil
 }
 

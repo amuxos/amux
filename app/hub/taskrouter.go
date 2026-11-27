@@ -261,7 +261,7 @@ func (r *taskRouter) SubmitSubtask(ctx context.Context, req *pb.SubmitSubtaskReq
 		identity.IsolationBackend = scheduledIdentity.IsolationBackend
 		identity.Source = scheduledIdentity.Source
 	}
-	var parentEngine, parentModel, parentEffort string
+	var parentEngine, parentModel, parentVariant, parentEffort string
 	if hasSubmitParent {
 		active, err := r.activeParentTurn(ctx, submitParent)
 		if err != nil {
@@ -273,6 +273,7 @@ func (r *taskRouter) SubmitSubtask(ctx context.Context, req *pb.SubmitSubtaskReq
 		spec.ParentTurnID = active.GetTurnId()
 		parentEngine = strings.TrimSpace(submitParent.AgentType)
 		parentModel = strings.TrimSpace(active.GetEffectiveModel())
+		parentVariant = strings.TrimSpace(active.GetModelVariantRef())
 		parentEffort = strings.TrimSpace(active.GetReasoningEffort())
 	}
 	spec.ExecutionIdentity = &identity
@@ -282,7 +283,7 @@ func (r *taskRouter) SubmitSubtask(ctx context.Context, req *pb.SubmitSubtaskReq
 		if err := r.resolveProfile(&spec); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "resolve agent profile: %v", err)
 		}
-		r.inheritParentExecution(&spec, pristine, parentEngine, parentModel, parentEffort)
+		r.inheritParentExecution(&spec, pristine, parentEngine, parentModel, parentVariant, parentEffort)
 	}
 	if err := validateManagedEvaluationTask(spec, false); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -500,30 +501,36 @@ func (r *taskRouter) activeParentTurn(ctx context.Context, parent parentSessionC
 // runs on the parent's engine. Inherited choices that do not resolve for the
 // child profile keep the caller's own resolution, so task defaults can never
 // turn a valid submission into a failure.
-func (r *taskRouter) inheritParentExecution(spec *task.Spec, pristine task.Spec, parentEngine, parentModel, parentEffort string) {
+func (r *taskRouter) inheritParentExecution(spec *task.Spec, pristine task.Spec, parentEngine, parentModel, parentVariant, parentEffort string) {
 	if spec == nil || r.resolveProfile == nil || parentEngine == "" || parentModel == "" {
 		return
 	}
 	if strings.TrimSpace(pristine.Model) != "" || strings.TrimSpace(spec.Agent) != parentEngine {
 		return
 	}
-	retry := pristine
-	retry.Model = parentModel
-	if parentEffort != "" && strings.TrimSpace(retry.ReasoningEffort) == "" {
-		retry.ReasoningEffort = parentEffort
-	}
-	if err := r.resolveProfile(&retry); err != nil {
-		// An inherited effort can be invalid for the model the child profile
-		// resolved; keep the inherited model alone rather than dropping both.
-		if strings.TrimSpace(retry.ReasoningEffort) == strings.TrimSpace(pristine.ReasoningEffort) {
+	for _, model := range []string{parentVariant, parentModel} {
+		if model == "" {
+			continue
+		}
+		retry := pristine
+		retry.Model = model
+		if strings.TrimSpace(retry.ReasoningEffort) == "" {
+			retry.ReasoningEffort = parentEffort
+		}
+		if err := r.resolveProfile(&retry); err == nil {
+			*spec = retry
 			return
 		}
-		retry.ReasoningEffort = pristine.ReasoningEffort
-		if err := r.resolveProfile(&retry); err != nil {
-			return
+		// Retry without an unsupported inherited effort before trying the base model.
+		if parentEffort != "" && strings.TrimSpace(pristine.ReasoningEffort) == "" {
+			retry = pristine
+			retry.Model = model
+			if err := r.resolveProfile(&retry); err == nil {
+				*spec = retry
+				return
+			}
 		}
 	}
-	*spec = retry
 }
 
 // hydratePersistentFollowupIdentity restores the immutable launch identity for

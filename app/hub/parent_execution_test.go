@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/amuxos/amux/internal/agentprofile"
 	"github.com/amuxos/amux/internal/registry"
 	"github.com/amuxos/amux/internal/task"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
@@ -26,7 +27,7 @@ func newParentExecutionRouter(t *testing.T, hub *fakeRouterHub, resolve func(*ta
 	return router
 }
 
-func parentExecutionHub(t *testing.T, routed *task.Spec) *fakeRouterHub {
+func parentExecutionHub(t *testing.T, routed *task.Spec, variant string) *fakeRouterHub {
 	t.Helper()
 	return &fakeRouterHub{
 		targets: parentExecutionTargets("claude"),
@@ -34,7 +35,7 @@ func parentExecutionHub(t *testing.T, routed *task.Spec) *fakeRouterHub {
 			switch method {
 			case pb.TaskMethodResolveParentTurn:
 				return respJSON(t, &pb.ActiveTurnResponse{Active: true, TurnId: "parent-turn", SessionId: "parent-session",
-					EffectiveModel: "parent-model", ReasoningEffort: "high"}), nil
+					EffectiveModel: "parent-model", ReasoningEffort: "high", ModelVariantRef: variant}), nil
 			case pb.TaskMethodSubmit:
 				req, ok := payload.(*pb.SubmitSubtaskRequest)
 				if !ok {
@@ -64,7 +65,7 @@ func submitForInheritance(t *testing.T, router *taskRouter, spec task.Spec) {
 func TestRouterSubmitInheritsParentExecutionDefaults(t *testing.T) {
 	var resolved []task.Spec
 	var routed task.Spec
-	router := newParentExecutionRouter(t, parentExecutionHub(t, &routed), func(spec *task.Spec) error {
+	router := newParentExecutionRouter(t, parentExecutionHub(t, &routed, ""), func(spec *task.Spec) error {
 		resolved = append(resolved, *spec)
 		spec.Agent = "claude"
 		spec.ResolvedProfile = &pb.AgentProfileSpec{Type: "claude", Model: spec.Model, ReasoningEffort: spec.ReasoningEffort}
@@ -85,7 +86,7 @@ func TestRouterSubmitInheritsParentExecutionDefaults(t *testing.T) {
 func TestRouterSubmitDoesNotInheritAcrossEngines(t *testing.T) {
 	var resolved []task.Spec
 	var routed task.Spec
-	hub := parentExecutionHub(t, &routed)
+	hub := parentExecutionHub(t, &routed, "parent-variant")
 	hub.targets = parentExecutionTargets("codex")
 	router := newParentExecutionRouter(t, hub, func(spec *task.Spec) error {
 		resolved = append(resolved, *spec)
@@ -105,7 +106,7 @@ func TestRouterSubmitDoesNotInheritAcrossEngines(t *testing.T) {
 func TestRouterSubmitKeepsExplicitCallerModel(t *testing.T) {
 	var resolved []task.Spec
 	var routed task.Spec
-	router := newParentExecutionRouter(t, parentExecutionHub(t, &routed), func(spec *task.Spec) error {
+	router := newParentExecutionRouter(t, parentExecutionHub(t, &routed, "parent-variant"), func(spec *task.Spec) error {
 		resolved = append(resolved, *spec)
 		spec.Agent = "claude"
 		spec.ResolvedProfile = &pb.AgentProfileSpec{Type: "claude", Model: spec.Model}
@@ -120,7 +121,7 @@ func TestRouterSubmitKeepsExplicitCallerModel(t *testing.T) {
 func TestRouterSubmitDropsInheritedEffortThatDoesNotResolve(t *testing.T) {
 	var resolved []task.Spec
 	var routed task.Spec
-	router := newParentExecutionRouter(t, parentExecutionHub(t, &routed), func(spec *task.Spec) error {
+	router := newParentExecutionRouter(t, parentExecutionHub(t, &routed, ""), func(spec *task.Spec) error {
 		resolved = append(resolved, *spec)
 		if strings.TrimSpace(spec.ReasoningEffort) == "high" && strings.TrimSpace(spec.Model) == "parent-model" {
 			return errors.New("reasoning effort high is not supported")
@@ -135,5 +136,45 @@ func TestRouterSubmitDropsInheritedEffortThatDoesNotResolve(t *testing.T) {
 	}
 	if routed.Model != "parent-model" || routed.ReasoningEffort != "" {
 		t.Fatalf("routed spec = %+v, want the inherited model without the refused effort", routed)
+	}
+}
+
+func TestRouterSubmitInheritsParentModelVariant(t *testing.T) {
+	variantRef := agentprofile.NativeVariantRef("parent-model", "parent-model__max")
+	for _, test := range []struct {
+		name, rejectedModel, wantModel string
+		wantVariant                    bool
+	}{
+		{"inherited variant", "", variantRef, true},
+		{"variant unavailable", variantRef, "parent-model", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var routed task.Spec
+			hub := parentExecutionHub(t, &routed, variantRef)
+			hub.targets = parentExecutionTargets("codex")
+			router := newParentExecutionRouter(t, hub, func(spec *task.Spec) error {
+				if test.rejectedModel != "" && spec.Model == test.rejectedModel {
+					return errors.New("model variant unavailable")
+				}
+				return agentprofile.ResolveTaskSpec(spec, "")
+			})
+			submitForInheritance(t, router, task.Spec{Agent: "builtin/codex", Task: "do work", ParentSessionID: "parent-session"})
+			if routed.ResolvedProfile.GetConfiguredModel() != test.wantModel || routed.ResolvedProfile.GetReasoningEffort() != "high" {
+				t.Fatalf("routed profile = %+v, want model %q and effort high", routed.ResolvedProfile, test.wantModel)
+			}
+			var variant string
+			for _, arg := range routed.ExtraArgs {
+				if value, ok := agentprofile.CodexConfigValue(arg, "model_backend_variant"); ok {
+					variant = value
+				}
+			}
+			wantVariant := ""
+			if test.wantVariant {
+				wantVariant = "parent-model__max"
+			}
+			if variant != wantVariant {
+				t.Fatalf("routed backend variant = %q, want %q", variant, wantVariant)
+			}
+		})
 	}
 }
