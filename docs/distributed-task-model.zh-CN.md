@@ -120,6 +120,10 @@ Claude 和支持审批的发行版 Adapter 在 process 和 Linux DAC 下均为 `
 不支持上报。权限解析与工作区、操作系统隔离及凭据授权分开。实例等待操作超时也不等于
 对应 Task 被取消或超时，最终结果仍需查询该 Task。
 
+Linux DAC 按执行环境的 PATH 查找命令名，跳过映射 UID/GID 无权执行的文件或无权穿越的
+目录。宿主机托管目录 `/usr/local/libexec/amux/tools/current/bin` 排在继承的 PATH
+目录之前。显式路径保留原目标，执行权限由 helper 检查。
+
 ## 用户问题不属于执行审批
 
 当前 Task 子会话没有业务问题转交通道。因此任何权限策略（含 `policy-allow`、

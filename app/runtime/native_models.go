@@ -46,7 +46,7 @@ func (s *server) ListNativeModels(parent context.Context, req *pb.ListNativeMode
 	if err != nil {
 		return nil, err
 	}
-	env := append(os.Environ(), s.launchEnvForIdentity(identity, nil)...)
+	env := append(os.Environ(), ensureLaunchEnvPATH(s.launchEnvForIdentity(identity, nil))...)
 	executable := req.AgentExecutable
 	if executable == "" {
 		executable = config.GetAgentExecutable(req.AgentType)

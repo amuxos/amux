@@ -101,8 +101,8 @@ type Proc struct {
 	effectiveModel    string
 	turnID            string
 	interruptedTurnID string
-	idleTimer      *time.Timer
-	idleGeneration uint64
+	idleTimer         *time.Timer
+	idleGeneration    uint64
 	// idleCompletionDelay is the thread-idle debounce. Production uses
 	// stableIdleCompletionDelay; tests may shorten it without changing provider
 	// behavior or sleeping for real seconds.
@@ -587,9 +587,12 @@ func Start(ctx context.Context, opts StartOptions) (*Proc, <-chan []byte, error)
 	if bin == "" {
 		bin = providerName
 	}
-	bin, err := provider.ResolveExecutableFromEnvPATH(bin, opts.Env)
-	if err != nil {
-		return nil, nil, err
+	if opts.LaunchContext.Backend != principal.BackendLinuxDAC {
+		resolved, err := provider.ResolveExecutableFromEnvPATH(bin, opts.Env)
+		if err != nil {
+			return nil, nil, err
+		}
+		bin = resolved
 	}
 	backend := opts.Backend
 	if backend == nil {

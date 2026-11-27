@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/amuxos/amux/internal/isolation"
@@ -59,15 +57,7 @@ func (s *maintenanceSessionServer) IsolatedSessionCredential(ctx context.Context
 
 func runIsolatedCommand(ctx context.Context, rt *isolation.Runtime, identity principal.ExecutionIdentity, name string, args, env []string, input string, observeLine func(string)) (sessioncredential.CommandOutput, error) {
 	var output sessioncredential.CommandOutput
-	executable, err := exec.LookPath(name)
-	if err != nil {
-		return output, err
-	}
-	executable, err = filepath.Abs(executable)
-	if err != nil {
-		return output, err
-	}
-	commandPATH := "PATH=" + strings.Join(uniquePathEntries(appendStandardUserBinPaths(strings.Split(os.Getenv("PATH"), string(os.PathListSeparator)))), string(os.PathListSeparator))
+	commandEnv := ensureLaunchEnvPATH(env)
 	launchID := uuid.NewString()
 	identity.ExecutionStateRef = "session-credential:" + launchID
 	paths, _, err := rt.PrepareExecution(ctx, identity, launchID, "")
@@ -102,9 +92,8 @@ func runIsolatedCommand(ctx context.Context, rt *isolation.Runtime, identity pri
 		fmt.Fprintf(os.Stderr, "isolated session credential: select backend: %v\n", err)
 		return output, err
 	}
-	commandEnv := append([]string{commandPATH}, env...)
 	commandEnv = append(commandEnv, "TMPDIR="+paths.Run)
-	process, err := backend.Start(ctx, isolation.LaunchSpec{Path: executable, Args: args, Dir: paths.Workspace, Env: commandEnv, Context: launch})
+	process, err := backend.Start(ctx, isolation.LaunchSpec{Path: name, Args: args, Dir: paths.Workspace, Env: commandEnv, Context: launch})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "isolated session credential: start command: %v\n", err)
 		return output, err

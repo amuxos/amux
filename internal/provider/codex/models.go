@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/isolation"
+	"github.com/amuxos/amux/internal/principal"
 	"github.com/amuxos/amux/internal/provider"
 	"github.com/amuxos/amux/internal/provider/jsonrpc"
 )
@@ -49,9 +50,12 @@ func DiscoverModels(parent context.Context, opts StartOptions) ([]NativeModel, b
 	if bin == "" {
 		bin = "codex"
 	}
-	bin, err := provider.ResolveExecutableFromEnvPATH(bin, opts.Env)
-	if err != nil {
-		return nil, false, err
+	if opts.LaunchContext.Backend != principal.BackendLinuxDAC {
+		resolved, err := provider.ResolveExecutableFromEnvPATH(bin, opts.Env)
+		if err != nil {
+			return nil, false, err
+		}
+		bin = resolved
 	}
 	backend := opts.Backend
 	if backend == nil {
