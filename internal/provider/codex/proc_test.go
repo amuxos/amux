@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -727,10 +728,37 @@ func writeFakeCodex(t *testing.T, script string) string {
 		script = "#!" + python + "\n" + strings.TrimPrefix(script, "#!/usr/bin/env python3\n")
 	}
 	path := filepath.Join(t.TempDir(), "fake-codex")
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+	// Hold ForkLock while the write fd is open so a concurrently forked child
+	// (parallel tests) cannot inherit it and make exec fail with ETXTBSY.
+	syscall.ForkLock.Lock()
+	err := os.WriteFile(path, []byte(script), 0o755)
+	syscall.ForkLock.Unlock()
+	if err != nil {
 		t.Fatalf("write fake codex: %v", err)
 	}
 	return path
+}
+
+// TestWriteFakeCodexParallelExec fails with "text file busy" if writeFakeCodex
+// lets a parallel fork inherit the executable's write fd (ETXTBSY).
+func TestWriteFakeCodexParallelExec(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fake codex is unix-only")
+	}
+	const workers = 8
+	const iters = 40
+	for i := 0; i < workers; i++ {
+		t.Run(fmt.Sprintf("worker-%d", i), func(t *testing.T) {
+			t.Parallel()
+			for n := 0; n < iters; n++ {
+				path := writeFakeCodex(t, "#!/bin/sh\nexit 0\n")
+				if err := exec.Command(path).Run(); err != nil {
+					t.Fatalf("exec fake codex: %v", err)
+				}
+			}
+		})
+	}
 }
 
 func waitFor(t *testing.T, ch <-chan []byte, d time.Duration) string {
