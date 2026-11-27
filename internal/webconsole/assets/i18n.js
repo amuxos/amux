@@ -393,6 +393,7 @@
     tasksActive: ['{count} in progress', '{count} 个进行中'],
     tasksSucceeded24h: ['{count} succeeded in 24h', '24 小时内成功 {count} 个'],
     tasksFailed24h: ['{count} failed in 24h', '24 小时内失败 {count} 个'],
+    sessionAccessRestricted: ['You can view session details here. Reading the conversation and queue or controlling this session requires an authorized identity.', '此处可查看会话基本信息。查看对话、队列或操作此会话，需要有该会话访问权限的身份。'],
     queueEmpty: ['No queued input.', '没有排队的输入。'],
     sendHint: ['⌘/Ctrl + Enter to send', '⌘/Ctrl + Enter 发送'],
     usageLine: ['Usage · {input} input / {output} output tokens', '用量 · 输入 {input} / 输出 {output} tokens'],

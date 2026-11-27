@@ -45,23 +45,24 @@ func consoleTestCode(t *testing.T, err error, want string) {
 
 type consoleResourceHub struct {
 	pb.AmuxdClient
-	targets        []*pb.Target
-	listCalls      int
-	run            *pb.AmuxdRunRequest
-	submit         *pb.AmuxdSubmitRequest
-	permission     *pb.AmuxdRespondPermissionRequest
-	queueCancel    *pb.AmuxdQueueCancelRequest
-	sleep          *pb.AmuxdSleepRequest
-	profile        agentprofile.Profile
+	targets         []*pb.Target
+	listCalls       int
+	run             *pb.AmuxdRunRequest
+	submit          *pb.AmuxdSubmitRequest
+	permission      *pb.AmuxdRespondPermissionRequest
+	queueCancel     *pb.AmuxdQueueCancelRequest
+	queueErr        error
+	sleep           *pb.AmuxdSleepRequest
+	profile         agentprofile.Profile
 	scheduleCreate  *pb.CreateScheduleRequest
 	scheduleUpdate  *pb.UpdateScheduleRequest
 	scheduleEnable  *pb.SetScheduleEnabledRequest
 	scheduleDelete  *pb.DeleteScheduleRequest
 	scheduleTrigger *pb.TriggerScheduleRequest
 	schedule        *pb.ScheduleItem
-	scheduleError  string
-	rejected       bool
-	botsPayload    string
+	scheduleError   string
+	rejected        bool
+	botsPayload     string
 }
 
 // ConsoleManagement answers the overview's best-effort bot summary. Without a
@@ -96,7 +97,7 @@ func (f *consoleResourceHub) Sleep(_ context.Context, req *pb.AmuxdSleepRequest,
 	return &pb.SleepResponse{Ok: !f.rejected}, nil
 }
 func (f *consoleResourceHub) QueueList(context.Context, *pb.AmuxdQueueListRequest, ...grpc.CallOption) (*pb.QueueListResponse, error) {
-	return &pb.QueueListResponse{}, nil
+	return &pb.QueueListResponse{}, f.queueErr
 }
 func (f *consoleResourceHub) QueueCancel(_ context.Context, req *pb.AmuxdQueueCancelRequest, _ ...grpc.CallOption) (*pb.QueueCancelResponse, error) {
 	f.queueCancel = req
@@ -437,4 +438,36 @@ func TestConsoleFindSessionUsesExplicitTarget(t *testing.T) {
 	if err != nil || entry.TargetID != "b" {
 		t.Fatalf("entry=%v err=%v", entry, err)
 	}
+}
+
+func TestConsoleRestrictedSessionDetail(t *testing.T) {
+	consoleTestOperator(t)
+	hub := consoleTestHub()
+	backend := &consoleBackend{hub: hub}
+	query := url.Values{"name": {"chat"}, "target": {"runtime-a"}}
+	for _, code := range []codes.Code{codes.PermissionDenied, codes.Unauthenticated} {
+		hub.queueErr = status.Error(code, "private diagnostic")
+		value, err := backend.snapshotResource(context.Background(), "session", query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw := consoleTestJSON(t, value)
+		for _, want := range []string{`"access_restricted":true`, `"actions":[]`, `"name":"chat"`, `"state":"running"`} {
+			if !strings.Contains(raw, want) {
+				t.Fatalf("missing %s in %s", want, raw)
+			}
+		}
+		for _, key := range []string{`"queue":`, `"activity":`, "private diagnostic"} {
+			if strings.Contains(raw, key) {
+				t.Fatalf("unexpected %s in %s", key, raw)
+			}
+		}
+	}
+	hub.queueErr = status.Error(codes.Unavailable, "offline")
+	if _, err := backend.snapshotResource(context.Background(), "session", query); err == nil {
+		t.Fatal("queue outage reported as a restricted Session")
+	}
+	query.Set("name", "missing")
+	_, err := backend.snapshotResource(context.Background(), "session", query)
+	consoleTestCode(t, err, "not_found")
 }

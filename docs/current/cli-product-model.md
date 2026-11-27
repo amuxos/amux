@@ -59,6 +59,8 @@ command endpoint. Backend capability lists determine available actions. Bot and
 group settings changes use the live Hub Bridge transition and version checks,
 including confirmation and recovery choices.
 
+A Session listed in the inventory can be opened to inspect its lifecycle, target and other inventory fields. If the Hub denies Session access, the detail page explains that the conversation, queue and controls require an authorized identity.
+
 The Bot workspace opens the same management pages as a private `/amux` card.
 An authenticated browser requests a short-lived code for a running Bot. Entering
 it on a freshly opened private management card binds that browser to the card's
