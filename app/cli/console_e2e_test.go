@@ -22,6 +22,7 @@ import (
 // a deterministic sidecar fixture: no user installation or paid model is used.
 func TestConsoleManagementE2E(t *testing.T) {
 	requireLongTest(t)
+	t.Parallel()
 	e := newCLIE2E(t)
 	e.env = append(e.env, "AMUX_SESSION_ID=", "AMUX_MEMORY_BINDING=", "AMUX_ACTOR_TOKEN=", "AMUX_ACTOR_TOKEN_FILE=")
 	e.writeFakeClaude(t)

@@ -37,6 +37,23 @@ type managedService struct {
 	// tracks) and Start refuses to spawn over an addr already held by an
 	// unmanaged process. Empty for unix-socket services (e.g. the runtime).
 	ListenAddr string
+	// Optional timeout overrides for focused tests; zero values use production defaults.
+	stopGracePeriod time.Duration
+	addrFreeTimeout time.Duration
+}
+
+func (s managedService) gracePeriod() time.Duration {
+	if s.stopGracePeriod > 0 {
+		return s.stopGracePeriod
+	}
+	return serviceStopGracePeriod
+}
+
+func (s managedService) addrTimeout() time.Duration {
+	if s.addrFreeTimeout > 0 {
+		return s.addrFreeTimeout
+	}
+	return serviceAddrFreeTimeout
 }
 
 func (s managedService) Start(foreground bool) error {
@@ -107,13 +124,13 @@ func (s managedService) Stop() error {
 	// process that actually holds the port), or the OS may need a moment to
 	// release the listen socket after the kill. Confirm the addr is truly free;
 	// reclaim any orphan still holding it, and fail honestly if we cannot.
-	if waitForAddrFree(s.ListenAddr, serviceAddrFreeTimeout) {
+	if waitForAddrFree(s.ListenAddr, s.addrTimeout()) {
 		return nil
 	}
 	if err := s.reclaimAddr(); err != nil {
 		return err
 	}
-	if !waitForAddrFree(s.ListenAddr, serviceAddrFreeTimeout) {
+	if !waitForAddrFree(s.ListenAddr, s.addrTimeout()) {
 		return fmt.Errorf("%s addr %s still in use after stop; kill the process holding it manually", s.Name, s.ListenAddr)
 	}
 	return nil
@@ -143,11 +160,12 @@ func (s managedService) stopProcess(pid int, proc *os.Process) error {
 	if err := signalServiceProcess(pid, proc, false); err != nil && !isProcessFinished(err) {
 		return err
 	}
-	if waitForProcessExit(pid, serviceStopGracePeriod) {
+	grace := s.gracePeriod()
+	if waitForProcessExit(pid, grace) {
 		return nil
 	}
 	if err := signalServiceProcess(pid, proc, true); err != nil && !isProcessFinished(err) {
-		return fmt.Errorf("%s did not stop within %s and kill failed (pid %d): %w", s.Name, serviceStopGracePeriod, pid, err)
+		return fmt.Errorf("%s did not stop within %s and kill failed (pid %d): %w", s.Name, grace, pid, err)
 	}
 	return nil
 }

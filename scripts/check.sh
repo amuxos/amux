@@ -64,21 +64,22 @@ run_parallel_checks "$test_root/static-checks" \
   "go mod verify" "go mod verify" \
   "update-go-notices" "python3 scripts/update-go-notices.py --check" \
   "test_public_release" "python3 -B -m unittest discover -s scripts -p test_public_release.py" \
-  "docs-check" "make docs-check"
+  "docs-check" "make docs-check" \
+  "build" "make build"
 
-make build
 unset AMUX_RUN_LONG_TESTS
-go test -timeout=10m ./...
+AMUX_TEST_BIN_DIR="$PWD/bin" go test -timeout=10m ./...
 long_test_names="$(bash scripts/list-long-tests.sh)"
 if [[ -z "$long_test_names" ]]; then
   printf 'no CLI long-running tests discovered\n' >&2
   exit 1
 fi
 long_test_pattern="^($(printf '%s\n' "$long_test_names" | paste -sd '|' -))$"
-AMUX_RUN_LONG_TESTS=1 AMUX_TEST_BIN_DIR="$PWD/bin" go test -timeout=10m ./app/cli -run "$long_test_pattern" -count=1 -parallel=2
-if command -v npm >/dev/null 2>&1; then
+long_test_parallel="${AMUX_LONG_TEST_PARALLEL:-6}"
+run_claude_sidecar_checks() {
   cp -R sidecars/claude-sdk "$test_root/sidecar"
   if [[ -f sidecars/claude-sdk/package-lock.json ]]; then
+    local claude_lock_hash claude_nm_cache claude_nm_tmp
     claude_lock_hash="$(git hash-object sidecars/claude-sdk/package-lock.json)"
     claude_nm_cache="${AMUX_NPM_CACHE_DIR:-${TMPDIR:-/tmp}/amux-check-node-modules}/claude-sdk-$claude_lock_hash"
     if [[ -d "$claude_nm_cache/node_modules" ]]; then
@@ -98,6 +99,14 @@ if command -v npm >/dev/null 2>&1; then
     (cd "$test_root/sidecar" && npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund)
   fi
   (cd "$test_root/sidecar" && npm run build && npm test)
+}
+long_test_cmd="AMUX_RUN_LONG_TESTS=1 AMUX_TEST_BIN_DIR=\"$PWD/bin\" go test -timeout=10m ./app/cli -run \"$long_test_pattern\" -count=1 -parallel=\"$long_test_parallel\""
+if command -v npm >/dev/null 2>&1; then
+  run_parallel_checks "$test_root/long-and-sidecar" \
+    "cli-long-tests" "$long_test_cmd" \
+    "claude-sdk-sidecar" "run_claude_sidecar_checks"
+else
+  eval "$long_test_cmd"
 fi
 
 git diff --check

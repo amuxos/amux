@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/amuxos/amux/internal/mcp"
+	pb "github.com/amuxos/amux/internal/transport/pbgen"
 )
 
 func TestMCPCallCompletesChunksOnSameRegistry(t *testing.T) {
@@ -59,7 +60,17 @@ func TestMCPCallContinuationFailureDoesNotReturnPartialSuccess(t *testing.T) {
 	}
 }
 
+func stubUnavailableMemoryClient(t *testing.T) {
+	t.Helper()
+	previous := newMemoryClient
+	newMemoryClient = func() (pb.AmuxdClient, func() error, error) {
+		return nil, nil, errors.New("hub unavailable")
+	}
+	t.Cleanup(func() { newMemoryClient = previous })
+}
+
 func TestMCPCallRejectsInputAndDisabledTools(t *testing.T) {
+	stubUnavailableMemoryClient(t)
 	for _, tc := range []struct{ name, input, config string }{{"object", `[]`, ""}, {"null", `null`, ""}, {"disabled", `{}`, "[mcp]\nenabled=false\n"}} {
 		t.Run(tc.name, func(t *testing.T) {
 			home := t.TempDir()
@@ -82,6 +93,7 @@ func TestMCPCallRejectsInputAndDisabledTools(t *testing.T) {
 }
 
 func TestMCPCallDescribeUsesRuntimeRegistryBothLanguages(t *testing.T) {
+	stubUnavailableMemoryClient(t)
 	for _, lang := range []string{"en", "zh-CN"} {
 		t.Run(lang, func(t *testing.T) {
 			home := t.TempDir()
