@@ -4,6 +4,7 @@ package isolationhelper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -18,11 +19,20 @@ import (
 var version = "dev"
 
 func Main(buildVersion string) {
+	MainWithStartup(buildVersion, nil)
+}
+
+// MainWithStartup optionally starts distribution work under the helper's
+// lifetime. Startup work must honor cancellation and runs alongside serving.
+func MainWithStartup(buildVersion string, startup func(context.Context, int, int)) {
 	extensionstate.Freeze()
 	version = buildVersion
 	if len(os.Args) == 5 && os.Args[1] == "_session-file" {
 		if err := sessionfiles.Exchange(os.Args[2], os.Args[3], os.Args[4], os.Stdin, os.Stdout); err != nil {
 			fmt.Fprintln(os.Stderr, err)
+			if errors.Is(err, sessionfiles.ErrArtifactTooLarge) {
+				os.Exit(sessionfiles.ArtifactSizeExitCode)
+			}
 			os.Exit(125)
 		}
 		return
@@ -101,7 +111,9 @@ func Main(buildVersion string) {
 	}
 	root.Version = version
 	root.SetVersionTemplate("amux-isolation-helper {{.Version}}\n")
-	serve := &cobra.Command{Use: "serve", Short: "Serve the restricted helper protocol", RunE: runServe}
+	serve := &cobra.Command{Use: "serve", Short: "Serve the restricted helper protocol", RunE: func(cmd *cobra.Command, _ []string) error {
+		return runServe(cmd, startup)
+	}}
 	serve.Flags().String("socket", "", "absolute unixpacket socket path")
 	serve.Flags().String("state-dir", "", "absolute root-owned helper state directory")
 	serve.Flags().String("principal-root", "/var/lib/amux/principals", "absolute principal data root")
@@ -120,7 +132,7 @@ func Main(buildVersion string) {
 	}
 }
 
-func runServe(cmd *cobra.Command, _ []string) error {
+func runServe(cmd *cobra.Command, startup func(context.Context, int, int)) error {
 	socketPath, _ := cmd.Flags().GetString("socket")
 	stateDir, _ := cmd.Flags().GetString("state-dir")
 	principalRoot, _ := cmd.Flags().GetString("principal-root")
@@ -141,7 +153,7 @@ func runServe(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	return isolation.ServeHelper(ctx, isolation.HelperConfig{
+	cfg := isolation.HelperConfig{
 		SocketPath:       socketPath,
 		StateDir:         stateDir,
 		PrincipalRoot:    principalRoot,
@@ -154,5 +166,9 @@ func runServe(cmd *cobra.Command, _ []string) error {
 		Seccomp:          seccomp,
 		ExecWrapperPath:  executable,
 		MaterializerPath: materializerPath,
-	})
+	}
+	if startup != nil {
+		cfg.OnReady = func(ctx context.Context) { startup(ctx, serviceUID, serviceGID) }
+	}
+	return isolation.ServeHelper(ctx, cfg)
 }

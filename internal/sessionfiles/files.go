@@ -98,12 +98,7 @@ func Exchange(workspace, action, name string, input io.Reader, output io.Writer)
 		_, err = io.WriteString(output, path.Join(dir, rel))
 		return err
 	}
-	data, err = readRegular(sub, name, MaxArtifactBytes)
-	if err != nil {
-		return err
-	}
-	_, err = output.Write(data)
-	return err
+	return copyArtifact(sub, name, output)
 }
 
 // Publish only a complete, closed file. Link provides no-replace semantics so
@@ -126,20 +121,28 @@ func publishInboxFile(root *os.Root, name string, write func(*os.File) error) er
 	return root.Link(temp, name)
 }
 
+func copyArtifact(root *os.Root, name string, output io.Writer) error {
+	f, info, err := openRegular(root, name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if info.Size() > MaxArtifactBytes {
+		return ErrArtifactTooLarge
+	}
+	n, err := io.Copy(output, io.LimitReader(f, MaxArtifactBytes+1))
+	if n > MaxArtifactBytes {
+		return ErrArtifactTooLarge
+	}
+	return err
+}
+
 func readRegular(root *os.Root, name string, maxBytes int64) ([]byte, error) {
-	// NONBLOCK prevents a malicious FIFO replacement from blocking an RPC.
-	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	f, info, err := openRegular(root, name)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("artifact must be a regular file")
-	}
 	if info.Size() > maxBytes {
 		return nil, fmt.Errorf("file exceeds %d bytes", maxBytes)
 	}
@@ -148,4 +151,22 @@ func readRegular(root *os.Root, name string, maxBytes int64) ([]byte, error) {
 		return nil, fmt.Errorf("file exceeds %d bytes", maxBytes)
 	}
 	return data, err
+}
+
+func openRegular(root *os.Root, name string) (*os.File, os.FileInfo, error) {
+	// NONBLOCK avoids waiting on a FIFO.
+	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, nil, err
+	}
+	if !info.Mode().IsRegular() {
+		f.Close()
+		return nil, nil, fmt.Errorf("artifact must be a regular file")
+	}
+	return f, info, nil
 }

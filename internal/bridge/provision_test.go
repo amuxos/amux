@@ -33,6 +33,7 @@ func TestRequiredFeishuAppManifestIsExactAndMinimal(t *testing.T) {
 			"im:message.reactions:write_only",
 			"im:message:readonly",
 			"im:message:send_as_bot",
+			"im:resource:upload",
 		},
 		UserScopes: nil,
 		TenantEvents: []string{

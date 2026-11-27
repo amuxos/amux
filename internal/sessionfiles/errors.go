@@ -20,3 +20,20 @@ func NeedsHelperUpgrade(err error) bool {
 	marker := ErrHelperUpgradeRequired.Error()
 	return message == marker || strings.HasPrefix(message, marker+": ")
 }
+
+// ErrArtifactTooLarge is propagated through the helper and Runtime tunnel.
+var ErrArtifactTooLarge = errors.New("session_artifact_too_large")
+
+// ArtifactSizeExitCode conveys the size failure from the target-UID worker.
+const ArtifactSizeExitCode = 124
+
+func ArtifactTooLarge(err error) bool {
+	if errors.Is(err, ErrArtifactTooLarge) {
+		return true
+	}
+	if err == nil {
+		return false
+	}
+	message := strings.TrimPrefix(err.Error(), "rpc error: code = ResourceExhausted desc = ")
+	return message == ErrArtifactTooLarge.Error()
+}

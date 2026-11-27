@@ -158,6 +158,12 @@ func TestSessionFileTargetUID(t *testing.T) {
 	if err != nil || !bytes.Equal(data, large) {
 		t.Fatalf("30 MB output mismatch: %v", err)
 	}
+	if err := os.Truncate(output, sessionfiles.MaxArtifactBytes+1); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := client.SessionFile(ctx, mapping, "files_test", "read", "report.bin", nil); !errors.Is(err, sessionfiles.ErrArtifactTooLarge) || len(data) != 0 {
+		t.Fatalf("oversize through target UID: bytes=%d error=%v", len(data), err)
+	}
 	secret := filepath.Join(outbox, "root-secret")
 	if err = os.WriteFile(secret, []byte("root-owned"), 0600); err != nil {
 		t.Fatal(err)

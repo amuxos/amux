@@ -1,8 +1,14 @@
 package bridge
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -10,6 +16,11 @@ import (
 	"time"
 
 	"github.com/amuxos/amux/internal/agentstream"
+	"github.com/amuxos/amux/internal/sessionfiles"
+	pb "github.com/amuxos/amux/internal/transport/pbgen"
+	lark "github.com/larksuite/oapi-sdk-go/v3"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestArtifactDispatchDoesNotBlockAndFreezesDeliveryIdentity(t *testing.T) {
@@ -101,16 +112,16 @@ func TestArtifactDispatchDoesNotBlockAndFreezesDeliveryIdentity(t *testing.T) {
 
 func TestArtifactLinksOnlyExplicitOutboxReferences(t *testing.T) {
 	t.Parallel()
-	refs, err := artifactRefs("[local](/etc/passwd) [report](amux-artifact:报告%20v1.csv) ![plot](amux-artifact:plot.png) [again](amux-artifact:plot.png)")
-	if err != nil || len(refs) != 2 || refs[0].name != "报告 v1.csv" || !refs[1].image {
-		t.Fatalf("%+v %v", refs, err)
+	refs, invalid := artifactRefs("[local](/etc/passwd) [report](amux-artifact:报告%20v1.csv) ![plot](amux-artifact:plot.png) [again](amux-artifact:plot.png)")
+	if invalid != 0 || len(refs) != 2 || refs[0].name != "报告 v1.csv" || !refs[1].image {
+		t.Fatalf("%+v %v", refs, invalid)
 	}
 	for _, bad := range []string{
 		"", ".", "..", "../secret", "%2Fetc%2Fpasswd", "a%5Cb", "a/../../secret", "%ZZ",
 		"amux-outbox/", "amux-outbox/../secret", "amux-outbox/%2e%2e/secret",
 		"amux-outbox//etc/passwd", "amux-outbox/a%5Cb", "amux-outbox/./chart.png",
 	} {
-		if _, err := artifactRefs("[x](amux-artifact:" + bad + ")"); err == nil {
+		if refs, invalid := artifactRefs("[x](amux-artifact:" + bad + ")"); invalid != 1 || len(refs) != 0 {
 			t.Fatalf("accepted %s", bad)
 		}
 	}
@@ -135,15 +146,15 @@ func TestArtifactLinksNormalizeOutboxPrefix(t *testing.T) {
 		{"amux-outbox-chart.png", "amux-outbox-chart.png"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
-			refs, err := artifactRefs("![chart](amux-artifact:" + tc.path + ")")
-			if err != nil || len(refs) != 1 || refs[0].name != tc.want || !refs[0].image {
-				t.Fatalf("refs=%+v err=%v; want image %q", refs, err, tc.want)
+			refs, invalid := artifactRefs("![chart](amux-artifact:" + tc.path + ")")
+			if invalid != 0 || len(refs) != 1 || refs[0].name != tc.want || !refs[0].image {
+				t.Fatalf("refs=%+v err=%v; want image %q", refs, invalid, tc.want)
 			}
 		})
 	}
-	refs, err := artifactRefs("[chart](amux-artifact:amux-outbox/plots/chart.png) [again](amux-artifact:plots/chart.png) [encoded](amux-artifact:amux-outbox%2Fplots%2Fchart.png)")
-	if err != nil || len(refs) != 1 || refs[0].name != "plots/chart.png" {
-		t.Fatalf("equivalent links were not deduplicated: refs=%+v err=%v", refs, err)
+	refs, invalid := artifactRefs("[chart](amux-artifact:amux-outbox/plots/chart.png) [again](amux-artifact:plots/chart.png) [encoded](amux-artifact:amux-outbox%2Fplots%2Fchart.png)")
+	if invalid != 0 || len(refs) != 1 || refs[0].name != "plots/chart.png" {
+		t.Fatalf("equivalent links were not deduplicated: refs=%+v err=%v", refs, invalid)
 	}
 }
 
@@ -224,5 +235,134 @@ func TestArtifactInstructionsStayOutOfQuestionTitle(t *testing.T) {
 	t.Parallel()
 	if got := toolActivityQuestionTitle("请生成图表" + artifactInstructions); got != "请生成图表" {
 		t.Fatal(got)
+	}
+}
+
+func TestArtifactUploadFallsBackToOriginalFileOnImageRejection(t *testing.T) {
+	data := bridgeTestPNG(t)
+	for _, tc := range []struct {
+		name     string
+		code     int
+		fallback bool
+	}{
+		{"size", 234006, true},
+		{"format", 234011, true},
+		{"resolution", 234039, true},
+		{"permission", 99991672, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var images, files atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/open-apis/auth/v3/tenant_access_token/internal":
+					fmt.Fprint(w, `{"code":0,"tenant_access_token":"test-token","expire":7200}`)
+				case "/open-apis/im/v1/images":
+					images.Add(1)
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":%d,"msg":"image rejected"}`, tc.code)
+				case "/open-apis/im/v1/files":
+					files.Add(1)
+					if err := r.ParseMultipartForm(1 << 20); err != nil {
+						t.Error(err)
+						w.WriteHeader(http.StatusBadRequest)
+						return
+					}
+					if r.FormValue("file_type") != "stream" || r.FormValue("file_name") != "chart.png" {
+						t.Errorf("wrong upload metadata: %v", r.MultipartForm.Value)
+					}
+					file, _, err := r.FormFile("file")
+					if err != nil {
+						t.Error(err)
+						w.WriteHeader(http.StatusBadRequest)
+						return
+					}
+					defer file.Close()
+					got, err := io.ReadAll(file)
+					if err != nil || !bytes.Equal(got, data) {
+						t.Errorf("fallback bytes changed: got %d bytes, error %v", len(got), err)
+					}
+					fmt.Fprint(w, `{"code":0,"data":{"file_key":"original-file"}}`)
+				default:
+					t.Errorf("unexpected request %s", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+			b := &Bridge{client: lark.NewClient("upload-test-"+tc.name, "secret", lark.WithOpenBaseUrl(server.URL))}
+			kind, key, err := b.uploadArtifact(context.Background(), artifactRef{name: "plots/chart.png"}, data)
+			if images.Load() != 1 {
+				t.Fatalf("image requests: %d", images.Load())
+			}
+			if tc.fallback {
+				if err != nil || kind != "file" || key != "original-file" || files.Load() != 1 {
+					t.Fatalf("file fallback: %q %q %v, file requests=%d", kind, key, err, files.Load())
+				}
+			} else {
+				issue, ok := capabilityPermissionIssueFromError(err, capabilityArtifactUpload, "附件上传")
+				if !ok || !slices.Equal(issue.Scopes, []string{artifactUploadScope}) || files.Load() != 0 {
+					t.Fatalf("permission failure=%v issue=%+v file requests=%d", err, issue, files.Load())
+				}
+			}
+		})
+	}
+}
+
+type artifactTestReadHub struct {
+	materialTestHub
+}
+
+func (h *artifactTestReadHub) Route(ctx context.Context, target, method string, payload interface{}) (*pb.TunnelMsg, error) {
+	req := payload.(*pb.SessionFileRequest)
+	switch req.FileName {
+	case "large.bin":
+		return nil, errors.New(status.Error(codes.ResourceExhausted, sessionfiles.ErrArtifactTooLarge.Error()).Error())
+	case "empty.txt":
+		h.readData = nil
+	case "valid.txt":
+		h.readData = []byte("valid")
+	}
+	return h.materialTestHub.Route(ctx, target, method, payload)
+}
+
+func TestArtifactDeliveryContinuesAfterInvalidEmptyAndOversizedFiles(t *testing.T) {
+	b, _ := newBridgeForInputTest(t)
+	b.hub = &artifactTestReadHub{}
+	chat := &LarkChat{BridgeId: b.currentBridgeId(), RootMsgID: "root", TargetID: "target", SessionName: "session"}
+	if err := b.db.RecordTurnLinks([]TurnLink{{BridgeID: chat.BridgeId, RootMsgID: chat.RootMsgID, MessageID: "input", TargetID: chat.TargetID, SessionName: chat.SessionName, SessionID: "session-id", LaunchID: "launch", TurnID: "turn"}}); err != nil {
+		t.Fatal(err)
+	}
+	var notices, uploaded []string
+	sends := 0
+	b.threadNotice = func(ctx context.Context, root, notice string) error {
+		notices = append(notices, notice)
+		if root != chat.RootMsgID || ctx.Err() != nil {
+			t.Errorf("invalid notice destination or context: %s %v", root, ctx.Err())
+		}
+		return nil
+	}
+	b.artifactUpload = func(_ context.Context, name string, _ bool, data []byte) (string, string, error) {
+		uploaded = append(uploaded, name)
+		if string(data) != "valid" {
+			t.Errorf("unexpected upload data: %q", data)
+		}
+		return "file", "file-key", nil
+	}
+	b.artifactSend = func(_ context.Context, _ *LarkChat, _, _, _ string) error {
+		sends++
+		return nil
+	}
+	text := "[bad](amux-artifact:../escape) [large](amux-artifact:large.bin) [empty](amux-artifact:empty.txt) [valid](amux-artifact:valid.txt)"
+	b.deliverSessionArtifacts(context.Background(), chat, "turn", text, nil)
+	if len(uploaded) != 1 || uploaded[0] != "valid.txt" || sends != 1 {
+		t.Fatalf("valid file didn't arrive exactly once: uploads=%v sends=%d", uploaded, sends)
+	}
+	if len(notices) != 3 {
+		t.Fatalf("notices=%v", notices)
+	}
+	for i, want := range []string{"invalid paths", "exceeds the 30 MB limit", "is empty"} {
+		if !strings.Contains(notices[i], want) || strings.Contains(notices[i], "session.artifact.") {
+			t.Errorf("incorrect failure notice: %s", notices[i])
+		}
 	}
 }
