@@ -675,7 +675,7 @@ func (deadTestProc) DispatchTurn(context.Context, TurnDispatchRequest, func(agen
 }
 func (p deadTestProc) PID() int { return p.pid }
 
-func TestSetArchivedAfterProcessExitPreservesSleepingSession(t *testing.T) {
+func TestSetStateAfterProcessExitPreservesSleepingSession(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "runtime.db")
 	db, err := store.Open(dbPath)
 	if err != nil {
@@ -695,7 +695,7 @@ func TestSetArchivedAfterProcessExitPreservesSleepingSession(t *testing.T) {
 		t.Fatalf("set sleeping: %v", err)
 	}
 
-	if err := mgr.SetArchivedAfterProcessExit(sess); err != nil {
+	if err := mgr.SetStateAfterProcessExit(sess, sess.ProcessGeneration()); err != nil {
 		t.Fatalf("archive after process exit: %v", err)
 	}
 	if sess.State != StateSleeping {

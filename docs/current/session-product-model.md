@@ -105,6 +105,13 @@ does not say whether a turn is awaiting a tool, permission or completion.
 | Stop a topic | Kill its Session and terminate the topic binding |
 | New group continuous conversation | Retire the old input pointer; do not cancel already accepted work |
 
+If the broker for a Feishu Session with saved launch settings disconnects
+unexpectedly, the Runtime records the active Turn failure and puts the Session
+to sleep. The Feishu binding stays usable, and new input wakes the same Session
+with its available history. The interrupted input is not replayed. A stop
+requested by the user still ends the binding. Task-owned and persistent Agent
+Instance Sessions follow their own lifecycle.
+
 Bot-wide singleton mode rejects topic-style run/bind/stop operations and directs
 the user to management. Agent-specific controls may be unavailable. Clearing
 context or changing a binding is not deletion of workspace files, stored Hub

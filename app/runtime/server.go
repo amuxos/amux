@@ -662,17 +662,20 @@ func (s *server) startSessionContext(ctx context.Context, a adapter.Adapter, ses
 	return nil
 }
 
-// waitForSessionProcess waits until the broker dies, then runs exit cleanup.
-// During graceful shutdown (shuttingDown) the process
-// died because amuxlet killed it, not because the session ended: keep the DB
-// state as-is so the next amuxlet's LoadFromDB queues the session for
-// auto-restart instead of permanently archiving every live topic.
+// waitForSessionProcess settles the broker exit for the launch that disconnected.
+// Graceful Runtime shutdown keeps the persisted state for startup recovery.
 func (s *server) waitForSessionProcess(sess *session.Session, procDone <-chan struct{}, startedLaunchID string, startedIdentity principal.ExecutionIdentity, procGeneration uint64) {
 	<-procDone
+	// Serialize with explicit sleep and relaunch. Keep a wake from starting
+	// until the old isolated launch has released its native workspace locks.
+	s.relaunchMu.Lock()
+	defer s.relaunchMu.Unlock()
 	cleanup := processExitCleanup(startedLaunchID, sess.Snapshot().LaunchID)
 	if cleanup.Archive && !s.shuttingDown.Load() {
+		if err := s.mgr.SetStateAfterProcessExit(sess, procGeneration); err != nil {
+			log.Error().Err(err).Str("session_id", sess.ID).Msg("session.process_exit.persist_failed")
+		}
 		sess.FailActiveTurnForProcess(procGeneration, "process_exit")
-		_ = s.mgr.SetArchivedAfterProcessExit(sess)
 	}
 	if s.isolationRuntime != nil {
 		// The broker is gone. Kill whatever it left behind before the run

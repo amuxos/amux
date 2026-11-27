@@ -28,6 +28,7 @@ const (
 	SleepReasonManual        = "manual"
 	SleepReasonIdleTimeout   = "idle_timeout"
 	SleepReasonRestartFailed = "restart_failed"
+	SleepReasonProcessExit   = "process_exit"
 )
 
 type State string
