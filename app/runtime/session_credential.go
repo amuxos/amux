@@ -57,13 +57,38 @@ func (s *maintenanceSessionServer) IsolatedSessionCredential(ctx context.Context
 
 func runIsolatedCommand(ctx context.Context, rt *isolation.Runtime, identity principal.ExecutionIdentity, name string, args, env []string, input string, observeLine func(string)) (sessioncredential.CommandOutput, error) {
 	var output sessioncredential.CommandOutput
+	err := withIsolatedCommand(ctx, rt, identity, name, args, env, input, func(process isolation.ProcessHandle, kill func()) error {
+		_ = process.Stdin().Close()
+		var stdout, stderr []byte
+		errorsRead := make(chan error, 2)
+		read := func(reader io.Reader, dest *[]byte) {
+			var err error
+			*dest, err = readCredentialOutput(reader, observeLine)
+			errorsRead <- err
+		}
+		go read(process.Stdout(), &stdout)
+		go read(process.Stderr(), &stderr)
+		for range 2 {
+			if err := <-errorsRead; err != nil {
+				kill()
+				return err
+			}
+		}
+		exit, err := process.Wait(ctx)
+		output = sessioncredential.CommandOutput{Stdout: stdout, Stderr: stderr, ExitCode: exit.Code}
+		return err
+	})
+	return output, err
+}
+
+func withIsolatedCommand(ctx context.Context, rt *isolation.Runtime, identity principal.ExecutionIdentity, name string, args, env []string, input string, use func(isolation.ProcessHandle, func()) error) error {
 	commandEnv := ensureLaunchEnvPATH(env)
 	launchID := uuid.NewString()
 	identity.ExecutionStateRef = "session-credential:" + launchID
 	paths, _, err := rt.PrepareExecution(ctx, identity, launchID, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "isolated session credential: prepare execution: %v\n", err)
-		return output, err
+		return err
 	}
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 4*time.Second)
@@ -76,30 +101,29 @@ func runIsolatedCommand(ctx context.Context, rt *isolation.Runtime, identity pri
 		// Commands that consume all of their input need a private regular file.
 		stage, err := os.MkdirTemp("", "amux-isolated-command-")
 		if err != nil {
-			return output, err
+			return err
 		}
 		defer os.RemoveAll(stage)
 		if err := os.WriteFile(filepath.Join(stage, "input.json"), []byte(input), 0o600); err != nil {
-			return output, err
+			return err
 		}
 		if err := rt.MaterializeExecution(ctx, identity, launchID, paths.Workspace, []isolation.BundleSource{{Source: stage, Prefix: "workspace"}}); err != nil {
-			return output, err
+			return err
 		}
 	}
 	launch := isolation.LaunchContext{LaunchID: launchID, Identity: &identity, Backend: principal.BackendLinuxDAC}
 	backend, err := rt.BackendForContext(launch)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "isolated session credential: select backend: %v\n", err)
-		return output, err
+		return err
 	}
 	commandEnv = append(commandEnv, "TMPDIR="+paths.Run)
 	process, err := backend.Start(ctx, isolation.LaunchSpec{Path: name, Args: args, Dir: paths.Workspace, Env: commandEnv, Context: launch})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "isolated session credential: start command: %v\n", err)
-		return output, err
+		return err
 	}
 	defer process.Close()
-	_ = process.Stdin().Close()
 
 	kill := func() {
 		killCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
@@ -110,23 +134,7 @@ func runIsolatedCommand(ctx context.Context, rt *isolation.Runtime, identity pri
 	}
 	stop := context.AfterFunc(ctx, kill)
 	defer stop()
-	errorsRead := make(chan error, 2)
-	read := func(reader io.Reader, dest *[]byte) {
-		var err error
-		*dest, err = readCredentialOutput(reader, observeLine)
-		errorsRead <- err
-	}
-	go read(process.Stdout(), &output.Stdout)
-	go read(process.Stderr(), &output.Stderr)
-	for range 2 {
-		if err := <-errorsRead; err != nil {
-			kill()
-			return sessioncredential.CommandOutput{}, err
-		}
-	}
-	exit, err := process.Wait(ctx)
-	output.ExitCode = exit.Code
-	return output, err
+	return use(process, kill)
 }
 
 // The observer runs from both output drains and must be concurrency safe.

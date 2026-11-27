@@ -506,6 +506,39 @@ func (c *Client) handleRequest(ctx context.Context, sendFn func(*pb.TunnelMsg) e
 			return
 		}
 		sendResp(result, "")
+	case feishumsg.PersonalScheduleEventsRoute:
+		end := &pb.TunnelMsg{Kind: "end", RequestId: req.RequestId}
+		handler, ok := c.localSrv.(interface {
+			ObservePersonalSchedule(context.Context, feishumsg.PersonalScheduleIdentity, func(feishumsg.PersonalScheduleEvent) error) error
+		})
+		var input feishumsg.PersonalScheduleIdentity
+		if !ok || unmarshalTunnelPayload(req.Payload, &input) != nil {
+			end.Error = feishumsg.Copy("personal_unavailable")
+		} else if err := handler.ObservePersonalSchedule(reqCtx, input, func(event feishumsg.PersonalScheduleEvent) error {
+			raw, err := json.Marshal(event)
+			if err != nil {
+				return err
+			}
+			return sendFn(&pb.TunnelMsg{Kind: "data", RequestId: req.RequestId, Payload: raw})
+		}); err != nil {
+			end.Error = err.Error()
+		}
+		_ = sendFn(end)
+	case feishumsg.PersonalScheduleCardRoute:
+		handler, ok := c.localSrv.(interface {
+			WritePersonalScheduleCard(context.Context, feishumsg.PersonalScheduleCard) (feishumsg.PersonalResult, error)
+		})
+		var input feishumsg.PersonalScheduleCard
+		if !ok || unmarshalTunnelPayload(req.Payload, &input) != nil {
+			sendResp(nil, feishumsg.Copy("personal_unavailable"))
+			return
+		}
+		result, err := handler.WritePersonalScheduleCard(reqCtx, input)
+		if err != nil {
+			sendResp(nil, err.Error())
+			return
+		}
+		sendResp(result, "")
 	case "Run":
 		var r pb.RunRequest
 		if err := unmarshalTunnelPayload(req.Payload, &r); err != nil {

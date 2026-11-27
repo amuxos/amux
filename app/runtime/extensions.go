@@ -35,6 +35,8 @@ type Hooks struct {
 	AddCommands               func(*cobra.Command)
 	IsolatedSessionCredential sessioncredential.Policy
 	SendPersonalFeishuMessage feishumsg.PersonalSender
+	ObservePersonalSchedule   feishumsg.PersonalScheduleObserver
+	WritePersonalScheduleCard feishumsg.PersonalScheduleWriter
 }
 
 var distributionHooks Hooks

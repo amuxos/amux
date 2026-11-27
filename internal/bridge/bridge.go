@@ -629,6 +629,7 @@ func (b *Bridge) Start(ctx context.Context) error {
 		}
 	}
 	go b.runScheduleNotices(ctx)
+	go b.runPersonalSchedules(ctx)
 	go b.runCapabilityDiscovery(ctx)
 	go b.runGroupWatchPoller(ctx)
 	go b.runExternalBotCatalogRefresher(ctx)

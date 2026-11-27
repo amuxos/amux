@@ -46,6 +46,7 @@ type runtimeMaintenance struct {
 	tasks          func() int
 	record         *maintenanceRecord
 	requests       int
+	observers      map[context.Context]context.CancelFunc
 	recoveryActive bool
 	handoffArmed   bool
 	now            func() time.Time
@@ -53,7 +54,10 @@ type runtimeMaintenance struct {
 }
 
 func newRuntimeMaintenance(srv *server, tasks func() int) (*runtimeMaintenance, error) {
-	m := &runtimeMaintenance{srv: srv, tasks: tasks, now: time.Now}
+	m := &runtimeMaintenance{
+		srv: srv, tasks: tasks, now: time.Now,
+		observers: make(map[context.Context]context.CancelFunc),
+	}
 	m.resume = func(ctx context.Context, sess *session.Session) error {
 		_, err := srv.relaunchSessionLockedWithEnvContext(ctx, sess, "restarting", nil, nil, nil, false, "", 0)
 		return err
@@ -117,6 +121,29 @@ func (m *runtimeMaintenance) enter(newWork bool) (func(), error) {
 	return func() { m.mu.Lock(); m.requests--; m.mu.Unlock() }, nil
 }
 
+// enterObserver admits a long-lived background command. Maintenance cancels
+// it and waits for its cleanup alongside ordinary in-flight requests.
+func (m *runtimeMaintenance) enterObserver(ctx context.Context) (context.Context, func(), error) {
+	if m == nil {
+		return ctx, func() {}, nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.blocked() {
+		return nil, nil, status.Error(codes.Unavailable, maintenanceMessage("unavailable"))
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	m.observers[ctx] = cancel
+	m.requests++
+	return ctx, func() {
+		cancel()
+		m.mu.Lock()
+		delete(m.observers, ctx)
+		m.requests--
+		m.mu.Unlock()
+	}, nil
+}
+
 func (m *runtimeMaintenance) Maintain(ctx context.Context, req *pb.MaintenanceRequest) (*pb.MaintenanceResponse, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok || p.Addr == nil || p.Addr.Network() != "unix" {
@@ -137,6 +164,9 @@ func (m *runtimeMaintenance) Maintain(ctx context.Context, req *pb.MaintenanceRe
 			return nil, err
 		}
 		m.srv.mgr.SetMaintenance(true)
+		for _, cancel := range m.observers {
+			cancel()
+		}
 	}
 	if m.record == nil {
 		return &pb.MaintenanceResponse{Phase: "idle"}, nil
