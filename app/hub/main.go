@@ -205,13 +205,24 @@ func newStartCmd() *cobra.Command {
 			managementActions := newLocalManagementSystemActions()
 			go managementActions.RunUpdateMonitor(ctx)
 			configActions := newLocalManagementConfigActions()
-			consoleActions := newLocalManagementConsoleActionsWithConfig(ctx, detectHubIP(lis.Addr()), resolvedConfigPath)
+			hubIP := detectHubIP(lis.Addr())
+			turnViewer := &managedTurnViewer{
+				ctx: ctx, backend: hubWebBackend{hub: hub, subtasks: subtaskReader},
+				config: config.GetTurnViewer(), hubIP: hubIP,
+				keyPath: filepath.Join(amuxhome.Dir(), "secrets", "turn-viewer.key"),
+			}
+			configActions.turnViewer = turnViewer
+			if err := turnViewer.setEnabled(config.GetFeishuTurnProcessMode() == config.FeishuTurnProcessSidebar); err != nil {
+				fmt.Fprintf(os.Stderr, "hub: start turn viewer: %v\n", err)
+			}
+			defer turnViewer.setEnabled(false)
+			consoleActions := newLocalManagementConsoleActionsWithConfig(ctx, hubIP, resolvedConfigPath)
 			defer consoleActions.Close(context.Background())
 			scheduleControl := &bridgeSchedules{server: &hubServer{hub: hub, listTargets: hub.ListTargets, schedule: scheduleStore, principals: principalStore, scheduleRuntime: hub, scheduleTasks: subtaskReader, isolationConfig: config.GetIsolation}, reader: subtaskReader}
 			bridges := tryStartBridges(ctx, hub, sessionStarter, subtaskReader, principalStore, scheduleControl, webBaseURL, webToken, managementActions, configActions, consoleActions, bridge.ManagementSystemInfo{
 				Version:   version,
 				StartedAt: startedAt,
-				HubIP:     detectHubIP(lis.Addr()),
+				HubIP:     hubIP,
 			})
 			var coordinationRT *coordinationRuntime
 			if runtime, err := newProductionCoordinationRuntime(ctx, taskRouter, bridges); err != nil {
@@ -494,6 +505,9 @@ func tryStartBridges(
 		b.SetManagementSystemActions(managementActions)
 		if configActions != nil {
 			b.SetManagementConfigActions(configActions)
+			if configActions.turnViewer != nil {
+				b.SetTurnProcessViewer(configActions.turnViewer.settings)
+			}
 			configActions.RegisterTarget(b)
 		}
 		b.SetManagementConsoleActions(consoleActions)

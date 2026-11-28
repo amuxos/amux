@@ -2501,6 +2501,9 @@
   "session.processing": {
     "other": "处理过程"
   },
+  "session.processing.open": {
+    "other": "处理过程"
+  },
   "session.reply.sent.to": {
     "other": "发送给:"
   },
@@ -2963,11 +2966,50 @@
   "management.choose.whether.to.show.background.tasks": {
     "other": "请选择是否显示后台任务进度卡片"
   },
+  "processing.bubble.tools": {
+    "other": "工具调用"
+  },
+  "processing.bubble.tool.done": {
+    "other": "已完成"
+  },
+  "processing.bubble.tool.failed": {
+    "other": "执行失败"
+  },
+  "processing.bubble.tool.stopped": {
+    "other": "已结束"
+  },
+  "management.turn.viewer.title": {
+    "other": "处理过程展示方式"
+  },
+  "management.turn.viewer.description": {
+    "other": "选择新一轮回复如何展示思考进展和工具调用。气泡或侧栏不可用时，过程保留在原卡内。"
+  },
+  "management.turn.viewer.saved": {
+    "other": "处理过程展示方式已保存，对新一轮回复生效。"
+  },
+  "management.turn.viewer.choose": {
+    "other": "请选择原卡内、原生气泡或侧栏"
+  },
+  "management.turn.viewer.inline": {
+    "other": "原卡内（默认）"
+  },
+  "management.turn.viewer.bubble": {
+    "other": "原生气泡"
+  },
+  "management.turn.viewer.sidebar": {
+    "other": "侧栏"
+  },
+  "management.turn.viewer.unavailable": {
+    "other": "侧栏服务未能启动，请检查 Hub 的监听地址和端口。"
+  },
   "management.mention.turn.initiator": {
-    "other": "完成回复后 @ 本轮发起人（实验）"
+    "other": "完成时 @ 发起人"
   },
   "management.mention.turn.initiator.description": {
-    "other": "开启后，群话题、私聊和后台子 Agent 结果的 Turn 成功完成且全部答案卡片结束时，会新发一张包含完整回答和原生 @ 的最终卡；发送成功后保留旧进展卡，并压缩为不超过 10 个字符的完成状态。后台结果按创建它的父 Turn 提醒原始用户，不按最近发言者猜测。等待和处理过程不 @；群值守自动触发、App 和 Bot 不会被 @。"
+    "other": "开启后，群话题和私聊成功完成时，结果卡会 @ 本轮发起人。原卡内和侧栏会保留进度卡并另发结果卡。原生气泡会在已有的结果卡里 @。"
+  },
+  "management.mention.turn.initiator.saved": {
+    "other": "完成时 @ 发起人的设置已保存。"
   },
   "management.mention.turn.initiator.currently.on": {
     "other": "当前状态：已开启"

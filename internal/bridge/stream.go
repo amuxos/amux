@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -554,6 +555,30 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 		var statusRefresh turnStatusRefreshPolicy
 		// Immediate-feedback placeholder state (see turnPlaceholder).
 		placeholder := &turnPlaceholder{}
+		type processPresentation struct {
+			turnID, mode string
+			bubble       *turnProcessBubble
+		}
+		var process atomic.Pointer[processPresentation]
+		var restoringTurn bool
+		var deferredBubbleAnswer string
+		bubbleOnly := func() bool {
+			current := process.Load()
+			return current != nil && current.bubble != nil && current.bubble.confirmed.Load()
+		}
+		processForTurn := func(turnID string) *processPresentation {
+			if current := process.Load(); current != nil && current.turnID == turnID {
+				return current
+			}
+			next := &processPresentation{turnID: turnID, mode: b.currentTurnProcessMode()}
+			if next.mode == config.FeishuTurnProcessBubble && !restoringTurn {
+				next.bubble = b.newTurnProcessBubble(streamChat, b.boundSession(targetID, sessionName).GetId(), turnID)
+			}
+			if previous := process.Swap(next); previous != nil {
+				previous.bubble.abandon()
+			}
+			return next
+		}
 		b.registerSteerObserver(rootMsgID, token, state.reply.MarkSteered)
 		defer b.unregisterSteerObserver(rootMsgID, token)
 		activityMeta := func() toolActivityCardMeta {
@@ -578,6 +603,12 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			meta.ViewURL = b.sessionViewerURL(targetID, sessionName)
 			meta.Placeholder, meta.PlaceholderError = placeholder.State()
 			meta.Now = time.Now()
+			if current := process.Load(); meta.Activity != nil && current != nil && current.turnID == meta.Activity.TurnID {
+				if current.mode == config.FeishuTurnProcessSidebar {
+					meta.ProcessURL = b.turnProcessURL(targetID, sessionName, meta.Activity.TurnID, meta.ThinkingProcess, meta.Now)
+				}
+				meta.ProcessInBubble = current.bubble != nil && current.bubble.confirmed.Load()
+			}
 			meta.ModelRecovery = b.modelRecoveryPromptForActivity(streamChat, state.CurrentTurnID(), meta)
 			return meta
 		}
@@ -600,17 +631,16 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			return err
 		}
 
-		replyStream := newStreamingReplySender(100*time.Millisecond,
-			newBindingReplyCardBackend(b, streamChat),
-			func(text string) {
-				_ = b.db.SetLatestAgentOutput(bridgeID, rootMsgID, text)
-				b.recordAgentThreadContext(context.Background(), streamChat, "", text)
-				state.SetFinalAnswer(text)
-				if isFollowupPrompt(text) {
-					turn.MarkWaiting()
-				}
-			},
-		)
+		rememberFinalAnswer := func(text string) {
+			_ = b.db.SetLatestAgentOutput(bridgeID, rootMsgID, text)
+			b.recordAgentThreadContext(context.Background(), streamChat, "", text)
+			state.SetFinalAnswer(text)
+			if isFollowupPrompt(text) {
+				turn.MarkWaiting()
+			}
+		}
+		replyBackend := newBindingReplyCardBackend(b, streamChat)
+		replyStream := newStreamingReplySender(100*time.Millisecond, replyBackend, rememberFinalAnswer)
 		activitySender := newMainTurnActivitySender(
 			2*time.Second,
 			replyStream,
@@ -623,7 +653,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			},
 		)
 		publishActivity := func(view *agentui.ActivityView, force bool) {
-			if view == nil {
+			if view == nil || bubbleOnly() {
 				return
 			}
 			if !presentationGate.ShouldPublishActivity(view, len(activity.Subtasks()) > 0) &&
@@ -640,6 +670,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 			}
 		}
 		b.registerQueueNoticeRefresher(rootMsgID, token, func() bool {
+			if bubbleOnly() {
+				return false
+			}
 			view := state.ActivityView()
 			// The turn_started placeholder card is the running card too, even
 			// before the stream has marked the turn running.
@@ -657,6 +690,11 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 		defer replyStream.Close()
 		defer replyStream.Flush()
 		defer activitySender.Close()
+		defer func() {
+			if current := process.Load(); current != nil {
+				current.bubble.abandon()
+			}
+		}()
 		var (
 			streamsReplyCardsOnce sync.Once
 			streamsReplyCards     bool
@@ -666,6 +704,14 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 				streamsReplyCards = streamOutputAsReplyCardForWorkspace(agentType, b.workspaceKindForChat(streamChat.ChatID))
 			})
 			return streamsReplyCards
+		}
+		sendRegularAnswer := func(text string) {
+			current := process.Load()
+			if getStreamsReplyCards() || (current != nil && len(b.turnReplyMentionOpenIDs(streamChat, rootMsgID, current.turnID)) > 0) {
+				replyStream.ReplaceCurrent(text)
+			} else {
+				agg.Add([]byte(text))
+			}
 		}
 
 		// endPlaceholder drops the "⏳ 处理中…" line once the turn produces
@@ -690,7 +736,9 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 				if err == nil && started.Turn != nil && started.Turn.ID != "" && started.Body.Kind() == agentstream.KindTurnStarted {
 					action := agentui.Action{Kind: agentui.ActionTurnStarted, Turn: agentui.TurnEvent{ID: started.Turn.ID, Seq: int64(started.Turn.Seq)}}
 					if !visibilityGate.Allow(action) && (started.Origin.Channel == sourceframe.SourceGoal || b.restoreTopicTurnSenders(streamChat, session, started)) {
+						restoringTurn = true
 						handleAttachEvent(&pb.AttachEvent{CanonicalJson: ev.ActiveTurnStartJson})
+						restoringTurn = false
 					}
 				}
 			}
@@ -813,6 +861,8 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							replyStream.Reset()
 							turnMentions.observe(action.Turn.ID)
 							state.ResetForNewTurn(action.Turn.ID)
+							current := processForTurn(action.Turn.ID)
+							deferredBubbleAnswer = ""
 							activity.Reset()
 							activitySender.Reset()
 							presentationGate.Reset()
@@ -828,7 +878,12 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							placeholder.Reset()
 							view := presenter.EnsureActivity()
 							wantPlaceholder := shouldShowTurnPlaceholder(action.Source)
-							if view != nil && (wantPlaceholder || distributionActivityPossiblyQueued(streamChat.AgentType, view)) {
+							if wantPlaceholder {
+								current.bubble.start(ctx)
+							}
+							if bubbleOnly() {
+								state.SetActivityView(view)
+							} else if view != nil && (wantPlaceholder || distributionActivityPossiblyQueued(streamChat.AgentType, view)) {
 								if wantPlaceholder {
 									placeholder.Begin()
 								}
@@ -964,10 +1019,11 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 								publishActivity(view, true)
 							}
 						}
-						if getStreamsReplyCards() {
-							replyStream.ReplaceCurrent(finalAnswer)
+						if bubbleOnly() {
+							deferredBubbleAnswer = finalAnswer
 						} else {
-							agg.Add([]byte(finalAnswer))
+							deferredBubbleAnswer = ""
+							sendRegularAnswer(finalAnswer)
 						}
 					case agentui.ActionReplySegment:
 						if !visibilityGate.Allow(action) {
@@ -990,6 +1046,16 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						if view != nil && view.Status == "running" && activityViewHasOutput(view) {
 							placeholder.End()
 						}
+						bubbleChanged := false
+						if view != nil {
+							if bubble := processForTurn(view.TurnID).bubble; bubble != nil && bubble.confirmed.Load() &&
+								presentationGate.ShouldPublishActivity(view, len(activity.Subtasks()) > 0) &&
+								presentationGate.mode == turnActivityPresentationNormal {
+								wasVisible := bubble.confirmed.Load()
+								bubble.observe(ctx, view, uiEvent.Kind == agentui.KindThinkingDelta, thinkingProcess() == config.FeishuThinkingProcessHidden)
+								bubbleChanged = wasVisible != bubble.confirmed.Load()
+							}
+						}
 						if progress := state.reply.Summary(); view != nil && progress != "" {
 							// Assistant narration is the chronological Feishu-facing
 							// progress history. Structured thinking remains the current
@@ -997,7 +1063,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 							view = activityViewWithCurrentStep(view, progress)
 						}
 						state.SetActivityView(view)
-						publishActivity(view, action.Immediate)
+						publishActivity(view, action.Immediate || bubbleChanged)
 					case agentui.ActionPermissionRequest:
 						if !visibilityGate.Allow(action) {
 							logSuppressedVisibleAction(action)
@@ -1117,38 +1183,62 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						if startedAt := activity.TurnStartedAt(); !startedAt.IsZero() {
 							turnElapsed = activity.now().Sub(startedAt)
 						}
-						if shouldUseAssistantResultFallback(action.Turn) {
-							if fallback, ok := state.reply.FallbackFinalAnswer(); ok && fallback != "" {
-								if getStreamsReplyCards() {
-									replyStream.ReplaceCurrent(fallback)
-								} else {
-									agg.Add([]byte(fallback))
-								}
-							}
-						}
 						view := state.ActivityView()
-						if view != nil && (presentationGate.ShouldPublishActivity(view, len(activity.Subtasks()) > 0) || placeholder.Shown()) {
-							activitySender.Flush(activityViewFingerprint(view))
+						current := process.Load()
+						if current != nil && current.turnID == action.Turn.ID && bubbleOnly() {
+							current.bubble.finish(ctx, view, turnStatus, thinkingProcess() == config.FeishuThinkingProcessHidden)
 						}
-						agg.Flush()
-						b.observeTurnFinished(rootMsgID, action.Turn.ID)
 						superseded := b.isTurnSuperseded(rootMsgID)
 						handoffEligible := !superseded && !recoveryClaimed && shouldUseAssistantResultFallback(action.Turn)
 						var pendingCardHandoff *PendingBotHandoff
-						cardHandoffDelivered := false
-						if handoffEligible && getStreamsReplyCards() {
+						nativeResult := bubbleOnly()
+						if handoffEligible && (getStreamsReplyCards() || nativeResult) {
 							pending, err := b.db.PendingBotHandoff(bridgeID, rootMsgID)
 							if err != nil {
 								log.Warn().Err(err).Str("root_msg_id", rootMsgID).
 									Msg("bridge: load pending bot handoff for reply card")
-							} else if pending != nil {
+							} else {
 								pendingCardHandoff = pending
-								cardHandoffDelivered = replyStream.FinalizeForBot(pending.BotOpenID)
 							}
 						}
-						if pendingCardHandoff == nil {
-							replyStream.Flush()
+						// Keep the existing specialized bot handoff delivery.
+						nativeResult = nativeResult && pendingCardHandoff == nil
+						if shouldUseAssistantResultFallback(action.Turn) {
+							if fallback, ok := state.reply.FallbackFinalAnswer(); ok && fallback != "" {
+								deferredBubbleAnswer = fallback
+							}
 						}
+						var cardHandoffDelivered bool
+						var completedCard *ConversationCard
+						var deliveryReceipt replyDeliveryReceipt
+						if nativeResult {
+							if handoffEligible && !state.failureNoticeDelivered && strings.TrimSpace(deferredBubbleAnswer) != "" {
+								meta := activityMeta()
+								meta.Status = completionMeta.Status
+								if meta.Status != "done" {
+									mentionOpenIDs = nil
+								}
+								completedCard, deliveryReceipt = replyBackend.publishBubbleResult(deferredBubbleAnswer, mentionOpenIDs, meta)
+								rememberFinalAnswer(deferredBubbleAnswer)
+							}
+						} else {
+							if !superseded && deferredBubbleAnswer != "" {
+								sendRegularAnswer(deferredBubbleAnswer)
+							}
+							if view != nil && (presentationGate.ShouldPublishActivity(view, len(activity.Subtasks()) > 0) || placeholder.Shown()) {
+								activitySender.Flush(activityViewFingerprint(view))
+							}
+							agg.Flush()
+							if pendingCardHandoff != nil && getStreamsReplyCards() {
+								cardHandoffDelivered = replyStream.FinalizeForBot(pendingCardHandoff.BotOpenID)
+							} else {
+								replyStream.Flush()
+							}
+							completedCard = replyStream.ConversationCard()
+							deliveryReceipt = replyStream.DeliveryReceipt()
+						}
+						deferredBubbleAnswer = ""
+						b.observeTurnFinished(rootMsgID, action.Turn.ID)
 						if handoffEligible {
 							if text := strings.TrimSpace(state.FinalAnswer()); text != "" {
 								if cardHandoffDelivered {
@@ -1169,9 +1259,7 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 						} else {
 							b.discardPendingBotHandoff(rootMsgID)
 						}
-						completedCard := replyStream.ConversationCard()
-						deliveryReceipt := replyStream.DeliveryReceipt()
-						if !superseded {
+						if !superseded && !nativeResult {
 							// Only a successfully completed Turn publishes the mentioned
 							// final reply; failed, cancelled, handed-off or errored Turns
 							// keep their existing cards.
@@ -1278,11 +1366,22 @@ func (b *Bridge) startStream(rootMsgID, targetID, sessionName, agentProfile, age
 					before := state.ActivityView()
 					handleAttachEvent(&pb.AttachEvent{Kind: pb.AttachEvent_HEARTBEAT})
 					view := state.ActivityView()
+					if current := process.Load(); current != nil && bubbleOnly() && !b.isTurnSuperseded(rootMsgID) &&
+						presentationGate.mode == turnActivityPresentationNormal {
+						wasVisible := current.bubble.confirmed.Load()
+						current.bubble.observe(ctx, view, false, thinkingProcess() == config.FeishuThinkingProcessHidden)
+						if wasVisible != current.bubble.confirmed.Load() {
+							publishActivity(view, true)
+						}
+					}
 					// Hub-submitted inputs (e.g. background-completion notify) bypass
 					// bridge submitToSessionMode, so re-read the session queue on the
 					// status pulse while a turn runs and annotate the running card.
 					if turn.Running() {
 						b.refreshQueueNoticeAsync(targetID, sessionName, rootMsgID)
+					}
+					if bubbleOnly() {
+						continue
 					}
 					if before == nil && view != nil {
 						// The heartbeat action already created the status surface.

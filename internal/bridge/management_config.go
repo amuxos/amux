@@ -2,9 +2,12 @@ package bridge
 
 import (
 	"context"
+	"errors"
 
 	"github.com/amuxos/amux/internal/config"
 )
+
+var ErrTurnProcessViewerUnavailable = errors.New("Turn process viewer is unavailable")
 
 // ManagementConfigActions supplies installation-wide configuration reads and
 // mutations (experiments and daily cleanup) owned by the Hub control plane so
@@ -33,6 +36,7 @@ func (b *Bridge) ApplyLiveExperimentSettings(saved config.ExperimentsSettings) {
 	b.setSteerForeground(saved.SteerForeground)
 	b.showBackgroundTasks.Store(saved.ShowBackgroundTasks)
 	b.mentionTurnInitiator.Store(saved.MentionTurnInitiator)
+	b.turnProcessMode.Store(config.NormalizeFeishuTurnProcessMode(saved.TurnProcessMode))
 	b.replyEndNotification.Store(saved.ReplyEndNotification)
 	b.setModelRecoveryQueueWaitSeconds(saved.ModelRecoveryQueueWaitSeconds)
 }

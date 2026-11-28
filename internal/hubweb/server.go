@@ -68,6 +68,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/sessions", s.auth(s.handleSessions))
 	s.mux.HandleFunc("/api/session", s.sessionAuth(s.handleSession))
 	s.mux.HandleFunc("/api/session/stream", s.handleStream)
+	s.turnProcessRoutes(s.mux)
 	s.mux.HandleFunc("/sessions", s.sessionAuth(s.handlePage))
 	s.mux.HandleFunc("/s/", s.sessionAuth(s.handlePage))
 	s.mux.HandleFunc("/", s.auth(s.handleIndex))
@@ -76,6 +77,18 @@ func (s *Server) routes() {
 // Handler returns the HTTP handler.
 func (s *Server) Handler() http.Handler {
 	return s.mux
+}
+
+// TurnProcessHandler only serves pages and streams scoped to a signed Turn.
+func (s *Server) TurnProcessHandler() http.Handler {
+	mux := http.NewServeMux()
+	s.turnProcessRoutes(mux)
+	return mux
+}
+
+func (s *Server) turnProcessRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/api/turn/stream", s.handleTurnProcessStream)
+	mux.HandleFunc("/t/", s.handleTurnProcessPage)
 }
 
 func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {
@@ -115,7 +128,7 @@ func (s *Server) sessionTokenOK(got, targetID, name string) bool {
 		return true
 	}
 	claims, err := SessionTokenScope(s.token, got, now)
-	if err != nil {
+	if err != nil || claims.TurnID != "" {
 		return false
 	}
 	return s.isTaskChildSession(claims.TargetID, claims.Name, targetID, name)

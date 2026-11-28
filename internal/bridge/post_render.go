@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -182,8 +183,16 @@ func renderAgentReplyCardWithMentions(text string, openIDs []string) string {
 }
 
 func renderMentionFinalCard(text string, openIDs []string, withConversationSection bool) string {
-	elements := []cardElement{{Tag: "markdown", Content: renderAgentResultBody(text), ElementID: cardKitReplyElementID},
-		{Tag: "hr", ElementID: amuxBrandDividerID}}
+	return renderCompletedReplyCard(text, openIDs, withConversationSection, nil)
+}
+
+func renderCompletedReplyCard(text string, openIDs []string, withConversationSection bool, executionSummary *cardElement) string {
+	var elements []cardElement
+	if executionSummary != nil {
+		elements = append(elements, *executionSummary)
+	}
+	elements = append(elements, cardElement{Tag: "markdown", Content: renderAgentResultBody(text), ElementID: cardKitReplyElementID},
+		cardElement{Tag: "hr", ElementID: amuxBrandDividerID})
 	if withConversationSection {
 		elements = append(elements, mentionedConversationSection(openIDs))
 	} else {
@@ -417,6 +426,8 @@ type toolActivityCardMeta struct {
 	EffectiveModel  string
 	QuotaBorrowed   bool
 	ViewURL         string
+	ProcessURL      string
+	ProcessInBubble bool
 	Activity        *agentui.ActivityView
 	Subtasks        []subtaskProgress
 	ThinkingProcess string
@@ -721,7 +732,7 @@ func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
 		JSON:     raw,
 		Terminal: terminal,
 	}
-	if strings.TrimSpace(meta.ViewURL) != "" {
+	if !meta.externalProcess() && strings.TrimSpace(meta.ViewURL) != "" {
 		activity.Trailing = []cardElement{{
 			Tag:       "action",
 			ElementID: "viewer_action",
@@ -736,12 +747,18 @@ func renderTurnActivity(meta toolActivityCardMeta) turnCardActivity {
 	return activity
 }
 
+func (meta toolActivityCardMeta) externalProcess() bool {
+	return meta.ProcessURL != "" || meta.ProcessInBubble
+}
+
 func renderTurnActivityElement(meta toolActivityCardMeta) cardElement {
 	details := renderTurnActivityDetails(meta)
 	var summary cardElement
 	switch {
 	case len(details) > 0:
 		summary = renderExecutionSummaryPanel(meta, details)
+	case meta.externalProcess():
+		summary = renderExecutionSummaryLine(meta)
 	case meta.SubtaskReport && strings.TrimSpace(meta.Question) == "":
 		// A background-completion report has no user question and nothing
 		// to expand: show the status line alone instead of a panel whose
@@ -754,7 +771,9 @@ func renderTurnActivityElement(meta toolActivityCardMeta) cardElement {
 	if line, ok := renderPlaceholderStatus(meta); ok {
 		children = append(children, line)
 	}
-	if meta.ThinkingProcess != config.FeishuThinkingProcessHidden && meta.Activity != nil {
+	if meta.ProcessURL != "" {
+		children = append(children, renderProcessingLink(meta.ProcessURL))
+	} else if !meta.externalProcess() && meta.ThinkingProcess != config.FeishuThinkingProcessHidden && meta.Activity != nil {
 		if step := strings.TrimSpace(meta.Activity.CurrentStep); step != "" {
 			children = append(children, renderProcessingUpdate(step, meta.ThinkingProcess))
 		}
@@ -792,7 +811,7 @@ func renderCompactActivityElement(meta toolActivityCardMeta) cardElement {
 			}
 			summaryParts = append(summaryParts, sessionMessage("plan", done, len(meta.Activity.Plan)))
 		}
-		if len(meta.Activity.Tools) > 0 {
+		if len(meta.Activity.Tools) > 0 && !meta.externalProcess() {
 			summaryParts = append(summaryParts, sessionMessage("calls", len(meta.Activity.Tools)))
 		}
 	}
@@ -814,7 +833,12 @@ func renderCompactActivityElement(meta toolActivityCardMeta) cardElement {
 		summaryElements = []cardElement{managementContentElement(sessionMessage("details.long"), cardElement{Tag: "markdown"})}
 	}
 	children := []cardElement{renderExecutionSummaryPanel(meta, summaryElements)}
-	if meta.ThinkingProcess != config.FeishuThinkingProcessHidden && meta.Activity != nil {
+	if meta.externalProcess() && len(summaryParts) == 0 {
+		children[0] = renderExecutionSummaryLine(meta)
+	}
+	if meta.ProcessURL != "" {
+		children = append(children, renderProcessingLink(meta.ProcessURL))
+	} else if !meta.externalProcess() && meta.ThinkingProcess != config.FeishuThinkingProcessHidden && meta.Activity != nil {
 		if step := strings.TrimSpace(meta.Activity.CurrentStep); step != "" {
 			children = append(children, renderProcessingUpdate(
 				truncateAssistantProgress(step, maxCompactActivityStepRunes),
@@ -881,6 +905,11 @@ func renderTurnActivityDetails(meta toolActivityCardMeta) []cardElement {
 			return nil
 		}
 		return []cardElement{managementContentElement(content, cardElement{Tag: "markdown"})}
+	}
+	if meta.externalProcess() && len(view.Tools) > 0 {
+		compact := *view
+		compact.Tools = nil
+		view = &compact
 	}
 	var elements []cardElement
 	if question := strings.TrimSpace(meta.Question); question != "" {
@@ -998,6 +1027,18 @@ func renderProcessingUpdate(step, mode string) cardElement {
 			escapeCardMarkdown(truncateAssistantProgress(step, maxActivityStepRunes)),
 			"processing_body",
 		)},
+	}
+}
+
+func renderProcessingLink(viewerURL string) cardElement {
+	applink := url.URL{
+		Scheme: "https", Host: "applink.feishu.cn", Path: "/client/web_url/open",
+		RawQuery: url.Values{"mode": {"sidebar-semi"}, "url": {viewerURL}}.Encode(),
+	}
+	return cardElement{
+		Tag: "button", ElementID: "processing_update", Type: "text", Size: "small", Width: "default",
+		Text:      managementPlainTextPtr(sessionMessage("processing.open")),
+		Behaviors: []cardBehavior{{Type: "open_url", DefaultURL: viewerURL, PCURL: applink.String()}},
 	}
 }
 

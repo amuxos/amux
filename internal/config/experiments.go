@@ -25,6 +25,8 @@ type ExperimentsSettings struct {
 	// MentionTurnInitiator mirrors
 	// bridge.feishu.experimental.mention_turn_initiator and applies live.
 	MentionTurnInitiator bool
+	// TurnProcessMode selects how new Feishu turns display processing details.
+	TurnProcessMode string
 	// ReplyEndNotification applies live and bypasses the long-turn threshold.
 	ReplyEndNotification bool
 	// ModelRecoveryQueueWaitSeconds mirrors
@@ -37,12 +39,13 @@ type ExperimentsSettings struct {
 type ExperimentsSettingsUpdate struct {
 	AgentExecutables              map[string]string
 	CodexExecutable               *string
-	CompletionNotification        CompletionNotificationSettings
+	CompletionNotification        *CompletionNotificationSettings
 	GroupSettingsEnabled          *bool
 	MemoryEnabled                 *bool
 	SteerForeground               *bool
 	ShowBackgroundTasks           *bool
 	MentionTurnInitiator          *bool
+	TurnProcessMode               *string
 	ReplyEndNotification          *bool
 	ModelRecoveryQueueWaitSeconds *int
 }
@@ -69,6 +72,7 @@ func GetExperimentsSettings() ExperimentsSettings {
 		SteerForeground:               GetBridgeFeishuSteerForeground(),
 		ShowBackgroundTasks:           GetBridgeFeishuShowBackgroundTasks(),
 		MentionTurnInitiator:          GetBridgeFeishuMentionTurnInitiator(),
+		TurnProcessMode:               GetFeishuTurnProcessMode(),
 		ReplyEndNotification:          GetBridgeFeishuReplyEndNotification(),
 		ModelRecoveryQueueWaitSeconds: GetBridgeFeishuModelRecoveryQueueWaitSeconds(),
 	}
@@ -88,6 +92,7 @@ func experimentsSettingsFromConfig(raw map[string]any) (ExperimentsSettings, err
 		SteerForeground:               v.GetBool(FeishuSteerForegroundKey),
 		ShowBackgroundTasks:           v.GetBool(FeishuShowBackgroundTasksKey),
 		MentionTurnInitiator:          v.GetBool(FeishuMentionTurnInitiatorKey),
+		TurnProcessMode:               NormalizeFeishuTurnProcessMode(v.GetString(FeishuTurnProcessModeKey)),
 		ReplyEndNotification:          v.GetBool(FeishuReplyEndNotificationKey),
 		ModelRecoveryQueueWaitSeconds: modelRecoveryQueueWaitSecondsFromViper(v),
 	}, nil
@@ -106,15 +111,19 @@ func ReadExperimentsSettings() (ExperimentsSettings, error) {
 // SaveExperimentsSettings replaces all experiment settings. Form callbacks use
 // UpdateExperimentsSettings so omitted fields do not overwrite newer settings.
 func SaveExperimentsSettings(settings ExperimentsSettings) error {
+	if settings.TurnProcessMode == "" {
+		settings.TurnProcessMode = FeishuTurnProcessInline
+	}
 	_, err := UpdateExperimentsSettings(ExperimentsSettingsUpdate{
 		AgentExecutables:              settings.AgentExecutables,
 		CodexExecutable:               &settings.CodexExecutable,
-		CompletionNotification:        settings.CompletionNotification,
+		CompletionNotification:        &settings.CompletionNotification,
 		GroupSettingsEnabled:          &settings.GroupSettingsEnabled,
 		MemoryEnabled:                 &settings.MemoryEnabled,
 		SteerForeground:               &settings.SteerForeground,
 		ShowBackgroundTasks:           &settings.ShowBackgroundTasks,
 		MentionTurnInitiator:          &settings.MentionTurnInitiator,
+		TurnProcessMode:               &settings.TurnProcessMode,
 		ReplyEndNotification:          &settings.ReplyEndNotification,
 		ModelRecoveryQueueWaitSeconds: &settings.ModelRecoveryQueueWaitSeconds,
 	})
@@ -132,20 +141,27 @@ func UpdateExperimentsSettings(update ExperimentsSettingsUpdate) (ExperimentsSet
 	if update.CodexExecutable != nil && !ValidAgentExecutable(*update.CodexExecutable) {
 		return ExperimentsSettings{}, fmt.Errorf("invalid %s", CodexExecutableKey)
 	}
-	if err := validateCompletionNotificationSettings(update.CompletionNotification); err != nil {
-		return ExperimentsSettings{}, err
+	if update.CompletionNotification != nil {
+		if err := validateCompletionNotificationSettings(*update.CompletionNotification); err != nil {
+			return ExperimentsSettings{}, err
+		}
 	}
 	if update.ModelRecoveryQueueWaitSeconds != nil {
 		if err := ValidateModelRecoveryQueueWaitSeconds(*update.ModelRecoveryQueueWaitSeconds); err != nil {
 			return ExperimentsSettings{}, err
 		}
 	}
+	if update.TurnProcessMode != nil && !ValidFeishuTurnProcessMode(*update.TurnProcessMode) {
+		return ExperimentsSettings{}, fmt.Errorf("invalid %s", FeishuTurnProcessModeKey)
+	}
 	var saved ExperimentsSettings
 	err := UpdateConfigFile(experimentsConfigPath(), func(raw map[string]any) error {
 		for agent, value := range update.AgentExecutables {
 			setNestedConfigValue(raw, strings.Split(AgentExecutableKey(agent), "."), strings.TrimSpace(value))
 		}
-		setCompletionNotificationSettings(raw, update.CompletionNotification)
+		if update.CompletionNotification != nil {
+			setCompletionNotificationSettings(raw, *update.CompletionNotification)
+		}
 		if update.CodexExecutable != nil {
 			setNestedConfigValue(raw, strings.Split(CodexExecutableKey, "."), strings.TrimSpace(*update.CodexExecutable))
 		}
@@ -163,6 +179,9 @@ func UpdateExperimentsSettings(update ExperimentsSettingsUpdate) (ExperimentsSet
 		}
 		if update.MentionTurnInitiator != nil {
 			setNestedConfigValue(raw, strings.Split(FeishuMentionTurnInitiatorKey, "."), *update.MentionTurnInitiator)
+		}
+		if update.TurnProcessMode != nil {
+			setNestedConfigValue(raw, strings.Split(FeishuTurnProcessModeKey, "."), *update.TurnProcessMode)
 		}
 		if update.ReplyEndNotification != nil {
 			setNestedConfigValue(raw, strings.Split(FeishuReplyEndNotificationKey, "."), *update.ReplyEndNotification)

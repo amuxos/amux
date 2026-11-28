@@ -5,6 +5,15 @@
   "config.integer_range": {
     "other": "%s must be an integer from %d to %d"
   },
+  "config.turn_process_mode": {
+    "other": "%s must be inline, bubble, or sidebar"
+  },
+  "config.turn_viewer.invalid_addr": {
+    "other": "Enter a valid address in host:port format for the processing details viewer."
+  },
+  "config.turn_viewer.invalid_url": {
+    "other": "Enter an HTTP(S) base URL without credentials, a query, or a fragment for the processing details viewer."
+  },
   "config.boolean": {
     "other": "%s must be true or false"
   },

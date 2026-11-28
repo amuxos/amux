@@ -101,12 +101,12 @@ func TestManagementExperimentsCompactList(t *testing.T) {
 	saved := config.ExperimentsSettings{CompletionNotification: config.CompletionNotificationSettings{Enabled: true, AfterSeconds: 30}, MemoryEnabled: true}
 	running := saved
 	card := renderManagementExperimentsCard(saved, running)
-	for _, want := range []string{"长会话完成通知", "30 秒", "高级设置", "保存并重启", "对当前实例的全部助手生效", "completion_seconds", "群独立配置", "group_settings_enabled", "Agent 记忆", "无需 Agent Profile", "memory_enabled", "用户隔离", "关闭阻止读写并保留记忆文件", "支持 Codex、Claude、Pi", "新对话", "旧对话", "完成回复后 @ 本轮发起人", "mention_turn_initiator_enabled"} {
+	for _, want := range []string{"长会话完成通知", "30 秒", "高级设置", "保存并重启", "对当前实例的全部助手生效", "completion_seconds", "群独立配置", "group_settings_enabled", "Agent 记忆", "无需 Agent Profile", "memory_enabled", "用户隔离", "关闭阻止读写并保留记忆文件", "支持 Codex、Claude、Pi", "新对话", "旧对话", "完成时 @ 发起人", "mention_turn_initiator_enabled"} {
 		if !strings.Contains(card, want) {
 			t.Fatalf("missing %q: %s", want, card)
 		}
 	}
-	for _, unwanted := range []string{"已保存设置", "当前运行状态", "待重启", "刷新", "重启使配置生效"} {
+	for _, unwanted := range []string{"已保存设置", "当前运行状态", "待重启", "刷新", "重启使配置生效", "双卡分阶段", "staged_reply_cards"} {
 		if strings.Contains(card, unwanted) {
 			t.Fatalf("unexpected %q", unwanted)
 		}
@@ -334,8 +334,8 @@ func TestManagementExperimentsModelRecoveryQueueWaitCallbackAndBilingualCard(t *
 			}
 		}
 		walk(doc["body"])
-		if tags >= 170 {
-			t.Fatalf("sec=%d: public experiments card tag count = %d, want < 170 to stay under Feishu 200-tag limit with extensions", sec, tags)
+		if tags >= 155 {
+			t.Fatalf("sec=%d: public experiments card tag count = %d, want < 155 to stay under Feishu 200-tag limit with extensions", sec, tags)
 		}
 
 		zhCard := selectManagementCardLocale(rawCard, i18n.Chinese)
@@ -491,6 +491,51 @@ func TestCodexExecutableExperimentBilingual(t *testing.T) {
 		rendered := selectManagementCardLocale(card, locale)
 		if !json.Valid([]byte(rendered)) || !strings.Contains(rendered, "codex_executable") || !strings.Contains(rendered, "~/bin/codex-team") || strings.Contains(rendered, "management.codex.executable.") {
 			t.Fatalf("%s card: %s", locale, rendered)
+		}
+	}
+}
+
+func TestTurnProcessModeSelectorAppliesAndPreservesOtherExperiments(t *testing.T) {
+	loadBridgeTestConfig(t, "[bridge.feishu.experimental]\nmention_turn_initiator = true\n[bridge.feishu.presentation]\ncompletion_notification_enabled = true\ncompletion_notification_after_seconds = 90\n")
+	b, _ := newBridgeForInputTest(t)
+	b.secrets = &Secrets{OpenId: "owner-open"}
+
+	for _, tc := range []struct{ actor, option, toast, mode string }{
+		{"not-owner", "bubble", "error", "inline"},
+		{"owner-open", "invalid", "error", "inline"},
+		{"owner-open", "sidebar", "error", "inline"}, // no viewer
+		{"owner-open", "bubble", "success", "bubble"},
+		{"owner-open", "inline", "success", "inline"},
+	} {
+		event := settingsCallback(managementActionTurnProcessMode, nil)
+		event.Event.Operator.OpenID = tc.actor
+		event.Event.Action.Option = tc.option
+		resp, handled, err := b.handleManagementCardAction(context.Background(), event)
+		if err != nil || !handled || resp == nil || resp.Toast == nil || resp.Toast.Type != tc.toast {
+			t.Fatalf("option %q from %q: %+v, %v", tc.option, tc.actor, resp, err)
+		}
+		saved, err := config.ReadExperimentsSettings()
+		if err != nil || saved.TurnProcessMode != tc.mode || b.currentTurnProcessMode() != tc.mode ||
+			!saved.MentionTurnInitiator || !saved.CompletionNotification.Enabled || saved.CompletionNotification.AfterSeconds != 90 {
+			t.Fatalf("option %s changed the wrong settings: %+v, %v", tc.option, saved, err)
+		}
+		if tc.toast != "success" {
+			continue
+		}
+		card := renderManagementExperimentsCard(saved, b.runningExperimentsSettings())
+		for locale, labels := range map[i18n.Locale][]string{
+			i18n.Chinese: {"处理过程展示方式", "原卡内（默认）", "原生气泡", "侧栏", "完成时 @ 发起人"},
+			i18n.English: {"Processing details display", "Original card (default)", "Native bubble", "Sidebar", "Mention the initiator on completion"},
+		} {
+			localized := selectManagementCardLocale(card, locale)
+			for _, label := range labels {
+				if !strings.Contains(localized, label) {
+					t.Errorf("%s selector missing %q", locale, label)
+				}
+			}
+			if !strings.Contains(localized, `"initial_option":"`+tc.mode+`"`) {
+				t.Errorf("%s selector lost the saved choice", locale)
+			}
 		}
 	}
 }

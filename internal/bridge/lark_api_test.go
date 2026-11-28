@@ -262,10 +262,7 @@ func TestReplyMentionCompactionPatchesExistingMessageWithLocalizedCompletionCard
 	b := &Bridge{client: lark.NewClient(
 		"app-id", "app-secret", lark.WithOpenBaseUrl(server.URL), lark.WithOAuthBaseUrl(server.URL),
 	)}
-	backend, ok := newBindingReplyCardBackend(b, &LarkChat{RootMsgID: "om-root"}).(*bindingReplyCardBackend)
-	if !ok {
-		t.Fatal("binding reply backend type changed")
-	}
+	backend := newBindingReplyCardBackend(b, &LarkChat{RootMsgID: "om-root"})
 	if err := backend.compactMessage(context.Background(), "om-progress", renderAgentReplyCompletionCard(nil)); err != nil {
 		t.Fatalf("compact progress message: %v", err)
 	}

@@ -1,0 +1,21 @@
+{
+  "title": {"other": "处理过程"},
+  "connecting": {"other": "正在连接…"},
+  "waiting": {"other": "等待本轮开始"},
+  "running": {"other": "执行中"},
+  "done": {"other": "已完成"},
+  "failed": {"other": "执行失败"},
+  "stopped": {"other": "已停止"},
+  "unavailable": {"other": "暂时无法读取处理记录，请尝试重新连接。"},
+  "unauthorized": {"other": "处理过程链接无效或已过期。"},
+  "empty": {"other": "暂无工具调用。"},
+  "empty_done": {"other": "本轮没有工具调用记录。"},
+  "latest": {"other": "跳到最新"},
+  "retry": {"other": "重新连接"},
+  "progress": {"other": "思考进展"},
+  "progress_empty": {"other": "暂无思考进展。"},
+  "progress_empty_done": {"other": "本轮没有可展示的思考进展。"},
+  "tools": {"other": "工具调用"},
+  "tool": {"other": "工具"},
+  "tool_failed": {"other": "失败"}
+}

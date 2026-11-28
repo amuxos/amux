@@ -2515,6 +2515,9 @@
   "session.processing": {
     "other": "Processing"
   },
+  "session.processing.open": {
+    "other": "Processing details"
+  },
   "session.reply.sent.to": {
     "other": "Sent to:"
   },
@@ -2983,11 +2986,50 @@
   "management.choose.whether.to.show.background.tasks": {
     "other": "Choose whether to show background task progress cards"
   },
+  "processing.bubble.tools": {
+    "other": "Tool calls"
+  },
+  "processing.bubble.tool.done": {
+    "other": "Completed"
+  },
+  "processing.bubble.tool.failed": {
+    "other": "Failed"
+  },
+  "processing.bubble.tool.stopped": {
+    "other": "Ended"
+  },
+  "management.turn.viewer.title": {
+    "other": "Processing details display"
+  },
+  "management.turn.viewer.description": {
+    "other": "Choose where new replies show thinking updates and tool calls. Processing details stay in the original card if the bubble or sidebar is unavailable."
+  },
+  "management.turn.viewer.saved": {
+    "other": "Processing details display saved for new replies."
+  },
+  "management.turn.viewer.choose": {
+    "other": "Choose original card, native bubble, or sidebar"
+  },
+  "management.turn.viewer.inline": {
+    "other": "Original card (default)"
+  },
+  "management.turn.viewer.bubble": {
+    "other": "Native bubble"
+  },
+  "management.turn.viewer.sidebar": {
+    "other": "Sidebar"
+  },
+  "management.turn.viewer.unavailable": {
+    "other": "The sidebar viewer could not start. Check the Hub listener address and port."
+  },
   "management.mention.turn.initiator": {
-    "other": "Notify reply initiators (experimental)"
+    "other": "Mention the initiator on completion"
   },
   "management.mention.turn.initiator.description": {
-    "other": "When on, after a group topic, DM, or background-agent result turn completes successfully and every answer card finishes, a new full final-answer card natively mentions the people who triggered it; after that send succeeds, old progress cards remain and are compressed to a completion summary of at most 10 characters. Background results use the exact parent Turn instead of guessing the latest speaker. Waiting and progress stages do not mention anyone. Automated group watch, Apps and Bots are excluded."
+    "other": "When on, successful replies in group topics and DMs mention their initiators on the result card. Original-card and sidebar modes keep the progress card and send the result separately. Native bubble mode adds the mention to its result card."
+  },
+  "management.mention.turn.initiator.saved": {
+    "other": "Completion mention setting saved."
   },
   "management.mention.turn.initiator.currently.on": {
     "other": "Current state: on"

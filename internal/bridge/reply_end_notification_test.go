@@ -22,7 +22,7 @@ func setReplyEndNotificationForTest(t *testing.T, b *Bridge, on bool) {
 		t.Fatal(err)
 	}
 	if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{
-		CompletionNotification: saved.CompletionNotification, ReplyEndNotification: &on,
+		CompletionNotification: &saved.CompletionNotification, ReplyEndNotification: &on,
 	}); err != nil {
 		t.Fatal(err)
 	}

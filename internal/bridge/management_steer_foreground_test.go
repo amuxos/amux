@@ -97,7 +97,7 @@ func TestManagementExperimentsSteerForegroundAppliesLive(t *testing.T) {
 }
 
 func TestManagementExperimentsMentionTurnInitiatorAppliesLive(t *testing.T) {
-	loadBridgeTestConfig(t, "[memory]\nenabled = false\n")
+	loadBridgeTestConfig(t, "[bridge.feishu.experimental]\nturn_process_mode = \"bubble\"\nstaged_reply_cards = true\n")
 	b, _ := newBridgeForInputTest(t)
 	b.secrets = &Secrets{OpenId: "owner-open"}
 	cards := make(chan string, 2)
@@ -109,30 +109,33 @@ func TestManagementExperimentsMentionTurnInitiatorAppliesLive(t *testing.T) {
 	if b.mentionTurnInitiator.Load() {
 		t.Fatal("mention experiment must default off")
 	}
-	event := settingsCallback(managementActionExperimentsSaveRestart, nil)
-	event.Event.Operator.OpenID = "owner-open"
-	event.Event.Action.FormValue = map[string]interface{}{
-		"completion_enabled":             "false",
-		"mention_turn_initiator_enabled": "true",
+	event := settingsCallback(managementActionMentionTurnInitiator, nil)
+	event.Event.Operator.OpenID = "not-owner"
+	event.Event.Action.Option = "true"
+	if resp, _, err := b.handleManagementCardAction(context.Background(), event); err != nil || resp.Toast.Type != "error" || b.mentionTurnInitiator.Load() {
+		t.Fatalf("non-owner toggle = %+v %v", resp, err)
 	}
+	event.Event.Operator.OpenID = "owner-open"
 	resp, _, err := b.handleManagementCardAction(context.Background(), event)
 	if err != nil || resp.Toast.Type != "success" {
 		t.Fatalf("save = %+v %v", resp, err)
 	}
-	<-cards
+	if card := waitLifecycleSignal(t, cards); !strings.Contains(card, `"initial_option":"true"`) || strings.Contains(card, "staged_reply_cards") {
+		t.Fatalf("selection should update the mention dropdown alone: %s", card)
+	}
 	if !b.mentionTurnInitiator.Load() {
 		t.Fatal("mention experiment did not apply live")
 	}
 	saved, err := config.ReadExperimentsSettings()
-	if err != nil || !saved.MentionTurnInitiator {
+	if err != nil || !saved.MentionTurnInitiator || saved.TurnProcessMode != config.FeishuTurnProcessBubble {
 		t.Fatalf("saved = %+v %v", saved, err)
 	}
 
-	event.Event.Action.FormValue["mention_turn_initiator_enabled"] = "false"
+	event.Event.Action.Option = "false"
 	if resp, _, err = b.handleManagementCardAction(context.Background(), event); err != nil || resp.Toast.Type != "success" {
 		t.Fatalf("disable = %+v %v", resp, err)
 	}
-	<-cards
+	waitLifecycleSignal(t, cards)
 	if b.mentionTurnInitiator.Load() {
 		t.Fatal("mention experiment did not disable live")
 	}

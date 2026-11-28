@@ -12,6 +12,7 @@ import (
 
 	"github.com/amuxos/amux/internal/agentstream"
 	"github.com/amuxos/amux/internal/agentui"
+	"github.com/amuxos/amux/internal/config"
 	pb "github.com/amuxos/amux/internal/transport/pbgen"
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 )
@@ -23,7 +24,10 @@ type placeholderHarness struct {
 	operations []string
 	messages   []string // non-card messages (text notices)
 	created    chan string
+	bubbles    chan string
 	finished   chan string
+	compacted  chan string
+	sendCount  int
 	stream     *lifecycleAttach
 	session    *pb.Session
 	seq        uint64
@@ -32,8 +36,15 @@ type placeholderHarness struct {
 }
 
 func newPlaceholderHarness(t *testing.T) *placeholderHarness {
+	return newPlaceholderHarnessWithMode(t, config.FeishuTurnProcessInline, false)
+}
+
+func newPlaceholderHarnessWithMode(t *testing.T, mode string, mention bool) *placeholderHarness {
 	t.Helper()
-	h := &placeholderHarness{t: t, created: make(chan string, 16), finished: make(chan string, 16)}
+	h := &placeholderHarness{
+		t: t, created: make(chan string, 16), finished: make(chan string, 16),
+		bubbles: make(chan string, 16), compacted: make(chan string, 16),
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/open-apis/auth/v3/tenant_access_token/internal" {
@@ -47,20 +58,30 @@ func newPlaceholderHarness(t *testing.T) *placeholderHarness {
 		h.operations = append(h.operations, r.URL.Path+" "+string(raw))
 		h.mu.Unlock()
 		switch {
+		case r.URL.Path == turnBubblePath && r.Method == http.MethodPost:
+			_, _ = w.Write([]byte(`{"code":0,"data":{"cot_id":"cot-1","message_id":"om_bubble"}}`))
+		case r.URL.Path == turnBubblePath && r.Method == http.MethodPut:
+			_, _ = w.Write([]byte(`{"code":0}`))
+			h.bubbles <- string(raw)
 		case r.URL.Path == "/open-apis/cardkit/v1/cards":
 			h.mu.Lock()
 			h.creates = append(h.creates, string(raw))
 			id := fmt.Sprintf("card-%d", len(h.creates))
 			h.mu.Unlock()
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]string{"card_id": id}})
+		case r.Method == http.MethodPatch && strings.HasPrefix(r.URL.Path, "/open-apis/im/v1/messages/"):
+			_, _ = w.Write([]byte(`{"code":0}`))
+			h.compacted <- r.URL.Path + " " + string(raw)
 		case strings.HasSuffix(r.URL.Path, "/reply") || strings.HasPrefix(r.URL.Path, "/open-apis/im/v1/messages"):
 			content, _ := body["content"].(string)
+			h.mu.Lock()
+			h.sendCount++
+			messageID := fmt.Sprintf("reply-%d", h.sendCount)
 			if !strings.Contains(content, "card_id") {
-				h.mu.Lock()
 				h.messages = append(h.messages, content)
-				h.mu.Unlock()
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]string{"message_id": "reply-1"}})
+			h.mu.Unlock()
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]string{"message_id": messageID}})
 			h.created <- content
 		case strings.HasPrefix(r.URL.Path, "/open-apis/cardkit/v1/cards/"):
 			_, _ = w.Write([]byte(`{"code":0}`))
@@ -73,6 +94,19 @@ func newPlaceholderHarness(t *testing.T) *placeholderHarness {
 	}))
 	t.Cleanup(server.Close)
 	b, hub, chat := newStreamLifecycleBridge(t)
+	b.ApplyLiveExperimentSettings(config.ExperimentsSettings{TurnProcessMode: mode, MentionTurnInitiator: mention})
+	if mode == config.FeishuTurnProcessSidebar {
+		b.SetTurnProcessViewer(func() (string, string) { return "https://viewer.example", "test-viewer-secret" })
+	}
+	if err := b.db.EnsureWorkspaceKind(chat.BridgeId, chat.ChatID, WorkspaceKindTopicGroup); err != nil {
+		t.Fatal(err)
+	}
+	if mode == config.FeishuTurnProcessBubble {
+		chat.RootMsgID = "om_topic"
+		if err := b.db.UpsertChat(*chat); err != nil {
+			t.Fatal(err)
+		}
+	}
 	h.bridge, h.chat = b, chat
 	b.client = lark.NewClient("test-placeholder-app", "test-secret", lark.WithOpenBaseUrl(server.URL), lark.WithOAuthBaseUrl(server.URL))
 	h.session = hub.setSession(chat, "session-id-1", "launch-1")
@@ -294,5 +328,80 @@ func TestRenderPlaceholderStatus(t *testing.T) {
 	raw, _ = json.Marshal(renderTurnActivity(meta).contentElements())
 	if strings.Contains(string(raw), "placeholder_status") {
 		t.Fatal("done card keeps waiting line")
+	}
+}
+
+func TestTurnProcessBubbleOnlyThenCombinedResultAcrossTurns(t *testing.T) {
+	h := newPlaceholderHarnessWithMode(t, config.FeishuTurnProcessBubble, false)
+	for i, mention := range []bool{false, true} {
+		seq := uint64(i + 1)
+		id := fmt.Sprintf("bubble-turn-%d", seq)
+		h.bridge.mentionTurnInitiator.Store(mention)
+		h.bridge.recordTurnSenders(h.chat.RootMsgID, id, compactTurnInputRefs("ou-initiator", id))
+		h.emit(id, seq, "lark", agentstream.TurnStarted{InputSummary: "start here"})
+		if frame := waitLifecycleSignal(t, h.bubbles); !strings.Contains(frame, "RUN_STARTED") {
+			t.Fatalf("first bubble update = %s", frame)
+		}
+		if n := h.cardCount(); n != 0 {
+			t.Fatalf("bubble should be the only initial surface; got %d CardKit creates", n)
+		}
+		answer := fmt.Sprintf("complete answer %d", seq)
+		h.emit(id, seq, "agent", agentstream.ResultObserved{Text: answer})
+		h.emit(id, seq, "agent", agentstream.TurnFinished{Terminal: agentstream.Terminal{Outcome: agentstream.OutcomeSuccess, Code: "completed"}})
+		if frame := waitLifecycleSignal(t, h.bubbles); !strings.Contains(frame, "RUN_FINISHED") {
+			t.Fatalf("terminal bubble update = %s", frame)
+		}
+		result := waitLifecycleSignal(t, h.created)
+		if !strings.Contains(result, answer) || !strings.Contains(result, cardKitExecutionSummaryID) || strings.Contains(result, "ou-initiator") != mention {
+			t.Fatalf("merged bubble result = %s", result)
+		}
+		if mention {
+			requireCardMentions(t, result, "ou-initiator")
+		}
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if len(h.messages) != 2 {
+		t.Fatalf("one final card per Turn required, got %d interactive messages", len(h.messages))
+	}
+}
+
+func TestTurnProcessMentionControlsSeparateResultCard(t *testing.T) {
+	for _, mode := range []string{config.FeishuTurnProcessInline, config.FeishuTurnProcessSidebar} {
+		for _, mention := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/mention=%t", mode, mention), func(t *testing.T) {
+				h := newPlaceholderHarnessWithMode(t, mode, mention)
+				h.bridge.recordTurnSenders(h.chat.RootMsgID, "turn-1", compactTurnInputRefs("ou-initiator", "user-message"))
+				h.emit("turn-1", 1, "lark", agentstream.TurnStarted{InputSummary: "start here"})
+				if first := waitLifecycleSignal(t, h.created); !strings.Contains(first, "card-1") {
+					t.Fatalf("initial progress card = %s", first)
+				}
+				h.emit("turn-1", 1, "agent", agentstream.AssistantMessage{Text: "Checking execution progress"})
+				if mode == config.FeishuTurnProcessInline {
+					h.waitOp(t, "card-1", "Checking execution progress")
+				}
+				answer := "the completed answer"
+				h.emit("turn-1", 1, "agent", agentstream.ResultObserved{Text: answer})
+				h.emit("turn-1", 1, "agent", agentstream.TurnFinished{Terminal: agentstream.Terminal{Outcome: agentstream.OutcomeSuccess, Code: "completed"}})
+				if !mention {
+					waitLifecycleSignal(t, h.finished)
+					h.waitOp(t, "card-1", answer)
+					h.mu.Lock()
+					defer h.mu.Unlock()
+					if h.sendCount != 1 {
+						t.Fatalf("disabled mentions should keep one card, sent %d", h.sendCount)
+					}
+					return
+				}
+				result := waitLifecycleSignal(t, h.created)
+				if !strings.Contains(result, answer) || strings.Contains(result, cardKitExecutionSummaryID) {
+					t.Fatalf("new result card must have the full answer and native mention: %s", result)
+				}
+				requireCardMentions(t, result, "ou-initiator")
+				if summary := waitLifecycleSignal(t, h.compacted); !strings.Contains(summary, "/messages/reply-1 ") || !strings.Contains(summary, cardKitExecutionSummaryID) || strings.Contains(summary, answer) || strings.Contains(summary, "viewer.example") != (mode == config.FeishuTurnProcessSidebar) {
+					t.Fatalf("original card must retain only execution details: %s", summary)
+				}
+			})
+		}
 	}
 }

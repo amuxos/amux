@@ -60,6 +60,12 @@ func (b *Bridge) runningExperimentsSettings() config.ExperimentsSettings {
 		running.SteerForeground = b.steerForeground.Load()
 		running.ShowBackgroundTasks = b.showBackgroundTasks.Load()
 		running.MentionTurnInitiator = b.mentionTurnInitiator.Load()
+		running.TurnProcessMode = b.currentTurnProcessMode()
+		if running.TurnProcessMode == config.FeishuTurnProcessSidebar {
+			if viewerURL, _ := b.turnProcessViewerSettings(); viewerURL == "" {
+				running.TurnProcessMode = config.FeishuTurnProcessInline
+			}
+		}
 		running.ReplyEndNotification = b.currentReplyEndNotification()
 		running.ModelRecoveryQueueWaitSeconds = b.currentModelRecoveryQueueWaitSeconds()
 	}

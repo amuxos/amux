@@ -59,6 +59,7 @@ func discoveryExperimentSnapshot(s config.ExperimentsSettings) map[string]any {
 		"steer_foreground":         s.SteerForeground,
 		"show_background_tasks":    s.ShowBackgroundTasks,
 		"mention_turn_initiator":   s.MentionTurnInitiator,
+		"turn_process_mode":        s.TurnProcessMode,
 		"reply_end_notification":   s.ReplyEndNotification,
 		"completion_notification":  s.CompletionNotification.Enabled,
 		"completion_after_seconds": s.CompletionNotification.AfterSeconds,

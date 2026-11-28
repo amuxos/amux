@@ -1,0 +1,21 @@
+{
+  "title": {"other": "Processing details"},
+  "connecting": {"other": "Connecting…"},
+  "waiting": {"other": "Waiting for the turn"},
+  "running": {"other": "Running"},
+  "done": {"other": "Completed"},
+  "failed": {"other": "Execution failed"},
+  "stopped": {"other": "Stopped"},
+  "unavailable": {"other": "The processing record is unavailable. Try reconnecting."},
+  "unauthorized": {"other": "This processing link is invalid or has expired."},
+  "empty": {"other": "No tool calls recorded yet."},
+  "empty_done": {"other": "No tool calls were recorded for this turn."},
+  "latest": {"other": "Jump to latest"},
+  "retry": {"other": "Reconnect"},
+  "progress": {"other": "Thinking progress"},
+  "progress_empty": {"other": "No thinking updates yet."},
+  "progress_empty_done": {"other": "No thinking updates were published for this turn."},
+  "tools": {"other": "Tool calls"},
+  "tool": {"other": "Tool"},
+  "tool_failed": {"other": "Failed"}
+}

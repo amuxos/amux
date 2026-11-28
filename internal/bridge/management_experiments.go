@@ -50,7 +50,7 @@ func managementExperimentsSettingsFromCallback(action *callback.CallBackAction, 
 	if err != nil {
 		return config.ExperimentsSettingsUpdate{}, err
 	}
-	update := config.ExperimentsSettingsUpdate{CompletionNotification: completion}
+	update := config.ExperimentsSettingsUpdate{CompletionNotification: &completion}
 	if raw, present := managementExperimentCallbackValue(action, "group_settings_enabled"); present {
 		enabled, _ := raw.(string)
 		enabled = strings.TrimSpace(enabled)
@@ -211,11 +211,6 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
 	})
 	bgItem := managementExperimentItemElement(managementCopy("management.show.background.tasks"), managementCopy("management.show.background.tasks.description"), bgEnabled, saved.ShowBackgroundTasks != running.ShowBackgroundTasks, nil)
-	mentionEnabled := managementSelectStaticElement("mention_turn_initiator_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.MentionTurnInitiator), []cardOption{
-		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
-		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
-	})
-	mentionItem := managementExperimentItemElement(managementCopy("management.mention.turn.initiator"), managementCopy("management.mention.turn.initiator.description"), mentionEnabled, saved.MentionTurnInitiator != running.MentionTurnInitiator, nil)
 	replyEndEnabled := managementSelectStaticElement("reply_end_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(saved.ReplyEndNotification), []cardOption{
 		{Text: managementStyledText(managementCopy("management.off"), cardTitle{Tag: "plain_text"}), Value: "false"},
 		{Text: managementStyledText(managementCopy("management.on"), cardTitle{Tag: "plain_text"}), Value: "true"},
@@ -242,7 +237,7 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 	)
 	executable := cardElement{Tag: "input", Name: "codex_executable", DefaultValue: saved.CodexExecutable, Placeholder: managementStyledTextPtr(managementCopy("management.codex.executable.placeholder"), cardTitle{Tag: "plain_text"})}
 	executableItem := managementExperimentItemElement(managementCopy("management.codex.executable.title"), managementCopy("management.codex.executable.description"), cardElement{Tag: "div", Text: managementStyledTextPtr("Codex", cardTitle{Tag: "plain_text"})}, saved.CodexExecutable != running.CodexExecutable, []cardElement{executable, managementHintElement(managementCopy("management.codex.executable.scope"))})
-	items := []cardElement{replyEndItem, item, groupItem, memoryItem, steerItem, bgItem, mentionItem, recoveryWaitItem, executableItem}
+	items := []cardElement{replyEndItem, item, groupItem, memoryItem, steerItem, bgItem, recoveryWaitItem, executableItem}
 	for _, agent := range config.AgentExecutableNames() {
 		if agent == "codex" {
 			continue
@@ -285,11 +280,38 @@ func renderManagementExperimentsCard(saved, running config.ExperimentsSettings) 
 	elements := []cardElement{
 		managementBackToOverviewElement(),
 		managementDividerElement(),
+		managementTurnProcessModeExperiment(saved, running),
+		managementMentionTurnInitiatorExperiment(saved.MentionTurnInitiator),
 		{Tag: "form", Name: "experiments_form", Direction: "vertical", VerticalSpacing: "12px", Elements: items},
 		managementTextElement(managementCopy("management.applies.to.all.assistants.in.this.instance"), "notation", "grey", nil),
 	}
 	elements = append(elements, conversationExperimentElements()...)
 	return marshalNativeManagementCard(managementCardView{Title: managementCopy("management.experiments"), Summary: managementCopy("management.amux.experiments"), Theme: "wathet", Icon: managementIcon("version_outlined", "blue"), Elements: elements})
+}
+
+func managementTurnProcessModeExperiment(saved, running config.ExperimentsSettings) cardElement {
+	control := managementSelectStaticElement("turn_process_mode", managementCopy("management.turn.viewer.choose"), config.NormalizeFeishuTurnProcessMode(saved.TurnProcessMode), []cardOption{
+		{Text: managementPlainText(managementCopy("management.turn.viewer.inline")), Value: config.FeishuTurnProcessInline},
+		{Text: managementPlainText(managementCopy("management.turn.viewer.bubble")), Value: config.FeishuTurnProcessBubble},
+		{Text: managementPlainText(managementCopy("management.turn.viewer.sidebar")), Value: config.FeishuTurnProcessSidebar},
+	})
+	control.Required = false
+	control.Behaviors = []cardBehavior{{Type: "callback", Value: managementButtonValue(managementButton{Action: managementActionTurnProcessMode})}}
+	summary := managementCopy("management.turn.viewer.description")
+	if saved.TurnProcessMode == config.FeishuTurnProcessSidebar && running.TurnProcessMode != config.FeishuTurnProcessSidebar {
+		summary = joinManagementCopy(summary, managementCopy("management.turn.viewer.unavailable"))
+	}
+	return managementExperimentItemElement(managementCopy("management.turn.viewer.title"), summary, control, false, nil)
+}
+
+func managementMentionTurnInitiatorExperiment(enabled bool) cardElement {
+	control := managementSelectStaticElement("mention_turn_initiator_enabled", managementCopy("management.choose.on.or.off.161"), strconv.FormatBool(enabled), []cardOption{
+		{Text: managementPlainText(managementCopy("management.off")), Value: "false"},
+		{Text: managementPlainText(managementCopy("management.on")), Value: "true"},
+	})
+	control.Required = false
+	control.Behaviors = []cardBehavior{{Type: "callback", Value: managementButtonValue(managementButton{Action: managementActionMentionTurnInitiator})}}
+	return managementExperimentItemElement(managementCopy("management.mention.turn.initiator"), managementCopy("management.mention.turn.initiator.description"), control, false, nil)
 }
 
 func joinManagementCopy(parts ...i18n.Text) i18n.Text {
@@ -306,11 +328,13 @@ func joinManagementCopy(parts ...i18n.Text) i18n.Text {
 
 // Each experiment contributes a compact item to the shared page-level form.
 func managementExperimentItemElement(title any, summary any, control cardElement, pending bool, advanced []cardElement) cardElement {
-	heading := cardElement{Tag: "column_set", FlexMode: "none", HorizontalSpacing: "12px", Columns: []cardColumn{
-		{Tag: "column", Width: "weighted", Weight: 1, VerticalAlign: "center", Elements: []cardElement{managementTextElement(title, "normal", "default", nil)}},
-		{Tag: "column", Width: "auto", VerticalAlign: "center", Elements: []cardElement{control}},
-	}}
-	children := []cardElement{heading, managementTextElement(summary, "notation", "grey", nil)}
+	// Avoid a nested heading grid per row. The distribution adds its own
+	// experiments and the complete bilingual card shares one component budget.
+	children := []cardElement{
+		managementTextElement(title, "normal", "default", nil),
+		control,
+		managementTextElement(summary, "notation", "grey", nil),
+	}
 	if pending {
 		children = append(children, managementTextElement(managementCopy("management.restart.pending.saved.settings.are.not.active.yet"), "notation", "orange", nil))
 	}

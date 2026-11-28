@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="{{.Locale}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{{index .Messages "title"}}</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --page: light-dark(#f5f7fb, #161a22);
+  --panel: light-dark(#fff, #202633);
+  --ink: light-dark(#202938, #edf0f8);
+  --muted: light-dark(#535f70, #aeb8cb);
+  --line: light-dark(#d8dfed, #394152);
+  --active: light-dark(#2450bf, #a4bcff);
+  --done: light-dark(#21684c, #8bd9b4);
+  --bad: light-dark(#ac2d3f, #ffacb6);
+  font: 14px/1.55 system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); }
+[hidden] { display: none !important; }
+header {
+  position: sticky; top: 0; z-index: 1; padding: 16px 18px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+h1, h2, p { margin: 0; }
+h1 { font-size: 19px; }
+h2 { font-size: 14px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 6px; }
+#status { color: var(--muted); overflow-wrap: anywhere; }
+#status[data-status="running"] { color: var(--active); }
+#status[data-status="done"] { color: var(--done); }
+#status[data-status="failed"], #status[data-status="unavailable"] { color: var(--bad); }
+button { color: var(--active); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; font: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--active); outline-offset: 2px; }
+main { padding: 16px 18px 28px; max-width: 800px; margin: auto; }
+#progress { margin-bottom: 14px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+#progress summary { cursor: pointer; font-weight: 600; }
+#progress-list li { display: block; overflow-wrap: anywhere; }
+#progress-list li:last-child { padding-bottom: 0; border-bottom: 0; }
+.count { color: var(--muted); font-variant-numeric: tabular-nums; }
+#empty, #progress-empty { color: var(--muted); margin-top: 10px; }
+ol { margin: 10px 0 0; padding: 0; list-style: none; }
+li { display: grid; grid-template-columns: 2.6em minmax(0,1fr); gap: 6px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.order { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tool-title, .tool-name { display: block; overflow-wrap: anywhere; }
+.tool-name, .tool-status { color: var(--muted); font-size: 12px; }
+.tool-status { font-variant-numeric: tabular-nums; }
+.tool-status[data-phase="running"] { color: var(--active); }
+.tool-status[data-phase="completed"] { color: var(--done); }
+.tool-status[data-phase="failed"] { color: var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{index .Messages "title"}}</h1>
+  <div class="toolbar">
+    <span id="status" role="status">{{index .Messages "connecting"}}</span>
+    <button id="latest" type="button" hidden>{{index .Messages "latest"}}</button>
+    <button id="retry" type="button" hidden>{{index .Messages "retry"}}</button>
+  </div>
+</header>
+<main>
+  {{if .ShowProgress}}
+  <details id="progress"{{if .ExpandProgress}} open{{end}}>
+    <summary>{{index .Messages "progress"}} <span id="progress-count" class="count" hidden></span></summary>
+    <p id="progress-empty">{{index .Messages "progress_empty"}}</p>
+    <ol id="progress-list"></ol>
+  </details>
+  {{end}}
+  <section>
+    <h2>{{index .Messages "tools"}} <span id="count" class="count">0</span></h2>
+    <p id="empty">{{index .Messages "empty"}}</p>
+    <ol id="tools"></ol>
+  </section>
+</main>
+<script>
+"use strict";
+const messages = {{.Messages}};
+const statusNode = document.getElementById("status");
+const progressList = document.getElementById("progress-list");
+const progressCount = document.getElementById("progress-count");
+const progressEmpty = document.getElementById("progress-empty");
+const count = document.getElementById("count");
+const list = document.getElementById("tools");
+const latest = document.getElementById("latest");
+const retry = document.getElementById("retry");
+const empty = document.getElementById("empty");
+const tools = new Map();
+const anonymous = new Map();
+const terminalStatuses = new Set(["done", "failed", "stopped"]);
+const number = new Intl.NumberFormat(document.documentElement.lang, {maximumFractionDigits: 1});
+let terminal = false;
+
+function setStatus(status) {
+  statusNode.dataset.status = status;
+  statusNode.textContent = messages[status];
+  if (status === "unavailable") retry.hidden = false;
+  if (terminalStatuses.has(status)) {
+    terminal = true;
+    empty.textContent = messages.empty_done;
+    if (progressEmpty) progressEmpty.textContent = messages.progress_empty_done;
+    for (const row of tools.values()) {
+      if (row.status.dataset.phase === "running") {
+        row.status.dataset.phase = status === "done" ? "" : "failed";
+        row.status.textContent = status === "done" ? "—" : messages[status];
+      }
+    }
+  }
+}
+
+function updateProgress(progress) {
+  if (!progressList) return;
+  let row = progressList.children[progress.index - 1];
+  if (!row) {
+    row = document.createElement("li");
+    progressList.append(row);
+    progressCount.textContent = progressList.children.length;
+    progressCount.hidden = false;
+    progressEmpty.hidden = true;
+  }
+  row.textContent = progress.text;
+}
+
+function toolRow() {
+  const row = document.createElement("li");
+  const ordinal = document.createElement("span");
+  ordinal.className = "order";
+  ordinal.textContent = String(list.children.length + 1).padStart(2, "0");
+  const body = document.createElement("div");
+  const title = document.createElement("strong");
+  title.className = "tool-title";
+  const name = document.createElement("span");
+  name.className = "tool-name";
+  const status = document.createElement("span");
+  status.className = "tool-status";
+  body.append(title, name, status);
+  row.append(ordinal, body);
+  list.append(row);
+  count.textContent = list.children.length;
+  empty.hidden = true;
+  latest.hidden = list.children.length < 2;
+  return {title, name, status, start: 0};
+}
+
+function updateTool(tool) {
+  const signature = [tool.name, tool.title].join("\u0000");
+  let key = tool.id ? "id:" + tool.id : anonymous.get(signature);
+  if (!tool.id && (tool.phase === "started" || !key)) {
+    key = "row:" + list.children.length;
+    anonymous.set(signature, key);
+  }
+  let row = tools.get(key);
+  if (!row) {
+    row = toolRow();
+    tools.set(key, row);
+  }
+  if (!row.start && tool.phase === "started") row.start = tool.at;
+  row.title.textContent = tool.title || row.title.textContent || tool.name || messages.tool;
+  row.name.textContent = tool.name && tool.name !== row.title.textContent ? tool.name : "";
+  const running = tool.phase === "started" || tool.phase === "updated";
+  row.status.dataset.phase = running ? "running" : tool.phase;
+  const duration = !running && row.start && tool.at >= row.start
+    ? " · " + number.format((tool.at - row.start) / 1000) + " s" : "";
+  const stateLabel = running ? messages.running : tool.phase === "failed" ? messages.tool_failed : messages.done;
+  row.status.textContent = stateLabel + duration;
+}
+
+latest.addEventListener("click", () => window.scrollTo({top: document.documentElement.scrollHeight}));
+retry.addEventListener("click", () => location.reload());
+const url = new URL("../api/turn/stream", location.href);
+url.protocol = location.protocol === "https:" ? "wss:" : "ws:";
+url.searchParams.set("token", decodeURIComponent(location.pathname.split("/").pop()));
+const socket = new WebSocket(url);
+socket.addEventListener("message", event => {
+  const update = JSON.parse(event.data);
+  if (update.status) setStatus(update.status);
+  if (update.tool) updateTool(update.tool);
+  if (update.progress) updateProgress(update.progress);
+});
+socket.addEventListener("close", () => { if (!terminal) setStatus("unavailable"); });
+</script>
+</body>
+</html>
