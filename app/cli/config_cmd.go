@@ -330,6 +330,12 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 			return err
 		}
 	}
+	if key == config.TurnViewerAddrKey && !config.ValidTurnViewerAddr(raw) {
+		return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.turn_viewer.invalid_addr")))
+	}
+	if key == config.TurnViewerBaseURLKey && !config.ValidTurnViewerBaseURL(raw) {
+		return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.turn_viewer.invalid_url")))
+	}
 	if key == "runtime.auto_start" ||
 		key == "bridge.feishu.prompt.shared_thread_enabled" ||
 		key == "bridge.feishu.prompt.topic_root_enabled" ||
@@ -394,6 +400,10 @@ func setConfigValueLocale(cfg cliConfigFile, key, raw string, locale i18n.Locale
 		value = int64(parsed)
 	}
 	switch key {
+	case config.FeishuTurnProcessModeKey:
+		if !config.ValidFeishuTurnProcessMode(raw) {
+			return commandValidationError(fmt.Errorf("%s", commandCatalog.Format(locale, "config.turn_process_mode", key)))
+		}
 	case "turn_results.ttl_seconds":
 		parsed, err := strconv.Atoi(raw)
 		if err != nil || (parsed != 0 && (parsed < config.MinTurnResultsTTLSeconds || parsed > config.MaxTurnResultsTTLSeconds)) {

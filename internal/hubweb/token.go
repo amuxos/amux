@@ -12,19 +12,36 @@ import (
 )
 
 type sessionTokenClaims struct {
-	TargetID string `json:"target_id"`
-	Name     string `json:"name"`
-	Exp      int64  `json:"exp"`
+	TargetID       string `json:"target_id"`
+	Name           string `json:"name"`
+	Exp            int64  `json:"exp"`
+	TurnID         string `json:"turn_id,omitempty"`
+	ToolsOnly      bool   `json:"tools_only,omitempty"`
+	ExpandProgress bool   `json:"expand_progress,omitempty"`
 }
 
 // SignSessionToken returns a URL-safe token scoped to one target/session until
 // expiresAt. The signing secret itself is never embedded in the token.
 func SignSessionToken(secret, targetID, name string, expiresAt time.Time) string {
-	secret = strings.TrimSpace(secret)
-	if secret == "" || strings.TrimSpace(name) == "" || expiresAt.IsZero() {
+	return signViewerToken(secret, sessionTokenClaims{TargetID: targetID, Name: name, Exp: expiresAt.Unix()})
+}
+
+// SignTurnProcessToken grants access to the presentation of exactly one Turn.
+func SignTurnProcessToken(secret, targetID, name, turnID string, toolsOnly, expandProgress bool, expiresAt time.Time) string {
+	if strings.TrimSpace(targetID) == "" || strings.TrimSpace(turnID) == "" {
 		return ""
 	}
-	claims := sessionTokenClaims{TargetID: targetID, Name: name, Exp: expiresAt.Unix()}
+	return signViewerToken(secret, sessionTokenClaims{
+		TargetID: targetID, Name: name, TurnID: turnID, Exp: expiresAt.Unix(),
+		ToolsOnly: toolsOnly, ExpandProgress: expandProgress,
+	})
+}
+
+func signViewerToken(secret string, claims sessionTokenClaims) string {
+	secret = strings.TrimSpace(secret)
+	if secret == "" || strings.TrimSpace(claims.Name) == "" || claims.Exp <= 0 {
+		return ""
+	}
 	payload, err := json.Marshal(claims)
 	if err != nil {
 		return ""
@@ -43,7 +60,7 @@ func VerifySessionToken(secret, token, targetID, name string, now time.Time) err
 	if err != nil {
 		return err
 	}
-	if claims.TargetID != targetID || claims.Name != name {
+	if claims.TargetID != targetID || claims.Name != name || claims.TurnID != "" {
 		return errors.New("token scope mismatch")
 	}
 	return nil

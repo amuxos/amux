@@ -14,13 +14,13 @@ import (
 func TestExperimentsAtomicSaveAndRestart(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)
-	path := writeConfig(t, "[hub]\naddr = \"localhost:7100\"\n[bridge.feishu.profiles.special.presentation]\ncompletion_notification_after_seconds = 30\n")
+	path := writeConfig(t, "[hub]\naddr = \"localhost:7100\"\n[bridge.feishu.experimental]\nstaged_reply_cards = true\n[bridge.feishu.profiles.special.presentation]\ncompletion_notification_after_seconds = 30\n")
 	requireLoad(t, path)
 	initial, err := config.ReadExperimentsSettings()
-	if err != nil || initial.GroupSettingsEnabled || initial.MemoryEnabled || config.GetBridgeFeishuGroupSettingsEnabled() || config.GetMemory().Enabled {
+	if err != nil || initial.TurnProcessMode != config.FeishuTurnProcessInline || initial.MentionTurnInitiator || initial.GroupSettingsEnabled || initial.MemoryEnabled || config.GetBridgeFeishuGroupSettingsEnabled() || config.GetMemory().Enabled {
 		t.Fatalf("default group experiment = %+v %v", initial, err)
 	}
-	want := config.ExperimentsSettings{CompletionNotification: config.CompletionNotificationSettings{Enabled: true, AfterSeconds: 90}, GroupSettingsEnabled: true, MemoryEnabled: true}
+	want := config.ExperimentsSettings{TurnProcessMode: config.FeishuTurnProcessBubble, CompletionNotification: config.CompletionNotificationSettings{Enabled: true, AfterSeconds: 90}, GroupSettingsEnabled: true, MemoryEnabled: true}
 	if err := config.SaveExperimentsSettings(want); err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,8 @@ func TestExperimentsOlderCardPreservesLatestSavedSettings(t *testing.T) {
 			// Prepare an old card, then change both switches before it saves.
 			// Omitted fields must retain their latest value under the file lock.
 			on, off := true, false
-			older := config.ExperimentsSettingsUpdate{CompletionNotification: initial.CompletionNotification}
+			completion := initial.CompletionNotification
+			older := config.ExperimentsSettingsUpdate{CompletionNotification: &completion}
 			if omitted == "group" {
 				older.MemoryEnabled = &off
 			}
@@ -90,7 +91,7 @@ func TestExperimentsOlderCardPreservesLatestSavedSettings(t *testing.T) {
 				older.GroupSettingsEnabled = &off
 			}
 			if _, err := config.UpdateExperimentsSettings(config.ExperimentsSettingsUpdate{
-				CompletionNotification: initial.CompletionNotification, GroupSettingsEnabled: &on, MemoryEnabled: &on,
+				CompletionNotification: &initial.CompletionNotification, GroupSettingsEnabled: &on, MemoryEnabled: &on,
 			}); err != nil {
 				t.Fatal(err)
 			}

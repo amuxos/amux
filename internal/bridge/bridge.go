@@ -161,6 +161,8 @@ type Bridge struct {
 
 	sessionViewerBaseURL string
 	sessionViewerToken   string
+	turnProcessMode      atomic.Value // string; zero value means inline
+	turnProcessViewer    func() (baseURL, token string)
 
 	managementSystemInfo   ManagementSystemInfo
 	managementActions      ManagementSystemActions
@@ -423,6 +425,7 @@ func NewWithProfile(hub Hub, profile string, secrets *Secrets, starter sessionla
 	config.SetLiveSteerForeground(b.steerForeground.Load())
 	b.showBackgroundTasks.Store(config.GetBridgeFeishuShowBackgroundTasks())
 	b.mentionTurnInitiator.Store(config.GetBridgeFeishuMentionTurnInitiator())
+	b.turnProcessMode.Store(config.GetFeishuTurnProcessMode())
 	b.replyEndNotification.Store(config.GetBridgeFeishuReplyEndNotification())
 	b.setModelRecoveryQueueWaitSeconds(config.GetBridgeFeishuModelRecoveryQueueWaitSeconds())
 	return b, nil

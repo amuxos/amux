@@ -159,8 +159,8 @@ For streamed CardKit or legacy-card replies, the answer remains in its existing
 progress/answer card or cards while work runs. Only when the Turn completes
 successfully and every card has finished does Bridge newly send the full final
 answer with native mentions; it then patches the old progress/answer messages to
-retain only their execution summary, tool calls and processing history in the
-existing collapsed panels. The original status and model/usage summary stays
+retain their execution summary and show processing details in the selected
+display mode. The original status and model/usage summary stays
 visible; there is no separate completed-answer text, answer divider, brand footer
 or conversation-extension section on the old card. A card without activity keeps
 a minimal execution status instead of an empty card. Failed, cancelled,
@@ -216,6 +216,43 @@ snapshot without replacing its live stream.
 Agent reply cards keep status, agent/model identity, timing and usage in the
 collapsible execution summary, without a separate root title bar. This layout
 also applies during streaming, after completion and in compact fallback rendering.
+The Bot owner's private `/amux` → **Experiments** card offers **Processing details
+display**. The selection is saved across restarts and applies to new replies
+without restarting AMUX.
+
+- **Original card (default)** keeps the existing inline layout, dividers and
+  collapsible panels.
+- **Native bubble** opens a Feishu `message_cot` message when the Turn starts.
+  It shows bounded user-visible thinking updates and individual tool calls.
+  After successful completion, AMUX sends a result card with the execution
+  status, model, usage and answer together. The result also mentions the
+  initiators when the corresponding experiment is enabled. Long answers use
+  the usual card limits. If Feishu rejects the bubble, processing returns to
+  the inline card flow.
+- **Sidebar** keeps the same card header and adds a text-style **Processing details**
+  link. It opens Feishu's desktop sidebar or the read-only page on other clients.
+  The page replays the exact Turn's retained Timeline, then follows new events until
+  completion. Tool calls are listed individually in execution order, with bounded
+  progress summaries between calls when the provider supplies them. The section
+  follows the card's expanded, collapsed or hidden thinking preference. Anyone with
+  the unexpired signed link can read the page while the viewer is running.
+
+**Mention the initiator on completion** sits below **Processing details display**.
+When enabled, an eligible successful Turn sends a new result card with the
+complete answer and a native mention. In original-card and sidebar modes, the
+progress card keeps the execution summary and processing details once the new
+card arrives. With mentions off, the original card displays the answer. Native
+bubble mode starts with a bubble and ends with a card that combines status and
+answer, adding the mention when enabled. The setting applies on save and persists
+across restarts. The retired split-card setting has no effect; the saved mention
+setting continues to determine who gets notified.
+
+The sidebar starts a Turn-only HTTP listener. It uses the Hub's local network
+address by default. For clients outside that network, configure `hub.turn_viewer.addr`
+and `hub.turn_viewer.base_url` for the listener and the URL reachable from Feishu.
+Address changes take effect on Hub restart. If the viewer is unavailable, the card
+keeps inline details. The bubble and sidebar omit raw tool arguments and outputs
+and both respect hidden thinking.
 Model names use readable catalog labels instead of encoded service references.
 Main and child card titles use the same structured usage summary. The latest
 invocation's total is displayed as `22.8k tokens (8%)` when a context window is

@@ -131,6 +131,7 @@ type bindingReplyCardBackend struct {
 	compactMessage        func(context.Context, string, string) error
 	mentionMu             sync.Mutex
 	mentionOpenIDs        []string
+	finalExecutionSummary *cardElement
 	mentionDelivered      bool
 	mentionRequestUUID    string
 	mentionFinalMsgIDs    []string
@@ -140,7 +141,7 @@ type bindingReplyCardBackend struct {
 	mentionPendingCard    *replyCardHandle
 }
 
-func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
+func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) *bindingReplyCardBackend {
 	return &bindingReplyCardBackend{
 		conversationSection: b.getConversationObserver() != nil,
 		prepareDelivery:     func() (replyCardDelivery, error) { return b.prepareSessionCardDelivery(chat) },
@@ -167,11 +168,13 @@ func newBindingReplyCardBackend(b *Bridge, chat *LarkChat) replyCardBackend {
 }
 
 func (b *bindingReplyCardBackend) SetMentionTargets(openIDs []string) {
-	if b == nil {
-		return
-	}
+	b.configureFinalReply(openIDs, nil)
+}
+
+func (b *bindingReplyCardBackend) configureFinalReply(openIDs []string, summary *cardElement) {
 	b.mentionMu.Lock()
 	b.mentionOpenIDs = uniqueOpenIDs(openIDs)
+	b.finalExecutionSummary = summary
 	b.mentionDelivered = false
 	b.mentionRequestUUID = ""
 	b.mentionFinalMsgIDs = nil
@@ -204,7 +207,7 @@ func mentionFinalRequestUUID(base string, index int) string {
 func (b *bindingReplyCardBackend) pendingMentionFinal() (openIDs []string, requestUUID string, sent int, finalSent bool, ok bool) {
 	b.mentionMu.Lock()
 	defer b.mentionMu.Unlock()
-	if b.mentionDelivered || len(b.mentionOpenIDs) == 0 {
+	if b.mentionDelivered || (b.finalExecutionSummary == nil && len(b.mentionOpenIDs) == 0) {
 		return nil, "", 0, false, false
 	}
 	if b.mentionRequestUUID == "" {
@@ -284,9 +287,6 @@ func (b *bindingReplyCardBackend) NotifyMentions(ctx context.Context, text strin
 		if len(parts) == 0 {
 			return nil
 		}
-		if b.sendMentionedFinal == nil {
-			return fmt.Errorf("mentioned final reply is unavailable")
-		}
 		for i := sent; i < len(parts); i++ {
 			var mentions []string
 			if i == len(parts)-1 {
@@ -294,10 +294,31 @@ func (b *bindingReplyCardBackend) NotifyMentions(ctx context.Context, text strin
 			}
 			var messageID string
 			var err error
-			if b.conversationSection && len(mentions) > 0 {
-				messageID, err = b.sendMentionedConversationFinal(ctx, parts[i], mentions, mentionFinalRequestUUID(requestUUID, i))
-			} else {
-				messageID, err = b.sendMentionedFinal(ctx, parts[i], mentions, mentionFinalRequestUUID(requestUUID, i))
+			var summary *cardElement
+			if i == 0 {
+				summary = b.finalExecutionSummary
+			}
+			requestID := mentionFinalRequestUUID(requestUUID, i)
+			switch {
+			case b.conversationSection && i == len(parts)-1:
+				raw := renderCompletedReplyCard(parts[i], mentions, true, summary)
+				messageID, err = b.sendStaticConversationFinal(ctx, raw, mentions, requestID)
+				if err == nil || b.mentionPendingCard != nil || b.finalExecutionSummary == nil {
+					break
+				}
+				// CardKit creation failed before any message was sent.
+				fallthrough
+			case b.finalExecutionSummary != nil:
+				delivery, deliveryErr := b.delivery()
+				if deliveryErr != nil {
+					return deliveryErr
+				}
+				raw := renderCompletedReplyCard(parts[i], mentions, false, summary)
+				messageID, err = delivery.send(ctx, selectManagementCardLocale(raw, delivery.locale), requestID)
+			case b.sendMentionedFinal != nil:
+				messageID, err = b.sendMentionedFinal(ctx, parts[i], mentions, requestID)
+			default:
+				return fmt.Errorf("mentioned final reply is unavailable")
 			}
 			if err != nil {
 				return err
@@ -327,17 +348,16 @@ func (b *bindingReplyCardBackend) NotifyMentions(ctx context.Context, text strin
 	return errors.Join(errs...)
 }
 
-// sendMentionedConversationFinal creates a static CardKit card so extensions
+// sendStaticConversationFinal creates a static CardKit card so extensions
 // can mutate its reserved section after delivery. Both the CardID and message
 // UUID survive ambiguous send failures; no fallback can duplicate a notification.
-func (b *bindingReplyCardBackend) sendMentionedConversationFinal(ctx context.Context, text string, openIDs []string, requestUUID string) (string, error) {
+func (b *bindingReplyCardBackend) sendStaticConversationFinal(ctx context.Context, raw string, openIDs []string, requestUUID string) (string, error) {
 	handle := b.mentionPendingCard
 	if handle == nil {
 		delivery, err := b.delivery()
 		if err != nil {
 			return "", err
 		}
-		raw := renderMentionFinalCard(text, openIDs, true)
 		cardID, err := b.cardKit.CreateCard(ctx, selectManagementCardLocale(raw, delivery.locale))
 		if err != nil {
 			return "", err
@@ -357,6 +377,43 @@ func (b *bindingReplyCardBackend) sendMentionedConversationFinal(ctx context.Con
 	b.mentionMu.Unlock()
 	b.mentionPendingCard = nil
 	return messageID, nil
+}
+
+// publishBubbleResult uses the same idempotent delivery as other final cards.
+// When the native bubble succeeds there are no old cards to compact.
+func (b *bindingReplyCardBackend) publishBubbleResult(text string, openIDs []string, meta toolActivityCardMeta) (*ConversationCard, replyDeliveryReceipt) {
+	var receipt replyDeliveryReceipt
+	if strings.TrimSpace(text) == "" {
+		return nil, receipt
+	}
+	summary := renderExecutionSummaryLine(meta)
+	b.configureFinalReply(openIDs, &summary)
+	for attempt := 0; attempt < replyMentionAttempts; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		err := b.NotifyMentions(ctx, text, nil)
+		cancel()
+		if err == nil {
+			break
+		}
+		receipt.FailedAttempts++
+		log.Warn().Err(err).Msg("bridge: publish native bubble result card")
+	}
+	receipt.Cards = b.finalReplyCards()
+	return b.FinalConversationCard(), receipt
+}
+
+func (b *bindingReplyCardBackend) finalReplyCards() []replyDeliveryCard {
+	b.mentionMu.Lock()
+	defer b.mentionMu.Unlock()
+	cards := make([]replyDeliveryCard, 0, len(b.mentionFinalMsgIDs))
+	for i, messageID := range b.mentionFinalMsgIDs {
+		kind := "continuation"
+		if i == 0 {
+			kind = "primary"
+		}
+		cards = append(cards, replyDeliveryCard{Kind: kind, MessageID: messageID, Finished: true})
+	}
+	return cards
 }
 
 func (b *bindingReplyCardBackend) FinalConversationCard() *ConversationCard {

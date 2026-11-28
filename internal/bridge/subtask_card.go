@@ -423,7 +423,7 @@ func (b *Bridge) watchSubtaskCard(ctx context.Context, chat *LarkChat, initial s
 			"subtask activity card",
 		)
 	}
-	backend := newBindingReplyCardBackend(b, chat)
+	var backend replyCardBackend = newBindingReplyCardBackend(b, chat)
 	if b.subtaskCardBackend != nil {
 		backend = b.subtaskCardBackend(chat)
 	}

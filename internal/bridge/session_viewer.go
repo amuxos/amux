@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/amuxos/amux/internal/config"
 	"github.com/amuxos/amux/internal/hubweb"
 )
 
@@ -47,4 +48,45 @@ func (b *Bridge) sessionViewerURL(targetID, sessionName string) string {
 		return ""
 	}
 	return sessionViewerURL(b.sessionViewerBaseURL, b.sessionViewerToken, targetID, sessionName)
+}
+
+// SetTurnProcessViewer sets the current connection information for the optional
+// Turn-only viewer. It is wired before the Bridge starts.
+func (b *Bridge) SetTurnProcessViewer(settings func() (baseURL, token string)) {
+	b.turnProcessViewer = settings
+}
+
+func (b *Bridge) currentTurnProcessMode() string {
+	mode, _ := b.turnProcessMode.Load().(string)
+	return config.NormalizeFeishuTurnProcessMode(mode)
+}
+
+func (b *Bridge) turnProcessViewerSettings() (baseURL, token string) {
+	if b.currentTurnProcessMode() != config.FeishuTurnProcessSidebar || b.turnProcessViewer == nil {
+		return "", ""
+	}
+	return b.turnProcessViewer()
+}
+
+func (b *Bridge) turnProcessURL(targetID, sessionName, turnID, thinkingProcess string, now time.Time) string {
+	baseURL, signingKey := b.turnProcessViewerSettings()
+	u, err := url.Parse(baseURL)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
+		return ""
+	}
+	// Keep the card payload stable across streaming updates within the hour.
+	expires := now.Truncate(time.Hour).Add(sessionViewerTokenTTL)
+	token := hubweb.SignTurnProcessToken(
+		signingKey, targetID, sessionName, turnID,
+		thinkingProcess == config.FeishuThinkingProcessHidden,
+		thinkingProcess == config.FeishuThinkingProcessExpanded,
+		expires,
+	)
+	if token == "" {
+		return ""
+	}
+	u.Path = strings.TrimRight(u.Path, "/") + "/t/" + token
+	u.RawPath, u.RawQuery, u.Fragment = "", "", ""
+	u.ForceQuery = false
+	return u.String()
 }

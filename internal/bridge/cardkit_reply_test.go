@@ -853,7 +853,7 @@ func TestBindingReplyCardBackendStreamsCardKitToThread(t *testing.T) {
 
 	b := &Bridge{client: lark.NewClient("app-id", "app-secret", lark.WithOpenBaseUrl(server.URL), lark.WithOAuthBaseUrl(server.URL))}
 	backend := newBindingReplyCardBackend(b, &LarkChat{RootMsgID: "root-message"})
-	turnBackend := backend.(turnActivityCardBackend)
+	turnBackend := backend
 	handle, err := backend.Create(context.Background(), "hello")
 	if err != nil {
 		t.Fatalf("Create: %v", err)

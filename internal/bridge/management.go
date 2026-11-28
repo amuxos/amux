@@ -32,6 +32,8 @@ const (
 	managementActionExperimentsOpen         = "system.experiments.open"
 	managementActionExperimentsSave         = "system.experiments.save"
 	managementActionExperimentsSaveRestart  = "system.experiments.save_restart"
+	managementActionTurnProcessMode         = "system.experiments.turn_process_mode"
+	managementActionMentionTurnInitiator    = "system.experiments.mention_turn_initiator"
 	managementActionPermissionRecheck       = "bot.permissions.recheck"
 	managementActionPermissionApply         = "bot.permissions.apply"
 	managementActionBotToBotOpen            = "bot.bot_to_bot.open"
@@ -312,6 +314,45 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 		return renderSystemStatusCard(current)
 	}
 	switch action {
+	case managementActionTurnProcessMode, managementActionMentionTurnInitiator:
+		if !b.isBotOwner(openID) {
+			return cardToast("error", managementCopy("management.you.do.not.have.permission.to.manage.this.assistant")), true, nil
+		}
+		option := event.Event.Action.Option
+		update := config.ExperimentsSettingsUpdate{}
+		savedMessage := "management.turn.viewer.saved"
+		if action == managementActionMentionTurnInitiator {
+			if option != "true" && option != "false" {
+				return cardToast("error", managementCopy("management.choose.whether.to.mention.turn.initiators")), true, nil
+			}
+			enabled := option == "true"
+			update.MentionTurnInitiator = &enabled
+			savedMessage = "management.mention.turn.initiator.saved"
+		} else {
+			if option == "" {
+				option, _ = event.Event.Action.FormValue["turn_process_mode"].(string)
+			}
+			if !config.ValidFeishuTurnProcessMode(option) {
+				return cardToast("error", managementCopy("management.turn.viewer.choose")), true, nil
+			}
+			if option == config.FeishuTurnProcessSidebar && b.turnProcessViewer == nil {
+				return cardToast("error", managementCopy("management.turn.viewer.unavailable")), true, nil
+			}
+			update.TurnProcessMode = &option
+		}
+		saved, err := b.managementConfigActions().UpdateExperimentsSettings(update)
+		if errors.Is(err, ErrTurnProcessViewerUnavailable) {
+			log.Warn().Err(err).Msg("bridge: could not enable the Turn viewer")
+			return cardToast("error", managementCopy("management.turn.viewer.unavailable")), true, nil
+		}
+		if err != nil {
+			return cardToast("error", managementCopy("management.cannot.save.experiment.settings.check.the.configuration.file")), true, nil
+		}
+		if b.managementConfig == nil {
+			b.ApplyLiveExperimentSettings(saved)
+		}
+		updateFocusedCard(renderManagementExperimentsCard(saved, b.runningExperimentsSettings()))
+		return cardToast("success", managementCopy(savedMessage)), true, nil
 	case managementActionExperimentsOpen, managementActionExperimentsSave, managementActionExperimentsSaveRestart:
 		saved, err := b.managementConfigActions().ReadExperimentsSettings()
 		if err != nil {
@@ -326,8 +367,11 @@ func (b *Bridge) handleManagementCardAction(ctx context.Context, event *callback
 			if err != nil {
 				return cardToast("error", managementCopy("management.cannot.save.experiment.settings.check.the.configuration.file")), true, nil
 			}
-			// Apply live-reloadable experiments immediately.
-			b.ApplyLiveExperimentSettings(saved)
+			// The Hub applies settings to all bridges in save order. The
+			// standalone bridge still needs to apply its local save.
+			if b.managementConfig == nil {
+				b.ApplyLiveExperimentSettings(saved)
+			}
 			for _, toggle := range bridgeExtensions.snapshot().ExperimentToggles {
 				if toggle.SetEnabled == nil || strings.TrimSpace(toggle.FieldName) == "" {
 					continue

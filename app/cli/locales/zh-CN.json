@@ -5,6 +5,15 @@
   "config.integer_range": {
     "other": "%s 必须为 %d 到 %d 之间的整数"
   },
+  "config.turn_process_mode": {
+    "other": "%s 必须为 inline、bubble 或 sidebar"
+  },
+  "config.turn_viewer.invalid_addr": {
+    "other": "请输入 host:port 格式的处理过程查看器地址。"
+  },
+  "config.turn_viewer.invalid_url": {
+    "other": "请输入不含凭据、查询参数或片段的处理过程 HTTP(S) 基础地址。"
+  },
   "config.boolean": {
     "other": "%s 必须为 true 或 false"
   },
